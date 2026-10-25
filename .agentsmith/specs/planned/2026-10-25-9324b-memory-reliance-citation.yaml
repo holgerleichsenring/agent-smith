@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9324b
+goal: "A master says which memories a spec acted on and which memory led it wrong, so a memory's standing can be traced to the work that used it."
+
+applies_to: "default (hand_forward, memory tools, run events)"
+
+requires: [2026-10-25-9324a]
+
+facts:
+  - claim: "hand_forward takes renamed, moved, persisted and deviations only, and a second call replaces the first."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/HandForwardToolHost.cs:30-39"
+  - claim: "The host is built from the pipeline and spec id only."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MasterRecordToolHosts.cs:26-33"
+  - claim: "Masters reach the database through events: DefaultDecisionRecorder publishes, a projection writes the row."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DefaultDecisionRecorder.cs:22-24"
+  - claim: "A recall is recorded without its query, and nothing records what it returned."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/ToolArgumentFacts.cs:27-28"
+  - claim: "remember picks its repository with RunRepositoryPick."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:55-58"
+
+scope:
+  in: >
+    hand_forward gains relied_on: entries 'slug' or 'repository/slug', each checked against that repository's store
+    (repositories passed in from MasterRecordToolHosts); an unknown slug is named back as an error. New tool
+    dispute_memory(slug, reason, repository?) on every master surface with a memory store. Both publish a new
+    MemoryUseRecorded event (relied list per spec, or one dispute); its projection REPLACES the run-spec's relied rows
+    and appends a dispute as contradicted, weight -2. Event type, resolver, applier family, harness publisher and the
+    dashboard hub-events mirror follow. Tool descriptions call a memory a hint with a track record, never a rule.
+    Classes at their length limit do not grow.
+  out: >
+    Outcome evidence (9324c). Skill text (9324e).
+
+steps:
+  - id: build
+    action: "Event, projection, tool parameter and tool, tests first, build, run affected classes, gen:hub-events."
+
+tests:
+  - "HandForward_ReliedOnKnownSlug_PublishesReliedList"
+  - "HandForward_ReliedOnUnknownSlug_ReturnsError"
+  - "HandForward_SecondCall_ReplacesReliedRows"
+  - "DisputeMemory_AppendsContradictedWithReason"
+
+done:
+  - "A spec that hands forward relied_on [x] twice leaves exactly one relied row for x naming its run and spec."
+  - "Build green, full suite green, dashboard gen/test/build green."

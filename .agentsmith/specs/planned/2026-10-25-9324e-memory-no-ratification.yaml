@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9324e
+goal: "No memory waits for a person's ratification: remember records a hint whose standing the runs decide, and every master's text and every masters' index say so."
+
+applies_to: "default (remember tool, prompts) and skills (memory-discipline, masters)"
+
+requires: [2026-10-25-9324d]
+
+facts:
+  - claim: "remember writes feedback as status proposed and answers that it becomes policy only after operator ratification."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:62-68"
+  - claim: "{MemoryIndexSection} is bound for every master, but no master at the pinned tag carries the placeholder or input."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:211, src/backend/AgentSmith.Application/Services/MasterPromptTokens.cs:24"
+  - claim: "A memory proposal is published as a default to ratify, and the dashboard offers Ratify for it."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DefaultDecisionRecorder.cs:22-24, src/dashboard/src/components/tickets/detail/TicketDefaultsTab.tsx:35"
+  - claim: "At the pinned skills tag, memory-discipline.md and the coding master's memory section require ratification for feedback."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+
+scope:
+  in: >
+    remember writes no status, publishes no memory-proposal default, and answers with the hint wording; the Defaults
+    tab no longer lists memory proposals; MasterPromptSections and MemoryEntry docs follow. Skills: memory-discipline.md
+    (types table, remember text), phase-discipline.md, coding-agent-master and project-bootstrap memory sections
+    describe relied_on, dispute_memory and run-decided standing; design-partner and mad-discussion add the two tools;
+    coding, pr-review, security, api-security and legal masters carry {MemoryIndexSection} in body and inputs. Skills PR;
+    after the operator merges and the release exists, the pin bump completes this spec. CLAUDE.md memory section follows.
+  out: >
+    Rewriting existing entries' status lines beyond what 9324d derives.
+
+steps:
+  - id: skills
+    action: "Skills repository change and PR; release and pin after the operator merges it."
+  - id: build
+    action: "Tool wording, tests, pin bump, build, run affected classes."
+
+tests:
+  - "Remember_Feedback_WritesNoProposedStatus"
+  - "SecurityScanMaster_RendersMemoryIndex"
+
+done:
+  - "No prompt text the product sends mentions ratification of a memory."
+  - "Build green, full suite green, dashboard gen/test/build green."

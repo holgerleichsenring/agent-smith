@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-54beb
+goal: "The diff reviewer sees the run's templates and may name a deviation from them as an advisory finding that is recorded and shown but never forces a fix pass."
+
+applies_to: "default (template scopes, ReviewSpecDiffHandler, SpecFinding)"
+
+requires: [2026-10-25-54bea]
+
+facts:
+  - claim: "Every reviewer look is built with templates null because each templates.For() call clones every template again."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:35-41,60-67"
+  - claim: "A look with templates already renders a template section with its own read allowance."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookPromptSection.cs:30-42"
+  - claim: "The diff reviewer never fails a spec but every finding earns one fix pass."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:23-25,37-73"
+  - claim: "A look disposes its templates, and every reviewer disposes its look."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLook.cs:106-109, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:65"
+  - claim: "The fix pass starts whenever the diff review has findings."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:61"
+  - claim: "The master's template attachment is disposed when the master ends."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:174"
+
+scope:
+  in: >
+    A run-scoped owner of opened template scopes, materialised once behind a lazy gate (reviewers run in parallel),
+    disposed when the pipeline run ends at a named site; looks and the master borrow without disposing. The diff
+    reviewer's look gets the templates. SpecFinding and its wire gain kind 'template', recorded and shown where diff
+    findings show (record SpecReviewSection, filed-work view); SpecReviewFixPass ignores template findings. Files at
+    their length limit (DerivationLookFactory 119) do not grow.
+  out: >
+    A conformance gate. Running template stages. Pre-code spec reviewers (they judge the spec, not code).
+
+steps:
+  - id: build
+    action: "Scope cache, reviewer looks, finding kind and fix-pass exclusion, tests first, build, run affected classes."
+
+tests:
+  - "TemplateScopeCache_SecondLook_ReusesScope"
+  - "ReviewSpecDiff_TemplateFindingOnly_NoFixPass"
+  - "TemplateScopeOwner_ParallelBorrowers_MaterialiseOnce"
+  - "DiffReviewLook_Disposed_TemplateScopeStaysOpen"
+
+done:
+  - "A diff review whose only finding is a template deviation records it and starts no fix pass."
+  - "Build green, full suite green, dashboard gen/test/build green."

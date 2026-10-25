@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9324c
+goal: "What finally happened to a spec becomes evidence for the memories it relied on, and a person's not-met judgement counts against them, without one unrelated failure sinking a memory."
+
+applies_to: "default (run result, criterion judgements)"
+
+requires: [2026-10-25-9324b]
+
+facts:
+  - claim: "A spec's terminal state is written in more than one place and a repair or fix pass runs it again."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:238-244, src/backend/AgentSmith.Infrastructure.Persistence/Projections/RunSpecProjection.cs:44-46"
+  - claim: "A person's judgement is keyed by run and criterion key, with no spec id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunCriterionJudgement.cs:24-49"
+  - claim: "Criteria join to their spec through AcceptanceJson and CriterionKey.Of."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCriterionJoin.cs"
+
+scope:
+  in: >
+    At run end (WriteRunResult), each spec whose final status is Done or Failed upserts one outcome row per relied
+    slug: confirmed (+1) or strained (-0.5); HandedBack and AlreadySatisfied specs add nothing. A person's not-met
+    judgement of a criterion adds contradicted (-1) to each memory its spec relied on, with the person's reason; a
+    withdrawn judgement retracts it; a met judgement adds nothing. Hook: CriterionJudgementRepository record and
+    withdraw.
+  out: >
+    PR merge as evidence. Rework comments (ReworkNudge carries no run or spec).
+
+steps:
+  - id: build
+    action: "Run-end evaluation, judgement hooks, tests first, build, run affected classes."
+
+tests:
+  - "RunEnd_SpecDoneAfterRepair_OneConfirmedNoStrained"
+  - "RunEnd_SpecFailed_Strained"
+  - "RunEnd_HandedBackSpec_NoEvidence"
+  - "NotMetJudgement_ReliedMemories_ContradictedWithReason"
+  - "WithdrawnJudgement_RetractsContradiction"
+
+done:
+  - "A spec relying on x that failed, was repaired and verified leaves one confirmed row for x and no strained row."
+  - "Build green, full suite green, dashboard gen/test/build green."
