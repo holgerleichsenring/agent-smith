@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
@@ -16,8 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// PATCHes the labels array with If-Match, so a 412 means another process wrote in between.</summary>
 public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
 {
-    private readonly string _owner;
-    private readonly string _repo;
+    private readonly string _issues;
     private readonly HttpClient _http;
     private readonly ILogger<GitHubTicketStatusTransitioner> _logger;
     private readonly TicketLabelVocabulary _labels;
@@ -28,7 +28,8 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         GitHubTicketConnection connection, HttpClient httpClient,
         ILogger<GitHubTicketStatusTransitioner> logger)
     {
-        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        _issues = $"{address.Api.RestRoot}/repos/{address.FullName}/issues";
         _http = httpClient;
         _logger = logger;
         _labels = connection.ResolvedLabels;
@@ -73,7 +74,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
     private async Task<(JsonElement?, string?)> FetchIssueAsync(
         TicketId ticketId, CancellationToken ct)
     {
-        var url = $"https://api.github.com/repos/{_owner}/{_repo}/issues/{ticketId.Value}";
+        var url = $"{_issues}/{ticketId.Value}";
         var resp = await _http.GetAsync(url, ct);
         if (resp.StatusCode == HttpStatusCode.NotFound) return (null, null);
         resp.EnsureSuccessStatusCode();
@@ -85,7 +86,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
     private async Task<TransitionResult> PatchLabelsAsync(
         TicketId ticketId, string[] labels, string? etag, CancellationToken ct)
     {
-        var url = $"https://api.github.com/repos/{_owner}/{_repo}/issues/{ticketId.Value}";
+        var url = $"{_issues}/{ticketId.Value}";
         var body = JsonSerializer.Serialize(new { labels });
         using var req = new HttpRequestMessage(HttpMethod.Patch, url)
         {
@@ -134,14 +135,5 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         }
         result.Add(_labels.For(to));
         return [.. result];
-    }
-
-    private static (string owner, string repo) ParseGitHubUrl(string url)
-    {
-        var uri = new Uri(url);
-        var segments = uri.AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2)
-            throw new ConfigurationException($"Invalid GitHub URL: {url}");
-        return (segments[0], segments[1]);
     }
 }

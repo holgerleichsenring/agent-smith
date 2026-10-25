@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -22,7 +23,8 @@ public sealed class GitHubPrDiffProvider : IPrDiffProvider
         ILogger<GitHubPrDiffProvider> logger)
     {
         _gitHubClient = gitHubClient;
-        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
         _logger = logger;
     }
 
@@ -49,10 +51,4 @@ public sealed class GitHubPrDiffProvider : IPrDiffProvider
         _ => ChangeKind.Modified
     };
 
-    private static (string owner, string repo) ParseGitHubUrl(string url)
-    {
-        var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
-        return (segments[0], segments[1]);
-    }
 }

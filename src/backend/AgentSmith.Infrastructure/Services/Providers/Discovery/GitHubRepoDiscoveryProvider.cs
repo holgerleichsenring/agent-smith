@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
@@ -29,7 +30,7 @@ public sealed class GitHubRepoDiscoveryProvider(
         if (string.IsNullOrEmpty(connection.Owner))
             throw new ConfigurationException($"Connection '{connection.Name}' (github) requires 'owner' for discovery.");
 
-        var apiHost = string.IsNullOrEmpty(connection.Host) ? "https://api.github.com" : connection.Host.TrimEnd('/');
+        var apiHost = GitHubApiEndpoints.For(connection.Host).RestRoot;
         var token = credentials.For(connection);
         var all = new List<DiscoveredRepo>();
 

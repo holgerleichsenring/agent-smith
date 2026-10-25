@@ -12,7 +12,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// which is why the three edits share this type and its single parser.
 /// </summary>
 public sealed class GitHubPullRequestUpdater(
-    string owner, string repo, IGitHubClientFactory clientFactory, string token, ILogger logger)
+    Models.GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
 {
     public async Task<bool> UpdateBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
@@ -22,7 +22,7 @@ public sealed class GitHubPullRequestUpdater(
         try
         {
             await Client().PullRequest.Update(
-                owner, repo, prNumber, new PullRequestUpdate { Body = newBody });
+                address.Owner, address.Repo, prNumber, new PullRequestUpdate { Body = newBody });
             logger.LogInformation("Updated PR body for #{Pr}", prNumber);
             return true;
         }
@@ -43,7 +43,7 @@ public sealed class GitHubPullRequestUpdater(
         try
         {
             var client = Client();
-            var pr = await client.PullRequest.Get(owner, repo, prNumber);
+            var pr = await client.PullRequest.Get(address.Owner, address.Repo, prNumber);
             if (!pr.Draft) return true;
             return await MarkReadyViaGraphQlAsync(client, pr.NodeId, prNumber);
         }
@@ -67,7 +67,7 @@ public sealed class GitHubPullRequestUpdater(
         _ = cancellationToken;
         try
         {
-            var merge = await Client().PullRequest.Merge(owner, repo, prNumber, new MergePullRequest());
+            var merge = await Client().PullRequest.Merge(address.Owner, address.Repo, prNumber, new MergePullRequest());
             if (merge.Merged)
             {
                 logger.LogInformation("PR #{Pr} merged", prNumber);
@@ -96,7 +96,7 @@ public sealed class GitHubPullRequestUpdater(
             variables = new { id = nodeId },
         };
         var response = await client.Connection.Post<string>(
-            new Uri("graphql", UriKind.Relative), body, "application/json", "application/json");
+            address.Api.GraphQl, body, "application/json", "application/json");
         if ((int)response.HttpResponse.StatusCode >= 300)
         {
             logger.LogWarning(
@@ -108,7 +108,7 @@ public sealed class GitHubPullRequestUpdater(
         return true;
     }
 
-    private IGitHubClient Client() => clientFactory.Create(token);
+    private IGitHubClient Client() => clientFactory.Create(address, token);
 
     // 2026-09-13-a284: internal so the retarget type reads the SAME url shape, once.
     internal static bool TryParsePullNumber(string prUrl, out int prNumber)

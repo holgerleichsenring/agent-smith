@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Webhooks;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -13,7 +14,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// are excluded. The decision's host id is the review's node id, which the thread reader gives the
 /// review body's note.
 /// </summary>
-public sealed class GitHubPrReviewStateReader(IGitHubClient client, string owner, string repo, string repoUrl) : IPrReviewStateReader
+public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAddress address) : IPrReviewStateReader
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
@@ -24,8 +25,8 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, string owner
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             throw new ArgumentException($"Not a GitHub pull request URL: {prUrl}", nameof(prUrl));
-        var response = await client.Connection.Post<string>(new Uri("graphql", UriKind.Relative),
-            new { query = Query, variables = new { owner, repo, number } }, "application/json", "application/json");
+        var response = await client.Connection.Post<string>(address.Api.GraphQl,
+            new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, number } }, "application/json", "application/json");
         using var doc = JsonDocument.Parse(response.Body);
         if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
             throw new InvalidOperationException($"GitHub GraphQL refused the pull-request state query: {errors.GetRawText()}");
@@ -55,7 +56,7 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, string owner
         if (!review.TryGetProperty("author", out var author) || author.ValueKind != JsonValueKind.Object) return null;
         if (Str(author, "login") is not { } login) return null;
         return new PrReviewDecision(Str(review, "id") ?? string.Empty,
-            new PrCommentAuthor(repoUrl, $"{owner}/{repo}", login, login) { Association = Str(review, "authorAssociation") },
+            new PrCommentAuthor(address.RepoUrl, address.FullName, login, login) { Association = Str(review, "authorAssociation") },
             Str(author, "__typename") == "Bot", decision, DateTimeOffset.Parse(at, CultureInfo.InvariantCulture), Str(review, "body") ?? string.Empty);
     }
 

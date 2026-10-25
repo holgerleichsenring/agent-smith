@@ -2,12 +2,14 @@ using System.Runtime.CompilerServices;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 
 /// <summary>
 /// 2026-10-02-5f89b: a GitHub connection draft — who the token is (/user), the owner as an org or
 /// else a user (discovery's own fallback), then one page of that owner's repositories.
+/// 2026-10-25-9dbbb: the connection's host is the web root; the API is derived from it.
 /// </summary>
 public sealed class GitHubConnectionDraftCheck(IDraftCheckHttp http) : IConnectionDraftCheck
 {
@@ -16,7 +18,7 @@ public sealed class GitHubConnectionDraftCheck(IDraftCheckHttp http) : IConnecti
     public async IAsyncEnumerable<DraftCheckStep> RunAsync(
         ResolvedConnection connection, string token, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var api = string.IsNullOrWhiteSpace(connection.Host) ? "https://api.github.com" : connection.Host.TrimEnd('/');
+        var api = GitHubApiEndpoints.For(connection.Host).RestRoot;
         var auth = DraftCheckAuth.GitHub(token);
         var me = await http.GetAsync($"{api}/user", auth, cancellationToken);
         yield return me.HostStep();

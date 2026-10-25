@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Webhooks;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -10,7 +11,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// reviewer, so a reviewer who approved after requesting changes no longer counts. Read over the
 /// provider's own Octokit connection; a reply carrying an errors array throws.
 /// </summary>
-public sealed class GitHubPrReviewActReader(IGitHubClient client, string owner, string repo, string repoUrl) : IPrReviewActReader
+public sealed class GitHubPrReviewActReader(IGitHubClient client, GitHubRepoAddress address) : IPrReviewActReader
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){"
@@ -20,8 +21,8 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, string owner, 
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             throw new ArgumentException($"Not a GitHub pull request URL: {prUrl}", nameof(prUrl));
-        var response = await client.Connection.Post<string>(new Uri("graphql", UriKind.Relative),
-            new { query = Query, variables = new { owner, repo, number } }, "application/json", "application/json");
+        var response = await client.Connection.Post<string>(address.Api.GraphQl,
+            new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, number } }, "application/json", "application/json");
         using var doc = JsonDocument.Parse(response.Body);
         if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
             throw new InvalidOperationException($"GitHub GraphQL refused the review-state query: {errors.GetRawText()}");
@@ -38,7 +39,7 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, string owner, 
         var login = Str(author, "login");
         if (login is null) return null;
         return new PrReviewNote(
-            new PrCommentAuthor(repoUrl, $"{owner}/{repo}", login, login) { Association = Str(review, "authorAssociation") },
+            new PrCommentAuthor(address.RepoUrl, address.FullName, login, login) { Association = Str(review, "authorAssociation") },
             Str(author, "__typename") == "Bot", false, DateTimeOffset.Parse(Str(review, "submittedAt")!), string.Empty)
             { HostId = Str(review, "id") ?? string.Empty };
     }

@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
@@ -69,7 +70,7 @@ public sealed class GitHubSourceProviderCompletePrTests
         var client = new Mock<IGitHubClient>();
         client.SetupGet(c => c.PullRequest).Returns(_pullRequests.Object);
         var factory = new Mock<IGitHubClientFactory>();
-        factory.Setup(f => f.Create(Token)).Returns(client.Object);
+        factory.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), Token)).Returns(client.Object);
         return new GitHubSourceProvider(
             new GitHubSourceConnection(RepoUrl, Token, "main"),
             factory.Object, NullLogger<GitHubSourceProvider>.Instance);

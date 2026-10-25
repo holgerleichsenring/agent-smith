@@ -3,6 +3,7 @@ using System.Text;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.Extensions.Logging;
@@ -34,7 +35,7 @@ public sealed class PrDiffProviderFactory(
     {
         var token = credentials.For(repo);
         return new GitHubPrDiffProvider(
-            gitHubClientFactory.Create(token),
+            gitHubClientFactory.Create(GitHubRepoAddress.Parse(repo.Url!), token),
             new GitHubTicketConnection(repo.Url!, token),
             loggerFactory.CreateLogger<GitHubPrDiffProvider>());
     }

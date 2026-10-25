@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
@@ -47,7 +48,7 @@ public sealed class GitHubSourceProviderHeadTests
         var client = new Mock<IGitHubClient>();
         client.SetupGet(c => c.PullRequest).Returns(_pullRequests.Object);
         var factory = new Mock<IGitHubClientFactory>();
-        factory.Setup(f => f.Create(Token)).Returns(client.Object);
+        factory.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), Token)).Returns(client.Object);
         return new GitHubSourceProvider(new GitHubSourceConnection("https://github.com/example/sample-app", Token, "main"),
             factory.Object, NullLogger<GitHubSourceProvider>.Instance);
     }

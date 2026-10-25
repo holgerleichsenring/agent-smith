@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -15,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </para>
 /// </summary>
 public sealed class GitHubPullRequestTarget(
-    string owner, string repo, IGitHubClientFactory clientFactory, string token, ILogger logger)
+    GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
 {
     public async Task<string?> ReadBaseAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -23,7 +24,7 @@ public sealed class GitHubPullRequestTarget(
         _ = cancellationToken;
         try
         {
-            return (await Client().PullRequest.Get(owner, repo, prNumber)).Base?.Ref;
+            return (await Client().PullRequest.Get(address.Owner, address.Repo, prNumber)).Base?.Ref;
         }
         catch (Exception ex)
         {
@@ -39,7 +40,7 @@ public sealed class GitHubPullRequestTarget(
         try
         {
             await Client().PullRequest.Update(
-                owner, repo, prNumber, new PullRequestUpdate { Base = target });
+                address.Owner, address.Repo, prNumber, new PullRequestUpdate { Base = target });
             logger.LogInformation("PR #{Pr} now targets {Target}", prNumber, target);
             return true;
         }
@@ -50,5 +51,5 @@ public sealed class GitHubPullRequestTarget(
         }
     }
 
-    private IGitHubClient Client() => clientFactory.Create(token);
+    private IGitHubClient Client() => clientFactory.Create(address, token);
 }

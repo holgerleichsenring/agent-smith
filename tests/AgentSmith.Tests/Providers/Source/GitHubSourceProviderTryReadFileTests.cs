@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Services.Providers.Source;
@@ -121,7 +122,7 @@ public sealed class GitHubSourceProviderTryReadFileTests
         clientMock.SetupGet(c => c.Repository).Returns(repoMock.Object);
 
         var factoryMock = new Mock<IGitHubClientFactory>();
-        factoryMock.Setup(f => f.Create(Token)).Returns(clientMock.Object);
+        factoryMock.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), Token)).Returns(clientMock.Object);
 
         return new GitHubSourceProvider(
             connection: new GitHubSourceConnection(RepoUrl, Token, DefaultBranch),

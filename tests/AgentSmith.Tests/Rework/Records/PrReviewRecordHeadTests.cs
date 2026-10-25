@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -42,7 +43,7 @@ public sealed class PrReviewRecordHeadTests : IDisposable
               "headRefOid": "abc123", "author": { "login": "agent" }, "latestReviews": { "nodes": [] } } } } }
             """;
 
-        var state = await new GitHubPrReviewStateReader(GitHubReplying(reply), "o", "r", "https://github.com/o/r")
+        var state = await new GitHubPrReviewStateReader(GitHubReplying(reply), GitHubRepoAddress.Parse("https://github.com/o/r"))
             .ReadAsync("https://github.com/o/r/pull/4", CancellationToken.None);
 
         state.HeadSha.Should().Be("abc123");

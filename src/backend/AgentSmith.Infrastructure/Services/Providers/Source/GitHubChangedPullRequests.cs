@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Sweep;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -12,7 +13,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// its review's submittedAt, so it is not listed. Paged by endCursor within the budget; a cut read
 /// resumes at the page it stopped. A reply carrying an errors array throws.
 /// </summary>
-public sealed class GitHubChangedPullRequests(IGitHubClient client, string owner, string repo)
+public sealed class GitHubChangedPullRequests(IGitHubClient client, GitHubRepoAddress address)
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$after:String){repository(owner:$owner,name:$repo){pullRequests(states:OPEN,first:50,after:$after){"
@@ -24,8 +25,8 @@ public sealed class GitHubChangedPullRequests(IGitHubClient client, string owner
         var after = resume;
         for (var page = 0; page < maxPages; page++)
         {
-            var response = await client.Connection.Post<string>(new Uri("graphql", UriKind.Relative),
-                new { query = Query, variables = new { owner, repo, after } }, "application/json", "application/json");
+            var response = await client.Connection.Post<string>(address.Api.GraphQl,
+                new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, after } }, "application/json", "application/json");
             using var doc = JsonDocument.Parse(response.Body);
             if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
                 throw new InvalidOperationException($"GitHub GraphQL refused the open pull-request query: {errors.GetRawText()}");

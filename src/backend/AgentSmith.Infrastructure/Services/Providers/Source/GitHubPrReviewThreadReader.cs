@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -16,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <para>2026-10-13-9a59b: every note and thread carries its node id; a review body's thread is FromReview.</para>
 /// </summary>
 public sealed class GitHubPrReviewThreadReader(
-    IGitHubClient client, string owner, string repo, string repoUrl, ILogger logger) : IPrReviewThreadReader
+    IGitHubClient client, GitHubRepoAddress address, ILogger logger) : IPrReviewThreadReader
 {
     private string? _viewer;
 
@@ -31,8 +32,8 @@ public sealed class GitHubPrReviewThreadReader(
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             throw new ArgumentException($"Not a GitHub pull request URL: {prUrl}", nameof(prUrl));
-        var response = await client.Connection.Post<string>(new Uri("graphql", UriKind.Relative),
-            new { query = Query, variables = new { owner, repo, number } }, "application/json", "application/json");
+        var response = await client.Connection.Post<string>(address.Api.GraphQl,
+            new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, number } }, "application/json", "application/json");
         using var doc = JsonDocument.Parse(response.Body);
         if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
             throw new InvalidOperationException($"GitHub GraphQL refused the review query: {errors.GetRawText()}");
@@ -82,7 +83,7 @@ public sealed class GitHubPrReviewThreadReader(
 
     private PrCommentAuthor? Author(JsonElement? author, string? association) =>
         author is { } a && Str(a, "login") is { } login
-            ? new PrCommentAuthor(repoUrl, $"{owner}/{repo}", login, login) { Association = association }
+            ? new PrCommentAuthor(address.RepoUrl, address.FullName, login, login) { Association = association }
             : null;
 
     private static IEnumerable<JsonElement> Nodes(JsonElement connection) =>

@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
@@ -21,7 +22,7 @@ public sealed class PrReviewReaderTests
             .ReturnsAsync(response.Object);
         var client = new Mock<IGitHubClient>();
         client.SetupGet(c => c.Connection).Returns(connection.Object);
-        return new GitHubPrReviewThreadReader(client.Object, "o", "r", "https://github.com/o/r", NullLogger.Instance);
+        return new GitHubPrReviewThreadReader(client.Object, GitHubRepoAddress.Parse("https://github.com/o/r"), NullLogger.Instance);
     }
 
     private const string GitHubReply = """

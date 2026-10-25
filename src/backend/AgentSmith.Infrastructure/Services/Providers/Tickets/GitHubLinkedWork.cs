@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -24,7 +25,8 @@ public sealed class GitHubLinkedWork : ITicketLinkedWork
     public GitHubLinkedWork(IGitHubClient client, GitHubTicketConnection connection, ILogger logger)
     {
         _client = client;
-        (_owner, _repo) = ParseRepoUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
         _logger = logger;
     }
 
@@ -52,12 +54,5 @@ public sealed class GitHubLinkedWork : ITicketLinkedWork
                 "GitHub could not be asked what it links to issue {Ticket}", ticketId.Value);
             return TicketLinkedWorkResult.Refused(ex.Message.Split('\n', 2)[0].Trim());
         }
-    }
-
-    internal static (string owner, string repo) ParseRepoUrl(string url)
-    {
-        var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
-        return (segments[0], segments[1]);
     }
 }

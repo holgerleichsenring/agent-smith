@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using System.Text;
 using AgentSmith.Contracts.Providers;
@@ -83,7 +84,7 @@ public sealed class PrCommentProviderBatchTests
         var github = new Mock<IGitHubClient>();
         github.SetupGet(c => c.Connection).Returns(connection.Object);
         var factory = new Mock<IGitHubClientFactory>();
-        factory.Setup(f => f.Create("token")).Returns(github.Object);
+        factory.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), "token")).Returns(github.Object);
         var provider = new GitHubSourceProvider(
             new GitHubSourceConnection("https://github.com/org/my-api", "token"),
             factory.Object, NullLogger<GitHubSourceProvider>.Instance);

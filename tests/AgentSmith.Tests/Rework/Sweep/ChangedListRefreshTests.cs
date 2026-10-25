@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
@@ -106,7 +107,7 @@ public sealed class ChangedListRefreshTests
         var client = new Mock<IGitHubClient>();
         client.SetupGet(c => c.Connection).Returns(connection.Object);
 
-        var page = await new GitHubChangedPullRequests(client.Object, "o", "r").ChangedSinceAsync(Since, null, 10, CancellationToken.None);
+        var page = await new GitHubChangedPullRequests(client.Object, GitHubRepoAddress.Parse("https://github.com/o/r")).ChangedSinceAsync(Since, null, 10, CancellationToken.None);
 
         page.Items.Select(i => (i.PrUrl, i.RefreshOnly)).Should().Equal(
             ("https://github.com/o/r/pull/1", true), ("https://github.com/o/r/pull/2", false));

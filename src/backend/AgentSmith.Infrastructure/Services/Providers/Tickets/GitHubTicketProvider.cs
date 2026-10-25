@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -33,9 +34,10 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
         GitHubTicketConnection connection, GitHubAttachmentLoader attachmentLoader,
         ITicketFieldMapper<Issue> mapper, ILogger<GitHubTicketProvider> logger)
     {
-        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
         _labels = connection.ResolvedLabels;
-        _client = new GitHubClient(new ProductHeaderValue("AgentSmith"))
+        _client = new GitHubClient(new ProductHeaderValue("AgentSmith"), address.Api.Rest)
         { Credentials = new Credentials(connection.Token) };
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
@@ -168,13 +170,6 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
         => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
 
     private static bool TryParseIssueNumber(TicketId id, out int n) => int.TryParse(id.Value, out n);
-
-    private static (string owner, string repo) ParseGitHubUrl(string url)
-    {
-        var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
-        return (segments[0], segments[1]);
-    }
 
     // 2026-10-08-2123: reopens and who the token is, read by a collaborator.
     public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken ct) => new GitHubStatusHistory(_client, _owner, _repo).NewestPersonMoveIntoAsync(ticketId, statuses, self, ct);

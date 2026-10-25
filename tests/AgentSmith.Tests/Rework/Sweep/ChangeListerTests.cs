@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using System.Text;
 using AgentSmith.Contracts.Models.Configuration;
@@ -50,7 +51,7 @@ public sealed class ChangeListerTests
         var client = new Mock<IGitHubClient>();
         client.SetupGet(c => c.Connection).Returns(connection.Object);
 
-        var page = await new GitHubChangedPullRequests(client.Object, "o", "r").ChangedSinceAsync(Since, null, 10, CancellationToken.None);
+        var page = await new GitHubChangedPullRequests(client.Object, GitHubRepoAddress.Parse("https://github.com/o/r")).ChangedSinceAsync(Since, null, 10, CancellationToken.None);
 
         page.Items.Select(i => i.PrUrl).Should().Equal("https://github.com/o/r/pull/p1", "https://github.com/o/r/pull/p2");
     }
