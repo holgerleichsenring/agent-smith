@@ -893,7 +893,6 @@
 .mock-tickets .df-body { display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 10px; margin:0; }
 .mock-tickets .df-body dt { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; padding-top:2px; }
 .mock-tickets .df-body dd { margin:0; }
-.mock-tickets .df-pointer { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .mock-tickets .df-verdict { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--ink-3); }
 .mock-tickets .df-verdict .df-note { color:var(--ink-2); }
 

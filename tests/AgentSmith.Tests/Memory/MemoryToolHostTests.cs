@@ -25,7 +25,7 @@ public sealed class MemoryToolHostTests
             "PipelineHarness Docker tier fails on macOS from cold-start timeouts.");
         await Seed("pricing-rules", MemoryEntryType.Feedback, "How pricing must be computed",
             "Always price cache reads separately.");
-        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
 
         var byText = await sut.Recall("cold-start timeouts");
         var byFacet = await sut.Recall("type:feedback pricing");
@@ -43,18 +43,19 @@ public sealed class MemoryToolHostTests
         _reader.Files[$"{MemoryDirPrefix}no-wrapper-shims.md"] =
             "---\nname: no-wrapper-shims\ndescription: Migrate callers directly\nmetadata:\n"
             + "  type: feedback\nstatus: ratified\n---\n\nNever bridge old interface to new via a shim.\n";
-        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
 
         var result = await sut.Recall("[[no-wrapper-shims]]");
 
         result.Should().Contain("Never bridge old interface to new via a shim");
-        result.Should().Contain("no-wrapper-shims (feedback, ratified)");
+        result.Should().Contain("no-wrapper-shims (feedback, unconfirmed · no record yet)",
+            "2026-10-25-6c1f: recall shows the standing the runs give, not a legacy status");
     }
 
     [Fact]
     public async Task Recall_NoMatch_SaysSoInsteadOfFailing()
     {
-        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
 
         var result = await sut.Recall("nothing-here");
 

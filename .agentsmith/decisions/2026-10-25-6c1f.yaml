@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-6c1f
+
+decisions:
+  - category: Architecture
+    chose: "recall returns a disputed match with a leading DISPUTED marker line and its body kept"
+    over: "Leaving disputed matches out of recall, as the index does"
+    reason: |
+      The index hides a disputed entry so it is never handed out as guidance; recall is asked for by name or text,
+      so a master that cites [[slug]] would otherwise get 'no match' for a memory that exists. The marker says not to
+      act on it; the body stays so the master can see what misled the runs and avoid repeating it.
+  - category: Implementation
+    chose: "The match header carries '(type, label · record)' from MemoryStanding, replacing the entry's legacy status"
+    over: "Showing both the frontmatter status and the standing"
+    reason: |
+      Since 2026-10-25-9324e nothing writes a status and standing comes only from the runs' evidence; a lingering
+      'proposed' or 'ratified' next to the record would claim a standing the evidence does not give. Same words as the
+      index line, so a master reads one vocabulary.
+  - category: Implementation
+    chose: "MemoryStandingReader and the PipelineContext are required constructor parameters of MemoryRecallToolHost"
+    over: "An optional reader that falls back to no standing"
+    reason: |
+      An optional reader would let a composition forget it and silently hand out disputed memories as plain text.
+      The standing is read once per repository that has a match; an unreadable ledger reads as unconfirmed.
+  - category: Implementation
+    chose: "Remove DefaultRow's memory-proposal pointer branch, its constant, its CSS rule and its two tests"
+    over: "Keeping the branch for archived rows"
+    reason: |
+      TicketDefaultsReader filters memory-proposal rows out since 9324e, so no row of that kind reaches the
+      dashboard; the TicketDefault type keeps pointerPath and landed because the server view still carries them.

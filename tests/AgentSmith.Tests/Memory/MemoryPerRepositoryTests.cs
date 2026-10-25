@@ -93,10 +93,10 @@ public sealed class MemoryPerRepositoryTests
         await remember.Remember("project", "server-build", "How the server builds", "dotnet build.", "server");
         await remember.Remember("project", "client-build", "How the client builds", "pnpm build.", "client");
 
-        var result = await new MemoryRecallToolHost(_run.Repositories(), Root).Recall("builds");
+        var result = await new MemoryRecallToolHost(_run.Repositories(), Root, AgentSmith.Tests.TestHelpers.MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext()).Recall("builds");
 
-        result.Should().Contain("## server-build (project) — repository server")
-            .And.Contain("## client-build (project) — repository client")
+        result.Should().Contain("## server-build (project, unconfirmed · no record yet) — repository server")
+            .And.Contain("## client-build (project, unconfirmed · no record yet) — repository client")
             .And.Contain("dotnet build.").And.Contain("pnpm build.");
     }
 }

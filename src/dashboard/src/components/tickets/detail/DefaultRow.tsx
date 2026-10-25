@@ -4,10 +4,10 @@ import type { TicketDefault } from "@/types/tickets";
 import { age } from "../ticketFormat";
 
 // 2026-10-13-8762q: one default on the Defaults tab — where it was taken, what was asked and chosen, and for a
-// decided one who decided it, when and with which note. A memory proposal shows its pointer, never a body.
+// decided one who decided it, when and with which note. 2026-10-25-6c1f: the memory-proposal pointer is gone;
+// the defaults read stopped serving those rows in 2026-10-25-9324e.
 
 export const IN_THE_CONVERSATION = "in the design conversation";
-export const MEMORY_PROPOSAL = "memory-proposal";
 
 interface Props {
   entry: TicketDefault;
@@ -33,7 +33,7 @@ export function DefaultRow({ entry, selected, onToggle }: Props) {
           {held && <span className="df-held" data-testid="default-holds">holds the series</span>}
         </div>
         {entry.question && <div className="df-q">{entry.question}</div>}
-        {entry.kind === MEMORY_PROPOSAL ? <Pointer entry={entry} /> : <Body entry={entry} />}
+        <Body entry={entry} />
         {!pending && <Verdict entry={entry} />}
       </div>
     </div>
@@ -60,18 +60,6 @@ function Body({ entry }: { entry: TicketDefault }) {
       {alternatives.length > 0 && <><dt>instead of</dt><dd>{alternatives.join(" · ")}</dd></>}
       {entry.why !== null && <><dt>why</dt><dd>{entry.why}</dd></>}
     </dl>
-  );
-}
-
-function Pointer({ entry }: { entry: TicketDefault }) {
-  const path = entry.pointerPath ?? "";
-  const slug = path.split("/").pop()?.replace(/\.md$/, "") ?? "";
-  return (
-    <div className="df-pointer" data-testid="default-pointer">
-      <span className="mono">{path}</span>
-      {slug && <span> · {slug}</span>}
-      {entry.landed === false && <span className="pill bad" data-testid="default-not-landed">not landed</span>}
-    </div>
   );
 }
 

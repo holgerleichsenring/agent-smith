@@ -14,13 +14,14 @@ namespace AgentSmith.Application.Services.Tools;
 /// REPOSITORY and resolved on every call so a repository ensure_repo_sandbox adds mid-run counts, and
 /// hand_forward when the master executes a spec. 2026-10-13-8762o: and decide_by_default where the pipeline
 /// holds a run id. 2026-10-25-9324b: and dispute_memory
-/// beside them, with hand_forward's relied_on resolved the same way.
+/// beside them, with hand_forward's relied_on resolved the same way. 2026-10-25-6c1f: recall reads the standing.
 /// </summary>
 public sealed class MasterRecordToolHosts(
     IDecisionLogger decisionLogger,
     RunRepositoriesFactory runRepositories,
     IEventPublisher events,
     MemoryCitationResolver citations,
+    MemoryStandingReader standings,
     ILogger<MasterRecordToolHosts> logger)
 {
     public MasterRecordTools Create(PipelineContext pipeline, string repoRoot)
@@ -32,7 +33,7 @@ public sealed class MasterRecordToolHosts(
         var memory = new MasterMemoryUse(pipeline, repositories, repoRoot, citations, MemoryUse(pipeline, spec?.SpecId));
         return new MasterRecordTools(
             new LogDecisionToolHost(decisionLogger, repositories),
-            new MemoryRecallToolHost(repositories, repoRoot, logger),
+            new MemoryRecallToolHost(repositories, repoRoot, standings, pipeline, logger),
             new MemoryWriteToolHost(repositories, repoRoot, logger),
             spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
             decisionLogger,
