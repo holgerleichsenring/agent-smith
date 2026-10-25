@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.Architecture;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Tests.TestSupport;
@@ -80,6 +81,32 @@ public sealed class RoutePermissionGuardTests
 
         Undeclared(withAStowaway).Should().ContainSingle()
             .Which.Should().Contain("/api/runs/{runId}/stowaway");
+    }
+
+    // 2026-10-25-0099a: the coarse gate opens an AcrossProjects route on a hold in ANY project and leaves the
+    // filtering to the handler, so a handler that does not even take the caller's scope lists every project.
+    [Fact]
+    public void RouteGuard_EveryAcrossProjectsRoute_HandlerTakesTheCallerScope()
+    {
+        var unscoped = UnscopedAcrossRoutes(WholeTable());
+
+        unscoped.Should().BeEmpty(
+            "an AcrossProjects route lists for a caller bound to some projects only. Take CallerProjectScope "
+            + "(or ProjectScopedCatalog) in the handler and filter before grouping.\n  " + string.Join("\n  ", unscoped));
+    }
+
+    [Fact]
+    public void RouteGuard_AnAcrossProjectsRouteWithoutTheScope_IsNamed()
+    {
+        var withAStowaway = Enumerate(app =>
+        {
+            MapAsTheHostDoes(app);
+            app.MapGet("/api/runs/stowaway-list", () => Results.Ok())
+                .Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
+        });
+
+        UnscopedAcrossRoutes(withAStowaway).Should().ContainSingle()
+            .Which.Should().Be("GET /api/runs/stowaway-list");
     }
 
     // The twenty-eight routes MapEntity generates are the ones a hurried implementer
@@ -290,6 +317,15 @@ public sealed class RoutePermissionGuardTests
     private static IReadOnlyList<string> Undeclared(IEnumerable<RouteFact> facts) =>
         [.. facts.Where(fact => !fact.IsDeclared).Select(fact => $"{fact.Method} {fact.Pattern}")
             .OrderBy(row => row, StringComparer.Ordinal)];
+
+    private static IReadOnlyList<string> UnscopedAcrossRoutes(IEnumerable<RouteFact> facts) =>
+        [.. facts.Where(fact => fact.Scope?.Wire == "across" && !TakesTheCallerScope(fact))
+            .Select(fact => $"{fact.Method} {fact.Pattern}")
+            .OrderBy(row => row, StringComparer.Ordinal)];
+
+    private static bool TakesTheCallerScope(RouteFact fact) =>
+        fact.Handler?.GetParameters().Any(p =>
+            p.ParameterType == typeof(CallerProjectScope) || p.ParameterType == typeof(ProjectScopedCatalog)) == true;
 
     private static IReadOnlyList<string> Rows(IEnumerable<RouteFact> facts) =>
         [.. facts.Select(fact => fact.Row).OrderBy(row => row, StringComparer.Ordinal)];

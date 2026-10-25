@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-0099a
+
+decisions:
+  - category: Testing
+    chose: "A route-table check that every AcrossProjects handler takes CallerProjectScope or ProjectScopedCatalog, read from the endpoint's MethodInfo metadata"
+    over: "A booted case per route proving the answer is filtered"
+    reason: "The per-route filtering cases exist (2026-10-15-4a4dd); the gap was that a new across route could ship without the scope at all. The parameter list is the one thing every across handler shares, and the check runs without a database."
+  - category: Scope
+    chose: "Accept ProjectScopedCatalog beside CallerProjectScope"
+    over: "Require CallerProjectScope on every across handler"
+    reason: "The three tracker lookups scope by narrowing the configuration through ProjectScopedCatalog, which itself takes CallerProjectScope; forcing the other type would rewrite working code."
+  - category: Testing
+    chose: "The stowaway route is declared (.Needs(runs.read)) as well as AcrossProjects"
+    over: "A bare AcrossProjects stowaway"
+    reason: "An undeclared stowaway would also be the second undeclared route the existing stowaway check counts with ContainSingle."
