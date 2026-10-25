@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -26,9 +27,17 @@ namespace AgentSmith.Application.Services.Handlers;
 /// start of an expression.
 /// </para>
 /// </summary>
+/// <param name="declared">2026-10-25-54bea: the declaration each address was opened for, so the
+/// master is told which context of which repository it is — not only its address.</param>
+/// <param name="owns">2026-10-25-54beb: false when the scopes are borrowed from the run's
+/// <see cref="Specs.RunTemplateScopes"/>, which disposes them when the run ends.</param>
 public sealed class MasterTemplateAttachment(
-    IReadOnlyDictionary<string, ISourceScopeSandbox> scopes) : IAsyncDisposable
+    IReadOnlyDictionary<string, ISourceScopeSandbox> scopes,
+    IReadOnlyDictionary<string, ProjectTemplate>? declared = null,
+    bool owns = true) : IAsyncDisposable
 {
+    private string _advice = string.Empty;
+
     /// <summary>The run that declared no template, or the surface that writes no code.</summary>
     public static MasterTemplateAttachment Empty =>
         new(new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal));
@@ -47,8 +56,23 @@ public sealed class MasterTemplateAttachment(
         foreach (var (name, scope) in scopes) host.AddSandbox(name, name, scope);
     }
 
+    /// <summary>2026-10-25-54bea: the advice read out of the opened scopes, appended to the section.</summary>
+    public void Advise(string advice) => _advice = advice ?? string.Empty;
+
+    /// <summary>
+    /// The template section over every address the run can reach. Opened templates are named
+    /// with their declaration and landed revision and followed by their advice; an address this
+    /// attachment did not open — the spec dialog's — keeps the address-only form.
+    /// </summary>
+    public string Section(IReadOnlyList<string> addresses) =>
+        TemplatePromptSection.Build(addresses, declared?
+            .Where(d => scopes.ContainsKey(d.Key))
+            .ToDictionary(d => d.Key, d => (d.Value, scopes[d.Key].ResolvedSha), StringComparer.Ordinal))
+        + _advice;
+
     public async ValueTask DisposeAsync()
     {
+        if (!owns) return;
         foreach (var scope in scopes.Values) await scope.DisposeAsync();
     }
 }

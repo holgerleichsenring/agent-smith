@@ -19,6 +19,9 @@ namespace AgentSmith.Domain.Models;
 /// <param name="Cites">The evidence id of the reviewer's own read of that file.</param>
 /// <param name="Reverted">Set when the fix pass that was meant to close this was reverted;
 /// the finding stands, and the record and the pull request say why.</param>
+/// <param name="Kind">2026-10-25-54beb: null for a break of the spec or the principles;
+/// <see cref="TemplateKind"/> for a deviation from a template the run is built after — advice,
+/// recorded and shown, never a fix pass.</param>
 public sealed record SpecFinding(
     string Repository,
     string Path,
@@ -26,4 +29,12 @@ public sealed record SpecFinding(
     string Rule,
     string Why,
     string? Cites = null,
-    string? Reverted = null);
+    string? Reverted = null,
+    string? Kind = null)
+{
+    /// <summary>The kind of a template deviation.</summary>
+    public const string TemplateKind = "template";
+
+    /// <summary>Whether this finding is template advice rather than a break.</summary>
+    public bool IsTemplate => string.Equals(Kind, TemplateKind, StringComparison.Ordinal);
+}

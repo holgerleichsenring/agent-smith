@@ -58,7 +58,8 @@ public static class SpecReviewFixPass
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(report);
-        if (report.Findings.Count == 0 || InFlight(pipeline)) return new FixPassDecision(null, null);
+        // 2026-10-25-54beb: a template deviation is advice — recorded and shown, never a pass.
+        if (report.Findings.All(f => f.IsTemplate) || InFlight(pipeline)) return new FixPassDecision(null, null);
         if (sandboxes is null) return new FixPassDecision(null, "no fix pass: no sandbox is resolvable");
         if (sandboxes.Keys.FirstOrDefault(key => VerifiedHeads.For(pipeline, key) is null) is { } without)
             return new FixPassDecision(null, $"no fix pass: {without} has no verified head");

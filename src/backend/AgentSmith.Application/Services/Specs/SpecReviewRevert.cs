@@ -57,7 +57,7 @@ public sealed class SpecReviewRevert(
         pipeline.Set(ContextKeys.SpecReviewReverted, note);
         var report = SpecReviewLedger.ForThisSpec(pipeline);
         SpecReviewLedger.Record(
-            pipeline, report with { Findings = [.. report.Findings.Select(f => f with { Reverted = note })] });
+            pipeline, report with { Findings = [.. report.Findings.Select(f => f.IsTemplate ? f : f with { Reverted = note })] }); // + 54beb
         return CommandResult.Ok(
             $"The review's fix pass was not green and has been reverted to the verified state "
             + $"({reason}). The spec stands as its first verification left it; "

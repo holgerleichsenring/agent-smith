@@ -104,6 +104,10 @@ internal sealed class PipelineExecutorTestBuilder
 new AgentSmith.Application.Services.Sandbox.SandboxRelease(
                 AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
             NullLogger<PipelineSandboxCoordinator>.Instance));
+        services.AddTransient(_ => new AgentSmith.Application.Services.Specs.RunTemplateScopes(
+            new AgentSmith.Application.Services.Specs.ProjectTemplateScopes(
+                new Mock<ISourceScopeSandboxFactory>(MockBehavior.Strict).Object,
+                NullLogger<AgentSmith.Application.Services.Specs.ProjectTemplateScopes>.Instance))); // 54beb
         var provider = services.BuildServiceProvider();
 
         var finalizerTail = new PipelineFinalizerTail(stepRunner, NullLogger<PipelineFinalizerTail>.Instance);

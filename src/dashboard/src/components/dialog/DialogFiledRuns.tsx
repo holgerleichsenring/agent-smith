@@ -249,6 +249,16 @@ function Finding({ finding, specId }: { finding: FiledWorkFinding; specId: strin
     <li className="d-finding">
       <div className="fv">{address(finding)}</div>
       <div className="ec-sub">{finding.why}</div>
+      {/* 2026-10-25-54beb: a template deviation is advice — recorded and shown, never forced. */}
+      {finding.kind === "template" && (
+        <div
+          data-testid={`dialog-filed-template-${specId}-${address(finding)}`}
+          className="ec-marks items-baseline"
+        >
+          <span className="ec-mark">template advice</span>
+          <span className="ec-sub">{finding.rule}</span>
+        </div>
+      )}
       {finding.reverted && (
         <div
           data-testid={`dialog-filed-reverted-${specId}-${address(finding)}`}

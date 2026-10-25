@@ -3282,6 +3282,22 @@ describe("SpecDialogSurface", () => {
     expect(rows[1]).toHaveTextContent("the retry count is a literal");
   });
 
+  // 2026-10-25-54beb: a template deviation is shown as advice on its own finding, and only there.
+  it("SpecDialog_ATemplateFinding_IsMarkedAsTemplateAdvice", async () => {
+    await renderSurface();
+    const work = filedWork();
+    const review = work.tickets[0].runs[0].specs[0].review!;
+    review.findings[1] = { ...review.findings[1], kind: "template", rule: "handlers live under Features/" };
+    fetchFiledWork.mockResolvedValue(work);
+
+    act(() => filings.emit(filing()));
+
+    const mark = await screen.findByTestId("dialog-filed-template-p9001a-api/src/B.cs:9");
+    expect(mark).toHaveTextContent("template advice");
+    expect(mark).toHaveTextContent("handlers live under Features/");
+    expect(screen.queryByTestId("dialog-filed-template-p9001a-api/src/A.cs:4")).toBeNull();
+  });
+
   // 2026-09-17-042eh exists to keep "nobody looked" apart from "looked and found nothing", and
   // on screen the separation was a word. The two states where nobody looked are the two that
   // carry an alarm mark; a clean review and a spec that has not reached its review are calm.

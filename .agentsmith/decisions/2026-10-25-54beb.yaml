@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-54beb
+
+decisions:
+  - category: Architecture
+    chose: "RunTemplateScopes: one owner per pipeline run, installed and disposed by PipelineExecutor.ExecuteCoreAsync (await using), found through ContextKeys.RunTemplateScopes"
+    over: "A per-look cache, or letting the reviewer's look open its own templates"
+    reason: "Every templates.For() call cloned every template again and every look disposed what it got. One owner opens an address once; the master and the diff reviewer's look borrow; the run end is the one named disposal site. Resume enters the same method, and the key is excluded from the checkpoint as a live handle."
+  - category: Implementation
+    chose: "The lock in Borrow is the lazy gate; materialisation stays behind SourceScopeSandbox's own gate"
+    over: "A Lazy<Task> that materialises every template up front"
+    reason: "Spec reviewers run in parallel, so two borrowers of one address must get one scope; the scope already materialises once whoever reads first, so a second gate would duplicate it."
+  - category: Implementation
+    chose: "Split the declaration selection out of ProjectTemplateScopes into TemplateDeclarations (address -> owning declaration, no scope opened)"
+    over: "Creating scopes and discarding the duplicates"
+    reason: "The owner needs the addresses before it opens anything; ProjectTemplateScopes would otherwise pass 120 lines. The master's spec-a re-derivation now uses the same selection."
+  - category: Implementation
+    chose: "Only the diff reviewer borrows (DerivationLookFactory.OnTerms gains a borrowed map, the look a borrowsTemplates flag); it also gets the same advice text the master is shown"
+    over: "Templates for the pre-code reviewers"
+    reason: "Pre-code reviewers judge the spec, not code. The operator wants the template information to reach the diff reviewer fully, so the principles, Limits line and proof sentence travel too, not only the read allowance."
+  - category: Implementation
+    chose: "SpecFinding.Kind 'template'; SpecReviewFixPass.Decide ignores it, a revert does not stamp it, the record/PR row says 'template advice', the filed-work page marks it"
+    over: "A separate finding list or a conformance verdict"
+    reason: "Operator ruling: a template deviation is advisory — recorded and shown where diff findings show, never a refusal and never a forced fix pass. A report with a break beside it still earns its one pass. The SpecReviewedEvent carries the report as a JSON string, so no hub-event contract changed."
+  - category: Process
+    chose: "The handler-level proof is the prompt (templates + advice reach the reviewer, the borrowed scope is not disposed); the no-fix-pass rule is proven at SpecReviewFixPass.Decide"
+    over: "A handler test with an admitted template finding"
+    reason: "Admission needs a read the look minted, which the scripted chat client cannot take; Decide is the one place the pass is decided."

@@ -46,4 +46,9 @@ public static partial class ContextKeys
     /// (<see cref="Specs.SpecSequenceStop"/>) — the first spec the review did not clear. In memory
     /// only; SpecSequence splices the specs before it and defers the rest.</summary>
     public const string SpecSequenceStop = "SpecSequenceStop";
+
+    /// <summary>2026-10-25-54beb: the run's owner of its opened template scopes, installed and
+    /// disposed by the pipeline executor; the master and the diff reviewer's look borrow from it.
+    /// A live handle, never checkpointed.</summary>
+    public const string RunTemplateScopes = "RunTemplateScopes";
 }

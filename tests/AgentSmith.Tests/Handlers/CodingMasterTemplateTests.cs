@@ -229,7 +229,9 @@ public sealed class CodingMasterTemplateTests
 
         loop.SeenRequests.Should().ContainSingle();
         loop.SeenRequests[0].SystemPrompt.Should().Contain(Address)
-            .And.Contain("READ-ONLY");
+            .And.Contain("READ-ONLY")
+            .And.Contain("the `server` context of `reference-project` at `abc123`") // 54bea
+            .And.Contain($"What template `{Address}` advises");
     }
 
     private sealed class RecordingLoop : IAgenticLoopRunner
@@ -250,10 +252,21 @@ public sealed class CodingMasterTemplateTests
 
     // ---- composition -------------------------------------------------------
 
-    internal static MasterTemplateScopes Scopes(ISourceScopeSandbox scope) =>
+    internal static MasterTemplateScopes Scopes(
+        ISourceScopeSandbox scope, ISandboxFileReaderFactory? files = null) =>
         new(new ProjectTemplateScopes(
                 new FixedScopeFactory(scope), NullLogger<ProjectTemplateScopes>.Instance),
-            NullLogger<MasterTemplateScopes>.Instance);
+            Advice(files), NullLogger<MasterTemplateScopes>.Instance);
+
+    // 2026-10-25-54bea: the advice as the product composes it, over whatever reader is handed in.
+    internal static MasterTemplateAdvice Advice(ISandboxFileReaderFactory? files = null) =>
+        new(files ?? new StubSandboxFileReaderFactory(),
+            new TemplateProofRead(
+                new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
+                    new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+                files ?? new StubSandboxFileReaderFactory(), NullLogger<TemplateProofRead>.Instance),
+            new AgentSmith.Application.Services.Structure.StructureLimits(),
+            NullLogger<MasterTemplateAdvice>.Instance);
 
     private static SpecDraft Draft(string context = "default") =>
         new("2026-09-13-6f35", "goal", "yaml", []) { Contexts = [context] };

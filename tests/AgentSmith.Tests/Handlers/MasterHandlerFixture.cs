@@ -55,6 +55,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Application.Services.Specs.ProjectTemplateScopes(
                     templateScopes ?? new NoTemplateScopes(),
                     NullLogger<AgentSmith.Application.Services.Specs.ProjectTemplateScopes>.Instance),
+                CodingMasterTemplateTests.Advice(),
                 NullLogger<AgentSmith.Application.Services.Handlers.MasterTemplateScopes>.Instance),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),

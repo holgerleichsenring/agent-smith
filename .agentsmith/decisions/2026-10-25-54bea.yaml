@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-54bea
+
+decisions:
+  - category: Architecture
+    chose: "The attachment renders the template section (templates.Section(allAddresses)) and MasterTemplateScopes reads the advice when it opens the scopes"
+    over: "Building the section in AgenticMasterHandler from a new collaborator"
+    reason: "AgenticMasterHandler sits at its 681-line baseline; swapping the call in place keeps it net zero, and the attachment already owns the opened scopes the advice is read from."
+  - category: Implementation
+    chose: "Re-derive each address's declaration from ResolvedProject.Templates with TemplateScopeName.Owns"
+    over: "Widening ProjectTemplateScopes.For to return declarations"
+    reason: "For is shared with the derivation looks; the ownership rule is the one statement of which declaration an address belongs to, so applying it again gives the same answer without changing a shared return type."
+  - category: Implementation
+    chose: "Context principles.md first, else the template's root .agentsmith/principles.md; the Limits fence parsed by StructureLimits and restated as one shape line; the proof sentence from TemplateProofRead"
+    over: "Quoting the raw fence a second time or writing a second context.yaml reader"
+    reason: "The principles text already carries the fence verbatim; the parsed line shows which keys are in force. Reusing the proof read keeps one sentence for how a template proves itself."
+  - category: Implementation
+    chose: "Advice only — the text says the rules are followed for NEW units, existing code and the spec win, never a gate"
+    over: "Any conformance check"
+    reason: "Operator ruling: templates are not enforced, the models decide."
+  - category: Process
+    chose: "Re-ground two planned 9324 fact paths (RunSpecProjection under Persistence/Services, MasterPromptTokens under Application/Prompts)"
+    over: "Leaving the base commit's red SpecEvidenceRuleTests to block this commit"
+    reason: "The planning commit cited both files at paths that do not exist, so the full suite was red before this spec; only the path moves, the claims are untouched."

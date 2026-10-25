@@ -34,10 +34,10 @@ public sealed class ProjectTemplateScopes(
         PipelineContext pipeline, IReadOnlyCollection<string>? contexts = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
-            || project is null)
-            return Empty();
-        return Select(project, DiscoveredContexts(pipeline), contexts);
+        var declared = TemplateDeclarations.For(pipeline, contexts);
+        return declared.Count == 0
+            ? new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer)
+            : Open(pipeline.Get<ResolvedProject>(ContextKeys.ProjectConfig), declared);
     }
 
     /// <summary>
@@ -54,62 +54,24 @@ public sealed class ProjectTemplateScopes(
         ResolvedProject project, string? conversationId = null)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return Select(project, [], contexts: null, conversationId);
+        return Open(project, TemplateDeclarations.Of(project, [], contexts: null), conversationId);
     }
 
-    private IReadOnlyDictionary<string, ISourceScopeSandbox> Select(
-        ResolvedProject project, HashSet<string> discovered, IReadOnlyCollection<string>? contexts,
-        string? conversationId = null)
+    /// <summary>2026-10-25-54beb: one declaration's scope, created and not yet materialised.</summary>
+    public ISourceScopeSandbox Open(
+        ResolvedProject project, string name, ProjectTemplate template, string? conversationId = null)
     {
-        if (project.Templates.Count == 0) return Empty();
-        var wanted = contexts is null || contexts.Count == 0
-            ? null
-            : new HashSet<string>(contexts, StringComparer.OrdinalIgnoreCase);
-        var result = new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer);
-        for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
-        {
-            var template = project.Templates[ordinal];
-            if (!Admits(template, discovered, wanted)) continue;
-            // 2026-09-15-6f8d: one address is opened once, by the declaration that OWNS it —
-            // the statement the proof report reads too, over this same full list. Deciding it
-            // here by "is this key already taken" would be a second copy of the precedence
-            // rule, and it read the contexts case-insensitively while keying the result
-            // ordinally: two spellings of one context passed one filter check as one context
-            // and then opened two clones of one repository.
-            if (!TemplateScopeName.Owns(project.Templates, ordinal)) continue;
-            var name = TemplateScopeName.For(template);
-            result[name] = scopes.Create(project, template.Repo, template.Revision, conversationId);
-            logger.LogInformation(
-                "Template '{Name}' ({Repo} at {Revision}) is open to this run",
-                name, template.Repo.Name, template.Revision ?? "its own default");
-        }
-        return result;
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(template);
+        logger.LogInformation(
+            "Template '{Name}' ({Repo} at {Revision}) is open to this run",
+            name, template.Repo.Name, template.Revision ?? "its own default");
+        return scopes.Create(project, template.Repo, template.Revision, conversationId);
     }
 
-    // Whether this run is working on the context the declaration binds — what was checked out,
-    // and what the caller narrowed to. Both fold case, as the address comparison does.
-    private static bool Admits(
-        ProjectTemplate template, HashSet<string> discovered, HashSet<string>? wanted) =>
-        (discovered.Count == 0 || discovered.Contains(template.Context))
-        && (wanted is null || wanted.Contains(template.Context));
-
-    private static Dictionary<string, ISourceScopeSandbox> Empty() =>
-        new(TemplateScopeName.Comparer);
-
-    /// <summary>
-    /// Every context this run actually checked out. Empty when the run published none — a
-    /// resume, or a preset that discovers nothing — and an empty set selects everything
-    /// rather than nothing, because refusing to look is the worse failure of the two.
-    /// </summary>
-    private static HashSet<string> DiscoveredContexts(PipelineContext pipeline)
-    {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-                ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
-            return names;
-        foreach (var key in sandboxes.Keys)
-            foreach (var context in SandboxContextList.In(pipeline, key))
-                names.Add(context.ContextName);
-        return names;
-    }
+    private Dictionary<string, ISourceScopeSandbox> Open(
+        ResolvedProject project, IReadOnlyDictionary<string, ProjectTemplate> declared,
+        string? conversationId = null) =>
+        declared.ToDictionary(
+            d => d.Key, d => Open(project, d.Key, d.Value, conversationId), TemplateScopeName.Comparer);
 }
