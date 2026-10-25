@@ -29,6 +29,7 @@ public sealed class SpecDoneRecorder(
     SeriesFiles seriesFiles,
     SeriesRecordCommit commit,
     DefaultVerdictRecord verdicts,
+    Memory.MemoryIndexLabelWriter memoryLabels,
     ILogger<SpecDoneRecorder> logger)
 {
     public async Task<CommandResult> RecordAsync(
@@ -65,6 +66,7 @@ public sealed class SpecDoneRecorder(
         var staged = new List<string>(move.Written) { manifest.Path };
         if (index is not null) staged.Add(index);
         staged.AddRange(await verdicts.WriteAsync(pipeline, files, record, ct)); // 2026-10-13-8762p
+        if (await memoryLabels.WriteAsync(pipeline, files, record.Carrier.Name, ct) is { } labels) staged.Add(labels); // 9324d
         var sha = await commit.CommitAsync(target, record, executed, staged, move.Planned, ct);
         pipeline.Set(ContextKeys.SpecSet, executed);
         logger.LogInformation("Spec {SpecId} recorded in {Path} as {Sha}", record.Spec.SpecId, move.Written[0], sha);

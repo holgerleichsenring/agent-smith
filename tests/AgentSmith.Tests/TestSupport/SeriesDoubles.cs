@@ -75,7 +75,8 @@ internal static class SeriesDoubles
         var commit = new SeriesRecordCommit(files, git ?? Git(files),
             new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance));
         var recorder = new SpecDoneRecorder(files, targets, new SpecDoneFiles(), indexWriter,
-            new SeriesFiles(new SeriesManifest()), commit, verdicts ?? NoVerdicts(), NullLogger<SpecDoneRecorder>.Instance);
+            new SeriesFiles(new SeriesManifest()), commit, verdicts ?? NoVerdicts(),
+            AgentSmith.Tests.TestHelpers.MemoryStandings.LabelWriter(), NullLogger<SpecDoneRecorder>.Instance);
         return new WriteSpecRecordHandler(
             new SpecRecordPublisher(events ?? EventTestStubs.Recording()), new SpecRecordIndexLine(), recorder,
             new SeriesRepos());

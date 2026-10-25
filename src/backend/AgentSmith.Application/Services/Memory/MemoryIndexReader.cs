@@ -21,8 +21,14 @@ namespace AgentSmith.Application.Services.Memory;
 /// 2026-10-13-8762m: shared by LoadMemoryIndex and the spec-execution master start, which re-reads the
 /// index so a memory an earlier spec of the series remembered is in the next spec's prompt.
 /// </para>
+/// <para>
+/// 2026-10-25-9324d: each repository's index is composed with its memories' standing before the aggregate — the
+/// record on every line, holding first, disputed entries left out.
+/// </para>
 /// </summary>
-public sealed class MemoryIndexReader(RunRepositoriesFactory repositoriesFactory, ILogger<MemoryIndexReader> logger)
+public sealed class MemoryIndexReader(
+    RunRepositoriesFactory repositoriesFactory, MemoryStandingReader standings, MemoryIndexComposer composer,
+    ILogger<MemoryIndexReader> logger)
 {
     /// <summary>Reads every repository's index and publishes it as <see cref="ContextKeys.MemoryIndex"/>.</summary>
     public async Task<MemoryIndexRead> RefreshAsync(PipelineContext pipeline, CancellationToken ct)
@@ -34,7 +40,8 @@ public sealed class MemoryIndexReader(RunRepositoriesFactory repositoriesFactory
         foreach (var name in names)
         {
             var index = await TryReadIndexAsync(repositories.FilesOf(name), name, ct);
-            if (!string.IsNullOrWhiteSpace(index)) loaded[name] = index.Trim();
+            if (!string.IsNullOrWhiteSpace(index))
+                loaded[name] = composer.Compose(index.Trim(), await standings.OfAsync(pipeline, name, ct));
         }
 
         var read = new MemoryIndexRead(Aggregate(loaded, labelled: names.Count > 1), loaded.Count, names.Count);

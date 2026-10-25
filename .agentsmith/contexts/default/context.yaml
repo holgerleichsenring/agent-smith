@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-25-9324d: "MEMORY STANDING INDEX (MemoryIndexReader, memory prompt section, MEMORY.md labels). Each memory's standing is its evidence decayed with a 90-day half-life; the master's index shows each record, holding first, disputed left out and counted; the record step relabels MEMORY.md. -> .agentsmith/specs/done/2026-10-25-9324d-memory-standing-index.yaml"
     2026-10-25-9324c: "MEMORY OUTCOME EVIDENCE (run result, criterion judgements). At WriteRunResult each relied memory of a spec ending Done is confirmed (+1), Failed strained (-0.5), once per run; a person's not-met judgement contradicts its spec's relied memories (-1) and a withdrawal retracts it. -> .agentsmith/specs/done/2026-10-25-9324c-memory-outcome-evidence.yaml"
     2026-10-25-9324b: "MEMORY RELIANCE CITATION (hand_forward, dispute_memory, event 89). hand_forward takes relied_on checked against each repository's store; dispute_memory names a memory that led a master wrong; MemoryUseRecorded projects as replaced relied rows or an appended contradiction (-2). -> .agentsmith/specs/done/2026-10-25-9324b-memory-reliance-citation.yaml"
     2026-10-25-9324a: "MEMORY EVIDENCE LEDGER (persistence, memory). A MemoryEvidence table keeps every relied/confirmed/strained/contradicted fact per repository key and slug, behind IMemoryEvidenceStore (null by default); RepoKey moved to Contracts; run deletion leaves the rows. -> .agentsmith/specs/done/2026-10-25-9324a-memory-evidence-ledger.yaml"
