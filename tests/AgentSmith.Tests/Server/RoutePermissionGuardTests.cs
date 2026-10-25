@@ -238,6 +238,11 @@ public sealed class RoutePermissionGuardTests
     public void RoutePermissionGuard_ProjectList_NeedsRunsRead() =>
         Declaration("GET", "/api/projects").Should().Equal(Permissions.RunsRead);
 
+    // 2026-10-25-0099b: a period of ticket work is a regrouping of run rows, like the ticket list.
+    [Fact]
+    public void RoutePermissionGuard_Delivery_NeedsRunsRead() =>
+        Declaration("GET", "/api/delivery").Should().Equal(Permissions.RunsRead);
+
     // 2026-10-02-5f89d: the init button's read of the live run is a run read — any viewer of
     // runs may see it; starting one still needs projects.init.
     [Fact]

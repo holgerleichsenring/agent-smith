@@ -163,8 +163,8 @@ internal static class RelationalPersistenceExtensions
         // queue removal) before the record delete.
         services.AddScoped<RunDeletionRepository>();
         services.AddScoped<Services.Lifecycle.RunDeleter>();
-        // The Criteria met read surface and the operator judgements it applies.
-        services.AddScoped<CriteriaMetRepository>().AddScoped<CriterionJudgementRepository>();
+        // The Criteria met and delivery (2026-10-25-0099b) read surfaces, and the operator judgements Criteria met applies.
+        services.AddScoped<CriteriaMetRepository>().AddScoped<CriterionJudgementRepository>().AddScoped<DeliveryAttemptRepository>().AddScoped<DeliveryWorkRepository>();
         services.AddScoped<RunRetentionService>();
 
         // p0246e: the run's markdown lives in the DB; 2026-10-02-5ab2f: nothing else holds it.

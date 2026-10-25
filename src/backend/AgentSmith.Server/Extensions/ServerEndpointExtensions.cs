@@ -57,6 +57,7 @@ internal static class ServerEndpointExtensions
         app.MapTicketApprovalPreviewEndpoints(); // 2026-10-13-9a59l: what approving would do
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
         app.MapCriteriaMetEndpoints();
+        app.MapDeliveryEndpoints(); // 2026-10-25-0099b: a period of ticket work
         app.MapCatalogEndpoints();
         app.MapConfigQueryEndpoints();
         app.MapConfigStudioEndpoints(); // p0345: config studio CRUD + audit/revert
