@@ -309,7 +309,7 @@ public sealed class AgenticMasterHandler(
         }
         // 2026-09-13-ed5a: over the ADDRESSES, so the spec dialog — which seeds its
         // templates into the sandbox map this list is read from — gets the same section.
-        masterBody += TemplatePromptSection.Build(allAddresses) + ReferencePromptSection.Build(allAddresses, sandboxes) // + 283dc, 075dd
+        masterBody += templates.Section(allAddresses) + ReferencePromptSection.Build(allAddresses, sandboxes) // + 283dc, 075dd
             + DesignSystemPromptSection.Render(context.Pipeline) // 2026-10-01-283dg
             + ReferencePromptSection.Carried(context.Pipeline, allAddresses.Count > 1); // 2026-10-01-283df
 

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </para>
 /// </summary>
 public sealed class MasterTemplateScopes(
-    ProjectTemplateScopes scopes, ILogger<MasterTemplateScopes> logger)
+    ProjectTemplateScopes scopes, MasterTemplateAdvice advice, ILogger<MasterTemplateScopes> logger)
 {
     /// <summary>
     /// Selects the templates declared for the contexts THIS SPEC changes, materialises each
@@ -44,7 +45,8 @@ public sealed class MasterTemplateScopes(
         var selected = scopes.For(pipeline, draft?.Contexts);
         if (selected.Count == 0) return MasterTemplateAttachment.Empty;
 
-        var attachment = new MasterTemplateAttachment(selected);
+        var declared = Declared(pipeline, selected.Keys);
+        var attachment = new MasterTemplateAttachment(selected, declared);
         try
         {
             foreach (var (name, scope) in selected)
@@ -54,6 +56,7 @@ public sealed class MasterTemplateScopes(
                     "Template '{Name}' is open to the master at {Sha}",
                     name, string.IsNullOrEmpty(sha) ? "its own default" : sha);
             }
+            attachment.Advise(await AdviceAsync(selected, declared, cancellationToken));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -63,6 +66,33 @@ public sealed class MasterTemplateScopes(
 
         pipeline.Set<IReadOnlyList<string>>(ContextKeys.TemplateAddresses, attachment.Names);
         return attachment;
+    }
+
+    private async Task<string> AdviceAsync(
+        IReadOnlyDictionary<string, ISourceScopeSandbox> selected,
+        IReadOnlyDictionary<string, ProjectTemplate> declared, CancellationToken cancellationToken)
+    {
+        var sections = new List<string>();
+        foreach (var (name, scope) in selected)
+            if (declared.TryGetValue(name, out var template))
+                sections.Add(await advice.ReadAsync(name, template, scope, cancellationToken));
+        return string.Concat(sections);
+    }
+
+    // 2026-10-25-54bea: re-derived by the same ownership rule the selection used, so an address
+    // maps to the ONE declaration whose scope it is.
+    private static Dictionary<string, ProjectTemplate> Declared(
+        PipelineContext pipeline, IEnumerable<string> names)
+    {
+        var wanted = new HashSet<string>(names, TemplateScopeName.Comparer);
+        var result = new Dictionary<string, ProjectTemplate>(TemplateScopeName.Comparer);
+        if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project) || project is null)
+            return result;
+        for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
+            if (TemplateScopeName.Owns(project.Templates, ordinal)
+                && wanted.Contains(TemplateScopeName.For(project.Templates[ordinal])))
+                result[TemplateScopeName.For(project.Templates[ordinal])] = project.Templates[ordinal];
+        return result;
     }
 
     // The spec fails naming the template AND the revision it asked for: "the template is

@@ -8,7 +8,7 @@ requires: [2026-10-25-9324b]
 
 facts:
   - claim: "A spec's terminal state is written in more than one place and a repair or fix pass runs it again."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:238-244, src/backend/AgentSmith.Infrastructure.Persistence/Projections/RunSpecProjection.cs:44-46"
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:238-244, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:44-46"
   - claim: "A person's judgement is keyed by run and criterion key, with no spec id."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunCriterionJudgement.cs:24-49"
   - claim: "Criteria join to their spec through AcceptanceJson and CriterionKey.Of."
