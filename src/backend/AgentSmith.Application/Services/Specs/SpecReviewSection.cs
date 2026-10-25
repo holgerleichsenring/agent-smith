@@ -45,8 +45,10 @@ public static class SpecReviewSection
     {
         ArgumentNullException.ThrowIfNull(finding);
         var reverted = finding.Reverted is null ? string.Empty : $" — {finding.Reverted}";
+        // 2026-10-25-54beb: a template deviation is named as advice, so no reader takes it for a break.
+        var rule = finding.IsTemplate ? "template advice" : "rule";
         return $"- `{finding.Repository}/{finding.Path}:{finding.Line}` — {finding.Why} "
-            + $"(rule: {finding.Rule}){reverted}";
+            + $"({rule}: {finding.Rule}){reverted}";
     }
 
     /// <summary>The body of the record's own review block, or empty when nothing is recorded.</summary>

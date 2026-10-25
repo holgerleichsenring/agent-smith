@@ -39,16 +39,19 @@ public sealed class DerivationLook : IAsyncDisposable
     private readonly IReadOnlyDictionary<string, ISourceScopeSandbox> _templates;
     private readonly DerivationLookGate _gate;
     private readonly DerivationLookStages? _stages;
+    private readonly bool _borrowsTemplates;
 
     public DerivationLook(
         IReadOnlyDictionary<string, ISandbox> sandboxes, ISandboxFileReaderFactory files,
         IPackageEcosystemDetector ecosystems, ILogger logger,
         IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null,
         DerivationLookTerms? terms = null, bool audits = true,
-        TurnActivityTools? activity = null, DerivationLookStages? stages = null)
+        TurnActivityTools? activity = null, DerivationLookStages? stages = null,
+        bool borrowsTemplates = false)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
         _stages = stages;
+        _borrowsTemplates = borrowsTemplates;
         _templates = templates
             ?? new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer);
         Terms = terms ?? DerivationLookTerms.Derivation;
@@ -103,8 +106,10 @@ public sealed class DerivationLook : IAsyncDisposable
     internal bool TryOpen(string repository, out ISandbox sandbox, out string refusal) =>
         _gate.TryOpen(repository, out sandbox, out refusal);
 
+    // 2026-10-25-54beb: borrowed templates belong to the run's RunTemplateScopes, which disposes them.
     public async ValueTask DisposeAsync()
     {
+        if (_borrowsTemplates) return;
         foreach (var scope in _templates.Values) await scope.DisposeAsync();
     }
 }

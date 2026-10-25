@@ -11,11 +11,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 internal sealed record SpecFindingWire(
     string? Repository, string? Path, JsonElement? Line, string? Rule, string? Why,
-    JsonElement? Cites = null)
+    JsonElement? Cites = null, string? Kind = null)
 {
+    // 2026-10-25-54beb: only the one kind is kept; anything else reads as an ordinary finding.
     public SpecFinding ToFinding() =>
         new(Repository ?? string.Empty, Path ?? string.Empty, LineNumber(Line),
-            Rule ?? string.Empty, Why ?? string.Empty, CitationText(Cites));
+            Rule ?? string.Empty, Why ?? string.Empty, CitationText(Cites),
+            Kind: string.Equals(Kind?.Trim(), SpecFinding.TemplateKind, StringComparison.OrdinalIgnoreCase)
+                ? SpecFinding.TemplateKind : null);
 
     internal static int LineNumber(JsonElement? line) => line?.ValueKind switch
     {

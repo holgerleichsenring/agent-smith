@@ -254,6 +254,35 @@ public sealed class SpecReviewFixPassTests
             "the record states what came of the spec, findings included");
     }
 
+    [Fact]
+    public void ReviewSpecDiff_TemplateFindingOnly_NoFixPass()
+    {
+        var pipeline = Verified();
+
+        var decision = SpecReviewFixPass.Decide(
+            pipeline, SpecReviewReport.Taken([Template()]), Sandboxes(new StubSandbox()));
+
+        decision.Steps.Should().BeNull("a template deviation is advice, never a forced fix pass");
+        decision.Note.Should().BeNull();
+        SpecReviewFixPass.InFlight(pipeline).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ReviewSpecDiff_TemplateBesideABreak_StillEarnsTheOnePass() =>
+        SpecReviewFixPass.Decide(
+                Verified(), SpecReviewReport.Taken([Template(), Finding()]), Sandboxes(new StubSandbox()))
+            .Steps.Should().NotBeNull("the break earns its pass; the advice rides along unforced");
+
+    [Fact]
+    public void SpecReviewSection_TemplateFinding_IsNamedAsAdvice() =>
+        SpecReviewSection.Row(Template()).Should().Contain("(template advice: new handlers live under Features/)")
+            .And.NotContain("(rule:");
+
+    // 2026-10-25-54beb: a template deviation, cited on the changed file like any finding.
+    private static SpecFinding Template() =>
+        new(Key, "src/Api/Handler.cs", 4, "new handlers live under Features/", "this one sits in Api/",
+            "P1", Kind: SpecFinding.TemplateKind);
+
     private static SpecReviewReport Found() => SpecReviewReport.Taken([Finding()]);
 
     private static SpecFinding Finding() =>

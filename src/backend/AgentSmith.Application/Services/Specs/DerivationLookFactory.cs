@@ -54,17 +54,17 @@ public sealed class DerivationLookFactory(
     }
 
     /// <summary>
-    /// The run's repositories on any holder's own terms, with no template scope; the terms are what tell the holders
-    /// apart. Null when the run has no sandbox.
+    /// The run's repositories on any holder's own terms, with no template scope unless BORROWED (54beb: the diff
+    /// reviewer's, from the run's owner; the look never disposes them). Null when the run has no sandbox.
     /// </summary>
-    public DerivationLook? OnTerms(
-        PipelineContext pipeline, DerivationLookTerms terms, DerivationLookStages? stages = null)
+    public DerivationLook? OnTerms(PipelineContext pipeline, DerivationLookTerms terms, DerivationLookStages? stages = null,
+        IReadOnlyDictionary<string, ISourceScopeSandbox>? borrowed = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
-            sandboxes, files, ecosystems, logger, templates: null, terms, activity: turnActivity,
-            stages: stages);
+            sandboxes, files, ecosystems, logger, borrowed, terms, activity: turnActivity,
+            stages: stages, borrowsTemplates: borrowed is not null);
     }
 
     /// <summary>

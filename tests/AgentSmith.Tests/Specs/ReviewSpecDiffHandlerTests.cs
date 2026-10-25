@@ -181,6 +181,34 @@ public sealed class ReviewSpecDiffHandlerTests
             .And.Contain($"- name: event 'OrderExported' = 87, owner {SpecId}");
     }
 
+    [Fact]
+    public async Task ReviewSpecDiff_RunLendsATemplate_ReviewerReadsItAndItsAdvice()
+    {
+        var factory = new PromptCapture();
+        var pipeline = Verified();
+        pipeline.Set(ContextKeys.ProjectConfig, Handlers.CodingMasterTemplateTests.ProjectWithTemplate());
+        var scope = new Handlers.CodingMasterTemplateTests.RecordingScope();
+        await using var owner = new RunTemplateScopes(new ProjectTemplateScopes(
+            new Handlers.CodingMasterTemplateTests.FixedScopeFactory(scope),
+            NullLogger<ProjectTemplateScopes>.Instance)).Own(pipeline);
+        var files = new InMemorySandboxFileReader();
+        files.Files["/work/.agentsmith/contexts/server/principles.md"] = "New handlers live under Features/.";
+
+        await Handler(factory, files: new DerivationTestLooks.FixedReaderFactory(files))
+            .ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        factory.Prompts.Should().ContainSingle().Which.Should()
+            .Contain("## Templates this project is built after").And.Contain("- template:default")
+            .And.Contain("\"kind\": \"template\"").And.Contain("New handlers live under Features/.");
+        scope.Disposed.Should().BeFalse("the reviewer's look borrows; the run's owner disposes");
+    }
+
+    [Fact]
+    public void SpecReviewAnswer_TemplateKind_IsRead() =>
+        SpecReviewAnswerReader.Read(
+                """[{"repository":"api","path":"a.cs","line":1,"rule":"r","why":"w","cites":"P1","kind":"Template"}]""")!
+            .Single().IsTemplate.Should().BeTrue();
+
     private static string Answer() =>
         """[{"repository":"api","path":"src/Api/Handler.cs","line":4,"rule":"r","why":"w","cites":"P1"}]""";
 
@@ -190,7 +218,9 @@ public sealed class ReviewSpecDiffHandlerTests
     private static ReviewSpecDiffContext Context(PipelineContext pipeline) =>
         new(new AgentConfig(), pipeline);
 
-    internal static ReviewSpecDiffHandler Handler(Contracts.Services.IChatClientFactory factory, RatifiedMockReview? mocks = null)
+    internal static ReviewSpecDiffHandler Handler(
+        Contracts.Services.IChatClientFactory factory, RatifiedMockReview? mocks = null,
+        ISandboxFileReaderFactory? files = null)
     {
         var targets = new SandboxTargets();
         return new ReviewSpecDiffHandler(
@@ -208,6 +238,8 @@ public sealed class ReviewSpecDiffHandlerTests
                 factory, new AsyncLocalRunContextAccessor(), NullLogger<SpecDiffReviewer>.Instance),
             new SpecReviewPublisher(new NoOpEventPublisher()),
             mocks ?? new RatifiedMockReview(new AgentSmith.Tests.Browser.BrowserRenderFixture().Factory()),
+            new DiffReviewTemplates(
+                Handlers.CodingMasterTemplateTests.Advice(files), NullLogger<DiffReviewTemplates>.Instance),
             NullLogger<ReviewSpecDiffHandler>.Instance);
     }
 

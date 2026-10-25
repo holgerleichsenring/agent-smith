@@ -42,11 +42,14 @@ public sealed class MasterTemplateScopes(
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (readOnlySurface) return MasterTemplateAttachment.Empty;
-        var selected = scopes.For(pipeline, draft?.Contexts);
+        // 2026-10-25-54beb: borrowed from the run's owner when there is one, so the diff reviewer
+        // reads the same checkout and the run end — not the master's — tears it down.
+        var owner = RunTemplateScopes.Of(pipeline);
+        var selected = owner?.Borrow(pipeline, draft?.Contexts) ?? scopes.For(pipeline, draft?.Contexts);
         if (selected.Count == 0) return MasterTemplateAttachment.Empty;
 
-        var declared = Declared(pipeline, selected.Keys);
-        var attachment = new MasterTemplateAttachment(selected, declared);
+        var declared = TemplateDeclarations.For(pipeline, draft?.Contexts);
+        var attachment = new MasterTemplateAttachment(selected, declared, owns: owner is null);
         try
         {
             foreach (var (name, scope) in selected)
@@ -77,22 +80,6 @@ public sealed class MasterTemplateScopes(
             if (declared.TryGetValue(name, out var template))
                 sections.Add(await advice.ReadAsync(name, template, scope, cancellationToken));
         return string.Concat(sections);
-    }
-
-    // 2026-10-25-54bea: re-derived by the same ownership rule the selection used, so an address
-    // maps to the ONE declaration whose scope it is.
-    private static Dictionary<string, ProjectTemplate> Declared(
-        PipelineContext pipeline, IEnumerable<string> names)
-    {
-        var wanted = new HashSet<string>(names, TemplateScopeName.Comparer);
-        var result = new Dictionary<string, ProjectTemplate>(TemplateScopeName.Comparer);
-        if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project) || project is null)
-            return result;
-        for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
-            if (TemplateScopeName.Owns(project.Templates, ordinal)
-                && wanted.Contains(TemplateScopeName.For(project.Templates[ordinal])))
-                result[TemplateScopeName.For(project.Templates[ordinal])] = project.Templates[ordinal];
-        return result;
     }
 
     // The spec fails naming the template AND the revision it asked for: "the template is

@@ -29,9 +29,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 /// <param name="declared">2026-10-25-54bea: the declaration each address was opened for, so the
 /// master is told which context of which repository it is — not only its address.</param>
+/// <param name="owns">2026-10-25-54beb: false when the scopes are borrowed from the run's
+/// <see cref="Specs.RunTemplateScopes"/>, which disposes them when the run ends.</param>
 public sealed class MasterTemplateAttachment(
     IReadOnlyDictionary<string, ISourceScopeSandbox> scopes,
-    IReadOnlyDictionary<string, ProjectTemplate>? declared = null) : IAsyncDisposable
+    IReadOnlyDictionary<string, ProjectTemplate>? declared = null,
+    bool owns = true) : IAsyncDisposable
 {
     private string _advice = string.Empty;
 
@@ -69,6 +72,7 @@ public sealed class MasterTemplateAttachment(
 
     public async ValueTask DisposeAsync()
     {
+        if (!owns) return;
         foreach (var scope in scopes.Values) await scope.DisposeAsync();
     }
 }
