@@ -205,9 +205,8 @@ describe("MissionControl", () => {
     await waitFor(() => expect(screen.getByTestId("run-row-older-1")).toBeInTheDocument());
     expect(fetchRunsBeforeMock).toHaveBeenCalledWith("2026-07-17T10:00:00Z", 20);
     const finished = screen.getByTestId("section-finished");
-    const ids = Array.from(finished.querySelectorAll("[data-testid^='run-row-']"))
-      .map((el) => el.getAttribute("data-testid"))
-      .filter((id): id is string => !!id && !id.endsWith("-progress") && !id.endsWith("-actions"));
+    const ids = Array.from(finished.querySelectorAll(".rrow"))
+      .map((el) => el.getAttribute("data-testid"));
     expect(ids).toEqual(["run-row-done-new", "run-row-older-1"]);
   });
 
@@ -284,7 +283,7 @@ describe("MissionControl when the server refused this caller", () => {
     expect(screen.getByTestId("metric-needs-you")).toHaveTextContent("Waiting for input");
     expect(screen.queryByTestId("pending-question-card")).toBeNull();
     expect(section.querySelector("input")).toBeNull();
-    expect(screen.getByTestId("run-row-parked")).toHaveAttribute("href", "/jobs/parked");
-    expect(screen.getByTestId("run-row-bare")).toHaveAttribute("href", "/jobs/bare");
+    expect(screen.getByTestId("run-row-parked-open")).toHaveAttribute("href", "/jobs/parked");
+    expect(screen.getByTestId("run-row-bare-open")).toHaveAttribute("href", "/jobs/bare");
   });
 });
