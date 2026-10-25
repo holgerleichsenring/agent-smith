@@ -27,6 +27,7 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
     private readonly TicketLabelVocabulary _labels;
     private readonly ILogger _logger;
     private readonly GitHubTicketFinalizer _finalizer;
+    private readonly GitHubIssueAttachmentRefs _attachmentRefs;
 
     public string ProviderType => "GitHub";
 
@@ -44,6 +45,7 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
         _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
         _logger = logger;
         _finalizer = new GitHubTicketFinalizer(UpdateStatusAsync, CloseTicketAsync, TransitionToAsync);
+        _attachmentRefs = new GitHubIssueAttachmentRefs(_client, _owner, _repo);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -77,7 +79,8 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return [];
-        try { return GitHubAttachmentLoader.ParseRefs((await _client.Issue.Get(_owner, _repo, n)).Body); } catch { return []; }
+        try { return await _attachmentRefs.ReadAsync(n, cancellationToken); }
+        catch (Exception ex) { _logger.LogDebug(ex, "GitHub attachment refs of #{Ticket} unreadable", ticketId.Value); return []; }
     }
 
     // Transport failures propagate — FetchTicketHandler owns fail-soft.

@@ -7,8 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
-/// Extracts image attachments from GitHub issue bodies by parsing markdown image syntax.
-/// GitHub uploads images to user-images.githubusercontent.com — URLs are publicly accessible.
+/// Extracts image attachments from GitHub issue bodies by parsing markdown image syntax, and
+/// downloads them without any credential. 2026-10-25-9dbbd: a private repository's upload is
+/// reached through the signed URL of the rendered body (<see cref="GitHubIssueHtmlRefs"/>), which
+/// carries its own token, so no credential ever leaves for an upload host.
 /// </summary>
 public sealed class GitHubAttachmentLoader(
     HttpClient httpClient,
