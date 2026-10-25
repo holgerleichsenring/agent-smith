@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-684b
+
+decisions:
+  - category: Implementation
+    chose: "GitHubGraphQlQuery parses response.HttpResponse.Body; the act reader, the state reader and the changed-PR lister run their queries through it"
+    over: "Fixing each reader's own JsonDocument.Parse(response.Body) in place"
+    reason: "Measured in 2026-10-25-9dbbd with the real Octokit 14 Connection: for an application/json reply Octokit deserializes into T and leaves a string Body empty, so every reader threw ArgumentNullException against GitHub itself. Four copies of post-and-check were how the defect was written four times; one query type holds the rule once."
+  - category: Tooling
+    chose: "Test fakes answer under Octokit's real Connection (GitHubGraphQlHost: HttpClientAdapter over a scripted HttpMessageHandler) instead of a mocked IApiResponse"
+    over: "Stubbing IApiResponse.HttpResponse.Body as well"
+    reason: "The stubbed IApiResponse.Body is exactly what hid the defect; a fake below Octokit tests what Octokit does, and records the URL and variables each query was posted with."
+  - category: Scope
+    chose: "Found while building 2026-10-25-9dbbd and minted as its own spec"
+    over: "Folding the fix into the attachment spec"
+    reason: "It repairs the review readers of 2026-10-08-e8b9c/d, 2026-10-13-9a59b and 2026-10-08-9e6e and the pager of 2026-10-25-9dbbf, none of which is the attachment work; its own record keeps that provenance readable."

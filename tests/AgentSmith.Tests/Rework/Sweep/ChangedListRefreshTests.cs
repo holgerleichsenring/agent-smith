@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -90,8 +91,7 @@ public sealed class ChangedListRefreshTests
     [Fact]
     public async Task ChangedPullRequests_GitHubApproval_IsListedRefreshOnly()
     {
-        var response = new Mock<IApiResponse<string>>();
-        response.SetupGet(r => r.Body).Returns("""
+        const string reply = """
             { "data": { "repository": { "pullRequests": { "pageInfo": { "hasNextPage": false, "endCursor": null }, "nodes": [
               { "url": "https://github.com/o/r/pull/1", "headRefName": "agent-smith/1", "isCrossRepository": false,
                 "latestReviews": { "nodes": [ { "state": "APPROVED", "submittedAt": "2026-10-08T11:00:00Z" },
@@ -100,14 +100,9 @@ public sealed class ChangedListRefreshTests
                 "latestReviews": { "nodes": [ { "state": "CHANGES_REQUESTED", "submittedAt": "2026-10-08T11:00:00Z" } ] } },
               { "url": "https://github.com/o/r/pull/3", "headRefName": "agent-smith/3", "isCrossRepository": false,
                 "latestReviews": { "nodes": [ { "state": "COMMENTED", "submittedAt": "2026-10-08T09:00:00Z" } ] } } ] } } } }
-            """);
-        var connection = new Mock<IConnection>();
-        connection.Setup(c => c.Post<string>(It.IsAny<Uri>(), It.IsAny<object>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(response.Object);
-        var client = new Mock<IGitHubClient>();
-        client.SetupGet(c => c.Connection).Returns(connection.Object);
+            """;
 
-        var page = await new GitHubChangedPullRequests(client.Object, GitHubRepoAddress.Parse("https://github.com/o/r")).ChangedSinceAsync(Since, null, 10, CancellationToken.None);
+        var page = await new GitHubChangedPullRequests(GitHubGraphQlHost.Replying(reply), GitHubRepoAddress.Parse("https://github.com/o/r")).ChangedSinceAsync(Since, null, 10, CancellationToken.None);
 
         page.Items.Select(i => (i.PrUrl, i.RefreshOnly)).Should().Equal(
             ("https://github.com/o/r/pull/1", true), ("https://github.com/o/r/pull/2", false));

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Providers.Source;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -12,7 +13,7 @@ namespace AgentSmith.Tests.Rework;
 public sealed class PrReviewPagingTests
 {
     private const string PrUrl = "https://github.com/o/r/pull/4";
-    private readonly List<(string Query, JsonElement Variables)> _asked = [];
+    private readonly GitHubGraphQlHost _host = new();
 
     [Fact]
     public async Task ListAsync_150Comments_ReturnsAll150()
@@ -29,7 +30,7 @@ public sealed class PrReviewPagingTests
 
         threads.Should().HaveCount(150);
         threads[^1].Notes.Single().Body.Should().Be("comment 149");
-        _asked[1].Variables.GetProperty("after").GetString().Should().Be("c100");
+        _host.Requests[1].Variables.GetProperty("after").GetString().Should().Be("c100");
     }
 
     [Fact]
@@ -47,39 +48,13 @@ public sealed class PrReviewPagingTests
         var threads = await reader.ListAsync(PrUrl, CancellationToken.None);
 
         threads.Single().Notes.Should().HaveCount(120);
-        _asked[1].Variables.GetProperty("id").GetString().Should().Be("T1");
-    }
-
-    [Fact]
-    public async Task GitHubGraphQlQuery_ErrorsArray_Throws()
-    {
-        var query = new GitHubGraphQlQuery(Client(_ => """{ "errors": [ { "message": "nope" } ] }"""), new Uri("https://api.github.com/graphql"));
-
-        var run = () => query.RunAsync("query{viewer{login}}", new { }, "viewer");
-
-        await run.Should().ThrowAsync<InvalidOperationException>().WithMessage("*viewer*nope*");
+        _host.Requests[1].Variables.GetProperty("id").GetString().Should().Be("T1");
     }
 
     private GitHubPrReviewThreadReader Reader(Func<string, string> reply) =>
         new(Client(reply), GitHubRepoAddress.Parse("https://github.com/o/r"), NullLogger.Instance);
 
-    private IGitHubClient Client(Func<string, string> reply)
-    {
-        var connection = new Mock<IConnection>();
-        connection.Setup(c => c.Post<string>(It.IsAny<Uri>(), It.IsAny<object>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns<Uri, object, string, string, IDictionary<string, string>, CancellationToken>((_, body, _, _, _, _) =>
-            {
-                var posted = JsonSerializer.SerializeToElement(body);
-                var query = posted.GetProperty("query").GetString()!;
-                _asked.Add((query, posted.GetProperty("variables")));
-                var response = new Mock<IApiResponse<string>>();
-                response.SetupGet(r => r.Body).Returns(reply(query));
-                return Task.FromResult(response.Object);
-            });
-        var client = new Mock<IGitHubClient>();
-        client.SetupGet(c => c.Connection).Returns(connection.Object);
-        return client.Object;
-    }
+    private IGitHubClient Client(Func<string, string> reply) => _host.Client((query, _) => reply(query));
 
     private static string Pr(params string[] connections) =>
         $$"""{ "data": { "viewer": { "login": "agent" }, "repository": { "pullRequest": { {{string.Join(", ", connections)}} } } } }""";

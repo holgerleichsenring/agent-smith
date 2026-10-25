@@ -21,12 +21,9 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, GitHubRepoAddr
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             throw new ArgumentException($"Not a GitHub pull request URL: {prUrl}", nameof(prUrl));
-        var response = await client.Connection.Post<string>(address.Api.GraphQl,
-            new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, number } }, "application/json", "application/json");
-        using var doc = JsonDocument.Parse(response.Body);
-        if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
-            throw new InvalidOperationException($"GitHub GraphQL refused the review-state query: {errors.GetRawText()}");
-        var pr = doc.RootElement.GetProperty("data").GetProperty("repository").GetProperty("pullRequest");
+        var data = await new GitHubGraphQlQuery(client, address.Api.GraphQl).RunAsync(
+            Query, new { owner = address.Owner, repo = address.Repo, number }, "review-state");
+        var pr = data.GetProperty("repository").GetProperty("pullRequest");
         var prAuthor = pr.TryGetProperty("author", out var a) && a.ValueKind == JsonValueKind.Object ? Str(a, "login") : null;
         return [.. pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
             .Where(n => Str(n, "state") == "CHANGES_REQUESTED" && Str(n, "submittedAt") is not null)

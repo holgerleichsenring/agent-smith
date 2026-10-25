@@ -25,12 +25,8 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             throw new ArgumentException($"Not a GitHub pull request URL: {prUrl}", nameof(prUrl));
-        var response = await client.Connection.Post<string>(address.Api.GraphQl,
-            new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, number } }, "application/json", "application/json");
-        using var doc = JsonDocument.Parse(response.Body);
-        if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
-            throw new InvalidOperationException($"GitHub GraphQL refused the pull-request state query: {errors.GetRawText()}");
-        var data = doc.RootElement.GetProperty("data");
+        var data = await new GitHubGraphQlQuery(client, address.Api.GraphQl).RunAsync(
+            Query, new { owner = address.Owner, repo = address.Repo, number }, "pull-request state");
         var viewer = data.TryGetProperty("viewer", out var v) && v.ValueKind == JsonValueKind.Object ? Str(v, "login") : null;
         var pr = data.GetProperty("repository").GetProperty("pullRequest");
         var author = pr.TryGetProperty("author", out var a) && a.ValueKind == JsonValueKind.Object ? Str(a, "login") : null;

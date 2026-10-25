@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Models;
 using System.Net;
 using AgentSmith.Infrastructure.Services.Providers.Source;
@@ -15,14 +16,7 @@ public sealed class PrReviewReaderTests
 {
     private static GitHubPrReviewThreadReader GitHub(string reply)
     {
-        var response = new Mock<IApiResponse<string>>();
-        response.SetupGet(r => r.Body).Returns(reply);
-        var connection = new Mock<IConnection>();
-        connection.Setup(c => c.Post<string>(It.IsAny<Uri>(), It.IsAny<object>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(response.Object);
-        var client = new Mock<IGitHubClient>();
-        client.SetupGet(c => c.Connection).Returns(connection.Object);
-        return new GitHubPrReviewThreadReader(client.Object, GitHubRepoAddress.Parse("https://github.com/o/r"), NullLogger.Instance);
+        return new GitHubPrReviewThreadReader(GitHubGraphQlHost.Replying(reply), GitHubRepoAddress.Parse("https://github.com/o/r"), NullLogger.Instance);
     }
 
     private const string GitHubReply = """
