@@ -179,7 +179,7 @@ Where tickets come from and how their workflow looks. The tracker owns the workf
 | Key | Description |
 |-----|-------------|
 | `type` | `github`, `gitlab`, `azure_devops`, `jira` |
-| `url` | GitHub: the repository whose issues are the tickets. Jira: the site. Azure DevOps: optional |
+| `url` | GitHub: the repository whose issues are the tickets. Jira: the site. Azure DevOps: optional, an Azure DevOps Server base such as `https://tfs.example.com/tfs` (the `organization` is its collection); empty or a cloud URL means `https://dev.azure.com/{organization}` |
 | `organization`, `project` | Azure DevOps organization and project. GitLab: `project` is the project path. Jira: `project` is the project key |
 | `auth` | name of an entry in `secrets:` |
 | `open_states` | states a ticket may be in to be picked up |

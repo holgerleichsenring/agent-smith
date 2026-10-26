@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
@@ -11,7 +12,6 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed class ConnectionRepoUrlBuilder : IConnectionRepoUrlBuilder
 {
-    private const string AzureDevOpsDefaultHost = "https://dev.azure.com";
     private const string GitHubDefaultHost = "https://github.com";
     private const string GitLabDefaultHost = "https://gitlab.com";
 
@@ -41,8 +41,7 @@ public sealed class ConnectionRepoUrlBuilder : IConnectionRepoUrlBuilder
     {
         RequireField(conn, conn.Organization, "organization");
         RequireField(conn, conn.Project, "project");
-        var host = Host(conn.Host, AzureDevOpsDefaultHost);
-        return $"{host}/{conn.Organization}/{Uri.EscapeDataString(conn.Project!)}/_git/{repoName}";
+        return $"{AzureDevOpsOrganizationUrl.For(conn.Host, conn.Organization!)}/{Uri.EscapeDataString(conn.Project!)}/_git/{repoName}";
     }
 
     private static string BuildGitHubUrl(ResolvedConnection conn, string repoName)

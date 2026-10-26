@@ -1,19 +1,20 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 
 /// <summary>
 /// 2026-10-02-5f89b: an Azure DevOps boards tracker draft — the same identity and project steps as
-/// the connection. The tracker always talks to dev.azure.com/{organization}.
+/// the connection, against the organization URL the provider uses (2026-10-26-cb25b).
 /// </summary>
 public sealed class AzureDevOpsTrackerDraftCheck(AzureDevOpsDraftSteps shared) : ITrackerDraftCheck
 {
     public TrackerType Type => TrackerType.AzureDevOps;
 
     public static string OrganizationUrl(TrackerConnection tracker) =>
-        $"https://dev.azure.com/{Uri.EscapeDataString(tracker.Organization ?? string.Empty)}";
+        AzureDevOpsOrganizationUrl.For(tracker.Url, tracker.Organization ?? string.Empty);
 
     public IAsyncEnumerable<DraftCheckStep> RunAsync(
         TrackerConnection tracker, string token, CancellationToken cancellationToken) =>

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Factories;
+using AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 
@@ -41,5 +42,20 @@ public sealed class TrackerConnectionsTests
         var act = () => _sut.GitLab(new TrackerConnection { Name = "gl", Type = TrackerType.GitLab, Auth = "gl_a" });
 
         act.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*'gl'*project*");
+    }
+
+    [Theory]
+    [InlineData(null, "https://dev.azure.com/org")]
+    [InlineData("https://dev.azure.com/org/project", "https://dev.azure.com/org")]
+    [InlineData("https://tfs.example.com/tfs", "https://tfs.example.com/tfs/org")]
+    public void TrackerConnections_AzureDevOps_UrlReachesProviderAndCheckAlike(string? url, string expected)
+    {
+        var tracker = new TrackerConnection
+        {
+            Name = "ado", Type = TrackerType.AzureDevOps, Url = url, Organization = "org", Project = "p", Auth = "jira",
+        };
+
+        _sut.AzureDevOps(tracker).OrganizationUrl.Should().Be(expected);
+        AzureDevOpsTrackerDraftCheck.OrganizationUrl(tracker).Should().Be(expected);
     }
 }

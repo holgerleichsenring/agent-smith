@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
@@ -29,8 +30,7 @@ public sealed class AzureDevOpsRepoDiscoveryProvider(
             throw new ConfigurationException(
                 $"Connection '{connection.Name}' (azure_devops) requires 'organization' and 'project' for discovery.");
 
-        var host = string.IsNullOrEmpty(connection.Host) ? "https://dev.azure.com" : connection.Host.TrimEnd('/');
-        var url = $"{host}/{connection.Organization}/{Uri.EscapeDataString(connection.Project)}" +
+        var url = $"{AzureDevOpsOrganizationUrl.For(connection.Host, connection.Organization)}/{Uri.EscapeDataString(connection.Project)}" +
                   "/_apis/git/repositories?api-version=7.1";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);

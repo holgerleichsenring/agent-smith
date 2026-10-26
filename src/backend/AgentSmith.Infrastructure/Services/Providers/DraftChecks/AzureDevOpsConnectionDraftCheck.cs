@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 
@@ -23,8 +24,7 @@ public sealed class AzureDevOpsConnectionDraftCheck(IDraftCheckHttp http, AzureD
             yield return DraftCheckStep.Fail(DraftCheckStep.Host, "The connection names no organization or project.");
             yield break;
         }
-        var host = string.IsNullOrWhiteSpace(connection.Host) ? "https://dev.azure.com" : connection.Host.TrimEnd('/');
-        var org = $"{host}/{Uri.EscapeDataString(connection.Organization)}";
+        var org = AzureDevOpsOrganizationUrl.For(connection.Host, connection.Organization);
         var project = Uri.EscapeDataString(connection.Project);
         await foreach (var step in shared.IdentityAndProjectAsync(org, connection.Project, token, cancellationToken))
             yield return step;

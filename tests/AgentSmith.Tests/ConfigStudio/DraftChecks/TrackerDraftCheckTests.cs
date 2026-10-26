@@ -101,4 +101,20 @@ public sealed class TrackerDraftCheckTests
         report.Steps[^1].Detail.Should().Be("1 open tickets.");
         host.Requests[^1].Body.Should().Contain("[System.State] IN (\\u0027Doing\\u0027)");
     }
+
+    [Fact]
+    public async Task TrackerDraftCheck_AzureDevOpsServer_TalksToTheConfiguredCollection()
+    {
+        const string collection = "https://tfs.example.com:8080/tfs/DefaultCollection";
+        var host = new ScriptedHostHandler()
+            .On($"{collection}/_apis/connectionData", 200, """{"authenticatedUser":{"providerDisplayName":"Bot"}}""")
+            .On($"{collection}/_apis/projects/proj", 200, """{"name":"proj"}""")
+            .On($"{collection}/proj/_apis/wit/wiql", 200, """{"workItems":[]}""");
+        var draft = new TrackerEntity("ado", "azure_devops", "gitlab_a", Url: "https://tfs.example.com:8080/tfs/",
+            Organization: "DefaultCollection", Project: "proj");
+
+        var report = await Trackers(host).RunAsync(draft, CancellationToken.None);
+
+        Keys(report).Should().Be("secret:ok,host:ok,identity:ok,scope:ok,tickets:ok");
+    }
 }
