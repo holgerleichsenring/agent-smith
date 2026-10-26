@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-0f19b
+goal: "A click on a spec dialog's Slack or Teams approval buttons answers the waiting confirmation whichever replica the platform delivers it to; a click on a question no longer open answers nothing."
+
+applies_to: "default (spec dialog: SpecDialogOutcomeConfirmer, SlackInteractionHandler, TeamsInteractionHandler)"
+
+requires: [2026-09-22-355b]
+
+facts:
+  - claim: "The confirmer waits on the dialogue transport, whose answers reach any replica (durable inbox plus the Redis stream); the buttons are a second input that a relay bridges onto that transport only when the asking replica's own adapter completes."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:44-75, src/backend/AgentSmith.Server/Services/Dialogue/DurableDialogueTransport.cs:20-35"
+  - claim: "The adapter's wait is an in-process TaskCompletionSource keyed by question id, so only the replica that posted the buttons knows the question is pending."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackAdapter.cs:35-61, src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionManager.cs:12-37, src/backend/AgentSmith.Server/Services/Adapters/TeamsAdapter.cs:27-50"
+  - claim: "A click delivered to another replica fails HasPendingTypedQuestion, falls to the chat-run router, finds no run bound to the thread and is logged 'matches no open run'; the confirmation times out after fifteen minutes."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:63-95, src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs:79-104, tests/AgentSmith.Tests/SpecDialog/CrossReplicaButtonAnswerTests.cs:31-44 (SlackClick_OnAReplicaThatDidNotAsk: TimeoutException)"
+  - claim: "Interactions arrive on an HTTP endpoint every replica serves; the payload carries the channel and the thread, and the open spec-dialog session of a thread is read from the database."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SlackEndpoints.cs:69-83, src/backend/AgentSmith.Server/Extensions/TeamsEndpoints.cs:123-145, src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:99-102, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:55-58"
+  - claim: "SlackInteractionHandler is in the file-length baseline at 123 lines and may not grow."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+scope:
+  in: >
+    IOpenDialogQuestions (Server Contracts) with a Redis implementation: the confirmer opens its question for
+    the session with the confirmation timeout as expiry before posting the buttons and closes it in its
+    finally. SpecDialogButtonAnswer resolves a click no local adapter is waiting for: the thread's open session,
+    the question open for it, and the answer published on the dialogue transport. Slack and Teams interaction
+    handlers try the local adapter, then SpecDialogButtonAnswer, then the chat-run router as today; the Slack
+    message is updated only when an answer was delivered.
+  out: >
+    A TYPED reply delivered to another replica: SpecDialogPendingQuestions and SpecDialogTurnGate are per
+    process, so that replica appends the reply as a new message and can start a second turn of the same
+    session. Proven (CrossReplicaButtonAnswerTests.TextReply case, kept out of the suite) and left to a named
+    follow-up, spec-dialog turn state shared across replicas, because it moves the pending question, the turn
+    gate and the turn clock together. The design master's own ask_human questions carry no buttons.
+
+decisions:
+  - key: "AN OPEN-QUESTION RECORD, NOT A BLIND PUBLISH. Publishing every click onto the thread's session would mark a long-expired question's message as answered while nothing consumed it; the record says the question is still awaited."
+  - key: "THE LOCAL ADAPTER STAYS FIRST. The replica that asked completes its own wait as today; the shared path is only the fallback, so a single-replica install takes no new round trip on the common click."
+
+steps:
+  - id: proof
+    action: "CrossReplicaButtonAnswerTests.SlackClick case red."
+  - id: record
+    action: "IOpenDialogQuestions + RedisOpenDialogQuestions + tests over FakeRedisStreams; the confirmer opens and closes it."
+  - id: handlers
+    action: "SpecDialogButtonAnswer; both interaction handlers use it after the local adapter; DI."
+  - id: verify
+    action: "dotnet build; CrossReplicaButtonAnswerTests, ChatRunInteractionTests, OutcomeShapeOfferTests, SpecDialogRoutingTests, FileLengthRatchetTests."
+
+tests:
+  - "SlackClick_OnAReplicaThatDidNotAsk_AnswersTheWaitingConfirmation"
+  - "TeamsCard_OnAReplicaThatDidNotAsk_AnswersTheWaitingConfirmation"
+  - "SlackClick_OnAClosedQuestion_AnswersNothing"
+  - "RedisOpenDialogQuestions_OpenThenClose_IsOpenOnlyBetween"
+
+done:
+  - "A Slack click and a Teams card submit delivered to a replica that did not ask approve the confirmation waiting on another."
+  - "A click on a question whose confirmation ended publishes no answer and leaves the message as it is."
+  - "Build green, full suite green, dashboard gen/test/build green."
