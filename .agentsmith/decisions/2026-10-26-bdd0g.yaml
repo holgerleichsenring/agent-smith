@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0g
+
+decisions:
+  - category: Implementation
+    chose: "derive_specs for any bound turn whose poster may start runs"
+    over: "Only the steward's turns, which need an earlier attempt"
+    reason: "A derivation starts no attempt, so it needs none before it; the launcher's refusals (a run holds the ticket, an attempt waits or is queued) cover the rest and are said in the conversation as they are."
+  - category: Implementation
+    chose: "A port of its own, ISpecDerivationStart, seeded beside start_next_attempt's and launched in a scope of its own"
+    over: "Widening IAttemptStart"
+    reason: "Starting an attempt and deriving specs have different preconditions and answers; one port each keeps a turn from being offered a tool it cannot use."
+  - category: Scope
+    chose: "No skills-catalog change"
+    over: "Prompt text in the steward and design partner skills"
+    reason: "The tool describes itself; the catalog pin stays where it is."

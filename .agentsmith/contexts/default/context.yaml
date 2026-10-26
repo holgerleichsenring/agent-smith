@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-26-bdd0g: "DERIVE_SPECS TOOL (ISpecDerivationStart, ConversationSpecDerivation, TicketActToolsFactory). A bound turn whose poster may start runs gets derive_specs (branch or preview); it starts the derivation through the launcher and says started or why not. -> .agentsmith/specs/done/2026-10-26-bdd0g-derivation-conversation-tool.yaml"
     2026-10-26-bdd0f: "DERIVATIONS ON THE TICKET PAGE (TicketDerivations, detail reader; dashboard SpecDerivations, DeriveSpecsAct). Each derivation apart from the attempts: when, how long, its sentence and spec PRs; Derive specs (branch or preview) in the header, Derive again; a filed never-run ticket shows them. -> .agentsmith/specs/done/2026-10-26-bdd0f-derivation-ticket-page.yaml"
     2026-10-26-bdd0e: "DERIVE SPECS ENDPOINT (SpecDerivationLauncher, DerivationRunRepository, route baseline). POST /api/tickets/{project}/{ticketId}/derive-specs, runs.control: the ticket's lease taken for the whole run, no claim or taken record; refused while held, waiting or queued; start refreshes the page. -> .agentsmith/specs/done/2026-10-26-bdd0e-derivation-launch-endpoint.yaml"
     2026-10-26-bdd0d: "DERIVATION PREVIEW (SpecSetPublisher, review revision, cut and notice comments, SpecGate). With the preview flag the set is placed, cached and announced but not written, no PR, no ticket comment; every derivation ends on a sentence saying where its specs are. -> .agentsmith/specs/done/2026-10-26-bdd0d-derivation-preview-mode.yaml"
@@ -1341,7 +1342,6 @@ state:
     2026-10-26-0f19b: "APPROVAL BUTTONS ON ANY REPLICA (SpecDialogOutcomeConfirmer, Slack/Teams interaction handlers, RedisOpenDialogQuestions). A click on a replica that did not ask answers the open confirmation via the thread's session and the dialogue transport; a closed question answers nothing. -> .agentsmith/specs/done/2026-10-26-0f19b-dialog-button-any-replica.yaml"
   active: {}
   planned:
-    2026-10-26-bdd0g: "DERIVE_SPECS TOOL (bound conversation). A poster who may start runs asks for a derivation in the ticket's conversation. -> .agentsmith/specs/planned/2026-10-26-bdd0g-derivation-conversation-tool.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"
