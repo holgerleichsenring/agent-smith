@@ -22,7 +22,7 @@ public sealed class UnansweredQuestionNotice(
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(unanswered);
-        if (tracker is null) return;
+        if (tracker is null || pipeline.Flag(ContextKeys.SpecDerivationPreview)) return; // bdd0d: a preview says nothing
         if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null) return;
         // An inline ticket exists only on this run — there is nothing to comment on.
         if (pipeline.Has(ContextKeys.InlineTicket)) return;

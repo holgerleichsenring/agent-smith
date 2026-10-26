@@ -44,6 +44,12 @@ public sealed class SpecSetPublisher(
             return CommandResult.Fail($"Spec {set.Key} cannot be written: {refused}");
         PublishToContext(pipeline, placement);
         await CacheForViewerAsync(pipeline, placement.Set, cancellationToken);
+        // 2026-10-26-bdd0d: a preview is recorded on the run and written nowhere else.
+        if (pipeline.Flag(ContextKeys.SpecDerivationPreview))
+        {
+            await announcer.AnnounceAsync(pipeline, placement.Set, committed: false, cancellationToken);
+            return CommandResult.Ok($"Spec {set.Key} derived as a preview: {placement.Set.Specs.Count} spec(s), nothing written");
+        }
 
         var write = await writer.WriteAsync(pipeline, placement, cancellationToken);
         await announcer.AnnounceAsync(pipeline, placement.Set, write.Written, cancellationToken);

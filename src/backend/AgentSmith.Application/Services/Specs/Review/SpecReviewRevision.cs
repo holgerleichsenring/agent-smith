@@ -31,7 +31,7 @@ public sealed class SpecReviewRevision(ISpecSetPublisher publisher)
         };
         var before = Sha(pipeline);
         var result = await publisher.PublishAsync(pipeline, Project(pipeline), Scope(pipeline), revised, [], ct);
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess || pipeline.Flag(ContextKeys.SpecDerivationPreview)) return result; // bdd0d: a preview writes no branch
         return Sha(pipeline) is { } after && after != before
             ? result
             : CommandResult.Fail($"Spec {set.Key} revision {set.Revisions.Count + 1} ({cause}) was not written to "

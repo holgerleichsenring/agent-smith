@@ -111,6 +111,9 @@ public sealed class PipelineRunner(IServiceProvider services)
 
     public string? FailedStatus { get; set; }
 
+    /// <summary>2026-10-26-bdd0d: request-context entries a launcher would carry, seeded as they are.</summary>
+    public Dictionary<string, object> RequestContext { get; } = new(StringComparer.Ordinal);
+
     /// <summary>
     /// p0326: seeds ContextKeys.InlineTicket INSTEAD of the stub TicketId,
     /// mirroring the demo's PipelineRequest shape (trackerless run) so the
@@ -257,6 +260,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             pipeline.Set(ContextKeys.NeedsClarificationStatus, NeedsClarificationStatus);
         if (DoneStatus is not null) pipeline.Set(ContextKeys.DoneStatus, DoneStatus);
         if (FailedStatus is not null) pipeline.Set(ContextKeys.FailedStatus, FailedStatus);
+        foreach (var (key, value) in RequestContext) pipeline.Set(key, value);
         pipeline.Set(ContextKeys.SourceFilePath, SourceFilePathOverride ?? CreateLegalStubFile());
         pipeline.Set(ContextKeys.SwaggerPath, SwaggerPathOverride ?? "https://stub.test/swagger.json");
         pipeline.Set(ContextKeys.ApiTarget, ApiTargetOverride ?? "https://stub.test");

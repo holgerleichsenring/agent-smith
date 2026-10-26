@@ -32,7 +32,8 @@ public sealed class SpecSetTicketCommenter(
         PipelineContext pipeline, TrackerConnection? tracker, SpecSet set, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(set);
-        if (tracker is null || set.Specs.Count == 0) return;
+        // 2026-10-26-bdd0d: a preview says nothing on the ticket.
+        if (tracker is null || set.Specs.Count == 0 || pipeline.Flag(ContextKeys.SpecDerivationPreview)) return;
         if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null) return;
         // An inline ticket exists only on this run — there is nothing to comment on.
         if (pipeline.Has(ContextKeys.InlineTicket)) return;

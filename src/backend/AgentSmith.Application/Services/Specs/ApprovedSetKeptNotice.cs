@@ -42,7 +42,7 @@ public sealed class ApprovedSetKeptNotice(
         if (body is null) return false;
         // The run's own record of it, whether or not a tracker is reachable.
         await decisions.LogAsync(null, DecisionCategory.Implementation, body, ct, "spec-set");
-        if (tracker is null) return false;
+        if (tracker is null || pipeline.Flag(ContextKeys.SpecDerivationPreview)) return false; // bdd0d: a preview says nothing
         if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null) return false;
         // An inline ticket exists only on this run — there is nothing to comment on.
         if (pipeline.Has(ContextKeys.InlineTicket)) return false;
