@@ -1,5 +1,7 @@
 # Stage 1: Build
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# 2026-10-26-9849: the SDK stage runs on the runner's own platform. The output is portable IL
+# (both native RIDs bundled), so it serves every target; under QEMU the arm64 compile took 16 min.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy project files for restore (layer caching)

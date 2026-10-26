@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-9849
+
+decisions:
+  - category: Infrastructure
+    chose: "Run the SDK stage on $BUILDPLATFORM and keep one QEMU runner"
+    over: "Split each image across native amd64 and arm64 runners and join the digests, as the browser image does"
+    reason: "Nearly all of the emulated time was the compile; the runtime stages under QEMU take seconds. One line per Dockerfile removes the cost without a second job, digest artifacts and a manifest step per image."
+  - category: Infrastructure
+    chose: "Leave python-fetch, launcher and the runtime stages on the target platform"
+    over: "Moving every stage to the build platform"
+    reason: "python-fetch runs the fetched python3 and the launcher is compiled by the target's gcc; both need the target platform and cost seconds."

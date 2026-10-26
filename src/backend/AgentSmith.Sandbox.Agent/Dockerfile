@@ -5,8 +5,10 @@
 # main toolchain container then executes. This image SHIPS NO TOOLCHAIN.
 # See docs/concepts/sandbox-agent.md for the init-container injection pattern.
 
-# Stage 1: build the self-contained binary
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Stage 1: build the self-contained binary. 2026-10-26-9849: on the runner's own platform,
+# cross-publishing for TARGETARCH by RID (no AOT, so no native toolchain for the target is
+# needed); build-musl inherits it. Under QEMU the two arm64 publishes took 3.5 min.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 WORKDIR src
 
