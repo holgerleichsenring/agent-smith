@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-7000a
+goal: "Each spec derivation line on the ticket page says what it cost, written as an attempt's cost is, with so far while it runs."
+
+applies_to: "dashboard (SpecDerivations)"
+
+facts:
+  - claim: "A derivation is its own run with its own pipeline name; its LLM calls add to that run's CostTotalUsd."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:18, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunLlmCallProjection.cs:35, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:33"
+  - claim: "The detail sends each derivation's run cost; the dashboard types it."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDerivations.cs:37-38, src/backend/AgentSmith.Server/Models/TicketDerivationView.cs:8-10, src/dashboard/src/types/tickets.ts:273-283"
+  - claim: "The derivation line shows when it started and how long it took, never its cost."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecDerivations.tsx:23, src/dashboard/src/components/tickets/detail/SpecDerivations.tsx:43-47"
+  - claim: "An attempt's cost is written with money() and 'so far' while live."
+    evidence: "src/dashboard/src/components/tickets/ticketFormat.ts:17-19, src/dashboard/src/components/tickets/detail/AttemptCard.tsx:77"
+
+scope:
+  in: "SpecDerivations: the line reads 'Spec derivation · {clock} · {n} min · {money(cost)}', with ' so far' on a running one; a test id on the cost."
+  out: "Cost totals (2026-10-26-7000b) and the Delivery figures (2026-10-26-7000c)."
+
+decisions:
+  - key: "THE ATTEMPT'S FORMATTER. money() from ticketFormat, the one the attempt card and cost rows use, so a derivation and an attempt read alike."
+
+steps:
+  - id: row
+    action: "Test first, then the cost on the line."
+
+tests:
+  - "dashboard: SpecDerivations shows each derivation's cost, so far while running"
+
+done:
+  - "A person sees on the ticket page what each derivation cost."
+  - "Dashboard test and build green, full suite green."
+  - "Upgrade impact: nothing; the field was already sent."
+  - "Proven live: not yet; tests prove the rendering, a live check is one derivation's line showing the run's cost from the run list."

@@ -1352,6 +1352,9 @@ state:
     2026-10-26-0f19b: "APPROVAL BUTTONS ON ANY REPLICA (SpecDialogOutcomeConfirmer, Slack/Teams interaction handlers, RedisOpenDialogQuestions). A click on a replica that did not ask answers the open confirmation via the thread's session and the dialogue transport; a closed question answers nothing. -> .agentsmith/specs/done/2026-10-26-0f19b-dialog-button-any-replica.yaml"
   active: {}
   planned:
+    2026-10-26-7000a: "Derivation line on the ticket page shows its run cost. -> .agentsmith/specs/planned/2026-10-26-7000a-derivation-row-cost.yaml"
+    2026-10-26-7000b: "Cost & compute total and counter include spec derivations on their own line. -> .agentsmith/specs/planned/2026-10-26-7000b-ticket-cost-derivations.yaml"
+    2026-10-26-7000c: "Delivery Spend, cost per merged PR and agent hours include spec derivations; attempt figures stay code-only. -> .agentsmith/specs/planned/2026-10-26-7000c-delivery-spend-derivations.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"

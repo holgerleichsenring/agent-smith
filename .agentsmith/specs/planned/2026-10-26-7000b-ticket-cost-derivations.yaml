@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-7000b
+goal: "The ticket page's Cost & compute total and tab counter include the ticket's spec derivations, shown on a Spec derivations line of their own; attempt rows stay attempts."
+
+applies_to: "dashboard (CostSection, TicketCostTab, ticketTabTable, costScale)"
+
+requires: [2026-10-26-7000a]
+
+facts:
+  - claim: "The detail builds attempts from code runs only and lists derivations apart, each with its run cost."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:38-39, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:64-68, src/backend/AgentSmith.Server/Services/Tickets/TicketDerivations.cs:21-22"
+  - claim: "The Cost section's total is the sum of attempt costs and it draws one row per attempt."
+    evidence: "src/dashboard/src/components/tickets/detail/CostSection.tsx:21, src/dashboard/src/components/tickets/detail/CostSection.tsx:36-71"
+  - claim: "The Cost & compute tab counter sums attempt costs again, a second copy of the total."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketTabTable.ts:62-65"
+  - claim: "The tab passes only the attempts to the Cost section; the derivations are in the detail."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketCostTab.tsx:27, src/dashboard/src/components/tickets/detail/TicketCostTab.tsx:40, src/dashboard/src/types/tickets.ts:285-292"
+  - claim: "The ticket's total is computed in the dashboard; the summary's cost (the list row) is the code runs' sum, read from code runs only."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:43, src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:26-27, src/dashboard/src/components/tickets/TicketRow.tsx:63"
+
+scope:
+  in: >
+    costScale.ts: ticketCost(attempts, derivations), the one sum both the section and the counter use. CostSection
+    takes the derivations: a 'Spec derivations' row after the attempt rows (count, 'not attempts', their summed
+    cost, no bar), and the 'all' total includes them. TicketCostTab passes detail.derivations; the counter uses
+    ticketCost. The attempt rows, the cost scale and the Compute section are unchanged.
+  out: >
+    The ticket list row's cost (TicketSummaryComposer over TicketListQuery's code runs), which needs the list read to
+    carry derivation costs: a follow-up that makes the list row and the header sum the same runs. The Compute
+    section's pods of a derivation. The series budget (SeriesRunway), which caps a chain of attempts by design.
+
+decisions:
+  - key: "ONE SUM. The counter and the total were two copies; both read ticketCost now."
+  - key: "NO BAR. The bars share one scale of attempt costs and run caps; a summed line of several runs has neither."
+
+steps:
+  - id: cost
+    action: "Tests first (row, total, counter), then ticketCost, the row and the counter."
+
+tests:
+  - "dashboard: Cost tab shows a Spec derivations line and the total includes it; the counter matches"
+  - "dashboard: ticketTabs cost counter includes derivations"
+
+done:
+  - "A person reads on Cost & compute what the ticket cost in all, derivations included, and which part they were."
+  - "Dashboard test and build green, full suite green."
+  - "Upgrade impact: nothing."
+  - "Proven live: not yet; a live check is a ticket with a derivation whose tab total equals its runs' costs in the run list."
