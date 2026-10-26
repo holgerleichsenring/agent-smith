@@ -86,6 +86,30 @@ public sealed class DeliveryScopeTests(ProjectScopeAuthorityFixture fixture) : I
         bucket.Should().NotBeNull().And.Be(listed);
     }
 
+    /// <summary>2026-10-26-7000c: a derivation's cost reaches the caller's Spend and its ticket's row, never as an attempt, and another project's never.</summary>
+    [Fact]
+    public async Task Delivery_BootedScopedCaller_SpendHasItsDerivations_NotAnotherProjects()
+    {
+        var before = Current(await ReadAsync(AlphaTeam, "/api/delivery?period=day"));
+        var at = DateTimeOffset.UtcNow.AddHours(-1);
+        await fixture.SeedAsync(async db =>
+        {
+            Add(db, "alpha", "D-10", at);
+            Add(db, "alpha", "D-10", at.AddMinutes(20), "spec-derive", 2m);
+            Add(db, "beta", "D-11", at.AddMinutes(20), "spec-derive", 7m);
+            await db.SaveChangesAsync();
+        });
+
+        var root = await ReadAsync(AlphaTeam, "/api/delivery?period=day");
+        var after = Current(root);
+
+        (after.GetProperty("spendUsd").GetDecimal() - before.GetProperty("spendUsd").GetDecimal()).Should().Be(3.5m);
+        (after.GetProperty("attempts").GetInt32() - before.GetProperty("attempts").GetInt32()).Should().Be(1);
+        var row = root.GetProperty("tickets").EnumerateArray().Single(t => t.GetProperty("ticketId").GetString() == "D-10");
+        row.GetProperty("costUsd").GetDecimal().Should().Be(3.5m);
+        row.GetProperty("attempts").GetArrayLength().Should().Be(1);
+    }
+
     [Fact]
     public async Task Delivery_UnknownPeriod_Is400()
     {
@@ -101,11 +125,14 @@ public sealed class DeliveryScopeTests(ProjectScopeAuthorityFixture fixture) : I
             await db.SaveChangesAsync();
         });
 
-    private static void Add(AgentSmithDbContext db, string project, string ticket, DateTimeOffset at) => db.Add(new Run
+    private static void Add(
+        AgentSmithDbContext db, string project, string ticket, DateTimeOffset at, string pipeline = "code", decimal cost = 1.5m) => db.Add(new Run
     {
-        Id = RunIdGenerator.Generate(at), Project = project, Pipeline = "code", TicketId = ticket, Status = "success",
-        StartedAt = at, FinishedAt = at.AddMinutes(10), DurationSeconds = 600, CostTotalUsd = 1.5m,
+        Id = RunIdGenerator.Generate(at), Project = project, Pipeline = pipeline, TicketId = ticket, Status = "success",
+        StartedAt = at, FinishedAt = at.AddMinutes(10), DurationSeconds = 600, CostTotalUsd = cost,
     });
+
+    private static JsonElement Current(JsonElement root) => root.GetProperty("current");
 
     private async Task<JsonElement> ReadAsync(string group, string path)
     {

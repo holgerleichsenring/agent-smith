@@ -5,7 +5,7 @@ namespace AgentSmith.Server.Models;
 /// </summary>
 /// <param name="Projects">The projects the caller may read, for the filter chips.</param>
 /// <param name="Slots">The figures per slot of the period, oldest first.</param>
-/// <param name="Truncated">The read hit its ceiling; the oldest attempts, the previous period's first, are missing.</param>
+/// <param name="Truncated">A read hit its ceiling; the oldest attempts or spec derivations, the previous period's first, are missing.</param>
 public sealed record DeliveryView(
     string Period,
     DateTimeOffset From,

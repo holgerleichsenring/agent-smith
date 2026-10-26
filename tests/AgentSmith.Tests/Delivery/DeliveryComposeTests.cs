@@ -97,8 +97,8 @@ public sealed class DeliveryComposeTests
         var open = new DeliveryTicket("alpha", "T-2", [Attempt(Id(T), "alpha", "T-2", cost: 2m)], null);
         var calculator = new DeliveryFiguresCalculator();
 
-        var figures = calculator.Of([merged, open]);
-        var none = calculator.Of([]);
+        var figures = calculator.Of([merged, open], []);
+        var none = calculator.Of([], []);
 
         (figures.TicketsWorked, figures.Attempts, figures.Merged).Should().Be((2, 3, 1));
         figures.MergeRate.Should().Be(0.5);
@@ -106,6 +106,47 @@ public sealed class DeliveryComposeTests
         figures.ReworkPerTicket.Should().Be(0.5);
         (figures.SpendUsd, figures.CostPerMergedUsd).Should().Be((8m, 8m));
         (none.MergeRate, none.MedianTimeToMergeSeconds, none.ReworkPerTicket, none.CostPerMergedUsd).Should().Be((null, null, null, null));
+    }
+
+    /// <summary>2026-10-26-7000c: a derivation's cost and time count in what the span spent, never as an attempt.</summary>
+    [Fact]
+    public void DeliveryFigures_Derivation_CountsInSpendAndCostPerMerged_NotInAttempts()
+    {
+        var merged = new DeliveryTicket("alpha", "T-1", [Attempt(Id(T), "alpha", "T-1", cost: 4m)], T.AddHours(4));
+        var open = new DeliveryTicket("alpha", "T-2", [Attempt(Id(T), "alpha", "T-2", cost: 2m)], null);
+        DeliveryDerivation[] derivations = [Derivation("alpha", "T-1", 1.5m, 120), Derivation("alpha", "T-9", 0.5m, 30)];
+
+        var was = new DeliveryFiguresCalculator().Of([merged, open], []);
+        var now = new DeliveryFiguresCalculator().Of([merged, open], derivations);
+
+        (was.SpendUsd, was.CostPerMergedUsd, was.AgentSeconds).Should().Be((6m, 6m, 120d));
+        (now.SpendUsd, now.CostPerMergedUsd, now.AgentSeconds).Should().Be((8m, 8m, 270d));
+        (now.TicketsWorked, now.Attempts, now.Merged, now.MergeRate, now.ReworkPerTicket)
+            .Should().Be((was.TicketsWorked, was.Attempts, was.Merged, was.MergeRate, was.ReworkPerTicket));
+        new DeliveryProjectRows(new DeliveryFiguresCalculator()).Of([merged, open], derivations)
+            .Should().ContainSingle().Which.CostPerMergedUsd.Should().Be(8m);
+    }
+
+    [Fact]
+    public void DeliveryTicketViews_TicketsDerivation_AddsToItsCostAndAgentTime()
+    {
+        var ticket = new DeliveryTicket("alpha", "T-1", [Attempt(Id(T), "alpha", "T-1", cost: 4m)], null);
+
+        var view = new DeliveryTicketViews().Of([ticket], [Derivation("alpha", "T-1", 1.5m, 120), Derivation("beta", "T-1", 9m, 900)],
+            new Dictionary<(string, string), string>(), T.AddHours(1)).Single();
+
+        (view.CostUsd, view.AgentSeconds).Should().Be((5.5m, 180d));
+        view.Attempts.Should().ContainSingle("a derivation is no bar on the timeline");
+    }
+
+    [Fact]
+    public void DeliveryAttemptOutcome_Derivation_CountsTheAttemptsSeconds()
+    {
+        var now = T.AddMinutes(30);
+
+        _outcome.Derivation(Row("d1", "running", finished: false), now).Seconds.Should().Be(1800);
+        _outcome.Derivation(Row("d2", "queued", finished: false), now).Seconds.Should().Be(0);
+        _outcome.Derivation(Row("d3", "success"), now).Should().Be(new DeliveryDerivation("d3", "alpha", "T-1", 1m, 600));
     }
 
     [Fact]
@@ -152,6 +193,9 @@ public sealed class DeliveryComposeTests
     private static DeliveryAttempt Attempt(string id, string project, string ticket, decimal cost = 1m, bool rework = false) =>
         new(new DeliveryAttemptRow(id, project, ticket, null, "success", null, ParseId(id), null, 60, cost, null),
             "delivered", "success", rework, 60, 0, 0, [], []);
+
+    private static DeliveryDerivation Derivation(string project, string ticket, decimal cost, double seconds) =>
+        new(Id(T.AddMinutes(5)), project, ticket, cost, seconds);
 
     private static DateTimeOffset ParseId(string id) => DateTimeOffset.ParseExact(
         id[..19], "yyyy-MM-ddTHH-mm-ss", System.Globalization.CultureInfo.InvariantCulture,

@@ -8,6 +8,7 @@ namespace AgentSmith.Server.Services.Delivery;
 /// run is running; an ended one is read from its EndKind first (the producer's own classification), then from its
 /// status. Rework is the three acts a person asks for a change with; a queued or waiting attempt counts no agent
 /// time it has not recorded.
+/// <para>2026-10-26-7000c: a spec derivation counts its seconds by the same rule.</para>
 /// </summary>
 public sealed class DeliveryAttemptOutcome
 {
@@ -27,6 +28,9 @@ public sealed class DeliveryAttemptOutcome
             row.CauseChannel is { } channel && ReworkChannels.Contains(channel), SecondsOf(row, outcome, now),
             ordered.Count(s => s.Status == SpecDone), ordered.Count, [.. ordered.Select(s => s.Title)], repos);
     }
+
+    public DeliveryDerivation Derivation(DeliveryAttemptRow row, DateTimeOffset now) =>
+        new(row.RunId, row.Project, row.TicketId, row.CostUsd, SecondsOf(row, OutcomeOf(row), now));
 
     private static string OutcomeOf(DeliveryAttemptRow row)
     {

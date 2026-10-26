@@ -10,6 +10,8 @@ namespace AgentSmith.Server.Services.Delivery;
 /// filtered to the caller's projects in the query and bounded by <see cref="Ceiling"/>; their specs and changed
 /// repositories are read for the attempts kept. The ticket list's own scoped read gives each ticket's bucket and its
 /// pull-request records, so a row never disagrees with the Tickets page. Every span is then counted in memory.
+/// <para>2026-10-26-7000c: the window's spec derivations are read once beside them, scoped and bounded alike, and
+/// each span's are counted in its cost and agent time, never as attempts.</para>
 /// </summary>
 public sealed class DeliveryReader(
     DeliveryAttemptRepository attemptRows,
@@ -30,14 +32,25 @@ public sealed class DeliveryReader(
         DeliveryWindow window, ProjectScope scope, IReadOnlyList<string> chips, CancellationToken ct)
     {
         var (attempts, truncated) = await AttemptsAsync(window, scope, ct);
+        var (derivations, derivationsTruncated) = await DerivationsAsync(window, scope, ct);
         var list = await ticketList.AllAsync(scope, ct);
         IReadOnlyList<DeliveryTicket> In(DeliverySpan span) => composer.Compose(attempts, span, list.PrRecords);
-        var current = In(window.Current);
+        IReadOnlyList<DeliveryDerivation> DerivedIn(DeliverySpan span) => [.. derivations.Where(d => span.Holds(d.RunId))];
+        var (current, derived) = (In(window.Current), DerivedIn(window.Current));
         var buckets = list.Runs.ToDictionary(t => (t.Summary.Project, t.Summary.TicketId), t => t.Summary.Bucket);
         return new DeliveryView(
             window.Period, window.Current.Start, window.Current.End, chips,
-            figures.Of(current), figures.Of(In(window.Previous)), [.. window.Slots.Select(s => figures.Of(In(s)))],
-            causes.Of(current), projects.Of(current), views.Of(current, buckets, clock.GetUtcNow()), truncated);
+            figures.Of(current, derived), figures.Of(In(window.Previous), DerivedIn(window.Previous)),
+            [.. window.Slots.Select(s => figures.Of(In(s), DerivedIn(s)))], causes.Of(current), projects.Of(current, derived),
+            views.Of(current, derived, buckets, clock.GetUtcNow()), truncated || derivationsTruncated);
+    }
+
+    private async Task<(IReadOnlyList<DeliveryDerivation> Derivations, bool Truncated)> DerivationsAsync(
+        DeliveryWindow window, ProjectScope scope, CancellationToken ct)
+    {
+        var read = await attemptRows.DerivationsAsync(scope, window.Previous.FromKey, window.Current.ToKey, Ceiling, ct);
+        var now = clock.GetUtcNow();
+        return ([.. read.Rows.Select(r => outcomes.Derivation(r, now))], read.Truncated);
     }
 
     private async Task<(IReadOnlyList<DeliveryAttempt> Attempts, bool Truncated)> AttemptsAsync(

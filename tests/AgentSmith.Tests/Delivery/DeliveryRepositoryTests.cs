@@ -79,6 +79,36 @@ public sealed class DeliveryRepositoryTests : IDisposable
         sql.Should().Contain("LEFT JOIN").And.Contain("[r].[Id] >= @");
     }
 
+    /// <summary>2026-10-26-7000c: the spec derivations of the window, read apart from the attempts, in the caller's projects before the ceiling.</summary>
+    [Fact]
+    public async Task DeliveryDerivations_Window_ReadsOnlySpecDeriveTicketRunsInScope()
+    {
+        var inside = Seed("alpha", T.AddHours(1), pipeline: "spec-derive");
+        Seed("alpha", T.AddHours(2));
+        Seed("alpha", T.AddDays(1), pipeline: "spec-derive");
+        Seed("alpha", T.AddHours(3), pipeline: "spec-derive", ticket: "");
+        for (var i = 0; i < 3; i++) Seed("beta", T.AddHours(4 + i), pipeline: "spec-derive");
+
+        var read = await DerivationsAsync(ProjectScope.Of(["alpha"]), ceiling: 2);
+
+        read.Rows.Select(r => r.RunId).Should().Equal([inside], "beta's newer derivations are not the caller's ceiling");
+        read.Truncated.Should().BeFalse();
+        (await DerivationsAsync(ProjectScope.Everything, ceiling: 2)).Truncated.Should().BeTrue();
+        (await ReadAsync(ProjectScope.Everything)).Rows.Should().ContainSingle("a derivation is not an attempt");
+    }
+
+    [Fact]
+    public void DeliveryDerivations_SqlServer_FiltersTheScopeInTheQuery()
+    {
+        var options = new DbContextOptionsBuilder<AgentSmithDbContext>()
+            .UseSqlServer("Server=localhost;Database=x;TrustServerCertificate=True").Options;
+        using var ctx = new AgentSmithDbContext(options);
+
+        var sql = ctx.Runs.AsNoTracking().DerivationsInWindow(ProjectScope.Of(["alpha"]), From, To).Select(r => r.Id).ToQueryString();
+
+        sql.Should().Contain("[r].[Id] >= @").And.Contain("[r].[Project] = @").And.Contain("[r].[Pipeline] = @");
+    }
+
     [Fact]
     public async Task DeliveryWork_SpecsAndChangedRepos_OfWindowRunsOnly()
     {
@@ -139,6 +169,12 @@ public sealed class DeliveryRepositoryTests : IDisposable
     {
         await using var ctx = Context();
         return await new DeliveryAttemptRepository(ctx).ReadAsync(scope, From, To, ceiling, CancellationToken.None);
+    }
+
+    private async Task<DeliveryAttemptRead> DerivationsAsync(ProjectScope scope, int ceiling = 100)
+    {
+        await using var ctx = Context();
+        return await new DeliveryAttemptRepository(ctx).DerivationsAsync(scope, From, To, ceiling, CancellationToken.None);
     }
 
     private string Seed(string project, DateTimeOffset at, string pipeline = "code", string ticket = "T-1", string? cause = null)
