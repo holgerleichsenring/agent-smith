@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0g
+goal: "In a ticket's bound conversation, a poster who may start runs gets a derive_specs tool that starts a spec derivation on the person's word and answers started or why not."
+
+applies_to: "default (BoundTicketReaders, SpecDialogTurnSeeds, TicketActToolsFactory, Contracts.Dialogue)"
+
+requires: [2026-10-26-bdd0e]
+
+facts:
+  - claim: "A bound turn's ticket acts are ports seeded into the turn: start_next_attempt only for a poster who may start runs and a ticket with an attempt."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundAttemptStarts.cs:15-26, src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketReaders.cs:61-75, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:82"
+  - claim: "The master's ticket tools are built from those ports, and the steward keeps every tool but a fixed exclusion list."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:14-31, src/backend/AgentSmith.Application/Services/Tools/TicketStewardTools.cs:12-23"
+  - claim: "The start port runs its ask in a scope of its own, apart from the turn's unit of work."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ConversationAttemptStart.cs:27-43"
+
+scope:
+  in: >
+    ISpecDerivationStart (Contracts.Dialogue): StartAsync(preview, reason). ConversationSpecDerivation (Server) calls
+    SpecDerivationLauncher in its own scope and says "started" or the refusal. BoundTicket gains Derive, built for a
+    poster who may start runs; SpecDialogTurnSeeds seeds ContextKeys.SpecDialogDerivationStart; DeriveSpecsToolHost
+    (derive_specs, mode branch or preview, a one-sentence reason) joins TicketActToolsFactory.
+  out: "Prompt changes in the skills catalog: the tool describes itself."
+
+decisions:
+  - key: "ANY BOUND TURN WHOSE POSTER MAY START RUNS. A derivation starts no attempt, so it needs no earlier attempt; the launcher's refusals cover everything else."
+
+steps:
+  - id: tool
+    action: "Port, implementation, seed, tool host, factory."
+
+tests:
+  - "DeriveSpecsTool_Branch_StartsAndSaysStarted"
+  - "DeriveSpecsTool_Refused_SaysWhy"
+  - "BoundTicket_PosterWithoutRunsControl_GetsNoDeriveSpecs"
+
+done:
+  - "A person in the ticket's conversation can ask for a derivation and is told it started or why not."
+  - "Build green, full suite green."
+  - "Upgrade impact: none; the catalog pin does not change."

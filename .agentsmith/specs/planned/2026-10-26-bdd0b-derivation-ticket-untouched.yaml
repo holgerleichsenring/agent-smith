@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0b
+goal: "A spec-derive run carries the ticket id but never moves the ticket: no working or failure comment, no tracker status or lifecycle label, no capacity re-queue, no taken-ticket record cleared."
+
+applies_to: "default (PipelineErrorHandler, TicketAwarePipelineLifecycleCoordinator, RunFinalizationProjection, ExecutePipelineUseCase)"
+
+requires: [2026-10-26-bdd0a]
+
+facts:
+  - claim: "The run carries the request's TicketId into the context, attaches the ticket's lease, beats it and releases it on every exit; FetchTicket, DeriveSpec and the branch name all key off the ticket id."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:69, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:243-251, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:318-319, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:378-392, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:54-57"
+  - claim: "Every run with a TicketId posts the working comment at start, and every failure path (step failure, thrown exception, failed cancel, internal timeout) finalizes the ticket with the failure comment and failed_status, falling back to the provider's default status."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:58-59, src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:80-81, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:138-140, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:166-167, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:125-175"
+  - claim: "The lifecycle coordinator moves the tracker's lifecycle label Enqueued to InProgress at start and to Done, Failed, Waiting or Shortfall at the end for any run with a TicketId."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs:21-46, src/backend/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs:65-100"
+  - claim: "A terminal run with a ticket clears the ticket's taken-ticket record when no other run holds the lease; that record is what lets the reconciler re-launch an owed code attempt after a crash."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:50-63, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:46-52"
+  - claim: "A capacity rejection publishes the run as queued, and a queued run row with a ticket becomes a capacity-queue entry that the queue later claims as a ticket run."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:173-202, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:83-87"
+  - claim: "A failed run with no CommitAndPR persists no work branch."
+    evidence: "src/backend/AgentSmith.Application/Services/WorkBranchPersistPolicy.cs:17-22"
+  - claim: "Attempts, the ticket list, the delivery window, the previous attempt and the run retry count code runs only."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-22, src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:27, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeliveryRunWindow.cs:15, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:27, src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:40"
+  - claim: "ExecutePipelineUseCase is at 616 of its 617 baseline lines and PipelineErrorHandler at 176 of 184."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:7, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:51"
+
+scope:
+  in: >
+    PipelinePresets.LeavesTicketAlone(name), true for spec-derive. Guarded: PipelineErrorHandler's working comment and
+    failure finalize; TicketAwarePipelineLifecycleCoordinator.BeginAsync (no-op scope); RunFinalizationProjection's
+    taken-ticket clear (by Run.Pipeline); the capacity catch in ExecutePipelineUseCase lets a spec-derive rejection
+    end as failed instead of queued. The TicketId and the lease stay: the lease is the concurrency guard (bdd0e).
+  out: "Readers already filter code; none changes here."
+
+decisions:
+  - key: "TICKET ID STAYS, GUARDS ARE PIPELINE-AWARE. A separate key would mean re-plumbing FetchTicket, DeriveSpec, the branch name and the lease; one predicate guards four places."
+  - key: "CAPACITY ENDS AS FAILED. A queued derivation would re-enter through the ticket claim, which writes the tracker; the person derives again."
+
+steps:
+  - id: characterise
+    action: "Harness: a spec-derive run whose step fails, with done and failed statuses seeded, records no finalize and no comment; red today."
+  - id: guards
+    action: "Predicate and the four guards."
+  - id: readers
+    action: "DB test: a failed spec-derive run projected beside a code attempt leaves the ticket's bucket, attempt count, previous attempt and delivery window as they were."
+
+tests:
+  - "SpecDerive_StepFails_TheTicketIsNeitherCommentedNorMoved"
+  - "SpecDerive_Lifecycle_NoLabelTransition"
+  - "RunFinalization_SpecDerive_KeepsTheTakenTicketRecord"
+  - "SpecDerive_CapacityRejected_EndsFailedNotQueued"
+  - "TicketReaders_FailedSpecDerive_LeavesBucketAttemptsAndDeliveryUntouched"
+
+done:
+  - "A failing spec-derive run leaves the ticket's tracker status, comments, labels, bucket, attempts and delivery numbers untouched (harness and DB-projection tests)."
+  - "Build green, full suite green."
+  - "Upgrade impact: none."

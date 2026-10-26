@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0e
+goal: "POST /api/tickets/{project}/{ticketId}/derive-specs starts a spec derivation under the ticket's lease, refused in plain words while a code run holds, waits on or queues the ticket."
+
+applies_to: "default (SpecDerivationLauncher, TicketDeriveSpecsEndpoints, route permission baseline, RunStartProjection)"
+
+requires: [2026-10-26-bdd0a, 2026-10-26-bdd0b, 2026-10-26-bdd0d]
+
+facts:
+  - claim: "A ticket run a person asks for goes through the spawn funnel and the claim, which takes the lease, writes the taken-ticket record and moves the tracker's lifecycle label to Enqueued."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:23-46, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:37-58, src/backend/AgentSmith.Application/Services/Claim/ClaimedTicketRegistrar.cs:22-32"
+  - claim: "Init starts a run on a person's word without the claim: launch lock, admission, a queued run row, then the request stored on the row and pushed."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunLauncher.cs:44-101, src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:37-59, src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunDispatch.cs:18-27, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:36-49"
+  - claim: "The lease is unique per (project, ticket); a run attaches to a lease taken for it, and a run whose lease another run holds ends before it starts."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IActiveRunLease.cs:16, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:32-41, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:378-385"
+  - claim: "A lease whose heartbeat is three minutes old is released by the reaper; with no taken-ticket record the reap proceeds, and the record is not created by anything but the claim."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs:44-63, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TakenTicketRepository.cs:40-49"
+  - claim: "The poller and the rework worker skip a ticket whose lease is held, so a code attempt waits while a derivation holds it."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:156-169, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:42-48"
+  - claim: "A waiting or queued code attempt holds no lease but is the ticket's work in flight; the previous-attempt reader answers both."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:11, src/backend/AgentSmith.Contracts/Services/IPreviousAttemptReader.cs:12-18"
+  - claim: "Ticket acts are runs.control under the route's project and answer refusals as plain text; every route is pinned in the permission baseline."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketCloseEndpoints.cs:13-39, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:123-126"
+  - claim: "The run-start projection nudges the ticket page only for code runs."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:58-69"
+
+scope:
+  in: >
+    SpecDerivationLauncher (Server): per-ticket launch lock; refuses an unknown project, a project with no repositories,
+    a latest code attempt that is waiting_for_input or queued, and a held lease; takes the lease, admits, writes the
+    queued row (pipeline spec-derive, the ticket id and platform, trigger ticket), dispatches the request with
+    TicketId and the preview flag; releases the lease and the reservation when any step after the take fails.
+    POST derive-specs {mode: branch|preview}: 200 {runId}, 409 text, 400 text, 503 text; runs.control, route:project,
+    baseline row. RunStartProjection also nudges for spec-derive.
+  out: "The dashboard (bdd0f) and the conversation tool (bdd0g)."
+
+decisions:
+  - key: "THE LEASE IS THE EXCLUSION. It already keeps the poller, the rework worker and the claim away for the whole derivation, and the reaper frees it after a crash; no second lock to keep in step."
+  - key: "NO CLAIM, NO TAKEN RECORD. The claim writes the tracker; a crashed derivation is not work the reconciler owes."
+  - key: "HELD FOR THE WHOLE RUN, NOT ONLY THE WRITE. A code attempt started mid-derivation would read the branch while it is being written."
+
+steps:
+  - id: launcher
+    action: "Launcher with tests per refusal and per rollback."
+  - id: endpoint
+    action: "Endpoint, baseline row, start nudge."
+
+tests:
+  - "SpecDerivationLauncher_LeaseHeld_RefusesAndTakesNothing"
+  - "SpecDerivationLauncher_AttemptWaiting_Refuses"
+  - "SpecDerivationLauncher_Started_HoldsTheLeaseAndDispatchesSpecDerive"
+  - "SpecDerivationLauncher_DispatchFails_ReleasesTheLease"
+  - "DeriveSpecsEndpoint_AnswersTheLauncher"
+  - "RouteBaseline_DeriveSpecs_IsRunsControlInRouteProject"
+
+done:
+  - "A person with runs.control in the project starts a derivation; a code run cannot start while it runs, and none is left blocked after it ends or crashes."
+  - "Build green, full suite green."
+  - "Upgrade impact: none; the lease, queue and run row already exist."

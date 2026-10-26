@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0a
+goal: "A spec-derive preset runs the code pipeline's front up to and including SpecGate and stops: the same derivation, review and placement, with no master, no commit and no pull request of code."
+
+applies_to: "default (PipelinePresets, PipelineConfigResolver, HostOnlyRoutingRule, data flows, control-flow diagram)"
+
+requires: []
+
+facts:
+  - claim: "The code preset derives, hands back, reviews and gates the specs at DeriveSpec, SpecHandback, ReviewSpecs and SpecGate; everything after SpecGate builds the code."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:36-74"
+  - claim: "SpecGate only asserts that a validated set exists and publishes the first spec as current; it builds nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:21-56"
+  - claim: "PipelineNameInitializer publishes the run's pipeline name through SetEnum, which throws for a name the catalog's pipeline_name enum does not declare; spec-dialog leaves the step out for that reason and the vocabulary test only checks presets that carry it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineNameInitializerHandler.cs:11-38, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:16-26, tests/AgentSmith.Tests/Commands/PipelineNameVocabularyTests.cs:29-45"
+  - claim: "The presets are registered in one dictionary built in a static constructor; Names, Routable and IsAcceptedName derive from it."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:17-36, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:112"
+  - claim: "Routable leaves out the presets in NeedsHostSuppliedContext, and HostOnlyRoutingRule refuses a label map or default naming one with a reason written for the design conversation."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Routing.cs:21-30, src/backend/AgentSmith.Contracts/Services/HostOnlyRoutingRule.cs:22-38"
+  - claim: "The poller claims every ticket in a trigger status that holds no lease; a run that moves no status is claimed again on the next poll."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:145-153, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:156-169"
+  - claim: "The pipeline's agent and paths come from the project's pipeline definition of the run's name, so a project that sets an agent for code would not apply it to a differently named preset."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineConfigResolver.cs:14-21, src/backend/AgentSmith.Application/Services/PipelineConfigResolver.cs:40-47"
+  - claim: "Every preset needs a data-flow declaration and every command of it a beat; the control-flow diagram is a committed artifact regenerated from the presets."
+    evidence: "tests/AgentSmith.Tests/Pipeline/PipelineDataFlowsCoverageTests.cs:10-30, tests/AgentSmith.Tests/Contracts/CommandBeatsCoverageTests.cs:17-28, tests/AgentSmith.Tests/ControlFlow/ControlFlowDiagramTests.cs:15-31, src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:60"
+
+scope:
+  in: >
+    PipelinePresets.SpecDeriveName = "spec-derive" and SpecDerive = the code preset's commands from LoadCatalog to
+    SpecGate, without PipelineNameInitializer (no catalog pin change). Registered in All, PipelineTypes (Discussion).
+    PipelinePresets.ConfiguredAs(name): "code" for spec-derive, else the name; PipelineConfigResolver finds the
+    definition under it, so the derivation uses the agent a project set for code. Not routable: a second property
+    set (moves no ticket status) joins Routable's exclusion, and HostOnlyRoutingRule names the reason per preset.
+    SpecDeriveDataFlow (permissive), diagram regenerated.
+  out: "Every ticket-side guard (bdd0b), the question instead of a park (bdd0c), preview (bdd0d), launching (bdd0e)."
+
+decisions:
+  - key: "NO PIPELINE NAME STEP. The name is not in the catalog enum and no skill of the code front keys on pipeline_name; spec-dialog set the precedent."
+  - key: "NOT ROUTABLE FROM A LABEL. A derivation moves no ticket status, so the poller would derive the same ticket on every poll."
+  - key: "CONFIGURED AS CODE. Same derivation means the same agent; the run keeps its own name everywhere else."
+
+steps:
+  - id: preset
+    action: "Preset, registration, ConfiguredAs, routing exclusion with per-preset reason, data flow, diagram."
+
+tests:
+  - "SpecDerive_IsTheCodeFrontThroughSpecGate"
+  - "SpecDerive_IsNotRoutable_AndTheRuleSaysWhy"
+  - "PipelineConfigResolver_SpecDerive_UsesTheCodeDefinition"
+
+done:
+  - "spec-derive resolves to the code front ending at SpecGate; a label map naming it is refused with a plain reason."
+  - "Build green, full suite green."
+  - "Upgrade impact: none; no configuration, catalog pin, migration or infrastructure change."

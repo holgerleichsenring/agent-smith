@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0d
+goal: "A spec derivation in preview mode derives and reviews the specs and records them on the run, but writes nothing to the branch, opens no spec pull request and posts no cut comment."
+
+applies_to: "default (SpecSetPublisher, SpecReviewRevision, SpecSetTicketCommenter)"
+
+requires: [2026-10-26-bdd0a]
+
+facts:
+  - claim: "The publisher places the set, publishes it on the context, caches it for the run detail, writes and pushes it, announces it, records the pointer and opens the draft spec pull requests."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:35-56"
+  - claim: "The announcement records whether the write committed, on the run's series cut and attempt rows."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:16-21, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:53-61, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesRecordsReader.cs:16-29"
+  - claim: "A review revision is published through the same publisher and FAILS when the branch did not take it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRevision.cs:19-39"
+  - claim: "DeriveSpec posts the derived cut on the ticket with the spec pull requests through SpecSetTicketCommenter; DeriveSpecHandler is at its baseline length."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:132-138, src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:31-57, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:102"
+  - claim: "A pending series edit is an approval record with a continuation basis, and DeriveSpec never re-cuts an approved set."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/PendingSeriesEditReader.cs:7-22, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:26-31"
+  - claim: "A boolean request context value survives the queue's JSON as a JsonElement, which PipelineContext.Flag reads."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelineContextExtensions.cs:40-46, src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunDispatch.cs:18-27"
+
+scope:
+  in: >
+    ContextKeys.SpecDerivationPreview (a request flag). SpecSetPublisher: with the flag it places, publishes on the
+    context, caches for the run detail and announces committed=false, and skips the write, the pointer and the pull
+    requests, answering "Specs derived as a preview: N spec(s), nothing written". SpecReviewRevision accepts an
+    unchanged sha under the flag. SpecSetTicketCommenter posts nothing under the flag.
+  out: "Feeding a preview into the next attempt."
+
+decisions:
+  - key: "A PREVIEW DOES NOT FEED THE NEXT ATTEMPT. The pending series is an approval record, and an approved set is never re-cut; storing an unapproved derivation there would bind the next attempt to text nobody approved. The person derives again in branch mode."
+  - key: "THE QUESTION STILL GOES ON THE TICKET. Preview writes nothing to the branch; asking is how the derivation talks to the person, in both modes."
+
+steps:
+  - id: characterise
+    action: "Harness: a spec-derive run with the preview flag pushes a spec commit; red today."
+  - id: preview
+    action: "Flag, publisher branch, revision acceptance, commenter guard."
+
+tests:
+  - "SpecDerive_Preview_WritesNoCommitAndOpensNoPullRequest"
+  - "SpecDerive_Preview_ReviewRevision_DoesNotFail"
+  - "SpecDerive_Preview_RecordsTheCutAsNotCommitted"
+
+done:
+  - "A preview derivation leaves the remote branch and the pull requests as they were and records its cut on the run."
+  - "Build green, full suite green."
+  - "Upgrade impact: none."
