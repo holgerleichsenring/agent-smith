@@ -33,4 +33,21 @@ public sealed record JiraEndpoints
     public string ChangelogFor(string key) => Changelog.Replace("{id}", key);
     public string CommentFor(string key) => Comment.Replace("{id}", key);
     public string TransitionsFor(string key) => Transitions.Replace("{id}", key);
+
+    /// <summary>
+    /// 2026-10-26-cb25c: a project, on the API the <see cref="Myself"/> path names — /rest/api/3 by default, a Data
+    /// Center's /rest/api/2 when it overrides that path. A Myself not ending in /myself is taken as the API root.
+    /// </summary>
+    public string ProjectFor(string key) => $"{ApiRoot()}/project/{Uri.EscapeDataString(key)}";
+
+    /// <summary>2026-10-14-dbcem: the issue-link collection beside the configured issue collection
+    /// (/rest/api/3/issue becomes /rest/api/3/issueLink, a Data Center's /rest/api/2/issue its /rest/api/2/issueLink).</summary>
+    public string IssueLinkPath() => $"{Create.TrimEnd('/')}Link";
+
+    private string ApiRoot()
+    {
+        const string myself = "/myself";
+        var path = Myself.TrimEnd('/');
+        return path.EndsWith(myself, StringComparison.OrdinalIgnoreCase) ? path[..^myself.Length] : path;
+    }
 }

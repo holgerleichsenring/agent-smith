@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-cb25c
+
+decisions:
+  - category: Implementation
+    chose: "The project path is derived from the Myself path's API root (JiraEndpoints.ProjectFor)"
+    over: "A new endpoints key for the project, or the hard-coded /rest/api/3/project"
+    reason: "Characterised: the check read /rest/api/3/project/{key} whatever the tracker configured, so a v2 Data Center failed the Studio check while its runs, on configured paths, worked. Accidental. The check's previous step has just called the Myself path successfully, so its API root is the one the tracker runs; a new key would be one more override a v2 operator must know."
+  - category: Implementation
+    chose: "IssueLinkPath keeps JiraRequiresLink's derivation exactly (trimmed Create + Link)"
+    over: "Deriving it from the same API root as the project"
+    reason: "Characterised: a Create path not ending in /issue (an operator override) got Create + Link; a root-based derivation would have changed that row. No disagreement there, so the rule moves into JiraEndpoints unchanged."
+  - category: Scope
+    chose: "The check keeps its own steps over IDraftCheckHttp instead of calling the provider's ProbeAsync"
+    over: "Building the provider from the draft and probing"
+    reason: "ProbeAsync answers reachable or not; the check also names the signed-in account and the project. Its Basic auth is byte-identical to the provider's (UTF-8 email:token), so after the paths no disagreement is left."

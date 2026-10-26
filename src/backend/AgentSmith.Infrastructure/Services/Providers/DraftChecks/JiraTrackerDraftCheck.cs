@@ -6,8 +6,8 @@ using AgentSmith.Contracts.Services;
 namespace AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 
 /// <summary>
-/// 2026-10-02-5f89b: a Jira tracker draft — "who am I" (/rest/api/3/myself, the provider's own
-/// probe) with email and token, then the project when one is declared.
+/// 2026-10-02-5f89b: a Jira tracker draft — "who am I" (the configured Myself path, the provider's own
+/// probe) with email and token, then the project when one is declared, on the same API (2026-10-26-cb25c).
 /// </summary>
 public sealed class JiraTrackerDraftCheck(IDraftCheckHttp http) : ITrackerDraftCheck
 {
@@ -32,7 +32,7 @@ public sealed class JiraTrackerDraftCheck(IDraftCheckHttp http) : ITrackerDraftC
             yield break;
         }
         var project = await http.GetAsync(
-            $"{BaseOf(tracker)}/rest/api/3/project/{Uri.EscapeDataString(tracker.Project)}", auth, cancellationToken);
+            $"{BaseOf(tracker)}{tracker.Endpoints.ProjectFor(tracker.Project)}", auth, cancellationToken);
         yield return project.ScopeStep($"Project '{tracker.Project}'");
     }
 }

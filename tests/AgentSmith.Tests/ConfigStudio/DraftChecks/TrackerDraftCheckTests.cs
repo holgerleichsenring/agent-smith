@@ -117,4 +117,22 @@ public sealed class TrackerDraftCheckTests
 
         Keys(report).Should().Be("secret:ok,host:ok,identity:ok,scope:ok,tickets:ok");
     }
+
+    [Fact]
+    public async Task TrackerDraftCheck_JiraDataCenterOnV2_ReadsTheProjectOnV2()
+    {
+        var host = new ScriptedHostHandler()
+            .On($"{Jira}/rest/api/2/myself", 200, """{"displayName":"Ops Bot"}""")
+            .On($"{Jira}/rest/api/2/project/OPS", 200, """{"key":"OPS"}""")
+            .On($"{Jira}/rest/api/2/search", 200, """{"issues":[],"total":0}""");
+        var draft = JiraDraft() with
+        {
+            Endpoints = new Dictionary<string, string> { ["myself"] = "/rest/api/2/myself", ["search"] = "/rest/api/2/search" },
+        };
+
+        var report = await Trackers(host).RunAsync(draft, CancellationToken.None);
+
+        Keys(report).Should().StartWith("secret:ok,host:ok,identity:ok,scope:ok");
+        host.Requests.Should().NotContain(r => r.Url.Contains("/rest/api/3/", StringComparison.Ordinal));
+    }
 }
