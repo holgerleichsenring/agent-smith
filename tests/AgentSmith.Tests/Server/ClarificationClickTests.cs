@@ -39,7 +39,7 @@ public sealed class ClarificationClickTests : IDisposable
     {
         var value = JsonNode.Parse("""{"questionId":"clarification","answer":"confirm"}""")!;
 
-        await new TeamsInteractionHandler(null!, Taker(), null!, null!, NullLogger<TeamsInteractionHandler>.Instance)
+        await new TeamsInteractionHandler(null!, Taker(), null!, null!, null!, NullLogger<TeamsInteractionHandler>.Instance)
             .HandleAsync("19:conv", "A1", value, CancellationToken.None);
 
         _said.Should().ContainSingle().Which.Should().Be(("teams", Resend));
@@ -82,7 +82,7 @@ public sealed class ClarificationClickTests : IDisposable
                 NullLogger<SlackApiClient>.Instance),
             new SlackTypedQuestionBlockBuilder(), new SlackMessageBlockBuilder(),
             NullLogger<SlackAdapter>.Instance),
-        NullLogger<SlackInteractionHandler>.Instance);
+        null!, NullLogger<SlackInteractionHandler>.Instance);
 
     private ClarificationTaker Taker() => new(Manager(), new HelpHandler(
         new PlatformAdapters([Adapter("slack"), Adapter("teams")], NullLogger<PlatformAdapters>.Instance),
