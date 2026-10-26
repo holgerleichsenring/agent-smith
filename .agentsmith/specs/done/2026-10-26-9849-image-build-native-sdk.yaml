@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-9849
+goal: "The arm64 images compile .NET on the runner's own platform instead of under QEMU, so a publish run takes minutes for the compile rather than a quarter of an hour."
+
+applies_to: "default (Dockerfiles of server, CLI and sandbox agent)"
+
+requires: []
+
+facts:
+  - claim: "The publish workflow builds server, CLI and sandbox agent for linux/amd64 and linux/arm64 on an amd64 runner with QEMU."
+    evidence: ".github/workflows/docker-publish.yml:50-66,100-101"
+  - claim: "The SDK build stages had no platform, so the arm64 compile ran emulated: run 40246568257 spent 945 s on the server's arm64 publish against 111 s for amd64, and 553 s against 64 s for the CLI."
+    evidence: "src/backend/AgentSmith.Server/Dockerfile:2, src/backend/AgentSmith.Cli/Dockerfile:2"
+  - claim: "Server and CLI publish portable IL with both native RIDs bundled and start through dotnet <dll>, so one build serves both platforms."
+    evidence: "src/backend/AgentSmith.Server/Dockerfile:34-35,129, src/backend/AgentSmith.Cli/docker-entrypoint.sh:12"
+  - claim: "The sandbox agent publishes self-contained by RID without AOT, which cross-publishes from any host."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:20-27"
+
+scope:
+  in: >
+    The SDK build stages of the three backend Dockerfiles start with FROM --platform=$BUILDPLATFORM; build-musl
+    inherits it. Stages that run what they fetch for the target (python-fetch, launcher, runtime) stay on the target
+    platform. An architecture test fails any backend Dockerfile whose SDK build stage drops the platform.
+  out: >
+    Native arm64 runners for these images. The test job's duration.
+
+steps:
+  - id: build
+    action: "Test first, edit the three Dockerfiles, run the architecture tests; the PR's docker legs are the timing proof."
+
+tests:
+  - "DotnetSdkBuildStage_RunsOnTheBuildPlatform"
+  - "DotnetSdkBuildStage_TheEnumeration_FindsTheThreePublishedImages"
+
+done:
+  - "The PR's docker legs for server and CLI finish in a fraction of the 23 and 15 minutes they took on run 40246568257."
+  - "Build green, full suite green, dashboard gen/test/build green."
