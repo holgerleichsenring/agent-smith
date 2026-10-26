@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-4f7aa
+goal: "The spec-first plugin ships a PreToolUse commit gate that runs the project's verify stages on every spec commit and blocks it on a red stage."
+
+applies_to: "the specification-first-agentic-development plugin repository (hooks/, templates/context.schema.json)"
+
+requires: []
+
+facts:
+  - claim: "agent-smith's gate recognises git commit after a leading cd, a separator and git's global options (-C, -c, --git-dir), and nothing that only mentions it."
+    evidence: ".claude/hooks/spec-gate.sh:99-104"
+  - claim: "Its spec marker takes a counter or a date-minted id, also a list, in parentheses."
+    evidence: ".claude/hooks/spec-gate.sh:60-61"
+  - claim: "The message is resolved from -m, heredoc, -F, -t, -C/-c and --amend --no-edit; a bare commit, an editor amend and -F - cannot be read and pass through with a not-gated line, as does a message built by a command substitution."
+    evidence: ".claude/hooks/commit-message.py:191-206; .claude/hooks/spec-gate.sh:113-140"
+  - claim: "The gated tree comes from the same reading of the command (cwd, leading cd, -C), resolved to its git top level."
+    evidence: ".claude/hooks/spec-gate.sh:154-164; .claude/hooks/commit-message.py:114-124"
+  - claim: "Every recognised spec commit leaves one tab-separated ledger line: time, verdict, spec, tree, parent, detail."
+    evidence: ".claude/hooks/spec-gate.sh:73-84"
+  - claim: "The checks themselves are agent-smith's own (dashboard, dotnet build and test, dry-runs, presets), so the script cannot serve another project as it is."
+    evidence: ".claude/hooks/spec-gate.sh:232-268, 435-478"
+  - claim: "The plugin ships no hooks directory; its manifest names only skills."
+    evidence: "spec-first:.claude-plugin/plugin.json:1-10"
+  - claim: "A verify stage is label, command and optional when_present, and items allow no other key."
+    evidence: "spec-first:templates/context.schema.json:8-21"
+  - claim: "Plugin hooks live in hooks/hooks.json at the plugin root with ${CLAUDE_PLUGIN_ROOT}; exit 2 blocks and feeds stderr to Claude; stderr on exit 0 reaches only the debug log, JSON systemMessage and additionalContext reach the user and Claude; matching hooks run in parallel; timeout is in seconds, default 600."
+    evidence: "observed: 2026-10-26, code.claude.com/docs/en/hooks and /plugins reference, read by a docs subagent"
+
+assumptions:
+  - claim: "python3 is on PATH where the plugin runs (review-spec already needs it)."
+    check: "Without python3 the hook command fails to start; Claude Code treats that as a non-blocking error and the commit leaves no ledger line, which deliver-spec reads as not gated."
+
+scope:
+  in: >
+    hooks/hooks.json (PreToolUse, matcher Bash, timeout 1800). hooks/spec-gate.py: detection, message, tree and
+    ledger ported from agent-smith; the checks are the verify stages of every .*/contexts/*/context.yaml at the tree's
+    top level, run there in context then declaration order, one after another, the first red stage blocking;
+    when_present absent skips and names the stage; other keys (agent-smith's when_changed) are ignored, so the stage
+    runs. The no-marker warning is not raised for spec: subjects (create-spec's and review-spec's commits). Ledger at
+    the absolute git common dir (--path-format=absolute) /spec-first-gate.log, SPEC_GATE_LOG overriding, each line one
+    O_APPEND write, shared by every worktree. Notices on exit 0 go out as JSON systemMessage and additionalContext.
+    A total deadline below the hook timeout blocks instead of being cancelled. Missing PyYAML: not-gated, said
+    aloud. commit-message.py and the agent-smith tests ported to hooks/.
+  out: "Parallel lanes: nothing declares one yet. Gate ownership and the skill text (2026-10-26-4f7ab). agent-smith's own gate is unchanged."
+
+decisions:
+  - key: "PYTHON ENGINE. Reading YAML and enforcing a deadline in bash needs python anyway; one file replaces the bash/python split."
+  - key: "LEDGER IN THE GIT COMMON DIR. Never committed, no .gitignore edit, one file for all worktrees of a repository."
+  - key: "UNKNOWN STAGE KEYS ARE IGNORED, NOT REFUSED. The gate runs a stage it partly understands; the schema is where a key is refused."
+
+steps:
+  - id: engine
+    action: "Write hooks/spec-gate.py and copy commit-message.py into hooks/."
+  - id: wiring
+    action: "Add hooks/hooks.json."
+  - id: tests
+    action: "Port test_commit_message.py and test_spec_gate_marker.py; replace the agent-smith check fixtures with verify-stage fixtures."
+
+tests:
+  - "Gate_PassingStages_RecordPassed; Gate_FailingStage_BlocksWithExitTwoAndNamesIt"
+  - "Gate_WhenPresentAbsent_SkipsAndNamesTheStage; Gate_SpecSubjectWithoutMarker_StaysSilent; Gate_StageOverDeadline_Blocks"
+  - "Gate_NoVerifyStages_PassesLoudly; every ported Resolve_ and shape case green"
+
+done:
+  - "python3 hooks/test_*.py green in the plugin repo; shellcheck has nothing to check (no shell script ships)."
+  - "Driving hooks/spec-gate.py with PreToolUse JSON in a scratch project passes, blocks and passes through as the tests say."
