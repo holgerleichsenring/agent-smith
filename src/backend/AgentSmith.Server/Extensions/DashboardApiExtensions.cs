@@ -3,6 +3,7 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
+using AgentSmith.Server.Services.Events.Projection;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,8 +72,14 @@ internal static class DashboardApiExtensions
             sp.GetRequiredService<JobsHubFanout>(),
             sp.GetRequiredService<FanoutBackpressureOptions>(),
             sp.GetRequiredService<ILogger<BackpressureSafeFanout>>()));
-        services.AddSingleton<IRunEventPersistence>(sp => new RunDbEventPersistence(
-            sp.GetService<RunDbProjector>()));
+        services.AddSingleton(sp => new RunDbEventPersistence(sp.GetService<RunDbProjector>()));
+        // 2026-10-26-0f19c: only the holder of the projection lease writes; a server without a store has none.
+        services.AddSingleton<ProjectionLeadership>().AddSingleton<RunProjectionResumePoint>().AddSingleton<RunProjectionCatchUp>();
+        services.AddSingleton(sp => new LeaderGatedRunEventPersistence(sp.GetRequiredService<RunDbEventPersistence>(),
+            sp.GetRequiredService<ProjectionLeadership>(), sp.GetRequiredService<RunProjectionCatchUp>()));
+        services.AddSingleton<IRunEventPersistence>(sp => sp.GetService<RunDbProjector>() is null
+            ? sp.GetRequiredService<RunDbEventPersistence>() : sp.GetRequiredService<LeaderGatedRunEventPersistence>());
+        services.AddSingleton<ProjectionLeader>().AddHostedService<ProjectionLeaderHostedService>();
         services.AddSingleton<SandboxDetailEventClassifier>();
         services.AddSingleton<SandboxActivityCoalescer>();
         services.AddSingleton<FiledWorkNudge>();

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Memory;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Extensions;
@@ -21,10 +22,11 @@ using TrailRow = AgentSmith.Infrastructure.Persistence.Entities.RunEvent;
 namespace AgentSmith.Tests.Server;
 
 /// <summary>
-/// 2026-10-26-0f19a: every replica drains every run stream and projects it into the one store,
-/// so the position an event is recorded under must be the same on every replica and across a
-/// restart. Each "replica" here is a real <see cref="JobsBroadcaster"/> with its own projector
-/// stack, over one fake Redis and one SQLite file.
+/// 2026-10-26-0f19a: every replica drains every run stream, so the position an event is recorded
+/// under must be the same on every replica and across a restart. 2026-10-26-0f19c: and one replica
+/// at a time writes, catching the store up when it takes over. Each replica here is a real
+/// <see cref="JobsBroadcaster"/> with its own projector stack and its own bid for the projection
+/// lease, over one fake Redis, one SQLite file and one lease.
 /// </summary>
 public sealed class MultiReplicaProjectionTests : IDisposable
 {
@@ -34,7 +36,8 @@ public sealed class MultiReplicaProjectionTests : IDisposable
     private readonly FakeRedisStreams _redis = new();
     private readonly RedisEventPublisher _publisher;
     private readonly List<ServiceProvider> _providers = new();
-    private readonly List<JobsBroadcaster> _replicas = new();
+    private readonly SharedLeaderLease _lease = new();
+    private readonly List<ProjectingReplica> _replicas = new();
 
     public MultiReplicaProjectionTests()
     {
@@ -47,7 +50,7 @@ public sealed class MultiReplicaProjectionTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var replica in _replicas) replica.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
+        foreach (var replica in _replicas) replica.DisposeAsync().AsTask().GetAwaiter().GetResult();
         foreach (var provider in _providers) provider.Dispose();
         SqliteConnection.ClearAllPools();
         File.Delete(_dbPath);
@@ -81,7 +84,7 @@ public sealed class MultiReplicaProjectionTests : IDisposable
         await PublishStartAsync();
         await PublishCallsAsync(2);
         (await WaitUntilAsync(ctx => ctx.RunLlmCalls.Count(c => c.RunId == RunId) == 2)).Should().BeTrue();
-        await crashed.StopAsync(CancellationToken.None); // the trail buffer dies unflushed
+        await crashed.DisposeAsync(); // the trail buffer dies unflushed
 
         var restarted = await StartReplicaAsync();
         await PublishCallsAsync(2);
@@ -115,6 +118,67 @@ public sealed class MultiReplicaProjectionTests : IDisposable
             .SandboxCommandMs.Should().Be(1_000, "one command ran, however many replicas projected it");
     }
 
+    [Fact]
+    public async Task TwoReplicas_FromTheStart_RecordMemoryEvidenceOnce()
+    {
+        var first = await StartReplicaAsync();
+        var second = await StartReplicaAsync();
+        await PublishStartAsync();
+        await TestWaits.UntilAsync(() => first.Drain.Active.ContainsKey(RunId) && second.Drain.Active.ContainsKey(RunId), "both replicas track the run");
+        await _publisher.PublishAsync(new MemoryUseRecordedEvent(RunId, DateTimeOffset.UtcNow, "p1", "sample", "42",
+            [new MemoryCitation("repo", "repo", "fact-a"), new MemoryCitation("repo", "repo", "fact-b")], null, null));
+        await PublishFinishAsync();
+        (await BothDrainedAsync(first, second)).Should().BeTrue();
+
+        using var check = new AgentSmithDbContext(Options());
+        check.Set<AgentSmith.Infrastructure.Persistence.Entities.MemoryEvidence>()
+            .Count(e => e.RunId == RunId).Should().Be(2, "two facts were relied on, however many replicas drained them");
+    }
+
+    /// <summary>
+    /// The holder goes away with events it drained but never flushed to the trail, and with events it
+    /// never saw. The next holder's own drain is past all of them; the store is where it resumes.
+    /// </summary>
+    [Fact]
+    public async Task Handover_HolderStopsBeforeFlush_NextHolderCompletesTheTrail()
+    {
+        var holder = await StartReplicaAsync();
+        var next = await StartReplicaAsync();
+        await PublishStartAsync();
+        await PublishCallsAsync(2);
+        (await WaitUntilAsync(ctx => ctx.RunLlmCalls.Count(c => c.RunId == RunId) == 2)).Should().BeTrue();
+        await TestWaits.UntilAsync(() => next.Drain.Active.ContainsKey(RunId), "the next holder tracks the run");
+        await holder.DisposeAsync();
+        await PublishCallsAsync(2);
+        await PublishFinishAsync();
+
+        (await WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null)
+            && ctx.Set<TrailRow>().Count(e => e.RunId == RunId) == 6)).Should().BeTrue();
+        using var check = new AgentSmithDbContext(Options());
+        check.RunLlmCalls.Count(c => c.RunId == RunId).Should().Be(4);
+        check.Runs.Single(r => r.Id == RunId).CostTotalUsd.Should().Be(4m);
+        TrailTypes(check).Should().Equal(
+            nameof(EventType.RunStarted), nameof(EventType.LlmCallFinished), nameof(EventType.LlmCallFinished),
+            nameof(EventType.LlmCallFinished), nameof(EventType.LlmCallFinished), nameof(EventType.RunFinished));
+    }
+
+    [Fact]
+    public async Task NonHolder_DrainsAndFansOut_WritesNothing()
+    {
+        _lease.HeldElsewhere(AgentSmith.Server.Services.Events.Projection.ProjectionLeader.LeaseKey);
+        var replica = await StartReplicaAsync();
+        await PublishStartAsync();
+        await TestWaits.UntilAsync(() => replica.Drain.Active.ContainsKey(RunId), "the replica tracks the run");
+        await PublishCallsAsync(1);
+        await PublishFinishAsync();
+
+        (await TestWaits.ReachedAsync(() => replica.Drain.Recent.Any(r => r.RunId == RunId))).Should().BeTrue();
+        replica.Fanout.Verify(f => f.ToRunAsync(RunId, It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        using var check = new AgentSmithDbContext(Options());
+        check.Runs.Any(r => r.Id == RunId).Should().BeFalse("only the holder of the projection lease writes");
+        check.Set<TrailRow>().Any(e => e.RunId == RunId).Should().BeFalse();
+    }
+
     private RunDbProjector NewProjector()
     {
         var provider = BuildProvider();
@@ -122,21 +186,12 @@ public sealed class MultiReplicaProjectionTests : IDisposable
         return provider.GetRequiredService<RunDbProjector>();
     }
 
-    private async Task<JobsBroadcaster> StartReplicaAsync()
+    private async Task<ProjectingReplica> StartReplicaAsync()
     {
         var provider = BuildProvider();
         _providers.Add(provider);
-        var router = new RunEventRouter(
-            Mock.Of<IRunEventFanout>(), new SandboxExpansionRegistry(),
-            new SandboxDetailEventClassifier(), new SandboxActivityCoalescer(),
-            new RunDbEventPersistence(provider.GetRequiredService<RunDbProjector>()),
-            new FiledWorkNudge(Mock.Of<IHubContext<JobsHub>>(), new FiledWorkWatchRegistry()));
-        var replica = new JobsBroadcaster(
-            _redis.Connection, Mock.Of<IRunEventFanout>(), router,
-            NullLogger<JobsBroadcaster>.Instance, new EventEnvelopeSerializer(),
-            provider.GetRequiredService<IRunTerminalReconciler>());
+        var replica = await ProjectingReplica.StartAsync(_redis.Connection, provider, _lease);
         _replicas.Add(replica);
-        await replica.StartAsync(CancellationToken.None);
         return replica;
     }
 
@@ -170,10 +225,11 @@ public sealed class MultiReplicaProjectionTests : IDisposable
     private Task PublishFinishAsync() => _publisher.PublishAsync(new RunFinishedEvent(
         RunId, "success", null, "done", DateTimeOffset.UtcNow, null));
 
-    // A replica removes a run from Active only after it has persisted the run's ending.
-    private Task<bool> BothDrainedAsync(JobsBroadcaster one, JobsBroadcaster other) =>
-        TestWaits.ReachedAsync(() => !one.Active.ContainsKey(RunId) && !other.Active.ContainsKey(RunId)
-            && one.Recent.Any(r => r.RunId == RunId) && other.Recent.Any(r => r.RunId == RunId));
+    // A replica removes a run from Active only after it has dispatched the run's ending; the holder of
+    // the lease has written it by then.
+    private Task<bool> BothDrainedAsync(ProjectingReplica one, ProjectingReplica other) =>
+        TestWaits.ReachedAsync(() => !one.Drain.Active.ContainsKey(RunId) && !other.Drain.Active.ContainsKey(RunId)
+            && one.Drain.Recent.Any(r => r.RunId == RunId) && other.Drain.Recent.Any(r => r.RunId == RunId));
 
     private Task<bool> WaitUntilAsync(Func<AgentSmithDbContext, bool> condition) =>
         TestWaits.ReachedAsync(() =>

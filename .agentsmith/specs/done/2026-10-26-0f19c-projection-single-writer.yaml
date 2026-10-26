@@ -41,7 +41,7 @@ decisions:
 
 steps:
   - id: proof
-    action: "Broadcaster-level red: two replicas record one MemoryUseRecorded event twice; a holder that stops before flushing leaves trail rows the next holder never writes."
+    action: "Broadcaster-level red: two replicas record one MemoryUseRecorded event twice (two of three runs at 46ec27555); a holder that stops before flushing leaves trail rows the next holder never writes."
   - id: lease
     action: "ProjectionLeadership, ProjectionLeaderHostedService (LeaderSubsystemRunner), DI."
   - id: gate
@@ -53,7 +53,8 @@ tests:
   - "TwoReplicas_FromTheStart_RecordMemoryEvidenceOnce"
   - "Handover_HolderStopsBeforeFlush_NextHolderCompletesTheTrail"
   - "NonHolder_DrainsAndFansOut_WritesNothing"
-  - "CatchUp_RunWithOnlyCountedPositions_ProjectsNothingOld"
+  - "RunProjectionResumePointTests (no trail, stream positions, counted positions only)"
+  - "Restart_BeforeTrailFlush_LaterCallsStillRecorded and SecondReplica_StartsMidRun_EveryCallRecordedOnce, now under the lease"
 
 done:
   - "With two replicas one MemoryUseRecorded event yields its rows once and four calls cost 4."
