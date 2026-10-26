@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.171.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.171.0...v0.171.1) (2026-10-26)
+
+
+### Performance Improvements
+
+* compile the .NET images on the runner, not under QEMU ([0e05814](https://github.com/holgerleichsenring/agent-smith/commit/0e05814508198f8f21c01d93e869757b1d543bf4))
+* compile the .NET images on the runner, not under QEMU (2026-10-26-9849) ([e89976a](https://github.com/holgerleichsenring/agent-smith/commit/e89976ad59de360a8d35695f35ec084d900e2932))
+
 ## [0.171.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.170.0...v0.171.0) (2026-10-25)
 
 
