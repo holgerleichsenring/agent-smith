@@ -15,7 +15,7 @@ facts:
     evidence: "src/dashboard/src/components/tickets/ticketFormat.ts:17-19, src/dashboard/src/components/tickets/detail/AttemptCard.tsx:77"
 
 scope:
-  in: "SpecDerivations: the line reads 'Spec derivation · {clock} · {n} min · {money(cost)}', with ' so far' on a running one; a test id on the cost."
+  in: "SpecDerivations: the line reads 'Spec derivation · {clock} · {n} min · {money(cost)}', with ' so far' exactly when its outcome is running (the case that already reads 'deriving'); a test id on the cost."
   out: "Cost totals (2026-10-26-7000b) and the Delivery figures (2026-10-26-7000c)."
 
 decisions:

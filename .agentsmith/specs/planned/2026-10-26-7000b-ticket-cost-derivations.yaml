@@ -2,7 +2,7 @@
 spec: 2026-10-26-7000b
 goal: "The ticket page's Cost & compute total and tab counter include the ticket's spec derivations, shown on a Spec derivations line of their own; attempt rows stay attempts."
 
-applies_to: "dashboard (CostSection, TicketCostTab, ticketTabTable, costScale)"
+applies_to: "dashboard (CostSection, TicketCostTab, ticketTabTable, ticketFormat)"
 
 requires: [2026-10-26-7000a]
 
@@ -20,14 +20,18 @@ facts:
 
 scope:
   in: >
-    costScale.ts: ticketCost(attempts, derivations), the one sum both the section and the counter use. CostSection
-    takes the derivations: a 'Spec derivations' row after the attempt rows (count, 'not attempts', their summed
-    cost, no bar), and the 'all' total includes them. TicketCostTab passes detail.derivations; the counter uses
-    ticketCost. The attempt rows, the cost scale and the Compute section are unchanged.
+    ticketFormat.ts: ticketCost(attempts, derivations), the one sum both the section and the counter use, called with
+    detail.derivations ?? []. CostSection takes the derivations: when there is one, a row after the attempt rows with
+    a short code in the narrow label column and the words in its parts ('Spec derivations: {n}, not attempts', plus
+    ' · so far' while one is running), their summed cost, no bar; the 'all' total includes them. TicketCostTab passes
+    the derivations; the counter uses ticketCost. The attempt rows, the cost scale and the Compute section are
+    unchanged.
   out: >
-    The ticket list row's cost (TicketSummaryComposer over TicketListQuery's code runs), which needs the list read to
-    carry derivation costs: a follow-up that makes the list row and the header sum the same runs. The Compute
-    section's pods of a derivation. The series budget (SeriesRunway), which caps a chain of attempts by design.
+    The ticket list row's cost (TicketSummaryComposer over TicketListQuery's code runs): it needs the list's one read
+    to carry each ticket's derivation costs, a follow-up that adds them to the list row so it agrees with the Cost tab
+    and the Delivery row. A never-run ticket with derivations has no tabs; its costs show on the 7000a lines only.
+    The Compute section's pods of a derivation. The series budget (SeriesRunway), which caps a chain of attempts by
+    design.
 
 decisions:
   - key: "ONE SUM. The counter and the total were two copies; both read ticketCost now."
