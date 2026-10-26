@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-cb25b
+goal: "An Azure DevOps tracker honours its configured URL, so a Server tracker can be configured; one composition builds the organization URL for provider, checks and discovery."
+
+applies_to: "default (Domain AzureDevOpsOrganizationUrl, TrackerConnections, AzureDevOpsTrackerDraftCheck, AzureDevOpsConnectionDraftCheck, AzureDevOpsRepoDiscoveryProvider, ConnectionRepoUrlBuilder)"
+
+requires: ["2026-10-26-cb25a"]
+
+facts:
+  - claim: "The tracker provider's organization URL is hard-coded https://dev.azure.com/{organization}, unescaped; TrackerConnection.Url is ignored."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/TrackerConnections.cs:21-23, src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:12-13"
+  - claim: "The tracker draft check and the ticket count compose their own copy, URL-escaping the organization, also ignoring Url."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/AzureDevOpsTrackerDraftCheck.cs:15-16, src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/AzureDevOpsTicketCount.cs:22"
+  - claim: "The Studio offers an optional url field on an Azure DevOps tracker, which therefore had no effect."
+    evidence: "src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:23-28"
+  - claim: "A connection composes host (default https://dev.azure.com) + organization three more times: escaped in the draft check, unescaped in discovery and in the repo-url builder."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/AzureDevOpsConnectionDraftCheck.cs:26-27, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:32-33, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConnectionRepoUrlBuilder.cs:14, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConnectionRepoUrlBuilder.cs:40-46"
+  - claim: "Infrastructure.Core references Domain but not Infrastructure, so the shared composition lives in Domain."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj"
+
+scope:
+  in: >
+    Method: (1) CHARACTERISE — a matrix (no url/host, cloud base, cloud url with org and project path, legacy host,
+    Server base with virtual dir and port, a base that already ends in /{organization}, trailing slash, an organization
+    with a space) pinned against the five compositions;
+    (2) DECIDE per disagreeing row in the decisions file; (3) CONSOLIDATE — AzureDevOpsOrganizationUrl.For(baseUrl,
+    organization): no base, or a base on a cloud host (dev.azure.com, *.visualstudio.com), gives
+    https://dev.azure.com/{organization} exactly as today, so any cloud value an operator stored in the unused field
+    keeps working; a Server base (trailing slash trimmed) gets the escaped organization appended, unless its last path
+    segment already is the organization (the operator gave the collection URL). TrackerConnections reads
+    TrackerConnection.Url, the checks, discovery and the builder call the same composition; copies deleted;
+    (4) PROVE — the matrix against the single home, plus a tracker with a Server url reaching provider and check alike.
+  out: >
+    Relabelling the Studio field. Parsing repo URLs (2026-10-26-cb25a).
+
+decisions:
+  - key: "THE TRACKER URL IS A BASE URL, LIKE THE CONNECTION'S HOST. One meaning for both forms of the same setting."
+  - key: "ESCAPE THE ORGANIZATION EVERYWHERE. A cloud name is unchanged by it; a Server collection with a space only works escaped, and Uri already escapes a space, so RepoKey of a stored repo url is unchanged."
+  - key: "A CLOUD URL IN THE FIELD IS THE CLOUD. The field had no effect; a stored https://dev.azure.com/org/project must not start composing .../org/project/org."
+  - key: "A SERVER BASE ENDING IN THE COLLECTION IS THE COLLECTION URL. Explicit rule; the collision of a virtual directory and a collection of one name is accepted and documented."
+
+steps:
+  - id: characterise
+    action: "AzureDevOpsOrganizationUrlTests: the matrix against the five compositions as they are."
+  - id: consolidate
+    action: "AzureDevOpsOrganizationUrl.For; five sites migrate; tracker Url honoured; matrix switched."
+
+tests:
+  - "AzureDevOpsOrganizationUrlTests"
+  - "TrackerConnections_AzureDevOps_ServerUrl_ReachesProviderAndCheckAlike"
+  - "TrackerDraftCheckTests, ConnectionDraftCheckTests, ConnectionRepoUrlBuilderTests green"
+
+done:
+  - "An Azure DevOps tracker with url https://tfs.example.com/tfs and organization DefaultCollection talks to https://tfs.example.com/tfs/DefaultCollection in the provider and the Studio check."
+  - "Build green, full suite green, dashboard gen/test/build green."

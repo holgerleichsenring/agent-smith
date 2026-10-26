@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,6 +18,7 @@ public sealed class RunDbProjector(
     IServiceScopeFactory scopeFactory,
     RunEventApplier applier,
     RunTrailBuffers buffers,
+    RunTrailWriter trail,
     TimeProvider timeProvider)
 {
     private const int FlushThreshold = 25;
@@ -25,27 +27,42 @@ public sealed class RunDbProjector(
     // until 25 events accumulate. RunTrailFlusherHostedService ticks FlushStaleAsync.
     private static readonly TimeSpan MaxBufferAge = TimeSpan.FromMilliseconds(750);
 
-    public async Task ProjectAsync(AgentSmith.Contracts.Events.RunEvent runEvent, CancellationToken cancellationToken)
+    public Task ProjectAsync(AgentSmith.Contracts.Events.RunEvent runEvent, CancellationToken cancellationToken) =>
+        ProjectAsync(runEvent, null, cancellationToken);
+
+    /// <summary>
+    /// 2026-10-26-0f19a: <paramref name="position"/> is the event's place in its run stream
+    /// (<see cref="StreamTrailPosition"/>), the same on every replica; null — the CLI's direct
+    /// projection, which has no stream — mints one.
+    /// </summary>
+    public async Task ProjectAsync(
+        AgentSmith.Contracts.Events.RunEvent runEvent, long? position, CancellationToken cancellationToken)
     {
-        // 2026-08-25-61f1: the buffer mints the event's trail position BEFORE the typed
-        // facts are applied, because that position is the identity every row the event
-        // produces is written under. Nothing is written yet — the batch still flushes
-        // after the typed facts, exactly as before.
+        // 2026-08-25-61f1: the position is minted BEFORE the typed facts are applied — it is the
+        // identity every row the event produces is written under. A sandbox result writes its own
+        // trail row with its fold (2026-10-26-0f19a), so it never waits in the buffer.
         var buffer = await buffers.ForAsync(runEvent.RunId, cancellationToken);
-        var added = buffer.Add(runEvent, FlushThreshold, timeProvider.GetUtcNow());
-
-        // The projector is a singleton consuming the run stream — NOT a web
-        // request — so it opens a scope per event and applies the typed entity
-        // through the scoped unit of work.
-        using (var scope = scopeFactory.CreateScope())
-            await applier.ApplyAsync(Uow(scope), runEvent, added.Seq, cancellationToken);
-
-        if (added.ToFlush is not null) await FlushAsync(runEvent.RunId, added.ToFlush, cancellationToken);
+        var added = runEvent is SandboxResultEvent
+            ? new TrailAddition(buffer.Reserve(position), null)
+            : buffer.Add(runEvent, position, FlushThreshold, timeProvider.GetUtcNow());
+        // 2026-10-26-0f19a: a projection that lost a unique race to another writer is re-run once, in a
+        // fresh scope, and finds that writer's rows.
+        try { await ApplyAsync(runEvent, added.Seq, cancellationToken); }
+        catch (DbUpdateException) { await ApplyAsync(runEvent, added.Seq, cancellationToken); }
+        if (added.ToFlush is not null) await trail.WriteAsync(runEvent.RunId, added.ToFlush, cancellationToken);
         // 2026-08-24-ca23: only a real ending releases the buffer. A waiting status relaunches
         // onto this same run id, and dropping the buffer restarts its sequence at zero.
         if (runEvent.Type == EventType.RunFinished
             && runEvent is RunFinishedEvent finished && !RunStatuses.IsWaiting(finished.Status))
             buffers.Release(runEvent.RunId);
+    }
+
+    // The projector is a singleton consuming the run stream — NOT a web request — so it opens a
+    // scope per event and applies the typed entity through the scoped unit of work.
+    private async Task ApplyAsync(AgentSmith.Contracts.Events.RunEvent runEvent, long seq, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        await applier.ApplyAsync(Uow(scope), runEvent, seq, ct);
     }
 
     /// <summary>
@@ -61,7 +78,7 @@ public sealed class RunDbProjector(
         foreach (var (runId, buffer) in buffers.All())
         {
             var toFlush = buffer.DrainIfOlderThan(MaxBufferAge, now);
-            if (toFlush is not null) await FlushAsync(runId, toFlush, cancellationToken);
+            if (toFlush is not null) await trail.WriteAsync(runId, toFlush, cancellationToken);
         }
     }
 
@@ -75,33 +92,9 @@ public sealed class RunDbProjector(
         foreach (var (runId, buffer) in buffers.All())
         {
             var toFlush = buffer.DrainIfOlderThan(TimeSpan.Zero, timeProvider.GetUtcNow());
-            if (toFlush is not null) await FlushAsync(runId, toFlush, cancellationToken);
+            if (toFlush is not null) await trail.WriteAsync(runId, toFlush, cancellationToken);
         }
     }
-
-    /// <summary>
-    /// 2026-08-25-61f1: insert-if-absent, per row. The store holds one trail row per
-    /// (run, position) and the buffer drained this batch out of memory before the write —
-    /// so a batch that THREW on a duplicate would be gone, unretried, and the drain loop
-    /// would log it as transient and move on. Refusing must not mean losing: the positions
-    /// the store already holds are dropped from the batch and the rest are written.
-    /// </summary>
-    private async Task FlushAsync(
-        string runId, IReadOnlyList<(long Seq, AgentSmith.Contracts.Events.RunEvent Event)> events, CancellationToken ct)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var uow = Uow(scope);
-        var recorded = await RecordedSeqsAsync(uow, runId, [.. events.Select(e => e.Seq)], ct);
-        foreach (var (seq, ev) in events.Where(e => !recorded.Contains(e.Seq)))
-            uow.Add(RunTrailRowMapper.Map(runId, seq, ev));
-        await uow.SaveChangesAsync(ct);
-    }
-
-    private static async Task<HashSet<long>> RecordedSeqsAsync(
-        IUnitOfWork uow, string runId, IReadOnlyList<long> seqs, CancellationToken ct) =>
-        [.. await uow.Set<Entities.RunEvent>().AsNoTracking()
-            .Where(e => e.RunId == runId && seqs.Contains(e.Seq))
-            .Select(e => e.Seq).ToListAsync(ct)];
 
     private static IUnitOfWork Uow(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 }

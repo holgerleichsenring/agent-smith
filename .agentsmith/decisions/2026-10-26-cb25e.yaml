@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-cb25e
+
+decisions:
+  - category: Architecture
+    chose: "BranchRef.ShortName in Domain, beside BranchName"
+    over: "A BranchName factory"
+    reason: "BranchName refuses an empty name, and an empty platform answer is a legitimate input whose meaning differs per caller."
+  - category: Implementation
+    chose: "Exactly one leading refs/heads/, ordinal"
+    over: "AzureReposOpenPullRequests' Replace anywhere"
+    reason: "Characterised (BranchRefTests 'was'): Replace turned feature/refs/heads/x into feature/x and refs/heads/refs/heads/x into x; the five other copies stripped one leading prefix. A branch may contain that text; the open-PR head branch must name the real branch, or the PR sweep looks up a branch that does not exist. Accidental."
+  - category: Implementation
+    chose: "Null stays null and empty stays empty; DefaultBranchResolver and the discovery fold empty to null AFTER stripping"
+    over: "Folding inside the helper, or before stripping as they did"
+    reason: "The fold is deliberate there (an empty answer is the platform naming no branch, so the configured branch applies) and stays explicit at those two callers. Changed cell: a bare refs/heads/ used to strip to an empty default branch; it now reads as no answer, like an empty one."

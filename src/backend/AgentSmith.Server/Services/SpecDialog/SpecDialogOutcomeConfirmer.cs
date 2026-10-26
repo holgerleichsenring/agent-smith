@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
@@ -26,6 +27,7 @@ public sealed class SpecDialogOutcomeConfirmer(
     SpecDialogPendingQuestions pendingQuestions,
     SpecDialogOutcomeComposer composer,
     SpecDialogUnreviewedApproval unreviewed, // 2026-10-13-8762i: never approved unreviewed
+    IOpenDialogQuestions openQuestions, // 2026-10-26-0f19b: a click on another replica finds it
     ILogger<SpecDialogOutcomeConfirmer> logger)
 {
     private static readonly TimeSpan ConfirmationTimeout = TimeSpan.FromMinutes(15);
@@ -43,6 +45,7 @@ public sealed class SpecDialogOutcomeConfirmer(
         // the buttons are the same question's second input surface.
         pendingQuestions.Set(
             state.JobId, question, DateTimeOffset.UtcNow + ConfirmationTimeout);
+        await openQuestions.OpenAsync(state.JobId, question.QuestionId, ConfirmationTimeout, cancellationToken);
         using var buttonCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var buttons = RelayButtonAnswerAsync(state, question, buttonCts.Token);
         try
@@ -58,6 +61,7 @@ public sealed class SpecDialogOutcomeConfirmer(
             // A timed-out confirmation must not swallow the thread's next
             // design message as a stale answer.
             pendingQuestions.Clear(state.JobId);
+            await openQuestions.CloseAsync(state.JobId, question.QuestionId, CancellationToken.None);
         }
     }
 

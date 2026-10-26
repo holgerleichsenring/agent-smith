@@ -13,8 +13,8 @@ namespace AgentSmith.Contracts.Services;
 public static class TrackerCapabilityFields
 {
     /// <summary>
-    /// Grounded in TicketProviderFactory: ADO builds its org URL from organization +
-    /// project; GitHub/Jira connect by URL; GitLab addresses the project path. Every
+    /// Grounded in TicketProviderFactory: ADO builds its org URL from its url (the base, a Server's
+    /// host and virtual directory; empty for the cloud) and organization (2026-10-26-cb25b); GitHub/Jira connect by URL; GitLab addresses the project path. Every
     /// tracker authenticates via a secret NAME — declared Secret (2026-10-02-140d), so the
     /// form offers a pick from the secrets catalog instead of a box for the token.
     /// </summary>

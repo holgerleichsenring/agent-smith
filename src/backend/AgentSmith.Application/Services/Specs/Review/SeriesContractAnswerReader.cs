@@ -1,37 +1,16 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
 /// <summary>
 /// 2026-10-13-8762k: reads the series-contract reviewer's JSON object out of its answer, wherever in the prose it
-/// sits — the outermost object that reads as an answer with a verdict, as <see cref="SpecAttackAnswerReader"/> scans.
+/// sits — the outermost object that reads as an answer with a verdict, through <see cref="JsonAnswerReader"/> (2026-10-26-cb25d).
 /// Every field goes through <see cref="SpecJsonReader"/>; a line written as null or as a string never throws.
 /// </summary>
 internal static class SeriesContractAnswerReader
 {
-    public static SeriesContractAnswer? Read(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var ends = Positions(text, '}').Reverse().ToList();
-        foreach (var start in Positions(text, '{'))
-            foreach (var end in ends.Where(e => e > start))
-                if (TryParse(text[start..(end + 1)]) is { } answer)
-                    return answer;
-        return null;
-    }
-
-    private static SeriesContractAnswer? TryParse(string candidate)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(candidate);
-            return Of(document.RootElement);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    public static SeriesContractAnswer? Read(string? text) => JsonAnswerReader.ReadObject(text, Of);
 
     private static SeriesContractAnswer? Of(JsonElement root) =>
         root.ValueKind == JsonValueKind.Object
@@ -50,9 +29,4 @@ internal static class SeriesContractAnswerReader
 
     private static JsonElement? Field(JsonElement e, string name) =>
         SpecJsonReader.TryGet(e, name, out var value) ? value : null;
-
-    private static IEnumerable<int> Positions(string text, char c)
-    {
-        for (var i = text.IndexOf(c); i >= 0; i = text.IndexOf(c, i + 1)) yield return i;
-    }
 }

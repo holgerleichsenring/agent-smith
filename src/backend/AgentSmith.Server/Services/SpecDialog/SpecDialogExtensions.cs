@@ -43,6 +43,7 @@ internal static class SpecDialogExtensions
         // tracker (renderer + filer), replacing the session-store default.
         services.AddTransient<SpecDialogOutcomeComposer>();
         services.AddTransient<SpecDialogOutcomeConfirmer>().AddTransient<SpecDialogUnreviewedApproval>(); // 2026-10-13-8762i
+        services.AddSingleton<AgentSmith.Server.Contracts.IOpenDialogQuestions, RedisOpenDialogQuestions>().AddScoped<SpecDialogButtonAnswer>(); // 2026-10-26-0f19b
         services.AddTransient<SpecTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -10,9 +11,6 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </summary>
 public static class AzureDevOpsWorkItemLink
 {
-    private const string CloudHost = "dev.azure.com";
-    private const string LegacyHostSuffix = ".visualstudio.com";
-
     /// <summary>The work item id to link, or null when the ticket is not one of this organization.</summary>
     public static int? WorkItemIdFor(PullRequestTicket? ticket, string organizationUrl)
     {
@@ -24,20 +22,10 @@ public static class AzureDevOpsWorkItemLink
 
     private static bool SameOrganization(string webUrl, string organizationUrl)
     {
-        var ticketOrg = CloudOrganization(webUrl);
+        // dev.azure.com/{org} and {org}.visualstudio.com name the same organization.
+        var ticketOrg = AzureDevOpsOrganizationUrl.CloudOrganizationOf(webUrl);
         if (ticketOrg is not null)
-            return string.Equals(ticketOrg, CloudOrganization(organizationUrl), StringComparison.OrdinalIgnoreCase);
+            return string.Equals(ticketOrg, AzureDevOpsOrganizationUrl.CloudOrganizationOf(organizationUrl), StringComparison.OrdinalIgnoreCase);
         return webUrl.StartsWith(organizationUrl.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
-    }
-
-    // dev.azure.com/{org} and {org}.visualstudio.com name the same organization.
-    private static string? CloudOrganization(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
-        if (uri.Host.Equals(CloudHost, StringComparison.OrdinalIgnoreCase))
-            return uri.AbsolutePath.Trim('/').Split('/')[0];
-        return uri.Host.EndsWith(LegacyHostSuffix, StringComparison.OrdinalIgnoreCase)
-            ? uri.Host[..^LegacyHostSuffix.Length]
-            : null;
     }
 }

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-cb25b
+
+decisions:
+  - category: Architecture
+    chose: "AzureDevOpsOrganizationUrl.For in Domain, beside CloudOrganizationOf from 2026-10-26-cb25a"
+    over: "A composer in Infrastructure"
+    reason: "ConnectionRepoUrlBuilder lives in Infrastructure.Core, which cannot see Infrastructure; Domain already holds RepoKey, so URL rules shared by every layer sit there."
+  - category: Implementation
+    chose: "The tracker url is a base URL, with the same meaning as a connection's host"
+    over: "Reading it as the complete organization URL"
+    reason: "Characterised: trackers ignored url and composed https://dev.azure.com/{org}, so a Server tracker could not be configured (accidental: the Studio offered the field). One meaning for both forms of the setting; a Server collection under a virtual directory is base + collection."
+  - category: Implementation
+    chose: "No base, or a base on dev.azure.com or *.visualstudio.com, gives https://dev.azure.com/{organization} whatever path it carries"
+    over: "Appending the organization to whatever was stored"
+    reason: "The field had no effect on trackers, so any cloud value an operator stored (https://dev.azure.com/org/project) must keep working instead of composing .../org/project/org. Characterised: connections with such a host built that broken URL; they now reach the organization too."
+  - category: Implementation
+    chose: "A Server base whose last segment already is the organization is the collection URL itself"
+    over: "Always appending"
+    reason: "Characterised: connections made .../Coll/Coll from a collection URL. An explicit rule; a virtual directory and a collection of one name (tfs/tfs) would collide and must be written with the base only. Documented in agentsmith-yml.md."
+  - category: Implementation
+    chose: "The organization is URL-escaped in every composition"
+    over: "Raw, as the tracker provider, discovery and the repo-url builder wrote it"
+    reason: "Characterised: tracker-check and connection-check escaped, the other three did not. A cloud organization name is unchanged by escaping; a Server collection with a space only works escaped. Uri already escapes a space in AbsolutePath, so RepoKey of a stored repo url is unchanged."
+  - category: Implementation
+    chose: "A base that is not an absolute URL is still composed as base/organization"
+    over: "Treating it as the cloud"
+    reason: "Keeps what connections did with such a value; it is broken either way and the connection check reports the host."

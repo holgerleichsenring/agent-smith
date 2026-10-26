@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-0f19c
+goal: "One replica at a time projects run events into the store, under a Redis lease; a replica that takes the lease first catches each run up from the store's last persisted position."
+
+applies_to: "default (run projection: IRunEventPersistence, a projection lease and catch-up beside JobsBroadcaster)"
+
+requires: [2026-10-26-0f19a]
+
+facts:
+  - claim: "The projector was designed as the server's single writer; several projections check for their rows and then insert or replace them with no unique index to refuse a second copy."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:9-15, src/backend/AgentSmith.Infrastructure.Persistence/Services/MemoryEvidenceWriter.cs:10-20, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/MemoryEvidenceConfiguration.cs:29-30, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:43-50"
+  - claim: "Two replicas projecting one MemoryUseRecorded event at the same moment both pass the check and both write: two relied facts became four rows. Equal positions (0f19a) do not prevent it."
+    evidence: "observed: 2026-10-26, two RunDbProjector stacks over one SQLite store projecting one MemoryUseRecorded event in parallel wrote four rows for two relied facts, five of five runs, at d5f8464d1 (the broadcaster-level case lands with this spec)"
+  - claim: "Every replica drains every stream for its own SignalR clients and passes every non-output event to IRunEventPersistence; persistence is a separate seam, so gating it leaves the fan-out untouched."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:21-44, src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:74-75"
+  - claim: "The server already elects one replica per subsystem through IRedisLeaderLease (SET NX with a 30 s TTL, renewed every 10 s, re-tried every 5 s, released on stop)."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/LeaderElectedHostedService.cs:16-70, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:16-27, src/backend/AgentSmith.Infrastructure/Services/Queue/RedisLeaderLease.cs:17-44"
+  - claim: "A replica that takes over drains from its own cursor, which may be past events the previous holder never persisted; the store's unfinished runs are listed by IUnfinishedRunSource."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:246-277, src/backend/AgentSmith.Infrastructure.Persistence/Contracts/IUnfinishedRunSource.cs:12"
+  - claim: "Trail rows are flushed in stream order and, after 0f19a, only a sandbox result writes its trail row out of that order; so the highest non-sandbox trail position at or above the Floor bounds what the store holds."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailWriter.cs:18-34, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:28-41"
+
+scope:
+  in: >
+    ProjectionLeadership (holding, epoch) and ProjectionLeaderHostedService under lease key
+    agentsmith:leader:projection: while holding, it catches every unfinished run with a stream up. A gate
+    decorating IRunEventPersistence persists only while holding, serialises each run, catches a run up
+    once per epoch before its first event, and skips a position at or below what it already projected.
+    RunProjectionCatchUp reads the stream after the store's highest non-sandbox trail position (from 0-0 when
+    the run has no trail, not at all when its trail holds only counted positions) and projects every entry
+    but sandbox output.
+  out: >
+    A gap while no replica holds the lease (at most the 5 s re-try after a release, or the 30 s TTL after a
+    crash) is closed by the catch-up, not by a handover. A holder that stalls past its TTL can overlap the
+    next holder for one in-flight event; the identity rows of 0f19a absorb that. The cold-start terminal
+    reconciler keeps running on every replica, made idempotent by 0f19a.
+
+decisions:
+  - key: "ONE WRITER, NOT UNIQUE INDEXES. The check-then-write projections were built for one writer; indexing each needs migrations in both sets over tables that may already hold duplicates, and still leaves side effects (the activity nudge) running per replica."
+  - key: "THE STORE IS THE RESUME POINT. The new holder's cursor says what it fanned out, not what was persisted; the trail's highest ordered position does."
+
+steps:
+  - id: proof
+    action: "Broadcaster-level red: two replicas record one MemoryUseRecorded event twice (two of three runs at 46ec27555); a holder that stops before flushing leaves trail rows the next holder never writes."
+  - id: lease
+    action: "ProjectionLeadership, ProjectionLeaderHostedService (LeaderSubsystemRunner), DI."
+  - id: gate
+    action: "Leader gate over IRunEventPersistence; RunProjectionCatchUp; per-run progress released on a real ending."
+  - id: verify
+    action: "dotnet build; MultiReplicaProjectionTests, JobsBroadcasterDrainTests, ColdStartUnreadTailTests, WaitingRun tests, ServerDiLifetimeTests, FileLengthRatchetTests."
+
+tests:
+  - "TwoReplicas_FromTheStart_RecordMemoryEvidenceOnce"
+  - "Handover_HolderStopsBeforeFlush_NextHolderCompletesTheTrail"
+  - "NonHolder_DrainsAndFansOut_WritesNothing"
+  - "RunProjectionResumePointTests (no trail, stream positions, counted positions only)"
+  - "Restart_BeforeTrailFlush_LaterCallsStillRecorded and SecondReplica_StartsMidRun_EveryCallRecordedOnce, now under the lease"
+
+done:
+  - "With two replicas one MemoryUseRecorded event yields its rows once and four calls cost 4."
+  - "A holder that stops mid-run before its trail flush is succeeded by one whose catch-up writes every trail row and every call exactly once."
+  - "Build green, full suite green, dashboard gen/test/build green."

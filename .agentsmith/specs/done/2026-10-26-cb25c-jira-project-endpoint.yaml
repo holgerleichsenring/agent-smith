@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-cb25c
+goal: "The Jira draft check reads the project through the tracker's configured REST paths, so a Data Center on API v2 passes the Studio check as its runs already do."
+
+applies_to: "default (Contracts JiraEndpoints, JiraTrackerDraftCheck, JiraRequiresLink)"
+
+requires: []
+
+facts:
+  - claim: "The draft check calls the configured Myself path but hard-codes /rest/api/3/project/{key}."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/JiraTrackerDraftCheck.cs:25, src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/JiraTrackerDraftCheck.cs:34-35"
+  - claim: "Every provider path comes from JiraEndpoints, whose defaults are Cloud v3 and which has no project path."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:15-35, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:46-60"
+  - claim: "JiraRequiresLink already derives a path from the configured issue collection (Create + Link), so v2 follows without its own setting."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraRequiresLink.cs:7-10, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraRequiresLink.cs:19"
+  - claim: "The check's Basic auth and the provider's are byte-identical (UTF-8 email:token), so auth is not a disagreement."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/DraftCheckAuth.cs:27-29, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketProviderHttpClient.cs:44-49"
+  - claim: "The existing check tests pin /rest/api/3/project/OPS for the default endpoints."
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/DraftChecks/TrackerDraftCheckTests.cs:21, tests/AgentSmith.Tests/ConfigStudio/DraftChecks/TrackerDraftCheckTests.cs:47"
+
+scope:
+  in: >
+    Method: (1) CHARACTERISE — the project path and the issue-link path for default endpoints and for a v2 override
+    set, and for a Create override that does not end in /issue, as the check and JiraRequiresLink compute them today; (2) DECIDE in the decisions file; (3) CONSOLIDATE —
+    JiraEndpoints.ProjectFor(key), from the API root of the Myself path (the identity call the check has just
+    made; a Myself not ending in /myself is taken as the root), and IssueLinkPath(), Create + "Link" exactly as
+    JiraRequiresLink derives it today; the check and JiraRequiresLink use them, the inline derivations and the doc comment naming /rest/api/3/myself are deleted; (4) PROVE — the
+    matrix against JiraEndpoints, the check calls /rest/api/2/project/{key} for a v2 tracker.
+  out: >
+    Replacing the check's steps by the provider's ProbeAsync: the probe reports reachability only, the check also
+    reports who the token is and the project, and the auth is already identical.
+
+decisions:
+  - key: "DERIVE, DO NOT ADD A SETTING. A new endpoints key would be one more thing a v2 operator must know to override; the Myself path the check already calls says which API they run."
+
+steps:
+  - id: characterise
+    action: "JiraEndpointsDerivedPathTests: the paths as computed today."
+  - id: consolidate
+    action: "ProjectFor and IssueLink on JiraEndpoints; check and link migrate."
+
+tests:
+  - "JiraEndpointsDerivedPathTests"
+  - "JiraDraft_V2Endpoints_ReadsTheProjectOnV2"
+  - "TrackerDraftCheckTests, TicketRequiresLinkTests green"
+
+done:
+  - "No Jira REST path is written outside JiraEndpoints."
+  - "Build green, full suite green, dashboard gen/test/build green."

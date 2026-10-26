@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Webhooks;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Webhooks;
@@ -32,7 +33,7 @@ public sealed class AzureDevOpsRepoContributeTrust(
 
             return await verdicts.GetOrLookupAsync(
                 // 2026-10-02-5f89a: keyed by organization too, so two organizations never share a verdict.
-                $"azuredevops:{OrganizationUrl(repositoryUrl)}:{author.RepositoryId}:{author.AuthorId}",
+                $"azuredevops:{AzureDevOpsRepoAddress.Parse(repositoryUrl).OrganizationUrl}:{author.RepositoryId}:{author.AuthorId}",
                 () => HasContributeAsync(repo, repositoryUrl, author, cancellationToken));
         }
         catch (Exception ex)
@@ -50,20 +51,8 @@ public sealed class AzureDevOpsRepoContributeTrust(
         var repositoryId = Guid.Parse(author.RepositoryId);
         string[] tokens = [$"repoV2/{projectId}/{repositoryId}", $"repoV2/{projectId}", "repoV2"];
         var effective = await permissions.ReadAsync(
-            repo, OrganizationUrl(repositoryUrl), GitRepositoriesNamespace, tokens,
+            repo, AzureDevOpsRepoAddress.Parse(repositoryUrl).OrganizationUrl, GitRepositoriesNamespace, tokens,
             Guid.Parse(author.AuthorId), cancellationToken);
         return effective?.Grants(ContributeBit) == true;
-    }
-
-    /// <summary>The organization (or collection) URL: everything before "/{project}/_git/".</summary>
-    private static string OrganizationUrl(string repositoryUrl)
-    {
-        var uri = new Uri(repositoryUrl);
-        var path = uri.AbsolutePath;
-        var gitIndex = path.IndexOf("/_git/", StringComparison.OrdinalIgnoreCase);
-        if (gitIndex < 0)
-            throw new InvalidOperationException($"Not an Azure Repos URL: {repositoryUrl}");
-        var beforeProject = path[..gitIndex];
-        return $"{uri.Scheme}://{uri.Authority}{beforeProject[..beforeProject.LastIndexOf('/')]}";
     }
 }

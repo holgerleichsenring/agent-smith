@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -22,32 +23,17 @@ namespace AgentSmith.Application.Services.Scans;
 public sealed class FindingRefutationReader(
     ITolerantJsonParser parser, ILogger<FindingRefutationReader> logger) : IFindingRefutationReader
 {
-    // snake_case is what the prompt asks for, and case-insensitivity alone
-    // does not bridge an underscore.
-    private static readonly JsonSerializerOptions Shape = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    };
-
     public IReadOnlyList<FindingRefutation>? Read(string? text) =>
         string.IsNullOrWhiteSpace(text) ? null : Whole(text) ?? Salvaged(text);
 
+    // 2026-10-26-cb25d: the array wherever it sits, as every answer reader finds it; only when none reads whole is
+    // the answer taken as cut short.
     private IReadOnlyList<FindingRefutation>? Whole(string text)
     {
-        var start = text.IndexOf('[', StringComparison.Ordinal);
-        var end = text.LastIndexOf(']');
-        if (start < 0 || end <= start) return null;
-        try
-        {
-            var rows = JsonSerializer.Deserialize<List<FindingRefutation>>(text[start..(end + 1)], Shape);
-            return rows is null ? null : [.. rows.OfType<FindingRefutation>()];
-        }
-        catch (JsonException ex)
-        {
-            logger.LogDebug(ex, "The refutation answer is not a whole array — salvaging its rows");
-            return null;
-        }
+        var rows = JsonAnswerReader.ReadArray<FindingRefutation?, FindingRefutation?>(text, row => row);
+        if (rows is not null) return [.. rows.OfType<FindingRefutation>()];
+        logger.LogDebug("The refutation answer is not a whole array — salvaging its rows");
+        return null;
     }
 
     private IReadOnlyList<FindingRefutation>? Salvaged(string text)
@@ -57,7 +43,7 @@ public sealed class FindingRefutationReader(
         {
             try
             {
-                var row = JsonSerializer.Deserialize<FindingRefutation>(literal, Shape);
+                var row = JsonSerializer.Deserialize<FindingRefutation>(literal, JsonAnswerReader.Options);
                 if (row is not null) rows.Add(row);
             }
             catch (JsonException ex)

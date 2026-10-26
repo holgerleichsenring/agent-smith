@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Models;
 using Octokit;
 
@@ -19,7 +20,8 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 internal sealed class TrackerConnections(ICredentialResolver credentials)
 {
     public AzureDevOpsTicketConnection AzureDevOps(TrackerConnection config) => new(
-        $"https://dev.azure.com/{config.Organization}", config.Project!,
+        // 2026-10-26-cb25b: the tracker's url is its base, so an Azure DevOps Server tracker can be configured.
+        AzureDevOpsOrganizationUrl.For(config.Url, config.Organization ?? string.Empty), config.Project!,
         credentials.For(config), TicketLabelVocabulary.For(config));
 
     public GitHubTicketConnection GitHub(TrackerConnection config) => new(

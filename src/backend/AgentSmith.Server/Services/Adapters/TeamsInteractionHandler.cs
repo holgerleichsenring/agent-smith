@@ -3,6 +3,7 @@ using AgentSmith.Server.Services.ChatRuns;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging;
 using System.Text.Json.Nodes;
 
@@ -18,6 +19,7 @@ public sealed class TeamsInteractionHandler(
     ClarificationTaker clarifications,
     SlackMessageDispatcher messageDispatcher,
     TeamsAdapter adapter,
+    SpecDialogButtonAnswer dialogButtons, // 2026-10-26-0f19b: a card submit for a question another replica asked
     ILogger<TeamsInteractionHandler> logger)
 {
     private const string ClarificationPrefix = "clarification";
@@ -80,18 +82,12 @@ public sealed class TeamsInteractionHandler(
         string conversationId, string userId, string questionId,
         string answer, string? comment, CancellationToken ct)
     {
-        // Try to complete a pending typed question first
-        if (adapter.HasPendingTypedQuestion(questionId))
+        // A typed question this replica asked completes its own wait; one another replica asked for a
+        // spec dialog is found through the conversation's session (2026-10-26-0f19b).
+        var dialogAnswer = new DialogAnswer(questionId, answer, comment, DateTimeOffset.UtcNow, userId);
+        if (adapter.TryCompleteTypedQuestion(questionId, dialogAnswer)
+            || await dialogButtons.TryAnswerAsync(DispatcherDefaults.PlatformTeams, conversationId, dialogAnswer, ct))
         {
-            var dialogAnswer = new DialogAnswer(
-                questionId,
-                answer,
-                comment,
-                DateTimeOffset.UtcNow,
-                userId);
-
-            adapter.TryCompleteTypedQuestion(questionId, dialogAnswer);
-
             logger.LogInformation("Teams typed question '{QuestionId}' answered with '{Answer}' by {User}",
                 questionId, answer, userId);
             return;

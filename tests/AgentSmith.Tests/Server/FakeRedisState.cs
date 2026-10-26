@@ -15,7 +15,9 @@ public sealed class FakeRedisState
     private readonly Dictionary<string, List<StreamEntry>> _streams = new();
     private readonly Dictionary<string, HashSet<string>> _sets = new();
     private readonly Dictionary<string, List<string>> _lists = new();
-    private long _nextId;
+    // 2026-10-26-0f19a: ids in the shape Redis mints them, milliseconds since 1970 then a sequence,
+    // so a trail position derived from one sits where a real one does.
+    private long _nextId = 1_760_000_000_000;
 
     public RedisValue StreamAdd(string key, NameValueEntry[] values)
     {

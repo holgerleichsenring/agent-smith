@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-cb25d
+goal: "One JsonAnswerReader finds the JSON array or object in a model's answer for every static reader, so a cited [c2] or a quoted brace in prose no longer fails five of them."
+
+applies_to: "default (Application Services/Json, Specs readers, FindingRefutationReader, ClientUsageReportReader, StagedAuthFileJsonReader, ProviderErrorPayloadParser, both LlmIntentParsers)"
+
+requires: []
+
+facts:
+  - claim: "JsonAnswerArrayReader tries every [ that opens objects or an empty array, earliest first, against every later ], longest first; SpecReviewAnswerReader is a verbatim copy; both rebuild their options per call."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/JsonAnswerArrayReader.cs:20-66, src/backend/AgentSmith.Application/Services/Specs/SpecReviewAnswerReader.cs:12-54"
+  - claim: "SpecAccountReader and FindingRefutationReader take the first [ to the last ], which fails on prose that cites [c2] before the array; the refutation reader then salvages complete objects on purpose (truncated answers)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountReader.cs:33-40, src/backend/AgentSmith.Application/Services/Scans/FindingRefutationReader.cs:33-73"
+  - claim: "SpecAttackAnswerReader and SeriesContractAnswerReader scan objects the robust way, accepting the first candidate that maps to an answer with a verdict."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackAnswerReader.cs:13-46, src/backend/AgentSmith.Application/Services/Specs/Review/SeriesContractAnswerReader.cs:12-34"
+  - claim: "Four object readers take the first { to the last }: the Application intent parser, the client-usage report, the staged auth files (the stager LLM's answer, not a file) and the provider error payload in a run summary."
+    evidence: "src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:88-99, src/backend/AgentSmith.Application/Services/Surface/ClientUsageReportReader.cs:28-42, src/backend/AgentSmith.Application/Services/Registry/StagedAuthFileJsonReader.cs:7-12, src/backend/AgentSmith.Application/Services/Registry/StagedAuthFileJsonReader.cs:37-43, src/backend/AgentSmith.Application/Services/ProviderErrorPayloadParser.cs:14-24"
+  - claim: "The Server intent parser parses the whole answer, so a fenced or framed answer throws and the caller reads null."
+    evidence: "src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:56, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:58-62, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:65-69"
+  - claim: "Both intent parsers are in the file-length baseline (131 and 127) and may only shrink; Server references Application, so the home must be public."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv, src/backend/AgentSmith.Server/AgentSmith.Server.csproj:5"
+  - claim: "The account and staged-file wires bind one-word properties only, so snake_case binds them as case-insensitivity alone does; the intent wires are camelCase (commandType) and snake_case (ticket_id) and are read through JsonElement."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountRowJson.cs:16-34, src/backend/AgentSmith.Application/Services/Registry/StagedAuthFileJsonReader.cs:45-46, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:38, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:71-75, src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:101-104"
+  - claim: "JsonObjectSpans in Contracts is the existing string-aware, linear brace matcher for model output; it yields outermost spans only."
+    evidence: "src/backend/AgentSmith.Contracts/Json/JsonObjectSpans.cs:3-34"
+  - claim: "A static class holding a static field must be on the NoStaticStateRuleTests data-table allowlist; the Application intent parser's contract is to throw on an unreadable answer."
+    evidence: "tests/AgentSmith.Tests/Architecture/NoStaticStateRuleTests.cs:13-36, src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:120-125"
+  - claim: "ModelOutputParsingRuleTests asserts SeriesContractAnswerReader.cs exists."
+    evidence: "tests/AgentSmith.Tests/Architecture/ModelOutputParsingRuleTests.cs:22-33"
+
+scope:
+  in: >
+    Method: (1) CHARACTERISE — one answer matrix (bare, fenced, prose around, a cited [c2] or {x} before the JSON, two
+    JSON values, truncated, empty, none) pinned against every reader as it is; (2) DECIDE per disagreeing row in the
+    decisions file; (3) CONSOLIDATE — the text shape goes to Contracts/Json: JsonObjectSpans gains Candidates(text, open, close), every
+    start's balanced span (string-aware, one linear scan per start, inner spans included, an unclosed start skipped), so
+    a candidate is parsed once per start instead of once per start/end pair. Application/Services/Json/JsonAnswerReader
+    (public static) maps: ReadArray<TWire,T> (arrays opening an object or empty), ReadObject<TWire,T> and
+    ReadObject<T>(JsonElement map), a candidate whose map is null passed over; one static options instance
+    (case-insensitive, snake_case), allowlisted as data in NoStaticStateRuleTests. JsonAnswerArrayReader and the scans
+    of SpecReviewAnswerReader, SpecAttack/SeriesContract and the first-to-last spans are deleted; each reader keeps its
+    mapping, its file and its null-vs-empty or throw contract; FindingRefutationReader keeps its salvage after the
+    shared reader;
+    (4) PROVE — the matrix against the readers on the single home, changed rows visible.
+  out: >
+    The DI TolerantJsonParser's span (master answers, plans, observations): it records telemetry per recovery and its
+    callers rely on it; aligning its span with this reader is a separate change, named here and in the decisions.
+
+decisions:
+  - key: "EARLIEST START, ITS BALANCED END, FIRST THAT MAPS. The order the robust readers proved on cited ids, without their quadratic pair scan; first-to-last was the accident."
+
+steps:
+  - id: characterise
+    action: "JsonAnswerReaderMatrixTests: the matrix against each reader as it is."
+  - id: consolidate
+    action: "JsonAnswerReader; every reader migrates; copies deleted; matrix switched."
+
+tests:
+  - "JsonAnswerReaderMatrixTests"
+  - "JsonAnswerReaderTests (ReadArray, ReadObject both overloads)"
+  - "JsonObjectSpansTests (Candidates)"
+  - "DeliveredFindingRefutationTests, ClientUsageReadingTests, RegistryAuthStagingTests, Specs and Review tests green"
+
+done:
+  - "No reader in Application or Server finds JSON in a model answer by IndexOf/LastIndexOf of a bracket; ModelOutputParsingRuleTests green."
+  - "Build green, full suite green, dashboard gen/test/build green."

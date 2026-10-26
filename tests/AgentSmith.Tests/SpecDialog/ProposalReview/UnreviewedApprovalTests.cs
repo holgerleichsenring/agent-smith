@@ -88,7 +88,7 @@ public sealed class UnreviewedApprovalTests : IDisposable
         var confirmer = new SpecDialogOutcomeConfirmer(transport.Object,
             new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance),
             new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), new SpecDialogOutcomeComposer(),
-            UnreviewedApprovals.Over(repository), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
+            UnreviewedApprovals.Over(repository), Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
         var proposal = new SpecOutcome(new SpecDraftReader().Read(Yaml(First))) { NotReviewed = notReviewed };
 
         return (await confirmer.ConfirmAsync(state, proposal, CancellationToken.None), sessions);

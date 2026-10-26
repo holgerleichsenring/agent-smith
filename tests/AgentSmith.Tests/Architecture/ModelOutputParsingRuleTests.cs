@@ -30,6 +30,7 @@ public sealed class ModelOutputParsingRuleTests
         "Services/Specs/SeriesContractReader.cs",
         "Services/Specs/SeriesContractElements.cs",
         "Services/Specs/Review/SeriesContractAnswerReader.cs", // 2026-10-13-8762k
+        "Services/Json/JsonAnswerReader.cs", // 2026-10-26-cb25d
     ];
 
     private static readonly Regex RawAccessor = new(

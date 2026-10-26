@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Factories;
 using FluentAssertions;
 
@@ -25,17 +26,17 @@ public sealed class RepoUrlGitSuffixTests
             .ProjectPath.Should().Be("team/my.gitops");
 
     [Fact]
-    public void ParseAzureReposUrl_RepoNamedDotGitSomething_KeepsName()
+    public void AzureDevOpsRepoAddress_RepoNamedDotGitSomething_KeepsName()
     {
-        var (_, project, repo) = SourceProviderFactory.ParseAzureReposUrl("https://dev.azure.com/org/proj/_git/app.github.io");
+        var address = AzureDevOpsRepoAddress.Parse("https://dev.azure.com/org/proj/_git/app.github.io");
 
-        project.Should().Be("proj");
-        repo.Should().Be("app.github.io");
+        address.Project.Should().Be("proj");
+        address.Repo.Should().Be("app.github.io");
     }
 
     [Fact]
-    public void PrDiffParseAzureReposUrl_RepoNamedDotGitSomething_KeepsName() =>
-        PrDiffProviderFactory.ParseAzureReposUrl("https://dev.azure.com/org/proj/_git/my.gitops.git")
+    public void AzureDevOpsRepoAddress_CloneUrl_DropsTrailingGit() =>
+        AzureDevOpsRepoAddress.Parse("https://dev.azure.com/org/proj/_git/my.gitops.git")
             .Repo.Should().Be("my.gitops");
 
     [Fact]

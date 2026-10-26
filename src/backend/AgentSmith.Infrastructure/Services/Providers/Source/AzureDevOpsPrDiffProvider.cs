@@ -2,16 +2,17 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
 /// Fetches PR diff from Azure DevOps via REST API.
-/// GET /{org}/{project}/_apis/git/repositories/{repo}/pullRequests/{id}/iterations/{iter}/changes
+/// GET {project}/_apis/git/repositories/{repo}/pullRequests/{id}/iterations/{iter}/changes, relative to the
+/// organization (or collection) URL the client's BaseAddress names (2026-10-26-cb25a).
 /// </summary>
 public sealed class AzureDevOpsPrDiffProvider(
     HttpClient httpClient,
-    string organization,
     string project,
     string repositoryId,
     ILogger<AzureDevOpsPrDiffProvider> logger,
@@ -19,22 +20,22 @@ public sealed class AzureDevOpsPrDiffProvider(
 {
     public async Task<PrDiff> GetDiffAsync(string prIdentifier, CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Fetching PR #{PrId} diff from Azure DevOps {Org}/{Project}",
-            prIdentifier, organization, project);
+        logger.LogInformation("Fetching PR #{PrId} diff from Azure DevOps {Project}/{Repo} at {Organization}",
+            prIdentifier, project, repositoryId, httpClient.BaseAddress);
 
-        var prUrl = $"{organization}/{project}/_apis/git/repositories/{repositoryId}" +
+        var prUrl = $"{project}/_apis/git/repositories/{repositoryId}" +
                     $"/pullRequests/{prIdentifier}?api-version={apiVersion}";
         var pr = await httpClient.GetFromJsonAsync<JsonElement>(prUrl, cancellationToken);
 
         var baseSha = pr.GetProperty("lastMergeTargetCommit").GetProperty("commitId").GetString() ?? string.Empty;
         var headSha = pr.GetProperty("lastMergeSourceCommit").GetProperty("commitId").GetString() ?? string.Empty;
 
-        var iterationsUrl = $"{organization}/{project}/_apis/git/repositories/{repositoryId}" +
+        var iterationsUrl = $"{project}/_apis/git/repositories/{repositoryId}" +
                             $"/pullRequests/{prIdentifier}/iterations?api-version={apiVersion}";
         var iterations = await httpClient.GetFromJsonAsync<JsonElement>(iterationsUrl, cancellationToken);
         var iterationCount = iterations.GetProperty("count").GetInt32();
 
-        var changesUrl = $"{organization}/{project}/_apis/git/repositories/{repositoryId}" +
+        var changesUrl = $"{project}/_apis/git/repositories/{repositoryId}" +
                          $"/pullRequests/{prIdentifier}/iterations/{iterationCount}/changes?api-version={apiVersion}";
         var changes = await httpClient.GetFromJsonAsync<JsonElement>(changesUrl, cancellationToken);
 
@@ -51,9 +52,7 @@ public sealed class AzureDevOpsPrDiffProvider(
     }
 
     private static string? HeadBranch(JsonElement pr) =>
-        pr.TryGetProperty("sourceRefName", out var reference) && reference.GetString() is { } name
-            ? (name.StartsWith("refs/heads/", StringComparison.Ordinal) ? name["refs/heads/".Length..] : name)
-            : null;
+        pr.TryGetProperty("sourceRefName", out var reference) ? BranchRef.ShortName(reference.GetString()) : null;
 
     private static ChangeKind MapChangeType(string? changeType) => changeType switch
     {

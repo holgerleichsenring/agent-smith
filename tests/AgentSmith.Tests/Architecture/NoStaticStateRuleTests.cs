@@ -65,6 +65,9 @@ public sealed class NoStaticStateRuleTests
         // design turn runs — which keys name a path, which mark a query, which key is a
         // pattern. Fixed literals, read only to reword a value the whitelist already chose.
         typeof(AgentSmith.Application.Services.Events.OperatorToolSummary),
+        // 2026-10-26-cb25d: the one serializer options instance every model-answer reader maps through — fixed
+        // settings, shared so its metadata cache is built once instead of per call.
+        typeof(AgentSmith.Application.Services.Json.JsonAnswerReader),
         typeof(PromptOwnership),
         typeof(TicketBranchNamer),
         typeof(ApiScanFindingsCompressor),

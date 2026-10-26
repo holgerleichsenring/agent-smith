@@ -80,7 +80,6 @@
 153	AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs
 155	AgentSmith.Infrastructure/Services/Security/DependencyAuditor.cs
 159	AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs
-123	AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs
 158	AgentSmith.Sandbox.Agent/Services/JobLoop.cs
 156	AgentSmith.Application/Services/BootstrapPromptFactory.cs
 156	AgentSmith.Cli/Commands/ApiScanCommand.cs

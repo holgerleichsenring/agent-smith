@@ -101,4 +101,38 @@ public sealed class TrackerDraftCheckTests
         report.Steps[^1].Detail.Should().Be("1 open tickets.");
         host.Requests[^1].Body.Should().Contain("[System.State] IN (\\u0027Doing\\u0027)");
     }
+
+    [Fact]
+    public async Task TrackerDraftCheck_AzureDevOpsServer_TalksToTheConfiguredCollection()
+    {
+        const string collection = "https://tfs.example.com:8080/tfs/DefaultCollection";
+        var host = new ScriptedHostHandler()
+            .On($"{collection}/_apis/connectionData", 200, """{"authenticatedUser":{"providerDisplayName":"Bot"}}""")
+            .On($"{collection}/_apis/projects/proj", 200, """{"name":"proj"}""")
+            .On($"{collection}/proj/_apis/wit/wiql", 200, """{"workItems":[]}""");
+        var draft = new TrackerEntity("ado", "azure_devops", "gitlab_a", Url: "https://tfs.example.com:8080/tfs/",
+            Organization: "DefaultCollection", Project: "proj");
+
+        var report = await Trackers(host).RunAsync(draft, CancellationToken.None);
+
+        Keys(report).Should().Be("secret:ok,host:ok,identity:ok,scope:ok,tickets:ok");
+    }
+
+    [Fact]
+    public async Task TrackerDraftCheck_JiraDataCenterOnV2_ReadsTheProjectOnV2()
+    {
+        var host = new ScriptedHostHandler()
+            .On($"{Jira}/rest/api/2/myself", 200, """{"displayName":"Ops Bot"}""")
+            .On($"{Jira}/rest/api/2/project/OPS", 200, """{"key":"OPS"}""")
+            .On($"{Jira}/rest/api/2/search", 200, """{"issues":[],"total":0}""");
+        var draft = JiraDraft() with
+        {
+            Endpoints = new Dictionary<string, string> { ["myself"] = "/rest/api/2/myself", ["search"] = "/rest/api/2/search" },
+        };
+
+        var report = await Trackers(host).RunAsync(draft, CancellationToken.None);
+
+        Keys(report).Should().StartWith("secret:ok,host:ok,identity:ok,scope:ok");
+        host.Requests.Should().NotContain(r => r.Url.Contains("/rest/api/3/", StringComparison.Ordinal));
+    }
 }

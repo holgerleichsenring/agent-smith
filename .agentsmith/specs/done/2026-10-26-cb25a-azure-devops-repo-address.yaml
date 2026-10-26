@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-cb25a
+goal: "One AzureDevOpsRepoAddress parses every Azure Repos URL — cloud, legacy and Server — so five parsers that disagree on Server URLs, ports and _git case become one."
+
+applies_to: "default (Infrastructure/Models, SourceProviderFactory, PrDiffProviderFactory, AzureDevOpsPrDiffProvider, AzureDevOpsRepoContributeTrust, AzureDevOpsWorkItemLink, Server AzureDevOpsPrUrl)"
+
+requires: []
+
+facts:
+  - claim: "SourceProviderFactory parses with segments[2] == \"_git\" (exact case) and composes the organization URL from uri.Host: a legacy URL without collection and a Server URL with a virtual directory throw; a Server URL without one parses but loses its port."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/SourceProviderFactory.cs:63, src/backend/AgentSmith.Infrastructure/Services/Factories/SourceProviderFactory.cs:89-99"
+  - claim: "PrDiffProviderFactory has a second copy returning host and organization apart; the provider composes {organization}/{project}/_apis relative to a host-only BaseAddress."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/PrDiffProviderFactory.cs:56-77, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrDiffProvider.cs:12-38"
+  - claim: "AzureDevOpsRepoContributeTrust takes everything before /{project}/_git/ case-insensitively and keeps the port (uri.Authority), so it accepts Server URLs the factories refuse."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Webhooks/AzureDevOpsRepoContributeTrust.cs:35, src/backend/AgentSmith.Infrastructure/Services/Webhooks/AzureDevOpsRepoContributeTrust.cs:53, src/backend/AgentSmith.Infrastructure/Services/Webhooks/AzureDevOpsRepoContributeTrust.cs:58-68"
+  - claim: "AzureDevOpsWorkItemLink holds its own cloud-host knowledge: dev.azure.com/{org} and {org}.visualstudio.com name one organization."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsWorkItemLink.cs:13-14, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsWorkItemLink.cs:33-42"
+  - claim: "The webhook's AzureDevOpsPrUrl.RepositoryUrl rebuilds the payload remoteUrl from uri.Host (dropping user info and port) and is the base of the PR url three handlers record."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrUrl.cs:9-18, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrCommentWebhookHandler.cs:67, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrStateWebhookHandler.cs:34, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:39"
+  - claim: "The provider's own PR url is {organizationUrl}/{project}/_git/{repo}/pullrequest/{id}, built from the factory's organization URL."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:25, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:319-320"
+  - claim: "GitHubRepoAddress is the shape to mirror: a sealed record with Parse and TryParse, trailing .git dropped via RepoKey.WithoutGitSuffix."
+    evidence: "src/backend/AgentSmith.Infrastructure/Models/GitHubRepoAddress.cs:10-28"
+  - claim: "RepoKey.Of, the comparison key, drops the port on purpose; it is not a parser of Azure DevOps URLs and stays."
+    evidence: "src/backend/AgentSmith.Domain/Models/RepoKey.cs:14-18"
+  - claim: "Tests call both factory parsers directly and build the diff provider with an organization argument."
+    evidence: "tests/AgentSmith.Tests/Factories/RepoUrlGitSuffixTests.cs:27-39, tests/AgentSmith.Tests/Providers/PrDiffHeadBranchTests.cs:37-38, tests/AgentSmith.Tests/Webhooks/Trust/AzureDevOpsRepoContributeTrustTests.cs:45-49"
+
+scope:
+  in: >
+    Method: (1) CHARACTERISE — a test pins each of the five copies on one URL matrix (cloud, cloud with .git,
+    legacy, legacy with collection, Server with virtual dir, Server with port, _GIT, user info, an escaped
+    project My%20Proj, project-less dev.azure.com/{org}/_git/{repo}, not a repo URL); (2) DECIDE per disagreeing row in decisions/2026-10-26-cb25a.yaml;
+    (3) CONSOLIDATE — AzureDevOpsRepoAddress(OrganizationUrl, Project, Repo, RepoUrl) in Infrastructure/Models with
+    Parse/TryParse, and Domain AzureDevOpsOrganizationUrl holding the cloud host, the legacy suffix and CloudOrganizationOf;
+    every site migrates directly and its copy is deleted; the diff provider takes the organization URL as BaseAddress
+    and drops its organization argument (BaseAddress ends in "/"); Project and Repo keep the escaped form AbsolutePath
+    gives, as every copy does, so clone, provider PR and webhook PR urls keep one form; a webhook remoteUrl that does not
+    parse is returned trimmed, as written; (4) PROVE — the matrix runs against the single home, changed rows visible.
+  out: >
+    Composing an organization URL from host + organization (2026-10-26-cb25b). PR-number parsing (PullRequestNumber,
+    AzureReposPullRequestUpdater). RepoKey.
+
+decisions:
+  - key: "PORT KEPT, _git CASE-INSENSITIVE, SERVER AND LEGACY PARSE. The factories' refusal was an accident: a Server repo could not be built at all, and no recorded PR url with a dropped port can belong to a working Server-with-port repo, because its API calls went to the wrong port."
+  - key: "PROJECT-LESS URL REFUSED. dev.azure.com/{org}/_git/{repo} names no project; every copy misread it, none produces it."
+
+steps:
+  - id: characterise
+    action: "AzureDevOpsRepoAddressTests: the matrix against the five copies as they are; red-free baseline commit-free."
+  - id: home
+    action: "AzureDevOpsOrganizationUrl (Domain) and AzureDevOpsRepoAddress (Infrastructure/Models)."
+  - id: migrate
+    action: "Factories, diff provider, trust, work-item link, webhook PR url use the home; copies deleted; matrix switched to the home."
+
+tests:
+  - "AzureDevOpsRepoAddressTests (matrix, each row with its expected outcome and reason)"
+  - "RepoUrlGitSuffixTests, PrDiffHeadBranchTests, AzureDevOpsRepoContributeTrustTests, PullRequestTicketReferenceTests green"
+
+done:
+  - "No Azure Repos URL is split anywhere but AzureDevOpsRepoAddress; grep for \"_git\" parsing finds only it."
+  - "Build green, full suite green, dashboard gen/test/build green."

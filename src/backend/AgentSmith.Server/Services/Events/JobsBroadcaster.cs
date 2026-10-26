@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Events;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -45,7 +46,6 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     public IReadOnlyList<RunSnapshot> Recent => _recent.Snapshot();
     public IReadOnlyList<SystemEvent> SystemRecent => _system.Recent;
     public SystemActivitySnapshot GetSystemActivity() => _system.Activity();
-
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -156,7 +156,7 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             // intent belongs where the decision is made — not only in the collaborator that
             // would have caught it.
             if (RunStatuses.IsWaiting(terminal.Status)) continue;
-            await ReconcileTerminalAsync(terminal, ct);
+            await ReconcileTerminalAsync((terminal, tail.Id.ToString()), ct);
         }
     }
 
@@ -164,16 +164,16 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     // so a terminal event the previous process never persisted would be skipped
     // forever — the row stayed 'running' (run fb2d). Repair it from the stream's
     // own RunFinished before the drain goes live.
-    private async Task ReconcileTerminalAsync(RunFinishedEvent? terminal, CancellationToken ct)
+    private async Task ReconcileTerminalAsync((RunFinishedEvent Event, string EntryId)? terminal, CancellationToken ct)
     {
-        if (terminal is null || reconciler is null) return;
-        await reconciler.ReconcileAsync(terminal, ct);
+        if (terminal is not { } found || reconciler is null) return;
+        await reconciler.ReconcileAsync(found.Event, StreamTrailPosition.Of(found.EntryId), ct);
     }
 
     // Returns the rebuilt snapshot AND the id of the last stream entry it folded,
     // so the caller can anchor the live drain there (no replay). Null = the run's
     // stream no longer exists (a dangling pointer to GC).
-    private async Task<(RunSnapshot Snapshot, string LastId, RunFinishedEvent? Terminal)?> RehydrateFromStreamAsync(
+    private async Task<(RunSnapshot Snapshot, string LastId, (RunFinishedEvent, string)? Terminal)?> RehydrateFromStreamAsync(
         IDatabase db, string runId)
     {
         var key = EventStreamKeys.RunStream(runId);
@@ -187,10 +187,11 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
         var entries = await db.StreamRangeAsync(key, "-", "+");
         if (entries.Length == 0) return (RunSnapshot.Empty(runId), "0-0", null);
         var events = entries.Select(e => DeserializeEntry(e)).ToArray();
-        // p0378: surface the stream's terminal event so the caller can reconcile
+        // p0378: surface the stream's terminal event (and its entry) so the caller can reconcile
         // a not-yet-persisted RunFinished (the tail-anchored cursor never will).
+        var at = Array.FindLastIndex(events, e => e is RunFinishedEvent);
         return (RebuildSnapshot(runId, events), entries[^1].Id.ToString(),
-            events.OfType<RunFinishedEvent>().LastOrDefault());
+            at < 0 ? null : ((RunFinishedEvent)events[at]!, entries[at].Id.ToString()));
     }
 
     // p0225: pure fold extracted so the rebuild is unit-testable without Redis.
@@ -256,7 +257,7 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             foreach (var entry in entries)
             {
                 var runEvent = DeserializeEntry(entry);
-                if (runEvent is not null) await ProcessEventAsync(runId, runEvent, ct);
+                if (runEvent is not null) await ProcessEventAsync(runId, entry.Id.ToString(), runEvent, ct);
                 // p0378: a processed RunFinished removed the run from tracking —
                 // stop here and never re-add its cursor (the pre-p0378 post-loop
                 // re-add resurrected every finished run as a leaked cursor).
@@ -275,19 +276,19 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
         }
     }
 
-    private async Task ProcessEventAsync(string runId, RunEvent runEvent, CancellationToken ct)
+    private async Task ProcessEventAsync(string runId, string entryId, RunEvent runEvent, CancellationToken ct)
     {
         // p0367: SandboxOutput is the ephemeral stdout stream — it carries no run
         // facts, so it never folds into the snapshot. Every other event updates the
-        // in-memory snapshot; the router decides which groups and persistence it hits.
+        // in-memory snapshot; the router decides which groups and persistence it hits. 2026-10-26-0f19a:
+        // the entry id is the event's trail position, the same on every replica.
         var snapshot = runEvent.Type == EventType.SandboxOutput
             ? _active.GetValueOrDefault(runId) ?? RunSnapshot.Empty(runId)
             : _active.AddOrUpdate(
                 runId,
                 _ => RunSnapshot.Empty(runId).Apply(runEvent),
                 (_, existing) => existing.Apply(runEvent));
-
-        await router.DispatchAsync(runId, snapshot, runEvent, ct);
+        await router.DispatchAsync(runId, snapshot, runEvent, StreamTrailPosition.Of(entryId), ct);
 
         if (runEvent.Type == EventType.RunFinished)
         {
@@ -307,5 +308,4 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
         }
         return null;
     }
-
 }

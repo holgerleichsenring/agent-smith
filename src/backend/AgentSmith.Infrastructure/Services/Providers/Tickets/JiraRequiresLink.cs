@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -6,8 +7,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
 /// 2026-10-14-dbcem: a Blocks issue link on Jira — the required ticket blocks the dependent. The path follows the
-/// configured issue collection (<c>/rest/api/3/issue</c> becomes <c>/rest/api/3/issueLink</c>, a Data Center's
-/// <c>/rest/api/2/issue</c> its <c>/rest/api/2/issueLink</c>), so no endpoint of its own is configured.
+/// configured issue collection (<see cref="JiraEndpoints.IssueLinkPath"/>), so no endpoint of its own is configured.
 /// </summary>
 public sealed class JiraRequiresLink(JiraTicketConnection connection, HttpClient httpClient, ILogger logger) : ITicketRequiresLink
 {
@@ -16,7 +16,7 @@ public sealed class JiraRequiresLink(JiraTicketConnection connection, HttpClient
 
     public async Task<RequiresLinkResult> LinkAsync(TicketId dependent, TicketId required, CancellationToken cancellationToken)
     {
-        var url = $"{connection.BaseUrl.TrimEnd('/')}{connection.ResolvedEndpoints.Create.TrimEnd('/')}Link";
+        var url = $"{connection.BaseUrl.TrimEnd('/')}{connection.ResolvedEndpoints.IssueLinkPath()}";
         try
         {
             await _http.SendAsync(HttpMethod.Post, url, Body(required.Value, dependent.Value), cancellationToken);

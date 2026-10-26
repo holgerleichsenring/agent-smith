@@ -1,4 +1,4 @@
-using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -12,30 +12,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecAccountReader
 {
-    public static IReadOnlyList<AccountRow>? Read(string? text)
-    {
-        var json = Unwrap(text);
-        if (json is null) return null;
-        try
-        {
-            // 2026-08-25-9749: read as the wire shape, which carries both the three-state
-            // disposition and the two-state bool it replaced, then map to the typed row.
-            return JsonSerializer.Deserialize<List<AccountRowJson>>(
-                json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                ?.Select(row => row.ToRow()).ToList();
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    // The outermost array: an answer may arrive fenced or framed by explanation.
-    private static string? Unwrap(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var start = text.IndexOf('[');
-        var end = text.LastIndexOf(']');
-        return start >= 0 && end > start ? text[start..(end + 1)] : null;
-    }
+    // 2026-08-25-9749: read as the wire shape, which carries both the three-state disposition and the two-state
+    // bool it replaced, then mapped to the typed row. 2026-10-26-cb25d: wherever the array sits in the prose.
+    public static IReadOnlyList<AccountRow>? Read(string? text) =>
+        JsonAnswerReader.ReadArray<AccountRowJson, AccountRow>(text, row => row.ToRow());
 }

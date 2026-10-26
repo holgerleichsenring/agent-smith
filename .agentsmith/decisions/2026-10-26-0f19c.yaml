@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-0f19c
+
+decisions:
+  - category: Architecture
+    chose: "One replica at a time persists run events, the holder of the Redis lease agentsmith:leader:projection; every replica keeps draining for its own clients"
+    over: "Every replica projecting, with a unique index added under each check-then-write projection"
+    reason: "The projector was built as the server's single writer, and several projections check for their rows and then write (memory evidence: four rows for two facts with two replicas, two of three runs). Indexing each needs migrations in both sets over tables that may already hold duplicates, and per-replica side effects such as the ticket activity nudge would still run once per replica."
+  - category: Architecture
+    chose: "A new holder resumes each run from the store: after the highest trail position written in stream order"
+    over: "Resuming from the new holder's own drain cursor, or from a checkpoint key in Redis"
+    reason: "The new holder's cursor says what it showed its clients, not what the previous holder wrote, so a handover would drop the gap (and the trail rows the old holder had only buffered). A Redis checkpoint is lost with a flush; the trail is already in the store and, after 0f19a, ordered except for sandbox results, which the query leaves out."
+  - category: Reliability
+    chose: "Catch up every unfinished run when a tenure begins, and any other run on its first event in the tenure"
+    over: "Catching up only on a run's next event"
+    reason: "A run whose last events the old holder never wrote may publish nothing more (its RunFinished was the lost tail); waiting for its next event would leave the row running."
+  - category: Implementation
+    chose: "A gate over IRunEventPersistence, per-run serialised, skipping positions at or below what it wrote in the tenure"
+    over: "Changing JobsBroadcaster"
+    reason: "Persistence is already a separate seam from the fan-out, the broadcaster is at its file-length ceiling, and the catch-up task and the drain must not write one run at once or out of order."
+  - category: Scope
+    chose: "Runs whose trail holds only counted positions are not read again"
+    over: "Reading such a run's stream from the start"
+    reason: "Their rows carry positions from before 0f19a; re-reading would write every event a second time under its stream position. Only runs alive across the deploy are affected, and they continue from their next event."
+  - category: Reliability
+    chose: "Reuse LeaderElectedHostedService through LeaderSubsystemRunner (30 s TTL, 10 s renew, 5 s re-try, release on stop)"
+    over: "A lease written for this subsystem"
+    reason: "It is how the poller, the housekeeping and the capacity pump already pick one replica; a released lease is taken within five seconds and the catch-up closes the gap."

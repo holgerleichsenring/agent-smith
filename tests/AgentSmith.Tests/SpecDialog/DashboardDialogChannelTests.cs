@@ -588,7 +588,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
                 _dialogueTransport.Object, messenger, _pendingQuestions, outcomeComposer,
-                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
 new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

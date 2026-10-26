@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -26,8 +27,6 @@ public sealed class DefaultBranchResolver(string? configuredBranch, string repoL
 {
     /// <summary>Used only when neither the repository nor the configuration answers.</summary>
     public const string LastResort = "main";
-
-    private const string RefsHeads = "refs/heads/";
 
     private string? _resolved;
 
@@ -94,8 +93,7 @@ public sealed class DefaultBranchResolver(string? configuredBranch, string repoL
         return repositoryBranch;
     }
 
+    // An empty answer — or a bare refs/heads/ — is the platform naming no branch.
     private static string? StripRefsHeads(string? branch) =>
-        string.IsNullOrEmpty(branch) ? null
-        : branch.StartsWith(RefsHeads, StringComparison.Ordinal) ? branch[RefsHeads.Length..]
-        : branch;
+        BranchRef.ShortName(branch) is { Length: > 0 } name ? name : null;
 }

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-cb25e
+goal: "One Domain helper turns refs/heads/x into x, so six copies — one replacing the prefix anywhere in a name — become one leading-prefix rule."
+
+applies_to: "default (Domain BranchRef, TicketBranchNamer, DefaultBranchResolver, AzureDevOpsRepoDiscoveryProvider, AzureReposPullRequestTarget, AzureDevOpsPrDiffProvider, AzureReposOpenPullRequests)"
+
+requires: ["2026-10-26-cb25a"]
+
+facts:
+  - claim: "Four copies strip a LEADING refs/heads/ and keep an empty string; two fold null or empty to null on purpose (an empty answer means the platform named no branch)."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestTarget.cs:21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestTarget.cs:30-33, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrDiffProvider.cs:53-56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultBranchResolver.cs:35-38, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultBranchResolver.cs:96-99, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:59, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:64-67"
+  - claim: "AzureReposOpenPullRequests removes refs/heads/ anywhere in the name, so feature/refs/heads/x becomes feature/x."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposOpenPullRequests.cs:56"
+  - claim: "BranchName is the Domain value object for a branch; it refuses empty names, so the helper cannot be a BranchName factory."
+    evidence: "src/backend/AgentSmith.Domain/Models/BranchName.cs:7-15"
+
+scope:
+  in: >
+    Method: (1) CHARACTERISE — null, empty, refs/heads/ alone, refs/heads/main, refs/heads/feature/x, main,
+    feature/refs/heads/x, refs/heads/refs/heads/x, refs/tags/v1, REFS/HEADS/main against all six copies;
+    (2) DECIDE per disagreeing row; (3) CONSOLIDATE — Domain/Models/BranchRef.ShortName(string?) strips one leading
+    refs/heads/ (ordinal), null stays null, empty stays empty; the two empty-to-null callers keep that rule explicitly;
+    copies deleted; (4) PROVE — matrix against BranchRef.ShortName and the six call sites.
+  out: >
+    Composing refs/heads/{branch} (many sites, no disagreement).
+
+decisions:
+  - key: "LEADING PREFIX ONLY. A branch may contain the text refs/heads/; Replace-anywhere was the accident."
+
+steps:
+  - id: characterise
+    action: "BranchRefTests: the matrix against the six copies as they are."
+  - id: consolidate
+    action: "BranchRef.ShortName; six sites migrate; matrix switched."
+
+tests:
+  - "BranchRefTests"
+  - "TicketBranchNamerTests, DefaultBranchResolverTests, PrDiffHeadBranchTests green"
+
+done:
+  - "refs/heads/ is stripped only by BranchRef.ShortName."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -18,16 +18,17 @@ public sealed class RunEventRouter(
     IRunEventPersistence persistence,
     FiledWorkNudge filedWork)
 {
+    /// <summary>2026-10-26-0f19a: <paramref name="position"/> is the event's place in its run stream.</summary>
     public async Task DispatchAsync(
-        string runId, RunSnapshot snapshot, RunEvent runEvent, CancellationToken cancellationToken)
+        string runId, RunSnapshot snapshot, RunEvent runEvent, long position, CancellationToken cancellationToken)
     {
         if (classifier.IsSandboxDetailOnly(runEvent.Type))
         {
-            await RouteSandboxDetailAsync(runId, runEvent, cancellationToken);
+            await RouteSandboxDetailAsync(runId, runEvent, position, cancellationToken);
             return;
         }
 
-        await persistence.PersistAsync(runEvent, cancellationToken);
+        await persistence.PersistAsync(runEvent, position, cancellationToken);
         await fanout.ToOverviewAsync(snapshot, cancellationToken);
         await fanout.ToRunAsync(runId, runEvent, cancellationToken);
         // 2026-09-17-042ej: and the conversations following this snapshot's WORK TICKET. Data-free,
@@ -35,12 +36,12 @@ public sealed class RunEventRouter(
         await filedWork.OfAsync(snapshot, cancellationToken);
     }
 
-    private async Task RouteSandboxDetailAsync(string runId, RunEvent runEvent, CancellationToken ct)
+    private async Task RouteSandboxDetailAsync(string runId, RunEvent runEvent, long position, CancellationToken ct)
     {
         // SandboxOutput is transient terminal noise — never persisted. The tool-call
         // pair IS persisted (metrics), but batched and off the Run-group send.
         if (runEvent.Type != EventType.SandboxOutput)
-            await persistence.PersistAsync(runEvent, ct);
+            await persistence.PersistAsync(runEvent, position, ct);
 
         if (runEvent is SandboxCommandEvent command)
         {

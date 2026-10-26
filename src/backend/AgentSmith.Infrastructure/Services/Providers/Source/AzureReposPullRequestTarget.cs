@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -18,8 +19,6 @@ public sealed class AzureReposPullRequestTarget(
     string project, string repoName, IAzDoClientFactory clientFactory,
     string organizationUrl, string personalAccessToken, ILogger logger)
 {
-    private const string HeadPrefix = "refs/heads/";
-
     public async Task<string?> ReadBaseAsync(string prUrl, CancellationToken cancellationToken)
     {
         if (!AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId)) return null;
@@ -28,9 +27,7 @@ public sealed class AzureReposPullRequestTarget(
             var pr = await CreateGitClient().GetPullRequestAsync(
                 project, repoName, prId, cancellationToken: cancellationToken);
             // The caller compares against a short branch name — the ref is the wire form.
-            return pr.TargetRefName?.StartsWith(HeadPrefix, StringComparison.Ordinal) == true
-                ? pr.TargetRefName[HeadPrefix.Length..]
-                : pr.TargetRefName;
+            return BranchRef.ShortName(pr.TargetRefName);
         }
         catch (Exception ex)
         {
@@ -45,7 +42,7 @@ public sealed class AzureReposPullRequestTarget(
         try
         {
             await CreateGitClient().UpdatePullRequestAsync(
-                new GitPullRequest { TargetRefName = $"{HeadPrefix}{target}" },
+                new GitPullRequest { TargetRefName = $"{BranchRef.HeadsPrefix}{target}" },
                 project, repoName, prId, cancellationToken: cancellationToken);
             logger.LogInformation("PR !{PrId} now targets {Target}", prId, target);
             return true;
