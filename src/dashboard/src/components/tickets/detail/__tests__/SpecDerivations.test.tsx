@@ -81,6 +81,18 @@ describe("SpecDerivations", () => {
     expect(screen.getByTestId("spec-derivation-d-3")).toHaveTextContent("Derive again");
   });
 
+  it("SpecDerivations_EachLineShowsItsCost_SoFarWhileRunning", async () => {
+    world.detail = page([
+      derivation({ runId: "d-2", outcome: "running", status: "running", finishedAt: null, cost: 0.12, summary: null }),
+      derivation({ runId: "d-1", cost: 1.375 }),
+    ]);
+    await open();
+
+    expect(screen.getByTestId("spec-derivation-cost-d-1")).toHaveTextContent(/^\$1\.38$/);
+    expect(screen.getByTestId("spec-derivation-d-1")).toHaveTextContent("4 min · $1.38");
+    expect(screen.getByTestId("spec-derivation-cost-d-2")).toHaveTextContent("$0.12 so far");
+  });
+
   it("DeriveSpecsAct_PostsTheChosenModeAndShowsARefusal", async () => {
     world.detail = page([]);
     deriveSpecs.mockResolvedValueOnce({ kind: "refused", text: "Another run is working on this ticket." });

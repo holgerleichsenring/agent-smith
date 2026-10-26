@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-7000a
+
+decisions:
+  - category: Implementation
+    chose: "money() from ticketFormat after the duration, with ' so far' exactly when the outcome is running"
+    over: "A cost formatter of its own, or isRunLive(status) as the attempt card uses"
+    reason: "The attempt card and the cost rows write costs with money(), so a derivation reads like an attempt. The outcome 'running' already covers a waiting derivation and is what the line's own words ('deriving') key on, so the two cannot disagree."
+  - category: Scope
+    chose: "No backend change"
+    over: "Adding a cost field"
+    reason: "TicketDerivationView already carries the run's CostTotalUsd and the dashboard type already has it; only the line left it out."
