@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-26-4f7ad: "SPEC PROOF RULES (spec-first schema, create-spec, apply-spec, review-spec, deliver-spec). Characterise first with a was column before consolidating or changing behaviour; optional upgrade_impact and proven_live keys, checked by the reviewer and carried into the PR body. -> .agentsmith/specs/done/2026-10-26-4f7ad-spec-proof-rules.yaml"
     2026-10-26-4f7ac: "DELIVER-SERIES SKILL (spec-first). Review every spec, group by shared files, one worktree and background builder per group, merge into spec/{base} keeping both sides of state lines, merged-tree verify, ignored-file and infrastructure checks, one PR, CI, merge only when authorised. -> .agentsmith/specs/done/2026-10-26-4f7ac-series-delivery-skill.yaml"
     2026-10-26-4f7ab: "ONE GATE PER COMMIT (spec-first hooks + apply-spec, deliver-spec, workflow, bootstrap, templates). gate: project in one context steps the plugin's hook aside, conflicting or unknown values block; apply-spec tests what changed, deliver-spec reads the matching ledger line and runs the stages only when no gate checked. -> .agentsmith/specs/done/2026-10-26-4f7ab-gate-one-owner.yaml"
     2026-10-26-4f7aa: "PLUGIN COMMIT GATE (spec-first hooks/). A PreToolUse hook gates spec commits in every shape agent-smith's gate knows and runs each context's verify stages from the tree root, first red stage blocking; ledger in the git common dir; notices as JSON; deadline under the hook timeout. -> .agentsmith/specs/done/2026-10-26-4f7aa-gate-hook-engine.yaml"
@@ -1338,7 +1339,6 @@ state:
     2026-10-26-0f19b: "APPROVAL BUTTONS ON ANY REPLICA (SpecDialogOutcomeConfirmer, Slack/Teams interaction handlers, RedisOpenDialogQuestions). A click on a replica that did not ask answers the open confirmation via the thread's session and the dialogue transport; a closed question answers nothing. -> .agentsmith/specs/done/2026-10-26-0f19b-dialog-button-any-replica.yaml"
   active: {}
   planned:
-    2026-10-26-4f7ad: "SPEC PROOF RULES (spec-first templates + skills). Characterise first, upgrade_impact, proven_live. -> .agentsmith/specs/planned/2026-10-26-4f7ad-spec-proof-rules.yaml"
     2026-10-26-4f7ae: "AGENT-SMITH OWNS ITS GATE (default context, schema, CLAUDE.md). gate: project so spec-first 2.7.0 does not run a second gate. -> .agentsmith/specs/planned/2026-10-26-4f7ae-gate-ownership-declared.yaml"
     2026-10-26-4f7af: "SPEC-FIRST 2.7.0 (plugin release). Versions, README, update-project 3i. -> .agentsmith/specs/planned/2026-10-26-4f7af-plugin-release-2-7-0.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
