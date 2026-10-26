@@ -21,10 +21,12 @@ public sealed class TicketSummaryComposer(
     /// <param name="records">2026-10-13-9a59d: attempt records by run id; null where they are not wanted.</param>
     /// <param name="standing">2026-10-13-9a59h: the stored checks and hand-backs; null where they are not read.</param>
     /// <param name="launches">2026-10-13-9a59n: the attempts' last launches; null where they are not read.</param>
+    /// <param name="derivationCost">2026-10-26-af69: the ticket's spec derivations' summed cost, part of its cost and nothing else.</param>
     public TicketSummaryView Compose(IReadOnlyList<TicketRunRow> codeRows, TicketLiveState live,
         ILookup<string, string> specStatuses, IReadOnlyList<TicketPullRequestView> pullRequests,
         IReadOnlyDictionary<string, TicketAttemptRecord>? records = null,
-        TicketStanding? standing = null, IReadOnlyDictionary<string, RunLastLaunch>? launches = null)
+        TicketStanding? standing = null, IReadOnlyDictionary<string, RunLastLaunch>? launches = null,
+        decimal derivationCost = 0m)
     {
         var ordered = attempts.Of(codeRows);
         var head = attempts.Head(codeRows).Run;
@@ -40,7 +42,7 @@ public sealed class TicketSummaryComposer(
         var summary = new TicketSummaryView(
             head.Project, head.TicketId, keys.For(head.Project, platform, head.TicketId), platform,
             newestFirst.Select(r => r.TicketTitle).FirstOrDefault(t => !string.IsNullOrEmpty(t)),
-            state.Bucket, state.Kind, state.Since, ordered.Count, codeRows.Sum(r => r.Run.CostTotalUsd),
+            state.Bucket, state.Kind, state.Since, ordered.Count, codeRows.Sum(r => r.Run.CostTotalUsd) + derivationCost,
             head.Id, head.Status, state.LastOutcome, state.QueuePlace, Question(head, state),
             headSpecs.Count(s => s == DoneSpec), headSpecs.Count,
             [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses, launches))], pullRequests,

@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { TicketConversation, TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets";
-import { money } from "../ticketFormat";
+import { money, ticketCost } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
 import { TicketAcceptanceTab } from "./TicketAcceptanceTab";
 import { TicketAttemptsTab } from "./TicketAttemptsTab";
@@ -61,7 +61,7 @@ export const ticketTabs: TicketTab[] = [
   { id: "attempts", label: "Attempts", Pane: TicketAttemptsTab, counter: (detail) => ({ text: String(detail.attempts.length) }) },
   {
     id: "cost", label: "Cost & compute", Pane: TicketCostTab,
-    counter: (detail) => ({ text: money(detail.attempts.reduce((sum, a) => sum + a.cost, 0)) }),
+    counter: (detail) => ({ text: money(ticketCost(detail.attempts, detail.derivations ?? [])) }),
   },
   {
     // 2026-10-13-8762q: appended last; hot only while a pending default holds the series (a pending one never blocks).

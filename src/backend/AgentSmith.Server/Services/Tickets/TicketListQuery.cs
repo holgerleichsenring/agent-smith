@@ -11,6 +11,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// 2026-10-13-9a59a: the ticket list's one read — the newest code runs carrying a ticket, up to a
 /// stated ceiling, light columns plus whether each ever started a step, and no JSON. Ordered by the
 /// sortable run id: SQLite can neither ORDER BY nor compare a DateTimeOffset.
+/// <para>2026-10-26-af69: and, in the same scope, every spec derivation's cost, summed per ticket in memory, which
+/// SQLite cannot do for decimals. Derivations are few beside attempts, so the read has no ceiling of its own.</para>
 /// </summary>
 public sealed class TicketListQuery(IServiceScopeFactory scopes)
 {
@@ -33,6 +35,16 @@ public sealed class TicketListQuery(IServiceScopeFactory scopes)
                 FinishedAt = r.FinishedAt, ActsReadAt = r.ActsReadAt, CostTotalUsd = r.CostTotalUsd, CancelReason = r.CancelReason,
             }, steps.Any(s => s.RunId == r.Id)))
             .ToListAsync(ct);
-        return new TicketListRows([.. rows.Take(Ceiling)], rows.Count > Ceiling);
+        return new TicketListRows([.. rows.Take(Ceiling)], rows.Count > Ceiling, await DerivationCostsAsync(uow, project, ct));
+    }
+
+    private static async Task<IReadOnlyDictionary<(string Project, string TicketId), decimal>> DerivationCostsAsync(
+        IUnitOfWork uow, ProjectScope project, CancellationToken ct)
+    {
+        var costs = await uow.Set<Run>().AsNoTracking()
+            .Where(r => r.Pipeline == PipelinePresets.SpecDeriveName && r.TicketId != "").Within(project)
+            .Select(r => new { r.Project, r.TicketId, r.CostTotalUsd })
+            .ToListAsync(ct);
+        return costs.GroupBy(r => (r.Project, r.TicketId)).ToDictionary(g => g.Key, g => g.Sum(r => r.CostTotalUsd));
     }
 }

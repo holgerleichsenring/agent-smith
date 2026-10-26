@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-7000c
+goal: "Delivery's Spend, Cost per merged PR and Agent hours, and a ticket row's cost and agent time, include spec derivations in the period; attempt figures stay code-only."
+
+applies_to: "default (DeliveryRunWindow, DeliveryAttemptRepository, DeliveryAttemptOutcome, DeliveryDerivation, DeliveryReader, DeliveryFiguresCalculator, DeliveryProjectRows, DeliveryTicketViews)"
+
+requires: [2026-10-26-7000b]
+
+facts:
+  - claim: "The delivery window reads code runs carrying a ticket, in the caller's scope, by run-id range; a test pins that a derivation is not in it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeliveryRunWindow.cs:14-17, tests/AgentSmith.Tests/Tickets/SpecDeriveTicketReadersTests.cs:45, tests/AgentSmith.Tests/Tickets/SpecDeriveTicketReadersTests.cs:48-53"
+  - claim: "The attempts are read once for both periods, scope filtered in the query and bounded by a ceiling, then classified with their agent seconds."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeliveryAttemptRepository.cs:14-27, src/backend/AgentSmith.Server/Services/Delivery/DeliveryReader.cs:43-54, src/backend/AgentSmith.Server/Services/Delivery/DeliveryAttemptOutcome.cs:56-61"
+  - claim: "Spend, cost per merged and agent seconds are the span's attempts' sums; the other figures count tickets and attempts."
+    evidence: "src/backend/AgentSmith.Server/Services/Delivery/DeliveryFiguresCalculator.cs:13-26"
+  - claim: "A project row's cost per merged comes from the same calculator; a ticket row sums its attempts' cost and seconds."
+    evidence: "src/backend/AgentSmith.Server/Services/Delivery/DeliveryProjectRows.cs:18-23, src/backend/AgentSmith.Server/Services/Delivery/DeliveryTicketViews.cs:17-28"
+  - claim: "The endpoint answers the caller's runs.read scope narrowed by the chips; the reader gets that scope."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DeliveryEndpoints.cs:18, src/backend/AgentSmith.Server/Extensions/DeliveryEndpoints.cs:27-31"
+  - claim: "The timeline draws one bar per attempt from the ticket view's attempts."
+    evidence: "src/dashboard/src/components/delivery/DeliveryTimeline.tsx:42-46, src/dashboard/src/lib/deliveryApi.ts:37-53"
+  - claim: "The overview spend and the ticket list's month cost already count every pipeline."
+    evidence: "src/dashboard/src/hooks/useCostRollup.ts:42-57, src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:16-23"
+
+scope:
+  in: >
+    DeliveryRunWindow.DerivationsInWindow: the same id-range predicate through one private helper, on spec-derive
+    runs, scoped with Within in SQL before anything groups. DeliveryAttemptRepository.DerivationsAsync: the same row
+    shape, no attempt join, the same ceiling. DeliveryDerivation(RunId, Project, TicketId, CostUsd, Seconds), made by
+    DeliveryAttemptOutcome.Derivation with the attempts' seconds rule, so a derivation is never a DeliveryAttempt.
+    DeliveryReader reads them once, ORs their truncation into Truncated, and passes each span's derivations (by run
+    id time, through a helper beside In(span)) beside its tickets. DeliveryFiguresCalculator.Of(tickets,
+    derivations): Spend and AgentSeconds add the derivations, CostPerMerged divides that spend; TicketsWorked,
+    Attempts, Merged, MergeRate, time to merge and rework are unchanged. DeliveryProjectRows passes a project's
+    derivations; DeliveryTicketViews adds a listed ticket's derivations in the span to its CostUsd and AgentSeconds.
+    End causes, outcomes, the attempt list and the timeline bars stay code-only. No dashboard change.
+  out: "A timeline marker for a derivation. A ticket row for a ticket, or a project row for a project, with only derivations in the period: their cost is in Spend."
+
+decisions:
+  - key: "EVERY DERIVATION IN SCOPE IS SPEND. One whose ticket had no attempt in the period still cost money in it; so ticket rows can sum to less than Spend."
+  - key: "NO TIMELINE MARKER. A new field, mark, legend entry and tip for a run that is not an attempt; the costs are not lost without it."
+  - key: "A TICKET ROW'S COST IS MORE THAN ITS BARS. The bar tips stay per attempt; the row adds the ticket's derivations, as the Cost tab does (7000b). The Tickets list row stays code-only until its follow-up."
+
+steps:
+  - id: read
+    action: "Repository tests first (window, scope, ceiling, SQL shape), then the window and the read; class comments say code runs and derivations."
+  - id: figures
+    action: "Figures tests first (Spend and cost per merged include, attempts do not), then calculator, project rows, ticket views, reader; DeliveryComposeTests' calculator calls take an empty derivation list; the scope test over the booted server."
+
+tests:
+  - "DeliveryDerivations_Window_ReadsOnlySpecDeriveTicketRunsInScope"
+  - "DeliveryDerivations_SqlServer_FiltersTheScopeInTheQuery"
+  - "DeliveryFigures_Derivation_CountsInSpendAndCostPerMerged_NotInAttempts"
+  - "DeliveryTicketViews_TicketsDerivation_AddsToItsCostAndAgentTime"
+  - "Delivery_BootedScopedCaller_SpendHasItsDerivations_NotAnotherProjects"
+
+done:
+  - "A person's Delivery Spend and Cost per merged PR include what spec derivations cost; the attempt counts, merge figures and timeline do not move."
+  - "Build green, full suite green."
+  - "Upgrade impact: nothing to change; Spend, Cost per merged PR, Agent hours and ticket row cost read higher by the derivations' cost from the update on."
+  - "Proven live: not yet; a live check is the week's Spend rising by a derivation's run cost while Attempts stays."

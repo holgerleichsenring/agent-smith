@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-af69
+
+decisions:
+  - category: Architecture
+    chose: "The backend composes the cost: TicketListQuery sums each ticket's spec-derivation cost in one extra scoped query, and TicketSummaryComposer adds it to the code rows' sum"
+    over: "Sending derivations to the list and summing in the dashboard"
+    reason: "The list row has no derivation list and the summary is shared by the list, the graph, the requires reader and Delivery's buckets; one composed figure keeps them equal to the Cost tab's ticketCost() of the same runs. Follows series 2026-10-26-7000, closing the list-row follow-up 7000b named."
+  - category: Implementation
+    chose: "One query of three light columns, Within(scope) in SQL, summed per (project, ticket) in memory, with no ceiling of its own"
+    over: "A per-ticket query, or a SQL SUM"
+    reason: "Per ticket is N+1; SQLite cannot sum decimals (as TicketMonthCost notes). Derivations are few beside attempts, and the month cost already reads every run of a month the same way."
+  - category: Implementation
+    chose: "Never-run filed rows add their derivation cost, in the list and the detail"
+    over: "Leaving a filed ticket's cost at 0"
+    reason: "A filed ticket is where a derivation is most used; leaving it at 0 would be the disagreement this spec removes. Bucket, attempt count and newest run stay the code runs'."

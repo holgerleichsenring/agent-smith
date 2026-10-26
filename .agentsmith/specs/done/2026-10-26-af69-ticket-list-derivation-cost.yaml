@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-af69
+goal: "A ticket's summary cost on the list, the graph and the detail includes its spec derivations, as the Cost & compute tab and the Delivery row do; attempts and buckets stay code-only."
+
+applies_to: "default (TicketListQuery, TicketListRows, TicketListAll, TicketListReader, TicketSummaryComposer, TicketDetailReader)"
+
+requires: [2026-10-26-7000b, 2026-10-26-7000c]
+
+# Follows series 2026-10-26-7000 (derivation costs in the cost figures); it closes the list-row follow-up 7000b named.
+
+facts:
+  - claim: "The list's one read takes code runs carrying a ticket, in the caller's scope, up to a ceiling; the summary cost is the sum of those code rows."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:20-37, src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:43"
+  - claim: "The reader composes every run-bearing summary in AllAsync and recomposes the page's rows in ReadAsync; the graph, the requires reader and Delivery share AllAsync."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:43-56, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:71-74, src/backend/AgentSmith.Server/Services/Tickets/TicketGraphReader.cs:34, src/backend/AgentSmith.Server/Services/Delivery/DeliveryReader.cs:36"
+  - claim: "A never-run filed row is composed with cost 0."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:30-31, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:93-95"
+  - claim: "The detail composes its summary from the code runs and already reads the derivations with their cost."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:38-43, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:55-56"
+  - claim: "The list row shows the summary's cost; the Cost tab shows attempts plus derivations."
+    evidence: "src/dashboard/src/components/tickets/TicketRow.tsx:63, src/dashboard/src/components/tickets/ticketFormat.ts:22"
+  - claim: "Decimals are summed in memory because SQLite cannot sum them."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:9-23"
+
+scope:
+  in: >
+    TicketListQuery: a second query in the same scope (spec-derive runs carrying a ticket: project, ticket id, cost),
+    summed in memory per (project, ticket id) into TicketListRows.DerivationCosts. TicketSummaryComposer.Compose
+    takes the ticket's derivation cost and adds it to the code rows' sum. TicketListReader passes it to both
+    compositions and adds it to never-run rows; TicketListAll carries the costs for the page's recomposition.
+    TicketDetailReader passes its derivations' summed cost, never-run row included. No dashboard change.
+  out: "Derivation costs in buckets, attempt counts or the series budget."
+
+decisions:
+  - key: "THE BACKEND COMPOSES IT. The list row has no derivation list; one summed cost per ticket from the list's own read is the figure the tab's ticketCost() reaches from its parts."
+  - key: "ONE EXTRA QUERY, NOT PER TICKET. Three light columns of the scope's derivations, no ceiling of their own: derivations are few next to attempts, as TicketMonthCost reads every run of a month."
+
+steps:
+  - id: list
+    action: "Tests first, then query, rows, composer, reader, detail."
+
+tests:
+  - "TicketList_CodeAttemptAndDerivation_ListsTheirSum_BucketAndAttemptsUnchanged"
+  - "TicketList_NeverRunFiledTicketWithDerivation_ListsItsCost"
+  - "TicketList_ScopedCaller_CountsNoDerivationOfAnotherProject"
+  - "TicketDetail_Summary_CostIncludesDerivations"
+
+done:
+  - "The list, the ticket page's Cost & compute tab and the Delivery row show one cost for a ticket."
+  - "Build green, full suite green."
+  - "Upgrade impact: none; the cost field reads higher by the derivations' cost from the update on."
+  - "Proven live: not yet; a live check is a ticket with a derivation whose list cost equals its Cost tab total."

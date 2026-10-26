@@ -2,23 +2,25 @@
 
 import { isRunLive } from "@/lib/runLiveness";
 import type { AttemptMachines } from "@/lib/tickets/TicketPageStore";
-import type { TicketAttempt } from "@/types/tickets";
-import { money } from "../ticketFormat";
+import type { TicketAttempt, TicketDerivation } from "@/types/tickets";
+import { money, ticketCost } from "../ticketFormat";
 import { costBuckets, costParts, costScale, specLabel, type CostBucketKind } from "./costScale";
 
 // 2026-10-13-9a59s: the Cost section — one bar per attempt on one scale, split by 9a59f's passes read, the
 // run's own cap marked where it is smaller than the full width, carried specs written at $0.
+// 2026-10-26-7000b: the ticket's spec derivations on a line of their own, not an attempt and with no bar, and in the total.
 
 const SPAN_CLASS: Record<CostBucketKind, string> = { derive: "dv", spec: "", pr: "", other: "", unattributed: "na" };
 
 interface Props {
   attempts: TicketAttempt[];
+  derivations: TicketDerivation[];
   machines: AttemptMachines;
   ordinals: Readonly<Record<string, number>>;
 }
 
-export function CostSection({ attempts, machines, ordinals }: Props) {
-  const total = attempts.reduce((sum, a) => sum + a.cost, 0);
+export function CostSection({ attempts, derivations, machines, ordinals }: Props) {
+  const total = ticketCost(attempts, derivations);
   const scale = costScale(attempts.map((a) => ({ cost: a.cost, cap: machines.run[a.runId]?.data?.budgetCapUsd ?? null })));
   const capWords = scale.capIsFull && scale.largestCap !== null
     ? `the ${money(scale.largestCap)} run cap is the full width`
@@ -64,6 +66,7 @@ export function CostSection({ attempts, machines, ordinals }: Props) {
             </div>
           );
         })}
+        <DerivationsRow derivations={derivations} />
         <div className="cr total">
           <span className="cl">all</span>
           <span className="parts sans" data-testid="cost-scale">Bars share one scale: {capWords}.</span>
@@ -71,5 +74,18 @@ export function CostSection({ attempts, machines, ordinals }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+/** The spec derivations summed on one line; none, no line. */
+function DerivationsRow({ derivations }: { derivations: TicketDerivation[] }) {
+  if (derivations.length === 0) return null;
+  const running = derivations.some((d) => d.outcome === "running");
+  return (
+    <div className="cr" data-testid="cost-derivations">
+      <span className="cl">SD</span>
+      <span className="parts sans">Spec derivations: {derivations.length}, not attempts{running ? " · so far" : ""}</span>
+      <span className="cv">{money(derivations.reduce((sum, d) => sum + d.cost, 0))}</span>
+    </div>
   );
 }

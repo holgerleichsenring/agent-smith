@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-7000c
+
+decisions:
+  - category: Architecture
+    chose: "A second scoped read of spec-derive runs (DerivationsInWindow, DerivationsAsync) beside the attempts, sharing one id-range predicate and Within(scope) in SQL"
+    over: "Widening InWindow to both pipelines and filtering derivations out in memory"
+    reason: "Every attempt figure, the end causes and the timeline read InWindow; widening it would make each of them filter again, and SpecDeriveTicketReadersTests pins that a derivation is not in it. The scope stays in the query before the ceiling and before any grouping, as 0099b requires; a SQL-shape test pins it."
+  - category: Implementation
+    chose: "DeliveryDerivation(RunId, Project, TicketId, CostUsd, Seconds), built by DeliveryAttemptOutcome.Derivation with the attempts' seconds rule"
+    over: "Classifying a derivation as a DeliveryAttempt"
+    reason: "A DeliveryAttempt carries an outcome, cause and rework flag and can reach the composer; a type of its own cannot be counted as an attempt by mistake. The seconds rule (recorded duration, else start to finish, 0 while queued or waiting) is one copy."
+  - category: Implementation
+    chose: "Spend and agent seconds add every in-scope derivation of the span; cost per merged divides that spend; a listed ticket's row adds its derivations to its cost and agent time"
+    over: "Counting only derivations of tickets with an attempt in the span"
+    reason: "A derivation whose ticket had no attempt in the period still spent money in it, and the question was that costs are not lost. Counts, merge rate, time to merge, rework, end causes, outcomes and bars stay the attempts'. Was: Spend 6, cost per merged 6, agent seconds 120 on the test's two tickets; now 8, 8, 270 with two derivations; every count unchanged."
+  - category: Implementation
+    chose: "Truncated is true when either read hit its ceiling"
+    over: "A second truncation flag"
+    reason: "A truncated answer already hides the deltas because the previous period is incomplete; a cut derivation read makes the previous Spend incomplete in the same way. No dashboard change is needed."
+  - category: Scope
+    chose: "No timeline marker for a derivation"
+    over: "A thin distinct marker per derivation on the ticket's lane"
+    reason: "It needs a new field on the ticket view, a mark, a legend entry and a tip for a run that is not an attempt, and a ticket with only derivations has no lane at all. The cost is in Spend and the row without it. The bar tips stay per attempt, so a row's cost can exceed the sum of its bars."
+  - category: Scope
+    chose: "Other cost surfaces checked, none changed here"
+    over: "Fixing each"
+    reason: "The overview Spend (useCostRollup over every run) and the ticket list's month cost (TicketMonthCost, every pipeline) already include derivations. The ticket list row's cost (TicketSummaryComposer over TicketListQuery, code runs only) is the same class but needs the list's one read widened; a follow-up adds each ticket's derivation costs there so the list row agrees with the Cost tab and this row. The series budget (SeriesRunway) caps a chain of attempts by design and stays code-only. A ticket or project with only derivations in the period gets no row; their cost is in Spend."
