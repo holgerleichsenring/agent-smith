@@ -20,18 +20,18 @@ facts:
 
 scope:
   in: >
-    IOpenDialogQuestions (Server Contracts) with a Redis implementation: the confirmer opens its question for
-    the session with the confirmation timeout as expiry before posting the buttons and closes it in its
-    finally. SpecDialogButtonAnswer resolves a click no local adapter is waiting for: the thread's open session,
-    the question open for it, and the answer published on the dialogue transport. Slack and Teams interaction
+    IOpenDialogQuestions (Server Contracts) with a Redis implementation keyed by session and holding the
+    question id: the confirmer opens its question with the confirmation timeout as expiry before posting the
+    buttons and closes it in its finally; a Redis failure there is logged and never fails the confirmation. SpecDialogButtonAnswer resolves a click no local adapter is waiting for: the thread's open session,
+    the open question compared by id, and the answer published on the dialogue transport. Slack and Teams interaction
     handlers try the local adapter, then SpecDialogButtonAnswer, then the chat-run router as today; the Slack
     message is updated only when an answer was delivered.
   out: >
     A TYPED reply delivered to another replica: SpecDialogPendingQuestions and SpecDialogTurnGate are per
     process, so that replica appends the reply as a new message and can start a second turn of the same
-    session. Proven (CrossReplicaButtonAnswerTests.TextReply case, kept out of the suite) and left to a named
-    follow-up, spec-dialog turn state shared across replicas, because it moves the pending question, the turn
-    gate and the turn clock together. The design master's own ask_human questions carry no buttons.
+    session. Proven by a TextReply case run beside this spec but not committed (it stays red), and left to a
+    named follow-up, spec-dialog turn state shared across replicas, because it moves the pending question,
+    the turn gate and the turn clock together. The design master's own ask_human questions carry no buttons.
 
 decisions:
   - key: "AN OPEN-QUESTION RECORD, NOT A BLIND PUBLISH. Publishing every click onto the thread's session would mark a long-expired question's message as answered while nothing consumed it; the record says the question is still awaited."
@@ -45,7 +45,7 @@ steps:
   - id: handlers
     action: "SpecDialogButtonAnswer; both interaction handlers use it after the local adapter; DI."
   - id: verify
-    action: "dotnet build; CrossReplicaButtonAnswerTests, ChatRunInteractionTests, OutcomeShapeOfferTests, SpecDialogRoutingTests, FileLengthRatchetTests."
+    action: "dotnet build; CrossReplicaButtonAnswerTests, ChatRunInteractionTests, ClarificationClickTests, the eleven files constructing SpecDialogOutcomeConfirmer, the PipelineHarness spec-dialog presets (DI), FileLengthRatchetTests."
 
 tests:
   - "SlackClick_OnAReplicaThatDidNotAsk_AnswersTheWaitingConfirmation"

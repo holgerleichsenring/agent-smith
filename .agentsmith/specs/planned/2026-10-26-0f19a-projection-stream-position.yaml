@@ -1,73 +1,75 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-26-0f19a
-goal: "A run event's trail position is derived from its Redis stream entry id, so every replica and every restart records it under one position and each call and command is counted once."
+goal: "A run event's trail position is derived from its Redis stream entry id, so every replica and every restart records an event under one position and nothing is counted twice or dropped."
 
-applies_to: "default (run projection: JobsBroadcaster, RunEventRouter, RunDbProjector, RunTrailBuffer, RunSandboxProjection)"
+applies_to: "default (run projection: JobsBroadcaster, RunEventRouter, RunDbProjector, RunTrailBuffer, RunSandboxProjection, RunTerminalReconciler)"
 
 requires: [2026-08-25-61f1]
 
 facts:
   - claim: "Every replica runs the broadcaster as a hosted service, and its router persists every drained event through the projector, so N replicas project every event N times into one store."
-    evidence: "src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:502-503, src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:30, src/backend/AgentSmith.Server/Services/Events/RunDbEventPersistence.cs:15-16"
-  - claim: "The trail position is minted per process: a buffer starts at max(RunEvent.Seq)+1 of the store, read once per run, and counts up from there; dedupe of every inserted fact row is by (RunId, EventSeq) of that minted number."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:48-49, src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:30, src/backend/AgentSmith.Server/Services/Events/RunDbEventPersistence.cs:15-16"
+  - claim: "The trail position is minted per process: a buffer starts at max(RunEvent.Seq)+1 of the store, read once per run, and counts up; every inserted fact row is deduped by (RunId, EventSeq) of that minted number."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffers.cs:28-57, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffer.cs:37-47, src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:19-25, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:38-41"
-  - claim: "Fact rows are written per event while trail rows wait in the buffer (25 events, or 750 ms through the flusher), so max(Seq) lags the positions already used by fact rows."
+  - claim: "Fact rows are written per event while trail rows wait in the buffer (25 events, or 750 ms through the flusher), so max(Seq) lags the positions fact rows already carry."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:22-43"
-  - claim: "A replica that starts mid-run anchors its cursor at the stream tail and seeds from the lagging trail, so it numbers new events with positions another replica already gave older ones: four calls became five LlmCall rows."
-    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:113-116, tests/AgentSmith.Tests/Server/MultiReplicaProjectionTests.cs:56-77 (SecondReplica_StartsMidRun_EveryCallRecordedOnce: expected 4, found 5)"
-  - claim: "A restart after unflushed trail re-mints the lost positions; a later call meets an earlier call's (RunId, EventSeq), HoldsAsync skips it and its cost never reaches CostTotalUsd: four calls became three rows."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunLlmCallProjection.cs:27-35, tests/AgentSmith.Tests/Server/MultiReplicaProjectionTests.cs:79-95 (Restart_BeforeTrailFlush_LaterCallsStillRecorded: expected 4, found 3)"
-  - claim: "A sandbox result's fold onto RunMetricsJson and the step's SandboxMs writes no row of its own, so a second replica projecting the same event folds it again: one 1000 ms command read 2000 ms."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:26-33, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxFamily.cs:20, tests/AgentSmith.Tests/Server/MultiReplicaProjectionTests.cs (LaggingReplica_ProjectsASandboxResultAgain_FoldsItOnce: expected 1000, found 2000)"
-  - claim: "The trail table is unique on (RunId, Seq), and the drain hands each stream entry with its id, which Redis assigns strictly increasing per stream and identically to every reader."
+  - claim: "A replica that starts mid-run anchors at the stream tail and seeds from the lagging trail, so it gives new events positions another replica gave older ones: four calls became five LlmCall rows."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:113-116, tests/AgentSmith.Tests/Server/MultiReplicaProjectionTests.cs SecondReplica_StartsMidRun_EveryCallRecordedOnce (expected 4, found 5)"
+  - claim: "A restart after an unflushed trail re-mints the lost positions; a later call meets an earlier call's (RunId, EventSeq), HoldsAsync skips it and its cost never reaches CostTotalUsd: four calls became three rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunLlmCallProjection.cs:27-35, tests/AgentSmith.Tests/Server/MultiReplicaProjectionTests.cs Restart_BeforeTrailFlush_LaterCallsStillRecorded (expected 4, found 3)"
+  - claim: "A sandbox result's fold onto RunMetricsJson and the step's SandboxMs writes no row of its own, so projecting the same event a second time folds it again: one 1000 ms command read 2000 ms."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:26-33, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxFamily.cs:20, tests/AgentSmith.Tests/Server/MultiReplicaProjectionTests.cs LaggingReplica_ProjectsASandboxResultAgain_FoldsItOnce (expected 1000, found 2000)"
+  - claim: "The stale-trail flusher drains every pending event once the oldest is 750 ms old, independently of the event's own projection, so a trail row cannot serve as a fold's identity while the event also waits in the buffer."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunTrailFlusherHostedService.cs:19-28, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffer.cs:56-62"
+  - claim: "The cold-start terminal reconciler appends RunFinished at max+1; with positions taken from the stream a live replica writes the same event at its stream position, a second RunFinished row. The tail entry is in hand at both call sites."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:43-53, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:149-159, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:187-193"
+  - claim: "The trail table is unique on (RunId, Seq); Redis assigns each entry an id '<ms>-<n>' strictly increasing per stream and the same to every reader; the drain has the id beside each event."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunEventConfiguration.cs:24, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:255-259"
-  - claim: "Each run-stream entry is one awaited XADD followed by an awaited EXPIRE and index writes, so a stream gains at most a handful of entries per millisecond."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/RedisEventPublisher.cs:41-47"
-  - claim: "The dashboard reads trail positions as JSON numbers and sends them back as cursors, so a position must stay below 2^53."
-    evidence: "src/dashboard/src/lib/runStepsApi.ts:48-49, src/dashboard/src/lib/runStepsApi.ts:103-109, src/backend/AgentSmith.Server/Services/Events/TrailReader.cs:132-151"
+  - claim: "The dashboard parses positions as JSON numbers, so a position must stay below 2^53; ms*1000+n is about 1.8e15 today. Seq and EventSeq are already 64-bit, so no column changes."
+    evidence: "src/dashboard/src/lib/runStepsApi.ts:48-49, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunEvent.cs:12"
+  - claim: "A throw while dispatching an entry leaves the drain cursor before it, so the drain retries it every pass; a position the encoder refused would wedge the run."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:214-217, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:273"
 
 assumptions:
-  - "Redis stream ids are '<milliseconds>-<sequence>' with the sequence restarting at 0 each millisecond; a run-stream sequence never reaches 1000 within one millisecond (fact above), and a position that would is refused loudly rather than collided."
+  - "ms*1000+n is strictly increasing for a stream that averages fewer than 1000 entries per millisecond across any backward step of the Redis host's clock (Redis then holds the millisecond and counts n up); nothing is refused, so no entry wedges the drain."
 
 scope:
   in: >
-    StreamTrailPosition.Of(entryId) = milliseconds * 1000 + sequence (refusing a sequence of 1000 or more).
-    JobsBroadcaster passes each entry's id to RunEventRouter.DispatchAsync, which passes the position to
-    IRunEventPersistence.PersistAsync and RunDbProjector.ProjectAsync(event, position, ct). RunTrailBuffer.Add
-    takes the position when given (the CLI's direct projection still mints) and ignores a position already
-    pending. A projection or a trail flush that loses a unique race to another replica is re-run once, so the
-    second pass finds the other replica's rows and skips them. The sandbox result's fold writes the event's
-    trail row in the same SaveChanges and skips when the trail already holds the position.
+    StreamTrailPosition: Of(entryId) = ms*1000+n, ToEntryId(position), and Floor (10^15), below which a stored
+    position was counted, not derived. JobsBroadcaster hands each entry's id to RunEventRouter.DispatchAsync,
+    which passes the position to IRunEventPersistence and RunDbProjector.ProjectAsync(event, position, ct);
+    the CLI's direct projection still mints. RunTrailBuffer takes a given position and pends it once. A
+    sandbox result is not buffered: its projection writes the event's trail row and the fold in one
+    SaveChanges and skips when that row exists. A projection or flush that loses a unique race re-runs once
+    in a fresh scope. The reconciler appends RunFinished at the tail entry's position, insert-if-absent.
   out: >
-    Trail rows a crashed replica had buffered and no other replica wrote stay lost: a cold start anchors at
-    the stream tail (p0258), and re-reading from the last persisted position is a change of that stance, not
-    of numbering. The cold-start terminal reconciler keeps appending at max+1 (its own race with a live
-    replica's flush is not proven here). Rows written before this spec keep their counted positions; a run
+    One projecting replica, so a projection that checks and then inserts without a unique index cannot be
+    run twice at once: 2026-10-26-0f19c. Rows written before this spec keep their counted positions; a run
     that spans the deploy continues above them.
 
 decisions:
-  - key: "THE POSITION COMES FROM THE STREAM, NOT FROM A WRITER. A single projecting replica under a lease would still re-mint positions after a crash and would need its own resume cursor; the stream id is the one number every reader already agrees on."
-  - key: "EVERY REPLICA KEEPS PROJECTING. With one position per event, inserts are deduped by the existing unique indexes; the one fold without a row of its own is given the trail row as its identity."
+  - key: "THE POSITION COMES FROM THE STREAM, NOT FROM A WRITER. Any writer that counts re-mints after a crash or a handover; the stream id is the one number every reader already agrees on."
+  - key: "NO REFUSAL ON A LARGE SEQUENCE PART. Refusing wedges the run; the bound only fails at a sustained rate no publisher reaches, and is recorded."
 
 steps:
   - id: proof
-    action: "MultiReplicaProjectionTests red (three cases)."
+    action: "MultiReplicaProjectionTests red (mid-run replica, restart, sandbox re-projection)."
   - id: position
-    action: "StreamTrailPosition + its tests; thread the entry id through broadcaster, router, persistence, projector, buffer."
-  - id: races
-    action: "Re-run a projection and a flush once on DbUpdateException; the sandbox fold writes its trail row atomically."
+    action: "StreamTrailPosition with tests; thread the entry id through broadcaster, router, persistence, projector, buffer; JobsBroadcaster does not grow."
+  - id: identity
+    action: "Sandbox result writes its trail row with its fold; projection and flush retry once on DbUpdateException; reconciler takes the position."
   - id: verify
-    action: "dotnet build; MultiReplicaProjectionTests, JobsBroadcasterDrainTests, RunDbProjectorTests, RunTrailBufferTests, RunEventRouterTests, RunRailServedTests, RunTimeSplitServedTests."
+    action: "dotnet build; MultiReplicaProjectionTests, JobsBroadcasterDrainTests, ColdStartUnreadTailTests, RunDbProjectorTests, RunTrailBufferTests, RunEventRouterTests, RunRailServedTests, RunTimeSplitServedTests, FiledWorkWatchTests, FileLengthRatchetTests."
 
 tests:
   - "SecondReplica_StartsMidRun_EveryCallRecordedOnce"
   - "Restart_BeforeTrailFlush_LaterCallsStillRecorded"
   - "LaggingReplica_ProjectsASandboxResultAgain_FoldsItOnce"
-  - "StreamTrailPosition_Of_OrdersLikeTheStream / RefusesASequenceOfAThousand"
-  - "RunTrailBuffer_Add_GivenPositionTwice_PendsItOnce"
+  - "StreamTrailPosition_* (order, round trip, floor)"
+  - "RunTrailBuffer_Add_SamePositionTwice_PendsItOnce"
 
 done:
   - "Two replicas, one starting mid-run, record four calls as four LlmCall rows and a cost of 4; the trail lists each event once in stream order."
   - "A restart before the trail flush drops no later call."
-  - "A sandbox result projected by two replicas folds once."
+  - "A sandbox result projected twice folds once."
   - "Build green, full suite green, dashboard gen/test/build green."
