@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-4f7aa
+
+decisions:
+  - category: Architecture
+    chose: "One Python engine (hooks/spec-gate.py) that imports the ported commit-message.py as a module"
+    over: "Porting spec-gate.sh as a bash script that shells out to python for JSON, YAML and the message"
+    reason: "Reading context.yaml, enforcing a deadline and writing one atomic ledger line all need python; the bash layer would only pass strings between python calls. The detection regex is ported term for term, POSIX classes as [ \\t\\r\\f\\v] because grep -E matched line by line."
+  - category: Architecture
+    chose: "The ledger is spec-first-gate.log in the absolute git common dir; each line is one O_APPEND write"
+    over: "A file in the project's .claude/ directory, as agent-smith keeps it"
+    reason: "The common dir is shared by every worktree of one repository, is never committed and needs no ignore rule; the plugin root lives in a cache and the project tree would put the file in git status. One write per line keeps parallel worktree builders from interleaving."
+  - category: Implementation
+    chose: "Notices on a commit that goes ahead are JSON on stdout (systemMessage and hookSpecificOutput.additionalContext), mirrored on stderr"
+    over: "stderr only, as agent-smith's gate does"
+    reason: "Claude Code shows nobody stderr of a hook that exits 0 (debug log only), so a loud pass-through on stderr is silent in practice. No permissionDecision is set, so the normal permission flow is unchanged."
+  - category: Reliability
+    chose: "A total deadline (SPEC_GATE_DEADLINE, default 1700 s) under the 1800 s hook timeout; a stage past it is killed with its process group and blocks"
+    over: "Relying on the hook timeout"
+    reason: "A hook that times out is a non-blocking error: the commit would go through with no ledger line."
+  - category: Implementation
+    chose: "Missing PyYAML: not-gated with a notice; an unreadable or malformed context.yaml: blocked"
+    over: "Blocking every spec commit when PyYAML is missing"
+    reason: "Without a parser the gate cannot know the stages; the not-gated line tells deliver-spec to run them itself, so the commit is neither silent nor unproven. A malformed file is the project's own error and must be fixed."
+  - category: Scope
+    chose: "Stages run one after another, the first red one blocking; no lanes"
+    over: "An optional lane key for parallel groups"
+    reason: "Adversarial review: nothing declares a lane, and agent-smith (the only project with a parallel gate) keeps its own gate. Added when a project needs it."
+  - category: Implementation
+    chose: "The no-marker warning skips subjects starting with spec:"
+    over: "Porting the warning unchanged"
+    reason: "create-spec and review-spec commit as 'spec: {id} ...' on purpose; the warning would have written a not-gated line deliver-spec could read as the spec's verdict."
+  - category: Implementation
+    chose: "Unknown stage keys (agent-smith's when_changed) are ignored and the stage runs"
+    over: "Blocking on a key the plugin schema does not declare"
+    reason: "Running a stage the gate does not fully understand is the safe direction; the schema is where a key is refused."
