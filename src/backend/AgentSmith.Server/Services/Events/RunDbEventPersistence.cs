@@ -12,6 +12,6 @@ namespace AgentSmith.Server.Services.Events;
 /// </summary>
 public sealed class RunDbEventPersistence(RunDbProjector? projector) : IRunEventPersistence
 {
-    public Task PersistAsync(RunEvent runEvent, CancellationToken cancellationToken) =>
-        projector is null ? Task.CompletedTask : projector.ProjectAsync(runEvent, cancellationToken);
+    public Task PersistAsync(RunEvent runEvent, long position, CancellationToken cancellationToken) =>
+        projector is null ? Task.CompletedTask : projector.ProjectAsync(runEvent, position, cancellationToken);
 }

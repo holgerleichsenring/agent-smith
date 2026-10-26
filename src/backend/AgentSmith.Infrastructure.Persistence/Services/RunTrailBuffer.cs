@@ -34,17 +34,33 @@ public sealed class RunTrailBuffer(long startSeq = 0)
     /// completed. The position is the event's identity for every row it produces, so the
     /// caller has to learn it here — it is minted under this lock and nowhere else.
     /// </summary>
-    public TrailAddition Add(RunEvent runEvent, int flushThreshold, DateTimeOffset now)
+    public TrailAddition Add(RunEvent runEvent, int flushThreshold, DateTimeOffset now) =>
+        Add(runEvent, null, flushThreshold, now);
+
+    /// <summary>
+    /// 2026-10-26-0f19a: a given position — the event's stream entry — is taken as it is, and an
+    /// entry delivered again while it still waits here is pended once.
+    /// </summary>
+    public TrailAddition Add(RunEvent runEvent, long? position, int flushThreshold, DateTimeOffset now)
     {
         lock (_gate)
         {
             if (_pending.Count == 0) _firstPendingAt = now;
-            var seq = _seq++;
-            _pending.Add((seq, runEvent));
+            var seq = position ?? _seq++;
+            if (!_pending.Exists(p => p.Seq == seq)) _pending.Add((seq, runEvent));
             if (_pending.Count < flushThreshold && runEvent.Type != EventType.RunFinished)
                 return new TrailAddition(seq, null);
             return new TrailAddition(seq, Drain());
         }
+    }
+
+    /// <summary>
+    /// 2026-10-26-0f19a: the position of an event whose trail row its own projection writes, so it never
+    /// waits here — the stale flusher would otherwise write the row before the projection could see it.
+    /// </summary>
+    public long Reserve(long? position)
+    {
+        lock (_gate) return position ?? _seq++;
     }
 
     /// <summary>

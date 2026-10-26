@@ -29,7 +29,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunFinalizationProjection>();
         // 2026-08-24-ca23: ending a run whose terminal event nobody drains, and the unfinished
         // runs a cold start must anchor because a pause removed them from the active set.
-        services.AddSingleton<RunTrailBuffers>();
+        services.AddSingleton<RunTrailBuffers>().AddSingleton<RunTrailWriter>(); // 2026-10-26-0f19a
         services.AddSingleton<CancelTerminalWriter>();
         services.AddSingleton<IUnfinishedRunSource, UnfinishedRunSource>();
         services.AddSingleton<RunSpecProjection>().AddSingleton<RunSeriesCutProjection>(); // 2026-10-13-9a59e

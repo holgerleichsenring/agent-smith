@@ -23,12 +23,21 @@ public sealed class RunSandboxProjection(
     // p0369: fold one sandbox result onto the run's metrics summary. A terminal row is
     // never re-folded (a late replay must not double-count), mirroring the cost guard on
     // the per-call projection. p0404: the command's wall time also lands on the step.
-    public async Task FoldResultAsync(IUnitOfWork uow, SandboxResultEvent e, CancellationToken ct)
+    // 2026-10-26-0f19a: the fold has no row of its own, so the event's trail row is its identity —
+    // written in the same SaveChanges, and an event whose row is there was folded already.
+    public async Task FoldResultAsync(IUnitOfWork uow, SandboxResultEvent e, long? eventSeq, CancellationToken ct)
     {
+        if (eventSeq is { } seq)
+        {
+            if (await uow.Set<Entities.RunEvent>().AnyAsync(t => t.RunId == e.RunId && t.Seq == seq, ct)) return;
+            uow.Add(RunTrailRowMapper.Map(e.RunId, seq, e));
+        }
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
-        if (run is null || run.FinishedAt is not null) return;
-        metrics.Fold(run, e);
-        await stepTime.FoldSandboxAsync(uow, e, ct);
+        if (run is not null && run.FinishedAt is null)
+        {
+            metrics.Fold(run, e);
+            await stepTime.FoldSandboxAsync(uow, e, ct);
+        }
         await uow.SaveChangesAsync(ct);
     }
 

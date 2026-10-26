@@ -3,6 +3,7 @@ using AgentSmith.Server.Services.ChatRuns;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging;
 using System.Text.Json.Nodes;
 
@@ -18,6 +19,7 @@ public sealed class SlackInteractionHandler(
     ClarificationTaker clarifications,
     SlackMessageDispatcher dispatcher,
     SlackAdapter adapter,
+    SpecDialogButtonAnswer dialogButtons, // 2026-10-26-0f19b: a click on a question another replica asked
     ILogger<SlackInteractionHandler> logger)
 {
     private const string ClarificationPrefix = "clarification";
@@ -63,25 +65,15 @@ public sealed class SlackInteractionHandler(
     private async Task HandleJobQuestionAsync(
         string channelId, string questionId, string answer, JsonNode payload, CancellationToken ct)
     {
-        // Try to complete a pending typed question first (new AskTypedQuestionAsync flow)
-        if (adapter.HasPendingTypedQuestion(questionId))
+        // A typed question this replica asked completes its own wait; one another replica asked for a
+        // spec dialog is found through the thread's session (2026-10-26-0f19b).
+        var userId = payload["user"]?["id"]?.GetValue<string>() ?? payload["user"]?["username"]?.GetValue<string>() ?? "unknown";
+        var dialogAnswer = new DialogAnswer(questionId, answer, Comment: null, DateTimeOffset.UtcNow, userId);
+        if (adapter.TryCompleteTypedQuestion(questionId, dialogAnswer)
+            || await dialogButtons.TryAnswerAsync(DispatcherDefaults.PlatformSlack, ThreadOf(payload), dialogAnswer, ct))
         {
-            var userId = payload["user"]?["id"]?.GetValue<string>()
-                         ?? payload["user"]?["username"]?.GetValue<string>()
-                         ?? "unknown";
-
-            var dialogAnswer = new DialogAnswer(
-                questionId,
-                answer,
-                Comment: null,
-                DateTimeOffset.UtcNow,
-                userId);
-
-            adapter.TryCompleteTypedQuestion(questionId, dialogAnswer);
             await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
-
-            logger.LogInformation("Typed question '{QuestionId}' answered with '{Answer}' by {User}",
-                questionId, answer, userId);
+            logger.LogInformation("Typed question '{QuestionId}' answered with '{Answer}' by {User}", questionId, answer, userId);
             return;
         }
 

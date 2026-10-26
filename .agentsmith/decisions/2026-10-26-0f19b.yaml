@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-0f19b
+
+decisions:
+  - category: Architecture
+    chose: "A shared open-question record (one Redis key per session holding the question id) and an answer published on the dialogue transport the confirmer already waits on"
+    over: "Publishing every click blindly onto the thread's session, or routing the click to the replica that asked"
+    reason: "The confirmer's wait is already cross-replica (durable inbox plus the Redis stream); only the buttons were bridged in process. A blind publish would mark an expired question's message as answered while nothing consumed it; routing between replicas has no channel to ride. The record compares the clicked id, so a stale click answers nothing."
+  - category: Implementation
+    chose: "The asking replica's own adapter wait stays first; the shared record is the fallback"
+    over: "Replacing the in-process wait with the record"
+    reason: "A single-replica install keeps its click path unchanged and pays no extra round trip; IPlatformAdapter.AskTypedQuestionAsync keeps its contract."
+  - category: Reliability
+    chose: "Opening and closing the record log a Redis failure and never throw"
+    over: "Letting the confirmation fail with Redis"
+    reason: "Without the record only a click on another replica is lost; the asking replica's buttons and the thread's text reply still answer, which is what the gate offered before."
+  - category: Scope
+    chose: "Leave a TYPED reply that reaches another replica to a follow-up (spec-dialog turn state shared across replicas)"
+    over: "Mirroring SpecDialogPendingQuestions into the record as well"
+    reason: "Proven by a red case run beside this spec: the other replica appends the reply as a new message and its own turn gate lets a second turn start. Fixing it moves the pending question, the turn gate and the turn clock to shared state together, and an answered ask_human would otherwise leave a stale pending question on the asking replica."
+  - category: Testing
+    chose: "The fast-tier harness swaps IOpenDialogQuestions for a mock beside the mocked multiplexer"
+    over: "Catching every exception in the Redis record"
+    reason: "RealCompositionHarness already swaps each Redis-backed service a handler reaches, and says that is where to extend it; widening the catch would hide real defects."

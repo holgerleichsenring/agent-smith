@@ -17,7 +17,7 @@ public sealed class RunSandboxFamily(RunSandboxProjection sandboxes, SandboxEndF
 
     public Task ApplyAsync(IUnitOfWork uow, RunEvent runEvent, long? eventSeq, CancellationToken ct) => runEvent switch
     {
-        SandboxResultEvent e => sandboxes.FoldResultAsync(uow, e, ct),
+        SandboxResultEvent e => sandboxes.FoldResultAsync(uow, e, eventSeq, ct),
         SandboxCreatedEvent e => sandboxes.CreateAsync(uow, e, eventSeq, ct),
         SandboxDisposedEvent e => sandboxes.DisposeAsync(uow, e, eventSeq, ct),
         SandboxVanishedEvent e => sandboxes.MarkVanishedAsync(uow, e, eventSeq, ct),

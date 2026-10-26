@@ -10,5 +10,6 @@ namespace AgentSmith.Server.Services.Events;
 /// </summary>
 public interface IRunEventPersistence
 {
-    Task PersistAsync(RunEvent runEvent, CancellationToken cancellationToken);
+    /// <summary>2026-10-26-0f19a: <paramref name="position"/> is the event's place in its run stream.</summary>
+    Task PersistAsync(RunEvent runEvent, long position, CancellationToken cancellationToken);
 }

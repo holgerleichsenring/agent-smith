@@ -403,7 +403,7 @@ public sealed class DialogConversationListTests : IDisposable
         var composer = new SpecDialogOutcomeComposer();
         return new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(Mock.Of<IDialogueTransport>(), messenger,
-                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer, AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer, AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

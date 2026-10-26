@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-0f19a
+
+decisions:
+  - category: Architecture
+    chose: "Derive the trail position from the Redis stream entry id: milliseconds * 1000 + sequence"
+    over: "A per-run sequence counter in Redis (INCR), or keeping the per-process counter seeded from max(Seq)+1"
+    reason: "Every reader of a stream already agrees on its entry ids, so the position needs no coordination; a Redis counter would still be bumped once per replica per event and resets on a flush, and the store-seeded counter re-mints positions after an unflushed buffer (proven: a later call dropped) and numbers a mid-run replica's events with older events' positions (proven: a call recorded twice)."
+  - category: Architecture
+    chose: "Encode as one 64-bit number below 2^53"
+    over: "Shifting the sequence into the low bits (ms << 20 | n), or a second column for the sequence"
+    reason: "The dashboard parses positions as JSON numbers and sends them back as cursors; a shift passes 2^53 today, a second column is a migration in both sets. ms*1000+n stays exact until 2255."
+  - category: Reliability
+    chose: "Refuse nothing: a sequence part of 1000 or more simply yields a larger number"
+    over: "Throwing on a sequence part that does not fit"
+    reason: "A throw leaves the drain cursor before the entry and the run wedges on it forever. The encoding only stops increasing when a stream averages a thousand entries per millisecond across a backward clock step on the Redis host, which no publisher here reaches (one awaited XADD plus EXPIRE plus index writes per event)."
+  - category: Data
+    chose: "A sandbox result's trail row is its fold's identity, written in the same SaveChanges; the event never waits in the trail buffer"
+    over: "A new per-result table with a unique (RunId, EventSeq), or buffering it as before"
+    reason: "The fold onto RunMetricsJson and the step's SandboxMs had no row to dedupe by (proven: one command folded twice). The trail table is already unique on (RunId, Seq); keeping the event out of the buffer stops the 750 ms stale flusher from writing the row before the fold could see it."
+  - category: Reliability
+    chose: "A projection or a trail batch that throws DbUpdateException is re-run once in a fresh scope"
+    over: "Letting the exception reach the drain loop"
+    reason: "With equal positions a second writer meets the unique indexes; the drain's retry re-applies the event to the in-memory snapshot as well. The second pass reads the other writer's rows and skips them; the failed context, which still tracks the rejected entity, is discarded with its scope."
+  - category: Scope
+    chose: "The cold-start terminal reconciler appends RunFinished at the tail entry's own position and tolerates losing the insert"
+    over: "Keeping max+1"
+    reason: "With positions from the stream, max+1 and a live replica's flush of the same entry are two rows; at one position the store keeps one."
+  - category: Testing
+    chose: "FakeRedisState mints ids from 1760000000000 (milliseconds) instead of 1"
+    over: "Leaving the fake's ids at 1-0, 2-0, ..."
+    reason: "A position derived from a fake id should sit where a real one does, above StreamTrailPosition.Floor, so tests exercise the same range production does."

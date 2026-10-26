@@ -21,7 +21,7 @@ public sealed class RunTerminalReconciler(
     RunEventApplier applier,
     ILogger<RunTerminalReconciler> logger) : IRunTerminalReconciler
 {
-    public async Task ReconcileAsync(RunFinishedEvent terminal, CancellationToken cancellationToken)
+    public async Task ReconcileAsync(RunFinishedEvent terminal, long position, CancellationToken cancellationToken)
     {
         if (RunStatuses.IsWaiting(terminal.Status)) return;
         using var scope = scopeFactory.CreateScope();
@@ -29,7 +29,7 @@ public sealed class RunTerminalReconciler(
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == terminal.RunId, cancellationToken);
         if (run is null) return;
         if (run.FinishedAt is null) await FinalizeRowAsync(uow, terminal, cancellationToken);
-        await AppendTrailRowIfMissingAsync(uow, terminal, cancellationToken);
+        await AppendTrailRowIfMissingAsync(uow, terminal, position, cancellationToken);
     }
 
     private async Task FinalizeRowAsync(IUnitOfWork uow, RunFinishedEvent terminal, CancellationToken ct)
@@ -40,15 +40,18 @@ public sealed class RunTerminalReconciler(
         await applier.ApplyAsync(uow, terminal, ct);
     }
 
-    private async Task AppendTrailRowIfMissingAsync(IUnitOfWork uow, RunFinishedEvent terminal, CancellationToken ct)
+    // 2026-10-26-0f19a: at the terminal entry's own position, so a live replica that projects the same
+    // entry finds this row instead of writing a second RunFinished beside it — and loses to it in a race.
+    private async Task AppendTrailRowIfMissingAsync(
+        IUnitOfWork uow, RunFinishedEvent terminal, long position, CancellationToken ct)
     {
         var rows = uow.Set<Entities.RunEvent>().Where(e => e.RunId == terminal.RunId);
-        if (await rows.AnyAsync(e => e.Type == nameof(EventType.RunFinished), ct)) return;
+        if (await rows.AnyAsync(e => e.Type == nameof(EventType.RunFinished) || e.Seq == position, ct)) return;
         logger.LogWarning(
             "Run {RunId}: RunFinished trail row missing — appending from the stream's terminal event",
             terminal.RunId);
-        var nextSeq = (await rows.MaxAsync(e => (long?)e.Seq, ct) ?? -1) + 1;
-        uow.Add(RunTrailRowMapper.Map(terminal.RunId, nextSeq, terminal));
-        await uow.SaveChangesAsync(ct);
+        uow.Add(RunTrailRowMapper.Map(terminal.RunId, position, terminal));
+        try { await uow.SaveChangesAsync(ct); }
+        catch (DbUpdateException) { logger.LogInformation("Run {RunId}: another writer appended it first", terminal.RunId); }
     }
 }

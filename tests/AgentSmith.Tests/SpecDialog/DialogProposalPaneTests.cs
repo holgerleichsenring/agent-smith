@@ -237,7 +237,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         return new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
                 transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer,
-                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger, Channel(),
             new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(new SpecDialogSessionRepository(_context)), NullLogger<SpecDialogOutcomeFlow>.Instance);

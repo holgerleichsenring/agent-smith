@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.ChatRuns;
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,7 +55,7 @@ public sealed class ChatRunInteractionTests : IDisposable
         var value = JsonNode.Parse("""{"questionId":"q-6","answer":"approve","comment":"ship it"}""")!;
 
         await new TeamsInteractionHandler(
-                _chat.Get<ChatRunAnswerRouter>(), null!, null!, TeamsAdapter(),
+                _chat.Get<ChatRunAnswerRouter>(), null!, null!, TeamsAdapter(), NoDialog(),
                 NullLogger<TeamsInteractionHandler>.Instance)
             .HandleAsync("19:conv", "A2", value, default);
 
@@ -79,7 +80,10 @@ public sealed class ChatRunInteractionTests : IDisposable
                 NullLogger<SlackApiClient>.Instance),
             new SlackTypedQuestionBlockBuilder(), new SlackMessageBlockBuilder(),
             NullLogger<SlackAdapter>.Instance),
-        NullLogger<SlackInteractionHandler>.Instance);
+        NoDialog(), NullLogger<SlackInteractionHandler>.Instance);
+
+    private SpecDialogButtonAnswer NoDialog() =>
+        SpecDialogButtons.Over(_chat.Connection, _chat.Get<IDialogueTransport>());
 
     private static TeamsAdapter TeamsAdapter() => new(
         null!, new TeamsTypedQuestionTracker(), null!, NullLogger<TeamsAdapter>.Instance);

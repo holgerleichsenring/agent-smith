@@ -273,6 +273,11 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.RemoveAll<StackExchange.Redis.IConnectionMultiplexer>();
         services.AddSingleton(Mock.Of<StackExchange.Redis.IConnectionMultiplexer>());
 
+        // 2026-10-26-0f19b: the spec dialog's open-question record lives in Redis; the harness's
+        // confirmations are answered in process, so nothing reads it.
+        services.RemoveAll<AgentSmith.Server.Contracts.IOpenDialogQuestions>();
+        services.AddSingleton(Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>());
+
         services.RemoveAll<AgentSmith.Contracts.Events.IEventPublisher>();
         services.AddSingleton<AgentSmith.Contracts.Events.IEventPublisher,
             AgentSmith.Application.Services.Events.NoOpEventPublisher>();
