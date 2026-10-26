@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-4f7af
+
+decisions:
+  - category: Tooling
+    chose: "2.7.0 bumped where 2.6.0 was: plugin.json, both marketplace versions, the template context, bootstrap-project and update-project; the marketplace says nine skills and a commit gate"
+    over: "Bumping only the manifests"
+    reason: "git grep 2.6.0 found bootstrap-project's own copy, which the 2.6.0 release had touched as well; after the bump only the 3h migration heading names 2.6.0."
+  - category: Implementation
+    chose: "update-project 3i copies spec.schema.json and context.schema.json again, asks who owns the gate, checks the verify stages are the full proof and offers the new CLAUDE.md steps 8 and 12"
+    over: "A note that the hook exists"
+    reason: "Adversarial review: a project's copied schemas refuse upgrade_impact, proven_live and gate until refreshed; and a project with its own gate must declare gate: project, or installing 2.7.0 runs two gates."
+  - category: Scope
+    chose: "agent-smith's 2026-10-26-4f7ae is required by this release"
+    over: "Releasing the plugin independently"
+    reason: "Installing 2.7.0 in agent-smith before gate: project lands there would run the dotnet build and suite twice per spec commit."
+  - category: Testing
+    chose: "Dogfooded by driving hooks/spec-gate.py with PreToolUse JSON in a scratch project: green stages passed, a forced red stage blocked with exit 2, a non-spec commit passed silently, gate: project stepped aside in one line, no stages passed with a notice; each left the ledger line deliver-spec reads"
+    over: "Relying on the unit cases alone"
+    reason: "The unit cases drive the same script; the scratch run also checks deliver-spec's awk snippet against a real ledger. A live Claude Code session with the plugin installed is still unproven."

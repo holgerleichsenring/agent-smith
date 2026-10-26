@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-4f7ac
+goal: "A deliver-series skill takes a series from review to one merged-tree pull request: review each spec, build in grouped worktrees, merge, verify, push, CI."
+
+applies_to: "the specification-first-agentic-development plugin repository (skills/deliver-series)"
+
+requires: [2026-10-26-4f7ab]
+
+facts:
+  - claim: "Recent series were planned, reviewed, re-planned and only then built, each step its own docs commit."
+    evidence: "observed: 2026-10-26, agent-smith git log of PR #772 (e8d42d561, 1f6de562b, 282866697, 5ea902b02)"
+  - claim: "Parallel groups ran on separate branches and were merged into one integration branch; the context.yaml state lines conflicted on every merge, code files on some."
+    evidence: "observed: 2026-10-26, agent-smith merge commits 60fd8d7f6 and 144e08035"
+  - claim: "A cross-branch conflict was resolved by keeping both intents and writing a merge note into the spec's decisions file."
+    evidence: ".agentsmith/decisions/2026-10-25-c5a7e.yaml:41-44"
+  - claim: "Two branches each added the same helper; one copy was removed after merging."
+    evidence: "observed: 2026-10-26, agent-smith commit 17fb54ba8"
+  - claim: "A file an ignore rule kept out of every commit existed only in the builder's tree; its test passed there and nowhere else."
+    evidence: "observed: 2026-10-26, agent-smith commit 4f4a53cdd"
+  - claim: "PR bodies said which deploy changes are opt-in, the verification on the merged branch, and what is not proven live."
+    evidence: "observed: 2026-10-26, gh pr view 768, 769, 772 --repo holgerleichsenring/agent-smith"
+  - claim: "A behaviour change rolled out over two releases so old pods keep working during a rolling deploy."
+    evidence: ".agentsmith/decisions/2026-10-26-cb25f.yaml:16"
+  - claim: "Plugin skill descriptions are one line under 200 characters, the limit the operator set for this series to match agent-smith's master loader."
+    evidence: "spec-first:skills/deliver-spec/SKILL.md:3; spec-first:skills/review-spec/SKILL.md:3; observed: 2026-10-26, operator instruction for this series"
+
+scope:
+  in: >
+    skills/deliver-series/SKILL.md, user-invocable, description at most 200 characters. Input: a series base or a
+    list of ids, and whether the user authorised merging. Steps: review-spec per spec and one commit for the cuts;
+    group specs whose steps name a shared file (state lines do not count) and build groups in parallel, members in
+    requires order; one worktree and one background builder subagent per group, given the repository, branch,
+    specs, the project's rules and the commit form, committing each spec through the gate and reporting shas and
+    ledger lines (no line means the hook never ran: the builder runs the checks by hand and says so; gates of
+    parallel builders share the machine, so a timing test red under that load is re-run once and named); merge every branch into spec/{base} with --no-ff, state and index lines resolved by keeping both,
+    other conflicts after reading both commits, a merge note in the spec's decisions file; build and full verify on
+    the merged tree by hand; git status --ignored for files tests need; deploy and infrastructure diff against 'an
+    update must not force an infrastructure change'; push, one PR, CI watched and fixed; merge only when authorised.
+    README, marketplace description and the workflow table list it.
+  out: "Version and release (2026-10-26-4f7af). A script that groups specs: the grouping is read from the specs by the agent."
+
+decisions:
+  - key: "MERGE COMMITS CARRY NO SPEC ID. The gate keys on the id; the merged tree's verify is run by hand once."
+  - key: "WRITTEN FROM WHAT HAPPENED. Each step names the failure it prevents, as seen in agent-smith's last three series."
+
+steps:
+  - id: skill
+    action: "Write skills/deliver-series/SKILL.md."
+  - id: lists
+    action: "Add it to README, marketplace description and the spec-first-workflow skill table."
+
+tests:
+  - "Every SKILL.md has name matching its directory and a description of at most 200 characters (checked by a one-off script run)."
+
+done:
+  - "deliver-series names each step with its command: review, grouping, worktrees and builders, merge, merged-tree verify, ignored-file check, infrastructure check, push, PR, CI, authorised merge."

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-4f7ad
+
+decisions:
+  - category: Implementation
+    chose: "upgrade_impact and proven_live are optional string keys in spec.schema.json"
+    over: "Required keys, or structured objects"
+    reason: "The schema refuses undeclared keys, so declaring them is what lets a spec carry them; requiring them would refuse every spec written before 2.7.0. One sentence each is what the PR body needs."
+  - category: Scope
+    chose: "Characterise first applies to a spec that consolidates copies of logic or changes what existing code does on some input; a spec that only adds is exempt"
+    over: "Every spec that touches existing code"
+    reason: "Adversarial review: almost every spec touches existing code. The rule pays where an outcome can change silently, which is what the cb25 consolidation series showed with its was columns."
+  - category: Implementation
+    chose: "review-spec's brief checks upgrade_impact against what the steps will change, and treats a missing characterisation step as a finding"
+    over: "A separate review pass"
+    reason: "The reviewer already follows every field to its sinks; an upgrade impact is one of those sinks."

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-4f7af
+goal: "spec-first 2.7.0 is released with the gate hook and deliver-series, and update-project tells an upgrading project how to declare gate ownership."
+
+applies_to: "the specification-first-agentic-development plugin repository (.claude-plugin, README, update-project, templates)"
+
+requires: [2026-10-26-4f7aa, 2026-10-26-4f7ab, 2026-10-26-4f7ac, 2026-10-26-4f7ad, 2026-10-26-4f7ae]
+
+facts:
+  - claim: "A release bumps plugin.json and both versions in marketplace.json, the template's methodology version and update-project's current version and table."
+    evidence: "observed: 2026-10-26, plugin git show --stat 88b3ac2 (2.6.0)"
+  - claim: "The plugin is at 2.6.0 in plugin.json and marketplace.json, and the marketplace counts 8 skills."
+    evidence: "spec-first:.claude-plugin/plugin.json:3; spec-first:.claude-plugin/marketplace.json:9, 18, 19"
+  - claim: "bootstrap-project writes methodology version 2.6.0 into a new context."
+    evidence: "spec-first:skills/bootstrap-project/SKILL.md:81-82"
+  - claim: "update-project's table runs from 0.0.0 to 2.6.0 and its last step is 3h."
+    evidence: "spec-first:skills/update-project/SKILL.md:21, 37-49, 207-209"
+  - claim: "The README lists 8 skills in its table."
+    evidence: "observed: 2026-10-26, plugin README.md lines 18 and 38-47 at 88b3ac2"
+
+scope:
+  in: >
+    2.7.0 in plugin.json, marketplace.json (and its skill count), templates/contexts/default/context.yaml,
+    bootstrap-project and update-project. update-project 3i: copy spec.schema.json and context.schema.json again
+    (upgrade_impact, proven_live, gate); the hook now runs the verify stages at every spec commit; a project with its
+    own commit gate adds gate: project to one context.yaml, otherwise checks its verify stages are the full proof;
+    the root CLAUDE.md step 8 and 12 wording is offered as in 3c.2. Table rows for every older version end in 3i.
+    README: nine skills, the gate, gate: project.
+  out: "Pushing, the PRs and the tag (the parent session); agent-smith's 2026-10-26-4f7ae lands before the release."
+
+steps:
+  - id: version
+    action: "Bump every version string and count; add 3i and the table rows."
+  - id: readme
+    action: "README skill table, a short gate section."
+
+tests:
+  - "python3 hooks/test_*.py and both skill script tests green; every SKILL.md description at most 200 characters."
+
+done:
+  - "git grep 2.6.0 shows only history and migration rows."

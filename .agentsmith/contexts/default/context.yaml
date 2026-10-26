@@ -30,6 +30,10 @@ verify:
   - label: test
     command: dotnet test AgentSmith.sln --filter "Category!=LiveLLM&Category!=NeedsDocker"
 
+# This repository runs its own commit gate (.claude/hooks/spec-gate.sh), so the spec-first
+# plugin's hook steps aside and exactly one gate checks a spec commit.
+gate: project
+
 arch:
   style: [CleanArch]
   patterns: [Command/Handler, Pipeline, Factory, Strategy, Adapter]
@@ -87,6 +91,12 @@ integrations:
 
 state:
   done:
+    2026-10-26-4f7af: "SPEC-FIRST 2.7.0 (plugin release). Nine skills and a commit gate; versions bumped in manifests, template and bootstrap; update-project 3i refreshes both schemas, asks who owns the gate (gate: project) and offers the new CLAUDE.md steps 8 and 12. -> .agentsmith/specs/done/2026-10-26-4f7af-plugin-release-2-7-0.yaml"
+    2026-10-26-4f7ae: "AGENT-SMITH OWNS ITS GATE (default context, context schema, CLAUDE.md). gate: project in the default context, a MECHANISM string in the schema; the spec-first 2.7.0 hook steps aside here in one line, so .claude/hooks/spec-gate.sh stays the only gate. -> .agentsmith/specs/done/2026-10-26-4f7ae-gate-ownership-declared.yaml"
+    2026-10-26-4f7ad: "SPEC PROOF RULES (spec-first schema, create-spec, apply-spec, review-spec, deliver-spec). Characterise first with a was column before consolidating or changing behaviour; optional upgrade_impact and proven_live keys, checked by the reviewer and carried into the PR body. -> .agentsmith/specs/done/2026-10-26-4f7ad-spec-proof-rules.yaml"
+    2026-10-26-4f7ac: "DELIVER-SERIES SKILL (spec-first). Review every spec, group by shared files, one worktree and background builder per group, merge into spec/{base} keeping both sides of state lines, merged-tree verify, ignored-file and infrastructure checks, one PR, CI, merge only when authorised. -> .agentsmith/specs/done/2026-10-26-4f7ac-series-delivery-skill.yaml"
+    2026-10-26-4f7ab: "ONE GATE PER COMMIT (spec-first hooks + apply-spec, deliver-spec, workflow, bootstrap, templates). gate: project in one context steps the plugin's hook aside, conflicting or unknown values block; apply-spec tests what changed, deliver-spec reads the matching ledger line and runs the stages only when no gate checked. -> .agentsmith/specs/done/2026-10-26-4f7ab-gate-one-owner.yaml"
+    2026-10-26-4f7aa: "PLUGIN COMMIT GATE (spec-first hooks/). A PreToolUse hook gates spec commits in every shape agent-smith's gate knows and runs each context's verify stages from the tree root, first red stage blocking; ledger in the git common dir; notices as JSON; deadline under the hook timeout. -> .agentsmith/specs/done/2026-10-26-4f7aa-gate-hook-engine.yaml"
     2026-10-25-6c1f: "MEMORY RECALL STANDING (recall, MasterRecordToolHosts; dashboard DefaultRow). recall heads each match with the label and record the index shows; a disputed match leads with a DISPUTED do-not-act marker and keeps its body; the dead memory-proposal pointer row is removed. -> .agentsmith/specs/done/2026-10-25-6c1f-memory-recall-standing.yaml"
     2026-10-25-9324e: "MEMORY NO RATIFICATION (remember, Defaults tab, SKILLS PIN v5.21.0). remember writes no status and publishes no memory proposal; a memory is a hint whose standing the runs decide; coding, pr-review, security, api-security and legal masters carry the memory index. -> .agentsmith/specs/done/2026-10-25-9324e-memory-no-ratification.yaml"
     2026-10-25-9324d: "MEMORY STANDING INDEX (MemoryIndexReader, memory prompt section, MEMORY.md labels). Each memory's standing is its evidence decayed with a 90-day half-life; the master's index shows each record, holding first, disputed left out and counted; the record step relabels MEMORY.md. -> .agentsmith/specs/done/2026-10-25-9324d-memory-standing-index.yaml"

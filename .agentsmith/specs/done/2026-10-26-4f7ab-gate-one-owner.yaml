@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-4f7ab
+goal: "Exactly one gate runs per spec commit: a project declaring gate: project keeps its own and the plugin steps aside, and no plugin skill runs the verify stages twice."
+
+applies_to: "the specification-first-agentic-development plugin repository (hooks/, apply-spec, deliver-spec, spec-first-workflow, bootstrap-project, templates)"
+
+requires: [2026-10-26-4f7aa]
+
+facts:
+  - claim: "A project hook and a plugin hook on the same event both run, in parallel; nothing tells one about the other."
+    evidence: "observed: 2026-10-26, code.claude.com/docs/en/hooks, read by a docs subagent"
+  - claim: "agent-smith registers its own PreToolUse Bash gate in project settings."
+    evidence: ".claude/settings.json:1-16"
+  - claim: "agent-smith's context.yaml declares verify stages, so a plugin gate reading them there would run the build and suite a second time."
+    evidence: ".agentsmith/contexts/default/context.yaml:27-31"
+  - claim: "The only file the plugin's skills read per repository is each context.yaml (verify:, evidence_roots:)."
+    evidence: "spec-first:skills/deliver-spec/SKILL.md:22-29; spec-first:skills/review-spec/SKILL.md:18"
+  - claim: "apply-spec runs the full verification before handing over and deliver-spec runs every verify stage again before its commit."
+    evidence: "spec-first:skills/apply-spec/SKILL.md:60-62; spec-first:skills/deliver-spec/SKILL.md:22-29"
+  - claim: "The workflow and the prompt template tell the agent to run ALL tests and the verify stages at step 8 and again at delivery."
+    evidence: "spec-first:skills/spec-first-workflow/SKILL.md:80-84; spec-first:templates/prompt.md:50-54"
+
+scope:
+  in: >
+    gate: plugin | project, a top-level key of a context.yaml (the file the plugin already reads), read before the
+    stages and found by a line scan when PyYAML is missing. A context without it declares nothing; none declared
+    means plugin. project: the hook writes a not-gated line 'gate: project' and says in one line that the project's
+    own gate decides. Two different explicit values, or another value: blocked, naming the files. apply-spec runs the
+    build and the affected tests while iterating and leaves the full verify to the commit. deliver-spec notes HEAD,
+    commits, then reads the newest ledger line with its spec id, its tree and that HEAD as parent: passed goes on;
+    blocked means no commit, fix and commit again; 'gate: project' relies on the project's gate and the PR body says
+    the project's gate checked it; no such line or another not-gated line means no gate checked the commit, so
+    deliver-spec runs the stages itself and amends with --no-edit on a fix. The workflow, prompt template and
+    bootstrap say the same; context.schema.json and the commented template declare gate.
+  out: "Declaring it in agent-smith (2026-10-26-4f7ae). Detecting a project gate from settings.json: never guessed."
+
+decisions:
+  - key: "STEPPING ASIDE ON gate: project, NOT ON THE HOOK'S ABSENCE. The project's gate runs at the same commit; deliver-spec running the stages beforehand would be the second run the rule forbids."
+  - key: "CONFLICTING DECLARATIONS BLOCK. One repository has one gate; a guess between two contexts would be the silent choice the declaration replaces."
+
+steps:
+  - id: owner
+    action: "Read gate: in spec-gate.py before the stages; step aside, or block on a conflict or an unknown value."
+  - id: skills
+    action: "Rewrite apply-spec step 5, deliver-spec steps 2-3, the workflow steps 8 and 12, prompt.md and bootstrap's verify line."
+  - id: schema
+    action: "Declare gate in templates/context.schema.json and the commented template context."
+
+tests:
+  - "Gate_GateProject_StepsAsideWithOneLine; Gate_GateConflict_Blocks; Gate_GateUnknownValue_Blocks"
+  - "Gate_GatePluginExplicit_RunsTheStages"
+
+done:
+  - "No skill text tells the agent to run the full verify stages before a commit the hook gates."
+  - "python3 hooks/test_*.py green."
