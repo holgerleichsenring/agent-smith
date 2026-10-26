@@ -37,7 +37,8 @@ export function TicketCostTab() {
 
   return (
     <>
-      <CostSection attempts={attempts} machines={reads} ordinals={ordinalsOf(attempts, series.data)} />
+      <CostSection attempts={attempts} derivations={detail.data?.derivations ?? []} machines={reads}
+        ordinals={ordinalsOf(attempts, series.data)} />
       <div className="section-head">
         <h2>Compute</h2><span className="cnt" data-testid="compute-pod-time">{duration(totals.podMinutes * 60000)} pod time</span>
         <span className="sh-sub">every counted sandbox of every attempt · bar = wall clock, one scale</span>

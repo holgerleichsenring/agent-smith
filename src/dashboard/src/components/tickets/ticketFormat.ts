@@ -1,4 +1,4 @@
-import type { AttemptCause, TicketAttemptMark, TicketPullRequest, TicketSummary } from "@/types/tickets";
+import type { AttemptCause, TicketAttempt, TicketAttemptMark, TicketDerivation, TicketPullRequest, TicketSummary } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the words a ticket row is written in, from recorded fields only.
 
@@ -16,6 +16,11 @@ export function age(iso: string | null | undefined): string | null {
 
 export function money(usd: number): string {
   return `$${usd.toFixed(2)}`;
+}
+
+/** 2026-10-26-7000b: what the ticket cost in all, its attempts and its spec derivations; the tab and its counter share it. */
+export function ticketCost(attempts: readonly TicketAttempt[], derivations: readonly TicketDerivation[]): number {
+  return attempts.reduce((sum, a) => sum + a.cost, 0) + derivations.reduce((sum, d) => sum + d.cost, 0);
 }
 
 export function attempts(n: number): string {

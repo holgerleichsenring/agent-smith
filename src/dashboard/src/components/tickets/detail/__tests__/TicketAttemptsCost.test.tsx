@@ -164,6 +164,23 @@ describe("Ticket cost and compute tab", () => {
     expect(screen.getByTestId("cost-parts-2")).toHaveTextContent("derive $0.90 · S1 $2.00");
     expect(screen.getByTestId("cost-scale")).toHaveTextContent("the $15.00 run cap is the full width");
     expect(screen.getByTestId("ticket-tab-cost")).toHaveTextContent("$5.36");
+    expect(screen.queryByTestId("cost-derivations")).toBeNull();
+  });
+
+  it("SpecDerivations_HaveTheirOwnLine_AndTheTotalAndCounterIncludeThem", async () => {
+    world.detail = {
+      ...world.detail,
+      derivations: [
+        { runId: "d-2", status: "running", startedAt: "2026-09-04T19:00:00Z", finishedAt: null, cost: 0.5, outcome: "running", specCount: 0, pullRequests: [], summary: null },
+        { runId: "d-1", status: "success", startedAt: "2026-09-03T08:00:00Z", finishedAt: "2026-09-03T08:05:00Z", cost: 1.25, outcome: "derived", specCount: 2, pullRequests: [], summary: null },
+      ],
+    };
+    await open();
+    expect(screen.getByTestId("cost-derivations")).toHaveTextContent("Spec derivations: 2, not attempts · so far");
+    expect(screen.getByTestId("cost-derivations")).toHaveTextContent("$1.75");
+    expect(screen.queryByTestId("cost-row-4")).toBeNull();
+    expect(screen.getByTestId("cost-total")).toHaveTextContent("$7.11");
+    expect(screen.getByTestId("ticket-tab-cost")).toHaveTextContent("$7.11");
   });
 
   it("TheWaitingBanner_AppearsOnlyWhenWaitingExceededModelCallTime", async () => {

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-7000b
+
+decisions:
+  - category: Architecture
+    chose: "ticketCost(attempts, derivations) in ticketFormat, read by the Cost section's total and the tab counter"
+    over: "Adding the derivations in both places, or placing the sum in costScale"
+    reason: "The counter and the total were two copies of one sum; one function keeps them equal. costScale holds the bar scale, ticketFormat already holds money()."
+  - category: Implementation
+    chose: "One 'Spec derivations: n, not attempts' row with a short code in the 34px label column, their summed cost, no bar, ' · so far' while one runs"
+    over: "One bar row per derivation on the attempts' scale"
+    reason: "The bars share one scale of attempt costs and run caps; a derivation has no attempt number and its run cap is not an attempt's. The words fit only in the parts column, as the 'all' row does it."
+  - category: Scope
+    chose: "The ticket list row's cost stays code-only; a follow-up adds each ticket's derivation costs to the list's one read so the list row agrees with the Cost tab and the Delivery row"
+    over: "Changing TicketSummaryComposer here"
+    reason: "The summary's cost is composed from TicketListQuery's code runs for the list, the graph and Delivery's buckets; widening that read is its own change. The ticket header shows no cost, so nothing else on the page disagrees."
+  - category: Scope
+    chose: "Compute (pods, model time) and the series budget stay attempts only"
+    over: "Folding derivation runs into them"
+    reason: "The ask was cost figures. SeriesRunway caps a chain of attempts by design; derivation pods are a follow-up that reads each derivation's compute like an attempt's."
+  - category: Scope
+    chose: "A never-run ticket with derivations shows their costs on the 7000a lines only"
+    over: "Adding tabs to the never-run layout"
+    reason: "That layout has no tabs; each line already says what it cost."

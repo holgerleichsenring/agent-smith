@@ -22,6 +22,16 @@ describe("ticketTabs", () => {
     expect(tab().counter!(detail([attempt()]), reads({ defaults: decidedHeld }))).toEqual({ text: "0", hot: false });
   });
 
+  it("ticketTabs_CostCounter_IncludesSpecDerivations", () => {
+    const cost = ticketTabs.find((t) => t.id === "cost")!;
+    const derivation = {
+      runId: "d-1", status: "success", startedAt: "2026-10-26T09:00:00Z", finishedAt: null, cost: 0.5,
+      outcome: "derived" as const, specCount: 1, pullRequests: [], summary: null,
+    };
+    expect(cost.counter!(detail([attempt({ cost: 2 })], { derivations: [derivation] }), reads({}))).toEqual({ text: "$2.50" });
+    expect(cost.counter!(detail([attempt({ cost: 2 })], { derivations: null }), reads({}))).toEqual({ text: "$2.00" });
+  });
+
   it("ticketTabs_NoDefaults_NoCounter", () => {
     expect(tab().counter!(detail([attempt()]), reads({ defaults: defaults() }))).toBeNull();
     expect(tab().counter!(detail([attempt()]), reads({ defaults: null }))).toBeNull();
