@@ -61,10 +61,9 @@ public sealed class AzureDevOpsRepoDiscoveryProvider(
             .ToList();
     }
 
+    // An empty answer — or a bare refs/heads/ — is a repository naming no default branch.
     private static string? StripRefsHeads(string? branch) =>
-        string.IsNullOrEmpty(branch) ? null
-        : branch.StartsWith("refs/heads/", StringComparison.Ordinal) ? branch["refs/heads/".Length..]
-        : branch;
+        BranchRef.ShortName(branch) is { Length: > 0 } name ? name : null;
 
     private sealed class AdoRepoList
     {

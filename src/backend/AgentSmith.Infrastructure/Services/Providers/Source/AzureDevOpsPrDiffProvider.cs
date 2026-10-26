@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -51,9 +52,7 @@ public sealed class AzureDevOpsPrDiffProvider(
     }
 
     private static string? HeadBranch(JsonElement pr) =>
-        pr.TryGetProperty("sourceRefName", out var reference) && reference.GetString() is { } name
-            ? (name.StartsWith("refs/heads/", StringComparison.Ordinal) ? name["refs/heads/".Length..] : name)
-            : null;
+        pr.TryGetProperty("sourceRefName", out var reference) ? BranchRef.ShortName(reference.GetString()) : null;
 
     private static ChangeKind MapChangeType(string? changeType) => changeType switch
     {

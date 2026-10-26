@@ -53,7 +53,7 @@ public static class TicketBranchNamer
     /// </summary>
     public static string? TicketOf(string? headRef)
     {
-        var name = headRef?.StartsWith("refs/heads/", StringComparison.Ordinal) == true ? headRef["refs/heads/".Length..] : headRef;
+        var name = BranchRef.ShortName(headRef);
         if (name is null || !name.StartsWith(Prefix + "/", StringComparison.Ordinal)) return null;
         var ticket = name[(Prefix.Length + 1)..];
         return ticket.Length == 0 || ticket.Contains('/') || ticket == "init" ? null : ticket;

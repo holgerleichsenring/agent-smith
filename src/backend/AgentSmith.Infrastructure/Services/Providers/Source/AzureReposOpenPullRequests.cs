@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Sweep;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -53,7 +54,7 @@ public sealed class AzureReposOpenPullRequests(
         var created = new DateTimeOffset(DateTime.SpecifyKind(pr.CreationDate, DateTimeKind.Utc));
         return new OpenPullRequest(pr.PullRequestId.ToString(), $"{repoUrl}/pullrequest/{pr.PullRequestId}",
             pr.LastMergeSourceCommit?.CommitId, pr.LastMergeTargetCommit?.CommitId,
-            pr.SourceRefName?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal), pr.CreatedBy?.UniqueName,
+            BranchRef.ShortName(pr.SourceRefName), pr.CreatedBy?.UniqueName,
             [.. (pr.Labels ?? []).Select(l => l.Name)], created, created)
         {
             SameRepository = pr.ForkSource is null,
