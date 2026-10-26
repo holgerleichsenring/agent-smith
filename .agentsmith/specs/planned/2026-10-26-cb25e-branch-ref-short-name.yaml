@@ -4,11 +4,11 @@ goal: "One Domain helper turns refs/heads/x into x, so six copies — one replac
 
 applies_to: "default (Domain BranchRef, TicketBranchNamer, DefaultBranchResolver, AzureDevOpsRepoDiscoveryProvider, AzureReposPullRequestTarget, AzureDevOpsPrDiffProvider, AzureReposOpenPullRequests)"
 
-requires: []
+requires: ["2026-10-26-cb25a"]
 
 facts:
   - claim: "Four copies strip a LEADING refs/heads/ and keep an empty string; two fold null or empty to null on purpose (an empty answer means the platform named no branch)."
-    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestTarget.cs:21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestTarget.cs:30-33, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrDiffProvider.cs:53-56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultBranchResolver.cs:35-38, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultBranchResolver.cs:96-99, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:59, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:64-67"
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestTarget.cs:21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestTarget.cs:30-33, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureDevOpsPrDiffProvider.cs:53-56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultBranchResolver.cs:35-38, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultBranchResolver.cs:96-99, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:59, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/AzureDevOpsRepoDiscoveryProvider.cs:64-67"
   - claim: "AzureReposOpenPullRequests removes refs/heads/ anywhere in the name, so feature/refs/heads/x becomes feature/x."
     evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposOpenPullRequests.cs:56"
   - claim: "BranchName is the Domain value object for a branch; it refuses empty names, so the helper cannot be a BranchName factory."

@@ -20,11 +20,14 @@ facts:
 
 scope:
   in: >
-    Method: (1) CHARACTERISE — a matrix (no url/host, cloud base, Server base with virtual dir and port, a base that
-    already ends in /{organization}, trailing slash, an organization with a space) pinned against the five compositions;
+    Method: (1) CHARACTERISE — a matrix (no url/host, cloud base, cloud url with org and project path, legacy host,
+    Server base with virtual dir and port, a base that already ends in /{organization}, trailing slash, an organization
+    with a space) pinned against the five compositions;
     (2) DECIDE per disagreeing row in the decisions file; (3) CONSOLIDATE — AzureDevOpsOrganizationUrl.For(baseUrl,
-    organization): the base (default https://dev.azure.com, trailing slash trimmed) plus the escaped organization; a base
-    whose last path segment already is the organization is the organization URL itself. TrackerConnections reads
+    organization): no base, or a base on a cloud host (dev.azure.com, *.visualstudio.com), gives
+    https://dev.azure.com/{organization} exactly as today, so any cloud value an operator stored in the unused field
+    keeps working; a Server base (trailing slash trimmed) gets the escaped organization appended, unless its last path
+    segment already is the organization (the operator gave the collection URL). TrackerConnections reads
     TrackerConnection.Url, the checks, discovery and the builder call the same composition; copies deleted;
     (4) PROVE — the matrix against the single home, plus a tracker with a Server url reaching provider and check alike.
   out: >
@@ -32,7 +35,9 @@ scope:
 
 decisions:
   - key: "THE TRACKER URL IS A BASE URL, LIKE THE CONNECTION'S HOST. One meaning for both forms of the same setting."
-  - key: "ESCAPE THE ORGANIZATION EVERYWHERE. A cloud name is unchanged by it; a Server collection with a space only works escaped."
+  - key: "ESCAPE THE ORGANIZATION EVERYWHERE. A cloud name is unchanged by it; a Server collection with a space only works escaped, and Uri already escapes a space, so RepoKey of a stored repo url is unchanged."
+  - key: "A CLOUD URL IN THE FIELD IS THE CLOUD. The field had no effect; a stored https://dev.azure.com/org/project must not start composing .../org/project/org."
+  - key: "A SERVER BASE ENDING IN THE COLLECTION IS THE COLLECTION URL. Explicit rule; the collision of a virtual directory and a collection of one name is accepted and documented."
 
 steps:
   - id: characterise

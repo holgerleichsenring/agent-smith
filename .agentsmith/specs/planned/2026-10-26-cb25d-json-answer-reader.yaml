@@ -19,25 +19,35 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:56, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:58-62, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:65-69"
   - claim: "Both intent parsers are in the file-length baseline (131 and 127) and may only shrink; Server references Application, so the home must be public."
     evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv, src/backend/AgentSmith.Server/AgentSmith.Server.csproj:5"
-  - claim: "Every wire property these readers bind is one word, so the snake_case naming policy binds them as case-insensitivity alone does."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountRowJson.cs:16-34, src/backend/AgentSmith.Application/Services/Registry/StagedAuthFileJsonReader.cs:45-46"
+  - claim: "The account and staged-file wires bind one-word properties only, so snake_case binds them as case-insensitivity alone does; the intent wires are camelCase (commandType) and snake_case (ticket_id) and are read through JsonElement."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountRowJson.cs:16-34, src/backend/AgentSmith.Application/Services/Registry/StagedAuthFileJsonReader.cs:45-46, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:38, src/backend/AgentSmith.Server/Services/LlmIntentParser.cs:71-75, src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:101-104"
+  - claim: "JsonObjectSpans in Contracts is the existing string-aware, linear brace matcher for model output; it yields outermost spans only."
+    evidence: "src/backend/AgentSmith.Contracts/Json/JsonObjectSpans.cs:3-34"
+  - claim: "A static class holding a static field must be on the NoStaticStateRuleTests data-table allowlist; the Application intent parser's contract is to throw on an unreadable answer."
+    evidence: "tests/AgentSmith.Tests/Architecture/NoStaticStateRuleTests.cs:13-36, src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:120-125"
+  - claim: "ModelOutputParsingRuleTests asserts SeriesContractAnswerReader.cs exists."
+    evidence: "tests/AgentSmith.Tests/Architecture/ModelOutputParsingRuleTests.cs:22-33"
 
 scope:
   in: >
     Method: (1) CHARACTERISE — one answer matrix (bare, fenced, prose around, a cited [c2] or {x} before the JSON, two
     JSON values, truncated, empty, none) pinned against every reader as it is; (2) DECIDE per disagreeing row in the
-    decisions file; (3) CONSOLIDATE — Application/Services/Json/JsonAnswerReader (public static): ReadArray<TWire,T>,
-    ReadObject<TWire,T> (a candidate whose map is null is passed over) and ReadObject<T>(JsonElement map), one static
-    options instance (case-insensitive, snake_case). JsonAnswerArrayReader, SpecReviewAnswerReader, the scans of
-    SpecAttack/SeriesContract and the first-to-last spans are deleted; the readers keep their own mapping and their
-    null-vs-empty contract; FindingRefutationReader keeps its salvage as the fallback after the shared reader;
+    decisions file; (3) CONSOLIDATE — the text shape goes to Contracts/Json: JsonObjectSpans gains Candidates(text, open, close), every
+    start's balanced span (string-aware, one linear scan per start, inner spans included, an unclosed start skipped), so
+    a candidate is parsed once per start instead of once per start/end pair. Application/Services/Json/JsonAnswerReader
+    (public static) maps: ReadArray<TWire,T> (arrays opening an object or empty), ReadObject<TWire,T> and
+    ReadObject<T>(JsonElement map), a candidate whose map is null passed over; one static options instance
+    (case-insensitive, snake_case), allowlisted as data in NoStaticStateRuleTests. JsonAnswerArrayReader and the scans
+    of SpecReviewAnswerReader, SpecAttack/SeriesContract and the first-to-last spans are deleted; each reader keeps its
+    mapping, its file and its null-vs-empty or throw contract; FindingRefutationReader keeps its salvage after the
+    shared reader;
     (4) PROVE — the matrix against the readers on the single home, changed rows visible.
   out: >
     The DI TolerantJsonParser's span (master answers, plans, observations): it records telemetry per recovery and its
     callers rely on it; aligning its span with this reader is a separate change, named here and in the decisions.
 
 decisions:
-  - key: "EARLIEST START, LONGEST END, FIRST THAT MAPS. The scan two readers already proved on cited ids; first-to-last was the accident."
+  - key: "EARLIEST START, ITS BALANCED END, FIRST THAT MAPS. The order the robust readers proved on cited ids, without their quadratic pair scan; first-to-last was the accident."
 
 steps:
   - id: characterise
@@ -48,6 +58,7 @@ steps:
 tests:
   - "JsonAnswerReaderMatrixTests"
   - "JsonAnswerReaderTests (ReadArray, ReadObject both overloads)"
+  - "JsonObjectSpansTests (Candidates)"
   - "DeliveredFindingRefutationTests, ClientUsageReadingTests, RegistryAuthStagingTests, Specs and Review tests green"
 
 done:

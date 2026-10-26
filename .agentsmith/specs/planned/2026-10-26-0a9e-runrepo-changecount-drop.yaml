@@ -1,26 +1,34 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-26-0a9e
-goal: "RunRepo.ChangeCount, which nothing writes or reads after 2026-10-26-cb25f, leaves the entity and both schemas once no released server maps it."
+goal: "RunRepo.ChangeCount, which nothing writes or reads after 2026-10-26-cb25f, leaves the entity and both schemas without breaking a server mid-rollout."
 
 applies_to: "default (RunRepo, Persistence and Persistence.SqlServer migrations)"
 
 requires: ["2026-10-26-cb25f"]
 
 facts:
-  - claim: "The column is NOT NULL in both initial migrations; a server that still maps it inserts it."
+  - claim: "The column is NOT NULL without a default in both initial migrations; a server that maps it inserts it."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260607082443_InitialCreate.cs:202, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20260717182821_Initial.cs:238"
+  - claim: "The server applies migrations at startup, so the first new pod changes the schema while old pods still run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStoreMigrator.cs:27-30"
 
 scope:
-  in: "Remove the property; dotnet ef migrations add DropRunRepoChangeCount in both migrations projects; read both Up/Down."
+  in: >
+    Two releases. First: the property is unmapped and a migration gives the column a database default of 0 in both
+    providers (old pods keep inserting it, new pods omit it); both snapshots regenerated; on SQLite, whose AlterColumn is
+    a table rebuild, the migration is checked to keep the column. Second release: a migration drops the column.
   out: "Anything else on RunRepo."
 
 steps:
+  - id: unmap
+    action: "Property gone, default-0 migrations, PersistenceFoundationTests stop writing it."
   - id: drop
-    action: "Property gone, two migrations, PersistenceFoundationTests stop writing it."
+    action: "In the following release, the drop migrations."
 
 tests:
+  - "RunRepo_InsertWithoutChangeCount_SucceedsOnTheMigratedStore"
   - "PersistenceFoundationTests green; migrated-store tests green"
 
 done:
-  - "Shipped in a release after the one carrying 2026-10-26-cb25f."
+  - "A store migrated by the first step accepts inserts with and without the column; the second step's store has no column."
   - "Build green, full suite green, dashboard gen/test/build green."

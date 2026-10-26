@@ -21,16 +21,17 @@ facts:
 scope:
   in: >
     Method: (1) CHARACTERISE — the project path and the issue-link path for default endpoints and for a v2 override
-    set, as the check and JiraRequiresLink compute them today; (2) DECIDE in the decisions file; (3) CONSOLIDATE —
-    JiraEndpoints.ProjectFor(key) and IssueLink(), both from the API root of the issue collection (Create without
-    its /issue tail); the check and JiraRequiresLink use them, the inline derivations are deleted; (4) PROVE — the
+    set, and for a Create override that does not end in /issue, as the check and JiraRequiresLink compute them today; (2) DECIDE in the decisions file; (3) CONSOLIDATE —
+    JiraEndpoints.ProjectFor(key), from the API root of the Myself path (the identity call the check has just
+    made; a Myself not ending in /myself is taken as the root), and IssueLinkPath(), Create + "Link" exactly as
+    JiraRequiresLink derives it today; the check and JiraRequiresLink use them, the inline derivations and the doc comment naming /rest/api/3/myself are deleted; (4) PROVE — the
     matrix against JiraEndpoints, the check calls /rest/api/2/project/{key} for a v2 tracker.
   out: >
     Replacing the check's steps by the provider's ProbeAsync: the probe reports reachability only, the check also
     reports who the token is and the project, and the auth is already identical.
 
 decisions:
-  - key: "DERIVE, DO NOT ADD A SETTING. A new endpoints key would be one more thing a v2 operator must know to override; the issue collection already says which API they run."
+  - key: "DERIVE, DO NOT ADD A SETTING. A new endpoints key would be one more thing a v2 operator must know to override; the Myself path the check already calls says which API they run."
 
 steps:
   - id: characterise
