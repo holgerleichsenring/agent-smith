@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-4f7ab
+
+decisions:
+  - category: Architecture
+    chose: "gate: plugin | project is a top-level key of a context.yaml; a context without it declares nothing, none declared means plugin"
+    over: "A key in the methodology block, a separate config file, or reading .claude/settings.json for a project hook"
+    reason: "context.yaml is the one file the plugin already reads per repository (verify:, evidence_roots:). Guessing from settings would miss hooks in local or user settings and misread unrelated ones. Counting an absent key as plugin would make a multi-context project (agent-smith has two) conflict with itself."
+  - category: Architecture
+    chose: "On gate: project the plugin's hook steps aside and deliver-spec does not run the stages; it relies on the project's gate and says so in the PR body"
+    over: "deliver-spec running the verify stages itself whenever the plugin's hook steps aside"
+    reason: "The project's gate runs at the same commit, so running the stages in deliver-spec as well is the second run the rule forbids. The operator's wording 'runs them itself when the hook steps aside' is kept for the case where no gate checked the commit: hooks disabled, a timeout, PyYAML missing."
+  - category: Implementation
+    chose: "The declaration is read by a line scan for a top-level 'gate:' line, quotes and a trailing comment allowed"
+    over: "Reading it with PyYAML like the stages"
+    reason: "Adversarial review: with PyYAML missing the hook would not see gate: project, write a not-gated line, and deliver-spec would run the stages while the project's gate also ran."
+  - category: Implementation
+    chose: "Two different explicit values, or a value other than plugin or project, block the spec commit"
+    over: "Picking one of them"
+    reason: "One repository has one gate; a silent pick is the guess the declaration exists to replace."
+  - category: Implementation
+    chose: "deliver-spec notes HEAD before committing and reads the newest ledger line whose spec id, tree and parent match"
+    over: "Reading the last line of the ledger"
+    reason: "Parallel worktrees write one ledger, a planning commit or an earlier blocked attempt can leave a line for the same spec, and an amend records the pre-amend HEAD as parent; matching on the noted HEAD covers all three."
+  - category: Implementation
+    chose: "apply-spec runs the build and the affected tests while iterating; the workflow step 8 and the prompt template say the same"
+    over: "apply-spec's full verification before handing over"
+    reason: "With the gate running the full stages at the commit, the earlier full run was the double run."
