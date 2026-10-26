@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -29,7 +30,9 @@ internal static class QueuedRunCancel
         await runs.MarkCancelRequestedAsync(runId, "operator", DateTimeOffset.UtcNow, cancellationToken);
         // 2026-10-08-0781: cancel means stop — the ticket's acts up to now are withheld.
         if (watermark is not null) await watermark.WithholdRunAsync(runId, DateTimeOffset.UtcNow, cancellationToken);
-        await capacityQueue.RemoveAsync(run.Project, run.TicketId, cancellationToken);
+        // 2026-10-26-bdd0b: a derivation is never queued for capacity, so the entry by ticket is an attempt's.
+        if (!PipelinePresets.LeavesTicketAlone(run.Pipeline))
+            await capacityQueue.RemoveAsync(run.Project, run.TicketId, cancellationToken);
         // 2026-08-24-ca23: the SECOND cancel entry point, with the same undrained stream as
         // the enforcer's — see CancelTerminalWriter.
         var terminal = new RunFinishedEvent(runId, "cancelled", null,
@@ -39,7 +42,7 @@ internal static class QueuedRunCancel
         // p0330: the queue entry alone is not durable — the ticket still sits in
         // trigger_statuses and the next poll would re-claim it as a fresh run.
         // Terminalize it via the failed_status chain (fail-soft inside).
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, runId,
+        await ticketFinalizer.FinalizeAsync(run,
             "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator while queued.",
             cancellationToken);
         return true;

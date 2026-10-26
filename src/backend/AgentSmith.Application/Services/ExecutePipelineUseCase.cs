@@ -170,7 +170,7 @@ public sealed class ExecutePipelineUseCase(
             cancellationRegistry.Unregister(runId);
             return CommandResult.Fail(reason);
         }
-        catch (CapacityExhaustedException capEx)
+        catch (CapacityExhaustedException capEx) when (!PipelinePresets.LeavesTicketAlone(request.PipelineName)) // bdd0b: a derivation ends failed
         {
             // p0269a: the sandbox did not fit right now (a k8s ResourceQuota rejected
             // the pod after the pre-flight admission passed — a TOCTOU race between two

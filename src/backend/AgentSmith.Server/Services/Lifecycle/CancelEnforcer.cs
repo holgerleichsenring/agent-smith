@@ -126,8 +126,7 @@ public sealed class CancelEnforcer(
         // p0355/p0459: guard on current ownership — a run that a NEWER run has reclaimed
         // must neither release the lease nor finalize the ticket (run.Id names this run).
         await ReleaseLeaseAsync(run, ct);
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, run.Id,
-            CancelReasonNarrator.TicketComment(run.CancelReason), ct);
+        await ticketFinalizer.FinalizeAsync(run, CancelReasonNarrator.TicketComment(run.CancelReason), ct);
         return true;
     }
 

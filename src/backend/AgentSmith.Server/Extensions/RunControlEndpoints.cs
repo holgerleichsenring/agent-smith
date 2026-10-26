@@ -130,7 +130,7 @@ internal static class RunControlEndpoints
     {
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
         if (run is null) return;
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, runId,
+        await ticketFinalizer.FinalizeAsync(run,
             "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator.",
             cancellationToken);
     }

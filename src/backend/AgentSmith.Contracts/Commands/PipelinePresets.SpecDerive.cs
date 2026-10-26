@@ -1,7 +1,18 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Commands;
 
 public static partial class PipelinePresets
 {
+    /// <summary>2026-10-26-bdd0b: true for a run that carries a ticket id but never moves the ticket: no working
+    /// or failure comment, no status, no lifecycle label, no queue entry, no taken-ticket record.</summary>
+    public static bool LeavesTicketAlone(string? pipelineName) =>
+        string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The same question asked of a running pipeline, by the name the run was started under.</summary>
+    public static bool LeavesTicketAlone(PipelineContext pipeline) =>
+        pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) && LeavesTicketAlone(name);
+
     /// <summary>2026-10-26-bdd0a: preset name of the spec derivation, the act that derives a ticket's specs
     /// without attempting its work.</summary>
     public const string SpecDeriveName = "spec-derive";

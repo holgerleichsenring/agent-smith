@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Events;
@@ -59,7 +60,7 @@ public sealed class CancelEnforcementTests : IDisposable
         _lease.Setup(l => l.GetByTicketAsync("p1", new TicketId("42"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AgentSmith.Contracts.Models.StaleLease("p1", new TicketId("42"), "run-new", null));
 
-        await NewFinalizer().FinalizeAsync("p1", "42", "run-old", "<b>cancelled</b>", CancellationToken.None);
+        await NewFinalizer().FinalizeAsync(Run("run-old"), "<b>cancelled</b>", CancellationToken.None);
 
         _ticketProvider.Verify(p => p.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
@@ -73,11 +74,26 @@ public sealed class CancelEnforcementTests : IDisposable
         _lease.Setup(l => l.GetByTicketAsync("p1", new TicketId("42"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AgentSmith.Contracts.Models.StaleLease("p1", new TicketId("42"), "run-old", null));
 
-        await NewFinalizer().FinalizeAsync("p1", "42", "run-old", "<b>cancelled</b>", CancellationToken.None);
+        await NewFinalizer().FinalizeAsync(Run("run-old"), "<b>cancelled</b>", CancellationToken.None);
 
         _ticketProvider.Verify(p => p.FinalizeAsync(
             new TicketId("42"), It.IsAny<string>(), "Rejected", It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // 2026-10-26-bdd0b: a spec derivation carries the ticket id and is never allowed to move the ticket.
+    [Fact]
+    public async Task CancelledTicketFinalizer_Derivation_LeavesTheTicket()
+    {
+        await NewFinalizer().FinalizeAsync(
+            Run("run-derive", PipelinePresets.SpecDeriveName), "<b>cancelled</b>", CancellationToken.None);
+
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    private static Run Run(string id, string pipeline = PipelinePresets.CodeName) =>
+        new() { Id = id, Project = "p1", TicketId = "42", Pipeline = pipeline };
 
     [Fact]
     public async Task Cancel_DeadlineElapsed_FinalizesCancelled()

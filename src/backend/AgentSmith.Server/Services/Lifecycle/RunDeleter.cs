@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -54,12 +55,12 @@ public sealed class RunDeleter(
         // lease by ticket, which handed a NEWER run's ticket back to the poller and
         // put two runs on one branch.
         await lease.ReleaseAsync(run.Project, new TicketId(run.TicketId), run.Id, ct);
-        await queue.RemoveAsync(run.Project, run.TicketId, ct);
+        if (!PipelinePresets.LeavesTicketAlone(run.Pipeline)) await queue.RemoveAsync(run.Project, run.TicketId, ct); // bdd0b
         // 2026-09-20-9f00: disarm the ticket, or the next poll re-files it. CONDITIONAL by the
         // finalizer's own ownership guard — it skips when the ticket's lease names a newer run —
         // and fail-soft inside, so a tracker that will not answer cannot fail the delete. The
         // comment says what happened: a delete cancelled nothing.
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, run.Id,
+        await ticketFinalizer.FinalizeAsync(run,
             "<b>Agent Smith — Deleted</b><br/>The run was deleted by an operator before it finished.",
             ct);
     }

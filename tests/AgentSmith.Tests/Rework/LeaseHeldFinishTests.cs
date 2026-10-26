@@ -23,11 +23,11 @@ public sealed class LeaseHeldFinishTests : IDisposable
     private AgentSmithDbContext Db() =>
         new(new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
 
-    private async Task FinishAsync(string runId, string? holder)
+    private async Task FinishAsync(string runId, string? holder, string pipeline = "code")
     {
         await using (var db = Db())
         {
-            db.Add(new Run { Id = runId, Project = "p", TicketId = "42", Pipeline = "code", Status = "queued", StartedAt = DateTimeOffset.UtcNow });
+            db.Add(new Run { Id = runId, Project = "p", TicketId = "42", Pipeline = pipeline, Status = "queued", StartedAt = DateTimeOffset.UtcNow });
             db.Add(new ActiveRun { Project = "p", TicketId = "42", RunId = holder, ClaimedAt = DateTimeOffset.UtcNow, HeartbeatAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
         }
@@ -51,5 +51,14 @@ public sealed class LeaseHeldFinishTests : IDisposable
         await FinishAsync("run-own", holder: null);
 
         _taken.Verify(t => t.ClearAsync("p", "42", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // 2026-10-26-bdd0b: a derivation never took the ticket up, so the record of an owed attempt survives its end.
+    [Fact]
+    public async Task RunFinalization_SpecDerive_KeepsTheTakenTicketRecord()
+    {
+        await FinishAsync("run-derive", holder: "run-derive", AgentSmith.Contracts.Commands.PipelinePresets.SpecDeriveName);
+
+        _taken.Verify(t => t.ClearAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
