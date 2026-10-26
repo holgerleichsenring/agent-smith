@@ -459,6 +459,11 @@
         }
       }
     },
+    "gate": {
+      "$comment": "MECHANISM — the spec-first plugin's commit hook reads it to decide whether it gates a spec commit or steps aside for the repository's own gate. A string, not a closed list here: the plugin refuses a value other than plugin or project.",
+      "type": "string",
+      "description": "Who gates a spec commit in this repository: plugin (the default when no context declares it) or project, when the repository runs its own commit gate and the spec-first plugin's hook steps aside. Declare it in one context."
+    },
     "verify_derived_from": {
       "$comment": "MECHANISM — a run re-hashes these files and reports that the verify block above may be stale when they no longer match. It changes nothing about what runs; whether to re-derive is the operator's call.",
       "type": "object",

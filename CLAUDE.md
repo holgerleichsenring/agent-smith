@@ -200,6 +200,9 @@ or the commit is blocked. Read this before a definition of done leans on it.
   with a line of its own. The `passed` ledger line still says only `dashboard`, so it
   never claims a step that may not have run.
 
+- **The one gate here.** `gate: project` in `.agentsmith/contexts/default/context.yaml` tells the
+  spec-first plugin (2.7.0 and later) that this repository runs its own gate, so the plugin's hook
+  steps aside in one line and the checks above run once per spec commit.
 - **One copy serves everyone.** `$CLAUDE_PROJECT_DIR` is the launching session's project
   directory, so a subagent in its own worktree runs the *shared checkout's* script — an
   edit to the gate takes effect only once it lands in that working tree. It still gates

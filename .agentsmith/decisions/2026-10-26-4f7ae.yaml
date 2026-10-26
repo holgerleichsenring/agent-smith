@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-4f7ae
+
+decisions:
+  - category: Architecture
+    chose: "gate: project in the default context only; the dashboard context declares nothing"
+    over: "Declaring it in both contexts"
+    reason: "Under 2026-10-26-4f7ab a context without the key declares nothing, and one explicit value is the repository's. One place to change it."
+  - category: Implementation
+    chose: "The schema property is a plain string classified MECHANISM, with no enum"
+    over: "An enum of plugin and project"
+    reason: "ContextVocabularyTests pins the schema's closed vocabularies to the four 167c named; the plugin refuses any other value itself. MECHANISM because a tool acts on it, as on methodology."
+  - category: Scope
+    chose: "The schema is embedded in the product, so a target repository's context may now carry gate: and still validate"
+    over: "Keeping the key out of the product's schema"
+    reason: "This repository's own context is validated against the same file; the parser ignores keys it does not model and the sandbox writer keeps sections it does not state, so nothing in the product reads or drops it."
