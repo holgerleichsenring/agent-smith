@@ -175,10 +175,10 @@ public sealed class ColdStartUnreadTailTests : IDisposable
         private sealed class Spy(List<RunFinishedEvent> calls, IRunTerminalReconciler inner)
             : IRunTerminalReconciler
         {
-            public Task ReconcileAsync(RunFinishedEvent terminal, CancellationToken cancellationToken)
+            public Task ReconcileAsync(RunFinishedEvent terminal, long position, CancellationToken cancellationToken)
             {
                 lock (calls) calls.Add(terminal);
-                return inner.ReconcileAsync(terminal, cancellationToken);
+                return inner.ReconcileAsync(terminal, position, cancellationToken);
             }
         }
     }

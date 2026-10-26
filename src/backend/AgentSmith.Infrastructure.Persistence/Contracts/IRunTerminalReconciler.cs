@@ -10,5 +10,6 @@ namespace AgentSmith.Infrastructure.Persistence.Contracts;
 /// </summary>
 public interface IRunTerminalReconciler
 {
-    Task ReconcileAsync(RunFinishedEvent terminal, CancellationToken cancellationToken);
+    /// <summary>2026-10-26-0f19a: <paramref name="position"/> is the terminal entry's place in its run stream.</summary>
+    Task ReconcileAsync(RunFinishedEvent terminal, long position, CancellationToken cancellationToken);
 }

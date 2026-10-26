@@ -21,6 +21,8 @@ namespace AgentSmith.Tests.Persistence;
 public sealed class RunTerminalReconcilerTests : IDisposable
 {
     private const string RunId = "2026-07-24T10-00-00-fb2d";
+    // 2026-10-26-0f19a: the terminal entry's stream position, which the appended row carries.
+    private const long TerminalAt = 1_760_000_000_005_000;
 
     private readonly SqliteConnection _connection;
 
@@ -39,7 +41,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         var reconciler = NewReconciler();
 
         // Act
-        await reconciler.ReconcileAsync(Terminal("success"), CancellationToken.None);
+        await reconciler.ReconcileAsync(Terminal("success"), TerminalAt, CancellationToken.None);
 
         // Assert
         using var check = new AgentSmithDbContext(Options());
@@ -49,7 +51,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         run.Summary.Should().Be("done");
         var trail = check.Set<TrailRow>()
             .Where(e => e.RunId == RunId && e.Type == nameof(EventType.RunFinished)).ToList();
-        trail.Should().ContainSingle().Which.Seq.Should().Be(3, "the trail row continues the sequence");
+        trail.Should().ContainSingle().Which.Seq.Should().Be(TerminalAt, "the trail row sits at the terminal entry's position");
     }
 
     [Fact]
@@ -61,7 +63,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         var reconciler = NewReconciler();
 
         // Act
-        await reconciler.ReconcileAsync(Terminal("success"), CancellationToken.None);
+        await reconciler.ReconcileAsync(Terminal("success"), TerminalAt, CancellationToken.None);
 
         // Assert
         using var check = new AgentSmithDbContext(Options());
@@ -75,10 +77,10 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         // Arrange
         await SeedRunAsync(status: "running", finishedAt: null, trailSeqs: new long[] { 0 });
         var reconciler = NewReconciler();
-        await reconciler.ReconcileAsync(Terminal("failed"), CancellationToken.None);
+        await reconciler.ReconcileAsync(Terminal("failed"), TerminalAt, CancellationToken.None);
 
         // Act: a second cold start reconciles the same stream terminal again.
-        await reconciler.ReconcileAsync(Terminal("failed"), CancellationToken.None);
+        await reconciler.ReconcileAsync(Terminal("failed"), TerminalAt, CancellationToken.None);
 
         // Assert
         using var check = new AgentSmithDbContext(Options());
@@ -95,7 +97,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         var reconciler = NewReconciler();
 
         // Act
-        await reconciler.ReconcileAsync(Terminal("queued"), CancellationToken.None);
+        await reconciler.ReconcileAsync(Terminal("queued"), TerminalAt, CancellationToken.None);
 
         // Assert
         using var check = new AgentSmithDbContext(Options());
@@ -110,7 +112,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         var reconciler = NewReconciler();
 
         // Act
-        await reconciler.ReconcileAsync(Terminal("success"), CancellationToken.None);
+        await reconciler.ReconcileAsync(Terminal("success"), TerminalAt, CancellationToken.None);
 
         // Assert
         using var check = new AgentSmithDbContext(Options());

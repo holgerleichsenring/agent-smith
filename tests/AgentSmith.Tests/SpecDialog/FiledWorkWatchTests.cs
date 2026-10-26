@@ -81,7 +81,7 @@ public sealed class FiledWorkWatchTests : IDisposable
         await router.DispatchAsync(
             "2026-09-17T09-00-00-0001", Snapshot("1001"),
             new StepStartedEvent(
-                "2026-09-17T09-00-00-0001", 1, "Implement", 5, T, "Implement", "AgenticMaster"),
+                "2026-09-17T09-00-00-0001", 1, "Implement", 5, T, "Implement", "AgenticMaster"), 0,
             CancellationToken.None);
 
         clients.Addressed.Should().ContainSingle().Which.Should().Equal("c-1");

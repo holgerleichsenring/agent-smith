@@ -26,6 +26,28 @@ public sealed class RunTrailBufferTests
             buffer.Add(Command(), Threshold, T0).ToFlush.Should().BeNull("writes accumulate, not one-per-event");
     }
 
+    /// <summary>2026-10-26-0f19a: a stream entry the drain hands over again waits once.</summary>
+    [Fact]
+    public void Add_SamePositionTwice_PendsItOnce()
+    {
+        var buffer = new RunTrailBuffer();
+        buffer.Add(Command(), 1_760_000_000_000_000, Threshold, T0).Seq.Should().Be(1_760_000_000_000_000);
+        buffer.Add(Command(), 1_760_000_000_000_000, Threshold, T0);
+
+        buffer.DrainIfOlderThan(TimeSpan.Zero, T0)!.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Reserve_GivenNoPosition_MintsWithoutPending()
+    {
+        var buffer = new RunTrailBuffer(7);
+
+        buffer.Reserve(null).Should().Be(7);
+        buffer.Reserve(1_760_000_000_000_000).Should().Be(1_760_000_000_000_000);
+        buffer.Add(Command(), Threshold, T0).Seq.Should().Be(8);
+        buffer.DrainIfOlderThan(TimeSpan.Zero, T0)!.Should().ContainSingle("a reserved position never waits here");
+    }
+
     [Fact]
     public void Add_AtThreshold_FlushesTheWholeBatchOnce()
     {

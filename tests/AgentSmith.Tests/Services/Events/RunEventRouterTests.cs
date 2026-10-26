@@ -37,9 +37,9 @@ public sealed class RunEventRouterTests
         var router = NewRouter(fanout, new SandboxExpansionRegistry(), new RecordingPersistence());
 
         await router.DispatchAsync(RunId, Snapshot(),
-            new SandboxCommandEvent(RunId, Repo, "dotnet", 4, DateTimeOffset.UtcNow), CancellationToken.None);
+            new SandboxCommandEvent(RunId, Repo, "dotnet", 4, DateTimeOffset.UtcNow), 0, CancellationToken.None);
         await router.DispatchAsync(RunId, Snapshot(),
-            new SandboxResultEvent(RunId, Repo, "dotnet", 0, 10, DateTimeOffset.UtcNow), CancellationToken.None);
+            new SandboxResultEvent(RunId, Repo, "dotnet", 0, 10, DateTimeOffset.UtcNow), 0, CancellationToken.None);
 
         fanout.RunEvents.Should().BeEmpty();
         fanout.OverviewRunIds.Should().BeEmpty();
@@ -52,7 +52,7 @@ public sealed class RunEventRouterTests
         var router = NewRouter(fanout, new SandboxExpansionRegistry(), new RecordingPersistence());
 
         await router.DispatchAsync(RunId, Snapshot(),
-            new StepStartedEvent(RunId, 1, "build", 5, DateTimeOffset.UtcNow), CancellationToken.None);
+            new StepStartedEvent(RunId, 1, "build", 5, DateTimeOffset.UtcNow), 0, CancellationToken.None);
 
         fanout.RunEvents.Should().ContainSingle().Which.Type.Should().Be(EventType.StepStarted);
         fanout.OverviewRunIds.Should().ContainSingle().Which.Should().Be(RunId);
@@ -66,11 +66,11 @@ public sealed class RunEventRouterTests
         var router = NewRouter(fanout, registry, new RecordingPersistence());
         var command = new SandboxCommandEvent(RunId, Repo, "grep", 2, DateTimeOffset.UtcNow);
 
-        await router.DispatchAsync(RunId, Snapshot(), command, CancellationToken.None);
+        await router.DispatchAsync(RunId, Snapshot(), command, 0, CancellationToken.None);
         fanout.SandboxEvents.Should().BeEmpty("no drawer is open");
 
         registry.Expand(RunId, Repo);
-        await router.DispatchAsync(RunId, Snapshot(), command, CancellationToken.None);
+        await router.DispatchAsync(RunId, Snapshot(), command, 0, CancellationToken.None);
         fanout.SandboxEvents.Should().ContainSingle().Which.Type.Should().Be(EventType.SandboxCommand);
         fanout.RunEvents.Should().BeEmpty("detail never reaches the Run group");
     }
@@ -83,9 +83,9 @@ public sealed class RunEventRouterTests
         var router = NewRouter(fanout, new SandboxExpansionRegistry(), persistence);
 
         await router.DispatchAsync(RunId, Snapshot(),
-            new SandboxCommandEvent(RunId, Repo, "dotnet", 4, DateTimeOffset.UtcNow), CancellationToken.None);
+            new SandboxCommandEvent(RunId, Repo, "dotnet", 4, DateTimeOffset.UtcNow), 0, CancellationToken.None);
         await router.DispatchAsync(RunId, Snapshot(),
-            new SandboxResultEvent(RunId, Repo, "dotnet", 1, 10, DateTimeOffset.UtcNow), CancellationToken.None);
+            new SandboxResultEvent(RunId, Repo, "dotnet", 1, 10, DateTimeOffset.UtcNow), 0, CancellationToken.None);
 
         // Kept for the tool-usage metrics (system-of-record) …
         persistence.Persisted.Select(e => e.Type)
@@ -104,13 +104,13 @@ public sealed class RunEventRouterTests
         for (var step = 0; step < 3; step++)
         {
             await router.DispatchAsync(RunId, Snapshot(),
-                new StepStartedEvent(RunId, step, "s", 3, DateTimeOffset.UtcNow), CancellationToken.None);
+                new StepStartedEvent(RunId, step, "s", 3, DateTimeOffset.UtcNow), 0, CancellationToken.None);
             for (var call = 0; call < 100; call++)
             {
                 await router.DispatchAsync(RunId, Snapshot(),
-                    new SandboxCommandEvent(RunId, Repo, "cmd", 1, DateTimeOffset.UtcNow), CancellationToken.None);
+                    new SandboxCommandEvent(RunId, Repo, "cmd", 1, DateTimeOffset.UtcNow), 0, CancellationToken.None);
                 await router.DispatchAsync(RunId, Snapshot(),
-                    new SandboxResultEvent(RunId, Repo, "cmd", 0, 1, DateTimeOffset.UtcNow), CancellationToken.None);
+                    new SandboxResultEvent(RunId, Repo, "cmd", 0, 1, DateTimeOffset.UtcNow), 0, CancellationToken.None);
             }
         }
 
@@ -168,7 +168,7 @@ public sealed class RunEventRouterTests
     private sealed class RecordingPersistence : IRunEventPersistence
     {
         public ConcurrentQueue<RunEvent> Persisted { get; } = new();
-        public Task PersistAsync(RunEvent runEvent, CancellationToken ct)
+        public Task PersistAsync(RunEvent runEvent, long position, CancellationToken ct)
         { Persisted.Enqueue(runEvent); return Task.CompletedTask; }
     }
 
