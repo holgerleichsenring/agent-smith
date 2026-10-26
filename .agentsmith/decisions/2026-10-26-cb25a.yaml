@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-cb25a
+
+decisions:
+  - category: Architecture
+    chose: "AzureDevOpsRepoAddress (Infrastructure/Models) parses; AzureDevOpsOrganizationUrl (Domain) knows the cloud hosts"
+    over: "One class holding both, in Infrastructure"
+    reason: "The work-item link reads organizations out of URLs that are not repository URLs, and 2026-10-26-cb25b's composition must be reachable from Infrastructure.Core, which cannot see Infrastructure."
+  - category: Implementation
+    chose: "Legacy {org}.visualstudio.com/{project}/_git/{repo} and Server {host}/{dir}/{collection}/{project}/_git/{repo} parse everywhere"
+    over: "Keeping the factories' segments[2] == _git shape"
+    reason: "Characterised: the factories threw on both, trust and the webhook read them. Accidental: an Azure DevOps Server repository could not be built at all, while its webhooks were trusted. The organization URL is everything before /{project}/_git/, as trust already took it."
+  - category: Implementation
+    chose: "The port is kept (uri.Authority) in the organization, repo and webhook PR URLs"
+    over: "uri.Host, which src, diff and the webhook used"
+    reason: "Characterised: https://tfs:8080/Coll/... gave https://tfs/Coll to the source provider, so every API call went to the default port; trust kept the port. Accidental. No stored PR url with a dropped port can belong to a working Server-with-port repository for the same reason, so no recorded record stops matching. RepoKey, the comparison key, still drops the port on purpose and is untouched."
+  - category: Implementation
+    chose: "_git matches in any case and is written _git"
+    over: "The exact-case match of the factories"
+    reason: "Characterised: _GIT threw in src and diff, parsed in trust; Azure DevOps paths are case-insensitive. The webhook now writes the canonical _git; every comparison goes through RepoKey, which lowercases."
+  - category: Implementation
+    chose: "dev.azure.com/{org}/_git/{repo} is refused"
+    over: "Reading it as project = repo"
+    reason: "Characterised: src and diff threw; trust read the organization as https://dev.azure.com, a wrong lookup. The form names no project and nothing in this product composes it; refusing makes trust say untrusted instead of asking the wrong organization. The webhook returns such a remote as written, as before."
+  - category: Implementation
+    chose: "Project and repository keep the escaped form AbsolutePath gives (My%20Proj)"
+    over: "Unescaping them"
+    reason: "Characterised: every copy kept the escaped form, so the clone url, the provider's PR url and the webhook PR url agree today; unescaping one would split them."
+  - category: Implementation
+    chose: "The webhook's RepositoryUrl is the address RepoUrl; a remote that does not parse is returned trimmed, as written"
+    over: "The old rebuild from uri.Host and the full path"
+    reason: "Changed rows: a trailing .git and a trailing path past the repository are dropped, the port kept. Azure DevOps sends remoteUrl as the repository URL, so only the port matters in practice."
+  - category: Implementation
+    chose: "The diff provider takes the organization URL as BaseAddress (with a trailing slash) and composes {project}/_apis/..."
+    over: "A host BaseAddress plus an organization argument"
+    reason: "A collection under a virtual directory is more than one segment; without the trailing slash the relative path would replace the last segment of the base."

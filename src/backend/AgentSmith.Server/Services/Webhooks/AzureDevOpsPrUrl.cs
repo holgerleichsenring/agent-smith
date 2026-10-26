@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Infrastructure.Models;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
@@ -6,12 +7,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// in the shape the Azure Repos provider builds and parses, and the reviewers at a given vote.</summary>
 public static class AzureDevOpsPrUrl
 {
+    /// <summary>2026-10-26-cb25a: the repository's web URL as <see cref="AzureDevOpsRepoAddress"/> writes it (no user
+    /// info, port kept); a remote that names no Azure Repos repository is returned as the payload wrote it.</summary>
     public static string RepositoryUrl(JsonElement pr)
     {
         var remote = PayloadActTime.Text(pr, "repository", "remoteUrl") ?? string.Empty;
-        return Uri.TryCreate(remote, UriKind.Absolute, out var uri)
-            ? $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}".TrimEnd('/')
-            : remote;
+        return AzureDevOpsRepoAddress.TryParse(remote, out var address) ? address!.RepoUrl : remote.TrimEnd('/');
     }
 
     public static string Of(string repositoryUrl, JsonElement pr) =>

@@ -55,24 +55,14 @@ public sealed class PrDiffProviderFactory(
     private AzureDevOpsPrDiffProvider CreateAzureDevOps(RepoConnection repo)
     {
         var token = credentials.For(repo);
-        var (host, organization, project, repoName) = ParseAzureReposUrl(repo.Url!);
+        var address = AzureDevOpsRepoAddress.Parse(repo.Url!);
         var httpClient = httpClientFactory.CreateClient();
-        httpClient.BaseAddress = new Uri(host);
+        // The trailing slash keeps the organization (or collection) path when the provider's relative paths resolve.
+        httpClient.BaseAddress = new Uri($"{address.OrganizationUrl}/");
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{token}")));
         return new AzureDevOpsPrDiffProvider(
-            httpClient, organization, project, repoName,
+            httpClient, address.Project, address.Repo,
             loggerFactory.CreateLogger<AzureDevOpsPrDiffProvider>());
-    }
-
-    // https://dev.azure.com/{org}/{project}/_git/{repo}
-    internal static (string Host, string Organization, string Project, string Repo)
-        ParseAzureReposUrl(string url)
-    {
-        var uri = new Uri(RepoKey.WithoutGitSuffix(url));
-        var segments = uri.AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 4 || segments[2] != "_git")
-            throw new ConfigurationException($"Invalid Azure Repos URL: {url}");
-        return ($"{uri.Scheme}://{uri.Host}/", segments[0], segments[1], segments[3]);
     }
 }

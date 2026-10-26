@@ -60,9 +60,9 @@ public sealed class SourceProviderFactory(
     private AzureReposSourceProvider CreateAzureRepos(RepoConnection config)
     {
         var token = credentials.For(config);
-        var (orgUrl, project, repoName) = ParseAzureReposUrl(config.Url!);
+        var address = AzureDevOpsRepoAddress.Parse(config.Url!);
         var connection = new AzureReposSourceConnection(
-            orgUrl, project, repoName, token, config.DefaultBranch);
+            address.OrganizationUrl, address.Project, address.Repo, token, config.DefaultBranch);
         return new AzureReposSourceProvider(
             connection,
             azDoClientFactory,
@@ -84,17 +84,5 @@ public sealed class SourceProviderFactory(
             : gitlabUrlOverride.TrimEnd('/');
         var projectPath = uri.AbsolutePath.Trim('/');
         return (baseUrl, projectPath, $"{baseUrl}/{projectPath}.git");
-    }
-
-    internal static (string orgUrl, string project, string repoName) ParseAzureReposUrl(string url)
-    {
-        // https://dev.azure.com/{org}/{project}/_git/{repo}
-        var uri = new Uri(RepoKey.WithoutGitSuffix(url));
-        var segments = uri.AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 4 || segments[2] != "_git")
-            throw new ConfigurationException($"Invalid Azure Repos URL: {url}");
-
-        var orgUrl = $"{uri.Scheme}://{uri.Host}/{segments[0]}";
-        return (orgUrl, segments[1], segments[3]);
     }
 }

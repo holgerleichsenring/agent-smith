@@ -35,7 +35,7 @@ public sealed class PrDiffHeadBranchTests
             : url.Contains("/iterations", StringComparison.Ordinal) ? """{"count":1}"""
             : """{"lastMergeTargetCommit":{"commitId":"b"},"lastMergeSourceCommit":{"commitId":"h"},"sourceRefName":"refs/heads/feature/y","createdBy":{"uniqueName":"dev@example.com"}}""");
         var provider = new AzureDevOpsPrDiffProvider(
-            http, "org", "proj", "repo", NullLogger<AzureDevOpsPrDiffProvider>.Instance);
+            http, "proj", "repo", NullLogger<AzureDevOpsPrDiffProvider>.Instance);
 
         var diff = await provider.GetDiffAsync("9");
 
