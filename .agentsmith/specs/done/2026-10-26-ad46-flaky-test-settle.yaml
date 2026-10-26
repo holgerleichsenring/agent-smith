@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-ad46
+goal: "The two tests that failed at random wait for the work they read, so a release run is not blocked by a race in a test."
+
+applies_to: "default (tests) and dashboard (tests)"
+
+requires: []
+
+facts:
+  - claim: "SendAsync waits for the reply push only; the reply is pushed before the turn's transcript is saved, so the test reads the session while the dispatched work writes it on the same DbContext."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/DashboardDialogChannelTests.cs:640-646"
+  - claim: "OpenAsync already waits on the dispatched work, the pattern 2026-09-28-1da5b introduced."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/DashboardDialogChannelTests.cs:653-658, tests/AgentSmith.Tests/TestHelpers/RecordingDispatchedWork.cs:23-40"
+  - claim: "The cost tab's cap mark draws only once the run detail with its budget cap has loaded, which the mock-parity test does not wait for."
+    evidence: "src/dashboard/src/components/tickets/detail/CostSection.tsx:57, src/dashboard/src/__tests__/mock-parity.test.tsx:394-398"
+
+scope:
+  in: "SendAsync also settles the dispatched work; the mock-parity class check waits until every class is drawn."
+  out: "Product code."
+
+upgrade_impact: "None."
+
+steps:
+  - id: build
+    action: "Edit both tests, run each several times."
+
+tests:
+  - "Ingest_AuthenticatedMessage_RoutesThroughTheSpecDialogRouter"
+  - "MockParity_TicketAttemptsCost_StructuralClassesPresent"
+
+done:
+  - "Both test classes pass repeatedly; the release run that failed on 40344772401 attempt 1 does not fail on them."
+  - "Build green, full suite green, dashboard gen/test/build green."

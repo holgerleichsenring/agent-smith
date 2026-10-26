@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-ad46
+
+decisions:
+  - category: Testing
+    chose: "Wait on the dispatched work in SendAsync, the handle OpenAsync already uses"
+    over: "Giving the test its own DbContext per read"
+    reason: "The race is the test reading before the work it started has finished; a second context would hide that and could read a transcript not yet saved."
+  - category: Testing
+    chose: "waitFor around the whole class check"
+    over: "A fixed delay or waiting on one extra element"
+    reason: "Any class that draws from a later read is covered, not only the cap mark that happened to lose the race."

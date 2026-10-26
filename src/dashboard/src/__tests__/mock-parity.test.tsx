@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { Suspense } from "react";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import JobsPage from "@/app/page";
 import RunDetailPage from "@/app/jobs/[id]/page";
@@ -393,9 +393,12 @@ describe("Mock parity", () => {
       const root = screen.getByTestId("ticket-page");
       await screen.findByTestId(ready);
       await screen.findAllByText(/LLM calls|call time/);
-      for (const cls of classes) {
-        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
-      }
+      // Some classes draw from later reads (the budget cap mark needs the run detail), so wait for them.
+      await waitFor(() => {
+        for (const cls of classes) {
+          expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+        }
+      });
       page.unmount();
     }
     search.current = "";

@@ -642,6 +642,9 @@ new DashboardOutcomeChannel(
         var before = _hub.Pushes.Count;
         var result = await Ingest(text, Owner, dialogId);
         await Settle(before + 1);
+        // The reply is pushed before the turn's transcript is saved, so the push alone lets a test
+        // read the session while the dispatched work still writes it on the same context.
+        await _dispatched.SettleAsync();
         return result;
     }
 
