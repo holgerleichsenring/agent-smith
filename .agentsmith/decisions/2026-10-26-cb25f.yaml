@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-cb25f
+
+decisions:
+  - category: Implementation
+    chose: "A repository the run changed is a RunRepo row carrying a pull-request URL"
+    over: "Writing ChangeCount, or listing every RunRepo of the run"
+    reason: "Characterised on projected data: the ChangeCount filter listed nothing, because no RunRepo writer sets it — /api/delivery's repositories were always empty. No producer measures a per-repo change count, so writing it would need a new measurement; every repo the run started with would include the ones it never touched. The PR URL is the one durable per-repo fact of a change the run records."
+  - category: Implementation
+    chose: "A spec-only draft PR counts; a repository whose later outcome failed does not"
+    over: "Special-casing either"
+    reason: "Both follow the run's own recorded outcome (last outcome per repository wins, p0347), which the run detail shows the same way; a spec-only PR is a change to the repository."
+  - category: Scope
+    chose: "ChangeCount stays mapped and unread; dropping it is 2026-10-26-0a9e over two releases"
+    over: "Dropping the column in this spec"
+    reason: "The server migrates at startup, so a dropped column breaks the inserts of the old pods still running during a rolling deploy. First unmap it with a database default, then drop it."

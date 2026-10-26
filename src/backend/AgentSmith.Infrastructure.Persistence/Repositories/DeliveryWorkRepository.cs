@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace AgentSmith.Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// 2026-10-25-0099b: what the window's attempts worked on — their specs and the repositories they changed. Both
+/// 2026-10-25-0099b: what the window's attempts worked on — their specs and the repositories they changed (those
+/// with a pull request, 2026-10-26-cb25f). Both
 /// are joined to the scoped run window, never read by a list of run ids.
 /// </summary>
 public sealed class DeliveryWorkRepository(IUnitOfWork unitOfWork)
@@ -21,7 +22,8 @@ public sealed class DeliveryWorkRepository(IUnitOfWork unitOfWork)
         ProjectScope scope, string fromId, string toId, CancellationToken ct) =>
         await (from repo in unitOfWork.Set<RunRepo>().AsNoTracking()
                join run in Window(scope, fromId, toId) on repo.RunId equals run.Id
-               where repo.ChangeCount > 0
+               // 2026-10-26-cb25f: a repository the run changed carries the pull request its outcome recorded.
+               where repo.PrUrl != null && repo.PrUrl != ""
                select new DeliveryRepoRow(repo.RunId, repo.RepoName))
             .ToListAsync(ct);
 
