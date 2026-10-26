@@ -17,22 +17,25 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ReviewObjectionPark.cs:39-44"
   - claim: "The hand-back comment text is built by SpecHandbackComment, and SpecHandedBackEvent keeps the words on the run's conversation record."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:41-46, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunConversationProjection.cs:35-36"
-  - claim: "The ticket conversation shows the live ticket thread, so a comment on the ticket appears there."
-    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketConversationReader.cs:36-42"
+  - claim: "The ticket conversation shows the live ticket thread for a ticket with a code run or a bound conversation, so a comment on such a ticket appears there; for any other ticket the reader returns nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketConversationReader.cs:29-42"
+  - claim: "SpecHandbackHandler announces the hand-back cut after the park; a step that returns before it would leave no cut row for a scope refusal or a missing spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:79-80, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:28-37"
   - claim: "SpecHandbackHandler is 119 lines, one under the limit."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:1-119"
 
 scope:
   in: >
     DerivationQuestion (Application): for a run whose preset leaves the ticket alone, posts the hand-back comment with
-    a comment-only provider call (no waiting line about a status), publishes SpecHandedBackEvent and sets
-    ContextKeys.SpecDerivationStopped to the case and reason. SpecHandbackHandler calls it before the repeat check
-    and the pointer save. PipelineExecutorPolicy stops on that key with "Spec derivation stopped: <reason>" (a
-    success, never waiting). ReviewObjectionPark splices SpecHandback for every asked objection in a derivation.
+    a comment-only provider call (no waiting line about a status), publishes SpecHandedBackEvent, announces the
+    hand-back cut and sets ContextKeys.SpecDerivationEnded to "Spec derivation stopped: <reason>". SpecHandbackHandler
+    calls it before the repeat check and the pointer save; its NoTracker mapping moves into a type of its own so the
+    handler stays within 120 lines. PipelineExecutorPolicy stops on that key with its sentence (a success, never
+    waiting). ReviewObjectionPark splices SpecHandback for every asked objection in a derivation.
   out: "What the ticket page shows (bdd0f)."
 
 decisions:
-  - key: "THE QUESTION IS A TICKET COMMENT. The ticket conversation reads the tracker thread; the answer and a new derivation follow from there."
+  - key: "THE QUESTION IS A TICKET COMMENT. The ticket conversation reads the tracker thread; the answer and a new derivation follow from there. A ticket with no code run and no conversation shows it in the derivation's line (bdd0f) and on the tracker."
   - key: "NO POINTER PROGRESS. The repeat guard and the heads belong to code attempts; a derivation's question must not make the next attempt's hand-back look like a repeat."
   - key: "EVERY OBJECTION IS ASKED NOW. Nothing is built in a derivation, so there is no earlier spec to build first."
 

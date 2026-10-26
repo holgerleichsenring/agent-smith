@@ -1,16 +1,22 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-26-bdd0d
-goal: "A spec derivation in preview mode derives and reviews the specs and records them on the run, but writes nothing to the branch, opens no spec pull request and posts no cut comment."
+goal: "A preview derivation derives, reviews and records the specs on the run but writes no branch, pull request or ticket comment; every derivation ends with a sentence saying where its specs are."
 
-applies_to: "default (SpecSetPublisher, SpecReviewRevision, SpecSetTicketCommenter)"
+applies_to: "default (SpecSetPublisher, SpecReviewRevision, SpecSetTicketCommenter, ApprovedSetKeptNotice, UnansweredQuestionNotice, SpecGateHandler)"
 
-requires: [2026-10-26-bdd0a]
+requires: [2026-10-26-bdd0a, 2026-10-26-bdd0c]
 
 facts:
   - claim: "The publisher places the set, publishes it on the context, caches it for the run detail, writes and pushes it, announces it, records the pointer and opens the draft spec pull requests."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:35-56"
-  - claim: "The announcement records whether the write committed, on the run's series cut and attempt rows."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:16-21, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:53-61, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesRecordsReader.cs:16-29"
+  - claim: "The announcement carries whether the write committed, but the series cut row keeps only the key, the hand-back case and the specs; the committed flag is not persisted."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:53-61, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSeriesCutProjection.cs:22-34"
+  - claim: "A written revision leaves its commit sha on the context."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:52"
+  - claim: "DeriveSpec also posts the kept-approval notice and the unanswered-question notice on the ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:85-86, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:135-136, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKeptNotice.cs:34-48, src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionNotice.cs:20-28"
+  - claim: "A successful run's summary is the executor's last message; a stop through the executor policy makes the policy's sentence that message."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:167-171, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:233-238"
   - claim: "A review revision is published through the same publisher and FAILS when the branch did not take it."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRevision.cs:19-39"
   - claim: "DeriveSpec posts the derived cut on the ticket with the spec pull requests through SpecSetTicketCommenter; DeriveSpecHandler is at its baseline length."
@@ -24,8 +30,11 @@ scope:
   in: >
     ContextKeys.SpecDerivationPreview (a request flag). SpecSetPublisher: with the flag it places, publishes on the
     context, caches for the run detail and announces committed=false, and skips the write, the pointer and the pull
-    requests, answering "Specs derived as a preview: N spec(s), nothing written". SpecReviewRevision accepts an
-    unchanged sha under the flag. SpecSetTicketCommenter posts nothing under the flag.
+    requests. SpecReviewRevision accepts an unchanged sha under the flag. SpecSetTicketCommenter,
+    ApprovedSetKeptNotice (answering not reported) and UnansweredQuestionNotice post nothing under the flag.
+    SpecGateHandler, in a derivation, sets ContextKeys.SpecDerivationEnded (bdd0c) to one sentence: "N specs derived
+    and stored on the ticket branch.", "N specs derived as a preview; nothing was written." or "N specs derived; the
+    branch write did not complete, so nothing was stored." That sentence becomes the run's summary.
   out: "Feeding a preview into the next attempt."
 
 decisions:
@@ -36,14 +45,15 @@ steps:
   - id: characterise
     action: "Harness: a spec-derive run with the preview flag pushes a spec commit; red today."
   - id: preview
-    action: "Flag, publisher branch, revision acceptance, commenter guard."
+    action: "Flag, publisher branch, revision acceptance, three notice guards, the ending sentence."
 
 tests:
   - "SpecDerive_Preview_WritesNoCommitAndOpensNoPullRequest"
   - "SpecDerive_Preview_ReviewRevision_DoesNotFail"
-  - "SpecDerive_Preview_RecordsTheCutAsNotCommitted"
+  - "SpecDerive_Preview_PostsNoTicketComment"
+  - "SpecGate_Derivation_EndsWithWhereTheSpecsAre"
 
 done:
-  - "A preview derivation leaves the remote branch and the pull requests as they were and records its cut on the run."
+  - "A preview derivation leaves the branch, the pull requests and the ticket thread as they were, records its cut on the run and says so in its summary."
   - "Build green, full suite green."
   - "Upgrade impact: none."

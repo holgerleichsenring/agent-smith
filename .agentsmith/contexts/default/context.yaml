@@ -1335,8 +1335,8 @@ state:
     2026-10-26-0f19b: "APPROVAL BUTTONS ON ANY REPLICA (SpecDialogOutcomeConfirmer, Slack/Teams interaction handlers, RedisOpenDialogQuestions). A click on a replica that did not ask answers the open confirmation via the thread's session and the dialogue transport; a closed question answers nothing. -> .agentsmith/specs/done/2026-10-26-0f19b-dialog-button-any-replica.yaml"
   active: {}
   planned:
-    2026-10-26-bdd0a: "SPEC-DERIVE PRESET (PipelinePresets). The code front through SpecGate, configured as code, not routable from a label. -> .agentsmith/specs/planned/2026-10-26-bdd0a-derivation-preset-front.yaml"
-    2026-10-26-bdd0b: "DERIVATION LEAVES THE TICKET ALONE (error handler, lifecycle, finalization, capacity). No comment, status, label, re-queue or taken-record clear. -> .agentsmith/specs/planned/2026-10-26-bdd0b-derivation-ticket-untouched.yaml"
+    2026-10-26-bdd0a: "SPEC-DERIVE PRESET (PipelinePresets). The code front through SpecGate under its own name, not routable from a label. -> .agentsmith/specs/planned/2026-10-26-bdd0a-derivation-preset-front.yaml"
+    2026-10-26-bdd0b: "DERIVATION LEAVES THE TICKET ALONE (error handler, lifecycle, finalization, capacity, cancel, delete). Failed, cancelled, reaped or deleted, no comment, status, label, queue or taken-record change. -> .agentsmith/specs/planned/2026-10-26-bdd0b-derivation-ticket-untouched.yaml"
     2026-10-26-bdd0c: "DERIVATION ASKS, DOES NOT PARK (SpecHandback, review objection, executor policy). A hand-back is a ticket comment and the run ends. -> .agentsmith/specs/planned/2026-10-26-bdd0c-derivation-question-not-park.yaml"
     2026-10-26-bdd0d: "DERIVATION PREVIEW (publisher, review revision, cut comment). Derived and recorded on the run, nothing written to the branch. -> .agentsmith/specs/planned/2026-10-26-bdd0d-derivation-preview-mode.yaml"
     2026-10-26-bdd0e: "DERIVE SPECS ENDPOINT (launcher, lease, route baseline). Started under the ticket's lease, refused while a code run holds or waits on it. -> .agentsmith/specs/planned/2026-10-26-bdd0e-derivation-launch-endpoint.yaml"

@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-26-bdd0b
-goal: "A spec-derive run carries the ticket id but never moves the ticket: no working or failure comment, no tracker status or lifecycle label, no capacity re-queue, no taken-ticket record cleared."
+goal: "A spec-derive run carries the ticket id but never moves the ticket: failed, cancelled, reaped or deleted, it leaves comments, status, labels, queue entry and taken record alone."
 
-applies_to: "default (PipelineErrorHandler, TicketAwarePipelineLifecycleCoordinator, RunFinalizationProjection, ExecutePipelineUseCase)"
+applies_to: "default (PipelineErrorHandler, TicketAwarePipelineLifecycleCoordinator, RunFinalizationProjection, ExecutePipelineUseCase, CancelledTicketFinalizer, QueuedRunCancel, RunDeleter, FiledWorkClaims)"
 
 requires: [2026-10-26-bdd0a]
 
@@ -17,6 +17,12 @@ facts:
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:50-63, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:46-52"
   - claim: "A capacity rejection publishes the run as queued, and a queued run row with a ticket becomes a capacity-queue entry that the queue later claims as a ticket run."
     evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:173-202, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:83-87"
+  - claim: "An operator cancel (running or queued), the cancel enforcer after a wall-time cancel, an interrupted run or a stale-lease reap, and deleting an unfinished run all finalize the run's ticket through CancelledTicketFinalizer, with failed_status, else done_status, else the provider default."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:30-59, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:113-114, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:127-135, src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:42-44, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:128-130, src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:62-64"
+  - claim: "Cancelling a queued run and force-clearing a run before delete remove the ticket's capacity-queue entry by ticket, whichever run it belongs to."
+    evidence: "src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:32, src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:57"
+  - claim: "A filed ticket cannot be withdrawn once any run row of it exists."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkClaims.cs:28-41"
   - claim: "A failed run with no CommitAndPR persists no work branch."
     evidence: "src/backend/AgentSmith.Application/Services/WorkBranchPersistPolicy.cs:17-22"
   - claim: "Attempts, the ticket list, the delivery window, the previous attempt and the run retry count code runs only."
@@ -28,19 +34,25 @@ scope:
   in: >
     PipelinePresets.LeavesTicketAlone(name), true for spec-derive. Guarded: PipelineErrorHandler's working comment and
     failure finalize; TicketAwarePipelineLifecycleCoordinator.BeginAsync (no-op scope); RunFinalizationProjection's
-    taken-ticket clear (by Run.Pipeline); the capacity catch in ExecutePipelineUseCase lets a spec-derive rejection
-    end as failed instead of queued. The TicketId and the lease stay: the lease is the concurrency guard (bdd0e).
+    taken-ticket clear (by Run.Pipeline); the capacity catch in ExecutePipelineUseCase gains a `when` filter on the
+    same line, so a spec-derive rejection falls to the generic catch and ends failed, not queued (no line added).
+    CancelledTicketFinalizer.FinalizeAsync takes the Run and returns for a derivation; its four callers pass the row
+    they already hold. QueuedRunCancel and RunDeleter remove the queue entry only for a run that is not a derivation.
+    FiledWorkClaims counts a derivation's row as no work (a held lease still blocks). The TicketId and the lease stay:
+    the lease is the concurrency guard (bdd0e).
   out: "Readers already filter code; none changes here."
 
 decisions:
   - key: "TICKET ID STAYS, GUARDS ARE PIPELINE-AWARE. A separate key would mean re-plumbing FetchTicket, DeriveSpec, the branch name and the lease; one predicate guards four places."
   - key: "CAPACITY ENDS AS FAILED. A queued derivation would re-enter through the ticket claim, which writes the tracker; the person derives again."
+  - key: "ONE GUARD FOR CANCEL AND DELETE. The finalizer is the one door four paths share; it reads the run it is given instead of a second lookup."
+  - key: "A DERIVATION IS NOT WORK ON A FILING. It builds nothing, so withdrawing the filed ticket after one stays possible."
 
 steps:
   - id: characterise
     action: "Harness: a spec-derive run whose step fails, with done and failed statuses seeded, records no finalize and no comment; red today."
   - id: guards
-    action: "Predicate and the four guards."
+    action: "Predicate, the run-path guards, the finalizer signature with its callers, queue and filing guards."
   - id: readers
     action: "DB test: a failed spec-derive run projected beside a code attempt leaves the ticket's bucket, attempt count, previous attempt and delivery window as they were."
 
@@ -49,6 +61,10 @@ tests:
   - "SpecDerive_Lifecycle_NoLabelTransition"
   - "RunFinalization_SpecDerive_KeepsTheTakenTicketRecord"
   - "SpecDerive_CapacityRejected_EndsFailedNotQueued"
+  - "CancelledTicketFinalizer_Derivation_LeavesTheTicket"
+  - "QueuedRunCancel_Derivation_KeepsTheQueueEntry"
+  - "RunDeleter_UnfinishedDerivation_LeavesTicketAndQueue"
+  - "FiledWorkClaims_DerivationRow_IsNoClaim"
   - "TicketReaders_FailedSpecDerive_LeavesBucketAttemptsAndDeliveryUntouched"
 
 done:
