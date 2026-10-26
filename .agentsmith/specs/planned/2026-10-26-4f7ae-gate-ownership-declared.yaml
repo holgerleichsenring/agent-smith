@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-4f7ae
+goal: "agent-smith declares gate: project so that its own spec gate stays the only one when spec-first 2.7.0 is installed."
+
+applies_to: "default (.agentsmith/contexts/default/context.yaml, .agentsmith/context.schema.json, CLAUDE.md)"
+
+requires: [2026-10-26-4f7ab]
+
+facts:
+  - claim: "agent-smith's own gate is a project hook and its default context declares verify stages the plugin would otherwise run."
+    evidence: ".claude/settings.json:1-16; .agentsmith/contexts/default/context.yaml:27-31"
+  - claim: "The context schema root refuses an undeclared key, and this repository's context is validated against it."
+    evidence: ".agentsmith/context.schema.json:11; tests/AgentSmith.Tests/Architecture/ContextFieldClassificationTests.cs:84-92"
+  - claim: "Every schema field carries exactly one of JUDGEMENT, MECHANISM, READING in its $comment."
+    evidence: "tests/AgentSmith.Tests/Architecture/ContextFieldClassificationTests.cs:71-81"
+  - claim: "Every enum in the schema is one of four named closed vocabularies."
+    evidence: "tests/AgentSmith.Tests/Architecture/ContextVocabularyTests.cs:73-84"
+  - claim: "The methodology key, read by the spec-first tooling, is classified MECHANISM."
+    evidence: ".agentsmith/context.schema.json:93-94"
+  - claim: "The context parser ignores keys it does not model, and the sandbox writer replaces only the sections a document states."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ContextYamlBuilders.cs:21-23; src/backend/AgentSmith.Application/Services/Tools/SandboxContextYamlWriter.cs:9-12"
+
+scope:
+  in: >
+    gate: project in .agentsmith/contexts/default/context.yaml. A gate property in .agentsmith/context.schema.json:
+    a string, MECHANISM, no enum (the plugin checks the value). Two sentences in CLAUDE.md's Spec Gate section.
+  out: "Agent-smith's product reading or writing gate: for target repositories."
+
+steps:
+  - id: declare
+    action: "Add gate: project to the default context and the gate property to the schema."
+  - id: docs
+    action: "Add the two sentences to CLAUDE.md."
+
+tests:
+  - "Schema_ThisRepositorysOwnContext_Validates and Schema_EveryFieldIsClassified green"
+
+done:
+  - "The plugin hook from 2026-10-26-4f7ab, driven against this tree with a spec commit, steps aside in one line."

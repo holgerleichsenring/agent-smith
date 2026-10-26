@@ -1335,6 +1335,12 @@ state:
     2026-10-26-0f19b: "APPROVAL BUTTONS ON ANY REPLICA (SpecDialogOutcomeConfirmer, Slack/Teams interaction handlers, RedisOpenDialogQuestions). A click on a replica that did not ask answers the open confirmation via the thread's session and the dialogue transport; a closed question answers nothing. -> .agentsmith/specs/done/2026-10-26-0f19b-dialog-button-any-replica.yaml"
   active: {}
   planned:
+    2026-10-26-4f7aa: "PLUGIN COMMIT GATE (spec-first hooks). A PreToolUse hook runs the project's verify stages on every spec commit and blocks on a red one. -> .agentsmith/specs/planned/2026-10-26-4f7aa-gate-hook-engine.yaml"
+    2026-10-26-4f7ab: "ONE GATE PER COMMIT (spec-first hooks + skills). gate: project makes the plugin step aside; no skill runs the verify stages twice. -> .agentsmith/specs/planned/2026-10-26-4f7ab-gate-one-owner.yaml"
+    2026-10-26-4f7ac: "DELIVER-SERIES SKILL (spec-first). Review, grouped worktree builders, one integration branch, merged-tree verify, one PR, CI. -> .agentsmith/specs/planned/2026-10-26-4f7ac-series-delivery-skill.yaml"
+    2026-10-26-4f7ad: "SPEC PROOF RULES (spec-first templates + skills). Characterise first, upgrade_impact, proven_live. -> .agentsmith/specs/planned/2026-10-26-4f7ad-spec-proof-rules.yaml"
+    2026-10-26-4f7ae: "AGENT-SMITH OWNS ITS GATE (default context, schema, CLAUDE.md). gate: project so spec-first 2.7.0 does not run a second gate. -> .agentsmith/specs/planned/2026-10-26-4f7ae-gate-ownership-declared.yaml"
+    2026-10-26-4f7af: "SPEC-FIRST 2.7.0 (plugin release). Versions, README, update-project 3i. -> .agentsmith/specs/planned/2026-10-26-4f7af-plugin-release-2-7-0.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"
