@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0f
+goal: "The ticket page lists each spec derivation apart from the attempts, with when, how long and what came of it, and offers Derive specs with a choice of branch or preview and Derive again."
+
+applies_to: "default (TicketDetailReader, TicketDerivations); dashboard (TicketPage, TicketHeader, TicketPageReads, ticketsApi)"
+
+requires: [2026-10-26-bdd0c, 2026-10-26-bdd0d, 2026-10-26-bdd0e]
+
+facts:
+  - claim: "The detail reads every run of the ticket, builds attempts from code runs only and lists every other run as an other run; a ticket with no code run gets its filed row with no attempts and no other runs, or nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:33-59, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:67-69"
+  - claim: "The dashboard types other runs but renders none of them."
+    evidence: "src/dashboard/src/types/tickets.ts:252-274"
+  - claim: "A run's spec cut, with its specs as JSON and its hand-back case, is stored per publication; a spec pull request is stored on the run's repository row with its URL."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSeriesCut.cs:9-27, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunRepo.cs:4-14, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:35"
+  - claim: "The ticket page shows a never-run layout without tabs and otherwise header, state block, runway, waits-for and tabs; its acts sit in the header."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:29-52, src/dashboard/src/components/tickets/detail/TicketHeader.tsx:57-69"
+  - claim: "The page re-reads the detail on a RunsChanged only for one of its attempts, and on a TicketActivityChanged naming the ticket."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:180-182, src/dashboard/src/lib/tickets/TicketPageStore.tsx:61-70"
+  - claim: "An act button is hidden from a caller known to lack runs.control, and a refusal's text is shown as the server wrote it."
+    evidence: "src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:12-44"
+
+scope:
+  in: >
+    Backend: TicketDerivationView(RunId, Status, StartedAt, FinishedAt, Cost, Outcome, SpecCount, PullRequests,
+    Summary); Outcome is running, derived (a cut with specs), asked (a hand-back cut) or not-finished (failed or
+    cancelled); the summary is the run's own sentence, which says whether the specs are on the branch (bdd0d) or why
+    the derivation stopped (bdd0c); PullRequests are the run's repository rows with a URL. TicketDerivations reads
+    the cuts and repository rows of the ticket's spec-derive runs in one scope. TicketDetailView gains Derivations; a filed ticket with derivations and no code run returns its
+    never-run detail with them. Dashboard: TicketDetail.derivations; a Spec derivations block under the header in
+    both layouts (newest first, one line each); a Derive specs act in the header with Store on the branch or Preview
+    only; Derive again on a not-finished entry; runChanged also re-reads for a derivation run.
+  out: "A page for a ticket with neither a code run nor a filing: the endpoint and the tool still start a derivation there, and its run shows in the run list."
+
+decisions:
+  - key: "OUTCOME FROM WHAT IS RECORDED. The cut gives the count and the hand-back, the run's summary says where the specs are or why it stopped, the repository rows give the links; nothing new is persisted and no migration is needed."
+  - key: "A BLOCK, NOT AN ATTEMPT CARD. A derivation is not numbered and not on the runway, so it cannot be read as an attempt."
+
+steps:
+  - id: reader
+    action: "View, reader, detail composition, never-run filed case; reader tests."
+  - id: dashboard
+    action: "Types, block, act, retry, refresh; vitest; gen:hub-events and build."
+
+tests:
+  - "TicketDetail_SpecDerive_IsADerivationNotAnAttempt"
+  - "TicketDerivations_Outcomes_DerivedAskedNotFinishedRunning"
+  - "TicketDetail_FiledTicketWithDerivation_ReturnsItsNeverRunDetail"
+  - "dashboard: SpecDerivations renders each outcome and Derive again"
+  - "dashboard: DeriveSpecsAct posts the chosen mode and shows a refusal"
+
+done:
+  - "On the ticket page a derivation shows when it ran, how long, and its specs and pull request or its reason, and a new one can be started there."
+  - "Build green, full suite green, dashboard test and build green."
+  - "Upgrade impact: none; the detail gains a field older dashboards ignore."

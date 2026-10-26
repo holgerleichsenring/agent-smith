@@ -27,6 +27,7 @@ public sealed class BoundTicketReaders(
     TicketRunsFacts facts,
     BoundAttemptStarts starts,
     BoundSeriesPorts series,
+    Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopes,
     ILoggerFactory loggerFactory)
 {
     private static FrameworkFacts Facts(ResolvedProject project, string ticketId)
@@ -61,7 +62,14 @@ public sealed class BoundTicketReaders(
             // And starting its next attempt — as the poster, only when the poster could.
             await starts.ForAsync(project, held.TicketId, sessionId, poster, ct),
             // And its series as the next attempt will read it — editable as the poster, only when the poster could.
-            await series.ForAsync(project, held.TicketId, sessionId, poster, ct));
+            await series.ForAsync(project, held.TicketId, sessionId, poster, ct))
+        {
+            // 2026-10-26-bdd0g: and deriving its specs without an attempt — as the poster, only when the poster could.
+            Derive = poster.MayStartRuns
+                ? new ConversationSpecDerivation(scopes, project, held.TicketId, sessionId, poster.Id,
+                    loggerFactory.CreateLogger<ConversationSpecDerivation>())
+                : null,
+        };
     }
 }
 
@@ -70,6 +78,9 @@ public sealed record BoundTicket(
     ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs, FrameworkFacts Facts, IAttemptStart? Start = null,
     BoundSeries? Series = null)
 {
+    /// <summary>2026-10-26-bdd0g: deriving the ticket's specs as the poster; null for a poster who may not start runs.</summary>
+    public ISpecDerivationStart? Derive { get; init; }
+
     /// <summary>A code attempt worked the ticket — the one predicate the series ports are built on, so the steward
     /// leads exactly the turns that can read the series.</summary>
     public bool Worked => Series is not null;

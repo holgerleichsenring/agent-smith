@@ -250,7 +250,7 @@ public sealed class ParkRecordsARefusedMoveTests
         new InMemorySpecSetPointerStore(),
         new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
         AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
-        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
+        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), NullLogger<SpecHandbackHandler>.Instance);
 
     private TicketClaimService ClaimService()
     {

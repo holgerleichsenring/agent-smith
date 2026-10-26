@@ -178,7 +178,16 @@ export class TicketPageReads {
 
   /** (b) a RunsChanged — counted only for one of this ticket's attempts; never the conversation. */
   runChanged(runId: string): void {
-    if (this.snap.detail.data?.attempts.some((a) => a.runId === runId)) this.ticketTick.within(TICKET_READ_MS);
+    const detail = this.snap.detail.data;
+    // 2026-10-26-bdd0f: a spec derivation's run re-reads the detail too.
+    if (detail?.attempts.some((a) => a.runId === runId) || detail?.derivations?.some((d) => d.runId === runId))
+      this.ticketTick.within(TICKET_READ_MS);
+  }
+
+  /** (h) 2026-10-26-bdd0f: a spec derivation was started from this page — the detail, at once. */
+  derivationStarted(): void {
+    this.ticketTick.cancel();
+    this.readTicket();
   }
 
   /** (d) a SpecCutReviewed in the live attempt's stream. */

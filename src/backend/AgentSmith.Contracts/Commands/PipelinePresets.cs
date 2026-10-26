@@ -30,9 +30,10 @@ public static partial class PipelinePresets
             ["api-security-scan"] = ApiSecurityScan,
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
+            [SpecDeriveName] = SpecDerive,
         };
         Names = All.Keys.ToList();
-        Routable = [.. Names.Where(n => !NeedsHostSuppliedContext.Contains(n))];
+        Routable = [.. Names.Where(n => NotRoutableBecause(n) is null)];
     }
 
     public static IReadOnlyList<string>? TryResolve(string name) => All.GetValueOrDefault(name);
@@ -49,6 +50,7 @@ public static partial class PipelinePresets
         // structured observations rendered as PR comments, not code changes.
         ["pr-review"] = PipelineType.Structured,
         [SpecDialogName] = PipelineType.Discussion,
+        [SpecDeriveName] = PipelineType.Discussion,
     };
 
     /// <summary>

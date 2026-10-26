@@ -80,6 +80,7 @@ internal static class SpecDialogTurnSeeds
             seeds[ContextKeys.SpecDialogTicketRuns] = bound.Runs;
             seeds[ContextKeys.SpecDialogFrameworkFacts] = bound.Facts;
             if (bound.Start is not null) seeds[ContextKeys.SpecDialogAttemptStart] = bound.Start;
+            if (bound.Derive is not null) seeds[ContextKeys.SpecDialogDerivationStart] = bound.Derive; // 2026-10-26-bdd0g
             if (bound.Series is { } series) seeds[ContextKeys.SpecDialogSeriesRead] = series.Read;
             if (bound.Series?.Edit is { } edit) seeds[ContextKeys.SpecDialogSeriesEdit] = edit;
             if (bound.Worked) seeds[ContextKeys.SpecDialogSteward] = true; // the builder falls back without the master

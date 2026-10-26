@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-bdd0c
+goal: "A spec derivation that hands the ticket back asks its question as a plain ticket comment and ends: no park status, no waiting run, no hand-back progress on the pointer."
+
+applies_to: "default (SpecHandbackHandler, ReviewObjectionPark, PipelineExecutorPolicy)"
+
+requires: [2026-10-26-bdd0a, 2026-10-26-bdd0b]
+
+facts:
+  - claim: "Every hand-back reaches SpecHandback: DeriveSpec's missing spec puts it on the context, ScopeRepos splices the step behind a refusal, and a review objection on the first unbuilt spec splices it too."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MissingSpecPark.cs:19-25, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:23-28, src/backend/AgentSmith.Application/Services/Specs/Review/ReviewObjectionPark.cs:32-38"
+  - claim: "SpecHandback finalizes the ticket into a park status with the hand-back comment, posts it on the pull requests, sets the awaiting-answer flag and records hand-back progress on the pointer; a repeat with no reply fails the step."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:52-87, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:36-59"
+  - claim: "The awaiting-answer flag stops the executor and makes the run waiting_for_input; the executor's policy is the one place that stops a run cleanly."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutorPolicy.cs:17-41, src/backend/AgentSmith.Contracts/Commands/RunPark.cs:19-24, src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:162-168"
+  - claim: "A review objection on a later spec is only recorded in the set as a parking stop for SpecSequence, which the spec-derive preset does not run."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ReviewObjectionPark.cs:39-44"
+  - claim: "The hand-back comment text is built by SpecHandbackComment, and SpecHandedBackEvent keeps the words on the run's conversation record."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:41-46, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunConversationProjection.cs:35-36"
+  - claim: "The ticket conversation shows the live ticket thread for a ticket with a code run or a bound conversation, so a comment on such a ticket appears there; for any other ticket the reader returns nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketConversationReader.cs:29-42"
+  - claim: "SpecHandbackHandler announces the hand-back cut after the park; a step that returns before it would leave no cut row for a scope refusal or a missing spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:79-80, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:28-37"
+  - claim: "SpecHandbackHandler is 119 lines, one under the limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:1-119"
+
+scope:
+  in: >
+    DerivationQuestion (Application): for a run whose preset leaves the ticket alone, posts the hand-back comment with
+    a comment-only provider call (no waiting line about a status), publishes SpecHandedBackEvent, announces the
+    hand-back cut and sets ContextKeys.SpecDerivationEnded to "Spec derivation stopped: <reason>". SpecHandbackHandler
+    calls it before the repeat check and the pointer save; its NoTracker mapping moves into a type of its own so the
+    handler stays within 120 lines. PipelineExecutorPolicy stops on that key with its sentence (a success, never
+    waiting). ReviewObjectionPark splices SpecHandback for every asked objection in a derivation.
+  out: "What the ticket page shows (bdd0f)."
+
+decisions:
+  - key: "THE QUESTION IS A TICKET COMMENT. The ticket conversation reads the tracker thread; the answer and a new derivation follow from there. A ticket with no code run and no conversation shows it in the derivation's line (bdd0f) and on the tracker."
+  - key: "NO POINTER PROGRESS. The repeat guard and the heads belong to code attempts; a derivation's question must not make the next attempt's hand-back look like a repeat."
+  - key: "EVERY OBJECTION IS ASKED NOW. Nothing is built in a derivation, so there is no earlier spec to build first."
+
+steps:
+  - id: characterise
+    action: "Harness: a spec-derive run on the question fixture finalizes the ticket into the park status; red today."
+  - id: question
+    action: "DerivationQuestion, handler call, policy stop, objection splice."
+
+tests:
+  - "SpecDerive_Question_CommentsTheTicketAndEndsWithoutParking"
+  - "SpecDerive_ScopeRefusal_AsksAndEnds"
+  - "ReviewObjectionPark_Derivation_AsksTheLaterSpecNow"
+  - "PipelineExecutorPolicy_DerivationStopped_StopsAsSuccess"
+
+done:
+  - "A derivation's hand-back leaves the ticket's status where it was, posts one comment, and the run ends successful, not waiting."
+  - "Build green, full suite green."
+  - "Upgrade impact: none."

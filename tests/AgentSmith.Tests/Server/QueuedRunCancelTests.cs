@@ -123,6 +123,36 @@ public sealed class QueuedRunCancelTests : IDisposable
         _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
     }
 
+    // 2026-10-26-bdd0b: a queued derivation is cancelled without touching the ticket or the attempt queued for it.
+    [Fact]
+    public async Task QueuedRunCancel_Derivation_KeepsTheQueueEntry()
+    {
+        await _queue.EnqueueAsync(new CapacityQueueCandidate(
+            "p1", "42", "code", "github",
+            "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
+            ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Add(new AgentSmith.Infrastructure.Persistence.Entities.Run
+            {
+                Id = "run-derive", Project = "p1", Pipeline = AgentSmith.Contracts.Commands.PipelinePresets.SpecDeriveName,
+                TicketId = "42", Status = "queued", StartedAt = DateTimeOffset.UtcNow,
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        var handled = await QueuedRunCancel.TryAsync(
+            "run-derive", NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
+
+        handled.Should().BeTrue();
+        using (var ctx = new AgentSmithDbContext(Options()))
+            ctx.QueuedTickets.Should().ContainSingle("the attempt queued for the ticket is not the derivation's");
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
+    }
+
     [Fact]
     public async Task Cancel_RunningRun_NotHandledHere_FallsThroughToRegistryPath()
     {

@@ -1,8 +1,10 @@
 using AgentSmith.Application.Services.Triggers;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Entities;
 
 namespace AgentSmith.Server.Services.Lifecycle;
 
@@ -19,6 +21,8 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// each caller passes is what tells the two apart on the ticket; renaming the type is a
 /// change of its own and is not this spec's.
 /// </para>
+/// <para>2026-10-26-bdd0b: it takes the run itself, so a spec derivation, which carries the ticket id but never
+/// moves the ticket, is left alone on every door at once: a cancel, the enforcer, a delete.</para>
 /// </summary>
 public sealed class CancelledTicketFinalizer(
     ITicketProviderFactory ticketFactory,
@@ -27,12 +31,14 @@ public sealed class CancelledTicketFinalizer(
     ServerContext serverContext,
     ILogger<CancelledTicketFinalizer> logger)
 {
-    public async Task FinalizeAsync(
-        string project, string ticketId, string runId, string comment, CancellationToken cancellationToken)
+    public async Task FinalizeAsync(Run run, string comment, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(run);
+        var (project, ticketId, runId) = (run.Project, run.TicketId, run.Id);
         try
         {
-            if (string.IsNullOrEmpty(project) || string.IsNullOrEmpty(ticketId)) return;
+            if (string.IsNullOrEmpty(project) || string.IsNullOrEmpty(ticketId)
+                || PipelinePresets.LeavesTicketAlone(run.Pipeline)) return;
             // p0355: ownership guard. When this run was reaped and a NEWER run has
             // already reclaimed the ticket (its lease now names a different run id),
             // finalizing here would drag the ticket the new run is actively working

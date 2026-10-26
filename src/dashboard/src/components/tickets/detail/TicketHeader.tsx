@@ -10,6 +10,7 @@ import { isNeverRun, platformWords, pullRequestFate, ticketLabel } from "../tick
 import { DoneByHandAct } from "../landing/DoneByHandAct";
 import { TicketCloseAct } from "../closing/TicketCloseAct";
 import { TicketReopenAct } from "../closing/TicketReopenAct";
+import { DeriveSpecsAct } from "./DeriveSpecsAct";
 
 // 2026-10-13-9a59q: the mock's .t-head — key and title, then a subline of what is recorded: the
 // tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt, how the
@@ -18,6 +19,7 @@ import { TicketReopenAct } from "../closing/TicketReopenAct";
 // offers no conversation tab to continue in; every ticket not yet landed can be marked done by hand.
 // 2026-10-15-114fd: Close ticket, or Reopen on a ticket closed here; the closed line follows the BUCKET, so a ticket
 // that came back draws none though its mark is still stored.
+// 2026-10-26-bdd0f: Derive specs on every ticket not closed — the specs derived and reviewed without an attempt.
 // 2026-10-16-86e6c: the attempt's state, a run-bearing ticket's closed line and the primary act moved into the state
 // block under the header; a never-run closed ticket draws no block and keeps its closed line here.
 
@@ -59,6 +61,7 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
           landed={summary.bucket === "done"} onLanded={requires.landed} />
         <TicketCloseAct ticket={summary} onClosed={requires.landed} />
         <TicketReopenAct ticket={summary} onReopened={requires.landed} />
+        {summary.bucket !== "closed" && <DeriveSpecsAct project={summary.project} ticketId={summary.ticketId} />}
         {live.attempt && (
           <CancelRunButton
             runId={live.attempt.runId}

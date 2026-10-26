@@ -85,8 +85,10 @@ describe("Ticket page", () => {
     expect(head).toHaveTextContent("GH-101");
     expect(head).toHaveTextContent("Fix the login");
     expect(within(head).queryByRole("link")).toBeNull();
-    expect(head).not.toHaveTextContent("tracker status");
-    expect(head).not.toHaveTextContent("branch");
+    // 2026-10-26-bdd0f: the subline, not the acts — Derive specs offers "Store on the branch".
+    const subline = head.querySelector(".tsub") as HTMLElement;
+    expect(subline).not.toHaveTextContent("tracker status");
+    expect(subline).not.toHaveTextContent("branch");
     expect(screen.getByTestId("cell-this-attempt")).toHaveTextContent("portal-api, portal-worker · run r-1");
   });
 

@@ -45,6 +45,9 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
         // working off one key whether or not a sequence is involved.
         var first = set.Specs[0];
         context.Pipeline.Set(ContextKeys.CurrentSpec, first.Draft);
+        // 2026-10-26-bdd0d: a spec derivation ends here, on where its specs are.
+        if (PipelinePresets.LeavesTicketAlone(context.Pipeline))
+            context.Pipeline.Set(ContextKeys.SpecDerivationEnded, SpecDerivationSummary.Of(context.Pipeline, set));
         logger.LogInformation(
             "Spec set {Key} validated: {Count} spec(s), first is {SpecId} ({Goal})",
             set.Key, set.Specs.Count, first.SpecId, first.Draft.Goal);

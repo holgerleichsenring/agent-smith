@@ -119,6 +119,23 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
         _tracker.Closed.Should().BeEmpty();
     }
 
+    // 2026-10-26-bdd0b: a finished spec derivation built nothing, so the filing can still be withdrawn.
+    [Fact]
+    public async Task FiledWorkClaims_DerivationRow_IsNoClaim()
+    {
+        await SessionAsync(DispatcherDefaults.PlatformDashboard, Ticket(Key, TicketIdValue));
+        _context.Add(new Run
+        {
+            Id = "2026-09-22T08-00-00-0002", Project = Project, Pipeline = AgentSmith.Contracts.Commands.PipelinePresets.SpecDeriveName,
+            TicketId = TicketIdValue, Status = "success", StartedAt = T,
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await Withdraw().WithdrawAsync(Session, Key, "changed my mind", default);
+
+        result.Withdrawn.Should().BeTrue();
+    }
+
     [Fact]
     public async Task Withdraw_ACloseTheTrackerDidNotPerform_LeavesTheRecordAsItWas()
     {

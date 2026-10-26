@@ -8,7 +8,7 @@ import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
-  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDetail, TicketRequires, TicketReviews,
+  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDerivation, TicketDetail, TicketRequires, TicketReviews,
   TicketSeries, TicketText,
 } from "@/types/tickets";
 import {
@@ -157,6 +157,12 @@ export function useTicketDefaults(): Read<TicketDefaults> & { changed: () => voi
 export function useTicketRequires(): Read<TicketRequires> & { landed: () => void } {
   const { snapshot, reads } = useStore();
   return { ...snapshot.requires, landed: () => reads.landedHere() };
+}
+
+/** 2026-10-26-bdd0f: the ticket's spec derivations, newest first; started() re-reads the detail at once. */
+export function useTicketDerivations(): { derivations: TicketDerivation[]; started: () => void } {
+  const { snapshot, reads } = useStore();
+  return { derivations: snapshot.detail.data?.derivations ?? [], started: () => reads.derivationStarted() };
 }
 
 /** The ticket itself — description, criteria and fields — read on its own tick, never on a RunsChanged. */

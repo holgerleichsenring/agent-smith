@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0f
+
+decisions:
+  - category: Implementation
+    chose: "The outcome is read from what is already recorded: the newest cut, the run's status and summary, the repository rows with a pull-request URL"
+    over: "A new derivation event or table"
+    reason: "The cut gives the spec count and the hand-back, the summary is the derivation's own sentence (bdd0c/d) saying where the specs are or why it stopped, and the spec pull requests are on the repository rows. No event, mirror or migration is needed."
+  - category: Architecture
+    chose: "A Spec derivations block under the header, in both layouts, with no number and no place on the runway"
+    over: "Attempt cards, or a tab of its own"
+    reason: "A derivation is not an attempt; rendering it apart is what keeps it from reading as one. The never-run layout has no tabs, and a filed ticket is where a derivation is most useful."
+  - category: Implementation
+    chose: "Derive specs in the header on every ticket not closed, with Store on the branch or Preview only; Derive again on the newest derivation that did not finish"
+    over: "Offering the act only before a first attempt"
+    reason: "A derivation re-reads the branch like an attempt would, so it is useful before and between attempts; the server refuses it while an attempt holds or waits on the ticket and the page shows that sentence."
+  - category: Scope
+    chose: "No page for a ticket with neither a code run nor a filing"
+    over: "Listing tickets that only have derivations"
+    reason: "The ticket list is built from code runs and filings; widening it is its own change. The endpoint and the conversation tool still start a derivation for such a ticket, and its run shows in the run list."
+  - category: Implementation
+    chose: "The header test reads the subline for 'branch'"
+    over: "Renaming the mode label"
+    reason: "The test pins that no branch subline is drawn without a branch; the act's option text is not that subline."

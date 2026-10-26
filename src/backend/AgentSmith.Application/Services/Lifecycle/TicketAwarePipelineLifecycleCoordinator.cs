@@ -21,7 +21,9 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
     public async Task<IAsyncPipelineLifecycle> BeginAsync(
         ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {
-        if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
+        // 2026-10-26-bdd0b: a spec derivation is not an attempt, so the board does not move for it.
+        if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null
+            || PipelinePresets.LeavesTicketAlone(context))
             return NoOpScope.Instance;
 
         try

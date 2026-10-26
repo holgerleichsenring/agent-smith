@@ -26,6 +26,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// what must not be done is the one wrong answer. With no tracker to park on it ends
 /// the run as a failed step — the continue branch would run checkout.
 /// </para>
+/// <para>2026-10-26-bdd0c: a spec derivation asks through <see cref="DerivationQuestion"/> and ends; it parks nothing and
+/// records nothing on the pointer, whose repeat guard and heads belong to code attempts.</para>
 /// <para>
 /// A QUESTION parks like the contradiction case every time it is raised; its loop is
 /// ended by the conversation, not here: an unanswered question is pinned into the next
@@ -39,6 +41,7 @@ public sealed class SpecHandbackHandler(
     SpecHandbackRepeat repeat,
     HandbackHeadsReader heads,
     SpecSetAnnouncer announcer,
+    DerivationQuestion derivation, // 2026-10-26-bdd0c
     ILogger<SpecHandbackHandler> logger)
     : ICommandHandler<SpecHandbackContext>
 {
@@ -50,7 +53,10 @@ public sealed class SpecHandbackHandler(
             || handback is null || handback.Case == SpecHandbackCase.None)
             return CommandResult.Ok("The derivation handed nothing back");
         if (context.Ticket is null || context.Tracker is null)
-            return NoTracker(handback);
+            return SpecHandbackWithoutTracker.Result(handback);
+        // 2026-10-26-bdd0c: a spec derivation asks on the ticket and ends; it parks nothing.
+        if (PipelinePresets.LeavesTicketAlone(context.Pipeline))
+            return await derivation.AskAsync(context, handback, cancellationToken);
 
         var project = context.Pipeline.TryGet<string>(ContextKeys.ProjectName, out var p) ? p! : string.Empty;
         var key = TicketKeyFactory.For(context.Ticket, context.Pipeline).Value;
@@ -103,17 +109,5 @@ public sealed class SpecHandbackHandler(
             $"awaiting_user_input: refused — {handback.Reason}"),
         SpecHandbackCase.Question => CommandResult.Ok($"awaiting_user_input: {Specs.Review.ReviewObjectionComment.HeadingOf(handback)} — {handback.Reason}"),
         _ => CommandResult.Ok($"awaiting_user_input: handed back ({handback.Case})"),
-    };
-
-    // 2026-10-12-d142: a scope nobody divided fails like a refusal — continuing would run checkout
-    // with no spec to work. 2026-10-12-f5f7f: so does a series out of step.
-    private static CommandResult NoTracker(SpecHandback handback) => handback.Case switch
-    {
-        SpecHandbackCase.Refused => CommandResult.Fail(
-            $"Refused: {handback.Reason} — quoted: \"{handback.Quote}\" — "
-            + "and the run has no tracker to park the ticket on"),
-        SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep => CommandResult.Fail(
-            $"{handback.Reason} — and the run has no tracker to park the ticket on"),
-        _ => CommandResult.Ok($"Derivation handed back ({handback.Case}) but the run has no tracker"),
     };
 }

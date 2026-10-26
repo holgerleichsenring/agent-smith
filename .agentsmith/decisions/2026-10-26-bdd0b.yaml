@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0b
+
+decisions:
+  - category: Architecture
+    chose: "The run keeps the ticket id; one predicate, PipelinePresets.LeavesTicketAlone, guards every ticket write keyed on it"
+    over: "Carrying the ticket identity under a separate context key"
+    reason: "FetchTicket, DeriveSpec, the branch name, the lease and the run row all key on the ticket id. A second key would mean re-plumbing each of them; with the id kept, every reader that counts work already filters code runs, and the writes that do not are few enough to name."
+  - category: Implementation
+    chose: "Guards at PipelineErrorHandler (working comment, failure finalize), the lifecycle coordinator, the finalization projection's taken-record clear, the capacity catch, CancelledTicketFinalizer, the queue removal in QueuedRunCancel and RunDeleter, and FiledWorkClaims"
+    over: "Guarding only the run's own failure path"
+    reason: "The adversarial review found that an operator cancel, the cancel enforcer after a wall-time cancel or reap, and a delete all finalize the ticket through CancelledTicketFinalizer, with the provider's default status when none is configured; one guard there covers all four."
+  - category: Implementation
+    chose: "CancelledTicketFinalizer.FinalizeAsync takes the Run row"
+    over: "A pipeline parameter next to project, ticket and run id, or a second lookup inside"
+    reason: "Every caller already holds the row; passing it keeps the ownership check and the derivation check on one object and needs no extra read."
+  - category: Implementation
+    chose: "A `when` filter on the capacity catch, so a derivation's rejection ends failed"
+    over: "Publishing queued, or extracting the catch to make room"
+    reason: "A queued derivation would come back through the ticket claim, which writes the tracker. The filter fits the existing line, which the file's baseline (617) requires."
+  - category: Implementation
+    chose: "A derivation's run row is no work on a filing"
+    over: "Letting any run row refuse the withdrawal"
+    reason: "A derivation builds nothing; a live lease still refuses the withdrawal while it runs."

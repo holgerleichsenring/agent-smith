@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0d
+
+decisions:
+  - category: Scope
+    chose: "A preview is recorded on the run and does not feed the next attempt"
+    over: "Storing the derived set as the pending series for the next attempt"
+    reason: "The pending series is an approval record, and DeriveSpec never re-cuts an approved set; storing an unapproved derivation there would bind the next attempt to text nobody approved. A person who likes the preview derives again in branch mode."
+  - category: Implementation
+    chose: "One request flag, read at the publisher, the review revision and the three ticket notices"
+    over: "A second publisher, or a no-write writer bound per run"
+    reason: "The publisher is the one door every revision goes through; it still places, publishes on the context, caches the run detail's spec view and announces the cut, so the run's record is the same as a written one's. DeriveSpecHandler is at its baseline length, so its notices are guarded where they post."
+  - category: Implementation
+    chose: "SpecGate ends a derivation on a sentence saying where the specs are, which becomes the run's summary"
+    over: "Persisting the announcement's committed flag with a migration"
+    reason: "The adversarial review found the committed flag is not persisted. The sentence needs no schema change: preview by choice, stored when a revision sha was set (only a written revision sets it), otherwise the write did not complete. The ticket page reads the summary as it is."
+  - category: Implementation
+    chose: "The question still goes on the ticket in preview"
+    over: "A preview that cannot ask"
+    reason: "Asking is how a derivation talks to the person in both modes; preview means nothing is written to the branch."

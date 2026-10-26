@@ -45,7 +45,7 @@ public static class RoutingPipelineNames
             .Distinct(StringComparer.Ordinal)
             .Select(reason => new StartupFinding(
                 StartupSubsystems.Configuration, StartupFindingSeverity.Advisory,
-                reason + " A ticket routed to it fails when it starts.", Project: name));
+                reason, Project: name));
 
     private static IEnumerable<string> Named(ResolvedProject project) =>
         Triggers(project)

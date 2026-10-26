@@ -47,6 +47,19 @@ public sealed class SpecReviewRevisionTests
         result.Message.Should().Contain("was not written to the ticket branch").And.Contain(Cause);
     }
 
+    // 2026-10-26-bdd0d: a preview writes no branch on purpose, so an unwritten revision is its success.
+    [Fact]
+    public async Task SpecDerive_Preview_ReviewRevision_DoesNotFail()
+    {
+        var rig = new ReviewLoopRig { WritesToBranch = false };
+        rig.Pipeline.Set(ContextKeys.SpecDerivationPreview, true);
+
+        var result = await PublishAsync(rig);
+
+        result.IsSuccess.Should().BeTrue();
+        rig.Published.Should().ContainSingle();
+    }
+
     [Fact]
     public async Task Revision_WithHandback_PublishesTheSetCarryingIt()
     {

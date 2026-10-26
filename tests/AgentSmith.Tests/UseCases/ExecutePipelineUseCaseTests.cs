@@ -263,6 +263,32 @@ public class ExecutePipelineUseCaseTests
         finished.Status.Should().NotBe("failed");
     }
 
+    // 2026-10-26-bdd0b: a queued derivation would come back through the ticket claim, which writes the tracker,
+    // so a capacity rejection ends it failed; the person derives again.
+    [Fact]
+    public async Task SpecDerive_CapacityRejected_EndsFailedNotQueued()
+    {
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "code",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
+        };
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new CapacityExhaustedException("agentsmith", "requests.cpu", "exceeded quota: compute"));
+
+        var act = () => _sut.ExecuteAsync(
+            new PipelineRequest("todo-list", PipelinePresets.SpecDeriveName, new TicketId("7")), "config.yml", CancellationToken.None);
+
+        await act.Should().ThrowAsync<CapacityExhaustedException>();
+        _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single().Status.Should().Be("failed");
+    }
+
     [Fact]
     public async Task ExecuteAsync_CancelRequested_CapacityExhausted_PublishesCancelledNotQueued()
     {

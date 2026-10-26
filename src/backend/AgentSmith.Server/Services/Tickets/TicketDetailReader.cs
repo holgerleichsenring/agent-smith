@@ -13,6 +13,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// this page and the conversation's filed-work panel cannot disagree; everything else is another run.
 /// <para>2026-10-13-9a59h: a failed last attempt is checked against its tracker first (bounded by the check's
 /// own reuse; a live attempt reads no tracker), and the detail says what was acted since.</para>
+/// <para>2026-10-26-bdd0f: and its spec derivations, a filed never-run ticket's included.</para>
 /// </summary>
 public sealed class TicketDetailReader(
     TicketRunsQuery runQuery,
@@ -27,16 +28,18 @@ public sealed class TicketDetailReader(
     TicketStandings standings,
     Checks.TicketStuckRule stuck,
     TicketLaunchEnds launchEnds,
-    FiledTicketRows filed)
+    FiledTicketRows filed,
+    TicketDerivations derivations) // 2026-10-26-bdd0f
 {
     /// <summary>2026-10-14-dbcen: with no code run, the pair's never-run row with no attempts; null when neither exists.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
     {
         var rows = await runQuery.ForTicketAsync(project, ticketId, ct);
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
+        var derived = await derivations.OfAsync(rows.Select(r => r.Run), ct);
         if (code.Count == 0)
             return await filed.OneAsync(project, ticketId, ct) is { } neverRun
-                ? new TicketDetailView(neverRun, TicketBranchNamer.Compose(new TicketId(ticketId)).Value, [], [])
+                ? new TicketDetailView(neverRun, TicketBranchNamer.Compose(new TicketId(ticketId)).Value, [], [], Derivations: derived)
                 : null;
         var ordered = attempts.Of(code);
         await checker.CheckAsync(code, ct);
@@ -55,7 +58,7 @@ public sealed class TicketDetailReader(
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs, launches),
                 records.GetValueOrDefault(a.Run.Id)))],
             [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)],
-            stuck.ActedSince(head, standing.CheckOf(head.Id), prRecords));
+            stuck.ActedSince(head, standing.CheckOf(head.Id), prRecords), derived);
     }
 
     private static TicketAttemptView Attempt(

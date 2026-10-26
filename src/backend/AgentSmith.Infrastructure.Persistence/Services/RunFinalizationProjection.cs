@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
@@ -56,7 +57,8 @@ public sealed class RunFinalizationProjection(
     private async Task ReleaseWhatTheRunHeldAsync(IUnitOfWork uow, Run run, string runId, CancellationToken ct)
     {
         if (capacityBudget is not null) await capacityBudget.ReleaseAsync(runId, ct);
-        if (takenTickets is null || run.TicketId is not { Length: > 0 } ticketId) return;
+        // 2026-10-26-bdd0b: a derivation never took the ticket up, so the record of an owed attempt is not its to clear.
+        if (takenTickets is null || run.TicketId is not { Length: > 0 } ticketId || PipelinePresets.LeavesTicketAlone(run.Pipeline)) return;
         var holder = await uow.Set<ActiveRun>().AsNoTracking()
             .Where(a => a.Project == run.Project && a.TicketId == ticketId).Select(a => a.RunId).FirstOrDefaultAsync(ct);
         if (holder is null || holder == runId) await takenTickets.ClearAsync(run.Project, ticketId, ct);

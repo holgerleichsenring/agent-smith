@@ -266,12 +266,29 @@ export interface TicketActedSince {
   url?: string | null;
 }
 
+/** 2026-10-26-bdd0f: what came of a spec derivation. */
+export type TicketDerivationOutcome = "running" | "derived" | "asked" | "not-finished";
+
+/** 2026-10-26-bdd0f: one spec derivation of the ticket — not an attempt. summary is the run's own sentence. */
+export interface TicketDerivation {
+  runId: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  cost: number;
+  outcome: TicketDerivationOutcome;
+  specCount: number;
+  pullRequests: string[];
+  summary: string | null;
+}
+
 export interface TicketDetail {
   summary: TicketSummary;
   branch: string;
   attempts: TicketAttempt[];
   otherRuns: TicketOtherRun[];
   actedSince?: TicketActedSince[] | null;
+  derivations?: TicketDerivation[] | null;
 }
 
 export interface TicketSpecStep {

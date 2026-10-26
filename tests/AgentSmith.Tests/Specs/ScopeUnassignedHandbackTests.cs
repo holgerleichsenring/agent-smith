@@ -145,6 +145,6 @@ public sealed class ScopeUnassignedHandbackTests
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()), pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
-            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), NullLogger<SpecHandbackHandler>.Instance);
     }
 }

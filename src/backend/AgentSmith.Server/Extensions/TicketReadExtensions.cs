@@ -36,7 +36,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketCounts>()
             .AddTransient<TicketListReader>()
             .AddTransient<FiledTicketRows>().AddTransient<TicketGraphReader>().AddTransient<TicketRequiresReader>() // 2026-10-14-dbcen
-            .AddTransient<TicketDetailReader>()
+            .AddTransient<TicketDetailReader>().AddTransient<TicketDerivations>() // 2026-10-26-bdd0f
             .AddTransient<TicketReviewState>() // 2026-10-13-9a59b
             .AddTransient<TicketPullRequestReader>()
             .AddTransient<TicketAttemptRecords>() // 2026-10-13-9a59d

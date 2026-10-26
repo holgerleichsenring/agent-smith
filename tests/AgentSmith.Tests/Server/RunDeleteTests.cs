@@ -129,6 +129,25 @@ public sealed class RunDeleteTests : IDisposable
             Times.Once, "a deleted queued run whose ticket stays armed is re-filed by the next poll");
     }
 
+    // 2026-10-26-bdd0b: deleting a running derivation leaves the ticket and an attempt queued for it alone.
+    [Fact]
+    public async Task RunDeleter_UnfinishedDerivation_LeavesTicketAndQueue()
+    {
+        await _queue.EnqueueAsync(new CapacityQueueCandidate(
+            "p1", "42", "code", "github",
+            "2026-07-14T10-00-00-e5f6", "waiting for sandbox capacity",
+            ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
+        await SeedRunningRunAsync("run-derive", jobId: "ffff00000000", AgentSmith.Contracts.Commands.PipelinePresets.SpecDeriveName);
+
+        var outcome = await NewDeleter().DeleteAsync("run-derive", CancellationToken.None);
+
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        using var db = new AgentSmithDbContext(Options());
+        db.QueuedTickets.Should().ContainSingle("the attempt queued for the ticket is not the derivation's");
+    }
+
     // The case an earlier cut left out: the native status only moves at run-end, so a RUNNING
     // run whose lease the deleter just released is in exactly the queued run's position.
     [Fact]
@@ -338,12 +357,12 @@ public sealed class RunDeleteTests : IDisposable
         await ctx.SaveChangesAsync();
     }
 
-    private async Task SeedRunningRunAsync(string runId, string jobId)
+    private async Task SeedRunningRunAsync(string runId, string jobId, string pipeline = "code")
     {
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "code", TicketId = "42",
+            Id = runId, Project = "p1", Pipeline = pipeline, TicketId = "42",
             Platform = "github", Status = "running", StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
             JobId = jobId,
         });

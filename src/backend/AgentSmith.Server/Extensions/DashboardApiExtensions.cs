@@ -55,6 +55,7 @@ internal static class DashboardApiExtensions
         services.AddRunRetry(); // 2026-10-13-9a59n: POST /api/runs/{runId}/retry
         services.AddTicketDefaults(); // 2026-10-13-8762p: GET/POST /api/tickets/{project}/{ticketId}/defaults
         services.AddProjectInit(); // p0489: POST /api/projects/{name}/init
+        services.AddSpecDerivation(); // 2026-10-26-bdd0e: POST /api/tickets/{project}/{ticketId}/derive-specs
         services.AddDashboardSwagger();
         return services;
     }

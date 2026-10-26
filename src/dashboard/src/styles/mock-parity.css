@@ -596,6 +596,9 @@
 .mock-tickets .waits .wf-none { padding: 8px 14px 10px; font-size: 12.5px; color: var(--ink-3); }
 .mock-tickets .filed-line { margin-top: 14px; font-size: 13px; color: var(--ink-2); display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
 .mock-tickets .filed-line a { color: var(--ink); font-weight: 600; }
+/* 2026-10-26-bdd0f: the spec derivations block and the Derive specs act. */
+.mock-tickets .derivations { margin-top: 14px; }
+.mock-tickets .derive-act { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 /* deviation: the mock draws the dialog in place; the product lays it over the page */
 .mock-tickets .dbh-back { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, var(--ink) 18%, transparent); display: grid; place-items: center; padding: 16px; }
 .mock-tickets .dbh { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; width: min(460px, 100%); display: flex; flex-direction: column; gap: 10px; box-shadow: 0 8px 30px rgba(32, 21, 21, 0.12); }

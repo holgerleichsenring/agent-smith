@@ -128,7 +128,9 @@ public sealed class PipelineErrorHandler(
     {
         try
         {
-            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
+            // 2026-10-26-bdd0b: a spec derivation carries the ticket id and leaves the ticket alone.
+            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null
+                || PipelinePresets.LeavesTicketAlone(context))
                 return;
 
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
@@ -155,7 +157,9 @@ public sealed class PipelineErrorHandler(
     {
         try
         {
-            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
+            // 2026-10-26-bdd0b: a spec derivation carries the ticket id and leaves the ticket alone.
+            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null
+                || PipelinePresets.LeavesTicketAlone(context))
                 return;
 
             if (!context.TryGet<string>(ContextKeys.FailedStatus, out var failedStatus)

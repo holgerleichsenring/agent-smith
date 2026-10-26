@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -34,7 +35,8 @@ internal static class FiledWorkClaims
         var names = projects.Select(p => p.Name).ToList();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var run = await uow.Set<Run>().AsNoTracking()
-            .Where(r => names.Contains(r.Project) && r.TicketId == ticketId)
+            // 2026-10-26-bdd0b: a spec derivation builds nothing, so its row is no work on the filing.
+            .Where(r => names.Contains(r.Project) && r.TicketId == ticketId && r.Pipeline != PipelinePresets.SpecDeriveName)
             .OrderByDescending(r => r.Id)
             .Select(r => r.Id)
             .FirstOrDefaultAsync(ct);

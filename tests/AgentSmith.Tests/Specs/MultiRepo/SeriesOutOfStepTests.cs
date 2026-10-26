@@ -185,6 +185,6 @@ public sealed class SeriesOutOfStepTests
                 Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(), Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(), NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()), pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-            HandbackTestDoubles.Heads(), HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
+            HandbackTestDoubles.Heads(), HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), NullLogger<SpecHandbackHandler>.Instance);
     }
 }

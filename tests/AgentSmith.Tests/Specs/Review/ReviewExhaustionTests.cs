@@ -190,6 +190,19 @@ public sealed class ReviewExhaustionTests
         spliced.InsertNext![^1].Name.Should().Be(CommandNames.SpecHandback);
     }
 
+    // 2026-10-26-bdd0c: a derivation builds nothing, so an objection on a later spec is asked now.
+    [Fact]
+    public async Task ReviewObjectionPark_Derivation_AsksTheLaterSpecNow()
+    {
+        var rig = new ReviewLoopRig(ThreeSpecs()).Answers(Build(), Build(), Refuse());
+        rig.Pipeline.Set(ContextKeys.PipelineName, PipelinePresets.SpecDeriveName);
+
+        var result = await rig.ExecuteAsync(Settings(share: 100));
+
+        result.InsertNext.Should().ContainSingle().Which.Name.Should().Be(CommandNames.SpecHandback);
+        rig.Pipeline.Has(ContextKeys.SpecSequenceStop).Should().BeFalse();
+    }
+
     internal static StandingObjection Objection(string specId) => new(specId, [Finding]);
 
     internal static TicketComment OurObjection(string specId) => Ours(ReviewObjectionQuestion.For([Objection(specId)]));
