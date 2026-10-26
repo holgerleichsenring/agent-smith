@@ -14,6 +14,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <para>2026-10-13-9a59h: a failed last attempt is checked against its tracker first (bounded by the check's
 /// own reuse; a live attempt reads no tracker), and the detail says what was acted since.</para>
 /// <para>2026-10-26-bdd0f: and its spec derivations, a filed never-run ticket's included.</para>
+/// <para>2026-10-26-af69: the summary's cost counts them, as the list row does.</para>
 /// </summary>
 public sealed class TicketDetailReader(
     TicketRunsQuery runQuery,
@@ -37,9 +38,10 @@ public sealed class TicketDetailReader(
         var rows = await runQuery.ForTicketAsync(project, ticketId, ct);
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
         var derived = await derivations.OfAsync(rows.Select(r => r.Run), ct);
+        var derivedCost = derived.Sum(d => d.Cost);
         if (code.Count == 0)
             return await filed.OneAsync(project, ticketId, ct) is { } neverRun
-                ? new TicketDetailView(neverRun, TicketBranchNamer.Compose(new TicketId(ticketId)).Value, [], [], Derivations: derived)
+                ? new TicketDetailView(neverRun with { Cost = derivedCost }, TicketBranchNamer.Compose(new TicketId(ticketId)).Value, [], [], Derivations: derived)
                 : null;
         var ordered = attempts.Of(code);
         await checker.CheckAsync(code, ct);
@@ -53,7 +55,7 @@ public sealed class TicketDetailReader(
         var records = await attemptRecords.ForAsync([.. ordered.Select(a => a.Run.Id)], ct);
         var launches = await launchEnds.ForAsync([.. ordered.Select(a => a.Run.Id)], ct);
         return new TicketDetailView(
-            composer.Compose(code, state, specs, prViews, records, standing, launches),
+            composer.Compose(code, state, specs, prViews, records, standing, launches, derivedCost),
             TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs, launches),
                 records.GetValueOrDefault(a.Run.Id)))],
