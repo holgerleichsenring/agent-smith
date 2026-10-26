@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.173.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.172.0...v0.173.0) (2026-10-26)
+
+
+### Features
+
+* derivation line shows its cost (2026-10-26-7000a) ([363257c](https://github.com/holgerleichsenring/agent-smith/commit/363257cb6cefe9c892d060a5860efc9f09dc81f6))
+* spec derivation costs count in every cost total, never as attempts ([91253e1](https://github.com/holgerleichsenring/agent-smith/commit/91253e15013b6affea180c03dd047da70827f86c))
+* spec derivations in delivery spend (2026-10-26-7000c) ([b13fb20](https://github.com/holgerleichsenring/agent-smith/commit/b13fb20a8d530284a1caba54b7ea75b59b2d07db))
+* spec derivations in the ticket cost total (2026-10-26-7000b) ([2893175](https://github.com/holgerleichsenring/agent-smith/commit/28931758c2ecf6ed08e79d9d214b08f8d096054f))
+* the ticket list's cost counts spec derivations (2026-10-26-af69) ([1c7b9dc](https://github.com/holgerleichsenring/agent-smith/commit/1c7b9dc17379e62bdc38fc11386c57afbdbc10cc))
+
 ## [0.172.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.171.2...v0.172.0) (2026-10-26)
 
 
