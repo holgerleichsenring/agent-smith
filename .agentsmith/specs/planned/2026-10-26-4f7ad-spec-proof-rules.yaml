@@ -23,8 +23,8 @@ scope:
     Two spec keys, upgrade_impact (string: what an operator must change on update; expected "nothing", anything
     else is opt-in or argued) and proven_live (string: what only tests prove and what a live check must show), in
     spec.schema.json, templates/spec.yaml and create-spec's template. Characterise first in create-spec's
-    principles and apply-spec step 3: a spec that consolidates or changes existing behaviour first pins every
-    current copy on one input matrix with a was column, then changes it, and records each changed outcome's reason
+    principles and apply-spec step 3: a spec that consolidates copies of logic or changes what existing code does
+    on some input (not one that only adds) first pins every current copy on one input matrix with a was column, then changes it, and records each changed outcome's reason
     in decisions/{id}.yaml. review-spec's brief asks whether upgrade_impact holds against the diff the steps imply.
     deliver-spec's PR body gains Upgrade impact and Proven live.
   out: "Making the keys required (older specs carry neither). A script that checks a characterisation matrix."

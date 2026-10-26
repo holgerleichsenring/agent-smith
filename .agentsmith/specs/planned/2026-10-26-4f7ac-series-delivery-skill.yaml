@@ -21,8 +21,8 @@ facts:
     evidence: "observed: 2026-10-26, gh pr view 768, 769, 772 --repo holgerleichsenring/agent-smith"
   - claim: "A behaviour change rolled out over two releases so old pods keep working during a rolling deploy."
     evidence: ".agentsmith/decisions/2026-10-26-cb25f.yaml:16"
-  - claim: "agent-smith's skill loader drops a master whose description passes 200 characters; plugin skill descriptions are one line."
-    evidence: "spec-first:skills/deliver-spec/SKILL.md:3; spec-first:skills/review-spec/SKILL.md:3"
+  - claim: "Plugin skill descriptions are one line under 200 characters, the limit the operator set for this series to match agent-smith's master loader."
+    evidence: "spec-first:skills/deliver-spec/SKILL.md:3; spec-first:skills/review-spec/SKILL.md:3; observed: 2026-10-26, operator instruction for this series"
 
 scope:
   in: >
@@ -31,7 +31,8 @@ scope:
     group specs whose steps name a shared file (state lines do not count) and build groups in parallel, members in
     requires order; one worktree and one background builder subagent per group, given the repository, branch,
     specs, the project's rules and the commit form, committing each spec through the gate and reporting shas and
-    ledger lines; merge every branch into spec/{base} with --no-ff, state and index lines resolved by keeping both,
+    ledger lines (no line means the hook never ran: the builder runs the checks by hand and says so; gates of
+    parallel builders share the machine, so a timing test red under that load is re-run once and named); merge every branch into spec/{base} with --no-ff, state and index lines resolved by keeping both,
     other conflicts after reading both commits, a merge note in the spec's decisions file; build and full verify on
     the merged tree by hand; git status --ignored for files tests need; deploy and infrastructure diff against 'an
     update must not force an infrastructure change'; push, one PR, CI watched and fixed; merge only when authorised.

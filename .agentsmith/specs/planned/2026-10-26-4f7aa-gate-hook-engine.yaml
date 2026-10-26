@@ -33,17 +33,18 @@ assumptions:
 scope:
   in: >
     hooks/hooks.json (PreToolUse, matcher Bash, timeout 1800). hooks/spec-gate.py: detection, message, tree and
-    ledger ported from agent-smith; the checks are the verify stages of every .{project}/contexts/*/context.yaml,
-    run from the tree root in context then declaration order, when_present skipped and named. Optional lane: stages
-    sharing a lane run in order, lanes run at once, every failure named in one ledger line. Ledger at
-    {git common dir}/spec-first-gate.log (SPEC_GATE_LOG overrides), shared by every worktree. Notices on exit 0 go out
-    as JSON systemMessage and additionalContext. A total deadline below the hook timeout blocks instead of being
-    cancelled. Missing PyYAML: not-gated, said aloud. commit-message.py and the agent-smith tests ported to hooks/.
-    context.schema.json gains lane.
-  out: "Gate ownership and the skill text (2026-10-26-4f7ab). agent-smith's own gate is unchanged."
+    ledger ported from agent-smith; the checks are the verify stages of every .*/contexts/*/context.yaml at the tree's
+    top level, run there in context then declaration order, one after another, the first red stage blocking;
+    when_present absent skips and names the stage; other keys (agent-smith's when_changed) are ignored, so the stage
+    runs. The no-marker warning is not raised for spec: subjects (create-spec's and review-spec's commits). Ledger at
+    the absolute git common dir (--path-format=absolute) /spec-first-gate.log, SPEC_GATE_LOG overriding, each line one
+    O_APPEND write, shared by every worktree. Notices on exit 0 go out as JSON systemMessage and additionalContext.
+    A total deadline below the hook timeout blocks instead of being cancelled. Missing PyYAML: not-gated, said
+    aloud. commit-message.py and the agent-smith tests ported to hooks/.
+  out: "Parallel lanes: nothing declares one yet. Gate ownership and the skill text (2026-10-26-4f7ab). agent-smith's own gate is unchanged."
 
 decisions:
-  - key: "PYTHON ENGINE. Reading YAML and running lanes in bash needs python anyway; one file replaces the bash/python split."
+  - key: "PYTHON ENGINE. Reading YAML and enforcing a deadline in bash needs python anyway; one file replaces the bash/python split."
   - key: "LEDGER IN THE GIT COMMON DIR. Never committed, no .gitignore edit, one file for all worktrees of a repository."
   - key: "UNKNOWN STAGE KEYS ARE IGNORED, NOT REFUSED. The gate runs a stage it partly understands; the schema is where a key is refused."
 
@@ -51,13 +52,13 @@ steps:
   - id: engine
     action: "Write hooks/spec-gate.py and copy commit-message.py into hooks/."
   - id: wiring
-    action: "Add hooks/hooks.json; add lane to the verify item in templates/context.schema.json and the commented template."
+    action: "Add hooks/hooks.json."
   - id: tests
     action: "Port test_commit_message.py and test_spec_gate_marker.py; replace the agent-smith check fixtures with verify-stage fixtures."
 
 tests:
   - "Gate_PassingStages_RecordPassed; Gate_FailingStage_BlocksWithExitTwoAndNamesIt"
-  - "Gate_WhenPresentAbsent_SkipsAndNamesTheStage; Gate_TwoLanesBothFail_OneLineNamingBoth"
+  - "Gate_WhenPresentAbsent_SkipsAndNamesTheStage; Gate_SpecSubjectWithoutMarker_StaysSilent; Gate_StageOverDeadline_Blocks"
   - "Gate_NoVerifyStages_PassesLoudly; every ported Resolve_ and shape case green"
 
 done:

@@ -22,8 +22,10 @@ facts:
 
 scope:
   in: >
-    gate: project in .agentsmith/contexts/default/context.yaml. A gate property in .agentsmith/context.schema.json:
-    a string, MECHANISM, no enum (the plugin checks the value). Two sentences in CLAUDE.md's Spec Gate section.
+    gate: project in .agentsmith/contexts/default/context.yaml (one explicit value is the repository's; dashboard
+    declares none). A gate property in .agentsmith/context.schema.json: a string, a $comment carrying MECHANISM and
+    no other class or vocabulary marker, no enum (the plugin checks the value). The schema is embedded in the
+    product, so target repositories may carry gate: from now on and validate. Two sentences in CLAUDE.md.
   out: "Agent-smith's product reading or writing gate: for target repositories."
 
 steps:

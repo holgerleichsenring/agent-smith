@@ -22,13 +22,15 @@ facts:
 
 scope:
   in: >
-    gate: plugin | project, a top-level key of a context.yaml (the file the plugin already reads); absent means plugin.
-    project: the hook writes a not-gated line 'gate: project' and says in one line that the project's own gate
-    decides. Two contexts declaring different values, or another value: blocked, naming the files. apply-spec
-    runs the build and the affected tests while iterating and leaves the full verify to the commit. deliver-spec
-    commits, then reads its spec's ledger line: passed goes on; blocked means no commit, fix and commit again;
-    'gate: project' relies on the project's gate; no line or another not-gated line means no gate checked the commit,
-    so deliver-spec runs the stages itself and amends with --no-edit on a fix. The workflow, prompt template and
+    gate: plugin | project, a top-level key of a context.yaml (the file the plugin already reads), read before the
+    stages and found by a line scan when PyYAML is missing. A context without it declares nothing; none declared
+    means plugin. project: the hook writes a not-gated line 'gate: project' and says in one line that the project's
+    own gate decides. Two different explicit values, or another value: blocked, naming the files. apply-spec runs the
+    build and the affected tests while iterating and leaves the full verify to the commit. deliver-spec notes HEAD,
+    commits, then reads the newest ledger line with its spec id, its tree and that HEAD as parent: passed goes on;
+    blocked means no commit, fix and commit again; 'gate: project' relies on the project's gate and the PR body says
+    the project's gate checked it; no such line or another not-gated line means no gate checked the commit, so
+    deliver-spec runs the stages itself and amends with --no-edit on a fix. The workflow, prompt template and
     bootstrap say the same; context.schema.json and the commented template declare gate.
   out: "Declaring it in agent-smith (2026-10-26-4f7ae). Detecting a project gate from settings.json: never guessed."
 
