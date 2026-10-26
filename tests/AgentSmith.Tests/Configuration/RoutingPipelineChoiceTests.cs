@@ -35,9 +35,9 @@ public sealed class RoutingPipelineChoiceTests
     {
         PipelinePresets.Routable.Should().Contain(PipelinePresets.CodeName)
             .And.Contain("security-scan").And.Contain("pr-review");
-        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 1,
-            "the offer is DERIVED — it is the presets minus the one that needs host-supplied "
-            + "context, not a hand-written list that the next preset would silently join");
+        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 2,
+            "the offer is DERIVED — it is the presets minus the two no label can start (the design "
+            + "conversation and the spec derivation), not a hand-written list the next preset would silently join");
     }
 
     [Fact]
@@ -106,6 +106,17 @@ public sealed class RoutingPipelineChoiceTests
         findings.Should().ContainSingle()
             .Which.Reason.Should().Contain(RetiredPipelineNames.Explain("autonomous")!,
                 "a removed name has no replacement to name, so the finding says why it went");
+    }
+
+    [Fact]
+    public void SpecDerive_IsNotRoutable_AndTheRuleSaysWhy()
+    {
+        PipelinePresets.Routable.Should().NotContain(PipelinePresets.SpecDeriveName);
+
+        var finding = RoutingPipelineNames.Findings(Config(PipelinePresets.SpecDeriveName)).Should().ContainSingle().Which;
+        finding.Severity.Should().Be(StartupFindingSeverity.Advisory);
+        finding.Reason.Should().Contain("'bug'").And.Contain("every poll")
+            .And.Contain("ticket page", "the finding says where a derivation is started instead");
     }
 
     [Fact]

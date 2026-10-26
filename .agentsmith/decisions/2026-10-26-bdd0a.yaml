@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0a
+
+decisions:
+  - category: Architecture
+    chose: "A preset spec-derive whose command list is the code preset's front through SpecGate, written out"
+    over: "A flag on the code preset that stops after SpecGate, or a list computed from Code"
+    reason: "A flag would make every code-only reader and guard ask a second question about one pipeline name; a separate name is what the ticket readers already filter on. Computing it from Code in a field initializer runs in an order the C# spec does not fix across partial files, so the list is written out and a test pins it to Code's front."
+  - category: Implementation
+    chose: "No PipelineNameInitializer in the preset"
+    over: "Publishing pipeline_name as code, or adding spec-derive to the catalog enum"
+    reason: "SetEnum throws for a name the pinned catalog does not declare, and no skill of the code front keys on pipeline_name (only init-project and pr-review masters do). spec-dialog set the precedent; no catalog pin bump is needed."
+  - category: Implementation
+    chose: "Agent, paths and cost cap resolve under the name spec-derive"
+    over: "Mapping spec-derive onto the code pipeline's definition"
+    reason: "The studio offers and the validator accepts every preset name, so a mapping would make a spec-derive definition silently half apply. Unconfigured, a derivation uses the project's agent and the default cost cap."
+  - category: Architecture
+    chose: "Not routable from a tracker label, with the reason per preset"
+    over: "Routable via pipeline_from_label"
+    reason: "The poller claims every ticket in a trigger status that holds no lease, and a derivation moves no status, so a routed ticket would be derived again on every poll. The routing rule now carries each excluded preset's own reason; the finding no longer appends a generic 'fails when it starts'."

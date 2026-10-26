@@ -6,38 +6,37 @@ namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// Refuses a routing rule that names a preset no label can start — see
-/// <see cref="PipelinePresets.NeedsHostContext"/>. A label map entry or a default pipeline naming
-/// one sends a ticket to a run that fails when it starts, and nothing at the label says why.
+/// <see cref="PipelinePresets.NotRoutableBecause"/>. A label map entry or a default pipeline naming
+/// one sends a ticket to a run that cannot serve it, and nothing at the label says why.
 /// <para>
 /// One rule, three doors with three severities: the studio SAVE refuses it, the studio DRAFT
 /// names it on the field, and the STARTUP check reports it as advisory — a blocking finding
 /// disables every trigger on the project, which is worse than the one rule that is wrong.
 /// </para>
+/// <para>2026-10-26-bdd0a: the reason is the preset's own, so each excluded preset says why it is.</para>
 /// </summary>
 public static class HostOnlyRoutingRule
 {
     public const string LabelMapField = "pipelineFromLabel";
     public const string DefaultField = "defaultPipeline";
 
-    private const string Why =
-        ", which a label cannot start: its run is launched with context only a host supplies — a "
-        + "design conversation's transcript and reply slot — and no ticket carries that. Start it "
-        + "from the chat or the dashboard, and route the label to a preset a ticket can run.";
+    private const string Instead = " Route the label to a preset a ticket can run.";
 
-    /// <summary>Every entry that names a host-launched preset: the field it sits in, and a reason
+    /// <summary>Every entry that names a preset no label can start: the field it sits in, and a reason
     /// naming the owner, the label and the value.</summary>
     public static IEnumerable<(string Field, string Reason)> Violations(
         string owner, IReadOnlyDictionary<string, string>? pipelineFromLabel, string? defaultPipeline)
     {
         foreach (var (label, pipeline) in pipelineFromLabel ?? new Dictionary<string, string>())
-            if (PipelinePresets.NeedsHostContext(pipeline))
+            if (PipelinePresets.NotRoutableBecause(pipeline) is { } why)
                 yield return (LabelMapField,
-                    $"{owner}: pipeline_from_label maps label '{label}' to pipeline '{pipeline}'{Why}");
-        if (!string.IsNullOrWhiteSpace(defaultPipeline) && PipelinePresets.NeedsHostContext(defaultPipeline))
-            yield return (DefaultField, $"{owner}: default_pipeline is '{defaultPipeline}'{Why}");
+                    $"{owner}: pipeline_from_label maps label '{label}' to pipeline '{pipeline}', which a label cannot start: {why}.{Instead}");
+        if (!string.IsNullOrWhiteSpace(defaultPipeline) && PipelinePresets.NotRoutableBecause(defaultPipeline) is { } because)
+            yield return (DefaultField,
+                $"{owner}: default_pipeline is '{defaultPipeline}', which a label cannot start: {because}.{Instead}");
     }
 
-    /// <summary>The save door: a tracker whose routing names a host-launched preset is refused.</summary>
+    /// <summary>The save door: a tracker whose routing names a preset no label can start is refused.</summary>
     public static void ValidateTracker(TrackerEntity tracker)
     {
         ArgumentNullException.ThrowIfNull(tracker);
