@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services;
 
@@ -11,39 +12,18 @@ namespace AgentSmith.Application.Services;
 public static class ProviderErrorPayloadParser
 {
     /// <summary>The payload's error.message, or null when the text carries no such payload.</summary>
-    public static string? TryExtractMessage(string text)
+    // 2026-10-26-cb25d: the payload wherever it sits in the summary; an object without error.message is passed over.
+    public static string? TryExtractMessage(string text) => JsonAnswerReader.ReadObject(text, ErrorMessage);
+
+    private static string? ErrorMessage(JsonElement root)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (!root.TryGetProperty("error", out var error)
+            || error.ValueKind != JsonValueKind.Object
+            || !error.TryGetProperty("message", out var message)
+            || message.ValueKind != JsonValueKind.String)
             return null;
 
-        var start = text.IndexOf('{');
-        var end = text.LastIndexOf('}');
-        if (start < 0 || end <= start)
-            return null;
-
-        return ParseErrorMessage(text[start..(end + 1)]);
-    }
-
-    private static string? ParseErrorMessage(string candidate)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(candidate);
-            if (doc.RootElement.ValueKind != JsonValueKind.Object)
-                return null;
-            if (!doc.RootElement.TryGetProperty("error", out var error)
-                || error.ValueKind != JsonValueKind.Object
-                || !error.TryGetProperty("message", out var message)
-                || message.ValueKind != JsonValueKind.String)
-                return null;
-
-            var value = message.GetString();
-            return string.IsNullOrWhiteSpace(value) ? null : value;
-        }
-        catch (JsonException)
-        {
-            // Not JSON at all — a prose summary that merely contains braces.
-            return null;
-        }
+        var value = message.GetString();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 }

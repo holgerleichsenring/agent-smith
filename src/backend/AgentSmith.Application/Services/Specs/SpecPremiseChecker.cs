@@ -9,6 +9,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -73,7 +74,7 @@ public sealed class SpecPremiseChecker(
             costTracker.Track(response);
             // The answer is the last turn that says anything: with tools, earlier turns may
             // carry prose around a look, and a trailing turn may carry none.
-            return JsonAnswerArrayReader.Read<PremiseFindingWire, PremiseFinding>(
+            return JsonAnswerReader.ReadArray<PremiseFindingWire, PremiseFinding>(
                 response.Messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.Text))?.Text
                     ?? response.Text,
                 w => w.ToFinding());

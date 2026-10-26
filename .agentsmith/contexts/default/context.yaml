@@ -1327,9 +1327,9 @@ state:
     2026-10-26-cb25a: "AZURE REPOS URLS PARSED IN ONE PLACE (Infrastructure/Models, Domain). AzureDevOpsRepoAddress reads cloud, legacy and Server URLs (port kept, _git any case) for source and diff factories, trust, work-item link and webhook PR urls; five disagreeing copies deleted. -> .agentsmith/specs/done/2026-10-26-cb25a-azure-devops-repo-address.yaml"
     2026-10-26-cb25b: "AZURE DEVOPS ORGANIZATION URL COMPOSED ONCE (Domain, trackers, draft checks, discovery, repo-url builder). A tracker honours its url, so an Azure DevOps Server tracker works; a cloud url stays the cloud, the organization is escaped everywhere. -> .agentsmith/specs/done/2026-10-26-cb25b-azure-devops-organization-url.yaml"
     2026-10-26-cb25c: "JIRA PROJECT PATH FROM THE CONFIGURED ENDPOINTS (JiraEndpoints, Jira draft check, issue link). The Studio check reads the project on the API the Myself path names, so a v2 Data Center passes; the issue-link derivation moved into JiraEndpoints unchanged. -> .agentsmith/specs/done/2026-10-26-cb25c-jira-project-endpoint.yaml"
+    2026-10-26-cb25d: "ONE READER FOR JSON IN MODEL ANSWERS (Application Services/Json, Contracts JsonObjectSpans). Ten readers find their array or object wherever it sits, so a cited [c2] or {x} no longer fails six of them; refutation salvage and each reader contract kept. -> .agentsmith/specs/done/2026-10-26-cb25d-json-answer-reader.yaml"
   active: {}
   planned:
-    2026-10-26-cb25d: "Consolidation 4/6: one JsonAnswerReader for arrays and objects in model answers. -> .agentsmith/specs/planned/2026-10-26-cb25d-json-answer-reader.yaml"
     2026-10-26-cb25e: "Consolidation 5/6: one BranchRef.ShortName strips a leading refs/heads/. -> .agentsmith/specs/planned/2026-10-26-cb25e-branch-ref-short-name.yaml"
     2026-10-26-cb25f: "Consolidation 6/6: delivery lists repositories with a PR, not the unwritten ChangeCount. -> .agentsmith/specs/planned/2026-10-26-cb25f-delivery-changed-repos.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"

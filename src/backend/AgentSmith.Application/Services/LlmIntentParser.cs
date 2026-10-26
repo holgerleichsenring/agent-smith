@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Json;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -89,33 +90,9 @@ public sealed class LlmIntentParser(
     {
         try
         {
-            var json = response.Trim();
-            var start = json.IndexOf('{');
-            var end = json.LastIndexOf('}');
-            if (start >= 0 && end > start)
-                json = json[start..(end + 1)];
-
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            var pipeline = root.GetProperty("pipeline").GetString() ?? PipelinePresets.CodeName;
-            var project = root.GetProperty("project").GetString() ?? "";
-            var ticketStr = root.TryGetProperty("ticket_id", out var tid) ? tid.GetString() : null;
-            var confidence = Json.JsonValueReader.Double(root, "confidence");
-
-            if (confidence < 0.5)
-            {
-                logger.LogWarning("Low confidence ({Confidence}) parsing '{Input}'", confidence, originalInput);
-            }
-
-            var ticketId = !string.IsNullOrWhiteSpace(ticketStr) && ticketStr != "null"
-                ? new TicketId(ticketStr) : null;
-
-            logger.LogInformation(
-                "LLM intent: pipeline={Pipeline}, project={Project}, ticket={Ticket}, confidence={Confidence}",
-                pipeline, project, ticketStr ?? "none", confidence);
-
-            return new PipelineRequest(project, pipeline, ticketId, Headless: true);
+            // 2026-10-26-cb25d: the object wherever it sits in the answer; none is the same failure as bad JSON.
+            return JsonAnswerReader.ReadObject(response, root => Request(root, originalInput))
+                ?? throw new JsonException("The answer carries no JSON object.");
         }
         catch (Exception ex)
         {
@@ -123,5 +100,27 @@ public sealed class LlmIntentParser(
             throw new ConfigurationException(
                 $"Could not parse intent from '{originalInput}'. LLM response was not valid JSON.");
         }
+    }
+
+    private PipelineRequest Request(JsonElement root, string originalInput)
+    {
+        var pipeline = root.GetProperty("pipeline").GetString() ?? PipelinePresets.CodeName;
+        var project = root.GetProperty("project").GetString() ?? "";
+        var ticketStr = root.TryGetProperty("ticket_id", out var tid) ? tid.GetString() : null;
+        var confidence = JsonValueReader.Double(root, "confidence");
+
+        if (confidence < 0.5)
+        {
+            logger.LogWarning("Low confidence ({Confidence}) parsing '{Input}'", confidence, originalInput);
+        }
+
+        var ticketId = !string.IsNullOrWhiteSpace(ticketStr) && ticketStr != "null"
+            ? new TicketId(ticketStr) : null;
+
+        logger.LogInformation(
+            "LLM intent: pipeline={Pipeline}, project={Project}, ticket={Ticket}, confidence={Confidence}",
+            pipeline, project, ticketStr ?? "none", confidence);
+
+        return new PipelineRequest(project, pipeline, ticketId, Headless: true);
     }
 }

@@ -30,7 +30,24 @@ public static class JsonObjectSpans
         }
     }
 
-    private static int FindObjectEnd(string text, int start)
+    /// <summary>
+    /// 2026-10-26-cb25d: every balanced span that opens at an <paramref name="open"/> character, in the order they
+    /// open — inner spans included, because what a span MEANS is the caller's call, and an outer one that does not
+    /// read as an answer may hold one that does. Strings and escapes are read as <see cref="Balanced"/> reads them; a
+    /// start that never closes (a truncated answer, a stray bracket) yields nothing. One linear scan per start.
+    /// </summary>
+    public static IEnumerable<string> Candidates(string text, char open, char close)
+    {
+        for (var i = text.IndexOf(open); i >= 0; i = text.IndexOf(open, i + 1))
+        {
+            var end = FindEnd(text, i, open, close);
+            if (end >= 0) yield return text[i..(end + 1)];
+        }
+    }
+
+    private static int FindObjectEnd(string text, int start) => FindEnd(text, start, '{', '}');
+
+    private static int FindEnd(string text, int start, char open, char close)
     {
         var depth = 0;
         var inString = false;
@@ -44,8 +61,8 @@ public static class JsonObjectSpans
                 continue;
             }
             if (c == '"') inString = true;
-            else if (c == '{') depth++;
-            else if (c == '}' && --depth == 0) return j;
+            else if (c == open) depth++;
+            else if (c == close && --depth == 0) return j;
         }
         return -1;
     }

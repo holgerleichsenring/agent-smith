@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -53,7 +54,8 @@ public sealed class LlmIntentParser(
             };
             var response = await chat.GetResponseAsync(messages,
                 new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-            return ParseJsonResponse(response.Text ?? string.Empty, text, userId, channelId, platform);
+            // 2026-10-26-cb25d: the object wherever it sits in the answer — a fence or a sentence around it is ordinary.
+            return JsonAnswerReader.ReadObject(response.Text, root => IntentOf(root, text, userId, channelId, platform));
         }
         catch (Exception ex)
         {
@@ -62,12 +64,8 @@ public sealed class LlmIntentParser(
         }
     }
 
-    private ChatIntent? ParseJsonResponse(
-        string json, string text, string userId, string channelId, string platform)
+    private static ChatIntent? IntentOf(JsonElement root, string text, string userId, string channelId, string platform)
     {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
         var commandType = GetStringProp(root, "commandType");
         var ticketNumber = GetStringProp(root, "ticketNumber");
         var project = GetStringProp(root, "project");
@@ -124,8 +122,6 @@ public sealed class LlmIntentParser(
         };
     }
 
-    private static string GetStringProp(JsonElement root, string name)
-    {
-        return root.TryGetProperty(name, out var prop) ? prop.GetString() ?? "" : "";
-    }
+    private static string GetStringProp(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var prop) ? prop.GetString() ?? "" : "";
 }

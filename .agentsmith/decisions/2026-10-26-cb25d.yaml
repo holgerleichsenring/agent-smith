@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-cb25d
+
+decisions:
+  - category: Architecture
+    chose: "The text shape in Contracts (JsonObjectSpans.Candidates), the mapping in Application (JsonAnswerReader)"
+    over: "A second scanner in Application beside JsonObjectSpans"
+    reason: "JsonObjectSpans is already the string-aware brace matcher every other parser of model output shares; the answer reader stands on it instead of growing a third scan."
+  - category: Implementation
+    chose: "Earliest start, its balanced end, first that parses and maps"
+    over: "The robust readers' earliest-start x longest-end pair scan, or first-to-last"
+    reason: "For well-formed JSON the balanced end is the only end that parses, so the order the robust readers proved is kept; a candidate is parsed once per start instead of once per start/end pair, which a truncated thirty-row refutation answer or a summary full of braces would have paid quadratically."
+  - category: Implementation
+    chose: "First-to-last scans in SpecAccountReader, FindingRefutationReader, ClientUsageReportReader, StagedAuthFileJsonReader, ProviderErrorPayloadParser and the Application intent parser replaced; the Server intent parser, which parsed the whole answer, too"
+    over: "Keeping them"
+    reason: "Characterised (JsonAnswerReaderMatrixTests 'was'): a cited [c2] or {x} before or after the JSON, or two values, made each of them read nothing — the account and usage readers null, the staged files empty, the error message lost, the App intent parser threw. The Server parser read only a bare answer: a fenced one returned no intent. No reason for the difference was found in code, tests or decisions; accidental. Now all read cells 0-5; truncated, empty and none are unchanged."
+  - category: Implementation
+    chose: "FindingRefutationReader keeps its salvage, after the shared reader"
+    over: "Dropping it for the shared reader"
+    reason: "Deliberate (2026-09-01-85b2): a truncated answer's complete rows are real verdicts. Changed cell: an answer that repeats its array (two-values) gave 4 salvaged rows, it now gives the first array's 2 — a repeated array is one answer, not two sets of verdicts."
+  - category: Implementation
+    chose: "A map that answers null passes the candidate over; the usage, staged-files and error readers refuse objects that are not their answer"
+    over: "Accepting the first object that parses"
+    reason: "Inner spans are candidates too, so a call site inside a cut-off usage report would otherwise read as 'this client calls nothing' — the reading the reader exists to refuse. Changed edge: a bare {} is no longer a usage report with no call sites but a failed reading; an object without files no longer ends the staged-files scan."
+  - category: Implementation
+    chose: "Each reader keeps its file, its mapping and its contract (null, empty list, or the App intent parser's ConfigurationException); intent wires are read through JsonElement"
+    over: "Binding the intent wires through the snake_case options"
+    reason: "The Server wire is camelCase (commandType) and the App wire snake_case; one naming policy would drop fields. Wrappers like SpecReviewAnswerReader stay as one line naming their wire shape, as SpecCutAnswerReader already did; JsonAnswerArrayReader is deleted."
+  - category: Implementation
+    chose: "One static JsonSerializerOptions on JsonAnswerReader, allowlisted as data in NoStaticStateRuleTests"
+    over: "Building the options per call, as the robust readers did"
+    reason: "Fixed settings, not a collaborator; a per-call instance rebuilds the serializer's metadata cache on every answer. FindingRefutationReader's salvage uses the same instance."
+  - category: Scope
+    chose: "TolerantJsonParser's span (first open to last close) is not changed here"
+    over: "Aligning it in this spec"
+    reason: "It records telemetry per recovery and serves master answers, plans and observations; changing which span those callers get is a separate change with its own characterisation, to be specced on its own."

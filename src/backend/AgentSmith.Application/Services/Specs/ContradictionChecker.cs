@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -67,7 +68,7 @@ public sealed class ContradictionChecker(
             var response = await chat.GetResponseAsync(
                 [new ChatMessage(ChatRole.User, prompt)], new ChatOptions { Tools = look.Tools }, ct);
             costTracker.Track(response);
-            return JsonAnswerArrayReader.Read<ContradictionCheckWire, (string, string, string?)>(
+            return JsonAnswerReader.ReadArray<ContradictionCheckWire, (string, string, string?)>(
                 response.Messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.Text))?.Text
                     ?? response.Text,
                 w => w.ToAnswer());

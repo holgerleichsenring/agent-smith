@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Surface;
@@ -13,33 +14,15 @@ namespace AgentSmith.Application.Services.Surface;
 /// </summary>
 public static class ClientUsageReportReader
 {
-    public static ReportedClientUsage? Read(string? text)
-    {
-        var document = Parse(text);
-        if (document is null) return null;
-        using (document)
-        {
-            var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return null;
-            return new ReportedClientUsage(CallSites(root), Undecided(root));
-        }
-    }
+    // 2026-10-26-cb25d: the object wherever it sits in the prose, as every answer reader finds it. An object that
+    // carries neither list is not the report — a call site inside a cut-off answer must not read as "calls nothing".
+    public static ReportedClientUsage? Read(string? text) =>
+        JsonAnswerReader.ReadObject(text, root => IsReport(root)
+            ? new ReportedClientUsage(CallSites(root), Undecided(root))
+            : null);
 
-    private static JsonDocument? Parse(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var start = text.IndexOf('{');
-        var end = text.LastIndexOf('}');
-        if (start < 0 || end <= start) return null;
-        try
-        {
-            return JsonDocument.Parse(text[start..(end + 1)]);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    private static bool IsReport(JsonElement root) =>
+        root.TryGetProperty("call_sites", out _) || root.TryGetProperty("undecided", out _);
 
     private static IReadOnlyList<ClientCallSite> CallSites(JsonElement root) =>
     [

@@ -10,6 +10,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -44,7 +45,7 @@ public sealed class TicketPlanReviewer(
                 [new ChatMessage(ChatRole.User, prompt)], new ChatOptions { Tools = DerivationTools.For(look) }, ct);
             turn.CostTracker.Track(response);
             var text = response.Messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.Text))?.Text ?? response.Text;
-            var answer = JsonAnswerArrayReader.Read<TicketPlanFindingWire, TicketPlanFindingWire>(text, w => w);
+            var answer = JsonAnswerReader.ReadArray<TicketPlanFindingWire, TicketPlanFindingWire>(text, w => w);
             if (answer is not null) return Admit(graph, answer);
             logger.LogWarning("The plan review of the proposed list returned nothing readable");
         }
