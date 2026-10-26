@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.171.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.171.1...v0.171.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* answer spec-dialog approval buttons on any replica (2026-10-26-0f19b) ([d46a0f1](https://github.com/holgerleichsenring/agent-smith/commit/d46a0f1b87310075aedfb6f87d0786d3e311f958))
+* derive run trail positions from the stream entry id (2026-10-26-0f19a) ([46ec275](https://github.com/holgerleichsenring/agent-smith/commit/46ec27555e1c89068c4f81253432fc30c433ee6c))
+* honour the Azure DevOps tracker url through one organization-URL composition (2026-10-26-cb25b) ([48a3108](https://github.com/holgerleichsenring/agent-smith/commit/48a31085a1a32fa38e0d404cd5f4d4c80538c2c0))
+* let one replica at a time write run events to the store (2026-10-26-0f19c) ([58e460b](https://github.com/holgerleichsenring/agent-smith/commit/58e460b4d86af9983218e6ec2ae5061aec3a8f21))
+* list the repositories a run changed by their pull request on the delivery page (2026-10-26-cb25f) ([a1dd8db](https://github.com/holgerleichsenring/agent-smith/commit/a1dd8db2a387903c023b8cd18f6e00b5668c9476))
+* one home for disagreeing copies, correct projection and approvals across replicas ([87493c4](https://github.com/holgerleichsenring/agent-smith/commit/87493c482eef92e45bef68248b6f0ecaae518b15))
+* read the Jira project through the configured REST paths (2026-10-26-cb25c) ([806240b](https://github.com/holgerleichsenring/agent-smith/commit/806240b2467e1aea3810025237da807c65959f05))
+
 ## [0.171.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.171.0...v0.171.1) (2026-10-26)
 
 
