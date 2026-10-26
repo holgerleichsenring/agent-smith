@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-4f7ac
+
+decisions:
+  - category: Architecture
+    chose: "Grouping is read from the specs' steps and facts by the agent; specs sharing a file build in one group, index lines do not count as sharing"
+    over: "A script that computes groups"
+    reason: "Steps name files in prose and types; a script would need a parser per project layout. The three agent-smith series that shipped this way conflicted on context.yaml state lines on every merge and on code only where two specs truly touched one file."
+  - category: Implementation
+    chose: "The merged tree is verified by hand, because merge commits carry no spec id and the gate does not run on them"
+    over: "Giving merge commits a spec id to make the gate run"
+    reason: "A merge belongs to no one spec; an id in its subject would put a ledger line under one spec for the work of several."
+  - category: Implementation
+    chose: "Builders are told to keep the commit command on its own, with no heredoc in the same command line"
+    over: "Only forbidding pipes and $(...)"
+    reason: "Found while building this series: a command that wrote a file with a heredoc and then committed could not be split, so the gate fell back to the session's directory and checked another repository. The commit went through recorded as not-gated."
+  - category: Scope
+    chose: "The infrastructure check is a diff over deploy and infrastructure paths judged against 'an update must not force an infrastructure change', with opt-in as the default answer"
+    over: "A fixed list of forbidden files"
+    reason: "PR #769 shipped namespace isolation, a network policy and a Redis password all as opt-ins; PR #772 split a column drop over two releases for rolling deploys. Both are judgements about defaults, not file names."
+  - category: Implementation
+    chose: "Merging requires the user's explicit yes, asked once at the start"
+    over: "Merging when CI is green"
+    reason: "Operator decision for this series."
