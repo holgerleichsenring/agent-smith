@@ -131,6 +131,6 @@ public sealed class SpecCutHandbackTests
                 Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(), Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(), NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()), new InMemorySpecSetPointerStore(),
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-            HandbackTestDoubles.Heads(), HandbackTestDoubles.Announcer(events), NullLogger<SpecHandbackHandler>.Instance);
+            HandbackTestDoubles.Heads(), HandbackTestDoubles.Announcer(events), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), NullLogger<SpecHandbackHandler>.Instance);
     }
 }

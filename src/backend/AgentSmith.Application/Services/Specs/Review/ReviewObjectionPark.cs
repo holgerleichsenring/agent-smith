@@ -30,7 +30,8 @@ public sealed class ReviewObjectionPark(SpecReviewRevision revision, ILogger<Rev
         var set = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
         var asked = $"{done.Message}; asked the author once: {string.Join(", ", ask.Select(o => o.MarkerKey))}";
         var at = ask.Any(o => o.SpecId is null) ? null : ask.Select(o => o.SpecId!).MinBy(id => IndexOf(set, id));
-        if (at is null || at == set.UnexecutedTail.FirstOrDefault()?.SpecId)
+        // 2026-10-26-bdd0c: a derivation builds nothing, so every objection is asked now.
+        if (at is null || at == set.UnexecutedTail.FirstOrDefault()?.SpecId || PipelinePresets.LeavesTicketAlone(pipeline))
         {
             logger.LogInformation("Review objection asked — parking before any spec is built: {Keys}", asked);
             return CommandResult.OkAndContinueWith($"{asked}; parked before any spec is built",

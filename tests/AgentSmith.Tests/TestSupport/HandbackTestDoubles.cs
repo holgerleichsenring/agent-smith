@@ -25,6 +25,12 @@ internal static class HandbackTestDoubles
     public static SpecSetAnnouncer Announcer(AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
         new(events ?? Moq.Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), NullLogger<SpecSetAnnouncer>.Instance);
 
+    /// <summary>2026-10-26-bdd0c: the derivation's question, over a tracker nothing in these tests reads.</summary>
+    public static DerivationQuestion Derivation(AgentSmith.Contracts.Providers.ITicketProviderFactory? tickets = null) =>
+        new(tickets ?? Moq.Mock.Of<AgentSmith.Contracts.Providers.ITicketProviderFactory>(), Announcer(),
+            Moq.Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Moq.Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(),
+            NullLogger<DerivationQuestion>.Instance);
+
     /// <summary>A gate whose checker lets every cited contradiction stand.</summary>
     public static ContradictionHandbackGate Gate(IContradictionChecker? checker = null) =>
         new(checker ?? new StandingChecker(), Specs.DerivationTestLooks.Factory(),

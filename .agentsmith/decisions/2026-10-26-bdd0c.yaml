@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0c
+
+decisions:
+  - category: Architecture
+    chose: "A derivation's hand-back is a plain ticket comment and the run ends successful on ContextKeys.SpecDerivationEnded"
+    over: "Parking the ticket in the clarification status, or a waiting run that resumes on the answer"
+    reason: "Parking moves the ticket's status and leaves a waiting run, which is exactly the attempt behaviour a derivation must not have. The ticket conversation reads the live thread, so the comment is the question there; the person answers and derives again."
+  - category: Implementation
+    chose: "The executor policy stops on the ended sentence, and the sentence becomes the run's summary"
+    over: "A failed step, or the awaiting-answer flag"
+    reason: "A failed step reads as not finished on the ticket page and the flag makes the run waiting_for_input. The policy is the executor's one clean stop, and RunPark stays false."
+  - category: Implementation
+    chose: "DerivationQuestion announces the hand-back cut itself and records nothing on the pointer"
+    over: "Reusing the park's tail"
+    reason: "The cut row is what the ticket page reads the outcome from; the pointer's repeat guard and heads belong to code attempts, and a derivation's question must not make the next attempt's hand-back look like a repeat."
+  - category: Implementation
+    chose: "Every asked review objection splices SpecHandback in a derivation"
+    over: "Recording a parking stop before a later spec"
+    reason: "That stop is read only by SpecSequence, which a derivation does not run, so the objection would never be asked."
+  - category: Implementation
+    chose: "The no-tracker mapping moved into SpecHandbackWithoutTracker"
+    over: "Growing SpecHandbackHandler past 120 lines"
+    reason: "The handler was at 119 lines; the mapping is a responsibility of its own."

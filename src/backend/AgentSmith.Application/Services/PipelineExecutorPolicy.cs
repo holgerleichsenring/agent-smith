@@ -30,6 +30,14 @@ public sealed class PipelineExecutorPolicy(ILogger<PipelineExecutorPolicy> logge
             message = "Pipeline parked: waiting_for_input";
             return true;
         }
+        // 2026-10-26-bdd0c: a spec derivation that ended — on its specs or on a question — stops as a success;
+        // the sentence is the run's summary.
+        if (context.TryGet<string>(ContextKeys.SpecDerivationEnded, out var ended) && !string.IsNullOrEmpty(ended))
+        {
+            logger.LogInformation("Pipeline ended: {Ended}", ended);
+            message = ended!;
+            return true;
+        }
         if (context.TryGet<bool>(ContextKeys.EmptyPlanSkipped, out var emptyPlan) && emptyPlan)
         {
             logger.LogInformation("Pipeline skipped: Plan produced zero steps (empty_plan)");
