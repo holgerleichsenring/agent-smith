@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.172.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.171.2...v0.172.0) (2026-10-26)
+
+
+### Features
+
+* a deliver-series skill in the spec-first plugin (2026-10-26-4f7ac) ([92b1fab](https://github.com/holgerleichsenring/agent-smith/commit/92b1fab5f61975952decdd4651124405cefa4c85))
+* a spec derivation asks on the ticket instead of parking (2026-10-26-bdd0c) ([5489978](https://github.com/holgerleichsenring/agent-smith/commit/548997857f197313e72a4478127ef7887c8092d8))
+* a spec derivation leaves the ticket alone (2026-10-26-bdd0b) ([c159a14](https://github.com/holgerleichsenring/agent-smith/commit/c159a147f2a6227f4ad33b0044f53966b5973d79))
+* agent-smith declares gate: project so its own spec gate stays the only one (2026-10-26-4f7ae) ([7e7aaf2](https://github.com/holgerleichsenring/agent-smith/commit/7e7aaf2c93a3f7c5ddab9279ffb5309ccad0c638))
+* agent-smith owns its commit gate; specs for spec-first 2.7.0 ([adf29c5](https://github.com/holgerleichsenring/agent-smith/commit/adf29c58adeab292e3c533af33a799332e1c561b))
+* derive a ticket's specs from the API under its lease (2026-10-26-bdd0e) ([2914d6f](https://github.com/holgerleichsenring/agent-smith/commit/2914d6fd3f14999f38d1870eb351fc79f41dbe18))
+* derive and review specs from a ticket without a code run ([93089d9](https://github.com/holgerleichsenring/agent-smith/commit/93089d95195eb636281c9026c0fe6c6df228ef41))
+* derive_specs in the ticket's conversation (2026-10-26-bdd0g) ([be53f46](https://github.com/holgerleichsenring/agent-smith/commit/be53f46ae16526c6e865337017a97637f7e47e03))
+* one gate per spec commit in the spec-first plugin (2026-10-26-4f7ab) ([d65b6ab](https://github.com/holgerleichsenring/agent-smith/commit/d65b6abd6b7c805d7c583fbbd0caccde25fc2eb2))
+* spec derivation preview, and every derivation says where its specs are (2026-10-26-bdd0d) ([f25a082](https://github.com/holgerleichsenring/agent-smith/commit/f25a082f2d30fbdd8977ab110e1efbbba8fa9130))
+* spec derivations and Derive specs on the ticket page (2026-10-26-bdd0f) ([b4091da](https://github.com/holgerleichsenring/agent-smith/commit/b4091dae65229c14bbda14ffd2cc87445af9ee45))
+* spec proof rules in the spec-first plugin (2026-10-26-4f7ad) ([859bd2e](https://github.com/holgerleichsenring/agent-smith/commit/859bd2e0b523aab6ca0f05ecf52cc741f7baac15))
+* spec-derive preset, the code front through SpecGate (2026-10-26-bdd0a) ([8a1aba9](https://github.com/holgerleichsenring/agent-smith/commit/8a1aba9e839888441a28034f0cdb1a7fa4fd49bd))
+* spec-first 2.7.0 with the commit gate and deliver-series (2026-10-26-4f7af) ([2631fff](https://github.com/holgerleichsenring/agent-smith/commit/2631fff802f27255fdf443834e855fc8d0662ed3))
+* the spec-first plugin gates spec commits with the project's verify stages (2026-10-26-4f7aa) ([aa20909](https://github.com/holgerleichsenring/agent-smith/commit/aa209092c684b27ce5e4a95f7a9b08ecce981e8a))
+
 ## [0.171.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.171.1...v0.171.2) (2026-10-26)
 
 
