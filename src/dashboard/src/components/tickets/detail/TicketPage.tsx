@@ -10,6 +10,7 @@ import { TicketNeverRun } from "./TicketNeverRun";
 import { TicketStateBlock } from "./TicketStateBlock";
 import { TicketTabs } from "./TicketTabs";
 import { TicketWaitsFor } from "./TicketWaitsFor";
+import { SpecDerivations } from "./SpecDerivations";
 import { TAB_PARAM, ticketTab } from "./ticketTabTable";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
@@ -18,6 +19,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no runway and no tabs:
 // its header, what it waits for, what waits for it and the filed line (ticket-graph.html, never-run-page).
 // 2026-10-16-86e6c: a ticket with a run gets the state block under its header, on every tab.
+// 2026-10-26-bdd0f: and its spec derivations, apart from the attempts, in both layouts.
 
 export function TicketPage() {
   const detail = useTicketDetail();
@@ -34,6 +36,7 @@ export function TicketPage() {
             <TicketHeader detail={detail.data} />
             <TicketWaitsFor project={detail.project} />
             <TicketNeverRun summary={detail.data.summary} />
+            <SpecDerivations />
           </>
         ) : detail.data ? (
           <>
@@ -41,6 +44,7 @@ export function TicketPage() {
             <TicketStateBlock detail={detail.data} />
             <SeriesRunway budget={budget} attempts={detail.data.attempts} onDefaults={() => select("defaults")} />
             <TicketWaitsFor project={detail.project} />
+            <SpecDerivations />
             <TicketTabs detail={detail.data} selected={tab} onSelect={select} />
             <section className="tabpane" id={`tab-${tab.id}`} role="tabpanel" aria-labelledby={`t-${tab.id}`}>
               <tab.Pane />

@@ -111,6 +111,24 @@ export type RetryAnswer = { kind: "requested" } | { kind: "refused"; refusal: Re
 
 /** 2026-10-13-9a59r: Retry unchanged (9a59n, runs.control). A 409 is an answer, not a fault: its
  *  reason text is what the page shows. Every other non-2xx throws. */
+/** 2026-10-26-bdd0f: how a derivation stores its specs. */
+export type DeriveMode = "branch" | "preview";
+
+export type DeriveAnswer = { kind: "started"; runId: string } | { kind: "refused"; text: string };
+
+/** 2026-10-26-bdd0f: POST /api/tickets/{project}/{ticketId}/derive-specs; a refusal carries the server's sentence. */
+export async function deriveSpecs(project: string, ticketId: string, mode: DeriveMode): Promise<DeriveAnswer> {
+  const path = `/api${ticketPath(project, ticketId)}/derive-specs`;
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (res.ok) return { kind: "started", runId: ((await res.json()) as { runId: string }).runId };
+  if (res.status === 409 || res.status === 503 || res.status === 400) return { kind: "refused", text: await res.text() };
+  throw await refused(res, path);
+}
+
 export async function retryAttempt(runId: string): Promise<RetryAnswer> {
   const path = `/api/runs/${encodeURIComponent(runId)}/retry`;
   const res = await apiFetch(path, { method: "POST" });

@@ -5,9 +5,11 @@ namespace AgentSmith.Server.Models;
 /// <param name="Attempts">Oldest first, numbered from 1.</param>
 /// <param name="ActedSince">2026-10-13-9a59h: what happened after a failed last attempt — the check's tracker
 /// acts, an edit the check saw, and persons' pull-request entries; empty when nothing was observed.</param>
+/// <param name="Derivations">2026-10-26-bdd0f: the ticket's spec derivations, newest first, apart from its attempts.</param>
 public sealed record TicketDetailView(
     TicketSummaryView Summary,
     string Branch,
     IReadOnlyList<TicketAttemptView> Attempts,
     IReadOnlyList<TicketOtherRunView> OtherRuns,
-    IReadOnlyList<TicketActedSinceView>? ActedSince = null);
+    IReadOnlyList<TicketActedSinceView>? ActedSince = null,
+    IReadOnlyList<TicketDerivationView>? Derivations = null);
