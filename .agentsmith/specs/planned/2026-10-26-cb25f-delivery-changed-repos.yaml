@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-cb25f
+goal: "The delivery page lists the repositories a run changed — those its pull-request outcome names with a URL — instead of filtering on a ChangeCount nothing ever writes."
+
+applies_to: "default (DeliveryWorkRepository, RunRepo)"
+
+requires: []
+
+facts:
+  - claim: "ReposAsync keeps only RunRepo rows with ChangeCount > 0."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeliveryWorkRepository.cs:20-26"
+  - claim: "Every RunRepo writer leaves ChangeCount at 0: run start, queued run, init run, queued ticket, and the pull-request projection, which writes PrUrl, PrStatus and Reason only."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunRepo.cs:12, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:53-54, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:49, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:47, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:34, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:29-37"
+  - claim: "A pull-request outcome is opened (with the PR url), no_changes or failed."
+    evidence: "src/backend/AgentSmith.Contracts/Events/PullRequestOutcomeEvent.cs:3-17, src/backend/AgentSmith.Application/Services/Handlers/PullRequestOutcomeText.cs:17-22"
+  - claim: "The reader shows the newest attempt's repos on each ticket row."
+    evidence: "src/backend/AgentSmith.Server/Services/Delivery/DeliveryReader.cs:51-53, src/backend/AgentSmith.Server/Services/Delivery/DeliveryTicketViews.cs:26"
+  - claim: "The existing test seeds the dead field directly, which is why it passed."
+    evidence: "tests/AgentSmith.Tests/Delivery/DeliveryRepositoryTests.cs:80-97, tests/AgentSmith.Tests/Delivery/DeliveryRepositoryTests.cs:121"
+
+scope:
+  in: >
+    Method: (1) CHARACTERISE — the window seeded through the real projections (RunStartedEvent for three repos, then
+    PullRequestOutcomeEvent opened / no_changes / failed) pins today's empty answer; (2) DECIDE in the decisions file;
+    (3) CONSOLIDATE — "changed" is one rule: the RunRepo row carries a PR url; the ChangeCount filter goes, the fixture
+    stops setting the field; (4) PROVE — the same projected data now lists exactly the opened repository.
+  out: >
+    Dropping the RunRepo.ChangeCount column: old replicas still insert it during a rolling deploy, so the drop is the
+    planned follow-up 2026-10-26-0a9e (runrepo-changecount-drop) once no released server maps it.
+
+decisions:
+  - key: "A PR URL IS THE CHANGE. The only durable per-repo fact a run records about its change; a count was never measured."
+  - key: "STOP READING NOW, DROP THE COLUMN LATER. A column drop during a rolling deploy breaks the old pods' inserts."
+
+steps:
+  - id: characterise
+    action: "DeliveryWork_ProjectedRuns_ListTheRepositoriesWithAPullRequest red against the ChangeCount filter."
+  - id: fix
+    action: "Filter on PrUrl; field documented as unwritten; fixture migrated."
+
+tests:
+  - "DeliveryWork_ProjectedRuns_ListTheRepositoriesWithAPullRequest"
+  - "DeliveryWork_SpecsAndChangedRepos_OfWindowRunsOnly"
+
+done:
+  - "/api/delivery lists a repository for a run that opened a pull request in it, on data written by the projections."
+  - "Build green, full suite green, dashboard gen/test/build green."

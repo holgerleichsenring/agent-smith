@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-26-0a9e
+goal: "RunRepo.ChangeCount, which nothing writes or reads after 2026-10-26-cb25f, leaves the entity and both schemas once no released server maps it."
+
+applies_to: "default (RunRepo, Persistence and Persistence.SqlServer migrations)"
+
+requires: ["2026-10-26-cb25f"]
+
+facts:
+  - claim: "The column is NOT NULL in both initial migrations; a server that still maps it inserts it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260607082443_InitialCreate.cs:202, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20260717182821_Initial.cs:238"
+
+scope:
+  in: "Remove the property; dotnet ef migrations add DropRunRepoChangeCount in both migrations projects; read both Up/Down."
+  out: "Anything else on RunRepo."
+
+steps:
+  - id: drop
+    action: "Property gone, two migrations, PersistenceFoundationTests stop writing it."
+
+tests:
+  - "PersistenceFoundationTests green; migrated-store tests green"
+
+done:
+  - "Shipped in a release after the one carrying 2026-10-26-cb25f."
+  - "Build green, full suite green, dashboard gen/test/build green."

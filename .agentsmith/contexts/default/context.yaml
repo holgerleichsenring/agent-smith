@@ -1326,6 +1326,13 @@ state:
     2026-10-26-9849: "IMAGE BUILDS COMPILE NATIVELY (server, CLI, sandbox agent Dockerfiles). The SDK stages run on $BUILDPLATFORM, so arm64 no longer compiles under QEMU (945 s vs 111 s for the server publish); an architecture test guards it. -> .agentsmith/specs/done/2026-10-26-9849-image-build-native-sdk.yaml"
   active: {}
   planned:
+    2026-10-26-cb25a: "Consolidation 1/6: one AzureDevOpsRepoAddress parses cloud, legacy and Server Azure Repos URLs for five sites. -> .agentsmith/specs/planned/2026-10-26-cb25a-azure-devops-repo-address.yaml"
+    2026-10-26-cb25b: "Consolidation 2/6: Azure DevOps tracker honours its url; one organization-URL composition. requires cb25a. -> .agentsmith/specs/planned/2026-10-26-cb25b-azure-devops-organization-url.yaml"
+    2026-10-26-cb25c: "Consolidation 3/6: Jira draft check reads the project via the configured REST paths. -> .agentsmith/specs/planned/2026-10-26-cb25c-jira-project-endpoint.yaml"
+    2026-10-26-cb25d: "Consolidation 4/6: one JsonAnswerReader for arrays and objects in model answers. -> .agentsmith/specs/planned/2026-10-26-cb25d-json-answer-reader.yaml"
+    2026-10-26-cb25e: "Consolidation 5/6: one BranchRef.ShortName strips a leading refs/heads/. -> .agentsmith/specs/planned/2026-10-26-cb25e-branch-ref-short-name.yaml"
+    2026-10-26-cb25f: "Consolidation 6/6: delivery lists repositories with a PR, not the unwritten ChangeCount. -> .agentsmith/specs/planned/2026-10-26-cb25f-delivery-changed-repos.yaml"
+    2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"
     2026-10-16-d63d: "RUN VIEWER STATE RULES (run page banner). The run viewer says what ended a run in one sentence by its end kind, offers the act that fits, and keeps its verbatim summary one click away, as the ticket page does. -> .agentsmith/specs/planned/2026-10-16-d63d-run-viewer-state-rules.yaml"
