@@ -158,4 +158,13 @@ public sealed class RunAttemptProjectionTests : IDisposable
 
         _activity.Verify(a => a.ChangedAsync("alpha", "github-42", It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
+
+    // 2026-10-26-bdd0e: a spec derivation's start refreshes the ticket page like an attempt's.
+    [Fact]
+    public async Task RunStarted_SpecDerive_PublishesTicketActivity()
+    {
+        await ApplyAsync(Started(pipeline: AgentSmith.Contracts.Commands.PipelinePresets.SpecDeriveName));
+
+        _activity.Verify(a => a.ChangedAsync("alpha", "github-42", It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

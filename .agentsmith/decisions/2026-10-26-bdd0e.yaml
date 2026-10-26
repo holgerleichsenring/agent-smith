@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-26-bdd0e
+
+decisions:
+  - category: Architecture
+    chose: "The ticket's ActiveRun lease is the exclusion, taken by the launcher and held for the whole derivation"
+    over: "A second, short-lived lock around the branch write only"
+    reason: "The lease already keeps the poller, the rework worker and every claim off the ticket, the run attaches and releases it on every exit, and the reaper frees it three minutes after a crash. A code attempt started mid-derivation would read the branch while it is being written. Before a worker picks the request up the lease is not beaten, as for a claimed code run; a late run takes it again when the ticket is free and ends before it starts when a code run took it."
+  - category: Implementation
+    chose: "No claim and no taken-ticket record"
+    over: "Launching through ChatTicketRunLauncher and the spawn funnel"
+    reason: "The claim moves the tracker's lifecycle label to Enqueued and writes the record the reconciler re-launches from; a crashed derivation is not work anybody owes."
+  - category: Implementation
+    chose: "Refuse while the latest code attempt waits for an answer or an attempt is queued"
+    over: "Refusing only on a held lease"
+    reason: "Both hold no lease but will run again on their own, and a resume finding the derivation's lease would end before it starts."
+  - category: Implementation
+    chose: "Nothing is rolled back once the row is stored; only an admission refusal releases the lease"
+    over: "Releasing the lease and the reservation on any failure after the take"
+    reason: "The request is stored on the row before the push, and the sweeper pushes it again; releasing then would let it run with neither. A row that never runs leaves a lease the reaper frees."
+  - category: Implementation
+    chose: "The end of a derivation queues the ticket's rework check like any run's end"
+    over: "Suppressing it"
+    reason: "An act or a series start that waited on the derivation's lease is served there; that is the point of the check."

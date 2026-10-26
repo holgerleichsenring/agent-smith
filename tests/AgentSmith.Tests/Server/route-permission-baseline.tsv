@@ -122,6 +122,7 @@ POST	/api/spec-dialog/references	dialog.write	dialog
 POST	/api/teams/messages	anonymous	-
 POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/derive-specs	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/reopen	runs.control	route:project
 POST	/slack/commands	anonymous	-

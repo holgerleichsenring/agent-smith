@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-26-bdd0e: "DERIVE SPECS ENDPOINT (SpecDerivationLauncher, DerivationRunRepository, route baseline). POST /api/tickets/{project}/{ticketId}/derive-specs, runs.control: the ticket's lease taken for the whole run, no claim or taken record; refused while held, waiting or queued; start refreshes the page. -> .agentsmith/specs/done/2026-10-26-bdd0e-derivation-launch-endpoint.yaml"
     2026-10-26-bdd0d: "DERIVATION PREVIEW (SpecSetPublisher, review revision, cut and notice comments, SpecGate). With the preview flag the set is placed, cached and announced but not written, no PR, no ticket comment; every derivation ends on a sentence saying where its specs are. -> .agentsmith/specs/done/2026-10-26-bdd0d-derivation-preview-mode.yaml"
     2026-10-26-bdd0c: "DERIVATION ASKS, DOES NOT PARK (SpecHandback, DerivationQuestion, review objection, executor policy). A derivation's hand-back is one plain ticket comment, its cut is announced, the pointer untouched; the run stops as a success on SpecDerivationEnded; every objection is asked now. -> .agentsmith/specs/done/2026-10-26-bdd0c-derivation-question-not-park.yaml"
     2026-10-26-bdd0b: "DERIVATION LEAVES THE TICKET ALONE (error handler, lifecycle, finalization, capacity, cancel, delete, filing). PipelinePresets.LeavesTicketAlone: no working or failure comment, status, label, queue removal or taken-record clear; capacity ends failed; CancelledTicketFinalizer takes the Run. -> .agentsmith/specs/done/2026-10-26-bdd0b-derivation-ticket-untouched.yaml"
@@ -1339,7 +1340,6 @@ state:
     2026-10-26-0f19b: "APPROVAL BUTTONS ON ANY REPLICA (SpecDialogOutcomeConfirmer, Slack/Teams interaction handlers, RedisOpenDialogQuestions). A click on a replica that did not ask answers the open confirmation via the thread's session and the dialogue transport; a closed question answers nothing. -> .agentsmith/specs/done/2026-10-26-0f19b-dialog-button-any-replica.yaml"
   active: {}
   planned:
-    2026-10-26-bdd0e: "DERIVE SPECS ENDPOINT (launcher, lease, route baseline). Started under the ticket's lease, refused while a code run holds or waits on it. -> .agentsmith/specs/planned/2026-10-26-bdd0e-derivation-launch-endpoint.yaml"
     2026-10-26-bdd0f: "DERIVATIONS ON THE TICKET PAGE (detail reader, dashboard). Each derivation's outcome apart from the attempts, Derive specs and Derive again. -> .agentsmith/specs/planned/2026-10-26-bdd0f-derivation-ticket-page.yaml"
     2026-10-26-bdd0g: "DERIVE_SPECS TOOL (bound conversation). A poster who may start runs asks for a derivation in the ticket's conversation. -> .agentsmith/specs/planned/2026-10-26-bdd0g-derivation-conversation-tool.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"

@@ -55,6 +55,7 @@ internal static class ServerEndpointExtensions
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface
         app.MapTicketQueryEndpoints(); // 2026-10-13-9a59a: the ticket page read surface
         app.MapTicketApprovalPreviewEndpoints(); // 2026-10-13-9a59l: what approving would do
+        app.MapTicketDeriveSpecsEndpoints(); // 2026-10-26-bdd0e: derive a ticket's specs without an attempt
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
         app.MapCriteriaMetEndpoints();
         app.MapDeliveryEndpoints(); // 2026-10-25-0099b: a period of ticket work
