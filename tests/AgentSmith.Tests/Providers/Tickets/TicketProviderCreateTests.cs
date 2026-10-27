@@ -87,7 +87,7 @@ public sealed class TicketProviderCreateTests
         var act = () => sut.CreateAsync("t", "d", [], kind: null, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>()
-            .WithMessage("*project key*");
+            .WithMessage("*tracker's 'project'*");
         handler.LastRequest.Should().BeNull("nothing must be sent without a target project");
     }
 

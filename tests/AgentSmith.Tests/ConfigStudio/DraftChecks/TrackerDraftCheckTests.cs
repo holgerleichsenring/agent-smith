@@ -40,6 +40,17 @@ public sealed class TrackerDraftCheckTests
     }
 
     [Fact]
+    public async Task TrackerDraftCheck_JiraWithoutProject_FailsTheScopeStep()
+    {
+        var host = new ScriptedHostHandler().On($"{Jira}/rest/api/3/myself", 200, """{"displayName":"Ops Bot"}""");
+
+        var report = await Trackers(host).RunAsync(JiraDraft() with { Project = null }, CancellationToken.None);
+
+        Keys(report).Should().Be("secret:ok,host:ok,identity:ok,scope:fail");
+        report.Steps[^1].Detail.Should().Contain("names no project key");
+    }
+
+    [Fact]
     public async Task TrackerDraftCheck_ProviderWithoutListing_SaysCountNotSupported()
     {
         var host = new ScriptedHostHandler()

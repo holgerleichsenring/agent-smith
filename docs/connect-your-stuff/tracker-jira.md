@@ -82,6 +82,7 @@ secrets:
 
 Jira-specific things to notice:
 
+- **`project`** — the Jira project key, required. It scopes what the tracker reads and is where every ticket Agent Smith files lands, the way an Azure DevOps project or a GitLab project path is. If your tickets live in several Jira projects, configure one tracker per project. They can all point at the same `auth` secret. Jira keeps workflows and issue types per project, and a tracker's statuses, `lifecycle_status_names` and `work_item_kinds` describe exactly one of them. A tracker stored without a project still loads and reads every project the account can see, but it can't file a ticket, and the studio won't save it again until you set one.
 - **`close_transition_name`** — Jira doesn't expose a "set status" API. You move an issue between statuses by *transitioning* it, and transitions have names defined per project workflow. Set this to the transition that lands on your `done_status`. If you don't know it, look at the workflow diagram in Jira Settings → Issue Types → Workflows.
 - **`jira_trigger.secret`** — the webhook shared secret. Jira is the exception among the trackers: GitHub / GitLab / Azure DevOps verify webhooks from server environment variables, but for Jira the secret sits in config, per project, under `jira_trigger`.
 - **`jira_trigger.assignee_name`** — the Jira webhook starts work when an issue is *assigned* to this user. It defaults to `Agent Smith`; set it to the display name of the account the agent uses.

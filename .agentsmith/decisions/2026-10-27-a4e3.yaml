@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-27-a4e3
+
+decisions:
+  - category: Architecture
+    chose: "One Jira tracker per Jira project, with the project key required"
+    over: "A per-project filing target on the agent-smith project, letting one tracker span several Jira projects"
+    reason: "The other three trackers already address one container that is both read and filed into; a Jira-only field on the project would be the only tracker-specific key there, and a tracker's statuses, lifecycle names and work item kinds describe one Jira workflow anyway."
+  - category: TradeOff
+    chose: "Enforce the requirement where configuration is authored: the descriptor, the studio save and draft, the Test button"
+    over: "Refusing a stored tracker without a project when the configuration loads"
+    reason: "A running server whose tracker was stored in label mode would stop polling on the next restart; loaded as before it keeps reading, and the next edit asks for the key."
+  - category: Scope
+    chose: "Keep the read path's no-project branch"
+    over: "Deleting it now that the field is required"
+    reason: "Configurations stored before this spec still reach it, and the CLI's file configuration does not run the studio's checks."

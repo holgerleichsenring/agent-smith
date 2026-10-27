@@ -46,7 +46,9 @@ public static class TrackerCapabilityFields
         TrackerType.Jira =>
         [
             new CapabilityField("url", "Base URL", Required: true, Group: TrackerFieldGroups.Connection),
-            new CapabilityField("project", "Project key", Required: false, Group: TrackerFieldGroups.Connection),
+            // 2026-10-27-a4e3: required like ADO's project and GitLab's path — a tracker without one reads
+            // every project the account sees but has nowhere to file a ticket.
+            new CapabilityField("project", "Project key", Required: true, Group: TrackerFieldGroups.Connection),
             new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             // 2026-10-02-5f89a: the account the token belongs to — a field of the tracker, not JIRA_EMAIL.
             new CapabilityField("email", "Account email", Required: true, Group: TrackerFieldGroups.Connection),
