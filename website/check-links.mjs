@@ -5,7 +5,8 @@ import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "_site");
+// The root defaults to this site's _site; check-consent.mjs passes the root of its fixture build.
+const siteRoot = resolve(process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url)), "_site"));
 
 function htmlFiles(dir) {
   return readdirSync(dir).flatMap((name) => {

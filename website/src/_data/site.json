@@ -11,5 +11,10 @@
   "sentinelUrl": "https://sentinel.agent-smith.org",
   "blogUrl": "https://codingsoul.org",
   "partner": "45level GmbH",
-  "partnerUrl": "https://45level.com"
+  "partnerUrl": "https://45level.com",
+  "analyticsId": "G-E95PF80BP4",
+  "legal": {
+    "name": "Holger Leichsenring",
+    "email": "mail@holger-leichsenring.de"
+  }
 }
