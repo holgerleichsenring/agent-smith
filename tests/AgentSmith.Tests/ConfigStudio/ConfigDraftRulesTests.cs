@@ -70,10 +70,22 @@ public sealed class ConfigDraftRulesTests
     public void ForTracker_JiraWithoutEmail_NamesEmailNotType()
     {
         var draft = new TrackerEntity(
-            Id: "j", Type: "jira", Url: "https://x.atlassian.net", AuthSecret: "JIRA_TOKEN");
+            Id: "j", Type: "jira", Url: "https://x.atlassian.net", AuthSecret: "JIRA_TOKEN", Project: "OPS");
 
         _rules.ForTracker(draft).Should().ContainSingle(f => f.IsBlocking)
             .Which.Field.Should().Be("email");
+    }
+
+    [Fact]
+    public void ForTracker_JiraWithoutProject_IsBlockingOnTheProjectField()
+    {
+        var draft = new TrackerEntity(
+            Id: "j", Type: "jira", Url: "https://x.atlassian.net", AuthSecret: "JIRA_TOKEN", Email: "bot@x.example");
+
+        var blocking = _rules.ForTracker(draft).Should().ContainSingle(f => f.IsBlocking).Which;
+
+        blocking.Field.Should().Be("project");
+        blocking.Reason.Should().Be("Project key is required.");
     }
 
     [Fact]

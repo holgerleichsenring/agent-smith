@@ -31,7 +31,7 @@ internal sealed class JiraTicketCreator(
     {
         if (string.IsNullOrWhiteSpace(projectKey))
             throw new ConfigurationException(
-                "Jira ticket creation requires a project key on the tracker connection.");
+                "Jira ticket creation needs the tracker's 'project': the key of the Jira project a ticket is filed into.");
         var body = new
         {
             fields = new
