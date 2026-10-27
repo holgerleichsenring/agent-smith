@@ -1,0 +1,48 @@
+---
+layout: layouts/base.njk
+permalink: /privacy/
+title: "Privacy policy · Agent Smith"
+description: "How agent-smith.org handles personal data: Google Analytics 4 only with your consent, hosting by Vercel, and your rights under the GDPR."
+---
+<!-- Draft: this text is to be checked legally before it is relied on. -->
+<main>
+
+<header class="page-hero">
+  <div class="wrap">
+    <div class="eyebrow"><b aria-hidden="true">●</b> Last updated <b>27 October 2026</b></div>
+    <h1><span class="ln"><span class="w1">Privacy.</span></span></h1>
+  </div>
+</header>
+
+<section>
+  <div class="wrap legal">
+    <h2>Who is responsible</h2>
+    <p>The controller under the GDPR for this website is:</p>
+    <p>{{ site.legal.name }}<br>
+    Email: <a href="mailto:{{ site.legal.email }}">{{ site.legal.email }}</a></p>
+
+    <h2>Google Analytics 4, only with your consent</h2>
+    <p>If you press Accept in the banner, this site loads Google Analytics 4. It tells us how many people visit, which pages they read, which site sent them here, and their rough country and kind of device. We use it to see whether the site is read and what to improve. If you press Decline, or choose nothing, Google Analytics is not loaded and no Analytics cookie is set.</p>
+    <p>Google signals and ad personalisation are switched off. Google uses your IP address to work out the country and, as Google documents, does not store it in Google Analytics 4.</p>
+    <p>Legal basis: your consent, Art. 6(1)(a) GDPR, and for the cookies § 25(1) TTDSG.</p>
+    <p>Recipient: Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Ireland. Data may reach Google LLC in the USA; that transfer rests on the EU-US Data Privacy Framework, under which Google LLC is certified.</p>
+    <p>Retention: Google keeps Analytics event data for the period set in the Analytics property. Google's default is 2 months; the longest a standard property allows is 14 months.</p>
+    <p>Cookies set after Accept:</p>
+    <ul>
+      <li><code class="c">_ga</code>: tells visits from the same browser apart, expires after 2 years.</li>
+      <li><code class="c">_ga_&lt;id&gt;</code>: keeps the state of the current session, expires after 2 years.</li>
+    </ul>
+    <p>Your choice is kept in your browser's local storage under <code class="c">analytics-consent</code>, so the banner does not ask on every page.</p>
+
+    <h2 id="settings">Changing your mind</h2>
+    <p>Use Privacy settings at the bottom of every page to open the banner again. If you decline after accepting, Google Analytics stops on that page, is not loaded again, and the site deletes its <code class="c">_ga</code> cookies. Withdrawing does not make the processing before it unlawful.</p>
+
+    <h2>Hosting</h2>
+    <p>Vercel Inc., USA, hosts this site. When you open a page, Vercel processes server log data such as your IP address, the time, the page requested and your browser's user agent, to deliver the site and keep it secure. Legal basis: Art. 6(1)(f) GDPR, our interest in a working, secure website. The transfer to the USA rests on the EU-US Data Privacy Framework.</p>
+
+    <h2>Your rights</h2>
+    <p>You have the right to access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18), data portability (Art. 20) and to object (Art. 21). Write to the email address above. You also have the right to lodge a complaint with a data protection supervisory authority (Art. 77 GDPR), in particular in the member state where you live or work.</p>
+  </div>
+</section>
+
+</main>

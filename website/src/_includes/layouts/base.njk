@@ -13,6 +13,9 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/styles.css">
 <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
+{%- if legalReady %}
+<script src="/consent.js" defer></script>
+{%- endif %}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="{{ site.title }}">
 <meta property="og:title" content="{{ pageTitle }}">
@@ -87,6 +90,18 @@
 </script>
 </head>
 <body>
+{%- if legalReady %}
+
+<section class="consent" id="consent" role="dialog" aria-labelledby="consent-h" aria-describedby="consent-p" tabindex="-1" hidden>
+  <h2 id="consent-h">May we count your visit?</h2>
+  <p id="consent-p">We'd like to use Google Analytics to see how many people visit and which pages they read. It sets cookies and sends data to Google. Nothing loads unless you say yes, and you can change your mind under Privacy settings at the bottom of every page.</p>
+  <div class="consent-row">
+    <button class="btn" id="consent-decline" type="button">Decline</button>
+    <button class="btn" id="consent-accept" type="button">Accept</button>
+  </div>
+  <div class="consent-fine">Details in the <a href="/privacy/">privacy policy</a>.</div>
+</section>
+{%- endif %}
 
 <nav class="nav" aria-label="Main">
   <div class="wrap">
@@ -113,7 +128,15 @@
       <a href="{{ site.docsUrl }}">Docs</a>
       <a href="{{ site.sentinelUrl }}">Sentinel</a>
       <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
-      <a href="{{ site.blogUrl }}">Blog</a>    </span>
+      <a href="{{ site.blogUrl }}">Blog</a>
+      {%- if legalReady %}
+      <a href="/privacy/">Privacy</a>
+      {%- if imprintReady %}
+      <a href="/imprint/">Imprint</a>
+      {%- endif %}
+      <a href="/privacy/#settings" data-consent-settings>Privacy settings</a>
+      {%- endif %}
+    </span>
   </div>
 </footer>
 
