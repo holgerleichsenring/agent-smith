@@ -31,9 +31,10 @@ internal sealed class ConfiguredStoreFactory(IConfigurationLoader loader)
             Provider = provider,
             ConnectionString = persistence.ConnectionString,
         });
-        // The shared model snapshot is generated under SQLite; under any other provider the
-        // runtime model gains annotations it lacks, which EF 9 misreads as pending changes.
-        if (provider != PersistenceProvider.Sqlite)
+        // The shared model snapshot is generated under SQLite; under another provider that runs
+        // it the runtime model gains annotations it lacks, which EF 9 misreads as pending changes.
+        // PostgreSQL's own set matches the model (2026-10-28-ebb0), so the guard stays on there.
+        if (provider is not (PersistenceProvider.Sqlite or PersistenceProvider.Postgresql))
             builder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
         return new AgentSmithDbContext(builder.Options);
     }

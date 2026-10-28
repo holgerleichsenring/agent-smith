@@ -54,12 +54,13 @@ internal static class DatabaseCommand
         var options = new PersistenceOptions { Provider = provider, ConnectionString = persistence.ConnectionString };
         var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
         builder.UseProvider(options);
-        // One migration set serves every provider, and its model snapshot is
-        // generated under SQLite (the design-time default). Under any other
-        // provider the runtime model gains provider annotations the snapshot
-        // lacks, which EF 9 misreads as "pending model changes" — suppress the
-        // warning there, keep it as a real forgotten-migration guard on SQLite.
-        if (provider != PersistenceProvider.Sqlite)
+        // The shared migration set's model snapshot is generated under SQLite (the
+        // design-time default). Under another provider that runs it the runtime model
+        // gains provider annotations the snapshot lacks, which EF 9 misreads as
+        // "pending model changes" — suppress the warning there. PostgreSQL's set is
+        // generated against the current model (2026-10-28-ebb0), so like SQLite it
+        // keeps the warning as a real forgotten-migration guard.
+        if (provider is not (PersistenceProvider.Sqlite or PersistenceProvider.Postgresql))
             builder.ConfigureWarnings(w =>
                 w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         await using var db = new AgentSmithDbContext(builder.Options);

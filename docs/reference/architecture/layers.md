@@ -106,15 +106,15 @@ Implements the Contracts interfaces against external libraries and services.
 
 ## Infrastructure.Persistence
 
-**Projects:** `AgentSmith.Infrastructure.Persistence`, `AgentSmith.Infrastructure.Persistence.SqlServer` | **References:** Contracts, Domain
+**Projects:** `AgentSmith.Infrastructure.Persistence`, `AgentSmith.Infrastructure.Persistence.SqlServer`, `AgentSmith.Infrastructure.Persistence.Postgresql` | **References:** Contracts, Domain
 
-The relational store behind run records, projections, the configuration and the data archive. `AgentSmithDbContext` is an EF Core context that runs on SQLite, PostgreSQL, MySQL or SQL Server, chosen by the `persistence:` block. SQL Server keeps its migrations in the separate `.SqlServer` assembly. Migrations are applied by `agent-smith database migrate`, never by the server on startup.
+The relational store behind run records, projections, the configuration and the data archive. `AgentSmithDbContext` is an EF Core context that runs on SQLite, PostgreSQL, MySQL or SQL Server, chosen by the `persistence:` block. SQL Server and PostgreSQL keep their migrations in the separate `.SqlServer` and `.Postgresql` assemblies. Migrations are applied by `agent-smith database migrate`, never by the server on startup.
 
 ---
 
 ## CLI
 
-**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer)
+**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql)
 
 The console tool: one run, then exit. It reads its whole configuration from `agentsmith.yml` and runs its sandbox in-process.
 
@@ -135,7 +135,7 @@ Supporting types: `ConfigDiscovery` (where the config file is found), `ServicePr
 
 ## Server
 
-**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer)
+**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql)
 
 The long-running deployment: one ASP.NET Core process with one DI tree.
 

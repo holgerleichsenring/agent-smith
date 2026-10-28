@@ -19,12 +19,13 @@ public sealed class TestMigrationRuleTests
     // a store migrator's MigrateAsync, and a helper called Migrate(dbPath) all apply the set.
     private static readonly Regex Migrates = new(@"\bMigrate(Async)?\(", RegexOptions.Compiled);
 
-    // Named, not patterned: the template itself; SQL Server stores, which no SQLite template
-    // can serve; and the tests whose assertion is a migration step running over existing rows.
+    // Named, not patterned: the template itself; SQL Server and PostgreSQL stores, which no
+    // SQLite template can serve; and the tests whose assertion is a migration step running over existing rows.
     private static readonly HashSet<string> MigrationIsTheSubject =
     [
         "MigratedStoreTemplate.cs",
         "ScratchSqlServer.cs",
+        "ScratchPostgres.cs",
         "DataArchiveSqlServerTests.cs",
         "ConfigStudioApiSmokeTests.cs",
         "RunStoreRepairTests.cs",

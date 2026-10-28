@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Interceptors;
 using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,18 +17,21 @@ public static class PersistenceOptionsExtensions
     // AutoDetect against the real connection if desired.
     private static readonly ServerVersion MySqlVersion = new MySqlServerVersion(new Version(8, 0, 21));
 
-    // SQL Server can't reuse the shared migration set (SQLite column types baked
-    // into every operation), so its migrations live in a dedicated assembly.
-    // Named by string — the Persistence assembly can't reference that project
-    // (it references back for the DbContext), so there's no compile-time handle.
+    // SQL Server and PostgreSQL can't reuse the shared migration set (SQLite column
+    // types baked into every operation), so their migrations live in dedicated
+    // assemblies. Named by string — the Persistence assembly can't reference those
+    // projects (they reference back for the DbContext), so there's no compile-time handle.
     private const string SqlServerMigrationsAssembly = "AgentSmith.Infrastructure.Persistence.SqlServer";
+    private const string PostgresqlMigrationsAssembly = "AgentSmith.Infrastructure.Persistence.Postgresql";
 
     public static DbContextOptionsBuilder UseProvider(
         this DbContextOptionsBuilder builder, PersistenceOptions options) =>
         options.Provider switch
         {
             PersistenceProvider.Sqlite => builder.UseSqlite(options.ConnectionString),
-            PersistenceProvider.Postgresql => builder.UseNpgsql(options.ConnectionString),
+            PersistenceProvider.Postgresql => builder.UseNpgsql(
+                    options.ConnectionString, o => o.MigrationsAssembly(PostgresqlMigrationsAssembly))
+                .AddInterceptors(PostgresNulTextInterceptor.Instance),
             PersistenceProvider.Mysql => builder.UseMySql(options.ConnectionString, MySqlVersion),
             PersistenceProvider.SqlServer => builder.UseSqlServer(
                 options.ConnectionString, o => o.MigrationsAssembly(SqlServerMigrationsAssembly)),

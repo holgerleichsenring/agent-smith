@@ -27,6 +27,7 @@ agent-smith/
 │   │   ├── AgentSmith.Infrastructure/                 # LLM clients, git/ticket providers, Redis, scanners
 │   │   ├── AgentSmith.Infrastructure.Persistence/     # EF Core store and migrations
 │   │   ├── AgentSmith.Infrastructure.Persistence.SqlServer/  # SQL Server migrations
+│   │   ├── AgentSmith.Infrastructure.Persistence.Postgresql/ # PostgreSQL migrations
 │   │   ├── AgentSmith.Cli/                            # CLI entry point (+ Dockerfile)
 │   │   ├── AgentSmith.Server/                         # long-running server (+ Dockerfile)
 │   │   ├── AgentSmith.Sandbox.Wire/                   # step protocol shared with the sandbox agent
@@ -84,6 +85,7 @@ agent-smith/
 | `AgentSmith.Infrastructure` | Class library | LLM clients, git and ticket providers, Redis, scanners, output |
 | `AgentSmith.Infrastructure.Persistence` | Class library | EF Core store (SQLite, PostgreSQL, MySQL, SQL Server) |
 | `AgentSmith.Infrastructure.Persistence.SqlServer` | Class library | SQL Server migrations |
+| `AgentSmith.Infrastructure.Persistence.Postgresql` | Class library | PostgreSQL migrations |
 | `AgentSmith.Sandbox.Wire` | Class library | Sandbox step protocol |
 | `AgentSmith.Sandbox.Agent` | Console app | Agent inside each sandbox |
 | `AgentSmith.SkillsPackaging` | Console app | Build-time skill catalog check |

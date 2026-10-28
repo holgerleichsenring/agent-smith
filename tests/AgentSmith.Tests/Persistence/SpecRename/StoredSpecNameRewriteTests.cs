@@ -65,6 +65,30 @@ public sealed class StoredSpecNameRewriteTests : IDisposable
         try
         {
             await OldShapeStore.SeedAsync(scratch);
+            // The rewrite renames types with ExecuteUpdate, which the tracker never sees; a
+            // tracked seed row would hand the payload pass its stale type name.
+            scratch.ChangeTracker.Clear();
+            await Rewrite().RewriteAsync(scratch, CancellationToken.None);
+
+            await SpecNamedStoreAssertions.HoldsOnlySpecNamesAsync(scratch);
+            await SpecNamedStoreAssertions.ReadsBackAsTheOldShapeDidAsync(scratch);
+        }
+        finally
+        {
+            await scratch.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [RequiresPostgresFact]
+    public async Task StoreRewrite_OldShapeRows_ReadBackAsSpec_OnPostgres()
+    {
+        await using var scratch = await ScratchPostgres.MigratedAsync(RequiresPostgresFactAttribute.ConnectionString!, "specname");
+        try
+        {
+            await OldShapeStore.SeedAsync(scratch);
+            // The rewrite renames types with ExecuteUpdate, which the tracker never sees; a
+            // tracked seed row would hand the payload pass its stale type name.
+            scratch.ChangeTracker.Clear();
             await Rewrite().RewriteAsync(scratch, CancellationToken.None);
 
             await SpecNamedStoreAssertions.HoldsOnlySpecNamesAsync(scratch);

@@ -75,9 +75,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         // p0388a: AFTER the child loop, so the per-step trail index joins the uniform RunId one.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
         // Provider-conditional: an entity configuration cannot see the provider name.
-        new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 61f1
-        new TicketConversationIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 8e51b
-        new MoneyPrecisionConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-28-b883
+        new ProviderConfigurations(Database.ProviderName).Apply(modelBuilder);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

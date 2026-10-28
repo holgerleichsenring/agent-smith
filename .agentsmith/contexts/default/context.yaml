@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-10-28-ebb0: "POSTGRESQL PROVIDER (Persistence, Persistence.Postgresql, CLI, Server). Own Npgsql migration set (baseline named after the head), UTC timestamps and NUL scrub on Postgres only, archive sequence advance, opt-in live tests; server and dashboard proven on Postgres 17. -> .agentsmith/specs/done/2026-10-28-ebb0-persistence-postgresql-provider.yaml"
     2026-10-28-a6e1: "README: animated loop banner (docs/assets/readme-banner.svg), centered header with .NET 10 and release badges, three claims; figures recounted 2026-10-28 (1,332 specs, 10,944 tests, 1 in 6 stopped by the gate) -> .agentsmith/specs/done/2026-10-28-a6e1-readme-header-banner.yaml"
     2026-10-28-17c7: "Repo instructions: sessions read each context.yaml down to state: and search state.done instead of reading it whole -> .agentsmith/specs/done/2026-10-28-17c7-read-order-index-search.yaml"
     2026-10-27-258f: "GA4 BEHIND A CONSENT BANNER (website layout, consent.js, privacy and imprint pages, sitemap). gtag.js loads only on Accept, signals off; banner and /privacy/ render only with site.legal name and email, /imprint/ only with an address too; check-consent proves each state. -> .agentsmith/specs/done/2026-10-27-258f-website-analytics-consent.yaml"
@@ -1361,6 +1362,7 @@ state:
     2026-10-27-a4e3: "JIRA PROJECT REQUIRED (config studio, tracker). A Jira tracker must name its project key like ADO and GitLab; the Test button fails without one and the create refusal names the field. Stored trackers without one still load and read. One tracker per Jira project. -> .agentsmith/specs/done/2026-10-27-a4e3-tracker-jira-project-required.yaml"
   active: {}
   planned:
+    2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"

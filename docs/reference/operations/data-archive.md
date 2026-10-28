@@ -1,7 +1,7 @@
 # Moving the database between providers
 
 `agentsmith archive` copies an installation's whole run store into one file and back,
-so you can replace SQLite with SQL Server (or the other way round) without losing a row.
+so you can replace SQLite with SQL Server or PostgreSQL (or the other way round) without losing a row.
 
 It talks to the **database the config file names**, not to a running server — the case
 this exists for is a store being replaced underneath an installation, and the neighbouring
@@ -64,8 +64,11 @@ under `archive.export`), `GET /api/archive/export` (the download, `archive.expor
 * Afterwards the row counts are read back and compared to the archive's manifest. A
   difference fails the import and nothing is committed — the whole copy is one transaction.
 
-Supported ends are **SQLite** and **SQL Server**. Postgres and MySQL are named in the
-provider enum but share the SQLite-typed migration set, so they are not claimed here.
+Supported ends are **SQLite**, **SQL Server** and **PostgreSQL**. PostgreSQL stores an
+instant, not an offset, at microsecond resolution: timestamps arrive as the same moment in
+UTC, cut to the microsecond. Its text columns cannot hold a NUL character, so a NUL in a
+copied value is stored as U+FFFD. MySQL is named in the provider enum but shares the
+SQLite-typed migration set, so it is not claimed here.
 
 ## Where the file may be kept
 

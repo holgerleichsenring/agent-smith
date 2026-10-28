@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-8c7c
+goal: "MySQL gets its own migration set and a live test, or leaves the provider list — today it runs the SQLite-typed shared set."
+
+applies_to: "default (Persistence, a Persistence.Mysql migrations assembly)"
+
+requires:
+  - 2026-10-28-ebb0
+
+facts:
+  - claim: "MySQL is wired to the shared migration set: UseMySql names no migrations assembly."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:35"
+  - claim: "The shared set's keys carry the SQLite autoincrement annotation, which only SQLite reads."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260607082443_InitialCreate.cs:50"
+
+decisions:
+  - key: |
+      SAME DEFECT, NOT YET PROVEN. The shared set bakes SQLite types and Sqlite:Autoincrement into
+      every operation; 2026-10-28-ebb0 proved that breaks PostgreSQL. MySQL runs the same set, so
+      the first step is a live migrate against MySQL 8 to measure what actually fails before
+      building anything.
+
+steps:
+  - id: measure
+    action: "Migrate a throwaway MySQL 8 with the shared set and write a run through EF; record what fails."
+  - id: decide
+    action: "Either a dedicated Pomelo-generated set on the Postgres pattern with an opt-in live test, or remove mysql from the documented providers."
+
+done:
+  - "A fresh MySQL 8 database is migrated and a run round-trips through it, or mysql is no longer offered."
