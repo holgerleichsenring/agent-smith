@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-7a69d
+
+decisions:
+  - category: Architecture
+    chose: "Teach the design partner to judge a bound ticket"
+    over: "A new master for never-run tickets"
+    reason: "The design partner already serves a bound conversation that has not run; the steward covers tickets that have. A third master would split one conversation's rules across two files."
+  - category: Implementation
+    chose: "Write the comment in the ticket's language"
+    over: "English, as bug tickets are"
+    reason: "A bug ticket is read by a pipeline; a comment is read by the people on the ticket."
+  - category: Tooling
+    chose: "Pin v5.22.0 in the same series"
+    over: "A later pin bump"
+    reason: "The comment outcome is unreachable until the embedded master names it; the parser and approval path shipped in 7a69c."

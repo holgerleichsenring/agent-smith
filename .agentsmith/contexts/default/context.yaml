@@ -1362,6 +1362,7 @@ state:
     2026-10-28-7a69a: "JIRA TICKET OWN PROJECT (tickets, triggers). A project-keyed Jira tracker answers not-found for another project's issue, read off the key Jira returns, and a Jira webhook matches only projects whose tracker holds its key's project. -> .agentsmith/specs/done/2026-10-28-7a69a-jira-ticket-own-project.yaml"
     2026-10-28-7a69b: "TICKET REGION ON JIRA AND APPEND (tickets, dialog). Jira splices the approved region into its stored ADF document; a ticket a person wrote takes the region below its text; stamped, epic-record or spec-recorded bodies without markers and damaged pairs stay refused. -> .agentsmith/specs/done/2026-10-28-7a69b-ticket-region-jira-and-append.yaml"
     2026-10-28-7a69c: "DIALOG COMMENT OUTCOME (dialog, dashboard). kind: comment ends a ticket's conversation in a comment the person approves; it is posted headed as ours, records nothing and starts nothing, and is refused outside a ticket's conversation. -> .agentsmith/specs/done/2026-10-28-7a69c-dialog-comment-outcome.yaml"
+    2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
