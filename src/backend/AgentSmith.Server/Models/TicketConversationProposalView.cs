@@ -6,6 +6,9 @@ namespace AgentSmith.Server.Models;
 /// <param name="Kind">bug, spec or epic.</param>
 public sealed record TicketConversationProposalView(string Kind, IReadOnlyList<TicketConversationDraftView> Drafts)
 {
+    /// <summary>2026-10-28-7a69c: the comment proposed for the ticket; null for every other kind.</summary>
+    public string? Comment { get; init; }
+
     /// <summary>2026-10-13-8762i: what still stands against the proposal.</summary>
     public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
 

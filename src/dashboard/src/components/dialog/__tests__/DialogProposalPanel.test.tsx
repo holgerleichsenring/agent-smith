@@ -62,4 +62,14 @@ describe("DialogProposalPanel", () => {
     expect(screen.queryByTestId("dialog-mock-versions-c-1")).toBeNull();
     expect(screen.queryByTestId("dialog-mock-versions-parent")).toBeNull();
   });
+  // 2026-10-28-7a69c: a proposed comment is shown as the text that would be posted.
+  it("RendersAProposedComment", () => {
+    render(
+      <DialogProposalPanel
+        proposal={{ ...push(spec), kind: "comment", spec: null, comment: "Needs a decision first.\nAsk the platform team." }}
+      />,
+    );
+
+    expect(screen.getByTestId("dialog-proposal-comment").textContent).toContain("Ask the platform team.");
+  });
 });

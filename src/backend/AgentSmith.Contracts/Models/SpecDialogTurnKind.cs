@@ -18,4 +18,5 @@ public enum SpecDialogTurnKind
     MockRatified = 7,
     TicketGraphProposal = 8,
     Digest = 9,
+    CommentProposal = 10, // 2026-10-28-7a69c
 }

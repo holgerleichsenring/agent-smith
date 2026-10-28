@@ -266,6 +266,7 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
             new AgentSmith.Application.Services.SpecDialog.TicketGraphOutcomeParser(new AgentSmith.Application.Services.SpecDialog.TicketGraphChecker(
                 new AgentSmith.Application.Services.SpecDialog.TicketGraphOrderer())),
+            new AgentSmith.Application.Services.SpecDialog.TicketCommentOutcomeParser(),
             AgentSmith.Tests.SpecDialog.DialogTestRepos.Real());
     }
 

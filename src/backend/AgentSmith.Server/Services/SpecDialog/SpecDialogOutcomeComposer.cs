@@ -87,6 +87,7 @@ public sealed class SpecDialogOutcomeComposer
             $"Proposed outcome: {m.Bold("one spec")} — `{spec.Draft.SpecId}` {spec.Draft.Goal}",
         EpicOutcome epic => EpicProposalText.Describe(epic, m),
         TicketGraphOutcome graph => TicketGraphProposalText.Describe(graph, m),
+        TicketCommentOutcome comment => $"Proposed outcome: {m.Bold("a comment on the ticket")}, and nothing starts\n{comment.Comment}",
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no confirmation shape."),
     };
@@ -102,6 +103,7 @@ public sealed class SpecDialogOutcomeComposer
             $"an epic as one work ticket (`{epic.Parent.SpecId}`) "
             + $"carrying {epic.Children.Count} slice(s)",
         TicketGraphOutcome graph => $"a list of {graph.Tickets.Count} tickets, in the order they must merge", // 2026-10-14-dbcel
+        TicketCommentOutcome => "a comment on the ticket",
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no summary shape."),
     };

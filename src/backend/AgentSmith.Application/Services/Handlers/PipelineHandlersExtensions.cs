@@ -165,7 +165,7 @@ public static class PipelineHandlersExtensions
         // resolver + per-kind parsers + epic requires-edge consistency.
         services.AddTransient<SpecDraftReader>();
         services.AddTransient<SpecDraftIdRewriter>().AddTransient<SeriesDraftIds>(); // 2026-10-06-03c7c
-        services.AddTransient<BugOutcomeParser>();
+        services.AddTransient<BugOutcomeParser>().AddTransient<TicketCommentOutcomeParser>(); // 7a69c
         services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>().AddTransient<TicketGraphOutcomeParser>(); // 3a36e, dbcej
         services.AddTransient<RequiresEdgeChecker>().AddTransient<TicketGraphChecker>().AddTransient<TicketGraphOrderer>();
         services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>()

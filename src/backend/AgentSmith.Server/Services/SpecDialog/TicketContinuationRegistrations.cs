@@ -29,7 +29,7 @@ internal static class TicketContinuationRegistrations
         services.AddScoped<NextAttemptSeriesReader>().AddTransient<SeriesEditList>().AddScoped<SeriesEditAct>().AddScoped<BoundSeriesPorts>();
         return services.AddScoped<TicketContinuationStateReader>()
             .AddScoped<TicketApprovalPreview>()
-            .AddScoped<TicketContinuationAct>()
+            .AddScoped<TicketContinuationAct>().AddScoped<TicketCommentPost>() // 2026-10-28-7a69c
             .AddScoped<ClosedTicketFollowUp>()
             .AddScoped<FollowUpLink>()
             .AddScoped<OperatorStartArm>().AddScoped<OperatorStart>(); // 2026-10-13-9a59m
