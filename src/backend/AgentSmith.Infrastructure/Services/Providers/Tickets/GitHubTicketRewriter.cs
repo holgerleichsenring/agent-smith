@@ -39,7 +39,7 @@ public sealed class GitHubTicketRewriter : ITicketRewriter
     }
 
     public async Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken)
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticketId);
         if (!int.TryParse(ticketId.Value, out var number))
@@ -47,7 +47,7 @@ public sealed class GitHubTicketRewriter : ITicketRewriter
         try
         {
             var body = (await _client.Issue.Get(_owner, _repo, number)).Body;
-            if (FramedTicketRegion.Replace(body, region) is not { } rewritten)
+            if (FramedTicketRegion.Replace(body, region, placement) is not { } rewritten)
                 return TicketRewriteResult.Unsupported(TicketRegionRefusal.NoRegion);
             _logger.LogInformation(
                 "TICKET WRITE #{Ticket}: issue body region <- {Caller}",

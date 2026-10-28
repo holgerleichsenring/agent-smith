@@ -40,7 +40,7 @@ public sealed class AzureDevOpsTicketRewriter : ITicketRewriter
     }
 
     public async Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken)
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticketId);
         if (!int.TryParse(ticketId.Value, out var id))
@@ -52,7 +52,7 @@ public sealed class AzureDevOpsTicketRewriter : ITicketRewriter
             if (workItem?.Fields is not { } fields)
                 return TicketRewriteResult.Failed($"Azure DevOps has no work item {id}.");
             var field = AzureDevOpsBodyField.Of(fields);
-            if (FramedTicketRegion.Replace(AzureDevOpsBodyField.Read(fields, field), ToHtml(region))
+            if (FramedTicketRegion.Replace(AzureDevOpsBodyField.Read(fields, field), ToHtml(region), placement)
                 is not { } rewritten)
                 return TicketRewriteResult.Unsupported(TicketRegionRefusal.NoRegion);
 

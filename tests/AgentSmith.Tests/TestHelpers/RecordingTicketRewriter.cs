@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Tests.TestHelpers;
@@ -16,11 +17,15 @@ public sealed class RecordingTicketRewriter(TicketRewriteResult? answer = null) 
     /// <summary>The ticket ids it was asked about.</summary>
     public List<string> Tickets { get; } = [];
 
+    /// <summary>2026-10-28-7a69b: the placement each call asked for.</summary>
+    public List<RegionPlacement> Placements { get; } = [];
+
     public Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken)
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticketId);
         Tickets.Add(ticketId.Value);
+        Placements.Add(placement);
         var result = answer ?? TicketRewriteResult.Ok;
         if (result.Rewritten) Regions.Add(region);
         return Task.FromResult(result);

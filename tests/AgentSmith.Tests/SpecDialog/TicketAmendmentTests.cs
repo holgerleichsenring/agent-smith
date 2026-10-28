@@ -119,6 +119,39 @@ public sealed class TicketAmendmentTests : IDisposable
         tracker.Description.Should().Contain("the widget never drops");
     }
 
+    /// <summary>2026-10-28-7a69b: a ticket a person wrote has no record and no markers — the region goes below their text,
+    /// and the next approval replaces only that region.</summary>
+    [Fact]
+    public async Task Amendment_TicketWithoutRecord_AppendsTheRegion()
+    {
+        var tracker = await BoundAsync();
+        tracker.Description = Prose;
+        var store = ApprovedSetDoubles.Store();
+
+        var notice = (await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default)).Notice;
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default);
+
+        notice.Should().Contain("now says what it says");
+        tracker.Description.Should().StartWith(Prose).And.Contain("the widget never drops")
+            .And.NotContain("the widget stops dropping", "the second approval replaced the region the first appended");
+        FramedTicketRegion.Marked(tracker.Description).Should().BeTrue();
+    }
+
+    /// <summary>2026-10-28-7a69b: with a record, an unmarked body is one the framework rendered whole — still refused.</summary>
+    [Fact]
+    public async Task Amendment_TicketWithRecordButNoMarkers_IsStillRefused()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
+        tracker.Description = "## Goal\nthe widget stops dropping\n";
+
+        var notice = (await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default)).Notice;
+
+        notice.Should().Contain("was not rewritten");
+        tracker.Description.Should().Be("## Goal\nthe widget stops dropping\n");
+    }
+
     /// <summary>
     /// 2026-10-06-03c7f: an amended epic re-records its parent's goal as the series' goal, so the
     /// row and the manifest written from it keep saying what the whole series is for.
@@ -391,6 +424,7 @@ public sealed class TicketAmendmentTests : IDisposable
             tracker, new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources(), mocks: mocks),
+            new TicketDescriptionRewrite(tracker, NullLogger<TicketDescriptionRewrite>.Instance),
             NullLogger<TicketAmendment>.Instance);
 
     private ActiveRunRepository Leases() => new(
@@ -461,10 +495,10 @@ public sealed class TicketAmendmentTests : IDisposable
         private sealed class Rewriter(FakeTracker owner) : ITicketRewriter
         {
             public Task<TicketRewriteResult> RewriteRegionAsync(
-                TicketId ticketId, string region, CancellationToken cancellationToken)
+                TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
             {
                 if (!owner.Answer.Rewritten) return Task.FromResult(owner.Answer);
-                if (FramedTicketRegion.Replace(owner.Description, region) is not { } rewritten)
+                if (FramedTicketRegion.Replace(owner.Description, region, placement) is not { } rewritten)
                     return Task.FromResult(TicketRewriteResult.Unsupported("no region"));
                 owner.Regions.Add(region);
                 owner.Description = rewritten;

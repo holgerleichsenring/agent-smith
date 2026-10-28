@@ -22,7 +22,7 @@ public sealed class GitLabTicketRewriter(
         TicketProviderHttpClient.WithPrivateToken(httpClient, connection.PrivateToken);
 
     public async Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken)
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticketId);
         var url = $"{connection.BaseUrl.TrimEnd('/')}/api/v4/projects/{connection.ProjectPath}"
@@ -31,7 +31,7 @@ public sealed class GitLabTicketRewriter(
         {
             using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken);
             if (doc is null) return TicketRewriteResult.Failed($"GitLab has no issue {ticketId.Value}.");
-            if (FramedTicketRegion.Replace(Description(doc), region) is not { } rewritten)
+            if (FramedTicketRegion.Replace(Description(doc), region, placement) is not { } rewritten)
                 return TicketRewriteResult.Unsupported(TicketRegionRefusal.NoRegion);
             logger.LogInformation(
                 "TICKET WRITE #{Ticket}: issue description region <- {Caller}",

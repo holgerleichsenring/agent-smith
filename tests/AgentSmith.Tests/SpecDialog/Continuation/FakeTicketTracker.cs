@@ -35,7 +35,7 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
 
     private sealed class Rewriter(FakeTicketTracker owner) : ITicketRewriter
     {
-        public Task<TicketRewriteResult> RewriteRegionAsync(TicketId ticketId, string region, CancellationToken cancellationToken)
+        public Task<TicketRewriteResult> RewriteRegionAsync(TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
         {
             if (owner.Rewrite.Rewritten) owner.Regions.Add(region);
             return Task.FromResult(owner.Rewrite);

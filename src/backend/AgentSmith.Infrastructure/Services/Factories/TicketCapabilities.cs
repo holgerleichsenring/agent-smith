@@ -22,9 +22,8 @@ internal sealed class TicketCapabilities(
     ILoggerFactory loggerFactory)
 {
     /// <summary>
-    /// 2026-09-25-8e51e: the same connections, built for the one write that reads first. Jira
-    /// answers with a refusal that names the round trip rather than with nothing — see
-    /// <see cref="JiraTicketRewriter"/>.
+    /// 2026-09-25-8e51e: the same connections, built for the one write that reads first.
+    /// 2026-10-28-7a69b: Jira writes the region inside its stored document — see <see cref="JiraTicketRewriter"/>.
     /// </summary>
     public ITicketRewriter Rewriter(TrackerConnection config) => config.Type switch
     {
@@ -32,7 +31,8 @@ internal sealed class TicketCapabilities(
             connections.AzureDevOps(config), loggerFactory.CreateLogger<AzureDevOpsTicketRewriter>()),
         TrackerType.GitHub => new GitHubTicketRewriter(
             connections.GitHub(config), loggerFactory.CreateLogger<GitHubTicketRewriter>()),
-        TrackerType.Jira => new JiraTicketRewriter(),
+        TrackerType.Jira => new JiraTicketRewriter(
+            connections.Jira(config), httpClientFactory.CreateClient(), loggerFactory.CreateLogger<JiraTicketRewriter>()),
         TrackerType.GitLab => new GitLabTicketRewriter(
             connections.GitLab(config), httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitLabTicketRewriter>()),

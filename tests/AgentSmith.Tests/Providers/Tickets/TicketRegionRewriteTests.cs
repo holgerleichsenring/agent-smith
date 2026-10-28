@@ -55,6 +55,23 @@ public sealed class TicketRegionRewriteTests
         FramedTicketRegion.Marked(filedBefore).Should().BeFalse();
     }
 
+    /// <summary>2026-10-28-7a69b: a person's ticket takes the region below its text, and an empty one is the region.</summary>
+    [Fact]
+    public void Region_UnmarkedBodyWithAppend_KeepsTheBodyAndAddsTheRegion()
+    {
+        var region = FramedTicketRegion.Wrap(Rendered);
+
+        FramedTicketRegion.Replace("Please fix the widget.\n\n", region, RegionPlacement.ReplaceOrAppend)
+            .Should().Be($"Please fix the widget.\n\n{region}");
+        FramedTicketRegion.Replace(null, region, RegionPlacement.ReplaceOrAppend).Should().Be(region);
+    }
+
+    /// <summary>2026-10-28-7a69b: a marker left without its partner is the framework's text somewhere — never a second region.</summary>
+    [Fact]
+    public void Region_DamagedPairWithAppend_IsRefused() =>
+        FramedTicketRegion.Replace($"Please fix it.\n\n{FramedTicketRegion.Begin}\n\nold text", FramedTicketRegion.Wrap(Rendered),
+            RegionPlacement.ReplaceOrAppend).Should().BeNull();
+
     /// <summary>A half-deleted pair is ordinary prose, the way the label note's stripper reads
     /// one: the alternative is a heuristic over text a person edited.</summary>
     [Fact]
@@ -110,24 +127,6 @@ public sealed class TicketRegionRewriteTests
         AzureDevOpsBodyField.Of(new Dictionary<string, object> { ["System.Title"] = "t" })
             .Should().Be(AzureDevOpsBodyField.Description);
 
-    /// <summary>
-    /// The refusal is the spec's own decision, in code: a Jira description is stored as a
-    /// structured document and read back as text nodes only, so a read-modify-write would send
-    /// back a description with the human half of it destroyed — and silently.
-    /// </summary>
-    [Fact]
-    public async Task Amendment_OnJira_IsRefusedAndSaysWhyTheRoundTripCannotCarryIt()
-    {
-        var result = await new JiraTicketRewriter()
-            .RewriteRegionAsync(new TicketId("DPG-1"), FramedTicketRegion.Wrap(Rendered), default);
-
-        result.Rewritten.Should().BeFalse();
-        result.Outcome.Should().Be(TicketRewriteOutcome.Unsupported,
-            "a tracker that cannot carry the write is not a failure to retry");
-        result.Reason.Should().Contain("structured document")
-            .And.Contain("mentions").And.Contain("flattened",
-                "the operator is told what the round trip would destroy, not that we refused");
-    }
 
     /// <summary>
     /// The filed body IS the region: a filing and an amendment write the same bytes, so a ticket
