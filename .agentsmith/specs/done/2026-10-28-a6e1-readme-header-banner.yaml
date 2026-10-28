@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-a6e1
+goal: "The README opens with an animated loop banner, current badges, navigation and three claims, and its figures match the repository as counted on 2026-10-28."
+
+applies_to: "default (repo docs)"
+
+facts:
+  - claim: "The README opens with a logo image and a .NET 8 badge"
+    evidence: "README.md:1-10"
+  - claim: "Every project targets net10.0"
+    evidence: "src/backend/AgentSmith.Server/AgentSmith.Server.csproj"
+  - claim: "The figures table still shows 1,229 specs and 10,301 tests"
+    evidence: "README.md:68-76"
+
+scope:
+  in: "README header, docs/assets/readme-banner.svg, the figures table"
+  out: "the docs page that explains how the figures were counted; the rest of the README"
+
+decisions:
+  - key: "SVG with SMIL animation, system fonts only: GitHub renders it as an image, so no web fonts and no script"
+  - key: "Badges round to 10,000+ tests and 1,300+ specs so they stay true between releases"
+
+steps:
+  - id: banner
+    action: "docs/assets/readme-banner.svg: ticket, spec, review, sandboxes, gate, pull request with a moving pulse; reduced motion hides the pulse"
+  - id: header
+    action: "Centered header: banner, one line, badges, navigation; a three-column table of claims"
+  - id: figures
+    action: "Specs 1,332, decisions 6,806, C# lines 743,663, tests 10,944, gate stops 111 of 660"
+
+upgrade_impact: "none: documentation only"
+proven_live: "GitHub's rendering is checked on the merged README"
+
+tests:
+  - "full suite green in the spec gate"
+
+done:
+  - "README header and figures match the mock approved on 2026-10-28"

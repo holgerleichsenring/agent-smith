@@ -1,15 +1,22 @@
-# Agent Smith — the agentic software factory
+<div align="center">
 
-> **From ticket to spec to verified PR.**
-> Every run shows its cost. Every change comes with the reasoning the agent followed.
+<a href="https://agent-smith.org"><img src="docs/assets/readme-banner.svg" alt="Agent Smith: a ticket becomes a spec, the spec is reviewed, built in sandboxes, passes the gate and arrives as a pull request" width="100%"></a>
 
-[![Agent Smith](docs/agent-smith-logo-large-green.png)](https://docs.agent-smith.org)
+### The agentic software factory. Open source, on your infrastructure.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com)
-[![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](Dockerfile)
+[![License: MIT](https://img.shields.io/badge/license-MIT-dfb317.svg)](LICENSE)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512bd4.svg)](https://dotnet.microsoft.com)
+[![Release](https://img.shields.io/github/v/release/holgerleichsenring/agent-smith?color=2ea44f)](https://github.com/holgerleichsenring/agent-smith/releases)
+[![Tests](https://img.shields.io/badge/tests-10%2C000%2B-2ea44f.svg)](tests/)
+[![Specs](https://img.shields.io/badge/specs-1%2C300%2B%20done-0969da.svg)](.agentsmith/specs/done/)
 
-**[Website](https://agent-smith.org)** · **[Docs](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Blog](https://codingsoul.org)**
+**[Website](https://agent-smith.org)** · **[Docs](https://docs.agent-smith.org)** · **[Install](#install)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[How it was built](#built-by-the-method-it-teaches)**
+
+</div>
+
+| Ticket to PR | Proved, not trusted | Your stack |
+|---|---|---|
+| Reads the ticket, writes a spec, builds it in sandboxes and opens one pull request per repo, cross-linked. | A separate reader checks every done criterion and cites what on the branch proves it. | Azure DevOps, Jira, GitHub, GitLab. Claude, OpenAI, Gemini, Ollama. CLI, Docker Compose or Kubernetes. |
 
 ---
 
@@ -66,13 +73,13 @@ Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, spec
 
 |  |  |
 |---|---|
-| **1,229** | completed specs, each specified before a line of code existed |
-| **6,908** | recorded decisions, each naming the alternative it beat |
-| **699,551** | lines of C# across 6,966 files |
-| **10,301** | automated tests, gating every single commit |
-| **~750 h** | of human time, roughly 37 minutes per completed spec |
+| **1,332** | completed specs, each specified before a line of code existed |
+| **6,806** | recorded decisions, each naming the alternative it beat |
+| **743,663** | lines of C# |
+| **10,944** | automated tests, run on every spec commit |
+| **1 in 6** | specs stopped by the commit gate at least once (111 of 660 since the gate's ledger started on 2026-08-24) |
 
-Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 10,301 tests, four CLI dry runs and every harness preset come back green. CI would have told us about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
+Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 10,944 tests, four CLI dry runs and every harness preset come back green. CI would have told us about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
 The `principles.md` we built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
