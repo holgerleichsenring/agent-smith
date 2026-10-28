@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.174.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.173.0...v0.174.0) (2026-10-28)
+
+
+### Features
+
+* a Jira tracker answers for its own project's tickets, so a ticket link and a webhook reach the tracker that holds it (2026-10-28-7a69a) ([70443ed](https://github.com/holgerleichsenring/agent-smith/commit/70443ed475b11722ee8e364d70f85c3d86e492f9))
+* a Jira tracker names its project key, so a filed ticket has a project to land in (2026-10-27-a4e3) ([cc80304](https://github.com/holgerleichsenring/agent-smith/commit/cc80304f3c4b6c3965840014710e97b9025a302a))
+* a Jira tracker names its project key, so a filed ticket has a project to land in (2026-10-27-a4e3) ([195ecb0](https://github.com/holgerleichsenring/agent-smith/commit/195ecb0bfbfd76056a803535196af32f43b3fa80))
+* a ticket's conversation can end in a comment the person approves, posted on the ticket with nothing started (2026-10-28-7a69c) ([cbc415f](https://github.com/holgerleichsenring/agent-smith/commit/cbc415fba5617686f752752641b93bfc5b97ea4d))
+* an approval in a ticket's conversation writes the specification into the description on Jira too, and onto a ticket a person wrote (2026-10-28-7a69b) ([f5b75be](https://github.com/holgerleichsenring/agent-smith/commit/f5b75bed8e72ad92da2a64b74e47acf8346473a6))
+* GA4 behind a consent banner on agent-smith.org ([e78ef6c](https://github.com/holgerleichsenring/agent-smith/commit/e78ef6c85aea74b3a82cc6eb00f1b21645ed14e4))
+* GA4 behind a consent banner on agent-smith.org, off until the legal details are set (2026-10-27-258f) ([8e708ec](https://github.com/holgerleichsenring/agent-smith/commit/8e708ec8ea758c41abe21c26771db9d613c638b5))
+* PostgreSQL persistence provider (2026-10-28-ebb0) ([42c8e27](https://github.com/holgerleichsenring/agent-smith/commit/42c8e279e9f91970d76bd1cbf6fb37b82175174d))
+* PostgreSQL persistence provider with its own migration set (2026-10-28-ebb0) ([b46e000](https://github.com/holgerleichsenring/agent-smith/commit/b46e0003033a90a7d01cbe5b3ffc20adab1961d9))
+* the embedded skills catalog moves to v5.22.0, so in a ticket's conversation the design partner judges the ticket and can end in a comment (2026-10-28-7a69d) ([42ef2a2](https://github.com/holgerleichsenring/agent-smith/commit/42ef2a24c40b937a7c22d012579aa89700bc601c))
+* Work it out on an existing Jira ticket ends in an enriched, startable ticket or a comment (2026-10-28-7a69) ([a2f8c6b](https://github.com/holgerleichsenring/agent-smith/commit/a2f8c6bedfb23c8eb6f1cb79c80165d9fb567ea1))
+
+
+### Bug Fixes
+
+* the approved-ticket clause of the poll never admits a ticket in a parking status (2026-10-28-99ba) ([c4c4213](https://github.com/holgerleichsenring/agent-smith/commit/c4c42132c83f644ffb62f16cafcf176beb121c1b))
+* the poll's approved-ticket clause never admits a ticket in a parking status (2026-10-28-99ba) ([a2be2e3](https://github.com/holgerleichsenring/agent-smith/commit/a2be2e33fab4d29f077a163d03f40dda08c2e724))
+
 ## [0.173.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.172.0...v0.173.0) (2026-10-26)
 
 
