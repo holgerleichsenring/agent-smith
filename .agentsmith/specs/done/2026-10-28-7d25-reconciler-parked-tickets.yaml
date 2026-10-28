@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-7d25
+goal: "A ticket whose run is parked on a question is not an orphan, so the reconciler no longer re-enqueues it every ten minutes."
+
+applies_to: "default (TakenTicketRepository, EnqueuedReconciler)"
+
+requires: [2026-09-25-b4d9]
+
+facts:
+  - claim: "Ticket 19443 got a new attempt every ten minutes from 08:38 to 15:18 on 2026-10-28, each one cancelled about ten seconds after the next one started; 19527 shows the same cadence on 2026-10-22."
+    evidence: "observed: 2026-10-28, SELECT on Runs of the operator's database"
+  - claim: "The server log shows the reconciler re-enqueuing 19443 one second before each new attempt, which hands back and parks again thirty seconds later."
+    evidence: "observed: 2026-10-28, server log 09:58:15 'Reconciler re-enqueued orphan taken ticket …/19443 (pipeline code)', 09:58:46 'handed back (SpecificationMissingFromBranch) — parked in Needs-Info'"
+  - claim: "The reconciler runs every ten minutes and re-enqueues every reconcilable taken-ticket record that has no fresh lease."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:33, src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:58, src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:85, src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:93"
+  - claim: "A parked run releases its lease but keeps FinishedAt null, so its taken-ticket record is never cleared."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:250, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:43, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:75"
+  - claim: "The reconcilable list filters on the record's own state only."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TakenTicketRepository.cs:36, src/backend/AgentSmith.Contracts/Services/ITakenTicketStore.cs:19"
+
+scope:
+  in: >
+    ListReconcilableAsync leaves out a record whose NEWEST run of the record's own pipeline is in waiting_for_input with
+    FinishedAt null and no cancel requested. The record stays; when the answer resumes the run, or the park is
+    cancelled or superseded, the record is reconcilable or cleared as before. An older park does not hide a newer attempt
+    that crashed, and a parked derivation does not hide the code run's record.
+  out: >
+    Capacity-queued runs (the other waiting status) — owned by QueuedRunSweeper and not observed looping. The DB-free
+    store, where no reconciler runs.
+
+decisions:
+  - key: "THE PARK HOLDS THE RECORD. A parked ticket waits on a person; the answer path relaunches it. Clearing the record at park would leave a resumed run that crashes with nothing to recover it from."
+
+steps:
+  - id: query
+    action: "TakenTicketRepository.ListReconcilableAsync excludes tickets with a parked run; ITakenTicketStore doc names the park."
+  - id: tests
+    action: "Red then green for the tests below; build; affected classes."
+
+tests:
+  - "TakenTicketRecordTests.ListReconcilable_ATicketParkedOnAQuestion_IsLeftToItsAnswer"
+  - "TakenTicketRecordTests.ListReconcilable_AParkThatWasCancelled_HandsTheRecordBack"
+  - "TakenTicketRecordTests.ListReconcilable_ANewerUnparkedAttempt_IsReconcilable"
+  - "TakenTicketRecordTests.ListReconcilable_AParkedDerivation_DoesNotHideTheCodeRecord"
+
+done:
+  - "A taken ticket whose run is waiting_for_input is not in the reconciler's candidates."
+  - "Build green, full suite green, dashboard gen/test/build green."

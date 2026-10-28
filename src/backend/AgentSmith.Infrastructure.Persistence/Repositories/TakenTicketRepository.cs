@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -31,11 +32,22 @@ public sealed class TakenTicketRepository(IUnitOfWork unitOfWork)
     public async Task ClearAsync(string project, string ticketId, CancellationToken ct) =>
         await RowsFor(project, ticketId).ExecuteDeleteAsync(ct);
 
-    public async Task<IReadOnlyList<TakenTicketFact>> ListReconcilableAsync(CancellationToken ct) =>
-        await unitOfWork.Set<TakenTicket>().AsNoTracking()
+    // 2026-10-28-7d25: a ticket whose latest attempt is parked on a question gave its lease back and
+    // kept its record; it waits on a person, not on a re-enqueue, so the answer path holds it. Only
+    // the newest run of the record's own pipeline counts: an older park, or a parked derivation,
+    // must not hide an attempt that crashed.
+    public async Task<IReadOnlyList<TakenTicketFact>> ListReconcilableAsync(CancellationToken ct)
+    {
+        var runs = unitOfWork.Set<Run>().AsNoTracking();
+        return await unitOfWork.Set<TakenTicket>().AsNoTracking()
             .Where(t => t.State == (int)TakenTicketState.Taken)
+            .Where(t => !runs
+                .Where(r => r.Project == t.Project && r.TicketId == t.TicketId && r.Pipeline == t.Pipeline)
+                .OrderByDescending(r => r.Id).Take(1)
+                .Any(r => r.FinishedAt == null && !r.CancelRequested && r.Status == RunStatuses.WaitingForInput))
             .Select(t => new TakenTicketFact(t.Project, t.TicketId, t.Platform, t.Pipeline))
             .ToListAsync(ct);
+    }
 
     public async Task<bool> TryBeginReapAsync(string project, string ticketId, CancellationToken ct)
     {
