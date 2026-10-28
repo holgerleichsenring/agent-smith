@@ -5,10 +5,11 @@
     <ProjectReference Include="..\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
     <!-- `database migrate` only — the scan/fix one-shot commands stay DB-free. -->
     <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
-    <!-- Provider-specific migration set, resolved by name at `database migrate`
-         time when persistence.provider = sqlserver (UseProvider names it as the
-         MigrationsAssembly). Referenced so the assembly is present at runtime. -->
+    <!-- Provider-specific migration sets, resolved by name at `database migrate`
+         time when persistence.provider = sqlserver / postgresql (UseProvider names
+         them as the MigrationsAssembly). Referenced so they are present at runtime. -->
     <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.SqlServer\AgentSmith.Infrastructure.Persistence.SqlServer.csproj" />
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.Postgresql\AgentSmith.Infrastructure.Persistence.Postgresql.csproj" />
   </ItemGroup>
 
   <ItemGroup>

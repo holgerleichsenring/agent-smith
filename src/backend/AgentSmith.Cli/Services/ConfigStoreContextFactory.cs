@@ -23,7 +23,8 @@ internal sealed class ConfigStoreContextFactory
         var options = new PersistenceOptions { Provider = provider, ConnectionString = persistence.ConnectionString };
         var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
         builder.UseProvider(options);
-        if (provider != PersistenceProvider.Sqlite)
+        // Same rule as DatabaseCommand: the guard stays on where the snapshot matches the model.
+        if (provider is not (PersistenceProvider.Sqlite or PersistenceProvider.Postgresql))
             builder.ConfigureWarnings(w =>
                 w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         return new AgentSmithDbContext(builder.Options);

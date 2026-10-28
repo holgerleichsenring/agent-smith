@@ -10,8 +10,8 @@ namespace AgentSmith.Tests.Persistence;
 
 /// <summary>
 /// Guards the provider switch in <see cref="PersistenceOptionsExtensions.UseProvider"/>.
-/// SQL Server can't share the SQLite-generated migration set (baked TEXT column
-/// types), so it must resolve its dedicated migrations assembly — this asserts
+/// SQL Server and PostgreSQL can't share the SQLite-generated migration set (baked
+/// column types), so each must resolve its dedicated migrations assembly — this asserts
 /// that wiring so a refactor can't silently drop it and send `database migrate`
 /// back to the shared set.
 /// </summary>
@@ -39,6 +39,18 @@ public sealed class ProviderWiringTests
         migrationsAssembly.Should().Be(
             "AgentSmith.Infrastructure.Persistence.SqlServer",
             "SQL Server must apply its own migration set, not the shared SQLite-typed one");
+    }
+
+    [Fact]
+    public void UseProvider_Postgresql_TargetsDedicatedMigrationsAssembly()
+    {
+        using var ctx = BuildContext(PersistenceProvider.Postgresql);
+
+        var migrationsAssembly = ctx.GetService<IMigrationsAssembly>().Assembly.GetName().Name;
+
+        migrationsAssembly.Should().Be(
+            "AgentSmith.Infrastructure.Persistence.Postgresql",
+            "PostgreSQL must apply its own migration set, not the shared SQLite-typed one");
     }
 
     [Fact]

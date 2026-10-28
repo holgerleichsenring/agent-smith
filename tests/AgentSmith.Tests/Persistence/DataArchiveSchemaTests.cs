@@ -41,6 +41,20 @@ public sealed class DataArchiveSchemaTests : IDisposable
                 "the ids differ, which is exactly why the NAME is what is compared");
     }
 
+    /// <summary>
+    /// 2026-10-28-ebb0: the PostgreSQL set starts from one baseline named after the head it
+    /// reproduces, so an archive written by either other provider is accepted by it.
+    /// </summary>
+    [Fact]
+    public void Manifest_ThePostgresSchemaHead_ComparesEqualToTheOthers()
+    {
+        var head = new MigrationHeadName();
+
+        head.Of(Migrations(PersistenceProvider.Postgresql))
+            .Should().Be(head.Of(Migrations(PersistenceProvider.Sqlite)))
+            .And.Be(head.Of(Migrations(PersistenceProvider.SqlServer)));
+    }
+
     [Fact]
     public void MigrationHeadName_TheNewestId_LosesItsProviderLocalPrefix()
     {
@@ -236,9 +250,12 @@ public sealed class DataArchiveSchemaTests : IDisposable
         builder.UseProvider(new PersistenceOptions
         {
             Provider = provider,
-            ConnectionString = provider == PersistenceProvider.Sqlite
-                ? "Data Source=:memory:"
-                : "Server=localhost;Database=x;TrustServerCertificate=True",
+            ConnectionString = provider switch
+            {
+                PersistenceProvider.Sqlite => "Data Source=:memory:",
+                PersistenceProvider.Postgresql => "Host=localhost;Database=x",
+                _ => "Server=localhost;Database=x;TrustServerCertificate=True",
+            },
         });
         using var db = new AgentSmithDbContext(builder.Options);
         return [.. db.Database.GetMigrations().OrderBy(id => id, StringComparer.Ordinal)];

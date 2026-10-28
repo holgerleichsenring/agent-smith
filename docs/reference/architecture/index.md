@@ -52,7 +52,7 @@ Sandbox.Wire ← Sandbox.Agent
 - **Application** references Contracts and Domain only. It holds no external SDK.
 - **Infrastructure.Core** references Contracts and implements what needs no external service: configuration loading, secrets, the skill catalog.
 - **Infrastructure** references Infrastructure.Core and implements the Contracts interfaces with external SDKs.
-- **Infrastructure.Persistence** references Contracts and holds the relational store. SQL Server migrations live in their own assembly.
+- **Infrastructure.Persistence** references Contracts and holds the relational store. SQL Server and PostgreSQL migrations live in their own assemblies.
 - **Cli** and **Server** are the two hosts. Each wires the layers together through dependency injection.
 
 ## Key patterns

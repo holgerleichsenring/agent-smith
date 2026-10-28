@@ -14,14 +14,15 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// provider maps an unbounded byte array to its own large binary type.
 /// </para>
 /// <para>
-/// THE IDENTITY STARTS AT <see cref="ReferenceFileIdentity.Seed"/>. SQL Server carries the seed
-/// in its own model and migration, so it is declared here for that provider only; the shared set
-/// seeds it per provider in its migration, which is the one place that set can say it.
+/// THE IDENTITY STARTS AT <see cref="ReferenceFileIdentity.Seed"/>. SQL Server and PostgreSQL carry
+/// the seed in their own model and migration, so it is declared here for those providers only; the
+/// shared set seeds it per provider in its migration, which is the one place that set can say it.
 /// </para>
 /// </summary>
 public sealed class ReferenceFileConfiguration(string? providerName) : IEntityTypeConfiguration<ReferenceFile>
 {
     private const string SqlServerProvider = "Microsoft.EntityFrameworkCore.SqlServer";
+    private const string NpgsqlProvider = "Npgsql.EntityFrameworkCore.PostgreSQL";
 
     public void Configure(EntityTypeBuilder<ReferenceFile> builder)
     {
@@ -29,6 +30,8 @@ public sealed class ReferenceFileConfiguration(string? providerName) : IEntityTy
         builder.HasKey(f => f.Id);
         if (providerName == SqlServerProvider)
             builder.Property(f => f.Id).UseIdentityColumn(ReferenceFileIdentity.Seed, 1);
+        if (providerName == NpgsqlProvider)
+            builder.Property(f => f.Id).HasIdentityOptions(startValue: ReferenceFileIdentity.Seed);
         builder.Property(f => f.SessionId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(f => f.SetId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(f => f.Kind).HasMaxLength(ReferenceFileKind.MaxLength);

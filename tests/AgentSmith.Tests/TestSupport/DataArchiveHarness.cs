@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Extensions;
@@ -54,6 +56,29 @@ internal sealed class DataArchiveHarness : IDisposable
         }
 
         return snapshot;
+    }
+
+    /// <summary>
+    /// 2026-10-28-ebb0: <paramref name="snapshot"/> as PostgreSQL can hold it. timestamptz stores
+    /// an instant at microsecond resolution — no offset, no 100 ns ticks — so every timestamp is
+    /// brought to UTC and cut to the microsecond before two snapshots are compared. Nothing else
+    /// is loosened: a value that is not a timestamp still has to match character for character.
+    /// </summary>
+    internal static Dictionary<string, List<string>> AtPostgresResolution(Dictionary<string, List<string>> snapshot) =>
+        snapshot.ToDictionary(
+            table => table.Key,
+            table => table.Value.Select(row => Timestamp.Replace(row, m => '"' + Microseconds(m.Groups[1].Value) + '"'))
+                .Order(StringComparer.Ordinal).ToList(),
+            StringComparer.Ordinal);
+
+    private static readonly Regex Timestamp = new(
+        @"""(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|(?:\+|\\u002B|-)\d{2}:\d{2}))""",
+        RegexOptions.Compiled);
+
+    private static string Microseconds(string stored)
+    {
+        var instant = DateTimeOffset.Parse(stored.Replace("\\u002B", "+"), CultureInfo.InvariantCulture).ToUniversalTime();
+        return instant.AddTicks(-(instant.Ticks % TimeSpan.TicksPerMicrosecond)).ToString("O", CultureInfo.InvariantCulture);
     }
 
     internal static IEnumerable<IEntityType> Tables(AgentSmithDbContext db) =>

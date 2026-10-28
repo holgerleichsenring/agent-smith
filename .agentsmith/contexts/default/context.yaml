@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-10-28-ebb0: "POSTGRESQL PROVIDER (Persistence, Persistence.Postgresql, CLI, Server). Own Npgsql migration set (baseline named after the head), UTC timestamps and NUL scrub on Postgres only, archive sequence advance, opt-in live tests; server and dashboard proven on Postgres 17. -> .agentsmith/specs/done/2026-10-28-ebb0-persistence-postgresql-provider.yaml"
     2026-10-26-af69: "DERIVATIONS IN THE TICKET LIST COST (TicketListQuery, TicketSummaryComposer, TicketListReader, TicketDetailReader). The summary cost of list, graph and detail adds the ticket's spec derivations from one scoped query, never-run rows included; bucket and attempts stay code. Follows 7000. -> .agentsmith/specs/done/2026-10-26-af69-ticket-list-derivation-cost.yaml"
     2026-10-26-7000c: "DERIVATIONS IN DELIVERY SPEND (DeliveryRunWindow, DeliveryAttemptRepository, DeliveryDerivation, figures, project and ticket rows). Spend, cost per merged PR, agent hours and a ticket row's cost and time include in-scope spec derivations; counts, rates, causes and bars stay attempts. -> .agentsmith/specs/done/2026-10-26-7000c-delivery-spend-derivations.yaml"
     2026-10-26-7000b: "DERIVATIONS IN THE TICKET COST (dashboard CostSection, ticketTabTable, ticketFormat.ticketCost). Cost & compute has a Spec derivations line, no bar, and its total and tab counter include them; attempt rows, Compute and the list row stay attempts. -> .agentsmith/specs/done/2026-10-26-7000b-ticket-cost-derivations.yaml"
@@ -1357,6 +1358,7 @@ state:
     2026-10-26-ad46: "FLAKY TESTS SETTLE (tests). DashboardDialogChannelTests.SendAsync waits on the dispatched work, not just the reply push, so it never reads the session while the turn still writes it; the mock-parity cost-tab check waits until every class is drawn. -> .agentsmith/specs/done/2026-10-26-ad46-flaky-test-settle.yaml"
   active: {}
   planned:
+    2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"

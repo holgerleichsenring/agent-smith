@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-ebb0
+
+decisions:
+  - category: Architecture
+    chose: "A dedicated migrations assembly AgentSmith.Infrastructure.Persistence.Postgresql, selected by name in UseProvider"
+    over: "Keeping PostgreSQL on the shared SQLite-generated set"
+    reason: "The shared set types bool as INTEGER and DateTimeOffset as TEXT, and its keys carry Sqlite:Autoincrement, which Npgsql ignores, so no key would be generated. Same root cause and same answer as p0346."
+  - category: Data
+    chose: "One baseline migration named AddMemoryEvidence, after the head it reproduces"
+    over: "A baseline called Initial, or replaying the whole history under Npgsql"
+    reason: "No PostgreSQL database was ever migrated by a working set, so there is no history to keep. ArchiveSchemaCheck compares head NAMES across providers; an Initial would refuse every archive from SQLite or SQL Server until the next migration. The data Sql() steps of the other sets rewrite rows that a fresh baseline never has."
+  - category: Data
+    chose: "On Npgsql every DateTimeOffset column converts to UTC on write (UtcTimestampConfiguration, applied last in OnModelCreating)"
+    over: "Normalising at each writer, or an interceptor over parameters"
+    reason: "Npgsql refuses a non-zero offset for timestamptz. The live archive test failed on it, and production paths keep foreign offsets (Jira status history, payload act times). A model-level converter covers every column, including ones added later, and query parameters compared to those columns; the other providers keep their offsets and snapshots."
+  - category: Reliability
+    chose: "A command interceptor replaces NUL in string parameters with U+FFFD, registered by UseProvider for PostgreSQL only"
+    over: "A value converter on every string property, or leaving NUL to fail the write"
+    reason: "PostgreSQL text cannot hold NUL; tool output can. A converter would touch every column, the LINQ translation of string methods and the model; the interceptor touches only the bytes sent, and the replacement character marks the loss."
+  - category: Data
+    chose: "The archive moves the PostgreSQL identity sequence with setval(pg_get_serial_sequence) and needs no insert switch"
+    over: "OVERRIDING SYSTEM VALUE inserts or an identity switch like SQL Server's"
+    reason: "Npgsql's default IdentityByDefault columns accept explicit keys; only the sequence has to be moved past them. The ReferenceFiles identity starts at the legacy seed via HasIdentityOptions, and the advancer respects that seed as it does on SQL Server."
+  - category: Testing
+    chose: "The SQLite-to-PostgreSQL archive round trip compares timestamps as UTC instants cut to the microsecond; everything else character for character"
+    over: "Exact snapshot equality, or dropping timestamps from the comparison"
+    reason: "timestamptz stores an instant at microsecond resolution, so offset and 100 ns ticks cannot survive; that loss is documented in data-archive.md. Every other value still has to match exactly."
+  - category: Testing
+    chose: "Live tests opt in through AGENTSMITH_TEST_PG_CONNSTR and skip with a reason otherwise; each creates and drops its own database"
+    over: "Testcontainers in the suite, or reusing AGENTSMITH_TEST_DB_CONNSTR"
+    reason: "Same contract as the SQL Server leg; the gate needs no Docker. That variable already means a SQL Server, and one variable with two meanings is the trap ScratchSqlServer was written to remove."
+  - category: Testing
+    chose: "The SQL Server and PostgreSQL legs of StoredSpecNameRewriteTests clear the change tracker between seeding and rewriting"
+    over: "Leaving the SQL Server leg as it was"
+    reason: "The rewrite renames event types with ExecuteUpdate, which the tracker never sees; a tracked seed row hands the payload pass its stale type name. The PostgreSQL leg failed on exactly this, and the SQL Server leg has the same shape (not run here: no SQL Server is handed to this session)."
+  - category: Scope
+    chose: "The CLI keeps the pending-model-changes guard on for PostgreSQL; MySQL stays out of scope"
+    over: "Suppressing the warning for every non-SQLite provider as before, or fixing MySQL too"
+    reason: "PostgreSQL's snapshot is generated against the current model, so the guard is real there. MySQL still runs the SQLite-typed shared set and needs a spec of its own if anyone runs it."

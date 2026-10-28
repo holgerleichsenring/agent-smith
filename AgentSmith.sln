@@ -39,6 +39,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.SkillsPackaging"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure.Persistence.SqlServer", "src\backend\AgentSmith.Infrastructure.Persistence.SqlServer\AgentSmith.Infrastructure.Persistence.SqlServer.csproj", "{B35331D2-1F22-4D74-8F73-6B1B0297DA7D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure.Persistence.Postgresql", "src\backend\AgentSmith.Infrastructure.Persistence.Postgresql\AgentSmith.Infrastructure.Persistence.Postgresql.csproj", "{03308FF0-DA10-45CD-8E28-8F43428DA813}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -229,6 +231,18 @@ Global
 		{B35331D2-1F22-4D74-8F73-6B1B0297DA7D}.Release|x64.Build.0 = Release|Any CPU
 		{B35331D2-1F22-4D74-8F73-6B1B0297DA7D}.Release|x86.ActiveCfg = Release|Any CPU
 		{B35331D2-1F22-4D74-8F73-6B1B0297DA7D}.Release|x86.Build.0 = Release|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Debug|x64.Build.0 = Debug|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Debug|x86.Build.0 = Debug|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Release|x64.ActiveCfg = Release|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Release|x64.Build.0 = Release|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Release|x86.ActiveCfg = Release|Any CPU
+		{03308FF0-DA10-45CD-8E28-8F43428DA813}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -250,5 +264,6 @@ Global
 		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0} = {FE360695-3F2B-1049-3887-35FBB5135923}
 		{CAC4DBF0-719B-4FE3-B38E-2CFB86D2375D} = {FE360695-3F2B-1049-3887-35FBB5135923}
 		{B35331D2-1F22-4D74-8F73-6B1B0297DA7D} = {FE360695-3F2B-1049-3887-35FBB5135923}
+		{03308FF0-DA10-45CD-8E28-8F43428DA813} = {FE360695-3F2B-1049-3887-35FBB5135923}
 	EndGlobalSection
 EndGlobal
