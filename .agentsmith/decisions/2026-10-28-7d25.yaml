@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-7d25
+
+decisions:
+  - category: Architecture
+    chose: "The reconcilable list leaves out a record whose newest run of its pipeline is parked on a question"
+    over: "Clearing the taken-ticket record when the run parks"
+    reason: |
+      A park waits on a person and the answer path relaunches it onto the same row. Cleared at park, a resumed run that
+      crashes would have no record left to be recovered from; kept and filtered, it becomes reconcilable again the
+      moment the resume moves the row out of waiting_for_input.
+  - category: Architecture
+    chose: "Only the newest run of the record's own pipeline decides"
+    over: "Any parked run of the ticket"
+    reason: |
+      Adversarial review: the superseded closer only reaches an old park once a newer attempt has a step, so an older
+      park must not hide a newer attempt that crashed before its first step; and a parked spec-derive run never took the
+      ticket up, so it must not hide the code run's record.

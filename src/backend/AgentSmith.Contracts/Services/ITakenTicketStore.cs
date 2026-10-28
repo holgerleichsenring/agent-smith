@@ -17,7 +17,8 @@ public interface ITakenTicketStore
 
     /// <summary>
     /// Every record no other loop is holding: the reconciler's candidates, found without
-    /// asking any tracker for a lifecycle label.
+    /// asking any tracker for a lifecycle label. A ticket parked on a question is held by its
+    /// answer, not by this list.
     /// </summary>
     Task<IReadOnlyList<TakenTicketFact>> ListReconcilableAsync(CancellationToken cancellationToken);
 
