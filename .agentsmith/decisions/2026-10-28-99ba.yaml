@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-99ba
+
+decisions:
+  - category: Architecture
+    chose: "The approved-ids clause carries the parking-status exclusion in WIQL and JQL"
+    over: "Leaving the ids OR'd beside the whole query"
+    reason: |
+      c1f7 admits a ticket whose stamp was deleted, so the ids replace the label guard; nothing needs a ticket in a
+      parking status, which the in-process status filter refuses anyway. Unbounded, every failed approved ticket
+      (8 on the operator's tracker) was fetched and skipped on every poll.
+  - category: Architecture
+    chose: "Leave SatisfiedAt to the done path"
+    over: "Satisfying the record on a failed or cancelled run as well"
+    reason: |
+      Under polling a person moving a failed ticket back by hand goes through no rework entry, so the record would stay
+      satisfied and a ticket whose stamp was deleted would never be admitted again. The only gain was the 50-id cap,
+      which 8 outstanding records are far from; the status clause already removes them from the scan.

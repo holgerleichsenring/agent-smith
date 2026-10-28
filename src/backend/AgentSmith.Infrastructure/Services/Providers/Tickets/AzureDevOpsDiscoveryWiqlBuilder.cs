@@ -26,10 +26,10 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilder : IAzureDevOpsDiscoveryWiqlB
         // and broke AzDO reception. Full-tag CONTAINS (not a bare prefix) is AzDO's reliable
         // tag filter; a label-gated ticket that lacks a trigger label is dropped in-process
         // anyway, so this never hides a claimable ticket.
-        if (query.TriggerLabels.Count == 0) return Admitting(routing, query.ApprovedTicketIds);
+        if (query.TriggerLabels.Count == 0) return Admitting(routing, query.ApprovedTicketIds, query.ParkingStatuses);
         var labelGuard = string.Join(" OR ",
             query.TriggerLabels.Select(l => $"[System.Tags] CONTAINS '{Escape(l)}'"));
-        return Admitting($"({routing}) AND ({labelGuard})", query.ApprovedTicketIds);
+        return Admitting($"({routing}) AND ({labelGuard})", query.ApprovedTicketIds, query.ParkingStatuses);
     }
 
     /// <summary>
@@ -43,13 +43,20 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilder : IAzureDevOpsDiscoveryWiqlB
     /// whole poll fail rather than widen it. The stored id is the tracker's own, so on an Azure
     /// DevOps connection every one of them is already a number.
     /// </para>
+    /// <para>
+    /// 2026-10-28-99ba: the ids replace the LABEL, never the status. A ticket in a parking status is
+    /// refused in-process anyway, so naming it only re-fetched every failed approved ticket on every poll.
+    /// </para>
     /// </summary>
-    private static string Admitting(string guarded, IReadOnlyList<string> approvedTicketIds)
+    private static string Admitting(
+        string guarded, IReadOnlyList<string> approvedTicketIds, IReadOnlyList<string> parking)
     {
         var numeric = approvedTicketIds.Where(id => long.TryParse(id, out _)).ToList();
-        return numeric.Count == 0
-            ? guarded
-            : $"({guarded}) OR [System.Id] IN ({string.Join(", ", numeric)})";
+        if (numeric.Count == 0) return guarded;
+        var ids = $"[System.Id] IN ({string.Join(", ", numeric)})";
+        return parking.Count == 0
+            ? $"({guarded}) OR {ids}"
+            : $"({guarded}) OR ({ids} AND [System.State] NOT IN ({StatesList(parking)}))";
     }
 
     private static string BranchClause(

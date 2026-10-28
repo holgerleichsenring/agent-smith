@@ -27,7 +27,7 @@ public sealed class JiraDiscoveryJqlBuilder : IJiraDiscoveryJqlBuilder
         var guarded = query.TriggerLabels.Count == 0
             ? routing
             : $"({routing}) AND labels IN ({LabelList(query.TriggerLabels)})";
-        return Admitting(guarded, query.ApprovedTicketIds);
+        return Admitting(guarded, query.ApprovedTicketIds, query.ParkingStatuses);
     }
 
     /// <summary>
@@ -35,11 +35,20 @@ public sealed class JiraDiscoveryJqlBuilder : IJiraDiscoveryJqlBuilder
     /// query. It cannot be another entry in the label guard: the guard is AND-ed onto the routing
     /// clause, so a list that must ADMIT what the guard excludes has to sit beside it. A ticket
     /// whose stamp somebody deleted is fetched because of this clause and nothing else.
+    /// <para>
+    /// 2026-10-28-99ba: the ids replace the LABEL, never the status. A ticket in a parking status is
+    /// refused in-process anyway, so naming it only re-fetched every failed approved ticket on every poll.
+    /// </para>
     /// </summary>
-    private static string Admitting(string guarded, IReadOnlyList<string> approvedTicketIds) =>
-        approvedTicketIds.Count == 0
-            ? guarded
-            : $"({guarded}) OR key IN ({KeyList(approvedTicketIds)})";
+    private static string Admitting(
+        string guarded, IReadOnlyList<string> approvedTicketIds, IReadOnlyList<string> parking)
+    {
+        if (approvedTicketIds.Count == 0) return guarded;
+        var ids = $"key IN ({KeyList(approvedTicketIds)})";
+        return parking.Count == 0
+            ? $"({guarded}) OR {ids}"
+            : $"({guarded}) OR ({ids} AND status NOT IN ({StatusList(parking)}))";
+    }
 
     private static string KeyList(IReadOnlyList<string> ids) =>
         string.Join(", ", ids.Select(i => $"\"{Escape(i)}\""));
