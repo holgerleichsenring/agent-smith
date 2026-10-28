@@ -34,7 +34,7 @@ public static class TriggerEnvelopeMatch
         ArgumentNullException.ThrowIfNull(trigger);
         ArgumentNullException.ThrowIfNull(envelope);
         var resolution = trigger.ProjectResolution;
-        if (resolution is null) return false;
+        if (resolution is null || !JiraProjectScope.Holds(project, envelope)) return false; // 7a69a
 
         return resolution.Strategy switch
         {

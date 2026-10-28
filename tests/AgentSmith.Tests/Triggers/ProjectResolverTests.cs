@@ -58,6 +58,26 @@ public sealed class ProjectResolverTests
         matches.Select(m => m.ProjectName).Should().BeEquivalentTo(new[] { "alpha", "beta" });
     }
 
+    /// <summary>2026-10-28-7a69a: two Jira trackers on one site, one label — only the tracker holding the key's project matches.</summary>
+    [Fact]
+    public void TagStrategy_JiraTicket_MatchesOnlyTheTrackerOfItsProject()
+    {
+        var config = ConfigWith(
+            ("alpha-team", new TrackerConnection { Name = "alp", Type = TrackerType.Jira, Project = "ALP" },
+                project => project with { JiraTrigger = JiraWithTag("shared") }),
+            ("beta-team", new TrackerConnection { Name = "bet", Type = TrackerType.Jira, Project = "BET" },
+                project => project with { JiraTrigger = JiraWithTag("shared") }));
+
+        var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["shared"], TicketId = "BET-12", Platform = "jira" });
+
+        matches.Should().ContainSingle().Which.ProjectName.Should().Be("beta-team");
+    }
+
+    private static JiraTriggerConfig JiraWithTag(string tag) => new()
+    {
+        ProjectResolution = new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = tag },
+    };
+
     [Fact]
     public void AreaPathStrategy_MatchesExactPath()
     {

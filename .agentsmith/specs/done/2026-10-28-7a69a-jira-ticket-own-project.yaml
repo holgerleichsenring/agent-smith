@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-7a69a
+goal: "A Jira tracker answers for its own project's tickets only, so a ticket link resolves to the tracker that holds it when several Jira trackers share a site."
+
+applies_to: "default (infrastructure, tests)"
+
+requires: [2026-10-27-a4e3]
+
+facts:
+  - claim: "A ticket named without a project is found by asking every tracker in turn; the first that returns it binds it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketProjectChoice.cs:56-79"
+  - claim: "Jira's GetTicketAsync reads /issue/{key} with no project check, so every tracker on a site returns every issue of that site."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:80-90"
+  - claim: "Jira searches are scoped by the tracker's project key; reads and writes by key (comments, labels, transitions) are not."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraIssueSearcher.cs:42, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketSearch.cs:39-47"
+  - claim: "A Jira webhook envelope carries labels and the issue key, and a project matches on its labels alone, so every Jira tracker with a fitting label spawns a run."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEnvelopeBuilders.cs:47-55, src/backend/AgentSmith.Application/Services/Triggers/TriggerEnvelopeMatch.cs"
+
+scope:
+  in: "GetTicketAsync on a Jira tracker with a project key answers not-found for an issue whose returned key belongs to another project; a Jira envelope matches only projects whose tracker holds its key's project."
+  out: "Trackers without a project key (they still read every project); other trackers, whose read is already one container."
+
+upgrade_impact: "None for a tracker without a project key. A webhook no longer spawns a run on every Jira tracker whose labels fit. A requires or epic parent naming another Jira project's ticket reads as missing through a project-keyed tracker."
+
+steps:
+  - id: guard
+    action: "Compare the project part of the issue key Jira returns (not the one asked for, so a moved issue still resolves) with the tracker's project key."
+  - id: tests
+    action: "Pin the foreign key, the moved issue and the sweep across two Jira trackers on one site."
+
+tests:
+  - "JiraGetTicket_IssueOfAnotherProject_IsNotFound"
+  - "JiraGetTicket_MovedIssueIntoThisProject_IsFound"
+  - "JiraGetTicket_NumericIdOfThisProject_IsFoundByTheKeyJiraReturns"
+  - "TicketProjectChoice_TwoJiraTrackersOnOneSite_BindsTheTrackerOfTheKey"
+  - "TagStrategy_JiraTicket_MatchesOnlyTheTrackerOfItsProject"
+
+done:
+  - "A ticket address naming BET-12 binds the tracker whose project is BET, whichever Jira tracker is configured first."
+  - "Build green, full suite green, dashboard gen/test/build green."
