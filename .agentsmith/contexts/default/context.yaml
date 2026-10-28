@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-10-28-17c7: "Repo instructions: sessions read each context.yaml down to state: and search state.done instead of reading it whole -> .agentsmith/specs/done/2026-10-28-17c7-read-order-index-search.yaml"
     2026-10-27-258f: "GA4 BEHIND A CONSENT BANNER (website layout, consent.js, privacy and imprint pages, sitemap). gtag.js loads only on Accept, signals off; banner and /privacy/ render only with site.legal name and email, /imprint/ only with an address too; check-consent proves each state. -> .agentsmith/specs/done/2026-10-27-258f-website-analytics-consent.yaml"
     2026-10-26-af69: "DERIVATIONS IN THE TICKET LIST COST (TicketListQuery, TicketSummaryComposer, TicketListReader, TicketDetailReader). The summary cost of list, graph and detail adds the ticket's spec derivations from one scoped query, never-run rows included; bucket and attempts stay code. Follows 7000. -> .agentsmith/specs/done/2026-10-26-af69-ticket-list-derivation-cost.yaml"
     2026-10-26-7000c: "DERIVATIONS IN DELIVERY SPEND (DeliveryRunWindow, DeliveryAttemptRepository, DeliveryDerivation, figures, project and ticket rows). Spend, cost per merged PR, agent hours and a ticket row's cost and time include in-scope spec derivations; counts, rates, causes and bars stay attempts. -> .agentsmith/specs/done/2026-10-26-7000c-delivery-spend-derivations.yaml"
