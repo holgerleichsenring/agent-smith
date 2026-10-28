@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-99ba
+goal: "The poll's approved-ticket clause admits a ticket past its label guard but never past the parking statuses, so a failed approved ticket is no longer fetched on every poll."
+
+applies_to: "default (AzureDevOpsDiscoveryWiqlBuilder, JiraDiscoveryJqlBuilder)"
+
+requires: [2026-09-25-c1f7]
+
+facts:
+  - claim: "Every poll of the operator's AzDO tracker scans 8 Resolved tickets and skips each on status; they are exactly the 8 ApprovedSeries rows with SatisfiedAt null."
+    evidence: "observed: 2026-10-28, the poll trail at 15:28:19 and SELECT on ApprovedSeries of the operator's database"
+  - claim: "The approved ids are OR'd beside the WHOLE query, so the parking-status exclusion does not apply to them."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsDiscoveryWiqlBuilder.cs:47-53, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraDiscoveryJqlBuilder.cs:39-42"
+  - claim: "Only the success finalize marks a record satisfied; its comment assumes the parking statuses exclude an unmarked one, which this spec makes true."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:53, src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:62-67"
+  - claim: "The admission list is capped at 50, oldest record first, so unsatisfied records crowd out newer approvals once 50 pile up."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/ApprovedTicketAdmission.cs:30, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:51-61"
+
+scope:
+  in: >
+    Both builders' Admitting takes the parking statuses: the clause becomes ([System.Id] IN (…) AND [System.State] NOT IN
+    (parking)) in WIQL and (key IN (…) AND status NOT IN (parking)) in JQL; with no parking statuses it stays as it was.
+  out: >
+    Satisfying a record on a failed or cancelled run — a person who moves a failed ticket back by hand goes through no
+    rework entry, so a satisfied record would no longer admit a stamp-less ticket; its only gain is the 50-id cap, which
+    the operator's 8 records are far from. A status that is one project's parking status and another's trigger status on
+    the same tracker is excluded for both, exactly as the broad branch already does.
+
+decisions:
+  - key: "THE CLAUSE REPLACES THE LABEL, NOT THE STATUS. c1f7 admits a ticket whose stamp was deleted; nothing it named needs a ticket in done or failed, which the in-process status filter refuses anyway."
+
+steps:
+  - id: query
+    action: "Admitting with parking statuses in both builders."
+  - id: tests
+    action: "Red then green for the tests below; build; affected classes."
+
+tests:
+  - "DiscoveryAdmitsApprovedTicketsTests.Discovery_AnApprovedTicket_IsNeverAdmittedPastTheParkingStatuses"
+  - "DiscoveryAdmitsApprovedTicketsTests.Discovery_TheJqlAndWiql_OrTheIdsAtTheTopLevel (updated)"
+
+done:
+  - "A Resolved ticket with an unsatisfied approval is no longer returned by the discovery query."
+  - "Build green, full suite green, dashboard gen/test/build green."

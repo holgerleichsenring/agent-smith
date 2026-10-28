@@ -74,9 +74,25 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
         var jql = new JiraDiscoveryJqlBuilder().BuildJql(query);
         var wiql = new AzureDevOpsDiscoveryWiqlBuilder().BuildWhere(query, ["Active"]);
 
-        jql.Should().EndWith(") OR key IN (\"1239\")").And.Contain("AND labels IN (",
+        jql.Should().Contain(") OR (key IN (\"1239\") AND status NOT IN (").And.Contain("AND labels IN (",
             "the guard stays AND-ed onto the routing clause; the ids are OR'd with the whole query");
-        wiql.Should().EndWith(") OR [System.Id] IN (1239)").And.Contain("[System.Tags] CONTAINS");
+        wiql.Should().Contain(") OR ([System.Id] IN (1239) AND [System.State] NOT IN (")
+            .And.Contain("[System.Tags] CONTAINS");
+    }
+
+    [Fact]
+    public async Task Discovery_AnApprovedTicket_IsNeverAdmittedPastTheParkingStatuses()
+    {
+        // 2026-10-28-99ba: the ids replace the label guard, not the status; a failed approved ticket
+        // was re-fetched on every poll only to be refused in-process.
+        var query = await BuildAsync(await StoreWithAsync(("jira-dpg-1239", "1239")));
+        query = query with { ParkingStatuses = ["Done", "Resolved"] };
+
+        var jql = new JiraDiscoveryJqlBuilder().BuildJql(query);
+        var wiql = new AzureDevOpsDiscoveryWiqlBuilder().BuildWhere(query, ["Active"]);
+
+        jql.Should().EndWith("OR (key IN (\"1239\") AND status NOT IN (\"Done\", \"Resolved\"))");
+        wiql.Should().EndWith("OR ([System.Id] IN (1239) AND [System.State] NOT IN ('Done', 'Resolved'))");
     }
 
     /// <summary>
