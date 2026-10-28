@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.174.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.174.0...v0.174.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* the reconciler leaves a ticket parked on a question to its answer (2026-10-28-7d25) ([0b4e5a2](https://github.com/holgerleichsenring/agent-smith/commit/0b4e5a2c615cc414a4ad7b02d452d4958eb540f5))
+* the reconciler leaves a ticket parked on a question to its answer instead of re-enqueuing it every ten minutes (2026-10-28-7d25) ([41375ea](https://github.com/holgerleichsenring/agent-smith/commit/41375eab47dfdda15a27a645d22c4c3e29bf38b4))
+
 ## [0.174.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.173.0...v0.174.0) (2026-10-28)
 
 
