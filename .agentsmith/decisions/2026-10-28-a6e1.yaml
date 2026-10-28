@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-a6e1
+
+decisions:
+  - category: Architecture
+    chose: "An animated SVG banner committed in docs/assets"
+    over: "A recorded GIF of a run"
+    reason: |
+      The SVG stays sharp at every width, weighs a few kilobytes and can be edited as text.
+      A GIF would need a real recording and would date with every dashboard change.
+
+  - category: TradeOff
+    chose: "Drop the hours-per-spec row from the figures"
+    over: "Keeping ~750 h at 37 minutes per spec"
+    reason: |
+      The hours were counted once by hand and can't be recounted from the repository; every
+      figure left in the table can.

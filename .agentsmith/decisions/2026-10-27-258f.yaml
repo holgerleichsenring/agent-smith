@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-27-258f
+
+decisions:
+  - category: Scope
+    chose: "The imprint and its footer link render only when site.legal carries an address; the build says 'imprint off' otherwise"
+    over: "Publishing an imprint with name and email only, or with the operator's private address"
+    reason: |
+      § 5 DDG requires a postal address. The operator gave name and email and declined to publish his private
+      address; a c/o or service address may follow. An incomplete imprint would look complete and is not, so
+      it is withheld until the address exists.
+  - category: Architecture
+    chose: "One decision in eleventy.config.js: analytics needs analyticsId, legal.name and legal.email; the consent script, privacy page and imprint are templates the config ignores when off"
+    over: "Copying consent.js through src/static and hiding the banner in the layout only"
+    reason: |
+      A passthrough script would ship the googletagmanager URL even with analytics off. As a template rendered from
+      site.json it disappears with the pages, so the safety gate holds in the output, not just in the markup.
+  - category: Architecture
+    chose: "gtag.js injected by consent.js on Accept only, with allow_google_signals and allow_ad_personalization_signals false; the choice in localStorage"
+    over: "Google Consent Mode with the tag loaded up front"
+    reason: |
+      Consent Mode still loads Google's script before any choice. Nothing from Google loads before consent here. A
+      store that throws leaves the choice unknown, so the banner asks again rather than assuming yes. Declining after
+      accepting sets ga-disable for the open page, deletes the _ga cookies on every parent domain, and the next page
+      never injects the tag.
+  - category: Tooling
+    chose: "check-consent.mjs in postbuild: checks the committed _site, then builds copies of website/ in .consent-check-* without site.legal, without an address and with one"
+    over: "An environment switch in eleventy.config.js that injects fixture legal data"
+    reason: |
+      The fixture lives in the test, not in config. Every state is proven on every build, whatever site.json holds
+      at the time, and the link check runs on each fixture output too.
+  - category: TradeOff
+    chose: "Retention stated as the Analytics property setting with Google's documented default of 2 months and maximum of 14 months for a standard property"
+    over: "Naming 14 months as the default"
+    reason: |
+      Google documents 2 months as the GA4 default. The page states what is documented and points to the property
+      setting; set the property to 14 months if that is wanted, the text still holds.

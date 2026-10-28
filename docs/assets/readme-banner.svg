@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" role="img" aria-labelledby="title">
+  <title id="title">Agent Smith: a ticket becomes a spec, the spec is reviewed, built in sandboxes, passes the gate and arrives as a pull request</title>
+  <style>
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .node { fill: #10151e; stroke: #232c3b; stroke-width: 1.5; }
+    @media (prefers-reduced-motion: reduce) { .moving { display: none; } }
+  </style>
+  <rect width="1200" height="340" rx="14" fill="#090c12"/>
+  <rect x="44" y="44" width="16" height="16" rx="4" fill="#22c55e"/>
+  <text x="72" y="58" class="mono" fill="#e8ebf1" font-size="18" font-weight="600">agent-smith</text>
+  <text x="44" y="114" class="sans" fill="#e8ebf1" font-size="34" font-weight="500">A ticket goes in. A verified pull request comes out.</text>
+
+  <path d="M120 222 H1080" stroke="#232c3b" stroke-width="2" fill="none"/>
+
+  <g class="mono" font-size="14" text-anchor="middle">
+    <rect class="node" x="60" y="196" width="120" height="52" rx="10"><animate attributeName="stroke" values="#22c55e;#232c3b;#232c3b" keyTimes="0;0.15;1" dur="6s" begin="0s" repeatCount="indefinite"/></rect>
+    <text x="120" y="227" fill="#e8ebf1">ticket</text>
+    <rect class="node" x="252" y="196" width="120" height="52" rx="10"><animate attributeName="stroke" values="#22c55e;#232c3b;#232c3b" keyTimes="0;0.15;1" dur="6s" begin="1s" repeatCount="indefinite"/></rect>
+    <text x="312" y="227" fill="#e8ebf1">spec</text>
+    <rect class="node" x="444" y="196" width="120" height="52" rx="10"><animate attributeName="stroke" values="#22c55e;#232c3b;#232c3b" keyTimes="0;0.15;1" dur="6s" begin="2s" repeatCount="indefinite"/></rect>
+    <text x="504" y="227" fill="#e8ebf1">review</text>
+    <rect class="node" x="636" y="196" width="120" height="52" rx="10"><animate attributeName="stroke" values="#22c55e;#232c3b;#232c3b" keyTimes="0;0.15;1" dur="6s" begin="3s" repeatCount="indefinite"/></rect>
+    <text x="696" y="227" fill="#e8ebf1">sandboxes</text>
+    <rect class="node" x="828" y="196" width="120" height="52" rx="10"><animate attributeName="stroke" values="#22c55e;#232c3b;#232c3b" keyTimes="0;0.15;1" dur="6s" begin="4s" repeatCount="indefinite"/></rect>
+    <text x="888" y="227" fill="#e8ebf1">gate</text>
+    <rect class="node" x="1020" y="196" width="120" height="52" rx="10"><animate attributeName="stroke" values="#22c55e;#232c3b;#232c3b" keyTimes="0;0.15;1" dur="6s" begin="5s" repeatCount="indefinite"/></rect>
+    <text x="1080" y="227" fill="#22c55e">pull request</text>
+  </g>
+
+  <circle class="moving" r="6" fill="#22c55e">
+    <animateMotion path="M120 222 H1080" dur="6s" repeatCount="indefinite"/>
+  </circle>
+
+  <g class="mono" font-size="12" fill="#8b94a7" text-anchor="middle">
+    <text x="120" y="276">Azure DevOps · Jira</text><text x="120" y="292">GitHub · GitLab</text>
+    <text x="312" y="276">goal · steps</text><text x="312" y="292">definition of done</text>
+    <text x="504" y="276">every cited line</text><text x="504" y="292">resolves</text>
+    <text x="696" y="276">one per repo</text><text x="696" y="292">own toolchain</text>
+    <text x="888" y="276">tests + criteria</text><text x="888" y="292">per spec</text>
+    <text x="1080" y="276">ticket updated</text><text x="1080" y="292">cost on record</text>
+  </g>
+</svg>

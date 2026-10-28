@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-17c7
+
+decisions:
+  - category: Architecture
+    chose: "Change how sessions read context.yaml"
+    over: "Moving state.done into its own file"
+    reason: |
+      The index is 425 KB at about 1300 specs, and the instruction was what told a session to
+      read it whole. Searching it costs only the matching lines, and every pointer, test and
+      tool that names context.yaml keeps working.

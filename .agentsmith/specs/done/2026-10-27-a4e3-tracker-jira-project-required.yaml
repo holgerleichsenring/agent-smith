@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-27-a4e3
+goal: "A Jira tracker names its project key, as Azure DevOps and GitLab trackers already must, so a ticket Agent Smith files has a project to land in."
+
+applies_to: "default (contracts, infrastructure, tests, docs)"
+
+requires: []
+
+facts:
+  - claim: "Azure DevOps and GitLab declare project required; Jira declares it optional."
+    evidence: "src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:26, :41, :49"
+  - claim: "A Jira create without a project key throws before any request; the read side runs without one across every project the account can browse."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketCreator.cs:32-34, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraIssueSearcher.cs:42"
+  - claim: "Requiredness is enforced on the studio's save and reported on its draft; nothing checks it when a stored configuration is loaded."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:57-63, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDraftRules.cs:69-77"
+  - claim: "The Jira draft check passes a tracker with no project as 'every project the account sees'."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/JiraTrackerDraftCheck.cs:29-33"
+  - claim: "Jira workflows and issue types belong to a project, while the tracker's statuses, lifecycle names and work item kinds are one set per tracker."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:19-99"
+
+scope:
+  in: "Jira 'project' required in the capability descriptor; the draft check fails on a tracker with none; the create error names the field; the connection comment and the Jira tracker docs say one tracker per Jira project."
+  out: "A per-project filing target; refusing a stored tracker at load; removing the read path's no-project branch."
+
+upgrade_impact: "A stored Jira tracker without a project keeps running as before but cannot be saved in the studio, or imported, until it names one. Split a tracker that spans several Jira projects into one tracker per project."
+
+steps:
+  - id: descriptor
+    action: "Mark Jira 'project' Required in TrackerCapabilityFields."
+  - id: draft-check
+    action: "JiraTrackerDraftCheck fails the scope step when no project is declared."
+  - id: create-error
+    action: "JiraTicketCreator's refusal names the tracker field 'project' and what it is for."
+  - id: comment-docs
+    action: "Update JiraTicketConnection's summary and docs/connect-your-stuff/tracker-jira.md."
+  - id: tests
+    action: "Pin the descriptor, the save refusal, the draft finding, the draft check and the create refusal."
+
+tests:
+  - "Capabilities_JiraTracker_DeclaresARequiredEmailAndARequiredProject"
+  - "ValidateTracker_JiraWithoutProject_IsRefusedNamingProject"
+  - "ForTracker_JiraWithoutProject_IsBlockingOnTheProjectField"
+  - "TrackerDraftCheck_JiraWithoutProject_FailsTheScopeStep"
+  - "CreateAsync_JiraWithoutProject_RefusesNamingTheProjectField"
+
+done:
+  - "The studio refuses to save a Jira tracker without a project and names the field on the draft."
+  - "The Test button fails a Jira tracker without a project at the scope step."
+  - "A configuration stored without a project still loads and polls."
+  - "Build green, full suite green, dashboard gen/test/build green."

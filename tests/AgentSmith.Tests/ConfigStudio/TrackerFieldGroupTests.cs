@@ -31,7 +31,7 @@ public sealed class TrackerFieldGroupTests
     public void MissingTrackerFields_JiraWithoutEmail_ReturnsEmail()
     {
         var tracker = new TrackerEntity(
-            Id: "j", Type: "jira", Url: "https://x.atlassian.net", AuthSecret: "JIRA_TOKEN");
+            Id: "j", Type: "jira", Url: "https://x.atlassian.net", AuthSecret: "JIRA_TOKEN", Project: "OPS");
 
         ConfigStudioCapabilities.MissingTrackerFields(tracker)
             .Select(f => f.Key).Should().Equal("email");

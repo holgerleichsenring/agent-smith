@@ -7,7 +7,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 
 /// <summary>
 /// 2026-10-02-5f89b: a Jira tracker draft — "who am I" (the configured Myself path, the provider's own
-/// probe) with email and token, then the project when one is declared, on the same API (2026-10-26-cb25c).
+/// probe) with email and token, then the project on the same API (2026-10-26-cb25c). A tracker naming none
+/// fails the scope step (2026-10-27-a4e3).
 /// </summary>
 public sealed class JiraTrackerDraftCheck(IDraftCheckHttp http) : ITrackerDraftCheck
 {
@@ -28,7 +29,7 @@ public sealed class JiraTrackerDraftCheck(IDraftCheckHttp http) : ITrackerDraftC
 
         if (string.IsNullOrWhiteSpace(tracker.Project))
         {
-            yield return DraftCheckStep.Pass(DraftCheckStep.Scope, "No project declared; every project the account sees.");
+            yield return DraftCheckStep.Fail(DraftCheckStep.Scope, "The tracker names no project key; a ticket has nowhere to be filed.");
             yield break;
         }
         var project = await http.GetAsync(

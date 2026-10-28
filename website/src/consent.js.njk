@@ -1,0 +1,67 @@
+---
+permalink: /consent.js
+eleventyExcludeFromCollections: true
+---
+// Google Analytics 4 behind the consent banner in the layout. Nothing from Google loads, and no cookie is
+// set, until the visitor presses Accept. The choice lives in localStorage; when storage fails the banner
+// asks again on the next page, it never assumes yes. How long GA4 keeps event data is the retention set
+// in the Analytics property (Google's default is 2 months, 14 months the most for a standard property).
+(function () {
+  var ID = {{ site.analyticsId | dump | safe }};
+  var KEY = "analytics-consent";
+  var banner = document.getElementById("consent");
+  if (!banner) return;
+
+  var read = function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+  var write = function (value) { try { localStorage.setItem(KEY, value); } catch (e) { /* asked again next page */ } };
+
+  var loaded = false;
+  var load = function () {
+    window["ga-disable-" + ID] = false;
+    if (loaded) return;
+    loaded = true;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag("js", new Date());
+    window.gtag("config", ID, { allow_google_signals: false, allow_ad_personalization_signals: false });
+    var script = document.createElement("script");
+    script.async = true;
+    script.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(ID);
+    document.head.appendChild(script);
+  };
+
+  // Withdrawal: no further hit on this page, no load on the next, and the _ga cookies go.
+  var stop = function () {
+    window["ga-disable-" + ID] = true;
+    var labels = location.hostname.split(".");
+    document.cookie.split(";").forEach(function (pair) {
+      var name = pair.split("=")[0].trim();
+      if (name !== "_ga" && name.indexOf("_ga_") !== 0) return;
+      var expired = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+      document.cookie = expired;
+      for (var i = 0; i < labels.length - 1; i++) document.cookie = expired + "; domain=." + labels.slice(i).join(".");
+    });
+  };
+
+  var opener = null;
+  var show = function (fromSettings) {
+    banner.hidden = false;
+    if (fromSettings) { opener = document.activeElement; banner.focus(); }
+  };
+  var hide = function () {
+    banner.hidden = true;
+    if (opener && opener.focus) opener.focus();
+    opener = null;
+  };
+
+  document.getElementById("consent-accept").addEventListener("click", function () { write("granted"); load(); hide(); });
+  document.getElementById("consent-decline").addEventListener("click", function () { write("denied"); stop(); hide(); });
+  banner.addEventListener("keydown", function (e) { if (e.key === "Escape" && opener) hide(); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-consent-settings]"), function (link) {
+    link.addEventListener("click", function (e) { e.preventDefault(); show(true); });
+  });
+
+  var choice = read();
+  if (choice === "granted") load();
+  else if (choice !== "denied") show(false);
+})();

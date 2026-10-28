@@ -8,8 +8,9 @@
     "predev": "npm run build:tokens",
     "dev": "npx @11ty/eleventy --serve",
     "build": "npx @11ty/eleventy",
-    "postbuild": "node check-links.mjs",
-    "check:links": "node check-links.mjs"
+    "postbuild": "node check-links.mjs && node check-consent.mjs",
+    "check:links": "node check-links.mjs",
+    "check:consent": "node check-consent.mjs"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.0.0"
