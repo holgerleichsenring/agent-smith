@@ -533,6 +533,8 @@ export interface TicketConversation {
     findings?: SpecDialogProposalFinding[];
     reviewRounds?: SpecDialogReviewRound[];
     notReviewed?: string[] | null;
+    /** 2026-10-28-7a69c: the comment proposed for the ticket; absent for every other kind. */
+    comment?: string | null;
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;

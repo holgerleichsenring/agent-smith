@@ -21,7 +21,7 @@ public sealed class TicketContinuationAct(
     AgentSmithConfig config, SpecDialogTicketTextRepository ticketText, TicketContinuationStateReader reader,
     TicketAmendment amendment, ClosedTicketFollowUp followUp, ApprovedSpecSetRecorder approvals,
     ITicketActivityNudge activity, OperatorStart starter, Application.Services.Specs.ISeriesSettingsReader series,
-    ILogger<TicketContinuationAct> logger)
+    TicketCommentPost comments, ILogger<TicketContinuationAct> logger)
 {
     public async Task<TicketContinuationOutcome> ApplyAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct)
@@ -31,6 +31,8 @@ public sealed class TicketContinuationAct(
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId })
             return new("This conversation never recorded which ticket it belongs to, so the approval has no "
                 + "ticket to continue. Nothing was recorded.", false);
+        // 2026-10-28-7a69c: a comment needs none of the series state, so a state read cannot fail it.
+        if (proposal is TicketCommentOutcome comment) return await comments.PostAsync(config.Projects[name], ticketId, comment, ct);
         var read = await reader.ReadAsync(name, ticketId, mayStartRuns, ct);
         if (read.State is not { } current) return new(read.Failure!, false);
         var decision = TicketContinuation.Decide(current, proposal, series.Current());

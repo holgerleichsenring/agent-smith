@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-7a69b
+
+decisions:
+  - category: Architecture
+    chose: "Splice the region inside Jira's stored ADF document"
+    over: "Keeping Jira refused, or rewriting through the text parser"
+    reason: "The refusal was about the lossy text round trip, not about Jira; nodes outside the region go back exactly as read, so nothing a person wrote is flattened."
+  - category: TradeOff
+    chose: "Decide append from the ticket's labels and a recorded spec set"
+    over: "Appending only when no approval record existed before this approval"
+    reason: "The record is written whatever the rewrite answers, so a failed first append would lock the ticket for good; the approved-set stamp and the epic-record label are written at filing and never by an amendment."
+  - category: Implementation
+    chose: "A damaged or nested marker refuses even when append is allowed"
+    over: "Treating it as unmarked and appending"
+    reason: "A lone marker means the framework's text is still in the body; a second region would make the ticket say two things."
+  - category: Implementation
+    chose: "Move the description half of the amendment into TicketDescriptionRewrite"
+    over: "Growing TicketAmendment"
+    reason: "It is its own responsibility — a courtesy write that never blocks — and TicketAmendment sat at the 120-line limit."

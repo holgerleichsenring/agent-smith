@@ -377,7 +377,7 @@ export interface SpecDialogGraphTicket {
  */
 export interface SpecDialogProposalPush {
   dialogId: string;
-  /** "bug", "spec", "epic" or "tickets" — the pane renders by it. */
+  /** "bug", "spec", "epic", "tickets" or "comment" — the pane renders by it. */
   kind: string;
   bug: SpecDialogBugProposal | null;
   spec: SpecDraftProposal | null;
@@ -394,6 +394,8 @@ export interface SpecDialogProposalPush {
   notReviewed?: string[] | null;
   /** 2026-10-14-dbcek: a list's ticket texts in the order they must merge; absent or empty for every other kind. */
   tickets?: SpecDialogGraphTicket[];
+  /** 2026-10-28-7a69c: the comment a ticket's conversation proposes to post; absent for every other kind. */
+  comment?: string | null;
 }
 
 /** 2026-10-13-8762i: one review round of one draft (or "series"), as it stays on the proposal. */

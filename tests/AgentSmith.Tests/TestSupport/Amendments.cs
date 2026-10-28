@@ -27,5 +27,6 @@ internal static class Amendments
             new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(),
+            new TicketDescriptionRewrite(new Mock<ITicketProviderFactory>().Object, NullLogger<TicketDescriptionRewrite>.Instance),
             NullLogger<TicketAmendment>.Instance);
 }

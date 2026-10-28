@@ -1,38 +1,69 @@
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
-/// 2026-09-25-8e51e: Jira's answer to a description rewrite is NO, and the reason is the round
-/// trip rather than a permission.
+/// 2026-10-28-7a69b: rewrites the framework's region of a Jira description inside the stored
+/// document.
 /// <para>
-/// A Jira description is stored as an Atlassian Document Format tree and read back by
-/// <see cref="JiraAdfParser"/>, which collects <c>text</c> nodes and nothing else. Mentions,
-/// emoji, media, inline cards and status nodes are dropped, a link keeps its label and loses its
-/// target, and every mark, heading level, list marker and table structure is flattened to bare
-/// lines. A rewrite is READ-MODIFY-WRITE by construction — the framework's region has to be found
-/// inside what a person also writes in — so on Jira it would send back a description with the
-/// human half of it destroyed, and the destruction would be silent.
-/// </para>
-/// <para>
-/// It exists as a class rather than as a missing registration so the SENTENCE ABOVE reaches the
-/// operator. "No rewriter is wired for this tracker" is a fact about us; this is the fact about
-/// Jira, and it is the one that tells them to edit the ticket themselves.
+/// 2026-09-25-8e51e refused this, because reading a description as text drops mentions, emoji,
+/// media, inline cards and status nodes and flattens marks, headings, lists and tables. The refusal
+/// was about the TEXT round trip, not about Jira: the description is read as its document,
+/// <see cref="JiraAdfRegion"/> swaps the region's paragraphs, and every other node is sent back as
+/// it came. A description that is not a document — a Data Center answering on REST v2 with wiki
+/// text — is still refused, with the reason.
 /// </para>
 /// </summary>
-public sealed class JiraTicketRewriter : ITicketRewriter
+public sealed class JiraTicketRewriter(JiraTicketConnection connection, HttpClient httpClient, ILogger logger) : ITicketRewriter
 {
-    /// <summary>What an operator is told, once, wherever the refusal surfaces.</summary>
-    public const string Reason =
-        "Jira stores a description as a structured document and hands it back as plain text only: "
-        + "mentions, emoji, media, inline cards and status disappear, links lose their target, and "
-        + "headings, lists, tables and every mark are flattened. Rewriting it would destroy the "
-        + "half of the description a person wrote, so agent-smith does not write it. The approved "
-        + "specification is stored and on the ticket branch; paste the part you want into the "
-        + "ticket yourself.";
+    /// <summary>What an operator is told when the description comes back as text.</summary>
+    public const string NotADocument =
+        "Jira returned this description as text rather than as a document (a Data Center answering "
+        + "on REST v2), and rewriting text would flatten what a person wrote. Paste the part you want "
+        + "into the ticket yourself; the approved specification is stored and on the ticket branch.";
 
-    public Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken) =>
-        Task.FromResult(TicketRewriteResult.Unsupported(Reason));
+    private readonly TicketProviderHttpClient _http =
+        TicketProviderHttpClient.WithBasicAuth(httpClient, connection.Email, connection.ApiToken);
+
+    public async Task<TicketRewriteResult> RewriteRegionAsync(
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ticketId);
+        var url = $"{connection.BaseUrl.TrimEnd('/')}{connection.ResolvedEndpoints.IssueFor(ticketId.Value)}";
+        try
+        {
+            using var doc = await _http.SendForJsonAsync(HttpMethod.Get, $"{url}?fields=description", null, cancellationToken);
+            if (doc is null) return TicketRewriteResult.Failed($"Jira has no issue {ticketId.Value}.");
+            if (!TryReadDocument(doc, out var description)) return TicketRewriteResult.Unsupported(NotADocument);
+            if (JiraAdfRegion.Place(description, region, placement == RegionPlacement.ReplaceOrAppend) is not { } written)
+                return TicketRewriteResult.Unsupported(TicketRegionRefusal.NoRegion);
+            logger.LogInformation("TICKET WRITE #{Ticket}: issue description region <- {Caller}",
+                ticketId.Value, TicketWriteAudit.Caller());
+            await _http.SendAsync(HttpMethod.Put, url, new { fields = new { description = written } }, cancellationToken);
+            return TicketRewriteResult.Ok;
+        }
+        // The conversation that asked for the amendment is told; a thrown turn tells it nothing.
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Rewriting the region of Jira issue {Ticket} failed", ticketId.Value);
+            return TicketRewriteResult.Failed(ex.Message.Split('\n', 2)[0].Trim());
+        }
+    }
+
+    // An absent or null description is an empty document; a string is wiki text, which is no document.
+    private static bool TryReadDocument(JsonDocument doc, out JsonObject? description)
+    {
+        description = null;
+        if (!doc.RootElement.TryGetProperty("fields", out var fields)
+            || !fields.TryGetProperty("description", out var held) || held.ValueKind == JsonValueKind.Null)
+            return true;
+        description = held.ValueKind == JsonValueKind.Object ? JsonNode.Parse(held.GetRawText()) as JsonObject : null;
+        return description is not null;
+    }
 }

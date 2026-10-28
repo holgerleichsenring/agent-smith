@@ -21,7 +21,7 @@ public sealed class SpecNamedOutcomeKindTests
     [Fact]
     public void Resolve_AnOutcomeBlockOfTheOldKind_IsAnUnknownKind() =>
         Resolve("phase").Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Be("unknown outcome kind 'phase' — expected bug, epic or tickets");
+            .Which.Error.Should().Be("unknown outcome kind 'phase' — expected bug, epic, tickets or comment");
 
     private static OutcomeResolution Resolve(string kind)
     {
@@ -30,7 +30,7 @@ public sealed class SpecNamedOutcomeKindTests
         var resolver = new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
-            new TicketGraphOutcomeParser(new TicketGraphChecker(new TicketGraphOrderer())),
+            new TicketGraphOutcomeParser(new TicketGraphChecker(new TicketGraphOrderer())), new TicketCommentOutcomeParser(),
             DialogTestRepos.Real());
 
         return resolver.Resolve($"Here.\n\n```outcome\nkind: {kind}\n```", []);

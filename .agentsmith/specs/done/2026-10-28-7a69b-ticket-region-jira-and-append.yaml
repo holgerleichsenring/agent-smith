@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-7a69b
+goal: "An approval in a ticket's conversation writes the approved specification into the ticket's description on Jira too, and onto a ticket a person wrote, leaving their text untouched."
+
+applies_to: "default (contracts, infrastructure, server, tests, docs)"
+
+requires: [2026-10-28-7a69a]
+
+facts:
+  - claim: "Jira refuses every region rewrite, because the text round trip through JiraAdfParser drops mentions, links, marks and tables."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketRewriter.cs:1-38, src/backend/AgentSmith.Infrastructure/Services/Factories/TicketCapabilities.cs:35"
+  - claim: "Every rewriter answers Unsupported when the body carries no complete marker pair, so a ticket a person wrote is refused on every tracker."
+    evidence: "src/backend/AgentSmith.Contracts/Tickets/FramedTicketRegion.cs, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketRewriter.cs:50, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketRewriter.cs:34, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketRewriter.cs:55"
+  - claim: "That refusal exists for tickets the framework rendered whole before the markers; only a spec or epic filing wraps its body in markers, and every spec or epic filing since 0e79a carries the approved-set stamp, older epic records their own label."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketRegionRefusal.cs, src/backend/AgentSmith.Application/Services/SpecDialog/SpecTicketBody.cs:63, src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:66-76"
+  - claim: "A graph-filed ticket leaves a record marked TicketText and a body with no markers."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:89"
+  - claim: "The amendment loads the ticket's record before it rewrites and writes the record whatever the rewrite answers; the rewrite never blocks."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:51, :79-80"
+  - claim: "A Jira filing renders its body one ADF paragraph per line, so each marker is a top-level paragraph of its own."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketCreator.cs:42, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraAdfRenderer.cs"
+
+scope:
+  in: "A placement on the rewrite port (replace only, or replace-or-append); an unmarked body is replace-only when it carries the approved-set stamp or an epic-record label or holds a recorded spec set, append otherwise; a damaged marker pair never takes a second region; Jira splices the region's top-level paragraphs into the stored ADF document and leaves every other node as it was read."
+  out: "Rewriting a person's prose outside the markers; a Jira description that is not an ADF document (Data Center on REST v2), which stays refused with its reason."
+
+upgrade_impact: "A ticket a person wrote, and a bug, follow-up or ticket-text filing, gets the approved specification appended below its text on its first approval; later approvals replace that region. Jira descriptions are written for the first time."
+
+steps:
+  - id: placement
+    action: "RegionPlacement in Contracts; FramedTicketRegion.Replace takes it and appends a whole region to an unmarked body when allowed."
+  - id: trackers
+    action: "GitHub, GitLab and Azure DevOps pass the placement through; Jira reads the description as JSON, replaces the top-level nodes from the begin marker's paragraph to the end marker's, or appends, and PUTs the document back."
+  - id: amendment
+    action: "The description half moves out of TicketAmendment into TicketDescriptionRewrite, which decides the placement from the ticket's labels and the record loaded before this approval."
+  - id: docs
+    action: "Update the port's and capability factory's summaries, and the Jira tracker docs."
+  - id: tests
+    action: "Pin splice, append, untouched foreign nodes, a v2 string description, and the amendment's placement."
+
+tests:
+  - "JiraRewrite_MarkedDescription_ReplacesOnlyTheRegionAndKeepsEveryOtherNode"
+  - "JiraRewrite_UnmarkedDescriptionWithAppend_AppendsTheRegion"
+  - "JiraRewrite_UnmarkedDescriptionReplaceOnly_IsRefused"
+  - "JiraRewrite_DescriptionIsText_IsRefusedNamingTheFormat"
+  - "Region_UnmarkedBodyWithAppend_KeepsTheBodyAndAddsTheRegion"
+  - "JiraRewrite_MarkerMovedIntoAPanel_IsRefusedNotAppended"
+  - "Region_DamagedPairWithAppend_IsRefused"
+  - "Amendment_TicketWithoutRecord_AppendsTheRegion"
+  - "Amendment_TicketWithRecordButNoMarkers_IsStillRefused"
+  - "Placement_FrameworkLabel_ReplacesOnly"
+  - "Placement_TicketTextRecord_AppendsBelowTheTicketText"
+
+done:
+  - "Approving a spec in the conversation of a Jira ticket a person wrote leaves their description as it was with the specification below it; a second approval replaces only that part."
+  - "A ticket stamped as an approved set or filed as an epic record, with no markers, is still refused; so is a damaged marker pair."
+  - "Build green, full suite green, dashboard gen/test/build green."

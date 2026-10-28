@@ -58,7 +58,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<ApprovedSetTicketFiler>();
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
-        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
+        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddScoped<TicketDescriptionRewrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
         services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();

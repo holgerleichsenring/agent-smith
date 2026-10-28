@@ -14,7 +14,7 @@ namespace AgentSmith.Server.Models;
 /// </para>
 /// <para>An answer is never pushed: it proposes nothing, and a payload saying so would clear the pane.</para>
 /// </summary>
-/// <param name="Kind">"bug", "spec", "epic" or "tickets" — what the pane renders.</param>
+/// <param name="Kind">"bug", "spec", "epic", "tickets" or "comment" — what the pane renders.</param>
 /// <param name="Children">
 /// An epic's children IN THE ORDER THEY WILL BE FILED. A pane listing them in another
 /// order would show the operator a plan that is not the one about to be created.
@@ -44,4 +44,7 @@ public sealed record SpecDialogProposalPush(
 
     /// <summary>2026-10-14-dbcek: a proposed list's ticket texts in the order they must merge; empty for every other kind.</summary>
     public IReadOnlyList<SpecDialogGraphTicketView> Tickets { get; init; } = [];
+
+    /// <summary>2026-10-28-7a69c: the comment a ticket's conversation proposes to post; null for every other kind.</summary>
+    public string? Comment { get; init; }
 }

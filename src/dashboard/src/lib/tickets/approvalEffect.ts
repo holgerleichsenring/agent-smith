@@ -11,6 +11,7 @@ const EFFECT_LABELS: Record<string, string> = {
   "refused-over-cap": "is refused: the series would hold more specs than one ticket may",
   refused: "is refused: the proposed cut has no order its specs can run in",
   continue: "continues this ticket's series",
+  comment: "posts this comment on the ticket and starts nothing",
 };
 
 const START_LABELS: Record<string, string> = {

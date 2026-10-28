@@ -26,7 +26,7 @@ public sealed class TicketGraphResolverTests
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), SeriesContracts.Reader(), SeriesSettingsDoubles.Reader()),
-            Parser(), DialogTestRepos.Real());
+            Parser(), new TicketCommentOutcomeParser(), DialogTestRepos.Real());
     }
 
     private static string Error(string reply) =>
@@ -53,10 +53,10 @@ public sealed class TicketGraphResolverTests
     }
 
     [Fact]
-    public void OutcomeProposalResolver_UnknownKind_NamesBugEpicAndTickets()
+    public void OutcomeProposalResolver_UnknownKind_NamesBugEpicTicketsAndComment()
     {
-        Error("```outcome\nkind: graph\n```").Should().Be("unknown outcome kind 'graph' — expected bug, epic or tickets");
-        Error("```outcome\ntitle: \"t\"\n```").Should().Contain("(bug | epic | tickets)");
+        Error("```outcome\nkind: graph\n```").Should().Be("unknown outcome kind 'graph' — expected bug, epic, tickets or comment");
+        Error("```outcome\ntitle: \"t\"\n```").Should().Contain("(bug | epic | tickets | comment)");
     }
 
     [Fact]

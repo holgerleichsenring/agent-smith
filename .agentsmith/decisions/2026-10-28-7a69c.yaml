@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-7a69c
+
+decisions:
+  - category: Architecture
+    chose: "A comment is its own outcome kind, approved like every other proposal"
+    over: "A tool the model calls to post a comment during the turn"
+    reason: "Everything written to a ticket goes through a person's approval; a tool would post before anyone saw the text."
+  - category: TradeOff
+    chose: "Head the comment 'Agent Smith —' so it counts as ours"
+    over: "Posting it as plain text a run would read as a person's input"
+    reason: "Unmarked, a comment webhook could route on it and a parked run would read it as an answer; the conversation it came from stays on the ticket for the next run."
+  - category: Implementation
+    chose: "Post before the series state is read"
+    over: "Deciding the comment through the continuation's full state read"
+    reason: "A comment needs none of that state, so a tracker read that fails for series reasons must not stop it."

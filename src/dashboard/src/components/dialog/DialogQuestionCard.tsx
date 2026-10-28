@@ -189,6 +189,7 @@ function asShape(choice: SpecDialogChoice): Control {
 /** What the proposal says would be filed, and nothing it does not say. */
 function summaryOf(proposal: SpecDialogProposalPush): string | null {
   if (proposal.bug) return "File this bug? One bug ticket.";
+  if (proposal.kind === "comment") return "Post this comment on the ticket? Nothing starts.";
   if (proposal.kind === "tickets") {
     // Not "starts when filed": that depends on the landing of what it requires, read at filing.
     const [count, roots] = [proposal.tickets?.length ?? 0, (proposal.tickets ?? []).filter((t) => t.requires.length === 0).length];

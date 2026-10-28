@@ -19,6 +19,10 @@ namespace AgentSmith.Contracts.Tickets;
 /// ends. Appending a second rendering would leave the ticket saying two things; overwriting the
 /// whole body would delete prose nobody can attribute. The caller refuses and says so.
 /// </para>
+/// <para>
+/// 2026-10-28-7a69b: unless the caller knows the framework never rendered it — a ticket with no
+/// approval record is a person's text, and the region goes below it.
+/// </para>
 /// </summary>
 public static partial class FramedTicketRegion
 {
@@ -41,15 +45,20 @@ public static partial class FramedTicketRegion
 
     /// <summary>
     /// The body with the framework's region replaced by <paramref name="region"/>, or null when
-    /// the body carries no complete marker pair — the one case the caller must refuse rather
-    /// than resolve.
+    /// the body carries no complete marker pair and may not take one appended.
     /// </summary>
     /// <param name="region">A whole rendering, markers included, as <see cref="Wrap"/> makes one.</param>
-    public static string? Replace(string? body, string region)
+    /// <param name="placement">2026-10-28-7a69b: whether an unmarked body takes the region below it.</param>
+    public static string? Replace(string? body, string region, RegionPlacement placement = RegionPlacement.ReplaceOnly)
     {
-        if (string.IsNullOrEmpty(body) || !Marked(body)) return null;
-        return Pair().Replace(body, region.Replace("$", "$$", StringComparison.Ordinal), 1);
+        if (Marked(body)) return Pair().Replace(body!, region.Replace("$", "$$", StringComparison.Ordinal), 1);
+        if (placement != RegionPlacement.ReplaceOrAppend || Damaged(body)) return null;
+        return string.IsNullOrWhiteSpace(body) ? region : $"{body.TrimEnd()}\n\n{region}";
     }
+
+    // A marker without its partner: the framework's text is in there somewhere, so a second region would duplicate it.
+    private static bool Damaged(string? body) => body is not null
+        && (body.Contains(BeginIdentifier, StringComparison.Ordinal) || body.Contains(EndIdentifier, StringComparison.Ordinal));
 
     /// <summary>Whether this body carries a complete framework region.</summary>
     public static bool Marked(string? body) => !string.IsNullOrEmpty(body) && Pair().IsMatch(body);

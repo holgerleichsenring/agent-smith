@@ -23,7 +23,7 @@ public sealed class SpecDialogDocumentTests
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
-            new TicketGraphOutcomeParser(new TicketGraphChecker(new TicketGraphOrderer())),
+            new TicketGraphOutcomeParser(new TicketGraphChecker(new TicketGraphOrderer())), new TicketCommentOutcomeParser(),
             DialogTestRepos.Real());
     }
 

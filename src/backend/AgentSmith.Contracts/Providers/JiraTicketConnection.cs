@@ -5,9 +5,10 @@ namespace AgentSmith.Contracts.Providers;
 /// <summary>
 /// Jira ticket-provider credentials. Shared by JiraTicketProvider,
 /// JiraTicketStatusTransitioner, and the internal JiraIssueSearcher /
-/// JiraTransitioner. ProjectKey scopes every read and is where a ticket is filed;
-/// the tracker requires it (2026-10-27-a4e3), and a configuration stored without
-/// one still reads across every project the account sees. Endpoints carries the operator-overridable REST paths; when null
+/// JiraTransitioner. ProjectKey scopes every search and the fetch of one issue
+/// (2026-10-28-7a69a) and is where a ticket is filed; writes by key are not checked
+/// against it. The tracker requires it (2026-10-27-a4e3); a configuration stored
+/// without one still reads across every project the account sees. Endpoints carries the operator-overridable REST paths; when null
 /// (e.g. direct construction in tests) <see cref="ResolvedEndpoints"/> applies
 /// the Jira-Cloud-v3 defaults.
 /// </summary>

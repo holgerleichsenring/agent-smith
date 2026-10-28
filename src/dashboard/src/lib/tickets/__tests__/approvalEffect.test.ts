@@ -3,7 +3,7 @@ import { approvalEffectLabel } from "../approvalEffect";
 
 // 2026-10-13-9a59r: every 9a59l effect and every 9a59m start arm has a label of its own, from one table.
 
-const EFFECTS = ["bug-ticket", "follow-up-closed", "amend-never-worked", "refused-over-cap", "refused", "continue"];
+const EFFECTS = ["bug-ticket", "follow-up-closed", "amend-never-worked", "refused-over-cap", "refused", "continue", "comment"];
 const ARMS = ["start-now", "wait-for-run", "refused-question-pending", "recorded-without-runs-control", "answers-handback"];
 
 describe("approvalEffectLabel", () => {

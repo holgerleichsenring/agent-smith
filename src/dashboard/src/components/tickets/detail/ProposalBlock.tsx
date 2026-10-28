@@ -10,6 +10,7 @@ import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets"
 // No revision number: none is served for a proposal not yet approved.
 // 2026-10-13-8762i: each draft's review rounds, what still stands, and what is not reviewed yet.
 // 2026-10-13-8762t: the mock version a person ratified for a draft; ratifying is the conversation's act.
+// 2026-10-28-7a69c: a proposed comment is shown as the text that would be posted.
 
 const DISPOSITION_CLASS: Record<string, string> = { kept: "keep", recut: "recut", appended: "add", dropped: "drop" };
 
@@ -31,6 +32,9 @@ export function ProposalBlock({ proposal, preview }: Props) {
         <span className={refused ? "pill bad" : "pill amber"}>{refused ? "refused" : "waiting for your approval"}</span>
       </div>
       <div className="pb">
+        {proposal.kind === "comment" && proposal.comment && (
+          <p className="draft whitespace-pre-wrap" data-testid="proposal-comment">{proposal.comment}</p>
+        )}
         {others.map((s) => (
           <span key={s.specId} className={DISPOSITION_CLASS[s.disposition] ?? "keep"} data-testid={`proposal-spec-${s.specId}`}>
             {dispositionMark(s.disposition)} {s.specId} · {s.goal} · {s.disposition}{s.note ? ` — ${s.note}` : ""}

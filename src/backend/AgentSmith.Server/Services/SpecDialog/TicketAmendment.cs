@@ -31,7 +31,7 @@ public sealed class TicketAmendment(
     ApprovedSpecSetRecorder approvals,
     ITicketProviderFactory trackers,
     SpecTicketRenderer renderer, EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
-    FiledSpecBranch branches,
+    FiledSpecBranch branches, TicketDescriptionRewrite descriptions,
     ILogger<TicketAmendment> logger)
 {
     /// <summary>What the thread is told, and whether the approved series was recorded.</summary>
@@ -48,7 +48,8 @@ public sealed class TicketAmendment(
             return new("This conversation never recorded which ticket it belongs to, so there is "
                 + "nothing to record the approval under. The approval was not recorded.", false);
         // 2026-10-06-03c7c: the ticket keeps the series base its filing minted.
-        var series = seriesFiling.KeptOrMinted(await approvals.LoadAsync(project, ticketId, ct));
+        var previous = await approvals.LoadAsync(project, ticketId, ct);
+        var series = seriesFiling.KeptOrMinted(previous);
         var amended = AmendedSpecification.Of(
             proposal, series, state.JobId, new AmendmentRendering(renderer, orderer, seriesFiling),
             TicketLabelVocabulary.For(project.Tracker));
@@ -60,7 +61,7 @@ public sealed class TicketAmendment(
                 + "from is not replaced under a run that holds the ticket — approve again when no run holds it.", false);
         try
         {
-            return new(await WriteAsync(state, project, ticketId, amended, continuation, ct), true);
+            return new(await WriteAsync(state, project, ticketId, amended, continuation, previous, ct), true);
         }
         // The conversation asked for this write and has to hear how it ended, never a thrown turn.
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -73,10 +74,10 @@ public sealed class TicketAmendment(
 
     private async Task<string> WriteAsync(
         ConversationState state, ResolvedProject project, string ticketId,
-        AmendedSpecification amended, SeriesContinuation? continuation, CancellationToken ct)
+        AmendedSpecification amended, SeriesContinuation? continuation, SpecApprovalRecord? previous, CancellationToken ct)
     {
         var id = new TicketId(ticketId);
-        var rewrite = await RewriteAsync(project, id, amended.Region, ct);
+        var rewrite = await descriptions.WriteAsync(project, id, amended.Region, previous, ct);
         var record = await approvals.RecordAsync(state, project, ticketId, amended.Set, amended.Goal, ct, continuation);
         // Read back AFTER the rewrite: the fingerprint the branch set carries is of the ticket as the
         // TRACKER stored it, and a stale one reads as a ticket edit on the next run. 2026-10-12-f5f7d:
@@ -90,22 +91,6 @@ public sealed class TicketAmendment(
         return branch.Written ? recorded
             : $"{recorded} The series is NOT on the ticket branch yet ({branch.Error}); a run that claims "
                 + "this ticket works the set the branch still carries — approve again once it can be written.";
-    }
-
-    // Never blocking: the run reads the branch and the record, never the description.
-    private async Task<string> RewriteAsync(ResolvedProject project, TicketId id, string region, CancellationToken ct)
-    {
-        try
-        {
-            var rewrite = await trackers.CreateRewriter(project.Tracker).RewriteRegionAsync(id, region, ct);
-            return rewrite.Rewritten ? "The ticket's description now says what it says."
-                : $"The ticket's description was not rewritten: {rewrite.Reason}";
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "Rewriting the description of ticket {Ticket} failed", id.Value);
-            return $"The ticket's description was not rewritten: {ex.Message}.";
-        }
     }
 
     private async Task<Ticket?> ReadBackAsync(ResolvedProject project, TicketId id, CancellationToken ct)

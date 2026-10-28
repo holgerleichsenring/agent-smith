@@ -62,5 +62,6 @@ export function DialogProposalCard({
 
 function titleOf(proposal: SpecDialogProposalPush): string {
   if (proposal.kind === "tickets") return `${proposal.tickets?.length ?? 0} tickets`;
+  if (proposal.kind === "comment") return "A comment on the ticket";
   return proposal.bug?.title ?? proposal.parent?.goal ?? proposal.spec?.goal ?? proposal.kind;
 }

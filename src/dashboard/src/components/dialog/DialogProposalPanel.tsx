@@ -55,6 +55,12 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
         </div>
       )}
       {proposal.kind === "tickets" && <DialogProposalGraph proposal={proposal} />}
+      {proposal.kind === "comment" && proposal.comment && (
+        <div data-testid="dialog-proposal-comment">
+          <Label>A comment on the ticket — nothing starts</Label>
+          <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.comment}</p>
+        </div>
+      )}
       {proposal.spec && <Spec spec={proposal.spec} label="One spec" strip={strip} />}
       {proposal.parent && <Spec spec={proposal.parent} label="The work ticket — one run works every slice" strip={strip} />}
       {proposal.children.length > 0 && (

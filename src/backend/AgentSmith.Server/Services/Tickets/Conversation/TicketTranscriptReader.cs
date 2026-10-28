@@ -49,6 +49,7 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
         SpecOutcome spec => new TicketConversationProposalView("spec", [Draft(spec.Draft, ratified)]),
         EpicOutcome epic => new("epic", [Draft(epic.Parent, ratified), .. epic.Children.Select(c => Draft(c, ratified))]),
         TicketGraphOutcome => new("tickets", []),
+        TicketCommentOutcome comment => new("comment", []) { Comment = comment.Comment }, // 2026-10-28-7a69c
         _ => new("bug", []),
     }) with { Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed };
 

@@ -21,6 +21,8 @@ public static class TicketContinuation
         ArgumentNullException.ThrowIfNull(proposal);
         if (proposal is BugOutcome)
             return Plain(BugTicket, "A bug proposal files a fix-bug ticket, exactly as it does in any conversation.", state);
+        if (proposal is TicketCommentOutcome) // 2026-10-28-7a69c
+            return Plain(Comment, $"Approving posts this comment on ticket {state.TicketId} and starts nothing.", state);
         var (drafts, error) = Drafts(proposal);
         if (error is not null) return Plain(Refused, $"The proposal cannot be recorded: {error}.", state);
         if (state.ClosedForWork) return FollowUp(state, drafts);

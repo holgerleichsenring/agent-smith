@@ -15,6 +15,7 @@ public sealed class OutcomeProposalResolver(
     BugOutcomeParser bugParser,
     EpicOutcomeParser epicParser,
     TicketGraphOutcomeParser ticketsParser,
+    TicketCommentOutcomeParser commentParser,
     DialogDraftRepos draftRepos) : IOutcomeProposalResolver
 {
     public OutcomeResolution Resolve(string reply, IReadOnlyList<string> scope)
@@ -76,12 +77,13 @@ public sealed class OutcomeProposalResolver(
             "bug" => bugParser.Parse(map),
             "epic" => epicParser.Parse(map, scope),
             "tickets" => ticketsParser.Parse(map, scope),
+            "comment" => commentParser.Parse(map), // 2026-10-28-7a69c
             "answer" => new OutcomeInvalid(
                 "kind 'answer' needs no ```outcome block — reply with plain prose"),
             "spec" => new OutcomeInvalid(
                 $"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block"),
-            null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic | tickets)"),
-            _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug, epic or tickets"),
+            null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic | tickets | comment)"),
+            _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug, epic, tickets or comment"),
         };
     }
 }

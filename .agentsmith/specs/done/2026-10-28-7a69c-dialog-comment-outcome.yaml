@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-7a69c
+goal: "A ticket's conversation can end in a comment the person approves: it is posted on the ticket and nothing starts."
+
+applies_to: "default (contracts, application, server, tests) and dashboard (proposal card and pane)"
+
+requires: [2026-10-28-7a69b]
+
+facts:
+  - claim: "Bug, epic and tickets are read from one fenced outcome block by kind; a spec is a bare yaml block and an answer is prose."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:39-54, src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:73-85"
+  - claim: "Only a spec, an epic or a list approved in a ticket's own conversation goes to the continuation; a bound bug goes to the filer. The continuation decides an effect, and a follow-up or a bug carries no start arm."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:39-44, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:18-31"
+  - claim: "A comment heading 'Agent Smith —' is ours: a comment webhook never triggers on it and a parked run never reads it as an answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs"
+  - claim: "A list of tickets approved where it cannot apply is refused with a notice, without filing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:80-88"
+  - claim: "Every tracker posts a comment through ITicketProvider.UpdateStatusAsync, in the HTML subset the Jira renderer turns into ADF."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:59-61, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:163-166"
+  - claim: "The kind travels through the stored proposal JSON, the turn kind, the transcript, the proposal view and the pane."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:33-50, src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:40-46, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:51, src/dashboard/src/components/dialog/DialogProposalPanel.tsx:57"
+
+scope:
+  in: "kind: comment with one comment field; its own turn kind, JSON, pane push, ticket-page view and transcript window; approval in a bound conversation posts it, headed as ours, and clears the proposal, before any series state is read; approval in an unbound one is refused with a notice; the preview and both approval cards say it starts nothing."
+  out: "Mentioning a person by account (a name stays text); a ticket state for 'discussed, not started' beyond the posted comment and the conversation's own record."
+
+upgrade_impact: "None; a new kind, unused until the master proposes it."
+
+steps:
+  - id: contract
+    action: "TicketCommentOutcome(Comment) and SpecDialogTurnKind.CommentProposal = 10."
+  - id: parse
+    action: "TicketCommentOutcomeParser: required, trimmed, at most 4,000 characters; the resolver dispatches kind comment and names it in its errors."
+  - id: carry
+    action: "OutcomeProposalJson, SpecDialogTurnResult, TicketTranscriptReader, SpecDialogProposalComposer, SpecDialogOutcomeComposer, OutcomeShapes."
+  - id: act
+    action: "TicketContinuation decides effect 'comment' with no start for the preview; TicketContinuationAct hands it to TicketCommentPost before reading series state, which posts it headed 'Agent Smith —', lines escaped and joined by <br/>; the sink routes it to the continuation and refuses it outside a ticket's conversation."
+  - id: dashboard
+    action: "SpecDialogProposalPush and the ticket conversation view carry the comment; the effect label, the card title and summary, the pane and the ticket page's proposal block render it."
+  - id: tests
+    action: "Pin parsing, round trip, posting, the unbound refusal and the preview's effect."
+
+tests:
+  - "CommentOutcome_Parsed_CarriesTheTrimmedComment"
+  - "CommentOutcome_Missing_IsInvalidNamingTheField"
+  - "CommentOutcome_StoredJson_RoundTrips"
+  - "Continuation_CommentApproved_PostsOnTheTicketAndStartsNothing"
+  - "Sink_CommentInAnUnboundConversation_IsRefused"
+  - "Preview_CommentProposal_HasNoStartArm"
+  - "Render_EscapesEachLineAndJoinsThemWithBreaks"
+  - "RendersAProposedComment (dashboard)"
+
+done:
+  - "Approving a proposed comment in a Jira ticket's conversation posts it on that ticket and starts no run."
+  - "Build green, full suite green, dashboard gen/test/build green."

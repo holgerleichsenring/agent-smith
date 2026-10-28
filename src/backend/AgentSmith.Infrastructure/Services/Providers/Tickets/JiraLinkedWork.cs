@@ -12,9 +12,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// that guessed at it would be reporting an empty board on every installation that has not.
 /// </para>
 /// <para>
-/// It implements the port rather than being absent from it, for the reason
-/// <see cref="JiraTicketRewriter"/> already records: a tracker with no implementation is reported
-/// as a fact about OUR wiring, and what an operator needs is the fact about THEIR Jira.
+/// It implements the port rather than being absent from it: a tracker with no implementation is
+/// reported as a fact about OUR wiring, and what an operator needs is the fact about THEIR Jira.
 /// </para>
 /// </summary>
 public sealed class JiraLinkedWork : ITicketLinkedWork

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-28-7a69a
+
+decisions:
+  - category: Architecture
+    chose: "The Jira provider answers not-found for another project's issue"
+    over: "Teaching the ticket-project sweep to skip a Jira tracker whose key prefix differs"
+    reason: "Every other Jira read is already scoped by the project key; the sweep is one of several callers of GetTicketAsync, and a run or webhook fetching through the wrong tracker is the same defect."
+  - category: Implementation
+    chose: "Read the key Jira returns, falling back to the requested one"
+    over: "Checking the requested key's prefix"
+    reason: "A moved issue answers its old key with its new one; the returned key is the project it is in now."
+  - category: Scope
+    chose: "Scope webhook matching by the key's Jira project in the same spec"
+    over: "Leaving it to a follow-up"
+    reason: "With the fetch scoped, a webhook still spawning on every Jira tracker would now fail on the wrong one and could post a failure onto the ticket through it; the key already carries the project, so no envelope field is needed."

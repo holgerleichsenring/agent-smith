@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.PipelineHarness.Presets;
@@ -13,7 +14,7 @@ internal sealed class HarnessTicketRewriter : ITicketRewriter
     public List<string> Regions { get; } = [];
 
     public Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken)
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken)
     {
         lock (Regions) Regions.Add(region);
         return Task.FromResult(TicketRewriteResult.Ok);

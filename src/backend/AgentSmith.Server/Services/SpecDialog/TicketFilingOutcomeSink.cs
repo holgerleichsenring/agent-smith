@@ -36,10 +36,15 @@ public sealed class TicketFilingOutcomeSink(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
         CancellationToken cancellationToken)
     {
-        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketGraphOutcome)
+        if (state.TicketKey is null && proposal is TicketCommentOutcome) // 2026-10-28-7a69c
+        {
+            await RefuseAsync(state, UnboundComment, cancellationToken);
+            return;
+        }
+        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketGraphOutcome or TicketCommentOutcome)
         {
             await (proposal is TicketGraphOutcome
-                ? RefuseBoundListAsync(state, cancellationToken) : ContinueAsync(state, proposal, mayStartRuns, cancellationToken));
+                ? RefuseAsync(state, BoundList(state), cancellationToken) : ContinueAsync(state, proposal, mayStartRuns, cancellationToken));
             return;
         }
         await outcomeStore.SetConfirmedAsync(
@@ -77,11 +82,15 @@ public sealed class TicketFilingOutcomeSink(
             state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Filing, null, ct);
     }
 
-    private async Task RefuseBoundListAsync(ConversationState state, CancellationToken cancellationToken)
+    private const string UnboundComment = "A comment is posted on the ticket a conversation belongs to, and this one "
+        + "belongs to none. Open Work it out on the ticket to comment on it.";
+
+    private static string BoundList(ConversationState state) => $"This conversation belongs to {state.TicketKey}; approving "
+        + "here continues that ticket. File a list of tickets from Work it out without a ticket, or make this one ticket's series.";
+
+    private async Task RefuseAsync(ConversationState state, string notice, CancellationToken cancellationToken)
     {
-        var notice = $"This conversation belongs to {state.TicketKey}; approving here continues that ticket. File a list "
-            + "of tickets from Work it out without a ticket, or make this one ticket's series.";
-        logger.LogInformation("A list approved in ticket conversation {SessionId} was not filed", state.JobId);
+        logger.LogInformation("An approval in conversation {SessionId} was refused: {Notice}", state.JobId, notice);
         await messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
         await sessions.AppendTurnAsync(
             state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Notice, null, cancellationToken);

@@ -38,6 +38,8 @@ internal static class Continuations
             ApprovedSetDoubles.Recorder(), Mock.Of<ITicketActivityNudge>(),
             new OperatorStart(Mock.Of<IReworkNudges>(), trackers, FiledWorkDoubles.Move(), NullLogger<OperatorStart>.Instance,
                 TicketRequirementDoubles.None()),
-            SeriesSettingsDoubles.Reader(), NullLogger<TicketContinuationAct>.Instance);
+            SeriesSettingsDoubles.Reader(),
+            new TicketCommentPost(trackers, Mock.Of<ITicketActivityNudge>(), NullLogger<TicketCommentPost>.Instance),
+            NullLogger<TicketContinuationAct>.Instance);
     }
 }

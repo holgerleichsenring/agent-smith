@@ -52,3 +52,6 @@ public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Chil
 
 /// <summary>2026-10-14-dbcej: 2 to 20 ticket texts joined by requires; each ticket's run derives its own specs.</summary>
 public sealed record TicketGraphOutcome(IReadOnlyList<GraphTicket> Tickets) : OutcomeProposal;
+
+/// <summary>2026-10-28-7a69c: a ticket's conversation ends in a comment on it, and nothing starts.</summary>
+public sealed record TicketCommentOutcome(string Comment) : OutcomeProposal;

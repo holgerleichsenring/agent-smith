@@ -90,7 +90,7 @@ public static class TranscriptWindow
     }
 
     private static bool IsProposal(SpecDialogTurnKind kind) => kind is SpecDialogTurnKind.BugProposal
-        or SpecDialogTurnKind.SpecProposal or SpecDialogTurnKind.EpicProposal or SpecDialogTurnKind.TicketGraphProposal;
+        or SpecDialogTurnKind.SpecProposal or SpecDialogTurnKind.EpicProposal or SpecDialogTurnKind.TicketGraphProposal or SpecDialogTurnKind.CommentProposal;
 
     private static bool IsDigest(SpecDialogTurn turn) => turn.Kind == SpecDialogTurnKind.Digest && turn.DigestThrough is not null;
 

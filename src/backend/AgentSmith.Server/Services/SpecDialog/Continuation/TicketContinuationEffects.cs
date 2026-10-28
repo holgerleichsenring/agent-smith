@@ -20,4 +20,7 @@ public static class TicketContinuationEffects
 
     /// <summary>The ticket's next attempt works the series continued by spec id.</summary>
     public const string Continue = "continue";
+
+    /// <summary>2026-10-28-7a69c: the approval posts a comment on the ticket and starts nothing.</summary>
+    public const string Comment = "comment";
 }

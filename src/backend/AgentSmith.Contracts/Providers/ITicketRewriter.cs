@@ -16,12 +16,9 @@ namespace AgentSmith.Contracts.Providers;
 /// readable on its own.
 /// </para>
 /// <para>
-/// JIRA IMPLEMENTS IT TOO, AND REFUSES. A tracker that simply had no implementation would be
-/// reported as "no rewriter for this tracker", which is a fact about our wiring; what an
-/// operator needs is the fact about JIRA — a description is stored as a structured document and
-/// read back as text nodes only, so a round trip drops mentions, emoji, media, inline cards and
-/// status nodes and flattens every mark, heading level, list marker and table. That sentence can
-/// only live where the refusal is.
+/// 2026-10-28-7a69b: JIRA IMPLEMENTS IT ON THE DOCUMENT. It used to refuse, because reading a
+/// description as text drops mentions, links, marks and tables; it now replaces the region's
+/// paragraphs inside the stored document and sends every other node back as it was read.
 /// </para>
 /// </summary>
 public interface ITicketRewriter
@@ -31,13 +28,15 @@ public interface ITicketRewriter
     /// <paramref name="region"/>, leaving every character outside the markers as it stands.
     /// Never throws — see <see cref="TicketRewriteResult"/>.
     /// <para>
-    /// A body with no complete marker pair is <see cref="TicketRewriteOutcome.Unsupported"/>:
-    /// it was filed before the framework marked its region, and nothing in it says where a
-    /// person's prose begins.
+    /// A body with no complete marker pair is <see cref="TicketRewriteOutcome.Unsupported"/> under
+    /// <see cref="RegionPlacement.ReplaceOnly"/>: the framework rendered it whole before it marked its
+    /// region, and nothing says where a person's prose begins. Under
+    /// <see cref="RegionPlacement.ReplaceOrAppend"/> it is a person's text and the region goes below it.
     /// </para>
     /// </summary>
     /// <param name="region">A whole rendering including both markers, as
     /// <see cref="FramedTicketRegion.Wrap"/> produces one.</param>
+    /// <param name="placement">2026-10-28-7a69b: whether an unmarked body takes the region below it.</param>
     Task<TicketRewriteResult> RewriteRegionAsync(
-        TicketId ticketId, string region, CancellationToken cancellationToken);
+        TicketId ticketId, string region, RegionPlacement placement, CancellationToken cancellationToken);
 }

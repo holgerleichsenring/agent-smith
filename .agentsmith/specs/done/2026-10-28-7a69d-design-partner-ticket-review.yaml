@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-7a69d
+goal: "In a ticket's conversation the design partner judges the ticket and ends in a specification to approve and start, or a comment that starts nothing; the embedded catalog carries it."
+
+applies_to: "default (embedded skills pin, tests); agent-smith-skills (design-partner-master)"
+
+requires: [2026-10-28-7a69c]
+
+facts:
+  - claim: "The design partner's outcomes are answer, document, bug, spec, epic and tickets; a bound conversation is mentioned as the subject and as where no list of tickets is proposed."
+    evidence: "observed: 2026-10-28, agent-smith-skills origin/main cda7663 skills/_masters/design-partner-master/SKILL.md (Outcomes; Proposing tickets: 'Propose tickets only in a conversation that is not bound to a ticket')"
+  - claim: "A bound conversation's prompt carries the ticket under '## The ticket this conversation is about'."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeededTicketSection.cs:21-33"
+  - claim: "The binary ships the catalog pinned by version and SHA256."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+
+scope:
+  in: "A section on a conversation bound to a ticket: the first reply judges whether the ticket holds; a spec or epic approval writes it into the ticket and may start it; kind: comment for a ticket that should not be built as written. The comment format. The frontmatter description near 180 characters (the loader drops a master over 200); the first reply stays an answer, as the pinned dialog rules require. The catalog release and the embedded pin."
+  out: "The steward, which serves tickets that have already run."
+
+upgrade_impact: "A deployment pinning skills.version must raise it to the release that carries this master to get the comment outcome."
+
+steps:
+  - id: skill
+    action: "Edit design-partner-master SKILL.md, bump its version, open the skills PR with a conventional title, merge it and its release."
+  - id: pin
+    action: "Raise SkillsCatalogVersion and SkillsCatalogSha256 to that release, replace the tarball, and move the version named in the skills docs and the example config."
+  - id: tests
+    action: "A test reads the embedded master and finds the comment outcome."
+
+tests:
+  - "EmbeddedCatalog_DesignPartner_DocumentsTheCommentOutcome"
+  - "EmbeddedCatalog_DesignPartnerCommentBlock_IsWhatTheParserReads"
+
+done:
+  - "The embedded design partner names kind: comment and when a bound conversation uses it."
+  - "Build green, full suite green, dashboard gen/test/build green."
