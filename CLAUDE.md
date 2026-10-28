@@ -2,7 +2,7 @@
 
 ## Context Files (read in this order)
 
-1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — architecture, stack, integrations, spec status PER stack
+1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — read it down to `state:` for architecture, stack and integrations PER stack. `state.done` is an index, one line per finished spec with a pointer to it: search it for the area you touch, never read it front to back
 2. **Every** `.agentsmith/contexts/<name>/principles.md` — code quality rules per stack (ALWAYS follow)
 3. `.agentsmith/specs/active/*.yaml` — the spec being implemented (its `applies_to:` names the dominant context)
 4. `.agentsmith/decisions/*.yaml` — past decisions, one YAML per spec or run (read the active spec's file and its `requires:` chain)

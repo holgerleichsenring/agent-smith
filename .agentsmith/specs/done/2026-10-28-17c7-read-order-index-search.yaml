@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-28-17c7
+goal: "Sessions read each context.yaml down to state: and search state.done for the area they touch, so a 425 KB index never has to be read whole."
+
+applies_to: "default (repo instructions)"
+
+facts:
+  - claim: "CLAUDE.md tells every session to read every context.yaml, spec status included"
+    evidence: "CLAUDE.md:5"
+  - claim: "state.done starts after the architecture, stack and integration sections"
+    evidence: ".agentsmith/contexts/default/context.yaml:92-93"
+
+scope:
+  in: "the read-order line in CLAUDE.md"
+  out: "splitting state.done into its own file; the product's prompts"
+
+decisions:
+  - key: "Same wording as plugin 2.8.1 (2026-10-28-4dec in the plugin repo)"
+
+steps:
+  - id: wording
+    action: "CLAUDE.md item 1: read down to state:, search state.done, never read it front to back"
+
+upgrade_impact: "none: repo instructions only"
+proven_live: "a fresh session following the line is not run here"
+
+tests:
+  - "full suite green in the spec gate"
+
+done:
+  - "CLAUDE.md no longer tells a session to read state.done in full"
