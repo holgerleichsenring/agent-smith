@@ -217,6 +217,9 @@ public sealed class StartupResilienceTests : IDisposable
             type: github
             organization: testorg
             auth: token
+            trigger_statuses: [open]
+            done_status: closed
+            needs_clarification_status: question
         projects:
           orphan:
             agent: claude-default
@@ -225,10 +228,6 @@ public sealed class StartupResilienceTests : IDisposable
             pipeline: code
             resolution:
               not_a_strategy: whatever
-            github_trigger:
-              trigger_statuses: [open]
-              done_status: closed
-              needs_clarification_status: question
         """;
 
     private const string OneBrokenOneHealthyYaml = """
@@ -246,6 +245,9 @@ public sealed class StartupResilienceTests : IDisposable
             type: github
             organization: testorg
             auth: token
+            trigger_statuses: [open]
+            done_status: closed
+            needs_clarification_status: question
         projects:
           healthy:
             agent: claude-default
@@ -254,10 +256,6 @@ public sealed class StartupResilienceTests : IDisposable
             pipeline: code
             resolution:
               tag: healthy
-            github_trigger:
-              trigger_statuses: [open]
-              done_status: closed
-              needs_clarification_status: question
           broken:
             agent: claude-default
             tracker: gh
@@ -265,10 +263,6 @@ public sealed class StartupResilienceTests : IDisposable
             pipeline: code
             resolution:
               not_a_strategy: whatever
-            github_trigger:
-              trigger_statuses: [open]
-              done_status: closed
-              needs_clarification_status: question
         """;
 
     private const string TwoProjectsYaml = """
@@ -282,32 +276,34 @@ public sealed class StartupResilienceTests : IDisposable
             url: https://github.com/test/repo
             auth: token
         trackers:
-          gh:
+          gh-alpha:
             type: github
             organization: testorg
             auth: token
+            trigger_statuses: [open]
+            done_status: closed
+          gh-beta:
+            type: github
+            organization: testorg
+            auth: token
+            trigger_statuses: [open]
+            done_status: closed
+            needs_clarification_status: question
         projects:
           alpha:
             agent: claude-default
-            tracker: gh
+            tracker: gh-alpha
             repos: [shared-repo]
             pipeline: code
             resolution:
               tag: alpha
-            github_trigger:
-              trigger_statuses: [open]
-              done_status: closed
           beta:
             agent: claude-default
-            tracker: gh
+            tracker: gh-beta
             repos: [shared-repo]
             pipeline: code
             resolution:
               tag: beta
-            github_trigger:
-              trigger_statuses: [open]
-              done_status: closed
-              needs_clarification_status: question
         """;
 
     private static void Seed(string dbPath, string configPath)

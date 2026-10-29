@@ -97,7 +97,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
                 agent: a
                 tracker: board
                 repos: [r]
-                github_trigger: { }
+                resolution: { tag: demo }
             """);
 
         resolved.Findings.Should().BeEmpty();

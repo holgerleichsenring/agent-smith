@@ -571,6 +571,12 @@ export interface StudioTracker {
   // 2026-10-15-114fe, Jira and Azure DevOps: the status "also close on the tracker" moves a ticket
   // into. Absent means the done status.
   closedStatus?: string;
+  // 2026-10-29-6bd3a: what a project's per-platform trigger block carried and no tracker field had.
+  commentKeyword?: string;
+  prTriggerLabel?: string;
+  inProgressStatus?: string;
+  assigneeName?: string;
+  webhookSecret?: string;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

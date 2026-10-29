@@ -27,7 +27,9 @@ public sealed class ConfigValidatorTests : IDisposable
     [Fact]
     public void Cli_Validate_ReportsTheSameFindingsAsTheServer()
     {
-        // A trigger without project_resolution: a rule the server's ConfigurationProbe owns.
+        // A routing rule naming no pipeline: a rule the server's ConfigurationProbe owns.
+        // 2026-10-29-6bd3a: it was a trigger block without project_resolution, which no longer
+        // reaches the validator — a block is folded into the project's resolution or dropped.
         Write("""
             agents:
               a: { type: Claude }
@@ -36,14 +38,14 @@ public sealed class ConfigValidatorTests : IDisposable
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
               t: { type: GitHub, auth: t, trigger_statuses: [open], done_status: closed }
+            pipeline_triggers:
+              agent-smith:nonsense: not-a-pipeline
             projects:
               demo:
                 agent: a
                 tracker: t
                 repos: [r]
-                github_trigger:
-                  trigger_statuses: [open]
-                  done_status: closed
+                resolution: { tag: demo }
             """);
 
         var findings = NewValidator(out var loader).Validate(_tempFile);
@@ -54,7 +56,7 @@ public sealed class ConfigValidatorTests : IDisposable
         serverFindings.Should().NotBeEmpty();
         findings.Select(f => (f.Project, f.Trigger, f.Field, f.Severity))
             .Should().Contain(serverFindings.Select(f => (f.Project, f.Trigger, f.Field, f.Severity)));
-        findings.Should().Contain(f => f.Field == "project_resolution" && f.Project == "demo");
+        findings.Should().Contain(f => f.Field == "pipeline_triggers");
     }
 
     [Fact]

@@ -47,22 +47,18 @@ trackers:
     open_states: [open]
     done_status: closed
     default_pipeline: code
+    pipeline_from_label:
+      agent-smith:bug:                code
+      agent-smith:feature:            code
+      agent-smith:security-scan:      security-scan
 
 projects:
   github-todolist:
     agent: default-openai
     tracker: acme-issues
     repos: [todolist-api, todolist-worker, todolist-web]
-    github_trigger:
-      project_resolution:
-        strategy: tag                  # an issue labelled todolist routes here
-        value: todolist
-      trigger_statuses: [open]
-      done_status: closed
-      pipeline_from_label:
-        agent-smith:bug:                code
-        agent-smith:feature:            code
-        agent-smith:security-scan:      security-scan
+    resolution:
+      tag: todolist                    # an issue labelled todolist routes here
 
 secrets:
   openai_api_key: ${OPENAI_API_KEY}
@@ -73,32 +69,10 @@ GitHub-specific things to notice:
 
 - **`url` on the tracker is a repository** — GitHub has no Azure-DevOps-style project concept. Issues belong to a repo, so the tracker names the one repo whose issues Agent Smith reads and writes.
 - **`open_states: [open]` + `done_status: closed`** — GitHub Issues are binary, open or closed. There's no in-between state.
-- **`project_resolution.strategy: tag`** — a label on the issue picks the project. The agent still touches all repos in `projects.X.repos` during the run; the resolution is about *which project to wake up*, not which repo to change. The `repo` strategy (route by the repo the issue was filed in) only works for a project with exactly one repo; see [Project resolution](../reference/configuration/project-resolution.md).
+- **`resolution: { tag: todolist }`** — a label on the issue picks the project. The agent still touches all repos in `projects.X.repos` during the run; the resolution is about *which project to wake up*, not which repo to change. The `repo` strategy (route by the repo the issue was filed in) only works for a project with exactly one repo; see [Project resolution](../reference/configuration/project-resolution.md).
 - **`work_item_kinds` does nothing here** — GitHub issues have no type to pick, so the tracker ignores it.
 
-The tracker owns the workflow: `open_states`, `done_status`, `failed_status`, `trigger_statuses` (falls back to `open_states`) and `pipeline_from_label` can all sit on the tracker block, inherited by every project routed to it. A project then only declares its resolution:
-
-```yaml
-trackers:
-  acme-issues:
-    type: github
-    url: https://github.com/acme-org/todolist-api
-    auth: github_token
-    open_states: [open]
-    done_status: closed
-    pipeline_from_label:
-      agent-smith:bug:     code
-      agent-smith:feature: code
-projects:
-  github-todolist:
-    agent: default-openai
-    tracker: acme-issues
-    repos: [todolist-api, todolist-worker, todolist-web]
-    resolution:
-      tag: todolist
-```
-
-The explicit `github_trigger:` block from the full config works too and overrides the tracker field by field — use it when one project needs its own `comment_keyword` or a different label map.
+The tracker owns the workflow: `open_states`, `done_status`, `failed_status`, `trigger_statuses` (falls back to `open_states`), `pipeline_from_label`, `default_pipeline`, `comment_keyword` and `pr_trigger_label` sit on the tracker block and hold for every project routed to it. A project only declares its `resolution:`, as `github-todolist` does above.
 
 Skills need no configuration: they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
 
@@ -133,7 +107,7 @@ When a run fails, the issue moves to `failed_status` if configured (with GitHub'
 
 When the PR opens, its body ends with a `Ticket:` reference: `#54` when the issue lives in the PR's own repository, `owner/repo#54` when it lives in another repository on the same GitHub host, and the issue's web link otherwise. GitHub links the two either way. There is no `Closes #54` keyword, so merging the PR never closes the issue on its own — one issue can span several repositories, and its first merged PR would close it for all of them.
 
-When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in `needs_clarification_status` (settable on the tracker or the project). Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Cross-repo issues
 

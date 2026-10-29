@@ -40,7 +40,7 @@ public static class ServerHostFactory
         if (DashboardApiExtensions.IsEnabled) app.MapDashboardApi();
         // p0503b: after the map calls, because MapDashboardApi is where UseCors is
         // registered and a preflight must be answered before anything can refuse it.
-        app.UseServerAuthentication(auth).MigrateRoleMapping().MigratePipelineAliases();
+        app.UseServerAuthentication(auth).MigrateRoleMapping().MigratePipelineAliases().MigrateLegacyTriggersAfterStart();
         await RunProbesAsync(app);
         return app;
     }

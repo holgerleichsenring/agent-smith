@@ -43,7 +43,13 @@ public sealed record TrackerEntity(
     // 2026-10-02-5f89a, Jira only: the account the API token belongs to. APPENDED.
     string? Email = null,
     // Jira and Azure DevOps: the status a close from agent-smith moves a ticket into. APPENDED.
-    string? ClosedStatus = null)
+    string? ClosedStatus = null,
+    // 2026-10-29-6bd3a: the fields a per-project trigger block used to carry. APPENDED.
+    string? CommentKeyword = null,
+    string? PrTriggerLabel = null,
+    string? InProgressStatus = null,
+    string? AssigneeName = null,
+    string? WebhookSecret = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

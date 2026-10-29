@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models.Configuration;
+using YamlDotNet.Serialization;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
@@ -33,16 +35,27 @@ public sealed class RawProjectEntry
     /// <summary>
     /// p0281b: flat resolution shorthand — one entry whose KEY is the strategy
     /// (tag | area_path | repo | to_address) and whose value is the match. Combined
-    /// with the tracker's type it produces the effective trigger block, so a project
-    /// need not spell out a full per-platform trigger wrapper just to declare routing.
-    /// An explicit trigger wrapper still wins.
+    /// with the tracker's type it produces the effective trigger block.
     /// </summary>
     public Dictionary<string, string>? Resolution { get; set; }
 
-    public JiraTriggerConfig? JiraTrigger { get; set; }
-    public WebhookTriggerConfig? GithubTrigger { get; set; }
-    public WebhookTriggerConfig? GitlabTrigger { get; set; }
-    public WebhookTriggerConfig? AzuredevopsTrigger { get; set; }
+    // 2026-10-29-6bd3a: the per-project trigger blocks as written, under their YAML and document keys.
+    // Read for LegacyTriggerFold only, which moves them into Resolution and the tracker and clears them.
+    [YamlMember(Alias = "jira_trigger")] [JsonPropertyName("JiraTrigger")]
+    public LegacyJiraTriggerBlock? LegacyJiraTrigger { get; set; }
+    [YamlMember(Alias = "github_trigger")] [JsonPropertyName("GithubTrigger")]
+    public LegacyTriggerBlock? LegacyGithubTrigger { get; set; }
+    [YamlMember(Alias = "gitlab_trigger")] [JsonPropertyName("GitlabTrigger")]
+    public LegacyTriggerBlock? LegacyGitlabTrigger { get; set; }
+    [YamlMember(Alias = "azuredevops_trigger")] [JsonPropertyName("AzuredevopsTrigger")]
+    public LegacyTriggerBlock? LegacyAzuredevopsTrigger { get; set; }
+
+    // The EFFECTIVE trigger EffectiveTriggerBuilder builds from tracker and resolution — never
+    // written, so no document or export carries a block again.
+    [YamlIgnore] [JsonIgnore] public JiraTriggerConfig? JiraTrigger { get; set; }
+    [YamlIgnore] [JsonIgnore] public WebhookTriggerConfig? GithubTrigger { get; set; }
+    [YamlIgnore] [JsonIgnore] public WebhookTriggerConfig? GitlabTrigger { get; set; }
+    [YamlIgnore] [JsonIgnore] public WebhookTriggerConfig? AzuredevopsTrigger { get; set; }
 
     public PollingConfig Polling { get; set; } = new();
     public SandboxConfig? Sandbox { get; set; }

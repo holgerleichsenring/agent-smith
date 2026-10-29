@@ -100,6 +100,11 @@ trackers:
     open_states:  [New, Active]
     done_status:  Resolved
     needs_clarification_status: Blocked
+    pipeline_from_label:
+      agent-smith:bug:                code
+      agent-smith:feature:            code
+      agent-smith:security-scan:      security-scan
+      agent-smith:api-security-scan:  api-security-scan
     work_item_kinds:
       work: User Story     # an approved cut's one work ticket
       spec: User Story     # a single spec filed from a design conversation (key phase still accepted)
@@ -119,17 +124,8 @@ projects:
       - todolist-worker
       - todolist-web
       - todolist-docs
-    azuredevops_trigger:
-      project_resolution:
-        strategy: tag
-        value: TodoList
-      trigger_statuses: [New, Active]
-      done_status: Resolved
-      pipeline_from_label:
-        agent-smith:bug:                code
-        agent-smith:feature:            code
-        agent-smith:security-scan:      security-scan
-        agent-smith:api-security-scan:  api-security-scan
+    resolution:
+      tag: TodoList
 
 secrets:
   azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
@@ -150,7 +146,7 @@ projects:
       tag: TodoList                    # or: area_path: AcmeMain/Platform
 ```
 
-The explicit `azuredevops_trigger:` block works too and overrides the tracker field by field. Reach for it when one project needs its own `comment_keyword` or a different label map.
+The rest of the workflow (`trigger_statuses`, which falls back to `open_states`, `pipeline_from_label`, `default_pipeline`, `comment_keyword`, `in_progress_status`) sits on the tracker too and holds for every project routed to it.
 
 `work_item_kinds` maps the roles Agent Smith files tickets under to your process's work-item types: `work` (the one work ticket an approved cut files), `spec` (a single spec filed from a design conversation; the key `phase` is still accepted), `bug` and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway, and the filing states which type it used. Whatever type you pick, its workflow has to contain your lifecycle statuses (`done_status`, `failed_status`, `needs_clarification_status`); a work item whose type doesn't know them can't be moved, and the refusal names the type as the usual cause.
 
@@ -198,7 +194,7 @@ When a run fails:
 
 The run lifecycle is carried as `agent-smith:*` tags. A board with its own vocabulary can rename them with a `label_names:` map on the tracker (keys `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set`); tags written under an older name are still recognised.
 
-When a ticket is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as a work-item comment and parks the ticket in `needs_clarification_status` (settable on the tracker or the project). Without one, a project whose pipeline can park gets a blocking startup finding and its trigger stays off until you set it. Answering the questions resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When a ticket is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as a work-item comment and parks the ticket in the tracker's `needs_clarification_status`. Without one, a project whose pipeline can park gets a blocking startup finding and its trigger stays off until you set it. Answering the questions resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Next
 

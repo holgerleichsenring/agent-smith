@@ -51,6 +51,11 @@ trackers:
     close_transition_name: Done        # the transition Jira calls to reach done_status
     needs_clarification_status: Waiting for input
     default_pipeline: code             # what a ticket runs when no label matched
+    pipeline_from_label:
+      agent-smith:bug:                code
+      agent-smith:feature:            code
+      agent-smith:security-scan:      security-scan
+    webhook_secret: ${JIRA_WEBHOOK_SECRET}   # webhook shared secret — Jira is the one tracker where this lives in config
     work_item_kinds:                   # which issue type a ticket Agent Smith files becomes
       work: Story
       bug: Bug
@@ -62,17 +67,8 @@ projects:
     agent: default-claude
     tracker: acme-jira
     repos: [todolist-api, todolist-worker, todolist-web]
-    jira_trigger:
-      secret: ${JIRA_WEBHOOK_SECRET}   # webhook shared secret — Jira is the one tracker where this lives in config
-      project_resolution:
-        strategy: tag
-        value: todolist                # Jira labels are lowercase
-      trigger_statuses: [Open, In Progress, To Do]
-      done_status: Done
-      pipeline_from_label:
-        agent-smith:bug:                code
-        agent-smith:feature:            code
-        agent-smith:security-scan:      security-scan
+    resolution:
+      tag: todolist                    # Jira labels are lowercase
 
 secrets:
   claude_api_key: ${ANTHROPIC_API_KEY}
@@ -84,8 +80,8 @@ Jira-specific things to notice:
 
 - **`project`** — the Jira project key, required. It scopes what the tracker reads and is where every ticket Agent Smith files lands, the way an Azure DevOps project or a GitLab project path is. If your tickets live in several Jira projects, configure one tracker per project. They can all point at the same `auth` secret. Jira keeps workflows and issue types per project, and a tracker's statuses, `lifecycle_status_names` and `work_item_kinds` describe exactly one of them. A tracker stored without a project still loads and reads every project the account can see, but it can't file a ticket, and the studio won't save it again until you set one.
 - **`close_transition_name`** — Jira doesn't expose a "set status" API. You move an issue between statuses by *transitioning* it, and transitions have names defined per project workflow. Set this to the transition that lands on your `done_status`. If you don't know it, look at the workflow diagram in Jira Settings → Issue Types → Workflows.
-- **`jira_trigger.secret`** — the webhook shared secret. Jira is the exception among the trackers: GitHub / GitLab / Azure DevOps verify webhooks from server environment variables, but for Jira the secret sits in config, per project, under `jira_trigger`.
-- **`jira_trigger.assignee_name`** — the Jira webhook starts work when an issue is *assigned* to this user. It defaults to `Agent Smith`; set it to the display name of the account the agent uses.
+- **`webhook_secret`** — the webhook shared secret, as a `${name}` secret reference. Jira is the exception among the trackers: GitHub / GitLab / Azure DevOps verify webhooks from server environment variables, but for Jira the secret sits in config, on the tracker.
+- **`assignee_name`** — the Jira webhook starts work when an issue is *assigned* to this user. It defaults to `Agent Smith`; set it to the display name of the account the agent uses.
 - **`lifecycle_status_names`** — by default the run lifecycle (pending / enqueued / in-progress / done / failed) is carried as labels. Add a `lifecycle_status_names:` map on the tracker to move issues through native Jira workflow statuses instead; labels remain the always-available carrier.
 - **`label_names`** — renames the labels the framework writes, for a board with its own vocabulary. The keys are `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall` and `approved-set`; a key you leave out keeps its default word. Labels written under an older name are still recognised.
 - **`work_item_kinds`** — which Jira issue type a ticket Agent Smith files is created as, per filing role: `work` (an approved cut's work ticket), `spec` (a single spec filed from a design conversation; the key `phase` is still accepted), `bug`, and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway. The trail of the filing names the type it used. The lifecycle statuses have to exist in the workflow of that issue type; if they don't, the issue can't be moved and the refusal says the issue type is the usual cause.
@@ -101,21 +97,7 @@ Jira-specific things to notice:
   ```
 - **`polling.enabled: false`** — Atlassian Cloud webhooks are reliable; use them. Polling is per-tracker and is the fallback for Jira Server / Data Center behind a firewall.
 
-The tracker owns the workflow: `open_states`, `done_status`, `failed_status` (where a failed run parks the issue), `needs_clarification_status`, `trigger_statuses` (falls back to `open_states`), `pipeline_from_label` and `default_pipeline` can all live on the tracker block, inherited by every project routed to it. When the label map has entries, a ticket matching none of them isn't routed; when it has none, every ticket runs the default pipeline, and if neither the project's trigger nor the tracker declares one it runs `code` and the startup findings say so. A project then only declares its resolution:
-
-```yaml
-projects:
-  jira-todolist:
-    agent: default-claude
-    tracker: acme-jira
-    repos: [todolist-api, todolist-worker, todolist-web]
-    resolution:
-      tag: todolist
-    jira_trigger:
-      secret: ${JIRA_WEBHOOK_SECRET}
-```
-
-The explicit `jira_trigger:` block from the full config works too and overrides the tracker field by field.
+The tracker owns the workflow: `open_states`, `done_status`, `failed_status` (where a failed run parks the issue), `needs_clarification_status`, `in_progress_status`, `trigger_statuses` (falls back to `open_states`), `pipeline_from_label`, `default_pipeline`, `comment_keyword`, `assignee_name` and `webhook_secret` live on the tracker block and hold for every project routed to it. When the label map has entries, a ticket matching none of them isn't routed; when it has none, every ticket runs the default pipeline, and if the tracker declares none it runs `code` and the startup findings say so. A project only declares its `resolution:`, as `jira-todolist` does above.
 
 ## Authentication
 
@@ -131,7 +113,7 @@ The email is the account the agent acts as, and you'll see it in the issue histo
 
 ## How tickets reach Agent Smith
 
-- **Webhook** (preferred). Jira Cloud posts to Agent Smith on issue updates (`issue_updated`). An issue assigned to `assignee_name` starts work, and so does a finished issue a person moves back into one of the tracker's `trigger_statuses`: when its last code attempt has ended, the move came after it and the mover isn't the token's own account, a run starts and reads that move as the act asking for a rework, with the comments and ticket edits since then as what to change. That needs `trigger_statuses` set, since an empty list matches no move. The server listens on port 8081; point the webhook at `POST /webhook/jira` (or the generic `POST /webhook` — the platform is auto-detected). The shared secret is checked against `jira_trigger.secret`. Set up in [Webhooks: Jira](../trigger-it/webhooks.md#jira).
+- **Webhook** (preferred). Jira Cloud posts to Agent Smith on issue updates (`issue_updated`). An issue assigned to `assignee_name` starts work, and so does a finished issue a person moves back into one of the tracker's `trigger_statuses`: when its last code attempt has ended, the move came after it and the mover isn't the token's own account, a run starts and reads that move as the act asking for a rework, with the comments and ticket edits since then as what to change. That needs `trigger_statuses` set, since an empty list matches no move. The server listens on port 8081; point the webhook at `POST /webhook/jira` (or the generic `POST /webhook` — the platform is auto-detected). The shared secret is checked against the tracker's `webhook_secret`. Set up in [Webhooks: Jira](../trigger-it/webhooks.md#jira).
 - **Polling**. For Jira Server / Data Center behind a firewall. Set `polling.enabled: true` and `interval_seconds: 60` (or more — Jira's API rate limits get strict).
 - **Manual CLI**. `agent-smith code --ticket TL-54 --project jira-todolist` — note the project-prefixed issue key, that's Jira's native shape.
 
@@ -148,7 +130,7 @@ When a run finishes:
 
 When a run fails, the issue moves to `failed_status` if configured (otherwise the status stays), the `agent-smith:failed` label gets added, and a comment carries the error. With `label_names` set, your words replace the `agent-smith:*` ones.
 
-When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in `needs_clarification_status` (settable on the tracker or the project). A project whose pipeline can park a run and that has no such status gets a blocking startup finding, and its trigger doesn't run until you set one. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. A project whose pipeline can park a run and that has no such status gets a blocking startup finding, and its trigger doesn't run until you set one. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Next
 

@@ -34,8 +34,9 @@ public sealed class ConfigSecretResolver(ConfigSecretReferences references)
     {
         foreach (var entry in raw.Registries)
             entry.Token = references.Resolve(entry.Token, raw.Secrets);
-        foreach (var project in raw.Projects.Values)
-            if (project.JiraTrigger?.Secret is { } secret)
-                project.JiraTrigger.Secret = references.Resolve(secret, raw.Secrets);
+        // 2026-10-29-6bd3a: on the tracker now — LegacyTriggerFold moved every jira_trigger.secret there.
+        foreach (var tracker in raw.Trackers.Values)
+            if (tracker.WebhookSecret is { } secret)
+                tracker.WebhookSecret = references.Resolve(secret, raw.Secrets);
     }
 }

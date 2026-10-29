@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-6bd3a
+goal: "The per-project jira/github/gitlab/azuredevops trigger blocks are folded into what the studio shows and then gone, so the configured project and tracker are the routing that runs."
+
+applies_to: "default (Infrastructure.Core configuration, Server startup, Contracts studio, docs)"
+
+requires: [2026-09-25-e5b1]
+
+facts:
+  - claim: "A project's explicit trigger block wins over its resolution shorthand and over the tracker's workflow, field by field."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/EffectiveTriggerBuilder.cs:22, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/EffectiveTriggerBuilder.cs:26, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/EffectiveTriggerBuilder.cs:33"
+  - claim: "The studio shows the resolution shorthand when one is set and never the block that overrides it, and offers no field for the block."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectEntityMapping.cs:102, src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs"
+  - claim: "On the operator's deployment four projects route by a tag from an imported block while the studio shows a different tag, and start on 'To Do' only and fail to 'Blocked' while their tracker says otherwise."
+    evidence: "observed: 2026-10-29, the operator's /api/config/export.yml"
+  - claim: "Five trigger fields have no tracker or project field: comment_keyword, pr_trigger_label, in_progress_status, and Jira's assignee_name and secret."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs, src/backend/AgentSmith.Contracts/Models/Configuration/JiraTriggerConfig.cs:9-10, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawTrackerEntry.cs"
+  - claim: "The YAML reader ignores unknown keys, so deleting the block properties would drop an operator's values in silence."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawConfigYaml.cs:19"
+  - claim: "Every runtime reader reads the RESOLVED trigger, which ResolvedProjectBuilder copies from the raw project after the effective-trigger step."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs:100-103, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawConfigMaterializer.cs:52"
+  - claim: "A startup migration already rewrites stored config documents once and re-saves only those it changed."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/PipelineAliasMigration.cs, src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:43"
+
+scope:
+  in: >
+    The tracker gains comment_keyword, pr_trigger_label, in_progress_status, assignee_name (Jira) and webhook_secret
+    (Jira, a secret reference), shown in the studio through the capability table. A block is READ through
+    LegacyTriggerBlock, every field nullable, under the same YAML and document keys; the effective trigger keeps its
+    slot on the raw project but is never serialised. LegacyTriggerFold moves the block of the tracker's kind into the
+    project and its tracker, filling only what is unset there: resolution when the project has none; trigger statuses
+    when the tracker has neither trigger_statuses nor open_states; each other field when the tracker's is null; a
+    terminal status that is one of the tracker's trigger statuses is not taken. A block of another kind, a second
+    project's different value for a field already taken, and a skipped terminal status are advisory findings naming
+    the projects. The fold runs first at every load, so a file configuration works as before; the effective trigger is
+    then built from tracker and resolution alone, assignee defaulting to 'Agent Smith' as today. LegacyTriggerMigration
+    runs in the background after the listener starts, and again after a studio import: it saves the changed tracker
+    documents first and clears a project's block only once its tracker is saved; a stale version is skipped, since the
+    fold at load still covers it.
+  out: >
+    A central place for the five fields shared by several trackers; editing several trackers at once. The resolved
+    model (ResolvedProject.*Trigger) and its readers, which keep reading the effective trigger.
+
+upgrade_impact: >
+  Where a block and the studio disagreed, the studio's value now runs: a project's tag, and the tracker's statuses.
+  A webhook secret moves to its project's tracker, and comment keyword and assignee hold for every project of that
+  tracker; two projects of one tracker with different secrets keep the first and say so. Each re-saved document drops
+  its standing unmoved-ticket records once, as the preset-alias migration's do. A file configuration keeps loading its blocks, folded at load, and the docs show the tracker form.
+
+decisions:
+  - key: "THE VISIBLE VALUE WINS. A block value is taken only where the studio shows nothing; where both say something, the operator already chose."
+  - key: "FOLD AT LOAD, PERSIST IN THE BACKGROUND. Correctness never waits for the write, so the write need not delay the listener."
+  - key: "NULLABLE INPUT. The trigger classes carry defaults (TriggerStatuses ['Open'], DoneStatus, AssigneeName), so a block read through them cannot say what it declared; stored documents already serialised those defaults and are folded as written."
+
+steps:
+  - id: tracker-fields
+    action: "RawTrackerEntry, TrackerEntity, the studio mapping and TrackerCapabilityFields gain the five fields."
+  - id: fold
+    action: "LegacyTriggerBlock on RawProjectEntry; LegacyTriggerFold over RawAgentSmithConfig per the rules above, returning its findings; called first in RawConfigMaterializer."
+  - id: effective
+    action: "EffectiveTriggerBuilder builds from tracker and resolution only, carrying the five tracker fields; ConfigSecretResolver resolves the tracker's webhook_secret."
+  - id: migration
+    action: "LegacyTriggerMigration: assemble the stored rows, fold, save changed trackers then their projects; stale skipped; run after the server starts and after an import."
+  - id: docs
+    action: "Docs and shipped configs show resolution plus tracker fields instead of *_trigger blocks."
+  - id: tests
+    action: "Red then green; build; affected classes."
+
+tests:
+  - "LegacyTriggerFoldTests.Fold_ProjectWithResolution_KeepsItsResolution"
+  - "LegacyTriggerFoldTests.Fold_ProjectWithoutResolution_TakesTheBlocksResolution"
+  - "LegacyTriggerFoldTests.Fold_TrackerWithOpenStates_KeepsItsStatuses"
+  - "LegacyTriggerFoldTests.Fold_UnsetTrackerField_TakesTheBlocksValue"
+  - "LegacyTriggerFoldTests.Fold_TwoProjectsDisagree_FirstByNameWinsAndTheOtherIsAFinding"
+  - "LegacyTriggerFoldTests.Fold_BlockOfAnotherKind_IsDroppedWithAFinding"
+  - "LegacyTriggerFoldTests.Fold_FailedStatusThatIsATrackerTriggerStatus_IsNotTaken"
+  - "LegacyTriggerFoldTests.Fold_UndeclaredBlockField_TakesNothing"
+  - "LegacyTriggerFoldTests.Fold_JiraBlock_MovesAssigneeAndSecretToTheTracker"
+  - "EffectiveTriggerBuilderTests (updated: no override mode; tracker fields reach the effective trigger)"
+  - "LegacyTriggerMigrationTests.Migration_StoredBlock_IsFoldedAndResavedOnce"
+  - "LegacyTriggerMigrationTests.Migration_NoBlock_SavesNothing"
+  - "LegacyTriggerMigrationTests.Migration_StaleTracker_LeavesItsProjectsBlocks"
+
+done:
+  - "No stored project document carries a *_trigger block after one start; the studio shows the routing that runs."
+  - "A file configuration with a block loads to the same effective trigger as its folded form."
+  - "Build green, full suite green, dashboard gen/test/build green."

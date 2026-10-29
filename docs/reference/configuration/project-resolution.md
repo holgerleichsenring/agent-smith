@@ -9,7 +9,7 @@ This page covers the four strategies (`tag`, `area_path`, `repo`, `to_address`),
 
 ## Where the rule lives
 
-The short form sits on the project and names the strategy as its key:
+The rule sits on the project and names the strategy as its key:
 
 ```yaml
 projects:
@@ -21,21 +21,14 @@ projects:
       tag: todolist
 ```
 
-The long form sits inside a platform trigger block (`github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger`), for a project that overrides its tracker's workflow anyway:
+The project carries nothing else about triggering: statuses, label map, comment keyword and the rest of the run workflow live on its tracker. The trigger type always follows the tracker's type.
 
-```yaml
-    jira_trigger:
-      project_resolution:
-        strategy: tag
-        value: todolist
-```
-
-Both produce the same rule. The trigger type always follows the tracker's type.
+An older file may still carry a per-project `jira_trigger` / `github_trigger` / `gitlab_trigger` / `azuredevops_trigger` block. It still loads: at load the block fills whatever the project's `resolution:` and its tracker leave unset (a value the studio shows always wins), and a server migrates its stored configuration to this form once, in the background.
 
 ## How resolution runs
 
 1. A ticket event arrives. The platform handler builds an `IncomingTicketEnvelope` with the ticket id, its labels, and, on a webhook, the area path (Azure DevOps) and the source repo URL where the platform sends one.
-2. `ProjectResolver` walks every project's trigger and asks whether its rule matches the envelope.
+2. `ProjectResolver` walks every project's resolution rule and asks whether its rule matches the envelope.
 3. **Zero matches**: a log line per project saying why it didn't match, and a tracker comment if the tracker has `zero_match_comment: true`. **One match**: the ticket is claimed and runs. **Two or more**: every matching project claims and runs, and the `agent_smith_ambiguous_resolution_total` counter goes up once per matched (project, pipeline).
 
 Within a matched project, the tracker's label map picks the pipeline. When the map has entries and none matches, the ticket is dropped for that project, not sent to a default.

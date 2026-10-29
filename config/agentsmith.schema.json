@@ -673,6 +673,11 @@
         },
         "close_transition_name": { "type": "string", "description": "Jira only" },
         "closed_status": { "type": "string", "description": "Jira and Azure DevOps: the status 'also close on the tracker' moves a ticket into; unset: the done status" },
+        "comment_keyword": { "type": "string", "description": "2026-10-29-6bd3a: the word in a ticket or PR comment that asks for a run." },
+        "pr_trigger_label": { "type": "string", "description": "2026-10-29-6bd3a, GitHub and GitLab: the PR label that asks for a review, beside the historical 'security-review'." },
+        "in_progress_status": { "type": "string", "description": "2026-10-29-6bd3a: the status a ticket returns to when its parked run resumes. Must sit outside trigger_statuses." },
+        "assignee_name": { "type": "string", "description": "2026-10-29-6bd3a, Jira: the user an issue is assigned to to start a run. Unset: Agent Smith." },
+        "webhook_secret": { "type": "string", "description": "2026-10-29-6bd3a, Jira: the secret webhook deliveries are signed with, as a ${name} reference." },
         "extra_fields": { "type": "array", "items": {"type": "string"} },
         "zero_match_comment": {
           "type": "boolean",
@@ -771,10 +776,10 @@
           "maxProperties": 1,
           "description": "p0281b: flat resolution shorthand { strategy-key: value } where key is one of tag|area_path|repo|to_address. Combined with the tracker's type it builds the effective trigger, so a project need not spell out a full per-platform trigger wrapper just to declare routing."
         },
-        "github_trigger": { "$ref": "#/$defs/webhookTrigger" },
-        "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger" },
-        "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger" },
-        "jira_trigger": { "$ref": "#/$defs/jiraTrigger" },
+        "github_trigger": { "$ref": "#/$defs/webhookTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
+        "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
+        "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
+        "jira_trigger": { "$ref": "#/$defs/jiraTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
         "polling": {
           "type": "object",
           "description": "Deprecated: polling belongs on the tracker (trackers.<name>.polling).",

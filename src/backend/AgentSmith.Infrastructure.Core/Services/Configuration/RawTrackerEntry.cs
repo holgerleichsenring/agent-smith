@@ -82,6 +82,24 @@ public sealed class RawTrackerEntry
     /// jira_email secret, else JIRA_EMAIL, when unset; a Jira tracker without one is blocking.
     /// </summary>
     public string? Email { get; set; }
+
+    /// <summary>2026-10-29-6bd3a: the word in a ticket or PR comment that asks for a run — on the
+    /// tracker, where the rest of the workflow is, rather than on a per-project trigger block.</summary>
+    public string? CommentKeyword { get; set; }
+
+    /// <summary>2026-10-29-6bd3a: the PR label that asks for a review, added to the historical word.</summary>
+    public string? PrTriggerLabel { get; set; }
+
+    /// <summary>2026-10-29-6bd3a: the status a ticket returns to when its parked run resumes.</summary>
+    public string? InProgressStatus { get; set; }
+
+    /// <summary>2026-10-29-6bd3a, Jira only: the user an issue is assigned to to start a run. Unset is
+    /// 'Agent Smith', as a project without a trigger block always got.</summary>
+    public string? AssigneeName { get; set; }
+
+    /// <summary>2026-10-29-6bd3a, Jira only: the reference to the secret webhook deliveries are signed
+    /// with.</summary>
+    public string? WebhookSecret { get; set; }
 }
 
 /// <summary>

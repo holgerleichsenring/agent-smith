@@ -92,7 +92,12 @@ internal static class ConfigCatalogMapper
             tracker.LabelNames is { Count: > 0 } labelNames ? labelNames : null,
             JiraEndpointsMap.Overrides(tracker.Endpoints),
             tracker.Email,
-            tracker.ClosedStatus);
+            tracker.ClosedStatus,
+            tracker.CommentKeyword,
+            tracker.PrTriggerLabel,
+            tracker.InProgressStatus,
+            tracker.AssigneeName,
+            tracker.WebhookSecret);
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);

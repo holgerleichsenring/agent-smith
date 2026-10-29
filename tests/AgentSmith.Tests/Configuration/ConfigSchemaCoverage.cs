@@ -75,7 +75,11 @@ internal sealed class ConfigSchemaCoverage
         type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => p.SetMethod is { IsPublic: true } && p.GetIndexParameters().Length == 0)
             .Where(p => p.GetCustomAttribute<YamlDotNet.Serialization.YamlIgnoreAttribute>() is null)
-            .ToDictionary(p => UnderscoredNamingConvention.Instance.Apply(p.Name), StringComparer.Ordinal);
+            // 2026-10-29-6bd3a: an alias is the key YamlDotNet binds, as for the legacy trigger blocks.
+            .ToDictionary(
+                p => p.GetCustomAttribute<YamlDotNet.Serialization.YamlMemberAttribute>()?.Alias
+                    ?? UnderscoredNamingConvention.Instance.Apply(p.Name),
+                StringComparer.Ordinal);
 
     private static bool IsLeaf(Type type) =>
         type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal)

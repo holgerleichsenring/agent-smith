@@ -1,22 +1,22 @@
 # Trigger: labels
 
-Labels are how a ticket says "yes, run Agent Smith on this, with this pipeline". The mapping from label to pipeline lives in `pipeline_from_label`, either on the tracker, where every project routed to it inherits it, or on a project's trigger block when one project needs its own map.
+Labels are how a ticket says "yes, run Agent Smith on this, with this pipeline". The mapping from label to pipeline lives in `pipeline_from_label` on the tracker, and every project routed to it inherits it.
 
-On a server you edit that in **Configuration → Trackers** or the project drawer. The YAML below is the same thing, and what the CLI reads.
+On a server you edit that in **Configuration → Trackers**. The YAML below is the same thing, and what the CLI reads.
 
 ## The label-to-pipeline mapping
 
 ```yaml
-projects:
-  azuredevops-todolist:
-    # ... agent, tracker, repos ...
-    azuredevops_trigger:
-      pipeline_from_label:
-        agent-smith:init:               init-project
-        agent-smith:bug:                code
-        agent-smith:feature:            code
-        agent-smith:security-scan:      security-scan
-        agent-smith:api-security-scan:  api-security-scan
+trackers:
+  acme-platform:
+    type: azure_devops
+    # ... url, organization, project, auth, statuses ...
+    pipeline_from_label:
+      agent-smith:init:               init-project
+      agent-smith:bug:                code
+      agent-smith:feature:            code
+      agent-smith:security-scan:      security-scan
+      agent-smith:api-security-scan:  api-security-scan
 ```
 
 Tag a work item / issue with `agent-smith:bug`, and the framework runs the `code` pipeline. Tag with `agent-smith:security-scan`, the `security-scan` pipeline. First match wins — labels are checked in declaration order, case-insensitively.
@@ -30,7 +30,7 @@ Any pipeline a ticket can run is a valid value, `init-project` included: the lab
 If a ticket comes in (via webhook or poll) and enters one of `trigger_statuses`, what happens next depends on whether a map exists:
 
 - **A `pipeline_from_label` map exists and none of its labels are on the ticket.** The framework ignores the ticket. No run gets started, no label gets written. This is intentional — labels are how the human (or some upstream automation) explicitly opts a ticket in.
-- **No map at all.** Every ticket that reaches a trigger status runs the `default_pipeline` declared on the project's trigger block, or inherited from the tracker. With none declared, it runs `code`.
+- **No map at all.** Every ticket that reaches a trigger status runs the tracker's `default_pipeline`. With none declared, it runs `code`.
 
 Two reasonable patterns for opting in with a map:
 
@@ -105,25 +105,27 @@ When a run needs input from you (a too-thin ticket, an open question, an expecta
 
 ## Comment triggers
 
-In addition to labels, you can trigger from a comment. Set a keyword on the project's trigger block:
+In addition to labels, you can trigger from a comment. Set a keyword on the tracker:
 
 ```yaml
-projects:
-  todolist:
+trackers:
+  todolist-issues:
+    type: github
     # ...
-    github_trigger:
-      comment_keyword: "@agent-smith"
+    comment_keyword: "@agent-smith"
 ```
 
-A ticket comment containing the keyword (case-insensitive) triggers the project's pipeline. No keyword configured means comment events are ignored — comments are noisy, so this is opt-in per project. (Comments are also how you answer a run's open questions when a ticket is parked — that path is always on and doesn't need the keyword.)
+A ticket comment containing the keyword (case-insensitive) triggers the project's pipeline. No keyword configured means comment events are ignored — comments are noisy, so this is opt-in per tracker. (Comments are also how you answer a run's open questions when a ticket is parked — that path is always on and doesn't need the keyword.)
 
 ## Pull request labels
 
-On GitHub and GitLab, putting the label `security-review` on a pull request or merge request starts a review of it. To use a word of your own as well, set `pr_trigger_label` on the project's `github_trigger` or `gitlab_trigger`:
+On GitHub and GitLab, putting the label `security-review` on a pull request or merge request starts a review of it. To use a word of your own as well, set `pr_trigger_label` on the GitHub or GitLab tracker:
 
 ```yaml
-    github_trigger:
-      pr_trigger_label: please-review
+trackers:
+  todolist-issues:
+    type: github
+    pr_trigger_label: please-review
 ```
 
 Your word is added to `security-review`, not swapped for it. See [Webhooks](webhooks.md).
