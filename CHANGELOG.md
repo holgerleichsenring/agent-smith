@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.175.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.175.1...v0.175.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* the template context picker finds a connection repo with nested groups (2026-10-29-fb87) ([744f15c](https://github.com/holgerleichsenring/agent-smith/commit/744f15ca1159cc0a635ecb1ba14f65046886035e))
+* the template context picker finds a connection repo with nested groups (2026-10-29-fb87) ([ec9d822](https://github.com/holgerleichsenring/agent-smith/commit/ec9d822561b8fe9b11604727f68ba47972cf26e3))
+
 ## [0.175.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.175.0...v0.175.1) (2026-10-29)
 
 
