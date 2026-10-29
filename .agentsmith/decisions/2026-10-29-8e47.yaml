@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-8e47
+
+decisions:
+  - category: Architecture
+    chose: "Start a fresh conversation whenever an addressed ticket has none, whatever the tab holds"
+    over: "Starting one only when the held dialog has an open session"
+    reason: |
+      Whether a session is open is known only once the dialog read answers, and the ticket read races it. Starting
+      fresh unconditionally costs nothing on an empty dialog and closes the race. The held conversation is not closed;
+      it stays in Recents.

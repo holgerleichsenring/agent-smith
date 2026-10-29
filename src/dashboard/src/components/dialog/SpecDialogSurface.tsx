@@ -83,7 +83,10 @@ function useHandover(open: (sessionId: string, openDialogId?: string | null) => 
  * conversation that missed its binding can never be given one. It is consumed once and struck
  * from the address, like the conversation handover beside it.
  */
-function useTicketHandover(open: (sessionId: string, openDialogId?: string | null) => void) {
+function useTicketHandover(
+  open: (sessionId: string, openDialogId?: string | null) => void,
+  startNew: () => void,
+) {
   const params = useSearchParams();
   const router = useRouter();
   const taken = useRef<string | null>(null);
@@ -103,6 +106,8 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
   // is held in a ref and the effect depends on the ADDRESS alone.
   const latest = useRef(open);
   latest.current = open;
+  const fresh = useRef(startNew);
+  fresh.current = startNew;
   useEffect(() => {
     // The project is optional: without one the TICKET names it (8e51a).
     if (!ticketId || taken.current === ticketId) return;
@@ -115,6 +120,10 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
           latest.current(held.sessionId, held.openDialogId);
           return;
         }
+        // 2026-10-29-8e47: the ticket has no conversation, so it starts one. The tab may hold
+        // another conversation from an earlier visit, and that one would be shown in place of the
+        // ticket, which then had nowhere to appear. The held one stays in the recents.
+        fresh.current();
         const named = project ? [project] : ((held as TicketProjectRead | null)?.projects ?? []);
         if (named.length === 1) {
           setPending({ project: named[0], ticketId });
@@ -128,6 +137,7 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
               named,
               (held as TicketProjectRead | null)?.unanswerable ?? [],
               (held as TicketProjectRead | null)?.elsewhere ?? [],
+              read?.routed ?? [],
             ),
           );
       })
@@ -148,7 +158,7 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
 }
 
 /** Why the ticket did not name one project — a reason, never an accusation. */
-function whyNoProject(named: string[], unanswerable: string[], elsewhere: string[]): string {
+function whyNoProject(named: string[], unanswerable: string[], elsewhere: string[], routed: string[]): string {
   if (named.length > 1)
     return `This ticket's labels name ${named.length} projects (${named.join(", ")}). Choose one.`;
   // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
@@ -165,6 +175,10 @@ function whyNoProject(named: string[], unanswerable: string[], elsewhere: string
       "routes by area path, repository or address, which a ticket read by its id cannot carry — " +
       "so it could not be answered for rather than ruled out. Choose a project."
     );
+  // 2026-10-29-8e47: the projects offered below are its tracker's, and the sentence says so
+  // rather than reading as a failure beside them.
+  if (routed.length > 0)
+    return "No label on this ticket names a project. These are the projects on its tracker. Choose one.";
   return "No project's routing names this ticket. Choose one.";
 }
 
@@ -188,7 +202,7 @@ export function SpecDialogSurface() {
     found: addressedTicket,
     reason: ticketReason,
     forget: forgetAddressedTicket,
-  } = useTicketHandover(dialog.open);
+  } = useTicketHandover(dialog.open, dialog.startNew);
   // The picked project lives here rather than in the list, because SENDING needs it too: a
   // message typed with no session open has to open one, and the project is what opens it.
   // With a single configured project there is no picker and no choice to make.

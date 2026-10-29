@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-8e47
+goal: "A spec-dialog address naming a ticket with no conversation of its own starts a fresh conversation, so a conversation the browser held from an earlier visit no longer hides the ticket."
+
+applies_to: "default (dashboard spec dialog)"
+
+requires: [2026-10-29-6bd3c]
+
+facts:
+  - claim: "Work it out seeds its dialog id from the one the browser holds in localStorage, so a later visit reopens the last conversation."
+    evidence: "src/dashboard/src/lib/specDialogSession.ts:11-44"
+  - claim: "The ticket field and the project choice render only while no conversation is open."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:399"
+  - claim: "On the operator's deployment the DPG-3 address opened the held conversation and showed no ticket in a normal window, while a private window offered the ticket with its three projects."
+    evidence: "observed: 2026-10-29, headless browser against the live page with and without a held dialog id in localStorage"
+
+scope:
+  in: "When the ticket read answers no session, the handover starts a fresh conversation before it hands the ticket on. The held conversation stays listed in Recents. The reason sentence names the tracker's projects when it offers them."
+  out: "A ticket that already has a conversation, which is opened as before."
+
+steps:
+  - id: ui
+    action: "useTicketHandover takes startNew and calls it when the ticket has no conversation; whyNoProject takes routed."
+  - id: tests
+    action: "Red then green for the test below."
+
+tests:
+  - "SpecDialogSurface.test: SpecDialogSurface_TicketAddressWhileAConversationIsHeld_StartsAFreshOneWithTheTicket"
+
+done:
+  - "With a held conversation, the address offers the ticket and its tracker's projects and the first message goes out on a fresh dialog id."
+  - "Build green, full suite green, dashboard gen/test/build green."
