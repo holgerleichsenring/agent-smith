@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.175.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.174.1...v0.175.0) (2026-10-29)
+
+
+### Features
+
+* per-project trigger blocks fold into the project's resolution and its tracker and then disappear (2026-10-29-6bd3a) ([4ab8808](https://github.com/holgerleichsenring/agent-smith/commit/4ab88080d3f4a1d30b675eca4597e6ff5835d93e))
+* trigger blocks fold onto trackers; ticket address, catalog refresh, fresh config snapshot, probes after listen (6bd3a-d, 7f2d) ([6b30be1](https://github.com/holgerleichsenring/agent-smith/commit/6b30be1267c76904f342c1d40645eae1f9621ef4))
+
+
+### Bug Fixes
+
+* a spec-dialog address whose ticket no label names keeps the ticket and offers its tracker's projects (2026-10-29-6bd3c) ([c89a048](https://github.com/holgerleichsenring/agent-smith/commit/c89a048614603abba1cc6de015b1164b3e0f8005))
+* GET /api/config answers the configuration as it is now, not the one the server booted with (2026-10-29-6bd3d) ([ba5816f](https://github.com/holgerleichsenring/agent-smith/commit/ba5816f419843cdef5f329a775de4b809a8a4612))
+* the config studio re-reads its catalog when its tab is visible again, so a tracker created elsewhere is offered (2026-10-29-6bd3b) ([e6e7d88](https://github.com/holgerleichsenring/agent-smith/commit/e6e7d88373321a6b7f12b2a3ba8b3a6c0d21bdf0))
+* the startup probes run after the server listens, and the findings page waits for their first pass (2026-10-29-7f2d) ([0fad4d4](https://github.com/holgerleichsenring/agent-smith/commit/0fad4d48a0d49779115dd398001a62ce46a7540e))
+
 ## [0.174.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.174.0...v0.174.1) (2026-10-28)
 
 
