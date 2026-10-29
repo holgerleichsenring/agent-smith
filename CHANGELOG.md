@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.175.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.175.0...v0.175.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* a ticket address with no conversation starts a fresh one (2026-10-29-8e47) ([bf184e9](https://github.com/holgerleichsenring/agent-smith/commit/bf184e9bce5644364b4f854a4df4a4f7969ebc8e))
+* a ticket address with no conversation starts a fresh one instead of the held conversation (2026-10-29-8e47) ([3fe73ca](https://github.com/holgerleichsenring/agent-smith/commit/3fe73ca124007d5f2d5788188205f8550556e362))
+
 ## [0.175.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.174.1...v0.175.0) (2026-10-29)
 
 
