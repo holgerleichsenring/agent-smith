@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-10-29-6bd3b: "CONFIG STUDIO CATALOG (dashboard ConfigCatalogProvider). The catalog is re-read quietly when the tab is visible again, so a tracker created in another tab is offered in an open project form. -> .agentsmith/specs/done/2026-10-29-6bd3b-config-catalog-refresh.yaml"
     2026-10-29-6bd3d: "CONFIG SNAPSHOT (Server, ConfigQueryEndpoints). GET /api/config loads the configuration per request and resolves over that load, so a tracker saved in the studio shows without a restart. -> .agentsmith/specs/done/2026-10-29-6bd3d-config-snapshot-fresh.yaml"
     2026-10-28-7d25: "TAKEN-TICKET RECONCILE (TakenTicketRepository). A ticket whose newest run of its pipeline is parked on a question is no longer an orphan, so the reconciler stops re-enqueuing it every ten minutes. -> .agentsmith/specs/done/2026-10-28-7d25-reconciler-parked-tickets.yaml"
     2026-10-28-99ba: "APPROVED-TICKET ADMISSION (Jira and AzDO discovery builders). The approved-ids clause carries the parking-status exclusion, so a failed or done approved ticket is no longer fetched on every poll. -> .agentsmith/specs/done/2026-10-28-99ba-approval-admission-bounds.yaml"
