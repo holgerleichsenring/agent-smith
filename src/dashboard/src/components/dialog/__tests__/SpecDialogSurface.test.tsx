@@ -4053,6 +4053,57 @@ describe("a page addressed with a ticket and no project", () => {
     );
   });
 
+  // 2026-10-29-6bd3c: a ticket no label names was dropped with the address — the page said why and
+  // forgot it, so a project picked next bound nothing. It is offered to its tracker's projects now.
+  it("SpecDialogSurface_ATicketNoLabelNames_OffersItsTrackersProjectsAndKeepsTheTicket", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [
+          SAMPLE_SCOPE,
+          { name: "beta", repos: ["repo-b"], templates: [] },
+          { name: "gamma", repos: ["repo-c"], templates: [] },
+        ],
+      }),
+    );
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: [],
+      unanswerable: [],
+      elsewhere: [],
+      routed: ["sample", "beta"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    const choice = await screen.findByTestId("dialog-choice-project");
+    await waitFor(() =>
+      expect(within(choice).getAllByRole("option").map((option) => option.textContent)).toEqual([
+        "pick a project…",
+        "sample",
+        "beta",
+      ]),
+    );
+    fireEvent.change(choice, { target: { value: "beta" } });
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
+      target: { value: "work it out" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.anything(),
+        "work it out",
+        "beta",
+        "DPG-1239",
+      ),
+    );
+  });
+
   // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
   // Binding through it would re-fetch this number on that tracker, which is a different board.
   it("SpecDialogSurface_LabelsNamingAnotherTrackersProject_SaysSoRatherThanBinding", async () => {

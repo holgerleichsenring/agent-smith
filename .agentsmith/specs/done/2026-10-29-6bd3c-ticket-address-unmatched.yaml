@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-6bd3c
+goal: "A spec-dialog address naming a ticket that no project's routing matches keeps the ticket and offers the projects of its tracker, instead of dropping it."
+
+applies_to: "default (Server spec-dialog endpoints, dashboard spec dialog)"
+
+requires: [2026-09-27-481bb]
+
+facts:
+  - claim: "The ticket-only read answers the projects matched by the ticket's labels AND routed to its tracker; with no label match the list is empty."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketProjectChoice.cs:67-75"
+  - claim: "With an empty list the page shows a reason, never sets the pending ticket, and replaces the address, so the ticket is gone."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:107-128"
+  - claim: "The ticket search already offers a picked ticket with the projects routed to its tracker and narrows the choice to them."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:189-221"
+  - claim: "On the operator's deployment a ticket with no project label resolves to its tracker with projects [] while the search lists three routed projects."
+    evidence: "observed: 2026-10-29, GET /api/spec-dialog/tickets/{id} and /api/spec-dialog/tickets/search?q={id}"
+
+scope:
+  in: "TicketProjectAnswer carries Routed (the projects routed to the answering tracker) and the ticket-only read answers it. When the read names NO project and routed is non-empty, the page hands the ticket to the same picked-ticket path the search uses, so the choice is narrowed to those projects and one is taken alone; the reason sentence stays. Several named projects keep today's behaviour."
+  out: "Matching a ticket to a project without a label."
+
+steps:
+  - id: api
+    action: "ProjectForTicketAsync and TicketProjectRead carry routed."
+  - id: ui
+    action: "useTicketHandover returns the unmatched ticket as a TicketSearchFound; the surface seeds pickedTicket with it."
+  - id: tests
+    action: "Red then green for the tests below."
+
+tests:
+  - "TicketProjectForTrackerTests.TicketResolve_ATicketNoLabelNames_AnswersTheProjectsRoutedToItsTracker"
+  - "SpecDialogSurface.test: SpecDialogSurface_ATicketNoLabelNames_OffersItsTrackersProjectsAndKeepsTheTicket"
+
+done:
+  - "An address naming a label-less ticket on a tracker with three projects offers those three with the ticket bound."
+  - "Build green, full suite green, dashboard gen/test/build green."

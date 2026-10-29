@@ -237,6 +237,9 @@ export interface TicketProjectRead extends TicketConversationRead {
   /** 2026-09-27-1bd9: projects this ticket's labels DO name, on trackers that do not hold it.
    *  Binding through one would re-fetch the number on that tracker — a different board. */
   elsewhere: string[];
+  /** 2026-10-29-6bd3c: the projects routed to the tracker that holds the ticket — offered when
+   *  its labels name none of them. Absent on the per-tracker resolve. */
+  routed?: string[];
 }
 
 /**

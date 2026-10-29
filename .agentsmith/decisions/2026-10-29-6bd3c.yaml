@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-6bd3c
+
+decisions:
+  - category: Architecture
+    chose: "Hand an unmatched addressed ticket to the picked-ticket path the search already uses"
+    over: "A second choice flow for addressed tickets"
+    reason: |
+      The search path already narrows the choice to the projects routed to the hit's tracker, takes a single one
+      alone, re-reads the ticket on that tracker and sends it with the first message. Seeding it reuses all of that.
+  - category: Architecture
+    chose: "Carry Routed on TicketProjectAnswer, computed where the sweep already has it"
+    over: "Computing it in the endpoint"
+    reason: |
+      The sweep holds the routed set to intersect the matches with; answering it costs nothing and is testable at the
+      choice rather than through the endpoint's binder and scope.

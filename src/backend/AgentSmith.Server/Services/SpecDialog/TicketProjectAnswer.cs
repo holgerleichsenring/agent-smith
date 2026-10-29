@@ -8,4 +8,7 @@ public sealed record TicketProjectAnswer(
     TicketBinding Binding,
     IReadOnlyList<string> Projects,
     IReadOnlyList<string> Unanswerable,
-    IReadOnlyList<string> Elsewhere);
+    IReadOnlyList<string> Elsewhere,
+    // 2026-10-29-6bd3c: every project routed to the tracker that answered — what a ticket no label
+    // names is offered to.
+    IReadOnlyList<string> Routed);

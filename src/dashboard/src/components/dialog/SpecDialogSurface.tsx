@@ -88,6 +88,9 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
   const router = useRouter();
   const taken = useRef<string | null>(null);
   const [pending, setPending] = useState<{ project: string; ticketId: string } | null>(null);
+  // 2026-10-29-6bd3c: a ticket no project's routing names, handed on as the hit a search would have
+  // offered — so the choice is narrowed to its tracker's projects and the ticket is not dropped.
+  const [found, setFound] = useState<TicketSearchFound | null>(null);
   const ticketId = params.get(TICKET_PARAM);
   const project = params.get(PROJECT_PARAM);
   // 2026-09-25-8e51a: an address that names only a ticket lets the TICKET name the project — its
@@ -113,9 +116,14 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
           return;
         }
         const named = project ? [project] : ((held as TicketProjectRead | null)?.projects ?? []);
-        if (named.length === 1) setPending({ project: named[0], ticketId });
-        else
-          setReason(
+        if (named.length === 1) {
+          setPending({ project: named[0], ticketId });
+          return;
+        }
+        const read = held as TicketProjectRead | null;
+        if (named.length === 0 && read?.routed?.length)
+          setFound({ ticketId: read.ticketId, title: read.title, tracker: read.tracker, projects: read.routed, exact: true });
+        setReason(
             whyNoProject(
               named,
               (held as TicketProjectRead | null)?.unanswerable ?? [],
@@ -133,9 +141,10 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
   // new conversation started from this page would have inherited the last one's ticket.
   const forget = useCallback(() => {
     setPending(null);
+    setFound(null);
     setReason(null);
   }, []);
-  return { pending, reason, forget };
+  return { pending, found, reason, forget };
 }
 
 /** Why the ticket did not name one project — a reason, never an accusation. */
@@ -176,6 +185,7 @@ export function SpecDialogSurface() {
   const ticketEffect = bound && preview.data ? ticketApprovalEffect(preview.data) : null;
   const {
     pending: pendingTicket,
+    found: addressedTicket,
     reason: ticketReason,
     forget: forgetAddressedTicket,
   } = useTicketHandover(dialog.open);
@@ -187,6 +197,9 @@ export function SpecDialogSurface() {
   // 2026-09-27-5c1eb: and the picked TICKET beside it, for the same reason — sending needs it, and
   // the component that offers it is unmounted the moment a project is resolved.
   const [pickedTicket, setPickedTicket] = useState<TicketSearchFound | null>(null);
+  useEffect(() => {
+    if (addressedTicket) setPickedTicket(addressedTicket);
+  }, [addressedTicket]);
   // 2026-09-27-481bb: a hit carries an id and a title by contract, so the sweep could only offer
   // the projects ROUTED to its tracker. Picking one reads that ticket on that tracker and matches
   // its own labels, so a ticket found by typing its title resolves what the same ticket found by
