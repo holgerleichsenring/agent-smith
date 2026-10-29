@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-6bd3d
+goal: "GET /api/config answers the configuration as it is now, not the one the server booted with."
+
+applies_to: "default (Server config query endpoints)"
+
+requires: [p0345c]
+
+facts:
+  - claim: "The endpoint binds the singleton AgentSmithConfig, built once when the container first resolves it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigQueryEndpoints.cs:26-28, src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:79"
+  - claim: "On the operator's deployment it listed a tracker deleted twenty minutes earlier and none of the four created since."
+    evidence: "observed: 2026-10-29, GET /api/config against /api/config/changes"
+  - claim: "Other endpoints already load the configuration per request through IConfigurationLoader."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketConversationEndpoints.cs:46"
+
+scope:
+  in: "The endpoint maps loader.LoadConfig(serverContext.ConfigPath) instead of the singleton, and builds its resolution pass over that load, because the registered pass holds the boot config too. lastReadAt is the loader's read before this request's own."
+  out: "The other consumers of the singleton."
+
+steps:
+  - id: endpoint
+    action: "Bind IConfigurationLoader and ServerContext; load per request."
+  - id: tests
+    action: "Red then green."
+
+tests:
+  - "ConfigQueryEndpointsTests.Snapshot_ATrackerStoredAfterBoot_IsInTheSnapshot"
+  - "ConfigQueryEndpointsTests.Snapshot_TheLastRead_IsTheOneBeforeThisRequestsOwn"
+
+done:
+  - "A tracker saved in the studio appears in GET /api/config without a restart."
+  - "Build green, full suite green, dashboard gen/test/build green."
