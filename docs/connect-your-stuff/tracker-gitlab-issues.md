@@ -47,6 +47,10 @@ trackers:
     open_states: [opened]
     done_status: closed
     default_pipeline: code
+    pipeline_from_label:
+      agent-smith:bug:                code
+      agent-smith:feature:            code
+      agent-smith:security-scan:      security-scan
     polling:
       enabled: false                   # use webhooks
 
@@ -55,16 +59,8 @@ projects:
     agent: default-claude
     tracker: acme-gitlab
     repos: [todolist-api, todolist-worker, todolist-web]
-    gitlab_trigger:
-      project_resolution:
-        strategy: tag                  # GitLab labels are scoped per-group
-        value: TodoList
-      trigger_statuses: [opened]
-      done_status: closed
-      pipeline_from_label:
-        agent-smith:bug:                code
-        agent-smith:feature:            code
-        agent-smith:security-scan:      security-scan
+    resolution:
+      tag: TodoList                    # GitLab labels are scoped per-group
 
 secrets:
   claude_api_key: ${ANTHROPIC_API_KEY}
@@ -79,29 +75,7 @@ GitLab-specific things to notice:
 - **`work_item_kinds` does nothing here** — GitLab issues have no type this setting could pick, so the tracker ignores it.
 - **GitLab self-managed** — for repositories the API base URL is derived from each repo URL's own scheme and authority, so they need no extra config; a sub-path install (`https://tools.acme.com/gitlab`) sets `host:` on the repo or its connection. The issue tracker talks to its own `url` (default `https://gitlab.com`), so a self-managed instance sets `url: https://gitlab.acme.com` on the tracker. Two instances are two trackers or connections, each with its own `url`/`host` and its own `auth` secret. An older configuration that relied on the `GITLAB_URL` variable still loads: the empty fields are filled from it, and each fill is reported as an advisory finding.
 
-The tracker owns the workflow: `open_states`, `done_status`, `failed_status`, `trigger_statuses` (falls back to `open_states`) and `pipeline_from_label` can all sit on the tracker block, inherited by every project routed to it. A project then only declares its resolution:
-
-```yaml
-trackers:
-  acme-gitlab:
-    type: gitlab
-    project: acme-org/todolist-api
-    auth: gitlab_token
-    open_states: [opened]
-    done_status: closed
-    pipeline_from_label:
-      agent-smith:bug:     code
-      agent-smith:feature: code
-projects:
-  gitlab-todolist:
-    agent: default-claude
-    tracker: acme-gitlab
-    repos: [todolist-api, todolist-worker, todolist-web]
-    resolution:
-      tag: TodoList
-```
-
-The explicit `gitlab_trigger:` block from the full config works too and overrides the tracker field by field.
+The tracker owns the workflow: `open_states`, `done_status`, `failed_status`, `trigger_statuses` (falls back to `open_states`), `pipeline_from_label`, `default_pipeline`, `comment_keyword` and `pr_trigger_label` sit on the tracker block and are inherited by every project routed to it. A project only declares its `resolution:`, as `gitlab-todolist` does above.
 
 Skills need no configuration: they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
 
@@ -139,7 +113,7 @@ When a run finishes:
 
 When a run fails, the issue moves to `failed_status` if configured (otherwise it stays `opened`), the `agent-smith:failed` label gets added, and a comment carries the error. The run lifecycle (pending / enqueued / in-progress / done / failed, plus waiting and shortfall) is carried as `agent-smith:*` labels, the same as on every tracker. A `label_names:` map on the tracker renames them if your project already uses its own words.
 
-When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in `needs_clarification_status` (settable on the tracker or the project). Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Next
 

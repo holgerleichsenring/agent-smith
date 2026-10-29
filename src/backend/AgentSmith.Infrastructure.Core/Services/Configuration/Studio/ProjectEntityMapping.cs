@@ -97,6 +97,7 @@ internal static class ProjectEntityMapping
     // p0345c: surface the flat resolution shorthand; when the project instead
     // declares a full trigger wrapper, surface ITS resolution read-only so the
     // studio shows how the project actually routes either way.
+    // 2026-10-29-6bd3a: until the background migration folds a stored block, which takes this same fallback.
     private static ProjectResolution? ToResolution(RawProjectEntry project)
     {
         if (project.Resolution is { Count: > 0 } shorthand)
@@ -104,10 +105,10 @@ internal static class ProjectEntityMapping
             var first = shorthand.First();
             return new ProjectResolution(first.Key, first.Value);
         }
-        var wrapperResolution = new WebhookTriggerConfig?[]
+        var wrapperResolution = new LegacyTriggerBlock?[]
             {
-                project.JiraTrigger, project.GithubTrigger,
-                project.GitlabTrigger, project.AzuredevopsTrigger,
+                project.LegacyJiraTrigger, project.LegacyGithubTrigger,
+                project.LegacyGitlabTrigger, project.LegacyAzuredevopsTrigger,
             }
             .FirstOrDefault(t => t?.ProjectResolution is not null)?.ProjectResolution;
         return wrapperResolution is null

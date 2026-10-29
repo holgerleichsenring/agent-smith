@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-7f2d
+goal: "The server binds its port before it probes its dependencies, and says how long its run-history cold start held the port, so the slow part of a start can be seen."
+
+applies_to: "default (Server startup, Server events)"
+
+requires: [p0391a]
+
+facts:
+  - claim: "JobsBroadcaster.StartAsync awaits its whole cold start — every active run's stream plus up to 50 recent ones, deserialised, with a DB reconcile per terminal run — and the host starts Kestrel only after every hosted StartAsync returned."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:50-52, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:79-97"
+  - claim: "Its own comment calls the cold start a nicety the dashboard fills in from live events."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:76"
+  - claim: "The startup probes run one after another, each bounded at ten seconds, after Build() and before the caller reaches app.Run(); they only record findings."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:44, src/backend/AgentSmith.Server/Services/Startup/StartupProbeRunner.cs:18-26"
+  - claim: "Liveness and readiness are both /health, so nothing in the deployment waits for the probes either."
+    evidence: "deploy/k8s/8-deployment-server.yaml:207-221"
+  - claim: "The host no longer registers a spawner before Build(); between Build() and the return only the migrations and the probe pass run, so the spawner half of 2026-08-24-035a has nothing left to move."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:30-46"
+
+scope:
+  in: >
+    The probe pass runs on ApplicationStarted instead of before app.Run(), with the same findings, including the one
+    for a runner that cannot be built. The findings endpoint waits for the first pass, bounded, so a page read right
+    after the bind does not show an empty list as a clean bill. JobsBroadcaster logs the duration of its cold start.
+  out: >
+    Moving the broadcaster's cold start behind the bind: a run started before the cold start reads its stream would
+    have its RunStarted consumed into memory and never projected, so the run row would be missing — the broadcaster
+    suites caught it. That needs the cold start and the drain to agree on a cursor, a design of its own. The migrate
+    init container. A readiness gate on the probes, which nothing consumes. The rest of 2026-08-24-035a.
+
+decisions:
+  - key: "THE FINDINGS PAGE WAITS, NOTHING ELSE DOES. The probes only report; the one reader of their answer is the findings endpoint, so that is the one place an early request must not be told 'nothing found'."
+  - key: "MEASURE BEFORE MOVING THE COLD START. No log in hand shows a recent start, so the broadcaster's share is an estimate; the duration line makes the next start the measurement."
+
+steps:
+  - id: broadcaster
+    action: "The cold start's duration is logged with the counts it already logs."
+  - id: probes
+    action: "RunProbesAsync is registered on ApplicationStarted; IStartupProbeRunner exposes the first pass as a task the findings endpoint awaits with a budget."
+  - id: tests
+    action: "Red then green; build; affected classes; booted-server suites."
+
+tests:
+  - "StartupResilienceTests (unchanged findings, read after the bind)"
+  - "StartupProbePassTests.Wait_ThePassCompletes_Returns"
+  - "StartupProbePassTests.Wait_ThePassNeverCompletes_ReturnsAfterTheBudget"
+
+done:
+  - "The probes no longer run before the listener binds; the log names the cold start's duration."
+  - "Every finding keeps its subsystem, severity and text; the findings page never answers before the first pass or its budget."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -28,6 +28,7 @@ public sealed class RawConfigMaterializer(
     private readonly ConfigSecretResolver _secrets = new(
         secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
     private readonly List<StartupFinding> _unmaterializable = [];
+    private readonly LegacyTriggerFold _legacyTriggers = new();
     private readonly LegacyCredentialMigration _legacyCredentials = legacyCredentials ?? new(
         secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
 
@@ -45,6 +46,8 @@ public sealed class RawConfigMaterializer(
         // operator has fixed stops being reported without a restart.
         _findings.Clear(StartupSubsystems.Configuration);
         _unmaterializable.Clear();
+        // 2026-10-29-6bd3a: first, so a webhook secret moved onto a tracker is resolved with the rest.
+        foreach (var note in _legacyTriggers.Apply(raw)) _findings.Record(note);
         _secrets.Apply(raw);
         // 2026-10-02-5f89a: advisory, so recorded but never part of what the one-shot loader refuses on.
         foreach (var note in _legacyCredentials.Apply(raw)) _findings.Record(note);

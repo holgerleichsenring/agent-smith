@@ -8,7 +8,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// (trigger_statuses / done_status / failed_status / pipeline_from_label) plus the
 /// project's flat <c>resolution:</c> shorthand. The tracker OWNS the workflow; a project
 /// supplies only its resolution, and the trigger TYPE is inferred from the tracker type.
-/// An explicit project trigger wrapper still wins field-by-field (override mode).
+/// 2026-10-29-6bd3a: and nothing else — a per-project trigger block no longer overrides it
+/// field by field; LegacyTriggerFold has moved every block onto project and tracker before this
+/// runs, so what the studio shows is what is built here.
 /// Runs on the raw config before catalog resolution, so every downstream consumer reads
 /// the already-merged trigger and nothing changes past this point.
 /// </summary>
@@ -16,22 +18,18 @@ public sealed class EffectiveTriggerBuilder
 {
     public void Apply(string projectName, RawProjectEntry project, RawTrackerEntry? tracker)
     {
-        if (tracker is null) return;
+        if (tracker is null || IsEmpty(project.Resolution)) return;
 
-        var existing = GetTrigger(project, tracker.Type);
-        if (existing is null && IsEmpty(project.Resolution)) return;
-
-        var wrapper = existing ?? CreateWrapper(tracker.Type);
-        FillResolution(projectName, wrapper, project.Resolution);
-        FillWorkflow(wrapper, tracker, isFresh: existing is null);
+        var wrapper = CreateWrapper(tracker.Type);
+        FillResolution(projectName, wrapper, project.Resolution!);
+        FillWorkflow(wrapper, tracker);
         SetTrigger(project, tracker.Type, wrapper);
     }
 
     private static void FillResolution(
-        string projectName, WebhookTriggerConfig wrapper, Dictionary<string, string>? shorthand)
+        string projectName, WebhookTriggerConfig wrapper, Dictionary<string, string> shorthand)
     {
-        if (wrapper.ProjectResolution is not null || IsEmpty(shorthand)) return;
-        var (key, value) = First(shorthand!);
+        var (key, value) = First(shorthand);
         wrapper.ProjectResolution = new ProjectResolutionConfig
         {
             Strategy = ParseStrategy(projectName, key),
@@ -39,37 +37,32 @@ public sealed class EffectiveTriggerBuilder
         };
     }
 
-    private static void FillWorkflow(WebhookTriggerConfig wrapper, RawTrackerEntry tracker, bool isFresh)
+    private static void FillWorkflow(WebhookTriggerConfig wrapper, RawTrackerEntry tracker)
     {
         var statuses = TrackerStatuses(tracker);
-        if (statuses.Count > 0 && (isFresh || wrapper.TriggerStatuses.Count == 0))
-            wrapper.TriggerStatuses = statuses;
-        if (isFresh && !string.IsNullOrEmpty(tracker.DoneStatus))
-            wrapper.DoneStatus = tracker.DoneStatus;
-        wrapper.FailedStatus ??= tracker.FailedStatus;
-        wrapper.NeedsClarificationStatus ??= tracker.NeedsClarificationStatus;
-        wrapper.NotImplementableStatus ??= tracker.NotImplementableStatus; // p0390
+        if (statuses.Count > 0) wrapper.TriggerStatuses = statuses;
+        if (!string.IsNullOrEmpty(tracker.DoneStatus)) wrapper.DoneStatus = tracker.DoneStatus;
+        wrapper.FailedStatus = tracker.FailedStatus;
+        wrapper.NeedsClarificationStatus = tracker.NeedsClarificationStatus;
+        wrapper.NotImplementableStatus = tracker.NotImplementableStatus; // p0390
+        wrapper.InProgressStatus = tracker.InProgressStatus;
         // 2026-09-16-a4d7: the map and the answer for 'nothing matched' are one decision,
-        // so the tracker supplies both. ??= rather than isFresh: a project that declares a
-        // trigger wrapper but no default still inherits the tracker's.
-        wrapper.DefaultPipeline ??= tracker.DefaultPipeline;
-        if (IsEmpty(wrapper.PipelineFromLabel) && tracker.PipelineFromLabel is { Count: > 0 } labels)
+        // so the tracker supplies both.
+        wrapper.DefaultPipeline = tracker.DefaultPipeline;
+        if (tracker.PipelineFromLabel is { Count: > 0 } labels)
             wrapper.PipelineFromLabel = new Dictionary<string, string>(labels);
+        wrapper.CommentKeyword = tracker.CommentKeyword;
+        wrapper.PrTriggerLabel = tracker.PrTriggerLabel;
+        if (wrapper is not JiraTriggerConfig jira) return;
+        // Unset keeps the class's 'Agent Smith', which every project without a block always had.
+        if (!string.IsNullOrWhiteSpace(tracker.AssigneeName)) jira.AssigneeName = tracker.AssigneeName;
+        jira.Secret = tracker.WebhookSecret;
     }
 
     private static List<string> TrackerStatuses(RawTrackerEntry tracker) =>
         tracker.TriggerStatuses.Count > 0 ? tracker.TriggerStatuses
         : tracker.OpenStates.Count > 0 ? tracker.OpenStates
         : [];
-
-    private static WebhookTriggerConfig? GetTrigger(RawProjectEntry p, TrackerType type) => type switch
-    {
-        TrackerType.Jira => p.JiraTrigger,
-        TrackerType.GitHub => p.GithubTrigger,
-        TrackerType.GitLab => p.GitlabTrigger,
-        TrackerType.AzureDevOps => p.AzuredevopsTrigger,
-        _ => null,
-    };
 
     private static void SetTrigger(RawProjectEntry p, TrackerType type, WebhookTriggerConfig wrapper)
     {

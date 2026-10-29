@@ -15,7 +15,7 @@
 #
 # Top-level catalogs (`agents:`, `repos:`, `trackers:`, `pipeline_triggers:`)
 # are defined once. Each project under `projects:` references catalog entries
-# by name and adds its own trigger blocks.
+# by name and adds its own `resolution:` — which tickets are its own.
 #
 # The loader ignores a key it does not know, so an old file keeps loading. That
 # makes agentsmith.schema.json (line 1) the place a misspelt key is caught: an
@@ -408,9 +408,9 @@ repos:
 # ────────────────────────────────────────────────────────────────────────
 #  Trackers catalog
 # ────────────────────────────────────────────────────────────────────────
-# Connection + lifecycle states shared across projects that point at the same
-# tracker install. Project-specific routing (which labels → which pipelines)
-# stays on the project's trigger block.
+# Connection + run workflow shared across projects that point at the same
+# tracker install. A project declares only its `resolution:` (which tickets are
+# its own) and inherits everything else from its tracker.
 trackers:
   acme-github:
     type: github
@@ -424,6 +424,14 @@ trackers:
     # that trigger disabled, because a park with nowhere to go leaves the ticket
     # claimable and the run repeats forever.
     needs_clarification_status: "Question"
+    trigger_statuses: ["open"]
+    done_status: "closed"
+    comment_keyword: "@agent-smith"
+    # 2026-09-25-d83b: the label someone puts on a PULL REQUEST to ask for a review.
+    # Omitted → only "security-review" triggers, as it always has; a word set here is
+    # recognised in ADDITION to it, so a board already labelled keeps working.
+    # pr_trigger_label: "please-review"
+    # pipeline_from_label omitted → inherits global pipeline_triggers map
 
   acme-ado:
     type: azure_devops
@@ -442,6 +450,13 @@ trackers:
     pipeline_from_label:
       bug: code
       security: security-scan
+    # p0461: where a ticket goes when its PARKED run RESUMES. It is the counterpart of
+    # needs_clarification_status and, like it, must sit OUTSIDE trigger_statuses
+    # (open_states above), or the poller claims the ticket again while the resumed run
+    # holds it. Unset, the ticket stays in the status it parked in, so the board goes on
+    # reading "waiting for you" over a run that is already working again — the resume
+    # says so in the log rather than guessing.
+    # in_progress_status: "Active"     # with open_states: ["New"]
 
   acme-jira:
     type: jira
@@ -449,8 +464,12 @@ trackers:
     auth: jira_token
     email: agent-smith@acme.example   # 2026-10-02-5f89a: the account jira_token belongs to
     open_states: ["To Do", "In Progress"]
+    trigger_statuses: ["To Do"]
     done_status: "In Review"
     needs_clarification_status: "Blocked"    # p0318/p0391 — see acme-github above
+    comment_keyword: "@agent-smith"
+    assignee_name: "Agent Smith"       # an issue assigned to this user starts a run; unset = Agent Smith
+    webhook_secret: ${JIRA_WEBHOOK_SECRET}   # Jira signs its webhook deliveries with this
     close_transition_name: "Done"
     closed_status: "Won't Do"          # optional: where "also close on the tracker" moves a ticket; unset = done_status
     # Optional: override Jira REST paths when Atlassian changes an API (e.g.
@@ -467,8 +486,8 @@ trackers:
 # ────────────────────────────────────────────────────────────────────────
 #  Global pipeline_triggers — label → pipeline default
 # ────────────────────────────────────────────────────────────────────────
-# Applied when a project's trigger block omits `pipeline_from_label`.
-# A populated project-level map wins over this global default.
+# Applied when a tracker omits `pipeline_from_label`.
+# A populated tracker map wins over this global default.
 # p0393: ONE `code` pipeline ships all code changes. 2026-09-25-e5b1 deleted the
 # four former names it had been aliased from — a configuration still carrying one
 # names a pipeline that does not exist, and the server says so at startup.
@@ -496,30 +515,19 @@ projects:
     # pipelines:
     #   - name: security-scan
     #     agent: claude-scan
-    github_trigger:
-      project_resolution:
-        # p0140a: GitHub single-repo dispatch — match by the source-repo URL on the
-        # webhook payload against the project's single repo. Requires
-        # repos: [acme-app] (count == 1) — the validator enforces it.
-        strategy: repo
-        value: https://github.com/acme/app.git
-      trigger_statuses: ["open"]
-      done_status: "closed"
-      comment_keyword: "@agent-smith"
-      # 2026-09-25-d83b: the label someone puts on a PULL REQUEST to ask for a review.
-      # Omitted → only "security-review" triggers, as it always has; a word set here is
-      # recognised in ADDITION to it, so a board already labelled keeps working.
-      # pr_trigger_label: "please-review"
-      # pipeline_from_label omitted → inherits global pipeline_triggers map
+    # p0140a: GitHub single-repo dispatch — match by the source-repo URL on the
+    # webhook payload against the project's single repo. Requires
+    # repos: [acme-app] (count == 1) — the validator enforces it.
+    # Statuses, comment_keyword and pr_trigger_label come from the acme-github tracker.
+    resolution:
+      repo: https://github.com/acme/app.git
 
-  # Azure DevOps project, terse shape (p0281b): only `resolution:` is project-specific —
+  # Azure DevOps project (p0281b): only `resolution:` is project-specific —
   # trigger_statuses / done_status / failed_status / pipeline_from_label all come from the
   # acme-ado tracker. The trigger TYPE is inferred from the tracker (azure_devops). The
   # `resolution` key IS the strategy: tag | area_path | repo | to_address. area_path is a
   # hierarchical prefix match — AcmeMain/Platform also matches AcmeMain/Platform/Provisioning;
   # the backslash form is equivalent (the loader normalises).
-  # (An explicit `azuredevops_trigger:` block still works and overrides field-by-field; use it
-  # when you need a per-project comment_keyword or a different label map.)
   acme-platform:
     agent: claude-default
     tracker: acme-ado
@@ -531,14 +539,6 @@ projects:
       jitter_percent: 10
     resolution:
       area_path: AcmeMain/Platform
-    # p0461: the one workflow field the tracker does not own — where a ticket goes when
-    # its PARKED run RESUMES. It is the counterpart of needs_clarification_status and,
-    # like it, must sit OUTSIDE trigger_statuses (open_states above), or the poller
-    # claims the ticket again while the resumed run holds it. Unset, the ticket stays in
-    # the status it parked in, so the board goes on reading "waiting for you" over a run
-    # that is already working again — the resume says so in the log rather than guessing.
-    # azuredevops_trigger:
-    #   in_progress_status: "Active"     # with open_states: ["New"] on the tracker
 
   # Multi-repo Jira project — one ticket's run works across every repo in the list.
   acme-rules:
@@ -546,19 +546,12 @@ projects:
     tracker: acme-jira
     repos: [acme-rules-shared, acme-rules-billing]
     pipeline: code
-    jira_trigger:
-      project_resolution:
-        # p0140a: Jira tag dispatch — a ticket carrying the label "acme-rules"
-        # routes to this project. Case-insensitive equality. Ambiguous tickets
-        # (a ticket with two project tags) spawn one pipeline run per matched
-        # project per p0140's documented "let the LLM skip irrelevant ones" rule.
-        strategy: tag
-        value: acme-rules
-      assignee_name: "Agent Smith"
-      secret: ${JIRA_WEBHOOK_SECRET}
-      trigger_statuses: ["To Do"]
-      done_status: "In Review"
-      comment_keyword: "@agent-smith"
+    # p0140a: Jira tag dispatch — a ticket carrying the label "acme-rules"
+    # routes to this project. Case-insensitive equality. Ambiguous tickets
+    # (a ticket with two project tags) spawn one pipeline run per matched
+    # project per p0140's documented "let the LLM skip irrelevant ones" rule.
+    resolution:
+      tag: acme-rules
 
   # api-security project (p0102) — local source enables code-aware skills;
   # remote clone via repos: [acme-app] also works.

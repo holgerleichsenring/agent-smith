@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-6bd3b
+
+decisions:
+  - category: Architecture
+    chose: "Re-read the catalog quietly when the tab becomes visible"
+    over: "Polling, a push of config changes, or re-reading when a picker opens"
+    reason: |
+      The stale case is a form left open while the operator works in another tab, and coming back is the moment the
+      list matters. A quiet read leaves the cards and the open drawer in place; the drawer keeps its own initial state.
+  - category: Architecture
+    chose: "Only the latest read may land"
+    over: "Letting overlapping reads finish in any order"
+    reason: |
+      Adversarial review: a quiet read still in flight when a save's reload starts could otherwise overwrite the newer
+      answer with the older one.

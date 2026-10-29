@@ -35,6 +35,7 @@ public static class TrackerCapabilityFields
             new CapabilityField("url", "Repository URL", Required: true, Group: TrackerFieldGroups.Connection),
             new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
+            PrTriggerLabel,
         ],
         TrackerType.GitLab =>
         [
@@ -42,6 +43,7 @@ public static class TrackerCapabilityFields
             new CapabilityField("url", "Base URL", Required: false, Group: TrackerFieldGroups.Connection),
             new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
+            PrTriggerLabel,
         ],
         TrackerType.Jira =>
         [
@@ -56,6 +58,9 @@ public static class TrackerCapabilityFields
             WorkItemKinds,
             ClosedStatus,
             new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Connection),
+            // 2026-10-29-6bd3a: what a project's jira_trigger block carried and no tracker field had.
+            new CapabilityField("assigneeName", "Assignee that starts a run", Required: false, Group: TrackerFieldGroups.Intake),
+            new CapabilityField("webhookSecret", "Webhook secret", Required: false, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
         ],
         _ => throw new ConfigurationException(
             $"Tracker type '{type}' has no capabilities descriptor — add its field set."),
@@ -87,7 +92,14 @@ public static class TrackerCapabilityFields
         new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Transition),
         // 2026-09-25-3c7ac: what this board calls the labels agent-smith writes onto it.
         new CapabilityField("labelNames", "Label names", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Routing),
+        // 2026-10-29-6bd3a: two fields a per-project trigger block carried and no tracker field had.
+        new CapabilityField("commentKeyword", "Comment keyword", Required: false, Group: TrackerFieldGroups.Intake),
+        new CapabilityField("inProgressStatus", "In-progress status (a resumed run)", Required: false, Group: TrackerFieldGroups.Outcome),
     ];
+
+    // 2026-10-29-6bd3a: the PR-label handlers exist for GitHub and GitLab only.
+    private static readonly CapabilityField PrTriggerLabel =
+        new("prTriggerLabel", "PR label that asks for a review", Required: false, Group: TrackerFieldGroups.Routing);
 
     // 2026-09-18-b4f0: declared for the two tracker types whose create sends a kind, and for
     // no others — GitHub applies any status that is not open or closed as a label and GitLab

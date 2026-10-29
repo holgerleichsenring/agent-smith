@@ -60,6 +60,8 @@ internal static class TicketConversationEndpoints
             // 2026-09-27-1bd9: named by the labels, but on another tracker — which cannot hold
             // this ticket, and is why the choice is being put to a person at all.
             elsewhere = answer.Elsewhere,
+            // 2026-10-29-6bd3c: so a ticket no label names is offered to them rather than dropped by the page.
+            routed = answer.Routed,
             sessionId = existing?.SessionId,
             openDialogId = existing?.OpenDialogId,
         });

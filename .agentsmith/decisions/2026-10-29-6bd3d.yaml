@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-6bd3d
+
+decisions:
+  - category: Architecture
+    chose: "Load the configuration per request in GET /api/config and build the resolution pass over that load"
+    over: "Rebuilding the AgentSmithConfig singleton on change, or keeping the registered resolution pass"
+    reason: |
+      Other endpoints already load per request, so the cost is known. The registered ConfigResolutionPass is built
+      over the boot singleton as well, so using it would show the new tracker beside the old per-project settings and
+      miss a project created since. The other singleton consumers are out of scope.
+  - category: Architecture
+    chose: "Report the loader's last read taken before this request's own"
+    over: "Reporting the read this request just made"
+    reason: |
+      Adversarial review: the request's own read always says 'read just now', which is a fact about the endpoint and
+      not about what the runtime last read.

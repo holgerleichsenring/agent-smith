@@ -35,22 +35,49 @@ public class EffectiveTriggerBuilderTests
         trigger.PipelineFromLabel.Should().ContainKey("agent-smith:bug");
     }
 
+    // 2026-10-29-6bd3a: the fields a per-project trigger block used to carry come from the tracker.
     [Fact]
-    public void Apply_ProjectOverridesStatus_ProjectWins()
+    public void Apply_TheTrackersTriggerFields_ReachTheEffectiveTrigger()
     {
-        var project = new RawProjectEntry
+        var tracker = AdoTracker();
+        tracker.CommentKeyword = "@agent-smith";
+        tracker.PrTriggerLabel = "please-review";
+        tracker.InProgressStatus = "Active";
+        var project = new RawProjectEntry { Tracker = "t", Resolution = new() { ["tag"] = "checkout" } };
+
+        _builder.Apply("p", project, tracker);
+
+        project.AzuredevopsTrigger!.CommentKeyword.Should().Be("@agent-smith");
+        project.AzuredevopsTrigger.PrTriggerLabel.Should().Be("please-review");
+        project.AzuredevopsTrigger.InProgressStatus.Should().Be("Active");
+    }
+
+    [Fact]
+    public void Apply_JiraTrackerWithoutAssignee_KeepsAgentSmith()
+    {
+        var tracker = new RawTrackerEntry { Type = TrackerType.Jira, OpenStates = ["To Do"] };
+        var project = new RawProjectEntry { Tracker = "t", Resolution = new() { ["tag"] = "checkout" } };
+
+        _builder.Apply("p", project, tracker);
+
+        project.JiraTrigger!.AssigneeName.Should().Be("Agent Smith",
+            "a project that never had a block always started on an issue assigned to Agent Smith");
+        project.JiraTrigger.Secret.Should().BeNull();
+    }
+
+    [Fact]
+    public void Apply_JiraTrackerAssigneeAndSecret_ReachTheJiraTrigger()
+    {
+        var tracker = new RawTrackerEntry
         {
-            Tracker = "t",
-            AzuredevopsTrigger = new WebhookTriggerConfig
-            {
-                ProjectResolution = new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = "X" },
-                TriggerStatuses = ["Committed"],
-            },
+            Type = TrackerType.Jira, OpenStates = ["To Do"], AssigneeName = "Bot", WebhookSecret = "s3cret",
         };
+        var project = new RawProjectEntry { Tracker = "t", Resolution = new() { ["tag"] = "checkout" } };
 
-        _builder.Apply("p", project, AdoTracker());
+        _builder.Apply("p", project, tracker);
 
-        project.AzuredevopsTrigger!.TriggerStatuses.Should().BeEquivalentTo("Committed");
+        project.JiraTrigger!.AssigneeName.Should().Be("Bot");
+        project.JiraTrigger.Secret.Should().Be("s3cret");
     }
 
     [Theory]
@@ -111,26 +138,6 @@ public class EffectiveTriggerBuilderTests
         act.Should().Throw<ConfigurationException>().WithMessage("*not a known strategy*");
     }
 
-    [Fact]
-    public void Apply_LegacyFullWrapper_LoadsAndResolvesIdentically()
-    {
-        var legacy = new WebhookTriggerConfig
-        {
-            ProjectResolution = new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = "X" },
-            TriggerStatuses = ["New", "Active"],
-            DoneStatus = "Resolved",
-            FailedStatus = "Resolved",
-            PipelineFromLabel = new Dictionary<string, string> { ["agent-smith:bug"] = "code" },
-        };
-        var project = new RawProjectEntry { Tracker = "t", AzuredevopsTrigger = legacy };
-
-        _builder.Apply("p", project, AdoTracker());
-
-        project.AzuredevopsTrigger.Should().BeSameAs(legacy);
-        legacy.ProjectResolution!.Value.Should().Be("X");
-        legacy.DoneStatus.Should().Be("Resolved");
-    }
-
     // 2026-09-16-a4d7: the label map and the answer for "nothing matched" are one
     // decision, so the tracker owns both and the merge copies both.
     [Fact]
@@ -143,26 +150,6 @@ public class EffectiveTriggerBuilderTests
         _builder.Apply("p", project, tracker);
 
         project.AzuredevopsTrigger!.DefaultPipeline.Should().Be("security-scan");
-    }
-
-    [Fact]
-    public void Tracker_ProjectTriggerDeclaresItsOwn_TrackerDoesNotOverrideIt()
-    {
-        var tracker = AdoTracker();
-        tracker.DefaultPipeline = "security-scan";
-        var project = new RawProjectEntry
-        {
-            Tracker = "t",
-            AzuredevopsTrigger = new WebhookTriggerConfig
-            {
-                ProjectResolution = new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = "X" },
-                DefaultPipeline = "code",
-            },
-        };
-
-        _builder.Apply("p", project, tracker);
-
-        project.AzuredevopsTrigger!.DefaultPipeline.Should().Be("code");
     }
 
     [Fact]

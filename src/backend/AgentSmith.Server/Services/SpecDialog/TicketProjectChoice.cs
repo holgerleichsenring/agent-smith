@@ -72,7 +72,8 @@ public sealed class TicketProjectChoice(
                     binding,
                     [.. matches.Matched.Intersect(here, StringComparer.Ordinal)],
                     [.. matches.Unanswerable.Intersect(here, StringComparer.Ordinal)],
-                    [.. matches.Matched.Except(here, StringComparer.Ordinal)]),
+                    [.. matches.Matched.Except(here, StringComparer.Ordinal)],
+                    here),
                 unreachable);
         }
 

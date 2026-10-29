@@ -23,9 +23,11 @@ internal static class StartupProbeExtensions
         services.AddSingleton<IStartupProbe, PinnedAgentProbe>();
         services.AddSingleton<IStartupAnnouncer, StartupAnnouncer>();
         services.AddSingleton<IStartupProbeRunner, StartupProbeRunner>();
+        services.AddSingleton<StartupProbePass>(); // 2026-10-29-7f2d
         // 2026-09-25-e5b1: not a probe — it WRITES. It is registered here because it is
         // startup work that reports through the same findings list when it cannot run.
         services.AddSingleton<PipelineAliasMigration>();
+        services.AddSingleton<LegacyTriggerMigration>(); // 2026-10-29-6bd3a
         return services;
     }
 }

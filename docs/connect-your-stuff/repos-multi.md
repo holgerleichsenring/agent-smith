@@ -59,6 +59,9 @@ trackers:
     auth: azure_devops_token
     open_states: [New, Active]
     done_status: Resolved
+    pipeline_from_label:
+      agent-smith:bug:                code
+      agent-smith:feature:            code
 
 projects:
   azuredevops-todolist:
@@ -67,15 +70,8 @@ projects:
     repos:
       - acme/TodoList.*                # discovered under the connection via the provider API
       - "!acme/TodoList.Legacy"        # exclusion glob
-    azuredevops_trigger:
-      project_resolution:
-        strategy: tag
-        value: TodoList
-      trigger_statuses: [New, Active]
-      done_status: Resolved
-      pipeline_from_label:
-        agent-smith:bug:                code
-        agent-smith:feature:            code
+    resolution:
+      tag: TodoList
 
 secrets:
   azure_openai_api_key: ${AZURE_OPENAI_API_KEY}

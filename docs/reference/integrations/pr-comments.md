@@ -22,13 +22,13 @@ Everything after the prefix, every following line included, is read as free text
 
 ## Ask for a security scan with a label
 
-Putting the label `security-review` on a pull request starts a **security-scan** of that pull request: its head branch is checked out and scanned in full. The word is yours to choose: set `pr_trigger_label` on the owning project's `github_trigger` or `gitlab_trigger`, and that label triggers too.
+Putting the label `security-review` on a pull request starts a **security-scan** of that pull request: its head branch is checked out and scanned in full. The word is yours to choose: set `pr_trigger_label` on the owning project's GitHub or GitLab tracker, and that label triggers too.
 
 ```yaml
-projects:
-  todolist:
-    github_trigger:
-      pr_trigger_label: needs-security-review
+trackers:
+  todolist-issues:
+    type: github
+    pr_trigger_label: needs-security-review
 ```
 
 Setting it adds a word rather than replacing one: `security-review` keeps triggering, so pull requests already carrying it still work. The label is matched case-insensitively. On GitHub this is the `pull_request` event with action `labeled`; on GitLab, any update to a merge request that carries the label.
@@ -72,7 +72,7 @@ Before a command without a ticket starts `pr-review`, `security-scan` or `code`,
 
 ## Request changes starts a rework
 
-Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`, in the same repository) start nothing on their own: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts when a reviewer with write access comments `/agent-smith` (or `/agentsmith`, `/as`) — bare, or followed by further instructions on as many lines as needed — or chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). A Wait for author vote counts whoever cast it, the pull request's creator included, because agent-smith only ever votes Approve. So: write your review comments, then one `/agent-smith`, and the rework works through all of them. The command is not handed to a model; on such a pull request it always means a rework. On the ticket's side, a comment with the project's `comment_keyword` or moving the finished ticket back into a trigger status starts the same rework ([Rework a finished ticket](../../trigger-it/webhooks.md#rework-a-finished-ticket)).
+Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`, in the same repository) start nothing on their own: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts when a reviewer with write access comments `/agent-smith` (or `/agentsmith`, `/as`) — bare, or followed by further instructions on as many lines as needed — or chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). A Wait for author vote counts whoever cast it, the pull request's creator included, because agent-smith only ever votes Approve. So: write your review comments, then one `/agent-smith`, and the rework works through all of them. The command is not handed to a model; on such a pull request it always means a rework. On the ticket's side, a comment with the tracker's `comment_keyword` or moving the finished ticket back into a trigger status starts the same rework ([Rework a finished ticket](../../trigger-it/webhooks.md#rework-a-finished-ticket)).
 
 When the ticket's last run handed the ticket back (a question, a contradiction or a not-implementable verdict), the hand-back is posted on the pull request too. Answering there and commenting `/agent-smith` ends the waiting run and starts the rework; a reply on the pull request counts as a reply to the hand-back. Our own notes on the pull request never start anything. The run then reads that act from the pull request itself, so it is served whichever trigger claims the ticket, and the pull request names the run. While a run is working on the ticket, a review is not picked up: the pull request says so, and you request changes again once that run ends — on Azure DevOps reset your vote first, since only a change of vote is sent.
 

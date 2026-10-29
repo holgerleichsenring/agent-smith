@@ -22,7 +22,7 @@ interface ConfigCatalogContextValue extends UseConfigCatalog {
 const ConfigCatalogContext = createContext<ConfigCatalogContextValue | null>(null);
 
 export function ConfigCatalogProvider({ children }: { children: React.ReactNode }) {
-  const { catalog, inheritedSandbox, loading, error, reload: reloadCatalog } = useConfigCatalog();
+  const { catalog, inheritedSandbox, loading, error, reload: reloadCatalog, refresh } = useConfigCatalog();
   const [changesCount, setChangesCount] = useState<number | null>(null);
 
   const loadChanges = useCallback(
@@ -41,6 +41,18 @@ export function ConfigCatalogProvider({ children }: { children: React.ReactNode 
     return () => controller.abort();
   }, [loadChanges]);
 
+  // 2026-10-29-6bd3b: a tracker created in another tab was never offered by a project form left
+  // open here — the catalog was read on mount and after this tab's own saves. Coming back into
+  // view re-reads it quietly.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void Promise.all([refresh(), loadChanges()]);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh, loadChanges]);
+
   // One reload() refreshes the catalog AND the changes count, so an import or a
   // revert updates the rail's per-kind badges and the History count together.
   const reload = useCallback(async () => {
@@ -48,8 +60,8 @@ export function ConfigCatalogProvider({ children }: { children: React.ReactNode 
   }, [reloadCatalog, loadChanges]);
 
   const value = useMemo<ConfigCatalogContextValue>(
-    () => ({ catalog, inheritedSandbox, loading, error, reload, changesCount }),
-    [catalog, inheritedSandbox, loading, error, reload, changesCount],
+    () => ({ catalog, inheritedSandbox, loading, error, reload, refresh, changesCount }),
+    [catalog, inheritedSandbox, loading, error, reload, refresh, changesCount],
   );
 
   return <ConfigCatalogContext.Provider value={value}>{children}</ConfigCatalogContext.Provider>;

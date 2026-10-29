@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   InheritedSandboxProjection,
   StudioAgent,
@@ -63,6 +63,9 @@ export interface UseConfigCatalog {
   /** The thrown value, not its message — the studio renders a refusal as a state. */
   error: Error | null;
   reload: () => Promise<void>;
+  /** 2026-10-29-6bd3b: the same read without the loading state, so the cards and an open
+   *  form are not swapped for "Loading…" when the tab comes back into view. */
+  refresh: () => Promise<void>;
 }
 
 /**
@@ -80,8 +83,12 @@ export function useConfigCatalog(): UseConfigCatalog {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+  // 2026-10-29-6bd3b: a quiet re-read can still be in flight when a save's reload starts; only the
+  // latest read may land, or the older answer would overwrite the newer one.
+  const latest = useRef(0);
+  const load = useCallback(async (signal?: AbortSignal, quiet = false) => {
+    const read = ++latest.current;
+    if (!quiet) setLoading(true);
     setError(null);
     try {
       const [agents, trackers, connections, repos, projects, mcp, designSources, secrets, inherited] =
@@ -99,6 +106,7 @@ export function useConfigCatalog(): UseConfigCatalog {
           // the whole studio down with it.
           fetchInheritedSandbox(signal).catch(() => null),
         ]);
+      if (read !== latest.current) return;
       setInheritedSandbox(inherited);
       // 2026-09-15-9b3e: sorted HERE, not at the render sites. The store returns a SELECT
       // with no ORDER BY, and ten places render one of these arrays — the cards, the agent,
@@ -116,10 +124,10 @@ export function useConfigCatalog(): UseConfigCatalog {
         secrets: byId(secrets),
       });
     } catch (err) {
-      if ((err as Error).name === "AbortError") return;
+      if ((err as Error).name === "AbortError" || read !== latest.current) return;
       setError(err as Error);
     } finally {
-      setLoading(false);
+      if (read === latest.current) setLoading(false);
     }
   }, []);
 
@@ -130,6 +138,7 @@ export function useConfigCatalog(): UseConfigCatalog {
   }, [load]);
 
   const reload = useCallback(() => load(), [load]);
+  const refresh = useCallback(() => load(undefined, true), [load]);
 
-  return { catalog, inheritedSandbox, loading, error, reload };
+  return { catalog, inheritedSandbox, loading, error, reload, refresh };
 }

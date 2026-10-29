@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Startup;
 using Microsoft.AspNetCore.Mvc;
 using static AgentSmith.Server.Services.Config.ConfigStudioWriteGuard;
 
@@ -32,7 +33,8 @@ internal static class ConfigTransferEndpoints
         app.MapPost("/api/config/import",
             async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store,
                 [FromServices] ConfigImportPlanner planner,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx,
+                [FromServices] LegacyTriggerMigration? triggerBlocks) =>
             {
                 var force = req.Query["force"] == "true";
                 using var reader = new StreamReader(req.Body);
@@ -50,6 +52,8 @@ internal static class ConfigTransferEndpoints
                             d.Type, d.Id, d.Doc, ExpectedVersion: null, d.Edges, Attribution(ctx).Actor))
                         .ToList();
                     docStore.Import(writes, force);
+                    // 2026-10-29-6bd3a: an imported file may still carry per-project trigger blocks.
+                    triggerBlocks?.Run();
                     store.Load();
                     return Results.Ok(new { imported = writes.Count, dropped = plan.Dropped });
                 });

@@ -192,6 +192,11 @@ Where tickets come from and how their workflow looks. The tracker owns the workf
 | `closed_status` | Jira, Azure DevOps: the status "also close on the tracker" moves a ticket into. Unset: `done_status` |
 | `pipeline_from_label` | label → pipeline. Matched in order, first hit wins. With entries, a ticket matching none isn't routed |
 | `default_pipeline` | what a ticket runs when the label map is empty. Unset everywhere means `code`, with a startup finding |
+| `in_progress_status` | where a parked run's ticket returns when the run resumes; must lie outside `trigger_statuses` |
+| `comment_keyword` | a keyword in a ticket comment that triggers a run |
+| `pr_trigger_label` | GitHub and GitLab: a pull request label that asks for a review. `security-review` always does too |
+| `assignee_name` | Jira: the webhook starts work when an issue is assigned to this user, default `Agent Smith` |
+| `webhook_secret` | Jira: the webhook shared secret as a `${name}` reference, see [Webhooks](webhooks.md) |
 | `label_names` | renames the labels the framework writes. Keys: `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set` |
 | `lifecycle_status_names` | Jira: lifecycle state → native workflow status, instead of carrying the lifecycle only as labels |
 | `work_item_kinds` | Azure DevOps and Jira: filing role (`work`, `bug`, `spec` — `phase` still accepted — `chat`) → work-item or issue type. GitHub and GitLab ignore it |
@@ -218,24 +223,12 @@ A project wires one agent, one tracker and a set of repos, and says how a ticket
 | `default_pipeline` | the project's default pipeline (CLI runs and fallback paths). What a *ticket* runs is decided by the tracker's routing |
 | `pipelines` | pipelines this project hosts with their own overrides: `name`, `agent`, `skills_path`, `coding_principles_path` |
 | `coding_principles_path`, `skills_path` | project-level overrides |
-| `github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger` | a full trigger block, overriding the tracker field by field. Must match the tracker's type |
 | `sandbox` | per-project sandbox overrides, see below |
 | `design_sources` | names from `design_sources:` this project may read designs from. See [Design sources](../../configure-it/design-sources.md) |
 
 ### Trigger blocks
 
-Only needed when one project departs from its tracker's workflow. Every field is optional and overrides the tracker's.
-
-| Key | Description |
-|-----|-------------|
-| `project_resolution` | `{ strategy, value }`, the long form of `resolution:` |
-| `pipeline_from_label`, `default_pipeline` | as on the tracker |
-| `trigger_statuses`, `done_status`, `failed_status`, `needs_clarification_status`, `not_implementable_status` | as on the tracker |
-| `in_progress_status` | the status a parked run's ticket returns to when the run resumes; outside `trigger_statuses` |
-| `comment_keyword` | a keyword in a ticket comment that triggers |
-| `pr_trigger_label` | GitHub and GitLab: a pull request label that asks for a review. `security-review` always does too |
-| `assignee_name` | Jira: the webhook starts work when an issue is assigned to this user, default `Agent Smith` |
-| `secret` | Jira: the webhook shared secret, see [Webhooks](webhooks.md) |
+`github_trigger`, `gitlab_trigger`, `azuredevops_trigger` and `jira_trigger` are retired: a project routes by `resolution:` and its tracker carries the workflow. A file that still has one keeps loading — at load the block fills whatever the project and its tracker leave unset — and a server moves its stored blocks onto the trackers once, in the background. See [Project resolution](project-resolution.md).
 
 ### projects.templates
 
@@ -282,7 +275,7 @@ A configuration written before this rule keeps working. An empty `auth` is fille
 
 ## pipeline_triggers
 
-A global label → pipeline map, used when neither the project's trigger nor its tracker declares a `pipeline_from_label`. There's no studio screen for it; on a server, edit it through export and import.
+A global label → pipeline map, used when the tracker declares no `pipeline_from_label`. There's no studio screen for it; on a server, edit it through export and import.
 
 ```yaml
 pipeline_triggers:

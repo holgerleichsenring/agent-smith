@@ -30,11 +30,11 @@ The rest of this page walks the ticket-labelled path, which works the same on Gi
 
 - Agent Smith deployed and reachable from your platform (or polling enabled — see [Trigger: polling](../../trigger-it/polling.md)).
 - The target repository connected as a project in `agentsmith.yml` (catalog-first shape: a `repos:`/`connections:` entry, a `trackers:` entry, a `projects:` entry wiring them). See the [agentsmith.yml reference](../configuration/agentsmith-yml.md).
-- A trigger config (`github_trigger` / `gitlab_trigger` / `azuredevops_trigger` / `jira_trigger`) for that project, with `pipeline_from_label` containing `agent-smith:init: init-project`. This entry is already in the bundled `agentsmith.yml` example. See [Trigger: labels](../../trigger-it/labels.md) for the config shape.
+- A `pipeline_from_label` map on that project's tracker containing `agent-smith:init: init-project`, or no map there, so the global `pipeline_triggers` map applies. That global entry is already in the bundled `agentsmith.yml` example. See [Trigger: labels](../../trigger-it/labels.md) for the config shape.
 
 ## Step 1 — Verify the trigger config
 
-Your project's trigger block must map the init label. Example for GitHub:
+Your project's tracker must map the init label. Example for GitHub:
 
 ```yaml
 repos:
@@ -48,21 +48,19 @@ trackers:
     type: github
     url: https://github.com/mycompany/my-new-repo
     auth: github_token
+    pipeline_from_label:
+      agent-smith:init: init-project    # the onboarding mapping
+      bug: code
+      feature: code
+    done_status: "closed"
 
 projects:
   my-new-repo:
     agent: claude-default
     tracker: my-issues
     repos: [my-new-repo]
-    github_trigger:
-      project_resolution:
-        strategy: repo
-        value: https://github.com/mycompany/my-new-repo.git
-      pipeline_from_label:
-        agent-smith:init: init-project    # the onboarding mapping
-        bug: code
-        feature: code
-      done_status: "closed"
+    resolution:
+      repo: https://github.com/mycompany/my-new-repo.git
 ```
 
 Place `agent-smith:init` **first** in `pipeline_from_label` — match order is dict-insertion order. Putting it first keeps onboarding visible to operators reading the config.
@@ -130,7 +128,7 @@ Expected if you haven't merged the bootstrap PR yet. The BootstrapGate guards co
 Three likely causes:
 
 1. **Label mismatch.** Verify the label string in `pipeline_from_label` exactly matches the label on the issue (case-sensitive on most platforms). The bundled config uses `agent-smith:init`; if you customized it, check that.
-2. **`trigger_statuses` excludes the issue's state.** If your trigger config sets `trigger_statuses: ["open"]` but the issue was created in a different state, the trigger silently skips. Either widen `trigger_statuses` or change the issue's state.
+2. **`trigger_statuses` excludes the issue's state.** If your tracker sets `trigger_statuses: ["open"]` but the issue was created in a different state, the trigger silently skips. Either widen `trigger_statuses` or change the issue's state.
 3. **Agent Smith never received the event.** For webhooks: check the platform's webhook-delivery log. For polling: check Agent Smith's polling logs for the project name — the poller logs each tick.
 
 ### Bootstrap PR opened but the files look wrong
@@ -166,6 +164,19 @@ repos:
     url: https://github.com/acme/sdk
     auth: github_token
 
+trackers:
+  acme-jira:
+    type: jira
+    url: https://acme.atlassian.net
+    project: ACME
+    auth: jira_token
+    email: agent-smith@acme.example
+    assignee_name: "Agent Smith"
+    pipeline_from_label:
+      agent-smith:init: init-project
+      bug: code
+    default_pipeline: code
+
 projects:
   acme-product:
     agent: claude-default
@@ -175,13 +186,8 @@ projects:
       - acme-frontend
       - acme-sdk
     pipeline: code
-    jira_trigger:
-      assignee_name: "Agent Smith"
-      project_resolution: { strategy: tag, value: acme-product }
-      pipeline_from_label:
-        agent-smith:init: init-project
-        bug: code
-      default_pipeline: code
+    resolution:
+      tag: acme-product
 ```
 
 ### Operator workflow

@@ -40,7 +40,7 @@ The PR must live in a GitHub, GitLab or Azure DevOps repository; any other repo 
 A review starts when a person asks for one: a comment `/agent-smith review` (or `/as review`) on the pull request by someone with write access to the repository. See [PR comments](../integrations/pr-comments.md). Opening a pull request or pushing to it starts nothing, in webhook and polling mode alike: a new commit is a change, not a request. A repository no project claims never triggers.
 
 !!! note "The review label starts a security scan"
-    Putting the label `security-review` on a pull request, or the word your project sets as `pr_trigger_label` on its `github_trigger` / `gitlab_trigger`, starts a **security-scan** of that pull request's head (its branch checked out, scanned in full), not a `pr-review`. The scan starts when the label is added, and only for a repository a project configures. Setting `pr_trigger_label` adds a word; `security-review` keeps triggering either way.
+    Putting the label `security-review` on a pull request, or the word its tracker sets as `pr_trigger_label`, starts a **security-scan** of that pull request's head (its branch checked out, scanned in full), not a `pr-review`. The scan starts when the label is added, and only for a repository a project configures. Setting `pr_trigger_label` adds a word; `security-review` keeps triggering either way.
 
 ## Per-pipeline overrides
 

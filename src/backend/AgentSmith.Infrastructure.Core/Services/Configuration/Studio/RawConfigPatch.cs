@@ -77,6 +77,12 @@ public static class RawConfigPatch
         tracker.CloseTransitionName = entity.CloseTransitionName;
         tracker.ClosedStatus = entity.ClosedStatus;
         tracker.DefaultPipeline = entity.DefaultPipeline; // 2026-09-16-a4d7
+        // 2026-10-29-6bd3a: written as given, like the other scalars — null clears.
+        tracker.CommentKeyword = entity.CommentKeyword;
+        tracker.PrTriggerLabel = entity.PrTriggerLabel;
+        tracker.InProgressStatus = entity.InProgressStatus;
+        tracker.AssigneeName = entity.AssigneeName;
+        tracker.WebhookSecret = entity.WebhookSecret;
         if (entity.ExtraFields is { } extraFields) tracker.ExtraFields = [.. extraFields];
         if (entity.ZeroMatchComment is { } zeroMatch) tracker.ZeroMatchComment = zeroMatch;
         if (entity.LifecycleStatusNames is { } lifecycle)

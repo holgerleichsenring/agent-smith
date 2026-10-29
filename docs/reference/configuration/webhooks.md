@@ -61,11 +61,11 @@ Webhook secrets are **environment variables on the server process** — there is
 | `GITLAB_WEBHOOK_TOKEN` | GitLab | Token compare (`X-Gitlab-Token`) |
 | `AZDO_WEBHOOK_SECRET` | Azure DevOps | Basic auth |
 
-Jira is the exception: its secret lives in config, per project, under
-`projects.<name>.jira_trigger.secret`. Written as `${NAME}` it resolves against the
+Jira is the exception: its secret lives in config, on the tracker, under
+`trackers.<name>.webhook_secret`. Written as `${NAME}` it resolves against the
 `secrets:` map first and then against the environment variable of that name; a reference
-that resolves to nothing counts as **unconfigured**, not as a secret. Several projects
-may each carry a different Jira secret — a delivery is accepted when any one of them
+that resolves to nothing counts as **unconfigured**, not as a secret. Several Jira trackers
+may each carry a different secret — a delivery is accepted when any one of them
 verifies it.
 
 !!! warning "A configured secret is enforced"
@@ -92,17 +92,17 @@ On the generic `/webhook` endpoint, the `X-GitHub-Event`, `X-Gitlab-Event`, etc.
 
 ## Trigger Configuration
 
-The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ...) lives on the tracker, and a project can override it field by field in a `github_trigger`/`gitlab_trigger`/`azuredevops_trigger`/`jira_trigger` block. See [Label-Based Triggers](../../trigger-it/labels.md) for the full shape and per-platform examples, and the [agentsmith.yml reference](agentsmith-yml.md#trigger-blocks) for every key.
+The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ...) lives on the tracker and holds for every project routed to it; a project only says which tickets are its own, with `resolution:` (see [Project resolution](project-resolution.md)). See [Label-Based Triggers](../../trigger-it/labels.md) for the full shape and per-platform examples, and the [agentsmith.yml reference](agentsmith-yml.md#trackers) for every key.
 
 ## Pull request review label
 
-On GitHub and GitLab, adding a label to a pull request or merge request can ask for a review, which runs `security-scan` on the pull request's head branch, for a repository a project configures. The label `security-review` always does. A project can add a word of its own with `pr_trigger_label` on its trigger block:
+On GitHub and GitLab, adding a label to a pull request or merge request can ask for a review, which runs `security-scan` on the pull request's head branch, for a repository a project configures. The label `security-review` always does. A tracker can add a word of its own with `pr_trigger_label`:
 
 ```yaml
-projects:
-  todolist:
-    github_trigger:
-      pr_trigger_label: needs-review
+trackers:
+  todolist-issues:
+    type: github
+    pr_trigger_label: needs-review
 ```
 
 The word adds to `security-review`, it doesn't replace it. The project is found by the pull request's repository URL, so this needs the pull request's repo in the project's `repos:`.

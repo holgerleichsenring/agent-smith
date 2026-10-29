@@ -47,6 +47,21 @@ public sealed class TicketProjectForTrackerTests
     }
 
     [Fact]
+    public async Task TicketResolve_ATicketNoLabelNames_AnswersTheProjectsRoutedToItsTracker()
+    {
+        // 2026-10-29-6bd3c: gamma is routed to the holder but its tag is not on the ticket.
+        var config = Config();
+        config.Projects["gamma"] = Project("gamma", Holder, "gamma-tag");
+        config.Projects.Remove("alpha");
+
+        var answer = await Sut().ForTrackerAsync(config, Holder, "412", CancellationToken.None);
+
+        answer!.Projects.Should().BeEmpty();
+        answer.Routed.Should().BeEquivalentTo(["gamma"],
+            "a ticket no label names is offered to the projects of the tracker that holds it");
+    }
+
+    [Fact]
     public async Task TicketResolve_ATrackerThatIsNotConfigured_AnswersNothing()
     {
         var answer = await Sut().ForTrackerAsync(Config(), "jira-three", "412", CancellationToken.None);

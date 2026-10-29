@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Startup;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
@@ -33,10 +34,13 @@ internal static class StartupFindingsEndpoints
     /// 2026-10-15-4a4dd: a finding naming a project is diagnosing configuration — config.read business. An enforcing
     /// installation drops it for every other caller, anonymous included, before the counts are taken.
     /// </summary>
-    internal static IResult Read(
+    internal static async Task<IResult> Read(
         [FromServices] IStartupFindings findings, [FromServices] IBuildMismatchDetector builds, [FromQuery] string? build,
-        ClaimsPrincipal user, [FromServices] ProjectAccess access)
+        ClaimsPrincipal user, [FromServices] ProjectAccess access, [FromServices] StartupProbePass? pass,
+        CancellationToken cancellationToken)
     {
+        // 2026-10-29-7f2d: the probes run after the bind; an early read waits for their first pass.
+        if (pass is not null) await pass.WaitAsync(StartupProbePass.ReadBudget, cancellationToken);
         IReadOnlyList<StartupFinding> all = [.. findings.All, .. builds.Compare(build)];
         var hidesProjects = access.Enforcing && !access.HoldsEverywhere(user, [Permissions.ConfigRead]);
         return Results.Ok(StartupFindingsResponse.From(

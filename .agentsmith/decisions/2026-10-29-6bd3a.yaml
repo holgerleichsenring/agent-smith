@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-6bd3a
+
+decisions:
+  - category: Architecture
+    chose: "Fold every per-project trigger block into the project's resolution and its tracker, taking a value only where nothing is set there"
+    over: "Keeping the blocks as a field-by-field override, or letting the block win"
+    reason: |
+      The block was invisible in the studio and won over what the studio showed: on the operator's deployment four
+      projects routed by an imported tag while the studio showed another, and started and failed on statuses their
+      tracker did not name. The operator chose the configured, visible behaviour.
+  - category: Architecture
+    chose: "No central section; the five fields with no home become tracker fields"
+    over: "A global settings section with tracker overrides"
+    reason: |
+      The operator wanted it simple: entering the same values on several trackers is a one-off. Editing several
+      trackers at once is a later topic.
+  - category: Architecture
+    chose: "Read a block through LegacyTriggerBlock, every field nullable, under the same YAML and document keys"
+    over: "Reading it through JiraTriggerConfig / WebhookTriggerConfig"
+    reason: |
+      Adversarial review: the trigger classes initialise TriggerStatuses, DoneStatus and AssigneeName, so a block read
+      through them would fill tracker fields it never declared. The effective trigger keeps its raw slot, never
+      serialised, so no runtime reader changes.
+  - category: Architecture
+    chose: "Fold at every load; persist in the background after the listener starts and after an import"
+    over: "A blocking migration before the listener, like the preset-alias one"
+    reason: |
+      The fold makes routing correct whether or not the write happened, so the write need not delay startup. Trackers
+      are saved before their projects and a stale version is skipped, so a second replica or a concurrent studio save
+      never loses a block's values.
+  - category: Architecture
+    chose: "A conflicting second value, a block of the wrong kind and a terminal status inside the tracker's trigger statuses are advisory findings"
+    over: "Silent first-wins, or blocking findings"
+    reason: |
+      Adversarial review: a dropped Jira webhook secret or assignee would silence webhooks with no trace; a terminal
+      status taken into the tracker's trigger statuses would re-claim every parked ticket of every project there.

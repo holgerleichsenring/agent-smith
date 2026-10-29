@@ -54,10 +54,10 @@ Required fields:
 - `repos` (always a list, even with one entry)
 
 Everything else (`resolution`, `templates`, `default_pipeline`,
-`pipelines`, the per-platform trigger blocks, `sandbox`)
-is listed in the [reference](agentsmith-yml.md#projects). A trigger block
-must match the tracker's `type`; the validator rejects a `jira_trigger` on
-a GitHub tracker.
+`pipelines`, `sandbox`) is listed in the [reference](agentsmith-yml.md#projects).
+The per-platform trigger blocks are retired; an old one is folded into the
+project and its tracker at load, and one that does not match the tracker's
+`type` is dropped with an advisory finding.
 
 ### `repos` entry forms
 
@@ -134,7 +134,6 @@ The declaration requires an exact (wildcard-free) repo reference.
 | `Project 'X' references agent 'Y' which is not defined in agents: catalog` | Typo in `agent:` value, or forgotten catalog entry |
 | `Project 'X' references tracker 'Y' which is not defined in trackers: catalog` | Same for `tracker:` |
 | `Project 'X' references repo 'Y' which is not defined in repos: catalog` | Same for `repos:` entries |
-| `Project 'X': has jira_trigger but tracker 'Y' is type GitHub` | Trigger block on a project must match the tracker's type |
 | `pipeline_triggers['Z'] references unknown pipeline 'W'` | Label maps to a pipeline name that doesn't exist |
 | `A routing rule on project 'X' names pipeline 'fix-bug', which this product does not offer any more` | A retired pipeline name; write `code` |
 

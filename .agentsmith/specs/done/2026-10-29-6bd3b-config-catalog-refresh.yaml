@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-6bd3b
+goal: "The config studio re-reads its catalog when its tab becomes visible again, so a tracker created in another tab is offered in an open project form."
+
+applies_to: "default (dashboard config studio)"
+
+requires: [p0353]
+
+facts:
+  - claim: "The catalog is read once on mount and again only after a save, import or revert in the same tab."
+    evidence: "src/dashboard/src/components/config/useConfigCatalog.ts, src/dashboard/src/components/config/ConfigCatalogProvider.tsx"
+  - claim: "The open drawer takes its pickers from the shared catalog prop, so a re-read reaches an open form without remounting it."
+    evidence: "src/dashboard/src/components/config/ConfigStudio.tsx"
+
+scope:
+  in: "ConfigCatalogProvider re-reads catalog and change count on visibilitychange to visible, without the loading state, so the cards and the open form do not flash. Only the latest read lands, so a quiet read finishing after a save's reload cannot overwrite it."
+  out: "Live push of config changes between tabs or users."
+
+steps:
+  - id: quiet
+    action: "useConfigCatalog's load takes a quiet flag that skips loading; the provider calls it on visibility."
+  - id: tests
+    action: "Red then green; dashboard tests."
+
+tests:
+  - "ConfigCatalogProvider.test: CatalogProvider_ATrackerAddedWhileHidden_IsInTheCatalogOnceVisible_WithoutLoading"
+
+done:
+  - "A project form left open in one tab offers a tracker saved in another once the operator returns to it."
+  - "Build green, full suite green, dashboard gen/test/build green."
