@@ -49,15 +49,15 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp(); // 2026-10-29-7f2d: the host binds after it
         await ColdStartAsync(cancellationToken);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         // Run the async loop directly — no Task.Run threadpool hop. RunLoopAsync
         // yields at its first await (SetMembersAsync), so StartAsync still returns
         // promptly; StopAsync cancels _cts and awaits _loop for graceful teardown.
         _loop = RunLoopAsync(_cts.Token);
-        logger.LogInformation(
-            "JobsBroadcaster started: {ActiveCount} active runs, {RecentCount} recent runs",
-            _active.Count, _recent.Count);
+        logger.LogInformation("JobsBroadcaster started: {ActiveCount} active runs, {RecentCount} recent runs after a {ElapsedMs} ms cold start",
+            _active.Count, _recent.Count, (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)

@@ -59,7 +59,8 @@ public sealed class StartupFindingsScopeTests
 
     private static StartupFindingsResponse Read(TokenAuthorityConfig auth, RoleMappingConfig mapping, ClaimsPrincipal user) =>
         StartupFindingsEndpoints.Read(new Recorded(), new NoMismatch(), null, user,
-                ProjectScopeUnderTest.Access(auth, ResolverUnderTest.Over(auth, new StoredMappingStub(mapping)), "alpha", "beta"))
+                ProjectScopeUnderTest.Access(auth, ResolverUnderTest.Over(auth, new StoredMappingStub(mapping)), "alpha", "beta"),
+                pass: null, CancellationToken.None).GetAwaiter().GetResult()
             .Should().BeOfType<Ok<StartupFindingsResponse>>().Which.Value!;
 
     private sealed class Recorded : IStartupFindings

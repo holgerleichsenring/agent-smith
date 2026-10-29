@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-10-29-7f2d: "SERVER STARTUP (Server startup, findings endpoint, JobsBroadcaster). Startup probes run after the listener binds and the findings endpoint waits for their first pass; the broadcaster logs its cold-start duration. -> .agentsmith/specs/done/2026-10-29-7f2d-startup-listen-first.yaml"
     2026-10-29-6bd3a: "TRIGGER BLOCKS RETIRED (Infrastructure.Core config, Server startup, studio, docs). Per-project *_trigger blocks fold into resolution and tracker where unset, then vanish; five fields became tracker fields; stored docs migrate after listen. -> .agentsmith/specs/done/2026-10-29-6bd3a-trigger-block-retirement.yaml"
     2026-10-29-6bd3c: "SPEC-DIALOG TICKET ADDRESS (Server TicketProjectChoice, dashboard SpecDialogSurface). A ticket no project's labels name keeps its address and is offered to the projects routed to its tracker. -> .agentsmith/specs/done/2026-10-29-6bd3c-ticket-address-unmatched.yaml"
     2026-10-29-6bd3b: "CONFIG STUDIO CATALOG (dashboard ConfigCatalogProvider). The catalog is re-read quietly when the tab is visible again, so a tracker created in another tab is offered in an open project form. -> .agentsmith/specs/done/2026-10-29-6bd3b-config-catalog-refresh.yaml"

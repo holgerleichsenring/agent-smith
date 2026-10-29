@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-7f2d
+
+decisions:
+  - category: Architecture
+    chose: "Run the startup probe pass on ApplicationStarted and let the findings endpoint wait for it, bounded"
+    over: "Probing before app.Run(), or a readiness gate on the probes"
+    reason: |
+      The probes only record findings, one after another and up to ten seconds each, and nothing but the findings
+      endpoint reads them; liveness and readiness are both /health. Waiting in that one endpoint keeps the page honest
+      without holding the port.
+  - category: Architecture
+    chose: "Keep the broadcaster's cold start before the bind and log its duration"
+    over: "Moving the cold start to the head of the broadcaster loop"
+    reason: |
+      Built and reverted: the broadcaster suites showed that a run started before the cold start reads its stream has
+      its RunStarted consumed into memory and never projected, so the run row is missing. Moving it needs the cold
+      start and the drain to agree on a cursor. The duration line makes the next start the measurement.

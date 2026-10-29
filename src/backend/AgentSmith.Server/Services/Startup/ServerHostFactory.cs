@@ -24,7 +24,7 @@ public static class ServerHostFactory
     private const string ConfigPathEnvVar = "CONFIG_PATH";
     private const string DefaultConfigPath = "/app/config/agentsmith.yml";
 
-    public static async Task<WebApplication> CreateAsync(
+    public static Task<WebApplication> CreateAsync(
         string[] args, Action<IServiceCollection>? substitutions = null)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -41,29 +41,8 @@ public static class ServerHostFactory
         // p0503b: after the map calls, because MapDashboardApi is where UseCors is
         // registered and a preflight must be answered before anything can refuse it.
         app.UseServerAuthentication(auth).MigrateRoleMapping().MigratePipelineAliases().MigrateLegacyTriggersAfterStart();
-        await RunProbesAsync(app);
-        return app;
-    }
-
-    // p0391b: this is the first eager singleton resolution, and it drags in the loaded
-    // configuration, the Redis multiplexer and the composed sandbox backend. The runner turns a
-    // probe that throws into a finding — but only once it exists, so a failure to BUILD it
-    // was still an unreported dead process. The findings list is registered unconditionally
-    // and needs nothing, so it can always carry the reason.
-    private static async Task RunProbesAsync(WebApplication app)
-    {
-        try
-        {
-            await app.Services.GetRequiredService<IStartupProbeRunner>().RunAsync();
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogError(ex, "Startup probes could not run");
-            app.Services.GetService<IStartupFindings>()?.Record(new StartupFinding(
-                StartupSubsystems.Configuration, StartupFindingSeverity.Blocking,
-                "The startup probes could not run, so nothing else on this page was checked. "
-                + $"Cause: {ex.Message}"));
-        }
+        app.RunProbesAfterStart();
+        return Task.FromResult(app);
     }
 
     /// <summary>
