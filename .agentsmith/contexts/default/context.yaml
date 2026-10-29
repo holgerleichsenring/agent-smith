@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-10-29-fb87: "CONFIG STUDIO TEMPLATE CONTEXTS (Server TemplateContextLookup). A connection-scoped ref with nested groups matches its repo, cut at the first slash like the resolver, instead of a 404. -> .agentsmith/specs/done/2026-10-29-fb87-template-context-nested-ref.yaml"
     2026-10-29-8e47: "SPEC-DIALOG TICKET ADDRESS (dashboard SpecDialogSurface). An addressed ticket with no conversation starts a fresh one, so a conversation the browser held no longer hides it; the reason names the tracker's projects. -> .agentsmith/specs/done/2026-10-29-8e47-ticket-address-held-dialog.yaml"
     2026-10-29-7f2d: "SERVER STARTUP (Server startup, findings endpoint, JobsBroadcaster). Startup probes run after the listener binds and the findings endpoint waits for their first pass; the broadcaster logs its cold-start duration. -> .agentsmith/specs/done/2026-10-29-7f2d-startup-listen-first.yaml"
     2026-10-29-6bd3a: "TRIGGER BLOCKS RETIRED (Infrastructure.Core config, Server startup, studio, docs). Per-project *_trigger blocks fold into resolution and tracker where unset, then vanish; five fields became tracker fields; stored docs migrate after listen. -> .agentsmith/specs/done/2026-10-29-6bd3a-trigger-block-retirement.yaml"

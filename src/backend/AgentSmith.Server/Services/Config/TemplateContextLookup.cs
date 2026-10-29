@@ -55,12 +55,13 @@ public sealed partial class TemplateContextLookup(
     /// What a resolved repo's <see cref="RepoConnection.Name"/> may be for one declared ref:
     /// a plain catalog ref keeps its name, while a connection-scoped ref
     /// (<c>conn/Sample.Api</c>) resolves to the REPO name alone — ConnectionRepoUrlBuilder
-    /// sets Name to the repo, never to the ref that named it.
+    /// sets Name to the repo, never to the ref that named it. The connection ends at the FIRST
+    /// slash (2026-10-29-fb87): a nested GitLab path (<c>conn/group/sub/repo</c>) keeps its groups.
     /// </summary>
     private static IEnumerable<string> Names(string repoRef)
     {
         yield return repoRef;
-        var slash = repoRef.LastIndexOf('/');
+        var slash = repoRef.IndexOf('/');
         if (slash >= 0 && slash < repoRef.Length - 1) yield return repoRef[(slash + 1)..];
     }
 

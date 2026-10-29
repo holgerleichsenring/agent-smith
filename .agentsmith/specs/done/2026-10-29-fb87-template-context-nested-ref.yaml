@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-29-fb87
+goal: "The studio's template context picker finds a connection-scoped repo whose path has nested groups, instead of answering 404."
+
+applies_to: "default (Server config studio)"
+
+requires: [2026-09-14-620e]
+
+facts:
+  - claim: "A connection-scoped ref resolves to a repo named after everything past the connection, groups included."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RepoGlobRef.cs:27-28"
+  - claim: "The lookup matched the full ref or the part after the LAST slash, so a nested GitLab path matched neither."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/TemplateContextLookup.cs:62-68"
+  - claim: "On the operator's deployment the templates tab of a project with a nested GitLab repo showed HTTP 404 'declares no repo'."
+    evidence: "observed: 2026-10-29, operator screenshot of the Edit Project templates tab"
+
+scope:
+  in: "The lookup's second candidate name is the ref past its FIRST slash."
+  out: "Any change to how refs resolve."
+
+steps:
+  - id: fix
+    action: "Names() cuts at IndexOf('/')."
+  - id: tests
+    action: "A nested-group connection ref resolves its contexts."
+
+tests:
+  - "TemplateContextLookupTests.ListContexts_ConnectionScopedNestedGroupRef_MatchesTheRepoPath"
+
+done:
+  - "A nested-group connection ref lists its contexts."
+  - "Build green, full suite green, dashboard gen/test/build green."

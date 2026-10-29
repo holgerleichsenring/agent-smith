@@ -98,7 +98,20 @@ public sealed class TemplateContextLookupTests
         var view = await _sut.ListAsync(Project, "conn/reference", CancellationToken.None);
 
         // ConnectionRepoUrlBuilder names the resolved repo after the REPO, never after the
-        // ref that named it, so the ref's last segment is what a lookup has to match.
+        // ref that named it, so the part after the connection is what a lookup has to match.
+        view!.Contexts.Should().Equal(["server"]);
+    }
+
+    [Fact]
+    public async Task ListContexts_ConnectionScopedNestedGroupRef_MatchesTheRepoPath()
+    {
+        _loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(ConfigWith(
+            new RepoConnection { Name = "group/sub/reference", Url = "https://git.test/group/sub/reference" }));
+        Listing(new RemoteContextListing([new RemoteContextDiscovery("server", ".", null)]));
+
+        var view = await _sut.ListAsync(Project, "conn/group/sub/reference", CancellationToken.None);
+
+        // 2026-10-29-fb87: the connection is the first segment only; the groups belong to the repo.
         view!.Contexts.Should().Equal(["server"]);
     }
 

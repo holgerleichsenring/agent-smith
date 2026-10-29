@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-29-fb87
+
+decisions:
+  - category: Implementation
+    chose: "Cut the ref at its first slash, the same split RepoGlobRef.Parse makes"
+    over: "Matching on the last segment, or on any suffix of the ref"
+    reason: |
+      The connection is always the first segment and the rest is the repo name the resolver assigns. Matching the
+      same split the resolver uses cannot drift from it; a suffix match could pick a different repo that shares a tail.
