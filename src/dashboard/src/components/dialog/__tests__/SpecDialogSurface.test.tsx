@@ -4104,6 +4104,49 @@ describe("a page addressed with a ticket and no project", () => {
     );
   });
 
+  // 2026-10-29-8e47: a browser that held a conversation from an earlier visit showed THAT one, and
+  // the ticket the address named had nowhere to appear: the ticket field and the project choice
+  // render only while no conversation is open. A ticket with no conversation starts a fresh one.
+  it("SpecDialogSurface_TicketAddressWhileAConversationIsHeld_StartsAFreshOneWithTheTicket", async () => {
+    window.localStorage.setItem("agentsmith.spec-dialog.dialog-id", "d-held");
+    const projects = [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }];
+    fetchSpecDialog.mockImplementation(async (dialogId: string) =>
+      view(dialogId === "d-held" ? { projects } : { dialogId, session: null, projects }),
+    );
+    searchParams.current = new URLSearchParams("ticket=DPG-1239");
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: [],
+      unanswerable: [],
+      elsewhere: [],
+      routed: ["sample", "beta"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    const choice = await screen.findByTestId("dialog-choice-project");
+    expect(heldDialogId()).not.toBe("d-held");
+    expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain("projects on its tracker");
+    fireEvent.change(choice, { target: { value: "beta" } });
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
+      target: { value: "work it out" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.not.stringMatching(/^d-held$/),
+        "work it out",
+        "beta",
+        "DPG-1239",
+      ),
+    );
+  });
+
   // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
   // Binding through it would re-fetch this number on that tracker, which is a different board.
   it("SpecDialogSurface_LabelsNamingAnotherTrackersProject_SaysSoRatherThanBinding", async () => {
