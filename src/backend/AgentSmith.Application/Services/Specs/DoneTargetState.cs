@@ -8,6 +8,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// It never says "criterion": the cut review's verdict list must not assume a spec states criteria.
 /// </para>
+/// <para>
+/// 2026-11-04-0647: the premise check keeps its own sentence. "Never a premise" in the one prompt
+/// whose subject is premises had a live check file a premise it found holding as broken.
+/// </para>
 /// </summary>
 public static class DoneTargetState
 {

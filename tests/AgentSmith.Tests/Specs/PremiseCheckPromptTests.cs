@@ -249,4 +249,21 @@ public sealed class PremiseCheckPromptTests
     /// about where the lines break.</summary>
     private static string Flowed(string prompt) =>
         System.Text.RegularExpressions.Regex.Replace(prompt, @"\s+", " ");
+
+    /// <summary>
+    /// 2026-11-04-0647: 2b26c's shared rule — the gap to a done entry "is never by itself a finding, a premise
+    /// or a contradiction" — read wrong in the premise check: a live check filed a premise as no longer
+    /// holding with the reason that it "remains true and still holds". The check keeps its own sentence.
+    /// </summary>
+    [Fact]
+    public async Task PremiseCheck_Prompt_SaysACompletionCriterionNotYetMetIsNotReported()
+    {
+        var h = For(Draft(), "[]");
+
+        await h.RunAsync();
+
+        var prompt = Flowed(h.Provider.Prompts.Should().ContainSingle().Subject);
+        prompt.Should().Contain("Do NOT report that a completion criterion of the spec is not satisfied yet")
+            .And.NotContain(DoneTargetState.Rule);
+    }
 }
