@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-96a0b
+
+decisions:
+  - category: Architecture
+    chose: "A server notice after the turn plus a composer wait"
+    over: "The composer wait alone; the server notice alone"
+    reason: "The stored rows cannot tell whether the message overtook a pick on screen or the operator uploaded after sending, and either order loses the files. Only the server sees both orders, so it gives the complete fix. The composer wait is still worth having: in the overtaking order it saves the cost of a wasted turn."
+  - category: Architecture
+    chose: "Name what the turn did not hold, by comparing set ids stamped on its outcome"
+    over: "Compare set times with the operator message's time or with the last answer's time"
+    reason: "A set stored between the message and the turn's listing was seen by the turn, so a time comparison would raise a false notice. 'New since the last answer' never flags a set stored during that same answer, because its time comes before the answer. Set ids are exact."
+  - category: Implementation
+    chose: "A Notice turn in the transcript instead of a mark in the next prompt"
+    over: "ReferencePromptSection marking new uploads"
+    reason: "The transcript reaches the next turn without filtering by kind, so one kept turn tells both the operator and the next turn. A prompt mark would state the same fact a second time and could disagree with it."
+  - category: Implementation
+    chose: "Uploads stamped on OutcomeProposal, beside Templates"
+    over: "A new field on SpecDialogTurnResult filled by the runner"
+    reason: "The runner is at the 120-line limit, and its success line already calls Stamp. What the analysis had open is a fact about the analysis, the same reason Templates sits on the base record. 96a0c adds read coverage to the same record."
+  - category: Implementation
+    chose: "Hold Send without moving the message to after the upload"
+    over: "Queue the message and post it once the upload lands"
+    reason: "A queue makes the page own an ordering that a reload loses. Holding Send keeps the text, and the operator decides."
+  - category: Implementation
+    chose: "Keep and send the notice before the reply"
+    over: "Append it after the reply"
+    reason: "The page shows only what is sent. An appended turn after the reply would stay hidden until a reload, and it would take the live proposal card off the reply and unpin the operator's answer in the window."
