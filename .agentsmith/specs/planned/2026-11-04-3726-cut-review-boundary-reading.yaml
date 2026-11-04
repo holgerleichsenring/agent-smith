@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-3726
+goal: "The cut review accepts a done entry that states the ticket's corrected boundary (>= 100.00 when exactly 100.00 must now qualify) instead of calling it a generalisation, a shape rule or uncheckable."
+
+applies_to: "default (cut review verdicts: SpecCutVerdicts)"
+
+requires: [2026-11-02-2b26c]
+
+facts:
+  - claim: "After 2b26c the live cut reviewer (gpt-4.1) no longer files CONTRADICTION on the demo's boundary entries, but in three runs still filed NOT IN THE TICKET 3x ('the ticket limits the fix to exactly 100.00, not all totals at or above'), SHAPE RULE 2x on '>= 100.00' entries and UNCHECKABLE once on 'the test passes'."
+    evidence: "observed: 2026-11-04, LiveDoneTargetStateEvalTests.CutReview_TheRejectedBoundaryWordings_AreDeliverable against Azure gpt-4.1, scratchpad eval-after2.log"
+  - claim: "The demo ticket says the discount applies only strictly above 100.00 and that exactly 100.00 qualifies too, so >= is the asked-for rule."
+    evidence: "src/backend/AgentSmith.Cli/Services/Demo/DemoTicket.cs:13-21"
+  - claim: "The same live demo, end to end, cleared review on the first round in three of three runs; the deriver's own wording was accepted."
+    evidence: "observed: 2026-11-04, three demo runs of a binary built from spec/2026-11-02-2b26"
+  - claim: "The eval that pins this is red today and runs by hand only (LiveLLM)."
+    evidence: "tests/AgentSmith.Tests/Integration/LiveDoneTargetStateEvalTests.cs:97-115"
+
+scope:
+  in: "NOT IN THE TICKET: a done entry that states the rule the ticket's fix leaves in force (what already held plus what now holds) is in the ticket. SHAPE RULE: a comparison the ticket itself names is an outcome, not the code's form. Measured with the existing eval, three runs, by hand."
+  out: "Other verdicts; the attack reviewer (green 3/3)."
+
+steps:
+  - id: verdicts
+    action: "The two verdict texts in SpecCutVerdicts."
+  - id: eval
+    action: "Run LiveDoneTargetStateEvalTests by hand, three runs."
+
+tests:
+  - "CutReviewVerdictPromptTests for both verdict texts"
+  - "LiveDoneTargetStateEvalTests.CutReview_TheRejectedBoundaryWordings_AreDeliverable (LiveLLM, by hand)"
+
+done:
+  - "The cut-review eval shows no NOT IN THE TICKET or SHAPE RULE finding on the boundary entries in three runs."
+  - "Build green, full suite green, dashboard gen/test/build green."

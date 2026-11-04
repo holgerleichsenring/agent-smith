@@ -35,3 +35,10 @@ decisions:
       CONTRADICTION or a title-driven NOT IN THE TICKET. The cut reviewer still filed other findings on the boundary
       entries (SHAPE RULE, UNCHECKABLE on 'the test passes', NOT IN THE TICKET on '>=' generalising 'exactly 100.00'),
       so the done entry 'no finding or cut on the boundary criterion' is not met and the eval stays red.
+  - category: Process
+    chose: "Ship the prompt rule with the cut-review eval red, and carry the residual findings to 2026-11-04-3726"
+    over: "Holding the series until the cut review is clean on deliberately rejected wordings"
+    reason: |
+      The demo itself, built from this branch, cleared review in three of three live runs and committed the fix; the
+      residual NOT IN THE TICKET / SHAPE RULE findings appear only on wordings earlier runs had already rejected. They are
+      a real reviewer misreading, so they get their own spec instead of a looser assertion here.
