@@ -61,7 +61,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddScoped(_ => ApprovedSetDoubles.Recorder(Approvals, References)); // 2026-10-14-dbcel: with the uploads
         services.AddSingleton(ApprovedSetDoubles.Branch(Sources, Pointers)).AddSingleton(ApprovedSetDoubles.SeriesFiling());
         services.AddTransient<SpecTicketRenderer>().AddTransient<BugTicketRenderer>().AddTransient<EpicChildOrderer>();
-        services.AddScoped(sp => new OutcomeTicketFiler(Config, Tracker, new SpecTicketRenderer(), new BugTicketRenderer(),
+        services.AddScoped(sp => new OutcomeTicketFiler(LiveConfig.Projects(Config), Tracker, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(), ApprovedSetDoubles.SetFiler(Approvals, sources: Sources, pointers: Pointers),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance));
         services.AddScoped<BoundSessionNudge>().AddScoped<SpecDialogSessionManager>();

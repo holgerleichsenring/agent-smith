@@ -442,7 +442,7 @@ public sealed class EpicWorkTicketTests
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var filer = new OutcomeTicketFiler(
-            Config(kinds), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
+            LiveConfig.Projects(Config(kinds)), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

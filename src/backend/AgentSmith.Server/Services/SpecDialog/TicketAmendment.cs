@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -24,7 +25,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class TicketAmendment(
-    AgentSmithConfig config,
+    TicketProjects projects,
     IServiceScopeFactory scopeFactory,
     FiledWorkTrackerProjects trackerProjects,
     Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository ticketText,
@@ -41,7 +42,7 @@ public sealed class TicketAmendment(
     {
         ArgumentNullException.ThrowIfNull(state);
         var name = state.Scope?.Project ?? state.Project;
-        if (!config.Projects.TryGetValue(name, out var project))
+        if (projects.Of(name) is not { } project)
             return new($"Project '{name}' is no longer in the configuration catalog, so this "
                 + "conversation's ticket cannot be reached. The approval was not recorded.", false);
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId })

@@ -28,7 +28,7 @@ internal static class FiledWorkDoubles
     /// <summary>2026-10-13-9a59m: the resolution and the move, over the REAL resolver for the same reason.</summary>
     internal static FiledWorkMove Move(
         AgentSmithConfig? routing = null, IStartupFindings? findings = null, IEnvelopeProjectResolver? resolver = null) =>
-        new(routing ?? new AgentSmithConfig(), resolver ?? Resolver(findings), Tagger(), NullLogger<FiledWorkMove>.Instance, findings);
+        new(new FixedConfigurationLoader(routing ?? new AgentSmithConfig()), LiveConfig.Context, resolver ?? Resolver(findings), Tagger(), NullLogger<FiledWorkMove>.Instance, findings);
 
     /// <summary>2026-09-20-2ba8: the REAL tagger — what it writes is what the resolver then reads,
     /// so a double here would prove nothing about the ticket a poll has to pick up.</summary>

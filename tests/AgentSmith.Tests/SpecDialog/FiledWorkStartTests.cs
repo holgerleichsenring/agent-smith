@@ -626,7 +626,7 @@ public sealed class FiledWorkStartTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var starter = FiledWorkDoubles.Starter(config, findings, resolver);
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
+            LiveConfig.Projects(config), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store, starter),
             starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

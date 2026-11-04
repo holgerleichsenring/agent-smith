@@ -128,7 +128,7 @@ public sealed class TicketGraphSinkTests : IDisposable
         var messenger = new SpecDialogMessenger([_adapter.Object], NullLogger<SpecDialogMessenger>.Instance);
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(_rig.Tracker);
-        var filer = new OutcomeTicketFiler(_rig.Config(), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
+        var filer = new OutcomeTicketFiler(LiveConfig.Projects(_rig.Config()), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(), ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(

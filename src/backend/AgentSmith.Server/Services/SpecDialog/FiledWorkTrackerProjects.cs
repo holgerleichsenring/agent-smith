@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Server.Services.Tickets;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -12,7 +13,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// across two.
 /// </para>
 /// </summary>
-public sealed class FiledWorkTrackerProjects(AgentSmithConfig config)
+public sealed class FiledWorkTrackerProjects(TicketProjects projects)
 {
     /// <summary>
     /// Every project on the filing project's tracker, the filing project included. Empty when
@@ -21,7 +22,7 @@ public sealed class FiledWorkTrackerProjects(AgentSmithConfig config)
     /// </summary>
     public IReadOnlyList<FiledWorkProject> SharingTrackerWith(string project)
     {
-        var filing = config.Projects
+        var filing = projects.All()
             .FirstOrDefault(p => ConfigNames.AreSame(p.Key, project)).Value;
         return filing is null ? [] : OnTracker(filing.Tracker.Name);
     }
@@ -33,7 +34,7 @@ public sealed class FiledWorkTrackerProjects(AgentSmithConfig config)
     /// </summary>
     public IReadOnlyList<FiledWorkProject> OnTracker(string tracker) =>
     [
-        .. config.Projects
+        .. projects.All()
             // ConfigNames is the repository's ONE rule for matching a configured name;
             // an ordinal comparison here would answer differently from the catalog that
             // resolved these projects the moment two spellings differ in case.

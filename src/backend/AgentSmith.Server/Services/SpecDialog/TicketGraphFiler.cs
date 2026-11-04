@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -19,7 +20,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// root nobody starts never wakes its dependents. <see cref="TicketGraphStarts"/> then decides each start.
 /// </summary>
 public sealed class TicketGraphFiler(
-    AgentSmithConfig config, ITicketProviderFactory ticketFactory, ITicketExistence existence,
+    TicketProjects projects, ITicketProviderFactory ticketFactory, ITicketExistence existence,
     TicketGraphOrderer orderer, ITicketRequirementStore requirements, GraphTicketApproval approvals,
     TicketGraphStarts starts, TicketKindResolver kinds, TimeProvider time, ILogger<TicketGraphFiler> logger)
 {
@@ -34,7 +35,7 @@ public sealed class TicketGraphFiler(
         string? error = null;
         try
         {
-            project = OutcomeTicketFiler.ResolveProject(config, state);
+            project = OutcomeTicketFiler.ResolveProject(projects, state);
             provider = ticketFactory.Create(project.Tracker);
             await RefuseMissingAsync(project, graph, ct);
             var order = orderer.Order(graph.Tickets);

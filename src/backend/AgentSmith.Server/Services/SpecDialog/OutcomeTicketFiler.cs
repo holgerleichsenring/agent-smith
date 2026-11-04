@@ -17,10 +17,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// each, carrying the approved-set stamp, through <see cref="ApprovedSetTicketFiler"/>; the orderer below
 /// still refuses a cut whose edges cannot be ordered, before any ticket exists. 2026-09-22-b6ad:
 /// the NOTES are created here and threaded into the filing arms, because that is where the ticket
-/// branch is written and a write that fails after the ticket exists is a note.
+/// branch is written and a write that fails after the ticket exists is a note. 2026-11-04-df50b: the
+/// project is read off the configuration as it is NOW, so one created after startup is filed into.
 /// </summary>
 public sealed class OutcomeTicketFiler(
-    AgentSmithConfig config,
+    Tickets.TicketProjects projects,
     ITicketProviderFactory ticketFactory,
     SpecTicketRenderer renderer, BugTicketRenderer bugRenderer,
     EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
@@ -35,7 +36,7 @@ public sealed class OutcomeTicketFiler(
         var notes = new List<string>();
         try
         {
-            var project = ResolveProject(config, state);
+            var project = ResolveProject(projects, state);
             var provider = ticketFactory.Create(project.Tracker);
             await (proposal switch
             {
@@ -61,14 +62,13 @@ public sealed class OutcomeTicketFiler(
         }
     }
 
-    internal static ResolvedProject ResolveProject(AgentSmithConfig config, ConversationState state)
+    internal static ResolvedProject ResolveProject(Tickets.TicketProjects projects, ConversationState state)
     {
         var project = state.Scope?.Project ?? state.Project;
         if (string.IsNullOrWhiteSpace(project))
             throw new InvalidOperationException(
                 "The spec-dialog session has no active-scope project to file tickets into.");
-        return config.Projects.TryGetValue(project, out var resolved) ? resolved
-            : throw new InvalidOperationException(
+        return projects.Of(project) ?? throw new InvalidOperationException(
                 $"Active-scope project '{project}' is not in the configuration catalog.");
     }
 

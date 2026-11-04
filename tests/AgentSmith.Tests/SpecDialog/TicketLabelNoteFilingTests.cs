@@ -97,7 +97,7 @@ public sealed class TicketLabelNoteFilingTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var store = ApprovedSetDoubles.Store();
         var filer = new OutcomeTicketFiler(
-            Config(), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
+            LiveConfig.Projects(Config()), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),

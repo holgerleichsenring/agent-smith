@@ -24,7 +24,7 @@ internal static class Continuations
 {
     internal static TicketContinuationAct Unused(OutcomeTicketFiler filer)
     {
-        var config = new AgentSmithConfig();
+        var config = LiveConfig.Projects(new AgentSmithConfig());
         var trackers = new Mock<ITicketProviderFactory>().Object;
         var scopes = new Mock<IServiceScopeFactory>().Object;
         var reader = new TicketContinuationStateReader(config, new FiledWorkTrackerProjects(config), trackers,

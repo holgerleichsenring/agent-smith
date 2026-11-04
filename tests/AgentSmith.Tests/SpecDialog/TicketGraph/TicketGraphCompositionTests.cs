@@ -53,7 +53,7 @@ public sealed class TicketGraphCompositionTests : IDisposable
         factory.Setup(f => f.CreateRequiresLink(It.IsAny<TrackerConnection>())).Returns(rig.Links);
         var approvals = new InMemorySpecApprovalStore();
         var services = Composition();
-        services.AddSingleton(rig.Config()).AddSingleton(factory.Object).AddSingleton(adapter.Object)
+        services.AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(rig.Config())).AddSingleton(factory.Object).AddSingleton(adapter.Object)
             .AddSingleton<ITicketRequirementStore>(rig.Facts).AddSingleton<ITicketLandingStore>(rig.Facts)
             .AddSingleton<ISpecApprovalStore>(approvals).AddSingleton<IReferenceSetReader, NoReferenceSetReader>()
             .AddScoped(_ => new SpecDialogSessionRepository(_context));

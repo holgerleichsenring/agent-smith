@@ -166,7 +166,7 @@ public sealed class EpicFilingOrderTests
             },
         };
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
+            LiveConfig.Projects(config), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

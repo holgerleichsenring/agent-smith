@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.Logging;
 using static AgentSmith.Server.Services.SpecDialog.Continuation.TicketContinuationEffects;
 
@@ -18,7 +19,7 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// question that waits refuses the approval like a refusal does, so it can be approved once answered.</para>
 /// </summary>
 public sealed class TicketContinuationAct(
-    AgentSmithConfig config, SpecDialogTicketTextRepository ticketText, TicketContinuationStateReader reader,
+    TicketProjects projects, SpecDialogTicketTextRepository ticketText, TicketContinuationStateReader reader,
     TicketAmendment amendment, ClosedTicketFollowUp followUp, ApprovedSpecSetRecorder approvals,
     ITicketActivityNudge activity, OperatorStart starter, Application.Services.Specs.ISeriesSettingsReader series,
     TicketCommentPost comments, ILogger<TicketContinuationAct> logger)
@@ -32,7 +33,7 @@ public sealed class TicketContinuationAct(
             return new("This conversation never recorded which ticket it belongs to, so the approval has no "
                 + "ticket to continue. Nothing was recorded.", false);
         // 2026-10-28-7a69c: a comment needs none of the series state, so a state read cannot fail it.
-        if (proposal is TicketCommentOutcome comment) return await comments.PostAsync(config.Projects[name], ticketId, comment, ct);
+        if (proposal is TicketCommentOutcome comment) return await comments.PostAsync(projects.All()[name], ticketId, comment, ct);
         var read = await reader.ReadAsync(name, ticketId, mayStartRuns, ct);
         if (read.State is not { } current) return new(read.Failure!, false);
         var decision = TicketContinuation.Decide(current, proposal, series.Current());
@@ -43,14 +44,14 @@ public sealed class TicketContinuationAct(
                 var amended = await amendment.ApplyAsync(state, proposal, ct,
                     decision.Start?.StartsAttempt == true ? new SeriesContinuation([], null, StartsAttempt: true) : null);
                 return amended.Recorded && decision.Start is { } first
-                    ? new($"{amended.Notice} {await starter.StartAsync(config.Projects[name], ticketId, decision.Effect, first, ct)}", true)
+                    ? new($"{amended.Notice} {await starter.StartAsync(projects.All()[name], ticketId, decision.Effect, first, ct)}", true)
                     : new(amended.Notice, amended.Recorded);
             case FollowUpClosed:
-                return await followUp.FileAsync(state, proposal, decision, config.Projects[name], ticketId, mayStartRuns, ct);
+                return await followUp.FileAsync(state, proposal, decision, projects.All()[name], ticketId, mayStartRuns, ct);
             case Continue when decision.Start is { Kind: TicketStartArms.QuestionPending } waiting:
                 return new(OperatorStartArm.Say(waiting), false);
             case Continue:
-                return await ContinueAsync(state, proposal, decision, current, config.Projects[name], ticketId, ct);
+                return await ContinueAsync(state, proposal, decision, current, projects.All()[name], ticketId, ct);
             default:
                 return new(decision.Reason, false);
         }

@@ -419,7 +419,7 @@ public sealed class TicketAmendmentTests : IDisposable
     private TicketAmendment Amendment(
         FakeTracker tracker, RecordingBranchSources? sources = null, ISpecApprovalStore? store = null,
         AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
-        new(Config(), Scopes(), new FiledWorkTrackerProjects(Config()),
+        new(LiveConfig.Projects(Config()), Scopes(), new FiledWorkTrackerProjects(LiveConfig.Projects(Config())),
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
             tracker, new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),

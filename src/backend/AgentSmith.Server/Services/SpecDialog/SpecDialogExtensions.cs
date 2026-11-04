@@ -106,7 +106,7 @@ internal static class SpecDialogExtensions
         // 2026-09-22-9519: the way back out of a filing. The NUDGE is optional — the hub it needs
         // is added conditionally, and a server with the UI API off still runs conversations on chat.
         services.AddTransient<IFiledTicketWithdrawal>(sp => new FiledTicketWithdrawal(
-            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<AgentSmithConfig>(),
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<Tickets.TicketProjects>(),
             sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
             sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
         // 2026-09-15-6d9c: the proposal pane — what a turn would file, and what filing created.

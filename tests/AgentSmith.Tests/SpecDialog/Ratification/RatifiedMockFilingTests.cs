@@ -108,7 +108,7 @@ public sealed class RatifiedMockFilingTests
         provider.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(Stored());
         var factory = Mock.Of<ITicketProviderFactory>(f => f.Create(It.IsAny<TrackerConnection>()) == provider.Object);
         var filer = new OutcomeTicketFiler(
-            new AgentSmithConfig { Projects = new Dictionary<string, ResolvedProject> { ["proj"] = Project() } },
+            LiveConfig.Projects(new AgentSmithConfig { Projects = new Dictionary<string, ResolvedProject> { ["proj"] = Project() } }),
             factory, new SpecTicketRenderer(), new BugTicketRenderer(), new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(_store, sources: _sources, mocks: _mocks), FiledWorkDoubles.Starter(),
             ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

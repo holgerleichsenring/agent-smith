@@ -537,7 +537,7 @@ public sealed class FiledSpecBranchTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(provider ?? new JournallingProvider());
         var filer = new OutcomeTicketFiler(
-            config ?? Config(), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
+            LiveConfig.Projects(config ?? Config()), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store, starter, sources ?? new RecordingBranchSources(), pointers),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
