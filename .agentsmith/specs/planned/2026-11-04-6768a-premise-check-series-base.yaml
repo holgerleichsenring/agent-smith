@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-6768a
+goal: "A premise reported false only because the series' own commits flipped what its cited look finds is recorded superseded and the spec runs; one already false at the series base still hands back."
+
+applies_to: "default (Application premise check: CheckSpecPremises handler, admission, evidence records, a new base replay; Contracts spec progress note)"
+
+facts:
+  - claim: "A premise finding the admission calls false hands the spec back: the handler records SpecRunState.HandedBack with a 'False premise in {spec}' verdict and fails the step."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:57-64,108-118; src/backend/AgentSmith.Application/Services/Specs/PremiseHandback.cs:30-35"
+  - claim: "The only guard against a sibling's change is prompt text asking the checker not to report a premise one of the preceding specs changed; nothing mechanical decides it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:94-104; src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:57-59"
+  - claim: "The code assumes a later spec's facts describe the state its predecessors leave, and the checker is asked about the repositories as they are now."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PrecedingSpecs.cs:11-16; src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:13-14; src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:39-41"
+  - claim: "In production, later specs of a series were halted on facts written against the series base, such as 'contains no X references', that an earlier spec of the same series had just made untrue; two other halts were facts already false at the base."
+    evidence: "observed: 2026-11-04, production RunSpecs verdicts of code/add-feature/fix-bug runs since 2026-08-01"
+  - claim: "A finding is false only when it cites a look of this check that ran; admission picks the first such cited look and copies its minted line and 'repository: what' onto the finding, not the look itself."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:69-79"
+  - claim: "An evidence look stores repository, kind, prose 'what', exit, ran flag, path and lines returned; a search's pattern exists only inside the prose 'what'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceLook.cs:18-20; src/backend/AgentSmith.Application/Services/Specs/EvidenceRecord.cs:22-29; src/backend/AgentSmith.Application/Services/Specs/RepositorySearchTool.cs:50-60"
+  - claim: "A read look records the read kind and the path read."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:57-61"
+  - claim: "A git-grep over a named ref with the same pattern and path argv as the tree search already exists and is used by the delivery account."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SearchCommands.cs:20-37; src/backend/AgentSmith.Application/Services/Specs/BranchSearch.cs:112"
+  - claim: "A run's clone carries the whole history."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:20-24"
+  - claim: "Spec work reaches the branch as commits whose message carries '[checkpoint] agent-smith run {runId}', and the oldest such commit's first parent is already read as where a run began."
+    evidence: "src/backend/AgentSmith.Application/Services/RunCheckpointCommit.cs:14; src/backend/AgentSmith.Application/Services/RepoWorkPusher.cs:51; src/backend/AgentSmith.Application/Services/Sandbox/SandboxRunStartCommit.cs:8-16,32-56"
+  - claim: "Commits merged in from the base are told apart from ours with --no-merges and --not <base ref>, the base ref read off SandboxBaseLadder."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ForeignCommitProbe.cs:20-23,56-59"
+  - claim: "No series base is stored anywhere: the per-spec start heads are replaced at every spec, so at spec b they name the head after spec a."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecStartHeads.cs:20-23,44; src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:58"
+  - claim: "The look's repositories and the start heads both come from SandboxTargets.TryResolve, keyed by the same repository names."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:64-67; src/backend/AgentSmith.Application/Services/Specs/SpecStartHeads.cs:35-38"
+  - claim: "A progress note is published as the spec row's verdict; a later change with a verdict of its own replaces it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecProgressRecorder.cs:33-36; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:39"
+  - claim: "An epic is filed as ONE work ticket carrying the whole ordered set, so its children are a series in one run."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:98-114"
+  - claim: "Requires-linked tickets come only from a filed ticket list; each carries an EMPTY approved set flagged TicketText, its run derives its specs, and its claim is refused until every required ticket landed."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketGraphFiler.cs:81-83; src/backend/AgentSmith.Server/Services/SpecDialog/GraphTicketApproval.cs:36-41; src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:27; src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:19-31"
+  - claim: "PremiseFinding lives in Domain and EvidenceLook in Application, so a finding cannot carry the look itself."
+    evidence: "src/backend/AgentSmith.Domain/Models/PremiseFinding.cs:22; src/backend/AgentSmith.Application/Services/Specs/EvidenceLook.cs:18"
+  - claim: "Every series revision is its own commit with the message 'spec: {series} ({key}) revision {n} ({cause}), …', and entering a spec can publish a 'citations re-grounded in' revision after earlier specs' work."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesWriter.cs:91-94; src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:63; src/backend/AgentSmith.Application/Services/Specs/Review/SpecEntryGrounding.cs:47-55"
+  - claim: "Ticket amendment records an approved set WITH facts on an existing ticket and writes it to the branch; nothing there asks whether the ticket's requirements have landed."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:40-90"
+  - claim: "The harness premise checker returns findings directly without admission, and the default harness sandbox is a stub."
+    evidence: "tests/AgentSmith.PipelineHarness/Composition/HarnessFrameworkCalls.cs:72-90; tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs:29"
+  - claim: "Only a repository's first sandbox gets checkpoint commits; a spec record commit carries no checkpoint marker."
+    evidence: "src/backend/AgentSmith.Application/Services/RepoWorkPusher.cs:29-33; src/backend/AgentSmith.Application/Services/SpecExecution/SeriesRecordCommit.cs:40-42"
+  - claim: "The test StubSandbox scripts only /bin/sh answers and answers other git commands with exit 0 and no output."
+    evidence: "tests/AgentSmith.Tests/TestHelpers/StubSandbox.cs:69-92"
+  - claim: "The admission is meant to lean toward letting the work happen."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:8-9"
+  - claim: "CheckSpecPremisesHandler is 119 lines against a 120-line limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:119; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+
+assumptions:
+  - "A git-grep over HEAD and over the base with one argv is a fair comparison of what the cited look saw then and now. The original tool's output is not compared, because it ran grep over the working tree, not over a commit."
+
+scope:
+  in: "Series siblings in one ticket's branch, whether the set was derived, approved (an epic) or read back from the branch. In every repository of the run, the replay runs on that repository's primary sandbox, the one checkpoint commits are made in. A false finding whose cited look is a search or a read is replayed with git at the series base and at HEAD. It is superseded only on a PRESENCE FLIP in a path that a series checkpoint commit touched: a search matches nothing in that path at one ref and something at the other, or a read finds the file absent at one ref and present at the other. Otherwise it stays false. Superseded findings are recorded on the step result and as the spec's progress note, and are not handed back."
+  out: "Requires-linked tickets. A ticket-list ticket derives its specs at run start, after its required ticket landed, so those facts are fresh. But ticket amendment can record an approved set with facts on a dependent ticket before its required ticket merges, and that work then arrives through the base merge, which this rule counts as foreign, so such a ticket still hands back. Covering it is the successor spec 'premise base for amended tickets', named here in prose. Also out: audit and verify-stage looks, which are not replayed and stay false as today; any LLM call or text match on the premise; storing a base in the manifest; the prompt's preceding-specs section, which stays. Spec record commits ('spec: {series} ({key}) {spec} executed') carry no checkpoint marker, so a premise about .agentsmith/ files a sibling's record moved stays false. A read whose file exists at both refs with changed content stays false too, because a content change does not show mechanically that the premise held."
+
+steps:
+  - id: evidence-pattern
+    action: "EvidenceRecord and EvidenceLook gain Pattern (string?, appended last); RepositorySearchTool passes the pattern it ran; DerivationEvidence.Remember carries it. Nothing else changes for other holders."
+  - id: cited-look
+    action: "PremiseFinding gains CitedId (string?, appended last). PremiseCheckAdmission.Proven sets it to cited.Id, the look it already chose. The replay resolves that id from look.Evidence.Looks while the handler still holds the look, so no second resolution rule exists."
+  - id: series-base
+    action: "SeriesBase.ResolveAsync(sandbox, set, parentTicketId), set giving Series and Key. The base ref is read off SandboxBaseLadder, as in ForeignCommitProbe. The anchor is the newest commit whose message starts 'spec: {series} ({key}) revision' and whose cause is not 'citations re-grounded in', because that revision only moves citations. Then run 'git rev-list --no-merges --fixed-strings --grep=[checkpoint] agent-smith run HEAD --not <base ref> <anchor>'. The base is the oldest listed commit's '^', and HEAD when nothing is listed. With no anchor found, or history that cannot be read, it is null. Checkpoints made before the current text was cut, or merged in from the base, are therefore never series work for it."
+  - id: replay
+    action: "PremiseBaseReplay.SupersededAsync(pipeline, set, look, finding). It resolves finding.CitedId in look.Evidence.Looks and replays on the primary sandbox of that look's repository (SandboxTargets.SandboxesForRepo(...)[0], as RepoWorkPusher does). A search runs SearchCommands.OverRef(ref, pattern, path) at the base and at HEAD. Exit 0 or 1 is an answer and anything else is a failure. Each line's '<ref>:' prefix is stripped, and the rest is grouped by path. A read probes 'git cat-file -e <ref>:<path>' at both refs, which tells a missing path apart from an unreadable ref. Flipped paths are the ones with matches at one ref and none at the other, or the read path when it exists at exactly one ref. With no flipped path, a look of another kind, a null base, or a failed step, the finding is not superseded. Otherwise it runs 'git log --no-merges --fixed-strings --grep=<marker> --format=%H base..HEAD --not <base ref> -- <flipped paths>'. A non-empty list is superseded by those commits; an empty one is not."
+  - id: handler
+    action: "CheckSpecPremises partitions check.False through the replay while it still holds the look. The superseded findings go into one step-result line and a progress note on the spec (state InProgress): 'Premise superseded in {spec}: \"{premise}\" — absent/present flipped between {base8} and HEAD in {paths}, by {sha8,…} after {preceding spec ids} ran'. Hand-back runs only on the findings that stay false, with today's verdict and notice. The handler stays at most 120 lines, so the partition and the note live in the new type."
+  - id: tests
+    action: "Unit tests over a scripted sandbox for SeriesBase and PremiseBaseReplay, plus handler tests for both outcomes. Then one RealCompositionHarness/ScriptedChatClient test of a two-spec series. On b's check, HarnessSpecPremiseChecker mints a search through look.Evidence.Remember(new EvidenceRecord(repo, Search, …, Path, Pattern)) on the look it is handed, and returns a finding citing that id. StubSandbox gains a gitAnswers parameter, matched by argv prefix and plumbed through StubSandboxFactory into the harness. It answers the anchor log, the rev-list, the grep at each ref (exit 1 at the base, a match at HEAD) and the replay log. The run reaches b's master. The Docker tier is not relied on."
+
+tests:
+  - "SeriesBase_CheckpointCommitsOnTheBranch_IsTheOldestOnesParent"
+  - "SeriesBase_NoCheckpointCommit_IsHead"
+  - "SeriesBase_CommitsMergedFromTheBase_AreNotTheSeries"
+  - "SeriesBase_CheckpointsBeforeTheCurrentRevision_AreNotTheSeries"
+  - "SeriesBase_ACitationRegroundRevision_IsNotTheAnchor"
+  - "PremiseBaseReplay_OutputsEqualButForTheRefPrefix_IsNotSuperseded"
+  - "PremiseBaseReplay_SearchEmptyAtBaseAndMatchedNowByASeriesCommit_IsSuperseded"
+  - "PremiseBaseReplay_SearchSameAtBaseAndNow_IsNotSuperseded"
+  - "PremiseBaseReplay_DifferenceOnlyFromAMergedBaseCommit_IsNotSuperseded"
+  - "PremiseBaseReplay_ReadOfAFileASeriesCommitCreated_IsSuperseded"
+  - "PremiseBaseReplay_ReadOfAFileChangedButPresentAtBoth_IsNotSuperseded"
+  - "PremiseBaseReplay_SearchMatchedAtBothWithMoreMatchesNow_IsNotSuperseded"
+  - "PremiseBaseReplay_MarkedCommitMergedFromTheBase_IsNotSuperseded"
+  - "PremiseBaseReplay_GrepExitOneAtTheBase_IsAnEmptyAnswer"
+  - "PremiseBaseReplay_ACheckpointOnlyInASecondarySandbox_ReplaysOnThePrimary"
+  - "PremiseBaseReplay_AuditLook_IsNotSuperseded"
+  - "PremiseBaseReplay_GitStepFails_IsNotSuperseded"
+  - "PremiseCheckAdmission_ProvenFinding_CarriesTheCitedLook"
+  - "RepositorySearchTool_Search_RecordsItsPattern"
+  - "CheckSpecPremises_EveryFalseFindingSuperseded_RunsTheSpecAndNotesTheSupersession"
+  - "CheckSpecPremises_OneSupersededOneFalse_HandsBackOnlyTheFalseOne"
+  - "SeriesHarness_SiblingMadeAPremiseUntrue_NextSpecReachesItsMaster"
+
+done:
+  - when: "a later spec's premise is reported false by a search that matches nothing at the series base and matches at HEAD in a path a series checkpoint commit touched"
+    then: "the spec is not handed back, its work starts, and the step result and the progress note at the premise step say 'Premise superseded' with the base and the commits"
+  - when: "a premise is reported false by a look with no presence flip between the base and HEAD, or by an audit or verify-stage look, or the base cannot be read"
+    then: "the spec is handed back with today's 'False premise in' verdict and ticket notice"
+  - "No premise decision added by this spec calls a model or matches premise text."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-6768b
+
+decisions:
+  - category: Architecture
+    chose: "Add 'readers' to contract names and 'slices' to the contract"
+    over: "Infer consumption from requires edges alone; read scope or step text for API or event words"
+    reason: "The contract records who defines a name (owner) and who extends it (writers), but not who only uses it. Without a reader field, a cross-repo edge cannot say what crosses it, and without a slices field no rule can say which child is the contract. The missing field is the actual gap, so it gets added."
+  - category: Architecture
+    chose: "Raise ProposalFindings on the page"
+    over: "Refuse the epic in EpicOutcomeParser as contract collisions are"
+    reason: "A consumer may legitimately need the implementation merged too. A finding shows the gap and leaves the call to the person; a refusal would spend the one re-prompt on a judgement call."
+  - category: Implementation
+    chose: "Count writers as dependents beside readers"
+    over: "Readers only"
+    reason: "A child that extends a name another repository's child defines depends on that definition as much as a reader does."
+  - category: Implementation
+    chose: "Reword the server's 'one child per repository' split text"
+    over: "Only add a paragraph beside it"
+    reason: "Read literally, that text forbids a contract slice and an implementation child in one repository, and it is the instruction that produced the per-repository layering. Two conflicting instructions in one turn would leave the outcome to chance."
+  - category: Implementation
+    chose: "Server prompt paragraph in DialogScopeRepositoriesSection, no skills release or pin bump"
+    over: "Amend design-partner-master line 525 in a skills release"
+    reason: "That section exists to state multi-repo rules ahead of the skills release (DialogScopeRepositoriesSection.cs:7-11), and it renders only where the rule can fire. The findings also name the missing keys, so a master that follows only the pinned skill is told what to add."
+  - category: Scope
+    chose: "Epics only; ticket lists are the successor spec 'ticket-list contract slices'"
+    over: "Add a contract to GraphTicket in this spec"
+    reason: "A ticket list has no contract field at all (GraphTicket.cs:9-15), so covering it means a new outcome field, a new parser field and new filing. With two or more repositories, the dialog already steers multi-repo work toward an epic (DialogDraftRepos.cs:17-18)."
+  - category: Scope
+    chose: "Accept that a model can list a whole-layer child under slices"
+    over: "Judge whether a slice holds only interface definitions"
+    reason: "Telling a contract slice from a layer would mean reading its steps, which is the text matching this spec rules out. The declaration sits in the reply text and the page shows only the findings; a contract renderer on the page is not part of this spec."
+  - category: Implementation
+    chose: "A contract with only slices counts as non-empty"
+    over: "Keep IsEmpty blind to slices"
+    reason: "A slices list is a declaration that has to reach the manifest and the filed series. The cost is that such a contract now triggers the model-run series round on proposals (ProposalSeriesRound.cs:23) and in runs (SeriesRoundScope.cs:23), When the review budget is spent, that round adds NotReviewed, which blocks approval (SpecDialogOutcomeConfirmer.cs:109) until the review completes. That cost is accepted, because a declared slice has to be reviewed like any other contract entry."
