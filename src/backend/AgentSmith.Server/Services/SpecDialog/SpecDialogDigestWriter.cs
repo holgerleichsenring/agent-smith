@@ -51,7 +51,7 @@ public sealed class SpecDialogDigestWriter(
             }
             await AppendAsync(state, fold, digest, ct);
         }
-        // On the caller's token, as the subject mint: an LLM timeout arrives as a cancellation on an uncancelled token.
+        // On the caller's token, not the exception's type: an LLM timeout arrives as a cancellation on an uncancelled token.
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "The digest of session {SessionId} could not be written", state.JobId);
@@ -60,14 +60,14 @@ public sealed class SpecDialogDigestWriter(
 
     private async Task<string> SummarizeAsync(ConversationState state, TranscriptFold fold, CancellationToken ct)
     {
-        var agent = SpecDialogSubjectMinter.AgentOf(configLoader, serverContext, state.Project);
+        var agent = AgentOf(state.Project);
         var response = await chatClients.Create(agent, TaskType.Summarization).GetResponseAsync(
             [
                 new ChatMessage(ChatRole.System, SpecDialogDigestInstruction.Text),
                 new ChatMessage(ChatRole.User, SpecDialogDigestInstruction.Exchange(fold.PreviousDigest, fold.Turns)),
             ],
             new ChatOptions { MaxOutputTokens = MaxOutputTokens }, ct);
-        // Outside any run, as the subject mint: nothing else accounts this call, so it is tracked into the log line.
+        // Outside any run: nothing else accounts this call, so it is tracked into the log line.
         var cost = new PipelineCostTracker(config: agent.Pricing);
         cost.Track(response);
         logger.LogInformation(
@@ -91,6 +91,14 @@ public sealed class SpecDialogDigestWriter(
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         await bound.SaveAsync(session, ct);
     }
+
+    /// <summary>The project's OWN agent configuration, so the digest runs on the provider, model registry and pricing
+    /// this conversation's turns run on, rather than on a bare fabricated one.</summary>
+    private AgentConfig AgentOf(string projectName) =>
+        configLoader.LoadConfig(serverContext.ConfigPath).Projects.TryGetValue(projectName, out var project)
+            ? project.Agent
+            : throw new InvalidOperationException(
+                $"Spec-dialog session is scoped to project '{projectName}', which is not in the config catalog.");
 
     /// <summary>The open session of the thread, read from the database, while it is still this state's session.</summary>
     private async Task<SpecDialogSession?> SameSessionAsync(ConversationState state, CancellationToken ct)

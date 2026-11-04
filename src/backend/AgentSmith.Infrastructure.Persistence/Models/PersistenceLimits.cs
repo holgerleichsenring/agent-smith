@@ -10,13 +10,12 @@ public static class PersistenceLimits
     public const int IndexedString = 191;
 
     /// <summary>
-    /// 2026-09-20-4b0af: a spec-dialog conversation's minted subject. Not indexed — capped
+    /// 2026-09-20-4b0af: a spec-dialog conversation's subject. Not indexed — capped
     /// because a heading has a width, and because a bounded string is what lets the column
     /// be declared by length alone, leaving the type to each provider's own convention.
-    /// The admission rule that decides whether a minted answer is stored reads this, so the
-    /// heading and the column can never disagree about how long a subject may be.
+    /// 2026-11-04-96a0a: declared in Contracts, where the admission rule the naming tool runs reads it too.
     /// </summary>
-    public const int ConversationSubject = 120;
+    public const int ConversationSubject = global::AgentSmith.Contracts.Models.ConversationSubjectLimits.Length;
 
     /// <summary>2026-09-25-8e51c: the column holds exactly what the composer may produce — the
     /// number is declared once, in Contracts, so neither side can pick its own.</summary>

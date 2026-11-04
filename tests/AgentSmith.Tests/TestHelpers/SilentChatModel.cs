@@ -1,27 +1,17 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Persistence.Repositories;
-using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.TestHelpers;
 
 /// <summary>
-/// 2026-09-20-4b0af: the conversation-subject minter for tests that are NOT about minting.
-/// Its model answers with an empty line, which the admission discards, so the conversation is
-/// left exactly as it was before the mint existed — no stored subject, and no swallowed
-/// exception standing in for one. Tests that ARE about minting build their own.
+/// The summarization model and config loader for tests that are NOT about what a model writes outside a run: its
+/// model answers with an empty line, which the digest writer discards. Tests that ARE about it build their own.
 /// </summary>
-internal static class SilentSubjectMinter
+internal static class SilentChatModel
 {
-    internal static SpecDialogSubjectMinter Over(
-        SpecDialogSessionRepository repository, string project = "sample") =>
-        new(new SilentChatClients(), Loader(project), new ServerContext("agentsmith.yml"),
-            repository, NullLogger<SpecDialogSubjectMinter>.Instance);
-
     internal static IConfigurationLoader Loader(string project)
     {
         var loader = new Mock<IConfigurationLoader>();

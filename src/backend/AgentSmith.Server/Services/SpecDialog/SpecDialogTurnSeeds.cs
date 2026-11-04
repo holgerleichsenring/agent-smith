@@ -68,6 +68,7 @@ internal static class SpecDialogTurnSeeds
         };
         // 2026-09-17-042ed: only an edit turn carries one, and the prompt renders its findings.
         if (state.Revising is { } revising) seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
+        if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
         // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
         // carries it, so an unbound conversation renders exactly the prompt it rendered before.
         if (ticket is not null) seeds[ContextKeys.SpecDialogTicket] = ticket;

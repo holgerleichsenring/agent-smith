@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-04-96a0a: "SPEC-DIALOG SUBJECT (Application name_conversation tool and admission, Server keeper and subject store). The design master names an unnamed conversation in its reply language; the keeper stores it before the reply is sent; the small-model mint is deleted. -> .agentsmith/specs/done/2026-11-04-96a0a-dialog-subject-from-partner.yaml"
     2026-11-04-df50b: "SPEC-DIALOG FILING (Server OutcomeTicketFiler, FiledWorkMove, filed-work readers). Filing, starting, withdrawing and continuing approved work read the live configuration, so a project created after server start is filed into without a restart. -> .agentsmith/specs/done/2026-11-04-df50b-spec-dialog-filing-live-config.yaml"
     2026-11-04-df50a: "SPEC-DIALOG QUESTIONS (Server SpecDialogQuestionPump, Infrastructure RedisMessageBus). A turn relays only the ask_human questions published after it started, so an answered question is not set pending again and the next message starts a turn. -> .agentsmith/specs/done/2026-11-04-df50a-spec-dialog-question-replay.yaml"
     2026-10-29-fb87: "CONFIG STUDIO TEMPLATE CONTEXTS (Server TemplateContextLookup). A connection-scoped ref with nested groups matches its repo, cut at the first slash like the resolver, instead of a 404. -> .agentsmith/specs/done/2026-10-29-fb87-template-context-nested-ref.yaml"
@@ -1377,7 +1378,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-04-96a0a: "DIALOG SUBJECT FROM THE PARTNER (spec dialog). The design master names the conversation with name_conversation in its reply language; the small-model mint is deleted. -> .agentsmith/specs/planned/2026-11-04-96a0a-dialog-subject-from-partner.yaml"
     2026-11-04-96a0b: "UPLOAD DURING A TURN (spec dialog, composer). A set stored while a turn runs is named in a notice sent with its answer; Send waits for a pending pick or upload. requires 96a0a. -> .agentsmith/specs/planned/2026-11-04-96a0b-dialog-upload-mid-turn.yaml"
     2026-11-04-96a0c: "UPLOAD READ COVERAGE (spec dialog). Prompt and proposal card say per upload what this turn and the conversation opened of the readable files, listing unopened ones; the note asks what the material says. requires 96a0b. -> .agentsmith/specs/planned/2026-11-04-96a0c-dialog-upload-read-coverage.yaml"
     2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"

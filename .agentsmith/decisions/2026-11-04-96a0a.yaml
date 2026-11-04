@@ -34,3 +34,11 @@ decisions:
     chose: "Accept one more main-model round on an unnamed turn"
     over: "Keep the cheap mini-model call"
     reason: "The tool usually rides along with the turn's first reads, and otherwise costs one round per unnamed turn. That buys the right language, which the cheap call never got."
+  - category: Implementation
+    chose: "Admission returns a ConversationSubjectVerdict (subject or the rule's text); the store is a SpecDialogSubjectStore taking platform and thread id from the keeper"
+    over: "A string? plus an out parameter; the store reading the thread off ConversationState as the minter did"
+    reason: "The tool hands the rule back to the model, so the rule is text. The keeper already holds the platform and thread it appends the turn to, so the store writes to the same row."
+  - category: Implementation
+    chose: "The key went into ContextKeys.SpecDialog.cs (117 lines) and the prompt line into its own ConversationNameNote, beside DialogImageNote"
+    over: "A line inline in SpecDialogPromptFactory"
+    reason: "The note is rendered only when the key is seeded, so the condition and the text live together and the factory adds one interpolation."
