@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-96a0b
+goal: "An upload stored while a design turn runs is named in a notice sent with that turn's answer, and the composer holds Send while a file pick awaits confirmation or an upload is in flight."
+
+applies_to: "default (Server SpecDialog keeper and read-only scopes, Contracts outcome); dashboard (dialog composer)"
+
+requires: [2026-11-04-96a0a]
+
+facts:
+  - claim: "A turn learns of uploads once, when it opens its read-only scopes, by listing the conversation's sets; nothing re-reads them later in the turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:44-54; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:49"
+  - claim: "Storing an upload writes set rows and nothing else: no transcript turn, no word to a running turn."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceSetUpload.cs:43-52"
+  - claim: "A set's time is the earliest CreatedAt of its files."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:43-51,76-78"
+  - claim: "Send checks only that text exists and that the composer is enabled, so it posts while the selection card or a held single file is still on screen."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:104-109,238-256"
+  - claim: "The composer is disabled only before a dialog id exists, not while a turn runs."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:449-450"
+  - claim: "An upload in flight has no state anywhere: attachSite awaits the POST and keeps no flag, and the surface calls it with void."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:590-604; src/dashboard/src/components/dialog/SpecDialogSurface.tsx:464"
+  - claim: "A single file is uploaded the moment it is picked, with no card; several files or a folder wait in the selection card."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:271-289"
+  - claim: "The outcome's stamp is applied on the runner's success line, the same place 96a0a reads the slot; the failure line stamps nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:77-82; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:68-91"
+  - claim: "A Notice turn kept by the server is precedent and reaches the next turn's prompt: the transcript is rendered without filtering by kind, and a notice does not take back the right to propose."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:95-96; src/backend/AgentSmith.Application/Services/SpecDialog/DialogTranscriptSection.cs:27; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRule.cs:20-29"
+  - claim: "The page shows a turn only when it is sent: after a reply the conversation is re-read but the transcript is not re-seeded, so a turn that is only appended stays off the page until a reload. The filing notice is sent, then appended."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:183-188,256-266; src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:90-97"
+  - claim: "The live proposal card attaches to the last agent entry, and the window keeps an operator message only when the last assistant turn before it is a proposal, so a notice placed after a proposal reply would carry the card and unpin the answer."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:766-776; src/backend/AgentSmith.Application/Services/SpecDialog/TranscriptWindow.cs:76-85"
+  - claim: "After a proposal turn the operator's next message is the approval answer, not a new turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-49"
+  - claim: "A single picked file first awaits heldWhere (a fetch and a hash) before onAttachSite is called; during that time neither pick nor heldPick is set."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:80-85"
+  - claim: "In production, the operator's message was stored at 13:34:52 UTC and a 66-file folder upload at 13:35:19, while the first turn was running; that turn read only the repositories. The two orders (message first, or pick on screen when Send was pressed) leave identical rows."
+    evidence: "observed: 2026-11-04, a production conversation's SpecDialogSessions transcript and ReferenceFiles rows"
+
+scope:
+  in: "The uploads a turn held, stamped onto its outcome. After a non-failed turn, a Notice turn kept and sent BEFORE the reply that names every set the turn did not hold (address and file count). In the composer, Send and Enter wait while a selection card, a held single file or an upload request is pending, and a line says why; the typed text is kept."
+  out: "Re-running the turn on its own. Folding an upload into a turn that is already running. Marking new uploads in the next prompt (the notice in the transcript does that). Chat platforms, which have no upload path. A server notice for a screenshot stored mid-turn: that was not what failed here, and the composer wait covers an image upload in flight too."
+
+steps:
+  - id: stamp
+    action: "OutcomeProposal gains Uploads: IReadOnlyList<UploadProvenance(Address, SetId)>. SpecDialogReadOnlyScopes.Stamp fills it from every ReferenceSetSandbox in the opened map, for every outcome kind, even when no template is open."
+  - id: arrivals
+    action: "SpecDialogUploadArrivals(ReferenceSetRepository), registered scoped beside the keeper in SpecDialogDigestExtensions.cs:10 (SpecDialogExtensions is at 120 lines): for a result whose Kind is not Failure, list the conversation's sets and name every SetId missing from result.Outcome.Uploads by its address (ReferenceScopeName.For over all names, as OpenAsync does) and file count. Return the notice text, or null."
+  - id: notice
+    action: "The text, in English, as the code's own words, one line per set: '<address> (<n> files) was uploaded while this answer was being written, so the answer did not read it. The next answer can read it.' On a proposal turn, add 'Approving this proposal does not read it.' Use '1 file' for one."
+  - id: keeper
+    action: "SpecDialogTurnKeeper.KeepAsync appends the Notice turn, then the reply, and returns the notice text. The router sends that text before result.Shown, so the page shows the notice live and the proposal card still attaches to the reply."
+  - id: composer
+    action: "onAttach and onAttachSite may return a Promise. DialogComposer counts pending work from the moment a pick is made, so a single file's heldWhere check counts as well as the upload request. While pick, heldPick or pending work is held, the send button is disabled, send() refuses (Enter), and a reason line in its own slot shows whenever text is typed: 'Send or cancel the selected files first.' or 'Waiting for the upload to finish.' It is not the upload-note paragraph, which hides while a pick is shown (DialogComposer.tsx:257). SpecDialogSurface passes the promises through (no void); TicketComposer is unchanged."
+  - id: tests
+    action: "Backend unit tests and a router test through the keeper; vitest for the composer. The keeper's new SpecDialogUploadArrivals dependency changes tests/AgentSmith.Tests/TestHelpers/SilentTurnKeeper.cs and its four callers (SpecDialogRoutingTests, DialogDraftSplitTests, FiledWorkPermissionTests, DashboardDialogChannelTests). The Stamp test builds real sandboxes through ReferenceSandboxFixture.Factory, because a mocked ISourceScopeSandbox would stamp nothing."
+
+tests:
+  - "SpecDialogReadOnlyScopes_Stamp_CarriesEveryUploadTheTurnHadOpen"
+  - "SpecDialogUploadArrivals_ASetStoredDuringTheTurn_IsNamedWithItsAddressAndCount"
+  - "SpecDialogUploadArrivals_EverySetWasHeld_ReturnsNull"
+  - "SpecDialogUploadArrivals_AFailedTurn_ReturnsNull"
+  - "SpecDialogRouter_UploadStoredDuringTheTurn_KeepsAndSendsANoticeBeforeTheReply"
+  - "DialogComposer: Send waits while the selection card is shown and keeps the text"
+  - "DialogComposer: Send waits while a held single file is shown, and while a single pick is still being checked"
+  - "DialogComposer: Send waits while an upload is in flight and works once it settles"
+
+done:
+  - given: "a design turn is running"
+    when: "a reference set is stored in the conversation"
+    then: "a Notice turn naming that set's address and file count is kept and sent just before the reply, shows on the page live, and is in the next turn's transcript"
+  - when: "a turn ends and every set was already there when it started"
+    then: "no notice is kept"
+  - when: "the operator presses Send or Enter while the selection card, a held file or an upload request is pending"
+    then: "nothing is posted, the text stays, the button is disabled, and a line says what Send is waiting for"
+  - "Build green, full suite green, dashboard gen/test/build green."
