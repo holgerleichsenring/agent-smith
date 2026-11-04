@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-9e8c
+
+decisions:
+  - category: Implementation
+    chose: "InlineDerivationAsk, its own class, called by InlineHandbackAsk for a derivation Question or a contradiction"
+    over: "Growing InlineHandbackAsk with the derivation branch"
+    reason: |
+      Asking, writing the thread and splicing the re-derivation is one responsibility; InlineHandbackAsk keeps the
+      routing and the review objection's ask. The 'asked once this run' guard is a pipeline flag private to it.
+  - category: Implementation
+    chose: "A reading question is a Choice with free text allowed (the console returns typed text as is) and the taken reading as default; a contradiction is FreeText with the reason as context and no default"
+    over: "A separate free-text prompt after the choice"
+    reason: |
+      The console transport already returns any non-number input trimmed, so one prompt carries both. A blank or
+      end-of-input answer maps to Readings[Taken]; a contradiction with nothing to default to ends as in 2b26d.
+  - category: Testing
+    chose: "InlineHandbackAskTests.DerivationQuestion_FailsPrintingQuestionAndReadings now drives a SECOND derivation hand-back"
+    over: "Deleting the 2b26d test"
+    reason: |
+      This spec asks the first derivation question, so the 2b26d test's premise no longer holds; its printed-question
+      assertion still holds for the hand-back that is not asked again.
+  - category: Testing
+    chose: "The demo test answers through the real ConsoleDialogueTransport over a scripted stdin ('1')"
+    over: "A mocked gate"
+    reason: |
+      It proves the terminal path the CLI takes, that the second derivation prompt carries the answer, and that the
+      run builds. With the derivation branch disabled it failed with the 2b26d end message, and four unit tests failed.

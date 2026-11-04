@@ -11,10 +11,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-11-02-2b26d: what a hand-back comes to on an inline-ticket run, which has nobody's ticket to park on. A
 /// standing review objection is asked in the terminal: its default reading builds the reviewed specs, another
 /// reading ends the run naming it. A refusal, an undivided scope and a series out of step end as on a run without a
-/// tracker; every other hand-back ends printing its question, because an answer it cannot use would report an
-/// empty run as done.
+/// tracker. A derivation's question or contradiction goes to <see cref="InlineDerivationAsk"/> (2026-11-04-9e8c);
+/// every other hand-back ends printing its question, because an answer it cannot use would report an empty run as done.
 /// </summary>
-public sealed class InlineHandbackAsk(IDialogueAskGate askGate, ILogger<InlineHandbackAsk> logger)
+public sealed class InlineHandbackAsk(
+    IDialogueAskGate askGate, InlineDerivationAsk derivation, ILogger<InlineHandbackAsk> logger)
 {
     private static readonly TimeSpan AskTimeout = TimeSpan.FromMinutes(10);
 
@@ -26,9 +27,12 @@ public sealed class InlineHandbackAsk(IDialogueAskGate askGate, ILogger<InlineHa
         if (handback.Case is SpecHandbackCase.Refused or SpecHandbackCase.ScopeUnassigned
             or SpecHandbackCase.SeriesOutOfStep)
             return SpecHandbackWithoutTracker.Result(handback);
-        if (handback.TakenReading is null || handback.QuestionKind != SpecQuestionKind.ReviewObjection)
-            return InlineHandbackEnd.Fail(handback);
-        return await AskObjectionAsync(pipeline, handback, cancellationToken);
+        if (handback.TakenReading is not null && handback.QuestionKind == SpecQuestionKind.ReviewObjection)
+            return await AskObjectionAsync(pipeline, handback, cancellationToken);
+        // 2026-11-04-9e8c: a derivation's question is asked and derived again with the answer.
+        if (handback.Case is SpecHandbackCase.Question or SpecHandbackCase.RequirementsContradictRepository)
+            return await derivation.AskAsync(pipeline, handback, cancellationToken);
+        return InlineHandbackEnd.Fail(handback);
     }
 
     private async Task<CommandResult> AskObjectionAsync(

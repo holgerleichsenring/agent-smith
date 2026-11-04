@@ -85,6 +85,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<Handlers.SpecHandbackPark>(); // 2026-09-22-7c41b: reports what the tracker did
     services.AddTransient<Handlers.DerivationQuestion>(); // 2026-10-26-bdd0c
     services.AddTransient<Handlers.InlineHandbackAsk>(); // 2026-11-02-2b26d
+    services.AddTransient<Handlers.InlineDerivationAsk>(); // 2026-11-04-9e8c
     services.AddTransient<SpecParkStatusResolver>();
     services.AddTransient<ISpecProgressRecorder, SpecProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();

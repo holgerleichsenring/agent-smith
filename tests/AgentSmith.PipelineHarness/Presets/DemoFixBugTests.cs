@@ -1,12 +1,16 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Demo;
+using AgentSmith.Cli.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Infrastructure.Core.Services.Demo;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.PipelineHarness.Presets;
@@ -93,6 +97,39 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         set.Handback!.QuestionKind.Should().Be(AgentSmith.Contracts.Specs.SpecQuestionKind.ReviewObjection,
             "the objection was asked");
         runner.LastContext!.Has(ContextKeys.SpecHandback).Should().BeFalse("the default reading was taken");
+        harness.ChatClient.ToolCalls.Select(c => c.Name).Should().Contain("write_file");
+    }
+
+    /// <summary>2026-11-04-9e8c: the demo's derivation asks which reading the ticket means; the answer typed in the
+    /// terminal joins the ticket thread, the spec is derived again with it, and the fix is made.</summary>
+    [Fact]
+    public async Task Demo_DerivationQuestion_AnsweredInTheTerminal_CommitsTheFix()
+    {
+        var workspace = await MaterializeAsync();
+        var terminal = new StringWriter();
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
+        {
+            HarnessProjectAnalyzerStub.Register(services);
+            services.RemoveAll<IDialogueTransport>();
+            services.AddSingleton<IDialogueTransport>(new ConsoleDialogueTransport(
+                new StringReader("1\n"), terminal, NullLogger<ConsoleDialogueTransport>.Instance));
+        });
+        harness.ChatClient
+            .EnqueueText("""
+                {"specs": [], "discarded": [], "ignored_instructions": [],
+                 "handback": {"case": "question", "reason": "'exactly 100.00' reads two ways",
+                              "readings": ["100.00 itself gets the discount", "only totals above 100.00 get it"],
+                              "taken": 1}}
+                """)
+            .EnqueueText(DerivedSpec);
+        ScriptTheFix(harness.ChatClient);
+
+        var result = await Runner(harness, workspace).RunAsync("code");
+
+        result.IsSuccess.Should().BeTrue($"the answered question derives again and builds: {result.Message}");
+        terminal.ToString().Should().Contain("'exactly 100.00' reads two ways");
+        harness.ChatClient.PromptsSeen.Where(p => p.Contains("spec-derivation-master", StringComparison.Ordinal))
+            .Should().HaveCount(2).And.Subject.Last().Should().Contain("100.00 itself gets the discount");
         harness.ChatClient.ToolCalls.Select(c => c.Name).Should().Contain("write_file");
     }
 
