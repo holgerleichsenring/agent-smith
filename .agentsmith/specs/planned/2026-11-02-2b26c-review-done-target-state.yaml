@@ -2,7 +2,7 @@
 spec: 2026-11-02-2b26c
 goal: "Spec review, cut review and the contradiction check treat a done criterion as the state after the work: code that does not meet it yet is the work, never a refusal or a contradiction."
 
-applies_to: "default (review and derivation prompts: SpecAttackPrompt, SpecCutVerdicts, SpecCutReviewTicketText, ContradictionCheckPrompt, SpecPromptComposer; skills spec-derivation-master, coding-agent-master)"
+applies_to: "default (review and derivation prompts: SpecAttackPrompt, SpecCutVerdicts, SpecCutReviewTicketText, ContradictionCheckPrompt, SpecPromptComposer)"
 
 requires: [2026-09-05-c4e1, 2026-10-13-8762g]
 
@@ -35,11 +35,8 @@ scope:
     CONTRADICTION adds: both statements are the spec's own; the ticket's wording or today's code is never one side.
     NOT IN THE TICKET adds: a title describing a defect states the symptom. SpecCutReviewTicketText labels Title,
     Description and Acceptance criteria, on non-blank parts only, so an all-blank ticket still renders empty (the
-    labels also reach the attack reviewers' wider goal). The decidability lens and the absence rule stay as they are. Skills: the
-    same sentence in spec-derivation-master's requirements_contradict_repository and coding-agent-master's ask_human
-    guidance; skills PR from origin/main with a conventional title, release, then bump SkillsCatalogVersion, sha and
-    tarball and the version mentions in docs, example config and SkillsConfigValidatorTests.
-  out: "A channel for the deriver to dispute a cut-review finding; the reviewer rules above remove the finding at its source. A mechanical filter on attack findings: they carry no register field."
+    labels also reach the attack reviewers' wider goal). The decidability lens and the absence rule stay as they are.
+  out: "The skills masters' copy of the sentence and the catalog bump: 2026-11-04-c443 (skills-done-target-state). A channel for the deriver to dispute a cut-review finding; the reviewer rules above remove the finding at its source. A mechanical filter on attack findings: they carry no register field."
 
 decisions:
   - key: "ONE SENTENCE, EVERY PLACE. Four fresh wordings would drift; the premise check already carries the tested one."
@@ -56,8 +53,6 @@ steps:
     action: "ContradictionCheckPrompt: a claim that is only that today's code does not yet do what the ticket asks is refuted, citing the checker's own read of the file that holds that code (an uncited refutation is discarded by ContradictionChecker)."
   - id: derive
     action: "SpecPromptComposer: the codebase line carries the sentence."
-  - id: skills
-    action: "agent-smith-skills: both masters, PR, release; then the catalog bump here."
   - id: eval
     action: "LiveLLM eval in AgentSmith.Tests (sees DemoTicket; client as LiveSkillProbeTests builds one) over the materialised demo sample: run 1's draft for one attack reviewer, and for the cut reviewer a draft whose done entries carry the rejected boundary wordings (run.log 3230, run2.log 2480-2481), first reproduced once on today's prompts; no .md pointer; three runs each."
   - id: tests
@@ -74,6 +69,6 @@ tests:
   - "SpecReview_AnOutcomeCriterionThatIsFalseAtBaseline_PassesUntouched (LiveLLM, run by hand; no admitted finding or cut rests on the boundary criterion being false today)"
 
 done:
-  - "The five backend places and the two skills masters carry the one sentence; the skills release is pinned."
+  - "The five backend places carry the one sentence."
   - "The LiveLLM eval, run by hand with a real key, shows no finding or cut on the boundary criterion in three runs each."
   - "Build green, full suite green, dashboard gen/test/build green."
