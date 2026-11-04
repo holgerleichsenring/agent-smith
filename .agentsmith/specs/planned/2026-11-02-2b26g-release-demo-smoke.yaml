@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26g
+goal: "Every release runs its published linux-x64 binary's `demo` from an empty directory with a real key, and a red demo fails the release workflow run."
+
+applies_to: "default (CI: .github/workflows/release-please.yml)"
+
+requires: [2026-11-02-2b26a, 2026-11-02-2b26c, 2026-11-02-2b26d, 2026-11-02-2b26e]
+
+facts:
+  - claim: "release-please.yml builds and uploads five binaries in a matrix when a release is created; release_created and tag_name are outputs of the release-please job; nothing runs a published binary afterwards."
+    evidence: ".github/workflows/release-please.yml:15-16, .github/workflows/release-please.yml:25-44, .github/workflows/release-please.yml:59, .github/workflows/release-please.yml:76"
+  - claim: "A workflow started by a release made with GITHUB_TOKEN never runs, so the smoke must be a job in this workflow."
+    evidence: ".github/workflows/docker-publish.yml:79-92"
+  - claim: "The repository has no OPENAI_API_KEY secret, though a workflow references one."
+    evidence: ".github/workflows/agent-smith.yml:39, observed: 2026-11-04, gh secret list shows only DOCKERHUB_TOKEN and DOCKERHUB_USERNAME"
+  - claim: "The CLI demo runs the sample's dotnet build and test on the host (in-process sandbox); the sample targets net10.0."
+    evidence: "src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:60, src/backend/AgentSmith.Infrastructure.Core/Resources/DemoSampleProject/src/Sample/Sample.csproj"
+  - claim: "--workspace sets the demo workspace, and a commit beyond the baseline means rev-list --count HEAD >= 2."
+    evidence: "src/backend/AgentSmith.Cli/Commands/DemoCommand.cs:21-22, src/backend/AgentSmith.Cli/Services/Demo/DemoResultPresenter.cs:28-33"
+  - claim: "No CI job runs LiveLLM tests or the demo."
+    evidence: ".github/workflows/docker-publish.yml:62"
+
+scope:
+  in: >
+    Job demo-smoke: needs [release-please, build], if release_created == 'true', ubuntu-latest, timeout-minutes 20.
+    Steps: checkout at the tag; the secret passed through env: and tested in a step (a job-level if cannot read
+    secrets) — empty emits ::warning:: and the remaining steps are skipped green; setup-dotnet 10.0.x; gh release
+    download <tag> -p agent-smith-linux-x64 with GH_TOKEN, chmod +x; then .github/scripts/demo-smoke.sh <binary>,
+    which sets -o pipefail, runs `<binary> demo --workspace "$RUNNER_TEMP/demo-ws" < /dev/null 2>&1 | tee demo.log`
+    in an empty directory and passes when the exit status is 0 and rev-list --count HEAD >= 2 in the workspace; on
+    failure upload demo.log.
+  out: "Blocking the release (binaries are published before the job runs); annotating the release page; other platforms. A failed build matrix leg skips the smoke."
+
+decisions:
+  - key: "AFTER UPLOAD, NOT BEFORE. Testing the binary a reader downloads is the point; a red run is a fix-forward signal."
+  - key: "A MISSING SECRET WARNS, NOT FAILS. Every release would otherwise be red until the operator adds the key."
+
+steps:
+  - id: job
+    action: "The job in release-please.yml and .github/scripts/demo-smoke.sh taking the binary path as its argument."
+  - id: dry
+    action: "Run the script in a mcr.microsoft.com/dotnet/sdk:10.0 container against a linux-x64 binary published from this branch (a, c, d, e included)."
+
+tests:
+  - "The job's script run locally against a linux-x64 binary built from this branch."
+
+done:
+  - "release-please.yml has the demo-smoke job; its script passes locally against a binary built from this branch."
+  - "The operator is told the OPENAI_API_KEY secret must be added for the job to run."
+  - "Build green, full suite green, dashboard gen/test/build green."

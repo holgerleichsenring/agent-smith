@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26b
+goal: "Parallel attack reviewers on one cost tracker all run; none fails because another reviewer's cost scope is open."
+
+applies_to: "default (cost attribution: SkillCostScopeManager, PipelineCostTracker)"
+
+requires: [2026-10-13-8762g]
+
+facts:
+  - claim: "The spec review panel starts config.Reviewers attack reviews at once (default 2, max_concurrent 2), all on the pipeline's one tracker."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewPanel.cs:23-26, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewPanel.cs:36, src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:14-16"
+  - claim: "The design-turn proposal panel runs the same reviewer concurrently on the turn's tracker."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalAttackPanel.cs:20-33"
+  - claim: "Each attack review opens a skill-call scope and holds it across the model call."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackReviewer.cs:55-59"
+  - claim: "The scope manager holds ONE active scope per tracker and throws when a second opens; token and cost attribution go to that scope under a lock."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SkillCostScopeManager.cs:14, src/backend/AgentSmith.Application/Services/Loop/SkillCostScopeManager.cs:27-29, src/backend/AgentSmith.Application/Services/Loop/SkillCostScopeManager.cs:50-63, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:206-207"
+  - claim: "The failure is caught and logged as a warning, so the review silently rests on fewer reviewers; the panel tests mock the reviewer and never touch a tracker."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackReviewer.cs:66-68, tests/AgentSmith.Tests/Specs/Review/SpecReviewPanelTests.cs:29-38"
+  - claim: "The existing scope tests, including the same-flow nesting throw, live in SkillCallCostTrackingTests."
+    evidence: "tests/AgentSmith.Tests/Loop/SkillCallCostTrackingTests.cs:48-58"
+  - claim: "In a demo run the second attack review failed with 'skill calls do not nest' and the refusal rested on one reviewer."
+    evidence: "observed: 2026-11-02, v0.175.2 demo run log line 3660"
+
+scope:
+  in: >
+    SkillCostScopeManager keeps the active scope in a NON-STATIC AsyncLocal instance field, so each tracker has its
+    own and concurrent flows each attribute their own tokens and cost. BeginCall throws only when the flow's scope
+    exists and has not ended; EndCall restores the flow's previous value. The lock around attribution and records
+    stays (sub-agent children share their parent's scope).
+  out: "Changing reviewer count or concurrency defaults; per-scope attribution of worker calls (TrackWorkerCall never used scopes)."
+
+decisions:
+  - key: "ASYNCLOCAL, NOT SERIALISING THE PANEL. Every BeginCall site calls Track in the same method after its await, so a per-flow scope attributes correctly; serialising would double review wall time to hide an accounting limit."
+  - key: "INSTANCE, NOT STATIC. A static AsyncLocal (the run-context accessor's pattern) would share one active scope across every tracker in a flow — a dialog turn's tracker beside the pipeline's."
+
+steps:
+  - id: scope
+    action: "SkillCostScopeManager: instance AsyncLocal, ended-scope guard, EndCall restores the previous value."
+  - id: tests
+    action: "Tests below; the panel test uses the real SpecAttackReviewer with an async chat client gated on a TaskCompletionSource that holds both calls in flight (ScriptedChatClientFactory answers synchronously and would deadlock)."
+
+tests:
+  - "SkillCallCostTrackingTests.BeginCall_TwoConcurrentFlows_BothOpenAndAttributeSeparately"
+  - "SkillCallCostTrackingTests.BeginCall_NestedCallsThrow (existing, stays green: same-flow nesting)"
+  - "SkillCallCostTrackingTests.OpenScopeOnOneTracker_DoesNotBlockAnotherTrackerInTheSameFlow"
+  - "SpecReviewPanelTests.ReviewAsync_TwoRealReviewersInFlightAtOnce_BothAnswerWithTheirOwnTokens"
+
+done:
+  - "Two attack reviews held in flight at once on one tracker both return an answer, and each breakdown row carries its own tokens."
+  - "Build green, full suite green, dashboard gen/test/build green."
