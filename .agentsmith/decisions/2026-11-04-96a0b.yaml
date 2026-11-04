@@ -26,3 +26,15 @@ decisions:
     chose: "Keep and send the notice before the reply"
     over: "Append it after the reply"
     reason: "The page shows only what is sent. An appended turn after the reply would stay hidden until a reload, and it would take the live proposal card off the reply and unpin the operator's answer in the window."
+  - category: Implementation
+    chose: "On a proposal turn each notice line ends with 'Approving this proposal does not read it.'"
+    over: "One closing line after all of them"
+    reason: "'It' names the set of its own line; one closing line under several sets would leave it unclear which. A proposal turn is one whose outcome is not an answer."
+  - category: Implementation
+    chose: "A held single file shows the same reason as the selection card, 'Send or cancel the selected files first.'"
+    over: "A third reason line"
+    reason: "Both are a pick on screen that waits for Send anyway or a dismissal; the line names what Send waits for, not which card it is."
+  - category: Implementation
+    chose: "SilentTurnKeeper.Over takes the ReferenceSetRepository the arrivals list from; its four callers pass one over their own context"
+    over: "A keeper helper that fakes the arrivals"
+    reason: "With no sets stored the real arrivals return null, so the routing tests keep exactly the turns they kept before."

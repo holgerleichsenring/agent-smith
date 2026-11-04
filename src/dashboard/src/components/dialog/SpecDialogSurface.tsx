@@ -460,8 +460,8 @@ export function SpecDialogSurface() {
                       pendingTicket?.ticketId ?? pickedTicket?.ticketId,
                     )
                   }
-                  onAttach={(file) => void dialog.attach(file, project)}
-                  onAttachSite={(files, leftOut) => void dialog.attachSite(files, project, leftOut)}
+                  onAttach={(file) => dialog.attach(file, project)}
+                  onAttachSite={(files, leftOut) => dialog.attachSite(files, project, leftOut)}
                   note={dialog.uploadNote}
                   left={leftOf(session)}
                   loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}

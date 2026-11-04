@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -60,7 +61,7 @@ public sealed class SpecDialogReadOnlyScopes(
     }
 
     /// <summary>
-    /// Stamps what the turn had open onto the outcome it produced, so the filer — which runs
+    /// Stamps what the turn had open — templates and uploads — onto the outcome it produced, so the filer — which runs
     /// after these scopes are disposed, possibly in a later process — can name it. The sha is
     /// the one the scope LANDED on; a template the analysis never opened carries the declared
     /// revision and says so, because "open" and "read at this sha" are different claims.
@@ -72,6 +73,11 @@ public sealed class SpecDialogReadOnlyScopes(
         ArgumentNullException.ThrowIfNull(outcome);
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(opened);
+        // 2026-11-04-96a0b: every upload the turn held, whatever the outcome, so the keeper can name a set it did not.
+        outcome = outcome with
+        {
+            Uploads = [.. opened.Values.OfType<ReferenceSetSandbox>().Select(set => new UploadProvenance(set.RepoName, set.SetId))],
+        };
         // 2026-10-01-283dc: an uploaded website is no template a ticket was built after.
         var templates = opened
             .Where(entry => entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)).ToList();

@@ -78,6 +78,27 @@ public sealed class SpecDialogReadOnlyScopesTests
             "an uploaded website is not a template the work was built after");
     }
 
+    // 2026-11-04-96a0b: the keeper names a set the turn did not hold by comparing set ids, so the stamp carries every
+    // upload the turn had open, on an answer and with no template open at all.
+    [Fact]
+    public void SpecDialogReadOnlyScopes_Stamp_CarriesEveryUploadTheTurnHadOpen()
+    {
+        var factory = new ReferenceSandboxFixture().Factory(AgentSmith.Tests.Sandbox.Holds.None());
+        var opened = new Dictionary<string, ISourceScopeSandbox>
+        {
+            ["reference:site"] = factory.Create(Project, "s-1", "reference:site", "set-a"),
+            ["reference:docs"] = factory.Create(Project, "s-1", "reference:docs", "set-b"),
+        };
+
+        var stamped = Scopes(new ReferenceSetRepository(Mock.Of<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>()),
+                Mock.Of<IReferenceSetSandboxFactory>())
+            .Stamp(new AnswerOutcome(), Project, opened);
+
+        stamped.Uploads.Should().BeEquivalentTo(
+            [new UploadProvenance("reference:site", "set-a"), new UploadProvenance("reference:docs", "set-b")]);
+        stamped.Templates.Should().BeEmpty();
+    }
+
     private static SpecDialogReadOnlyScopes Scopes(ReferenceSetRepository sets, IReferenceSetSandboxFactory references) =>
         new(new ProjectTemplateScopes(Mock.Of<ISourceScopeSandboxFactory>(), NullLogger<ProjectTemplateScopes>.Instance),
             sets, references, NullLogger<SpecDialogReadOnlyScopes>.Instance);

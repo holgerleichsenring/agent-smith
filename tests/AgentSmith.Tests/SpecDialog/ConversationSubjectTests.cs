@@ -270,7 +270,8 @@ public sealed class ConversationSubjectTests : IDisposable
                 new SpecDialogDigestWriter(
                     _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
                     AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), TimeProvider.System,
-                    NullLogger<SpecDialogDigestWriter>.Instance)),
+                    NullLogger<SpecDialogDigestWriter>.Instance),
+                new SpecDialogUploadArrivals(new ReferenceSetRepository(_context))),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             composer, messenger, NullLogger<SpecDialogRouter>.Instance);
     }
