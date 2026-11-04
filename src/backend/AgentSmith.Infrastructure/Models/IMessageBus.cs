@@ -9,9 +9,16 @@ namespace AgentSmith.Infrastructure.Models;
 public interface IMessageBus
 {
     /// <summary>
-    /// Every outbound message of one job, in order. Completes when the job reports Done or
-    /// Error, or when the token is cancelled.
+    /// The id of the stream's newest entry, or the stream's start when it holds nothing. A
+    /// reader that subscribes after it sees only what is published from now on — the stream
+    /// outlives a single reader, so reading from the start replays what earlier readers saw.
     /// </summary>
-    IAsyncEnumerable<BusMessage> SubscribeToJobAsync(string jobId,
+    Task<string> TailAsync(string jobId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The job's outbound messages published after <paramref name="afterId"/>, in order.
+    /// Completes when the job reports Done or Error, or when the token is cancelled.
+    /// </summary>
+    IAsyncEnumerable<BusMessage> SubscribeToJobAsync(string jobId, string afterId,
         CancellationToken cancellationToken);
 }

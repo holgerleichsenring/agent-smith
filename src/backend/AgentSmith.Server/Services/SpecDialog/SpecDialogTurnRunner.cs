@@ -60,7 +60,7 @@ public sealed class SpecDialogTurnRunner(
             Headless: true, Context: seeds);
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var pump = questionPump.PumpAsync(state, pumpCts.Token);
+        var pump = await questionPump.StartAsync(state, pumpCts.Token); // positioned before the run
         // Set before the pipeline runs, so the scope repos and the templates it opens both report
         // through the flow, and 2026-09-17-042ee what it DOES with them. 2026-09-18-2f8b: the turn
         // COMPUTES from here to the finally below, its steps kept on it for a page arriving

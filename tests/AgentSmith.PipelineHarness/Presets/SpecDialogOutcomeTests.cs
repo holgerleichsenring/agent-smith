@@ -736,8 +736,11 @@ public sealed partial class SpecDialogOutcomeTests
             _answers.GetOrAdd($"{jobId}:{questionId}",
                 _ => new TaskCompletionSource<DialogAnswer>(TaskCreationOptions.RunContinuationsAsynchronously));
 
+        public Task<string> TailAsync(string jobId, CancellationToken cancellationToken) =>
+            Task.FromResult("0-0");
+
         public async IAsyncEnumerable<BusMessage> SubscribeToJobAsync(
-            string jobId, [EnumeratorCancellation] CancellationToken cancellationToken)
+            string jobId, string afterId, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             try
             {
