@@ -25,7 +25,7 @@ public sealed class DialogHoldProvenanceTests
         _fixture.Spawner.Only.RefreshedHead = "sha-after";
         var second = await _fixture.OpenAsync(scopes);
 
-        var stamped = Stamp(scopes, second);
+        var stamped = await StampAsync(scopes, second);
 
         first.Sha.Should().Be("sha-before");
         var provenance = stamped.Templates.Should().ContainSingle().Subject;
@@ -37,15 +37,18 @@ public sealed class DialogHoldProvenanceTests
 
     // The stamp the turn takes while its scopes are still open — the shape SpecDialogTurnRunner
     // uses, with the scope under test standing in for a template the analysis read.
-    private static OutcomeProposal Stamp(ISourceScopeSandboxFactory scopes, ISourceScopeSandbox scope) =>
-        new SpecDialogReadOnlyScopes(
+    private static Task<OutcomeProposal> StampAsync(ISourceScopeSandboxFactory scopes, ISourceScopeSandbox scope)
+    {
+        var store = Moq.Mock.Of<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>();
+        return new SpecDialogReadOnlyScopes(
                 new ProjectTemplateScopes(scopes, NullLogger<ProjectTemplateScopes>.Instance),
-                new AgentSmith.Infrastructure.Persistence.Repositories.ReferenceSetRepository(
-                    Moq.Mock.Of<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>()),
+                new AgentSmith.Infrastructure.Persistence.Repositories.ReferenceSetRepository(store),
                 Moq.Mock.Of<IReferenceSetSandboxFactory>(),
+                AgentSmith.Tests.TestHelpers.ReferenceReads.Coverage(store), AgentSmith.Tests.TestHelpers.ReferenceReads.Recorder(store),
                 NullLogger<SpecDialogReadOnlyScopes>.Instance)
-            .Stamp(
+            .StampAsync(
                 new AnswerOutcome(),
                 SourceScopeHoldFixture.Project,
-                new Dictionary<string, ISourceScopeSandbox> { ["template:default"] = scope });
+                new Dictionary<string, ISourceScopeSandbox> { ["template:default"] = scope }, CancellationToken.None);
+    }
 }

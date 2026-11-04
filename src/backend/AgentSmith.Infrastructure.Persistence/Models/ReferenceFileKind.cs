@@ -15,6 +15,9 @@ public static class ReferenceFileKind
     /// <summary>2026-10-13-8762r: one version of a spec's HTML mock the design partner wrote, and its screenshot.</summary>
     public const string Mock = "mock";
 
+    /// <summary>2026-11-04-96a0c: the set-relative paths earlier turns opened of one set with read_file.</summary>
+    public const string Reads = "reads";
+
     /// <summary>The column's width: the longest kind with room to grow.</summary>
     public const int MaxLength = 16;
 }

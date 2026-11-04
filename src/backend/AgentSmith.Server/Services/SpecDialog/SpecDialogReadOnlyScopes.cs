@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Services.References;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -28,6 +29,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogReadOnlyScopes(
     ProjectTemplateScopes scopes, ReferenceSetRepository sets, IReferenceSetSandboxFactory references,
+    ReferenceCoverageReader coverages, ReferenceReadRecorder reads,
     ILogger<SpecDialogReadOnlyScopes> logger, ReferenceNoteRepository? notes = null)
 {
     /// <summary>
@@ -51,8 +53,10 @@ public sealed class SpecDialogReadOnlyScopes(
         var uploaded = await sets.ListAsync(conversationId, cancellationToken);
         // 2026-10-02-075dd: each upload's note rides on its sandbox into the turn's prompt.
         var noted = notes is null ? new Dictionary<string, string>() : await notes.NotesAsync(conversationId, cancellationToken);
+        var covered = await coverages.ForAsync(conversationId, uploaded, cancellationToken); // 2026-11-04-96a0c
         foreach (var (address, set) in ReferenceScopeName.For(uploaded.Select(s => s.Name)).Zip(uploaded))
-            opened[address] = references.Create(project, conversationId, address, set.SetId, noted.GetValueOrDefault(set.SetId));
+            opened[address] = references.Create(
+                project, conversationId, address, set.SetId, noted.GetValueOrDefault(set.SetId), covered.GetValueOrDefault(set.SetId));
         if (opened.Count > 0)
             logger.LogInformation(
                 "The design analysis may read {Count} read-only scope(s): {Names}",
@@ -66,18 +70,19 @@ public sealed class SpecDialogReadOnlyScopes(
     /// the one the scope LANDED on; a template the analysis never opened carries the declared
     /// revision and says so, because "open" and "read at this sha" are different claims.
     /// </summary>
-    public OutcomeProposal Stamp(
+    /// <remarks>2026-11-04-96a0c: async because each upload's reads are stored as they are stamped.</remarks>
+    public async Task<OutcomeProposal> StampAsync(
         OutcomeProposal outcome, ResolvedProject project,
-        IReadOnlyDictionary<string, ISourceScopeSandbox> opened)
+        IReadOnlyDictionary<string, ISourceScopeSandbox> opened, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(outcome);
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(opened);
         // 2026-11-04-96a0b: every upload the turn held, whatever the outcome, so the keeper can name a set it did not.
-        outcome = outcome with
-        {
-            Uploads = [.. opened.Values.OfType<ReferenceSetSandbox>().Select(set => new UploadProvenance(set.RepoName, set.SetId))],
-        };
+        var uploads = new List<UploadProvenance>();
+        foreach (var upload in opened.Values.OfType<ReferenceSetSandbox>())
+            uploads.Add(await reads.RecordAsync(upload, cancellationToken));
+        outcome = outcome with { Uploads = uploads };
         // 2026-10-01-283dc: an uploaded website is no template a ticket was built after.
         var templates = opened
             .Where(entry => entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)).ToList();

@@ -16,8 +16,9 @@ public sealed class ReferenceSetSandboxFactory(
     ILogger<ReferenceSetSandbox> logger) : IReferenceSetSandboxFactory
 {
     public ISourceScopeSandbox Create(
-        ResolvedProject project, string conversationId, string address, string setId, string? note = null) =>
+        ResolvedProject project, string conversationId, string address, string setId, string? note = null,
+        ReferenceCoverage? coverage = null) =>
         new ReferenceSetSandbox(project, conversationId, address, setId,
             new SourceScopeHold(holds, conversationId, address, setId, logger),
-            opener, materialiser, logger) { Note = note };
+            opener, materialiser, logger) { Note = note, Coverage = coverage };
 }

@@ -22,7 +22,8 @@ internal static class ReferencePromptSection
             .Where(a => a.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))
             .ToList();
         if (references is null || references.Count == 0) return string.Empty;
-        var bullets = string.Join("\n", references.Select(n => $"- `{n}`" + ReferenceNoteText.Under(NoteOf(sandboxes, n))));
+        var bullets = string.Join("\n", references.Select(n => $"- `{n}`"
+            + ReferenceCoverageText.Under(SetOf(sandboxes, n)?.Coverage) + ReferenceNoteText.Under(SetOf(sandboxes, n)?.Note)));
         return "\n\n## Material the operator uploaded\n"
             + "These addresses are what the operator uploaded to this conversation, every file at "
             + "its own path — a website, an application's source, documents; find out which before "
@@ -34,8 +35,8 @@ internal static class ReferencePromptSection
             + "it from a screenshot.\n";
     }
 
-    private static string? NoteOf(IReadOnlyDictionary<string, ISandbox>? sandboxes, string address) =>
-        sandboxes?.GetValueOrDefault(address) is ReferenceSetSandbox set ? set.Note : null;
+    private static ReferenceSetSandbox? SetOf(IReadOnlyDictionary<string, ISandbox>? sandboxes, string address) =>
+        sandboxes?.GetValueOrDefault(address) as ReferenceSetSandbox;
 
     /// <summary>
     /// 2026-10-01-283df: the uploaded sets a RUN carries — each by name, id and directory inside the

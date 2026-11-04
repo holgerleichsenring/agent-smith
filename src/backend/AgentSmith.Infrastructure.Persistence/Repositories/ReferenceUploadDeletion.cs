@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AgentSmith.Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// 2026-10-08-e8b9g: removes ONE upload of a conversation — a set with its note, or an image with
+/// 2026-10-08-e8b9g: removes ONE upload of a conversation — a set with its note and reads, or an image with
 /// the legacy row of the same id — unless an approval of that conversation cites it.
 /// <para>
 /// THE CITED CHECK RUNS TWICE: before, to answer without writing, and AFTER the delete inside its
@@ -21,12 +21,12 @@ public sealed class ReferenceUploadDeletion(IUnitOfWork unitOfWork, ApprovedSeri
     public async Task<ReferenceUploadRemoval> DeleteSetAsync(string sessionId, string setId, CancellationToken ct) =>
         await DeleteAsync(sessionId, setId, async () => await unitOfWork.Set<ReferenceFile>()
             .Where(f => f.SessionId == sessionId && f.SetId == setId
-                && (f.Kind == ReferenceFileKind.Site || f.Kind == ReferenceFileKind.Note))
+                && (f.Kind == ReferenceFileKind.Site || f.Kind == ReferenceFileKind.Note || f.Kind == ReferenceFileKind.Reads))
             .ExecuteDeleteAsync(ct), ct);
 
     /// <summary>
     /// 2026-10-09-86e1: one file of a set by its path. Refused like the set when an approval cites
-    /// the set; the set's last file takes the set's note with it, so no note outlives its files.
+    /// the set; the set's last file takes the set's note and reads with it, so neither outlives its files.
     /// </summary>
     public async Task<ReferenceUploadRemoval> DeleteFileAsync(
         string sessionId, string setId, string path, CancellationToken ct) =>
@@ -35,7 +35,8 @@ public sealed class ReferenceUploadDeletion(IUnitOfWork unitOfWork, ApprovedSeri
             var removed = await SetRows(sessionId, setId)
                 .Where(f => f.Kind == ReferenceFileKind.Site && f.RelativePath == path).ExecuteDeleteAsync(ct);
             if (removed > 0 && !await SetRows(sessionId, setId).AnyAsync(f => f.Kind == ReferenceFileKind.Site, ct))
-                await SetRows(sessionId, setId).Where(f => f.Kind == ReferenceFileKind.Note).ExecuteDeleteAsync(ct);
+                await SetRows(sessionId, setId)
+                    .Where(f => f.Kind == ReferenceFileKind.Note || f.Kind == ReferenceFileKind.Reads).ExecuteDeleteAsync(ct);
             return removed;
         }, ct);
 

@@ -73,6 +73,15 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
             .OrderBy(f => f.RelativePath)
             .Select(f => new ReferenceSetFileEntry(f.RelativePath, f.Length, f.MediaType)).ToListAsync(ct);
 
+    /// <summary>2026-11-04-96a0c: the bytes of one set's files of at most <paramref name="maxBytes"/> — only its own
+    /// conversation's — so a larger file's content is never loaded.</summary>
+    public async Task<IReadOnlyList<(string Path, byte[] Content)>> SmallFilesAsync(
+        string sessionId, string setId, long maxBytes, CancellationToken ct) =>
+        [.. (await unitOfWork.Set<ReferenceFile>().AsNoTracking()
+            .Where(f => f.SessionId == sessionId && f.SetId == setId && f.Kind == ReferenceFileKind.Site && f.Length <= maxBytes)
+            .Select(f => new { f.RelativePath, f.Content }).ToListAsync(ct))
+            .Select(f => (f.RelativePath, f.Content))];
+
     private static ReferenceSetSummary Summary(
         string setId, IReadOnlyList<(string Path, long Length, DateTimeOffset At)> files) =>
         new(setId, ReferenceSetName.Of(files.Select(f => f.Path)), files.Count, files.Sum(f => f.Length), files.Min(f => f.At));

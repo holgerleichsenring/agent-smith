@@ -42,3 +42,19 @@ decisions:
     chose: "Read the union of all reads rows"
     over: "Read the newest row, as the note does"
     reason: "The turn gate is per process and several replicas are a requirement. Two read-merge-replace writes can race, and taking the newest row would drop one turn's reads."
+  - category: Tooling
+    chose: "Deviation: the skills PR is opened, not merged; the release, the SkillsCatalogVersion/Sha256 bump, the tarball, the docs' version and EmbeddedCatalog_DesignPartner_NamesTheCoverageLine follow that release"
+    over: "Merging the skills PR and bumping the pin inside this spec, as its skill step says"
+    reason: "The operator asked for the skills PR to stay open for review. Until it is released, the embedded v5.22.0 master keeps its run-the-upload paragraph beside the reframed tool description; the server text alone already carries the coverage line and the note framing."
+  - category: Implementation
+    chose: "Deviation: the readable-file cache is keyed by set id AND file count"
+    over: "Keyed by set id alone, as the open step says ('a set never changes')"
+    reason: "Since 2026-10-09-86e1 one file of a set can be removed (ReferenceUploadDeletion.DeleteFileAsync), so a set does change. The file count comes with the listing every turn already reads, so the key costs nothing."
+  - category: Architecture
+    chose: "ReferenceCoverageReader and ReferenceReadRecorder are singletons that open a scope per call; ReferenceCoverage (Contracts) computes the stamp counts"
+    over: "A scoped reader with a separate singleton cache; the recorder counting inline"
+    reason: "The cache has to outlive a turn's scope, and the recorder stores in its own scope like DbReferenceNotes. The coverage is what knows which paths are readable, so it answers ThisTurn, Opened and Files, and the recorder only adds the store."
+  - category: Implementation
+    chose: "The unopened list renders as 'Not opened yet: `a`, `b` … and K more.' and the not-counted rule rides the first coverage line"
+    over: "A bare list; a separate line for the grep rule"
+    reason: "The list needs a lead-in to read as unopened files rather than as the upload's contents, and one sentence per address keeps the rule beside the count it qualifies."

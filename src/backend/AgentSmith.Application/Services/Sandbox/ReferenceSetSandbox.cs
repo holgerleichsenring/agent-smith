@@ -34,6 +34,7 @@ public sealed class ReferenceSetSandbox(
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private ISandbox? _inner;
+    private readonly ReferenceReadLog _reads = new();
 
     public string RepoName => address;
 
@@ -45,6 +46,12 @@ public sealed class ReferenceSetSandbox(
 
     /// <summary>2026-10-02-075dd: the set's note as the turn began, or null.</summary>
     public string? Note { get; init; }
+
+    /// <summary>2026-11-04-96a0c: what earlier turns opened of the set, read as the turn began, or null.</summary>
+    public ReferenceCoverage? Coverage { get; init; }
+
+    /// <summary>2026-11-04-96a0c: the set-relative paths read_file opened through this sandbox in this turn.</summary>
+    public IReadOnlyCollection<string> OpenedPaths => _reads.Paths;
     public bool IsMaterialized => _inner is not null;
 
     /// <summary>The set's content hash once it is in the sandbox.</summary>
@@ -58,7 +65,7 @@ public sealed class ReferenceSetSandbox(
         try
         {
             var inner = await EnsureAsync(cancellationToken);
-            return await inner.RunStepAsync(step, progress, cancellationToken);
+            return _reads.Record(step, await inner.RunStepAsync(step, progress, cancellationToken));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
