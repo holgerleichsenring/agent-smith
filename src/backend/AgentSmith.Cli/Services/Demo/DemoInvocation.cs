@@ -7,4 +7,9 @@ namespace AgentSmith.Cli.Services.Demo;
 internal sealed record DemoInvocation(
     string ConfigPath,
     string? AgentName = null,
-    string? WorkspaceDir = null);
+    string? WorkspaceDir = null)
+{
+    /// <summary>2026-11-02-2b26a: decided before the container is built, so a generated config can sit beside it.</summary>
+    public static string DefaultWorkspaceDir() => Path.Combine(
+        Path.GetTempPath(), $"agentsmith-demo-{DateTimeOffset.Now:yyyyMMdd-HHmmss}");
+}

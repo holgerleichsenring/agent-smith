@@ -27,7 +27,7 @@ internal sealed class DemoRunner(
         if (!TryResolveAgent(config, invocation.AgentName, output, out var agentName)) return 1;
 
         var workspace = await materializer.MaterializeAsync(
-            invocation.WorkspaceDir ?? DefaultWorkspaceDir(), cancellationToken);
+            invocation.WorkspaceDir ?? DemoInvocation.DefaultWorkspaceDir(), cancellationToken);
         output.WriteLine($"Demo workspace (local git repo, seeded bug): {workspace}");
         output.WriteLine($"Running the code pipeline with agent '{agentName}' — this takes a few minutes ...");
 
@@ -58,7 +58,4 @@ internal sealed class DemoRunner(
         AgentName: agentName,
         InlineTicket: DemoTicket.Create(),
         Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = workspace });
-
-    private static string DefaultWorkspaceDir() => Path.Combine(
-        Path.GetTempPath(), $"agentsmith-demo-{DateTimeOffset.Now:yyyyMMdd-HHmmss}");
 }

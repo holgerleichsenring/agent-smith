@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26a
+
+decisions:
+  - category: Implementation
+    chose: "Write a generated config file beside the workspace and run the demo on it"
+    over: "An in-memory AgentSmithConfig"
+    reason: |
+      The demo runner and the pipeline use case load the config by path three times; a file keeps all three untouched
+      and leaves the reader a working config to copy for step 2.
+  - category: Implementation
+    chose: "Generate only when --config was not given and discovery found nothing"
+    over: "Generating whenever the resolved path does not exist"
+    reason: |
+      A typo in an explicit --config would otherwise run silently on a demo config. The option result's IsImplicit
+      tells the two apart.
+  - category: Implementation
+    chose: "A parser-level exception handler that prints a ConfigurationException's message and keeps the full print for anything else"
+    over: "Catching in each verb"
+    reason: |
+      The config loads when a verb resolves its first service, before any verb's own try, so only the parser sees it
+      for every verb. The 'Looked in' line is added when the --config file does not exist, read from ConfigDiscovery;
+      the shared loader's message stays untouched because the sandbox agent and the harness use it too.
