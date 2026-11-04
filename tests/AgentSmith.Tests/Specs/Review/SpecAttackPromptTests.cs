@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Events;
 using FluentAssertions;
@@ -58,6 +59,19 @@ public sealed class SpecAttackPromptTests
         prompt.Should().Contain(SpecAttackPrompt.Brief + "\n\n" + SpecAttackPrompt.DecidabilityLens);
         SpecAttackPrompt.DecidabilityLens.Should().Contain("can the agent make it true by working")
             .And.Contain("can it see that it is true");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Prompt_SaysAGapToDoneIsTheWork(bool describesToday)
+    {
+        var prompt = SpecAttackPrompt.For(Input() with { DescribesToday = describesToday }, Look());
+
+        prompt.Should().Contain(DoneTargetState.Rule)
+            .And.NotContain(SpecAttackPrompt.Brief + DoneTargetState.Rule, "the plugin's brief stays verbatim");
+        prompt.IndexOf(DoneTargetState.Rule, StringComparison.Ordinal).Should()
+            .BeGreaterThan(prompt.IndexOf("## How to answer", StringComparison.Ordinal), "it is said beside Today");
     }
 
     [Fact]

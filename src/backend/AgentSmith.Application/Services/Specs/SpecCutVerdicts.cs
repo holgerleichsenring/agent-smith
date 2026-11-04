@@ -79,12 +79,17 @@ public static class SpecCutVerdicts
         Contradiction =>
             "CONTRADICTION — two things the SAME spec states cannot both hold in one branch\n"
             + "   state. \"No production source file is modified\" and \"the old library appears\n"
-            + "   nowhere in the sources\" is the shape: they belong to two specs.",
+            + "   nowhere in the sources\" is the shape: they belong to two specs. Both\n"
+            + "   statements are the spec's own; the ticket's wording or today's code is never one\n"
+            + "   side. " + DoneTargetState.Rule,
         Uncheckable =>
             "UNCHECKABLE — something a spec states that nobody can check against a\n"
             + "   repository or a command: a statement about the PROCESS (\"no push has been performed\", \"the work was\n"
             + "   done in the agreed order\") or about intent rather than result.",
-        NotInTicket => "NOT IN THE TICKET — something a spec states that the ticket never asked for.",
+        NotInTicket =>
+            "NOT IN THE TICKET — something a spec states that the ticket never asked for. A\n"
+            + "   title describing a defect states the symptom, not the rule the work keeps.\n"
+            + "   " + DoneTargetState.Rule,
         DoneDropped =>
             "DONE DROPPED — an outcome the ticket lists under its own \"Done when\",\n"
             + "   \"Definition of done\" or \"Acceptance\" that no done entry of any spec states (a\n"
@@ -94,7 +99,7 @@ public static class SpecCutVerdicts
             "FALSE PREMISE — the spec rests on something about the repositories that is not\n"
             + "   so — a file, a type, a package, a version or a place it assumes — and a look you\n"
             + "   took shows otherwise. Quote what the spec states that rests on it, and cite the\n"
-            + "   evidence id of the look that shows it.",
+            + "   evidence id of the look that shows it. " + DoneTargetState.Rule,
         ShapeRule =>
             "SHAPE RULE — a done entry that measures the code's form rather than an outcome,\n"
             + "   however narrowly scoped: the size of functions, classes or files, line length,\n"

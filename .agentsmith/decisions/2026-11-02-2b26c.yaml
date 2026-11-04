@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26c
+
+decisions:
+  - category: Implementation
+    chose: "One constant, DoneTargetState.Rule, worded with 'done entry' and never 'criterion'"
+    over: "Lifting the premise check's 'completion criterion' wording verbatim"
+    reason: |
+      CutReviewWithoutTicketTests pins that the cut review's verdict list never assumes a spec states criteria, and the
+      sentence now sits in three of those verdicts. 'Done entry' is the word the shape rule already uses there.
+  - category: Implementation
+    chose: "'they state what holds once the work is done' as the sentence's second half"
+    over: "'they state the code after the work', the first wording"
+    reason: |
+      On the first wording the live cut reviewer filed SHAPE RULE against the boundary entries in two of three runs,
+      reading 'state the code' as the code's form. The second wording is the one that ships; three runs are too few to
+      say it is better, only that it does not invite that reading.
+  - category: Implementation
+    chose: "The sentence appended to each of CONTRADICTION, NOT IN THE TICKET and FALSE PREMISE"
+    over: "One line after the verdict list"
+    reason: |
+      The scope names those three verdicts; each carries the rule where a reviewer reads the verdict it is about to use.
+  - category: Testing
+    chose: "The eval reuses LiveSkillProbeTests.BuildChatClient (made internal) behind CutReviewTestDoubles.CappingFactory"
+    over: "A second copy of the Azure/OpenAI client builder"
+    reason: |
+      The spec says the client is built as LiveSkillProbeTests builds one; CappingFactory adds the function invocation
+      the production factory adds, so the reviewers' looks run against the materialised demo sample.
+  - category: Testing
+    chose: "Eval outcome recorded as measured: cut review not yet clean"
+    over: "Loosening the eval to the verdicts the spec names"
+    reason: |
+      Baseline (today's prompts): the attack reviewer built 3/3; the cut reviewer filed CONTRADICTION on the boundary
+      entry 3/3, citing the ticket title. After: the attack reviewer built 3/3 and no cut-review run filed a
+      CONTRADICTION or a title-driven NOT IN THE TICKET. The cut reviewer still filed other findings on the boundary
+      entries (SHAPE RULE, UNCHECKABLE on 'the test passes', NOT IN THE TICKET on '>=' generalising 'exactly 100.00'),
+      so the done entry 'no finding or cut on the boundary criterion' is not met and the eval stays red.

@@ -64,8 +64,8 @@ public static class PremiseCheckPrompt
               Nothing is absent because it is not in it.
             A premise you cannot settle with the look its claim calls for is {{Unproven}}.
 
-            Do NOT report that a completion criterion of the spec is not satisfied yet. That
-            is what the spec is FOR, it is asked and answered elsewhere, and such a finding is
+            {{DoneTargetState.Rule}} Whether the
+            spec's done entries hold is asked and answered elsewhere, and such a finding is
             discarded here. Say nothing about the spec's wording, its size or its ordering.
 
             Answer with JSON and nothing else:
