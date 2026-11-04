@@ -95,6 +95,7 @@ public sealed class MidRunQuestionIsAnswerableTests
                 writer, identity ?? new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
+            new InlineMasterAsk(Mock.Of<IDialogueAskGate>(), new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance), NullLogger<InlineMasterAsk>.Instance),
             new Application.Services.Lifecycle.UnmovedTicketReport(
                 new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
                 NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),

@@ -15,4 +15,11 @@ public interface IMasterAnswerIntake
     /// </summary>
     Task<DialogAnswer?> TryDeliverAsync(
         PipelineContext pipeline, IReadOnlyList<PlanOpenQuestion> questions);
+
+    /// <summary>
+    /// 2026-11-02-2b26d: makes <paramref name="answer"/> part of the master's input — merged into the answers an
+    /// earlier ask left — and clears the question, so no later step parks on it. Records nothing on the trail:
+    /// whoever took the answer records it.
+    /// </summary>
+    void Accept(PipelineContext pipeline, IReadOnlyList<PlanOpenQuestion> questions, DialogAnswer answer);
 }

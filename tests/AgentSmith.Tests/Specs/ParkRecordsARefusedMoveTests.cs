@@ -232,6 +232,7 @@ public sealed class ParkRecordsARefusedMoveTests
                 new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
+            new InlineMasterAsk(Mock.Of<IDialogueAskGate>(), new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance), NullLogger<InlineMasterAsk>.Instance),
             Report(),
             handlerLog ?? NullLogger<MasterOpenQuestionsHandler>.Instance);
         var pipeline = Pipeline();
