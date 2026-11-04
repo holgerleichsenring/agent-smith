@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-02-2b26g: "RELEASE DEMO SMOKE (CI release-please.yml, .github/scripts/demo-smoke.sh). Every release runs its linux-x64 binary's demo from an empty directory with OPENAI_API_KEY; exit 0 plus a commit passes, a missing secret warns. -> .agentsmith/specs/done/2026-11-02-2b26g-release-demo-smoke.yaml"
     2026-11-04-0647: "PREMISE CHECK WORDING (Application PremiseCheckPrompt). The premise check keeps its own sentence about done criteria instead of 2b26c's shared rule, whose 'never a premise' had a live check file a holding premise as broken. -> .agentsmith/specs/done/2026-11-04-0647-premise-check-own-wording.yaml"
     2026-11-04-9e8c: "INLINE DERIVATION ANSWER (Application InlineDerivationAsk). An inline-ticket run asks a derivation question or contradiction in the terminal, adds the question and answer to the ticket thread and derives again in the same run; a second derivation hand-back ends printing its question. -> .agentsmith/specs/done/2026-11-04-9e8c-inline-derivation-answer.yaml"
     2026-11-02-2b26e: "INLINE MASTER QUESTION (Application InlineMasterAsk, MasterAnswerIntake). An inline-ticket run asks the master's mid-run question in the terminal and re-engages the master with the answer in PlanAnswers; no answer gives a named default, a second one on the same spec ends the run. -> .agentsmith/specs/done/2026-11-02-2b26e-inline-master-question.yaml"
