@@ -84,6 +84,22 @@ public sealed class ScriptedChatClient : IChatClient
         return this;
     }
 
+    /// <summary>2026-11-02-2b26d: scripts an attack reviewer's answer, which draws from its own slot
+    /// (see <see cref="SpecAttackScript"/>) instead of the FIFO; one per reviewer call reached.</summary>
+    public ScriptedChatClient EnqueueSpecAttackReply(string text)
+    {
+        _specAttackScript.Enqueue(text);
+        return this;
+    }
+
+    /// <summary>2026-11-02-2b26d: scripts an attack reviewer's tool call — the look its finding cites.</summary>
+    public ScriptedChatClient EnqueueSpecAttackToolCall(string toolName, string arguments)
+    {
+        var call = new FunctionCallContent("attack_" + Interlocked.Increment(ref _toolCallCounter), toolName, ParseArgs(arguments));
+        _specAttackScript.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, [call])));
+        return this;
+    }
+
     public ScriptedChatClient EnqueueToolCall(string toolName, string arguments)
     {
         var callId = "call_" + (++_toolCallCounter);

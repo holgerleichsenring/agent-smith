@@ -34,10 +34,15 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// says its output — empty by default, so every command keeps succeeding.</summary>
     public Dictionary<string, (int ExitCode, string Output)> ShellAnswers { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>2026-11-02-2b26d: every commit lands on a new head — a run that writes a second spec revision
+    /// reads the head it moved to. Off by default, so every head stays the one fixed sha.</summary>
+    public bool AdvancesHeadOnCommit { get; set; }
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
         var sandbox = new StubSandbox(
-            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers);
+            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers,
+            AdvancesHeadOnCommit);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

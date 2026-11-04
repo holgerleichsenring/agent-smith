@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-02-2b26d: "INLINE HAND-BACK (Application InlineHandbackAsk, ReviewObjectionPark). An inline-ticket run asks a standing review objection in the terminal before any spec is built and builds on the default reading; every other inline hand-back ends printing its question and readings, not the park-status failure. -> .agentsmith/specs/done/2026-11-02-2b26d-inline-handback-ask.yaml"
     2026-11-02-2b26c: "SPEC REVIEW TARGET STATE (Application DoneTargetState). One sentence in the premise check, attack review, cut verdicts, contradiction check and derivation: a done entry the code does not meet yet is the work, not a finding; the cut review sees the ticket labelled. -> .agentsmith/specs/done/2026-11-02-2b26c-review-done-target-state.yaml"
     2026-11-02-2b26a: "CLI DEMO CONFIG (Cli DemoCommand, CliRootCommand). With no config found the demo writes one agent from OPENAI_API_KEY or ANTHROPIC_API_KEY beside its workspace and runs on it; a missing or broken config ends any verb with its message, exit 1, no stack trace. -> .agentsmith/specs/done/2026-11-02-2b26a-demo-config-optional.yaml"
     2026-11-02-2b26b: "SPEC REVIEW COST SCOPE (Application SkillCostScopeManager). The active skill-call scope is per async flow, so the parallel attack reviewers each run and attribute their own tokens; the second one used to throw 'skill calls do not nest' and the review rested on one. -> .agentsmith/specs/done/2026-11-02-2b26b-review-panel-cost-scope.yaml"

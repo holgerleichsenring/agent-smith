@@ -31,6 +31,10 @@ internal static class HandbackTestDoubles
             Moq.Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Moq.Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(),
             NullLogger<DerivationQuestion>.Instance);
 
+    /// <summary>2026-11-02-2b26d: the inline-run ask, over a gate that answers nothing unless a test gives one.</summary>
+    public static InlineHandbackAsk Inline(AgentSmith.Contracts.Services.IDialogueAskGate? gate = null) =>
+        new(gate ?? Moq.Mock.Of<AgentSmith.Contracts.Services.IDialogueAskGate>(), NullLogger<InlineHandbackAsk>.Instance);
+
     /// <summary>A gate whose checker lets every cited contradiction stand.</summary>
     public static ContradictionHandbackGate Gate(IContradictionChecker? checker = null) =>
         new(checker ?? new StandingChecker(), Specs.DerivationTestLooks.Factory(),
