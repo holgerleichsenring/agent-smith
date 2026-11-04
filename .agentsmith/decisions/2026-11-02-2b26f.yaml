@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26f
+
+decisions:
+  - category: Implementation
+    chose: "One AddFilter on the Microsoft.EntityFrameworkCore prefix at Warning, skipped under --verbose"
+    over: "Configuring a logger factory on each DbContext, or filtering only the Database.Command category"
+    reason: |
+      Every EF line the CLI prints comes through the container's logging builder (the run store's AddDbContext), and
+      command and migration lines share the prefix. One filter covers both and matches the server's appsettings;
+      --verbose keeps everything for diagnosis.
