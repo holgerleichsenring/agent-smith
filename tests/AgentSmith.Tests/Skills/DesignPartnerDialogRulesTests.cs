@@ -13,6 +13,11 @@ namespace AgentSmith.Tests.Skills;
 /// arrives before the operator has replied is a spec written from a half-formed idea.
 /// A release that drops one of them fails here rather than on a live run.
 /// </para>
+/// <para>
+/// 2026-11-05-862ec: the English and epic-child rules moved with their formats into the
+/// design-outcome references; the discussion gate became "Converging", ending at a
+/// "Ready to propose" line rather than at the operator's first reply.
+/// </para>
 /// </summary>
 public sealed class DesignPartnerDialogRulesTests
 {
@@ -21,6 +26,9 @@ public sealed class DesignPartnerDialogRulesTests
 
     private static string Master() => PackagedMaster.Read("design-partner-master");
 
+    /// <summary>First release whose convergence ends at a "Ready to propose" line (master 2.0.0).</summary>
+    private static readonly Version ConvergenceRelease = new(5, 24, 0);
+
     /// <summary>
     /// The conversation may be in any language; the artifacts it produces may not.
     /// Both drafted artifacts are covered — the spec block and the fix-bug ticket.
@@ -28,7 +36,7 @@ public sealed class DesignPartnerDialogRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_DraftsInEnglish()
     {
-        var master = Master();
+        var master = PackagedMaster.Reference("design-outcome-spec");
 
         master.Should().Contain(
             "ENGLISH ONLY, whatever language the conversation is in.",
@@ -41,7 +49,7 @@ public sealed class DesignPartnerDialogRulesTests
             "the rule has to reach the fields an operator dictates in their own language, "
             + "not only the prose around them");
 
-        master.Should().Contain(
+        PackagedMaster.Reference("design-outcome-bug").Should().Contain(
             "both are ENGLISH whatever",
             "a fix-bug ticket outlives the chat and is executed as-is by the pipeline, so "
             + "the English rule covers the ticket draft too");
@@ -55,7 +63,7 @@ public sealed class DesignPartnerDialogRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_AsksEachEpicChildForDone()
     {
-        var master = Master();
+        var master = PackagedMaster.Reference("design-outcome-epic");
 
         master.Should().Contain(
             "Every child carries `done`",
@@ -84,8 +92,8 @@ public sealed class DesignPartnerDialogRulesTests
         var master = Master();
 
         master.Should().Contain(
-            "### Discussion comes first",
-            $"the pin is {PackagedMaster.Pin} and this section ships from v{DialogRulesRelease}");
+            "## Converging",
+            $"the pin is {PackagedMaster.Pin} and this section ships from v{ConvergenceRelease}");
 
         master.Should().Contain(
             "The first reply to a request for work is always an **answer**",
@@ -93,12 +101,12 @@ public sealed class DesignPartnerDialogRulesTests
             + "is a spec the operator never got to steer");
 
         master.Should().Contain(
-            "The work has **converged** when the operator has replied",
+            "`Ready to propose: <the cut in one line>` — the shape and its pieces.",
             "the master needs the test for when discussion ENDS, or 'discuss first' "
             + "becomes an extra turn rather than a gate");
 
         master.Should().Contain(
-            "refuses one that comes before the operator has",
+            "before the operator has replied to a discussion — it is never shown.",
             "the master is told the framework enforces this, so an early proposal reads "
             + "as a wasted turn rather than a style preference");
     }

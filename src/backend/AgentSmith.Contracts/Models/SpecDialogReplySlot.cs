@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Providers;
+
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
@@ -26,4 +28,10 @@ public sealed class SpecDialogReplySlot
 
     /// <summary>2026-11-04-96a0a: the conversation's name, as the master last gave it through name_conversation.</summary>
     public string? Subject { get; set; }
+
+    /// <summary>2026-11-05-862ea: the work picture the master last stated through state_work_picture, or null.</summary>
+    public WorkPicture? WorkPicture { get; set; }
+
+    /// <summary>What the turn's master last forwarded and was answered, for the next turn to replay.</summary>
+    public ForwardedThreadCapture Thread { get; } = new();
 }

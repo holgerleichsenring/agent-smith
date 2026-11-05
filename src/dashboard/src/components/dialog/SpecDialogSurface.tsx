@@ -28,6 +28,7 @@ import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogGreeting } from "./DialogGreeting";
 import { DialogTranscript } from "./DialogTranscript";
+import { DialogWorkPicture } from "./DialogWorkPicture";
 import { DialogWorking } from "./DialogWorking";
 
 // 2026-09-15-cb3e: the design conversation, in the dashboard.
@@ -384,6 +385,7 @@ export function SpecDialogSurface() {
                     ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
                     : `dialog ${dialog.dialogId ?? ""} · no session open`}
                 </span>
+                {session?.workPicture && <DialogWorkPicture picture={session.workPicture} />}
               </div>
               <div className="d-body flex flex-col gap-4">
                 {/* 2026-09-27-5c1eb: ABOVE the branch, so it renders in both states — the project

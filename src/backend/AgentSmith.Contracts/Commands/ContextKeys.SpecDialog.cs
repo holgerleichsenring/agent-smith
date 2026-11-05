@@ -114,4 +114,7 @@ public static partial class ContextKeys
 
     /// <summary>2026-11-04-96a0a: <c>bool</c> — the conversation has no subject yet, so the master is offered name_conversation.</summary>
     public const string SpecDialogNameable = "SpecDialogNameable";
+
+    /// <summary>2026-11-05-862ea: <c>WorkPicture</c> — the work picture stored on the conversation; absent while none is.</summary>
+    public const string SpecDialogWorkPicture = "SpecDialogWorkPicture";
 }

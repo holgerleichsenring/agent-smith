@@ -20,19 +20,21 @@ public sealed class SeriesSkillRulesTests
         $"the pin is {PackagedMaster.Pin} and {rule} ships from v{SeriesRulesRelease}";
 
     private static string DesignPartner() => PackagedMaster.Read("design-partner-master");
+    private static string SpecFormat() => PackagedMaster.Reference("design-outcome-spec");
+    private static string EpicFormat() => PackagedMaster.Reference("design-outcome-epic");
     private static string SpecDerivation() => PackagedMaster.Read("spec-derivation-master");
     private static string CodingAgent() => PackagedMaster.Read("coding-agent-master");
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_AppliesReviewCutsAndReproposes() =>
-        DesignPartner().Should().Contain(
+        SpecFormat().Should().Contain(
             "A review may answer your spec, epic or tickets with cuts that quote your draft: apply exactly "
             + "those cuts, change nothing else, and re-propose the whole outcome.",
             $"the pin is {PackagedMaster.Pin} and the review round's cuts rule names tickets from v5.18.0");
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_EmitsASeriesContract() =>
-        DesignPartner().Should().Contain(
+        EpicFormat().Should().Contain(
             "An epic may carry a top-level `contract:` with `names`, `data`, `areas` and `budgets`, naming each child "
             + "by its id or position; kind is one of event, system-event, table, context-key, endpoint, config, "
             + "command, tool, type; give each name or datum one owner (the others are writers), each number one "
@@ -63,7 +65,7 @@ public sealed class SeriesSkillRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_SaysTheSeriesAndAttemptSize()
     {
-        var master = DesignPartner();
+        var master = EpicFormat();
 
         master.Should().Contain(
             "parent and two or more ordered children (the epic parser states the series cap when a cut exceeds it) —",

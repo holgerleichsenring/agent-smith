@@ -7,42 +7,17 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
-/// p0341d: in-loop context compaction as a provider-agnostic <see cref="DelegatingChatClient"/>
-/// in the master chain, below UseFunctionInvocation and below the p0341c governor. The
-/// FunctionInvokingChatClient re-sends its growing message list through the inner pipeline
-/// every iteration, so this per-call reducer compacts TRANSPARENTLY mid-pass: once the
-/// accumulated list crosses the threshold it forwards a reduced view — the system prompt +
-/// the current ledger + the p0341c working-state block + the recent tail VERBATIM, plus a
-/// cached incremental summary of the evicted middle — instead of the full history. This is
-/// the interactive-harness frame: one continuous pass that preserves the THREAD (warm)
-/// instead of dying at the raw context window.
-///
-/// <para>Revives the p0114 compaction LOGIC (keep-recent + summarize-middle + incremental
-/// summary cache) adapted to the Microsoft.Extensions.AI message model, so OpenAI / Claude /
-/// Gemini / Ollama all get identical thread-preserving behaviour from the one shared
-/// middleware.</para>
-///
-/// <para>p0357: the trigger is TOKEN PRESSURE ONLY. The former iteration-count trigger
-/// (a never-reset counter crossing threshold_iterations) made every call past the
-/// threshold compact — rewriting the message list each iteration (invalidating the
-/// provider prompt cache that absorbs a stable growing prefix) and paying a summarizer
-/// call per iteration. Until real token pressure the cache carries the history for free.
-/// The pinned head also grew: leading system messages PLUS the initial user message —
-/// the ticket/conversation/attachments are the operator's instruction manual and must
-/// survive every compaction verbatim, never folded into the summary.</para>
-///
-/// <para>p0362: HYSTERESIS — the trigger measures the compacted VIEW, not the raw
-/// history. The raw FIC list is append-only and can only grow, so a raw-measured
-/// trigger was a one-way door: one crossing put every later call into the compaction
-/// path (tail re-sliced, summary extended, prefix bytes different each iteration —
-/// the p0357 amnesia regime surviving above the threshold). Now the first crossing
-/// folds once and freezes the fold watermark; between fold events the forwarded view
-/// [head | summary | pin | tail] grows append-only with a byte-stable prefix, and a
-/// REFOLD happens only when the view itself re-crosses the threshold. The view is
-/// ordered cache-side-first: the big append-only summary sits before the small
-/// volatile pin (ledger + working state), so provider prefix caches hold across
-/// iterations; authority is carried semantically in the framing text, not by
-/// position.</para>
+/// In-loop context compaction below UseFunctionInvocation, provider-agnostic. The function-invoking client re-sends
+/// its growing list every iteration; once the forwarded VIEW crosses MaxContextTokens × ratio, the middle is folded
+/// into an incremental summary and the watermark frozen, so between folds the view [head | summary | pin | tail]
+/// grows append-only with a byte-stable prefix the provider cache holds. The pinned head is the system message(s)
+/// plus the first user message, kept verbatim.
+/// <para>
+/// A loop that replays an earlier turn's thread starts with THAT turn's prompt as its first user message, so built
+/// with <c>pinsCurrentPrompt</c> it also pins, by reference, the message its first call ended with — this turn's
+/// prompt — while that instance is still in the list, placed straight after the head, where the summary's "the
+/// ticket above" points at it.
+/// </para>
 /// </summary>
 public sealed class CompactingChatClient : DelegatingChatClient
 {
@@ -52,6 +27,8 @@ public sealed class CompactingChatClient : DelegatingChatClient
     private readonly MasterLoopHooks? _hooks;
     private readonly Func<IReadOnlyList<ChatMessage>, CancellationToken, Task<string>> _summarize;
     private readonly ILogger? _logger;
+    private readonly bool _pinsCurrentPrompt;
+    private ChatMessage? _currentPrompt;
 
     // p0341d/p0362: the incremental summary + the absolute raw index up to which history
     // is folded into it. FIC hands us the full append-only history each call; we summarize
@@ -66,9 +43,11 @@ public sealed class CompactingChatClient : DelegatingChatClient
         CompactionConfig config,
         MasterLoopHooks? hooks,
         Func<IReadOnlyList<ChatMessage>, CancellationToken, Task<string>> summarize,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        bool pinsCurrentPrompt = false)
         : base(inner)
     {
+        _pinsCurrentPrompt = pinsCurrentPrompt;
         _config = config;
         _hooks = hooks;
         _summarize = summarize;
@@ -81,6 +60,7 @@ public sealed class CompactingChatClient : DelegatingChatClient
         CancellationToken cancellationToken = default)
     {
         var list = messages as IList<ChatMessage> ?? messages.ToList();
+        if (_pinsCurrentPrompt && _currentPrompt is null && list.Count > 0) _currentPrompt = list[^1];
 
         // p0362: before the first fold the view IS the raw list; afterwards it is
         // [head | summary | pin | tail]. Either way the trigger measures what would
@@ -123,7 +103,7 @@ public sealed class CompactingChatClient : DelegatingChatClient
         if (tailStart - foldFrom <= 1)
             return BuildView(messages);
 
-        var newMiddle = Slice(messages, foldFrom, tailStart);
+        var newMiddle = Slice(messages, foldFrom, tailStart, CurrentPromptIndex(messages, headCount));
         var addition = await SafeSummarizeAsync(newMiddle, ct);
         if (addition is null) return BuildView(messages); // summarizer failed => fail-open
         _summary = string.IsNullOrEmpty(_summary) ? addition : _summary + "\n" + addition;
@@ -153,6 +133,8 @@ public sealed class CompactingChatClient : DelegatingChatClient
         var headCount = PinnedHeadCount(messages);
         var result = new List<ChatMessage>(headCount + 2 + messages.Count - _foldedUpTo);
         for (var i = 0; i < headCount; i++) result.Add(messages[i]);
+        if (CurrentPromptIndex(messages, headCount) is var prompt and >= 0 && prompt < _foldedUpTo)
+            result.Add(messages[prompt]);
 
         if (!string.IsNullOrEmpty(_summary))
             result.Add(new ChatMessage(ChatRole.User,
@@ -218,10 +200,20 @@ public sealed class CompactingChatClient : DelegatingChatClient
     private static bool IsToolResult(ChatMessage m) =>
         m.Role == ChatRole.Tool || m.Contents.OfType<FunctionResultContent>().Any();
 
-    private static List<ChatMessage> Slice(IList<ChatMessage> messages, int from, int toExclusive)
+    // The pinned current prompt's index past the head, by reference, or -1 when none is pinned or it is gone.
+    private int CurrentPromptIndex(IList<ChatMessage> messages, int headCount)
+    {
+        if (_currentPrompt is null) return -1;
+        for (var i = headCount; i < messages.Count; i++)
+            if (ReferenceEquals(messages[i], _currentPrompt)) return i;
+        return -1;
+    }
+
+    private static List<ChatMessage> Slice(IList<ChatMessage> messages, int from, int toExclusive, int skip)
     {
         var slice = new List<ChatMessage>(Math.Max(0, toExclusive - from));
-        for (var i = from; i < toExclusive; i++) slice.Add(messages[i]);
+        for (var i = from; i < toExclusive; i++)
+            if (i != skip) slice.Add(messages[i]);
         return slice;
     }
 

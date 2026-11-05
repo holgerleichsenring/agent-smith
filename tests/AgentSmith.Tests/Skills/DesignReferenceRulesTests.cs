@@ -12,6 +12,10 @@ namespace AgentSmith.Tests.Skills;
 /// <c>design_read</c> and the reference renderer — each assume the master knows the rule. A
 /// release that drops one fails here rather than on a live run.
 /// </para>
+/// <para>
+/// 2026-11-05-862ec: the draft templates moved into the design-outcome references, and
+/// outcome_format('document') serves writing-documents in place of the master's citation.
+/// </para>
 /// </summary>
 public sealed class DesignReferenceRulesTests
 {
@@ -31,7 +35,7 @@ public sealed class DesignReferenceRulesTests
         var master = DesignPartner();
 
         master.Should().Contain(
-            "- **document** (the operator asks for a text to take elsewhere",
+            "- **document** — a text the operator takes elsewhere (a prompt, a",
             Because("a document is an outcome of its own, not a spec or an answer"));
         master.Should().Contain(
             "A request for a document is not a request for work: it is answered with",
@@ -39,8 +43,10 @@ public sealed class DesignReferenceRulesTests
         master.Should().Contain(
             "the document in the first reply, with no discussion before it.",
             "the rule has to say WHEN the document comes, or it waits behind a discussion");
-        master.Should().Contain("{{ref:writing-documents}}",
-            "the fence and the shape live in the shared reference the master pulls in");
+        master.Should().NotContain("{{ref:writing-documents}}",
+            "outcome_format('document') serves the reference on the turn that drafts one");
+        master.Should().Contain("(`spec`, `bug`, `epic`, `tickets`, `comment` or `document`) and write the",
+            "the master asks outcome_format for the document's format like any other kind's");
 
         var reference = PackagedMaster.ReadEntry("references/writing-documents.md");
         reference.Should().Contain("The whole document stands inside ONE fence of four",
@@ -64,14 +70,14 @@ public sealed class DesignReferenceRulesTests
             "It gets no tool call and no answer from your own knowledge; this",
             "an off-subject question must cost neither a tool call nor an ungrounded answer");
         master.Should().Contain(
-            "comes before the grounding tiers below. A request for a document is",
+            "comes before the reading below. A request for a document is",
             "a document request is bound to the same subject, or it becomes the way around it");
     }
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_WritesScenarioCriteria()
     {
-        var master = DesignPartner();
+        var master = PackagedMaster.Reference("design-outcome-spec");
 
         master.Should().Contain("    when: \"<the trigger>\"",
             Because("the draft template has to show the scenario shape the schema accepts"));
@@ -88,7 +94,7 @@ public sealed class DesignReferenceRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_ListsBugCriteria()
     {
-        var master = DesignPartner();
+        var master = PackagedMaster.Reference("design-outcome-bug");
 
         master.Should().Contain(
             "acceptance_criteria:          # optional: how the fix is verified, one item each",
@@ -108,7 +114,7 @@ public sealed class DesignReferenceRulesTests
             Because("design_read is on the design partner's surface when a Figma source exists"));
         partner.Should().Contain("`design_read` is the way to a design: a",
             "a Figma page fetched any other way returns the application shell");
-        partner.Should().Contain("  `version` design_read reported",
+        PackagedMaster.Reference("design-outcome-spec").Should().Contain("  `version` design_read reported",
             "a ticket derived from a design cites the version the run compares against");
 
         coding.Should().Contain(
@@ -132,7 +138,7 @@ public sealed class DesignReferenceRulesTests
 
         partner.Should().Contain("## Reading a website, a mock or a design system",
             Because("uploads, mocks and DESIGN.md reach the design partner as exact values"));
-        partner.Should().Contain(
+        PackagedMaster.Reference("design-outcome-spec").Should().Contain(
             "the `DESIGN.md` token — never \"looks like the reference\". A run compares",
             "criteria carry the values, because the comparison reports and never decides");
         partner.Should().Contain(

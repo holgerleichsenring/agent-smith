@@ -58,3 +58,7 @@ decisions:
     chose: "The unopened list renders as 'Not opened yet: `a`, `b` … and K more.' and the not-counted rule rides the first coverage line"
     over: "A bare list; a separate line for the grep rule"
     reason: "The list needs a lead-in to read as unopened files rather than as the upload's contents, and one sentence per address keeps the rule beside the count it qualifies."
+  - category: Tooling
+    chose: "Close the skill deviation after the release: pin v5.23.0 (design-partner-master 1.20.0), its Sha256 and tarball, the docs' and example config's version, and EmbeddedCatalog_DesignPartner_NamesTheCoverageLine in its own test class"
+    over: "Adding the test to an existing rules class"
+    reason: "The released tarball's sha256 matches the release's own digest file and its master carries the coverage paragraph. TicketCommentSkillRulesTests and DesignReferenceRulesTests each arm themselves at the release their rule shipped in, so the coverage rule gets a class armed at v5.23.0."

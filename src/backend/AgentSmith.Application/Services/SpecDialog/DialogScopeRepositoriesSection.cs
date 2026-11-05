@@ -22,8 +22,9 @@ public static class DialogScopeRepositoriesSection
         sb.AppendLine("## Repositories in scope");
         sb.AppendLine(
             "A spec you propose names in `repos` EXACTLY ONE of these repositories — the one whose code it "
-            + "changes, spelled as listed. Work that changes two of them is proposed as an epic, one child "
-            + "per repository, the child that depends on the other second.");
+            + "changes, spelled as listed. Work that changes several of them is proposed as an epic whose children "
+            + "each name one repository, and a repository may carry several children — a definition used across "
+            + "repositories can be its own child ahead of those that use it.");
         foreach (var name in scope) sb.AppendLine($"- {name}");
         return sb.ToString();
     }

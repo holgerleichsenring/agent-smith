@@ -17,6 +17,9 @@ public static class PersistenceLimits
     /// </summary>
     public const int ConversationSubject = global::AgentSmith.Contracts.Models.ConversationSubjectLimits.Length;
 
+    /// <summary>2026-11-05-862ea: a stored work picture's JSON, bounded in Contracts where the store checks it.</summary>
+    public const int WorkPicture = global::AgentSmith.Contracts.Models.WorkPictureLimits.Stored;
+
     /// <summary>2026-09-25-8e51c: the column holds exactly what the composer may produce — the
     /// number is declared once, in Contracts, so neither side can pick its own.</summary>
     public const int SeededTicketText = global::AgentSmith.Contracts.Tickets.SeededTicketLimits.Text;

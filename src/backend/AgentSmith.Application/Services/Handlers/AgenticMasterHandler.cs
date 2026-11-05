@@ -384,9 +384,9 @@ public sealed class AgenticMasterHandler(
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
-        // The observation-schema surface's own ceiling, output budget and reduction.
-        if (isScanMaster)
-            request = ScanSurfaceLimits.Apply(request, context.AgentConfig, context.Pipeline);
+        // The observation-schema and the dialog surfaces' own ceilings, budgets and reduction.
+        request = isScanMaster ? ScanSurfaceLimits.Apply(request, context.AgentConfig, context.Pipeline)
+            : isSpecDialog ? DialogSurfaceLimits.Apply(request, context) : request;
 
         // p0341f: every drive below continues THIS conversation instead of opening a new one.
         var conversation = new MasterConversation();

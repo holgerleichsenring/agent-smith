@@ -64,6 +64,9 @@ public sealed record ConversationState
     /// </summary>
     public string? Subject { get; init; }
 
+    /// <summary>2026-11-05-862ea: the work picture the design partner stated, or null while none is stored.</summary>
+    public WorkPicture? WorkPicture { get; init; }
+
     /// <summary>
     /// 2026-09-17-042ed: the proposal THIS turn is revising, set by the router when an edit note
     /// sends the turn round again — with the findings its review reported, which the re-prompted

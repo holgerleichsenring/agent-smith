@@ -27,7 +27,7 @@ public sealed class TicketStewardPromptFactory : ITicketStewardPromptFactory
             The transcript of this ticket's conversation so far, oldest first. Respond to the
             LAST user turn; earlier turns are context you already produced or received.
 
-            {DialogTranscriptSection.Render(transcript)}
+            {DialogTranscriptSection.Render(pipeline, transcript, stewarded: true)}
             {SeededTicketSection.Render(pipeline)}
             {FrameworkFactsSection.Render(pipeline)}
             {DialogScopeRepositoriesSection.Render(pipeline)}

@@ -88,6 +88,20 @@ public sealed class DialogConversationDeleteTests : IDisposable
     }
 
     [Fact]
+    public async Task SpecDialogConversationDeleter_Delete_SweepsTheThread()
+    {
+        var session = await OpenAsync("d-1");
+        var threads = new SpecDialogThreadRepository(_context);
+        await threads.ReplaceAsync(new SpecDialogThread { SessionId = session, MessagesJson = "[]" }, CancellationToken.None);
+        await threads.ReplaceAsync(new SpecDialogThread { SessionId = "another", MessagesJson = "[]" }, CancellationToken.None);
+
+        await DeleteAsync(session, Owner);
+
+        (await _context.Set<SpecDialogThread>().AsNoTracking().Select(t => t.SessionId).ToListAsync())
+            .Should().Equal(["another"], "the thread goes with its conversation, and no other conversation's does");
+    }
+
+    [Fact]
     public async Task Delete_AnotherPrincipalsConversation_LeavesItInPlace()
     {
         var session = await OpenAsync("d-1");
@@ -251,6 +265,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             .AddScoped<DialogueAnswerRepository>()
             .AddScoped<ReferenceFileRepository>()
             .AddScoped<ApprovedSeriesRepository>()
+            .AddScoped<SpecDialogThreadRepository>()
             .AddSingleton(tracker.Object)
             .AddSingleton(trackers.Object)
             .AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>()
@@ -263,7 +278,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             sessionId, Principal(caller), _ownership, _gate,
             deleter ?? new SpecDialogConversationDeleter(
                 _context, _repository, _answers, new ReferenceFileRepository(_context),
-                new ApprovedSeriesRepository(_context)),
+                new ApprovedSeriesRepository(_context), new SpecDialogThreadRepository(_context)),
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
     private static int StatusOf(IResult result) =>

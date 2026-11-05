@@ -40,11 +40,19 @@ internal sealed class ScriptedChatClientFactoryAdapter(
             new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor());
 
     public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null)
+        => Create(agent, task, maxIterations, masterLoopHooks, compaction: null);
+
+    /// <summary>The extended overload, so a dialog turn's capture is inserted over the scripted client as production
+    /// inserts it under the compactor; the harness composes no compactor or finaliser.</summary>
+    public IChatClient Create(
+        AgentConfig agent, TaskType task, int? maxIterations, MasterLoopHooks? masterLoopHooks,
+        CompactionConfig? compaction, int? contextWindowOverride = null, ForwardedThreadCapture? capture = null)
     {
         var inner = trace.IsEnabled
             ? new RecordingChatClient(client, trace, runContext)
             : (IChatClient)client;
         if (!ChatClientFactory.ToolBearingTasks.Contains(task)) return inner;
+        if (capture is not null) inner = new ThreadCapturingChatClient(inner, capture);
         var loopInner = masterLoopHooks is null
             ? inner
             : new MasterLoopGovernorChatClient(inner, masterLoopHooks);

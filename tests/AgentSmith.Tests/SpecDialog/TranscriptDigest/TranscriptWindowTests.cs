@@ -28,7 +28,7 @@ public sealed class TranscriptWindowTests
         TranscriptWindow.Render(shortOne).Should().Be(Today(shortOne));
         TranscriptWindow.Render(longWithoutDigest).Should().Be(Today(longWithoutDigest));
         TranscriptWindow.Render(withDigestUnderTheBound).Should().Be(Today(withDigestUnderTheBound));
-        DialogTranscriptSection.Render(shortOne).Should().Be(Today(shortOne));
+        DialogTranscriptSection.Render(new AgentSmith.Contracts.Commands.PipelineContext(), shortOne, stewarded: false).Should().Be(Today(shortOne));
     }
 
     [Fact]

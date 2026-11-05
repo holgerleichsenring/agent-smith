@@ -57,7 +57,7 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
             : await opened.SearchAsync(pattern, under, ct);
         var id = look.Evidence.Remember(new EvidenceRecord(
             repository, EvidenceRecord.Search, what, result.ExitCode,
-            Ran: result.ExitCode is 0 or 1, under));
+            Ran: result.ExitCode is 0 or 1, under, Pattern: pattern));
         logger.LogInformation(
             "The {Actor} searched {Repo} for {Pattern} under {Path} — exit {Exit} as {Id}",
             look.Terms.Actor, repository, pattern, under, result.ExitCode, id);

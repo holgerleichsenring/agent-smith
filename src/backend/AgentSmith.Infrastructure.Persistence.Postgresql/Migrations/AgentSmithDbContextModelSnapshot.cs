@@ -2594,6 +2594,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("WorkPictureJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SessionId")
@@ -2607,6 +2611,48 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .IsUnique();
 
                     b.ToTable("SpecDialogSessions");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogThread", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MessagesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ReplyAt")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<bool>("Stewarded")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TranscriptFrom")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("WrittenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("SpecDialogThread");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTicketText", b =>

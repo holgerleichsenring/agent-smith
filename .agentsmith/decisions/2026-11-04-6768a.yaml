@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-6768a
+
+decisions:
+  - category: Architecture
+    chose: "Replay the cited look with git at the series base and at HEAD, and compare the outputs"
+    over: "Ask the checker again at the base; strengthen the preceding-specs prompt text; match premise wording against the preceding specs' goals"
+    reason: "The prompt guard (PremiseCheckPrompt.cs:94-104) is what failed in production. A second model call is still a judgement, and text matching is a heuristic. The finding already names one look that ran. Asking whether that look read the same before the series' own commits is a yes/no question with no model involved."
+  - category: Architecture
+    chose: "Read the series base off the branch: the first parent of the oldest checkpoint-marked, non-merge commit not reachable from the base ref"
+    over: "Store a series_base map in the manifest; reuse SpecCitationHistory.BaseAsync (commit-date and approval-instant rule)"
+    reason: "Every piece of series work already carries the checkpoint marker (RunCheckpointCommit.cs:14), and SandboxRunStartCommit reads a run's start the same way, so the base is recorded by construction, across runs, without a mid-run manifest publish. The date rule would put foreign merges made between approval and run start after the base, so a premise a foreign change broke would read as superseded."
+  - category: Architecture
+    chose: "Superseded only on a presence flip (absent at one ref, present at the other) in a path a series checkpoint commit touched, merged base commits excluded"
+    over: "Superseded whenever the replays differ; any difference touched by a series commit"
+    reason: "A content change shows only that a file moved, not that the premise held at the base. The code assumes later facts describe the state their predecessors leave, and a premise false at that very state must still go back. A flip is what absence claims ('contains no X') produce, which is the production shape. A difference only a merged base commit explains is someone else's change, as ForeignCommitProbe treats it."
+  - category: Implementation
+    chose: "Add the search pattern to EvidenceRecord/EvidenceLook, and the cited look's id to PremiseFinding"
+    over: "Parse the pattern back out of the 'what' prose; resolve the citation a second time in the replay"
+    reason: "Reading the pattern back out of the prose is a heuristic, and the missing field is the actual gap. Admission already chose one look (PremiseCheckAdmission.cs:73-75), and a second resolution rule could choose a different one. The id, not the look, because PremiseFinding lives in Domain."
+  - category: Implementation
+    chose: "Audit and verify-stage looks, an unreachable base and a failed git step all leave the finding false"
+    over: "Treat them as superseded, leaning toward letting the work happen as admission does"
+    reason: "Leaning lenient is right where the framework cannot tell. Here it can tell for a read or a search, and for the other kinds it has no replay. Calling those superseded would be a guess, and it would wave through the two genuinely false premises the production data shows."
+  - category: Scope
+    chose: "Leave requires-linked tickets out, naming 'premise base for amended tickets' as the successor"
+    over: "Cover them with the same replay"
+    reason: "A ticket-list ticket (TicketGraphFiler, TicketText) derives its specs after its required ticket landed, so its facts are fresh. Ticket amendment (TicketAmendment.cs:40-90) can record facts on a dependent ticket before that merge, and the required work then arrives as a base merge, which this rule treats as foreign. Counting merged base work as superseding would also wave through every foreign change, so that path needs its own anchor (the required ticket's landing), not this one."
+  - category: Implementation
+    chose: "Anchor the series base at the newest revision commit that is not a citation re-ground"
+    over: "Every checkpoint on the branch; the newest revision of any cause"
+    reason: "Re-cuts (rework, comment, ticket edit) rewrite facts against the state after earlier runs, so earlier checkpoints are not series work for that text. Without the anchor, a re-cut fact that was already false would read as superseded. The re-ground revision that SpecEntryGrounding publishes at entry only moves citations, and it lands after earlier specs' work, so anchoring on it would hide exactly the sibling changes this rule exists for."
+  - category: Scope
+    chose: "Accept the residual: a premise already false at the base whose path a sibling also flipped reads as superseded"
+    over: "Line-level comparison of what proves the premise"
+    reason: "Deciding which line proves the premise needs judgement, and a read records no range (EvidenceRecord.cs:22-29). The spec's own verification still judges the result."
+  - category: Implementation
+    chose: "Deviation: a read is probed with 'git ls-tree --name-only <ref> -- <path>', present when it lists the path"
+    over: "'git cat-file -e <ref>:<path>', as the replay step says"
+    reason: "Measured on git: cat-file -e exits 128 both for a missing path and for an unknown ref, so it cannot tell the two apart as the step requires. ls-tree exits 0 with nothing listed for a missing path and 128 for an unreadable ref, so one step answers both questions."
+  - category: Implementation
+    chose: "SeriesBase returns a SeriesStart (the revision and the base ref), and a start at HEAD is no supersession without running the replay"
+    over: "A bare revision string, the replay resolving the base ref a second time"
+    reason: "The replay's commit log needs the same base ref the rev-list excluded, and asking the ladder twice could answer differently. With no series checkpoint after the anchor both refs are HEAD, so nothing can flip."
+  - category: Implementation
+    chose: "The look's repository is a sandbox key; the replay finds the run repository owning that key and takes its first sandbox, and falls back to the look's own sandbox when the run lists no repositories"
+    over: "SandboxesForRepo by the look's repository name directly, as the replay step words it"
+    reason: "DerivationLook names repositories by their sandbox map keys (DerivationLookFactory.cs:64-66), and a multi-group or monorepo key is not a repository name. Ownership goes through SandboxTargets.SandboxesForRepo, the rule RepoWorkPusher uses to pick where checkpoints land."
+  - category: Implementation
+    chose: "In a mixed outcome the superseded line is logged and published as the progress note, then today's hand-back verdict replaces it; the failed step's message stays exactly today's verdict"
+    over: "Appending the superseded line to the hand-back message"
+    reason: "The done criterion asks for today's verdict on a hand-back, and the step-result message is that verdict. The superseded line still reaches the event stream and the log before the hand-back is recorded."
+  - category: Implementation
+    chose: "Git runs through the existing StructureGitRunner, and the ref search through SearchCommands.OverRef as a step of its own"
+    over: "A fourth private git runner in the new types"
+    reason: "ForeignCommitProbe, SandboxRunStartCommit and SandboxBaseLadder each carry a private copy; the injectable runner already exists and is registered in every composition that registers spec derivation."
+  - category: Scope
+    chose: "A repository that is not a member of the series placement gets no series base, so a premise about it stays false"
+    over: "Falling back to the run start or the per-spec start heads there"
+    reason: "Revision commits land only in placement members (SeriesWriter.cs:36-44). Without the anchor nothing tells checkpoints of an earlier text from this one, and the decision above already rejects every checkpoint as the anchor."
+  - category: Tooling
+    chose: "The harness checker mints its search through the look it is handed and sets the cited id itself; StubSandbox's scripted git output may say '{grep}' for the command's own --grep value"
+    over: "Running the real admission in the harness; a fixed series id in the fixture"
+    reason: "The harness stands the premise check's model call down (HarnessFrameworkCalls.cs), so nothing else would set the id. The series id is minted in the run, and the anchor answer has to carry its subject. A run of the test with the branch unscripted fails, which shows it rests on the replay."

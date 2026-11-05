@@ -28,7 +28,16 @@ public sealed class SpecReposRuleTests
 
         resolution.NeedsSplit.Should().BeTrue();
         resolution.Error.Should().Contain("spec 1 names 2 repositories").And.Contain("split it")
-            .And.Contain("depends on the other second");
+            .And.Contain("exactly one repository");
+    }
+
+    [Fact]
+    public void SpecReposRule_SpecNamingTwoRepositories_RefusalAllowsSeveralSpecsPerRepository()
+    {
+        var resolution = _rule.Resolve([["Server", "BackgroundWorker"]], Scope);
+
+        resolution.Error.Should().Contain("split it into specs that each name one repository; a repository may carry several")
+            .And.NotContain("depends on the other second");
     }
 
     [Fact]

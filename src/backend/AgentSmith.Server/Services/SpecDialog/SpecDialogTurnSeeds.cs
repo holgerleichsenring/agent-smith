@@ -40,7 +40,7 @@ internal static class SpecDialogTurnSeeds
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
         IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null,
         BoundTicket? bound = null, IReadOnlyList<DesignSource>? designSources = null,
-        ResolvedProject? project = null)
+        ResolvedProject? project = null, DialogThread? thread = null)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -69,6 +69,7 @@ internal static class SpecDialogTurnSeeds
         // 2026-09-17-042ed: only an edit turn carries one, and the prompt renders its findings.
         if (state.Revising is { } revising) seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
         if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
+        if (state.WorkPicture is { } picture) seeds[ContextKeys.SpecDialogWorkPicture] = picture; // 2026-11-05-862ea
         // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
         // carries it, so an unbound conversation renders exactly the prompt it rendered before.
         if (ticket is not null) seeds[ContextKeys.SpecDialogTicket] = ticket;
@@ -91,6 +92,7 @@ internal static class SpecDialogTurnSeeds
         if (designSources is { Count: > 0 }) seeds[ContextKeys.SpecDialogDesignSources] = designSources;
         // 2026-10-01-283de: and the project itself, whose spec render_reference's browser sandbox is built from.
         if (project is not null) seeds[ContextKeys.SpecDialogProject] = project;
+        if (thread is not null) seeds[ContextKeys.SpecDialogThread] = thread; // the thread this turn continues
         return seeds;
     }
 

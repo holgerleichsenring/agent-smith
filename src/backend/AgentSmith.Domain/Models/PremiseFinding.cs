@@ -18,6 +18,10 @@ namespace AgentSmith.Domain.Models;
 /// hand-back has to see the step from the premise to the look and no framework can decide that
 /// step for them.
 /// </para>
+/// <para>
+/// 2026-11-04-6768a: <see cref="CitedId"/> is the id of the ONE look the admission chose, so the
+/// series-base replay resolves exactly that look rather than applying a second resolution rule.
+/// </para>
 /// </summary>
 public sealed record PremiseFinding(
     string Premise,
@@ -25,4 +29,5 @@ public sealed record PremiseFinding(
     string Why,
     string? Cites = null,
     string? Evidence = null,
-    string? Looked = null);
+    string? Looked = null,
+    string? CitedId = null);

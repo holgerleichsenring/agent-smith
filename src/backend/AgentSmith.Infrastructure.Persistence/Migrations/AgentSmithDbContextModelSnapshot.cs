@@ -2514,6 +2514,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("WorkPictureJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SessionId")
@@ -2527,6 +2531,46 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("SpecDialogSessions");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogThread", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MessagesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ReplyAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Stewarded")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TranscriptFrom")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("WrittenAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("SpecDialogThread");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTicketText", b =>

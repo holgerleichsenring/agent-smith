@@ -26,6 +26,7 @@ public sealed class SpecDialogSessionConfiguration : IEntityTypeConfiguration<Sp
         // are run by Sqlite, Postgres and MySQL alike, so a literal column type here would be
         // provider-blind; a bounded string lets each provider's own convention pick the type.
         builder.Property(s => s.Subject).HasMaxLength(PersistenceLimits.ConversationSubject);
+        builder.Property(s => s.WorkPictureJson).HasMaxLength(PersistenceLimits.WorkPicture); // 2026-11-05-862ea
         // 2026-09-25-8e51b: the ticket a conversation belongs to. The UNIQUE index over the pair
         // lives on the context, not here — it has to be filtered on SQL Server, which treats two
         // NULLs as equal, and an entity configuration cannot see the provider name.

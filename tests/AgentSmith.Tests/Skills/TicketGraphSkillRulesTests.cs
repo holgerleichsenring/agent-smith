@@ -26,7 +26,9 @@ public sealed partial class TicketGraphSkillRulesTests
 
     private static string DesignPartner() => PackagedMaster.Read("design-partner-master");
 
-    private static string Block() => TicketsBlock().Match(DesignPartner()).Groups[1].Value;
+    private static string TicketsFormat() => PackagedMaster.Reference("design-outcome-tickets");
+
+    private static string Block() => TicketsBlock().Match(TicketsFormat()).Groups[1].Value;
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_OffersTicketsAtMergeBoundaries() =>
@@ -44,31 +46,31 @@ public sealed partial class TicketGraphSkillRulesTests
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_TicketIsABoundedQuotedEnglishTextWithAUniqueKey() =>
-        DesignPartner().Should().Contain(TicketText, Because("the ticket text rule"));
+        TicketsFormat().Should().Contain(TicketText, Because("the ticket text rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_RequiresNameOnlyTicketsMergedFirstWithIdsWithoutHash() =>
-        DesignPartner().Should().Contain(MergeOrder, Because("the merge order rule"));
+        TicketsFormat().Should().Contain(MergeOrder, Because("the merge order rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_SplitsMoreThanTwentyTicketsAcrossProposals()
     {
-        DesignPartner().Should().Contain(ProposalSize, Because("the proposal size rule"));
+        TicketsFormat().Should().Contain(ProposalSize, Because("the proposal size rule"));
         ProposalSize.Should().Contain($"{TicketGraphLimits.MinTickets} to {TicketGraphLimits.MaxTickets} tickets",
             "the master names the bounds the checker enforces");
     }
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_TicketIsWrittenAgainstItsMergedRequiresAndSizedForOneRun() =>
-        DesignPartner().Should().Contain(SizedForOneRun, Because("the ticket size rule"));
+        TicketsFormat().Should().Contain(SizedForOneRun, Because("the ticket size rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_ProposesTicketsOnlyUnbound() =>
-        DesignPartner().Should().Contain(UnboundOnly, Because("the unbound-only rule"));
+        TicketsFormat().Should().Contain(UnboundOnly, Because("the unbound-only rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_ScopesAbsenceCriteriaToTheSourceTree() =>
-        DesignPartner().Should().Contain(AbsenceScoped, Because("the scoped absence criterion"));
+        PackagedMaster.Reference("design-outcome-spec").Should().Contain(AbsenceScoped, Because("the scoped absence criterion"));
 
     [Fact]
     public void EmbeddedSkills_CodingAgentMaster_JudgesAbsenceOverTheSourceTree() =>
@@ -76,7 +78,7 @@ public sealed partial class TicketGraphSkillRulesTests
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_SaysWhatATicketListFiles() =>
-        DesignPartner().Should().Contain(WhatTicketsFile, Because("the filing sentence"));
+        TicketsFormat().Should().Contain(WhatTicketsFile, Because("the filing sentence"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_ShowsATicketTextBlockWithoutSpecs()

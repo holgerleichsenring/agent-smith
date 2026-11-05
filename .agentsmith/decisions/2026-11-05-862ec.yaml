@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-05-862ec
+
+decisions:
+  - category: Implementation
+    chose: "The frame harness test runs on EmbeddedSkillsCatalogPath, as the scan eval does"
+    over: "PackagedMasterPromptCatalog with a hand-made reference source"
+    reason: "PackagedMasterPromptCatalog serves the raw SKILL.md without resolving references, so 'no format in the system prompt' would pass even with a format cited; the real catalog and CatalogSkillReferenceSource prove what production serves."
+  - category: Scope
+    chose: "The live replay is operator-supplied evidence"
+    over: "An agent step"
+    reason: "It needs the production package and a local server with the operator's repositories, which no agent holds."
+  - category: Tooling
+    chose: "Pin v5.24.0 (design-partner-master 2.0.0; skills PRs #246 and release #247), Sha256 07b9c54b… matching the release's own digest, with the tarball, example config, three docs pages and SkillsConfigValidatorTests as in 9a3c35399"
+    over: "Waiting for the operator to merge both skills PRs"
+    reason: "The operator authorised merging them in this session; the pin is the last open half of the series."
+  - category: Implementation
+    chose: "Measured the resolved design-partner body (frontmatter off, references inlined, TrimEnd): v5.23.0 42,828, v5.24.0 25,227 characters; DesignPartnerFrameSizeTests caps it at 26,000 through the real SkillBodyResolver over the extracted embedded catalog"
+    over: "Asserting the raw SKILL.md length"
+    reason: "The model gets the resolved body; memory-discipline and source-precedence are inlined into it. 862eb's 42,829 / 25,228 differ by one character from this count, which is the frontmatter boundary newline."
+  - category: Implementation
+    chose: "Pinned assertions now read PackagedMaster.Reference(slug) where their text moved: English and scenario/shape/absence/review-cuts/design-citation rules from design-outcome-spec, the bug template and English rule from design-outcome-bug, epic child done/contract/size from design-outcome-epic, the ticket sentences and block from design-outcome-tickets, the comment block from design-outcome-comment; the placeholder test reads master plus spec and epic references"
+    over: "A combined master-plus-references string for every test"
+    reason: "Each test then names the file its rule lives in, so a later move fails at the right place."
+  - category: Deviation
+    chose: "Re-pinned four reworded sentences carrying the same rule: '### Discussion comes first' -> '## Converging'; 'The work has **converged** when the operator has replied' -> the 'Ready to propose: <the cut in one line>' line; 'refuses one that comes before the operator has' -> 'before the operator has replied to a discussion — it is never shown.'; the tickets outcome line -> '- **tickets** — the work has merge boundaries: tickets in merge order.'; 'comes before the grounding tiers below' -> 'comes before the reading below'"
+    over: "Deleting them"
+    reason: "The spec allows re-pinning a reworded sentence that carries the same rule; no assertion was dropped. The '{{ref:writing-documents}}' citation assertion is inverted to NotContain plus the outcome_format kind list, and OutcomeFormat_EmbeddedCatalog_ServesTheKindsReference proves the real reference source serves writing-documents, the spec+epic pair and tickets. No cheap-tier assertion existed in the tests; the dropped grounding tier is pinned absent in DesignPartnerFrame_EmbeddedCatalog_DropsNarrowReadingOneReplyConvergenceAndOneSpecAcrossRepositories."
+  - category: Implementation
+    chose: "The frame harness test is a class of its own (SpecDialogFrameSplitTests) with the work-picture tests' builder plus EmbeddedSkillsCatalogPath and AddPromptCatalog"
+    over: "Adding it to SpecDialogOutcomeTests"
+    reason: "That partial class is 780 lines; the frame test needs a different catalog boundary from every test in it."
+  - category: Scope
+    chose: "The live replay (66-file upload, three repositories, the operator's first sentence, local server on this pin) stays open as the operator's evidence"
+    over: "Claiming it"
+    reason: "No agent holds the production package or the operator's server; the third done criterion is unverified until the operator runs it."

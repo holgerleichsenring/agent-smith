@@ -75,7 +75,7 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
             .FirstOrDefault(l => l is { Ran: true });
         return cited is null
             ? null
-            : finding with { Evidence = cited.Line, Looked = $"{cited.Repository}: {cited.What}" };
+            : finding with { Evidence = cited.Line, Looked = $"{cited.Repository}: {cited.What}", CitedId = cited.Id };
     }
 
     private static bool IsContradiction(PremiseFinding finding) =>

@@ -40,6 +40,7 @@ internal static class SpecDialogSessionMapper
         ThreadId = session.ThreadId,
         Transcript = ReadTranscript(session.TranscriptJson),
         Subject = session.Subject,
+        WorkPicture = ReadWorkPicture(session.WorkPictureJson),
         Tracker = session.Tracker,
         TicketKey = session.TicketKey,
         Scope = new ActiveScope
@@ -69,6 +70,24 @@ internal static class SpecDialogSessionMapper
 
     internal static IReadOnlyList<TranscriptTurn> ReadTranscript(string json) =>
         JsonSerializer.Deserialize<List<TranscriptTurn>>(json, JsonOptions) ?? [];
+
+    /// <summary>2026-11-05-862ea: a work picture as its column stores it, in this mapper's string-enum JSON.</summary>
+    internal static string WriteWorkPicture(WorkPicture picture) =>
+        JsonSerializer.Serialize(picture, JsonOptions);
+
+    /// <summary>The stored work picture; an unreadable one — a kind this build cannot name — reads as none.</summary>
+    internal static WorkPicture? ReadWorkPicture(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<WorkPicture>(json, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     internal static string WriteRepos(IReadOnlyList<string> repos) =>
         JsonSerializer.Serialize(repos, JsonOptions);

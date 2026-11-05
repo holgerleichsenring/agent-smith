@@ -19,6 +19,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// <param name="LinesReturned">How many numbered lines the result carried, for a read that
 /// numbers them; 0 for every other kind, which is what makes a line citation uncheckable
 /// against them.</param>
+/// <param name="Pattern">2026-11-04-6768a: the pattern a search ran, or null for every other kind — what the
+/// premise check replays at the series base, never read back out of <paramref name="What"/>.</param>
 public sealed record EvidenceRecord(
     string Repository,
     string Kind,
@@ -26,7 +28,8 @@ public sealed record EvidenceRecord(
     int ExitCode,
     bool Ran,
     string? Path = null,
-    int LinesReturned = 0)
+    int LinesReturned = 0,
+    string? Pattern = null)
 {
     public const string Read = "read";
     public const string Search = "search";

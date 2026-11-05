@@ -2607,6 +2607,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("WorkPictureJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SessionId")
@@ -2621,6 +2625,48 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasFilter("[Tracker] IS NOT NULL AND [TicketKey] IS NOT NULL");
 
                     b.ToTable("SpecDialogSessions");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogThread", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("MessagesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ReplyAt")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<bool>("Stewarded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("TranscriptFrom")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("WrittenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("SpecDialogThread");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTicketText", b =>

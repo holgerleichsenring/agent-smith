@@ -51,6 +51,12 @@ public sealed class SpecDialogSession : EntityBase
     public string? Subject { get; set; }
 
     /// <summary>
+    /// 2026-11-05-862ea: the work picture the design partner stated, as JSON (kind, truth, size); replaced when it
+    /// records a correction. Null until one is stated, and on every conversation older than the column.
+    /// </summary>
+    public string? WorkPictureJson { get; set; }
+
+    /// <summary>
     /// 2026-09-25-8e51b: the tracker CONNECTION this conversation's ticket lives on, and the
     /// ticket in the spelling the approval record uses — the spec key, which lowercases the id and
     /// collapses every non-alphanumeric character. Both null for a conversation that belongs to no

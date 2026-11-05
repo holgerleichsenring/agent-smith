@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Server.Services;
 
 namespace AgentSmith.Server.Models;
@@ -30,18 +31,23 @@ namespace AgentSmith.Server.Models;
 /// 2026-11-04-96a0a: <paramref name="Subject"/> is the name the master gave the conversation through name_conversation,
 /// or null; the keeper stores it when the conversation still has none and the turn did not fail.
 /// </para>
+/// <para>
+/// <paramref name="Thread"/> is what the master last forwarded and was answered, which the keeper stores for the next
+/// turn to replay; null on a failed turn.
+/// </para>
+/// <para>2026-11-05-862ea: <paramref name="WorkPicture"/> is what the master stated through state_work_picture, or null.</para>
 public sealed record SpecDialogTurnResult(
     string Reply, OutcomeProposal Outcome, string Shown, SpecDialogTurnKind Kind, bool Stewarded = false,
-    string? Subject = null)
+    string? Subject = null, ForwardedThreadCapture? Thread = null, WorkPicture? WorkPicture = null)
 {
     public static SpecDialogTurnResult On(
         string platform, string reply, OutcomeProposal outcome, SpecDialogTurnKind? kind = null, bool stewarded = false,
-        string? subject = null) =>
+        string? subject = null, ForwardedThreadCapture? thread = null, WorkPicture? workPicture = null) =>
         new(reply, outcome,
             !stewarded && string.Equals(platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase)
                 ? SpecDialogDraftBlocks.Strip(reply)
                 : reply,
-            kind ?? KindOf(outcome), stewarded, subject);
+            kind ?? KindOf(outcome), stewarded, subject, thread, workPicture);
 
     public static SpecDialogTurnKind KindOf(OutcomeProposal outcome) => outcome switch
     {

@@ -26,7 +26,7 @@ public sealed class SpecDialogDiscussionPromptTests
         var prompt = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
 
         prompt.Should().Contain("MAY NOT propose").And.Contain("When the operator asks for work, answer with")
-            .And.Contain("the edge cases").And.Contain("A question is answered as it is asked")
+            .And.Contain("the work picture").And.Contain("in one batch the decisions only the operator can make").And.Contain("A question is answered as it is asked")
             .And.NotContain("MAY propose");
     }
 

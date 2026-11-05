@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// spec's <c>repos</c> is checked against. Rendered whether or not the derivation may look:
 /// the look section lists sandbox keys and is absent without a sandbox, and neither is the
 /// list a spec names its repositories from.
-/// 2026-10-12-f5f7a: it states the rule — one repository per spec, work in two cut as two.
+/// 2026-10-12-f5f7a: it states the rule — one repository per spec; a repository may carry several.
 /// </summary>
 internal static class ScopeRepositoriesPromptSection
 {
@@ -24,8 +24,8 @@ internal static class ScopeRepositoriesPromptSection
         }
         sb.AppendLine(
             "Every spec names in `repos` EXACTLY ONE repository: the one whose code it changes, spelled "
-            + "exactly as listed here. Work that changes two repositories is cut as two specs, one per "
-            + "repository, the spec that depends on the other second. A spec that declares a "
+            + "exactly as listed here. Work that changes several repositories is cut as specs that each name "
+            + "one repository; a repository may carry several. A spec that declares a "
             + "`repo/context` declares only its own repository's contexts. A spec naming none, or "
             + "several, is asked again.");
         foreach (var name in scope) sb.AppendLine($"- {name}");

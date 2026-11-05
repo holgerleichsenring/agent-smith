@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-05-862ea
+goal: "The design partner states a work picture (kind, truth, size) stored on the conversation and shown on the page; uploads are read first; it says when it is ready; specs per repository may be several."
+
+applies_to: "default (Contracts reply slot and work picture, Application spec-dialog prompt and tools, Server keeper/seeds/view, Persistence column and three migration sets) and dashboard (dialog heading)"
+
+facts:
+  - claim: "The turn's user prompt tells the master to answer from the code map when it suffices and read source files only when the question needs real file content, with or without uploads."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:49-52"
+  - claim: "Whether a turn may propose is decided from the transcript the turn began with: any assistant answer followed later by an operator message unlocks every later turn."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRule.cs:20-30; src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:63-64,85-90"
+  - claim: "The prompt's first-answer text asks for what was found in the code, edge cases and open questions; it names neither uploads nor the kind of undertaking."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:28-32"
+  - claim: "The repositories section, the lone-spec refusal and the repos rule all tell the model to cut work as one spec or child per repository, the dependent one second; the derivation's scope section says the same."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DialogScopeRepositoriesSection.cs:23-26; src/backend/AgentSmith.Application/Services/SpecDialog/DialogDraftRepos.cs:17-18; src/backend/AgentSmith.Application/Services/Specs/SpecReposRule.cs:72-75; src/backend/AgentSmith.Application/Services/Specs/ScopeRepositoriesPromptSection.cs:25-30"
+  - claim: "The repos rule itself only demands exactly one in-scope repository per spec; nothing forbids two specs naming the same repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReposRule.cs:45-77"
+  - claim: "name_conversation is the pattern for a model-stated conversation field: a design-master-only tool writes the reply slot, the runner carries it on the turn result, the keeper stores it on a non-failed turn before the reply is sent."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/NameConversationToolHost.cs:14-37; src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:23-25; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:77-79; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnKeeper.cs:28-31"
+  - claim: "The design master's own tools join outside the base surface in one line, and the steward surface drops only a named exclusion list."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:86; src/backend/AgentSmith.Application/Services/Tools/TicketStewardTools.cs:14-17"
+  - claim: "The conversation row is SpecDialogSession; a nullable column needs the entity, its configuration (bounded by length only, provider-blind), the mapper onto ConversationState, and one migration per provider set: SQLite, SQL Server and Postgres."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:51; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/SpecDialogSessionConfiguration.cs:25-28; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionMapper.cs:42; src/backend/AgentSmith.Infrastructure.Persistence.Postgresql/Migrations/20261028131729_AddMemoryEvidence.cs"
+  - claim: "The page heading shows the subject from the session view, which the view reader builds from ConversationState."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:321,370-372; src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:44-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:83; src/dashboard/src/types/spec-dialog.ts:128"
+  - claim: "The run-level WorkShape is deterministic/judgement/mixed for derivation cutting — a different dimension from the kind of undertaking."
+    evidence: "src/backend/AgentSmith.Contracts/Models/WorkShape.cs:3-32"
+  - claim: "Uploads are addressed in the sandbox map by the reference: prefix, and each address carries how many readable files earlier turns opened."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ReferenceScopeName.cs:15; src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:21-26; src/backend/AgentSmith.Application/Services/Handlers/ReferenceCoverageText.cs:14-37"
+  - claim: "SpecDialogTurnRunner, MasterToolComposition and SpecDialogExtensions are at 120 lines; ContextKeys.SpecDialog.cs is at 117; SpecDialogPromptFactory is at 106."
+    evidence: "tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+  - claim: "In a production conversation a 66-file upload (requirements, handover documents, a legacy reference implementation) was read 6 files deep, the repositories were inspected first, and three whole-layer slices were proposed; the handover README stated the undertaking verbatim."
+    evidence: "observed: 2026-11-04, a production design conversation"
+
+assumptions:
+  - "A model reliably calls a tool that its turn prompt names for the first answer, as name_conversation is called (96a0a); not measured on gpt-5.6-class models for a second tool in the same turn."
+  - "Reading every file of a 66-file upload in one turn fits through compaction under a ceiling that allows it. False today — a design turn has no compaction and the factory's 25-iteration default (2026-11-05-2ce7 facts); 2ce7 makes it true, so build it first."
+
+scope:
+  in: "WorkPicture (kind: rebuild | feature | fix | document; truth: one line; size: one-spec | series | plan) stated by state_work_picture, stored on the conversation row, rendered in each turn prompt and on the page, overwritten when the partner records a correction. Uploads-first reading line when the turn holds uploads. Proposal contract worded around 'Ready to propose: …'. Repository split wording that allows several specs per repository."
+  out: "Any skills change, the frame split and outcome_format — 2026-11-05-862eb. The proposal floor (no proposal before the operator replied to an answer) stays. No classifier or heuristic over message text. No new proposal rule, no contract readers or slices (6768b dropped). The steward's prompt and surface gain nothing."
+
+steps:
+  - id: contracts
+    action: "Contracts: record WorkPicture(UndertakingKind Kind, string Truth, UndertakingSize Size), enums UndertakingKind {Rebuild, Feature, Fix, Document} (Document = writing documentation as the work, not the document outcome) and UndertakingSize {OneSpec, Series, Plan}, WorkPictureLimits.Truth = 300 and WorkPictureLimits.Stored = 2000 (the serialized JSON, escaping included); SpecDialogReplySlot.WorkPicture; ContextKeys.SpecDialogWorkPicture with a one-line summary (file reaches 120)."
+  - id: tool
+    action: "WorkPictureToolHost: state_work_picture(kind, truth, size) parses kind and size case-insensitively (dash or no dash), admits truth as one line of plain prose within the limit, sets slot.WorkPicture (last admitted call wins) and answers 'Stored. State it in one line of your reply.'; a refusal names the rule broken. Built in TicketActToolsFactory on every design turn with a reply slot; added to TicketStewardTools.Excluded."
+  - id: prompt
+    action: "WorkPictureSection.Render(pipeline), one line in SpecDialogPromptFactory above TurnContract, which stays last. None stored: 'No work picture is stored yet. When the operator asks for work, the first line of your answer states it — the kind of undertaking, where the truth lives (which upload, which repositories are scaffolding), the expected size — and you record it with state_work_picture. A question, or a request for a text to take elsewhere, needs none.' Stored: '## Work picture' with kind, truth and size; 'The operator corrects it in a sentence; record a correction with state_work_picture.'; and one reading line by kind — Rebuild: 'Read the truth in full before you say you are ready; the repositories are compared against it.' Feature: 'Read the code the feature touches and every upload the truth names before you say you are ready.' Fix: 'Read the code the fix touches.' Document: none — and one readiness line by size — OneSpec: 'You are ready once the decisions you asked are answered.' Series or Plan: 'You are ready once the truth is read and the cut is agreed with the operator in outline.'"
+  - id: reading
+    action: "DialogReadingLine.Render(pipeline) replaces SpecDialogPromptFactory.cs:51-52: when the sandbox map holds a reference: address, the uploads are the subject — read them before the repositories, every file read_file can open across turns until the coverage says all opened unless the operator names the part that matters, record what each area says with note_reference, then compare the repositories against them; without uploads the current line stays."
+  - id: convergence
+    action: "Reword ProposalContract and FirstAnswer: the first answer carries the work picture, what the uploads and code show (files named), contradictions, and the decisions only the operator can make in one batch; a turn that may propose proposes when an EARLIER reply of the partner said 'Ready to propose: <the cut in one line>' and the operator's reply to it leaves nothing open, or when the operator asks; otherwise it keeps leading and drafts no block. The refusal nudge reuses FirstAnswer."
+  - id: repo-wording
+    action: "Reword DialogScopeRepositoriesSection and DialogDraftRepos.EpicSplit keeping the epic as the vehicle: work that changes several repositories is an epic whose children each name one repository, and a repository may carry several children — a definition used across repositories can be its own child ahead of those that use it. The SpecReposRule split refusal and ScopeRepositoriesPromptSection drop 'one spec per repository, the dependent second' for 'specs that each name one repository; a repository may carry several'. No new check."
+  - id: persistence
+    action: "SpecDialogSession.WorkPictureJson (string?, HasMaxLength PersistenceLimits.WorkPicture, set from WorkPictureLimits.Stored as ConversationSubject is set from its Contracts bound); SpecDialogSessionMapper.WriteWorkPicture serializes with the mapper's own JSON options (string enums); migration AddSpecDialogWorkPicture in the SQLite, SQL Server and Postgres sets with snapshots; ConversationState.WorkPicture read by SpecDialogSessionMapper (unreadable JSON maps to null)."
+  - id: store
+    action: "SpecDialogTurnResult gains WorkPicture; the runner passes workPicture: slot.WorkPicture on the existing success call (stays at 120 lines). SpecDialogWorkPictureStore writes it to the row through SpecDialogSessionMapper.WriteWorkPicture and logs and skips a value over the bound; SpecDialogTurnKeeper stores it after appending the reply on any non-failed turn, overwriting a previous one; registered on the line that registers SpecDialogSubjectStore. SpecDialogTurnSeeds seeds ContextKeys.SpecDialogWorkPicture when state has one."
+  - id: page
+    action: "SpecDialogSessionView.WorkPicture (WorkPictureView in its own file, kind and size as camelCase strings, truth; null when none), filled by SpecDialogViewReader through an extracted helper (Session is already over 20 lines); dashboard type in spec-dialog.ts and a DialogWorkPicture component under the heading showing one line, with a vitest test."
+  - id: pinned-tests
+    action: "Update the tests that pin the reworded text, keeping what still holds: DialogScopeRepositoriesSectionTests.cs:23,42 and DialogDraftReposTests.cs:54 (epic stays), SpecReposRuleTests.cs:30-31 and SpecReposDerivationTests.cs:170 (exactly one repository stays), SpecDialogDiscussionPromptTests.cs:29-30,41 and SpecDialogFiledWorkContractTests.cs:53 (the may/may-not contract and its ending), SpecDialogDocumentTests.cs:60 (the document sentence stays in FirstAnswer)."
+  - id: tests
+    action: "Unit tests below, and a PipelineHarness spec-dialog test through ISpecDialogTurnRunner where a scripted master calls state_work_picture on the first turn of a conversation with an upload: the turn result carries the picture, the user prompt carries the uploads-first line and the work-picture note, and a second turn seeded from the stored state renders '## Work picture'."
+
+tests:
+  - "StateWorkPicture_ValidValues_SetsTheSlot"
+  - "StateWorkPicture_UnknownKindOrMultiLineTruth_ReturnsTheRuleAndSetsNothing"
+  - "TicketActToolsFactory_DesignTurn_OffersStateWorkPicture"
+  - "TicketStewardTools_StewardSurface_DropsStateWorkPicture"
+  - "WorkPictureSection_NoneStored_AsksForItInTheFirstAnswer"
+  - "WorkPictureSection_Stored_RendersValuesAndTheLinesItsKindAndSizeSelect"
+  - "DialogReadingLine_TurnWithUploads_PutsUploadsBeforeRepositories"
+  - "DialogReadingLine_TurnWithoutUploads_KeepsTheCodeMapLine"
+  - "SpecDialogPromptFactory_MayPropose_NamesReadyToProposeAndOperatorRequest"
+  - "DialogScopeRepositoriesSection_TwoRepositories_AllowsSeveralSpecsPerRepository"
+  - "DialogDraftRepos_MultiRepoSpec_RefusalAllowsSeveralSpecsPerRepository"
+  - "SpecReposRule_SpecNamingTwoRepositories_RefusalAllowsSeveralSpecsPerRepository"
+  - "SpecDialogSessionMapper_WorkPictureJson_MapsOrNullsWhenUnreadable"
+  - "SpecDialogSessionMapper_WriteWorkPicture_NonAsciiTruthAtTheLimitFitsTheBound"
+  - "SpecDialogRouter_TurnThatStatedAWorkPicture_StoresItBeforeTheReplyIsSent"
+  - "SpecDialogRouter_TurnCorrectingTheWorkPicture_OverwritesIt"
+  - "SpecDialogRouter_FailedTurn_StoresNoWorkPicture"
+  - "SpecDialogViewReader_StoredWorkPicture_ReachesTheView"
+  - "SpecDialogHarness_ScriptedMasterStatesWorkPicture_StoredAndRenderedNextTurn"
+
+done:
+  - when: "the design master calls state_work_picture in a turn that does not fail"
+    then: "the picture is stored on the conversation row before the reply is sent, the page shows it under the heading, and the next turn's prompt renders it"
+  - when: "a later turn calls state_work_picture with other values"
+    then: "the stored picture is replaced by the new one"
+  - when: "a turn runs in a conversation that holds an upload"
+    then: "its prompt says to read the uploads before the repositories and carries no 'answer from the code map' line"
+  - "No prompt text outside .agentsmith/ tells the model to cut one spec or child per repository with the dependent one second."
+  - "WorkShape is unchanged and no code reads message text to decide a work picture."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -36,17 +36,7 @@ public sealed class SpecDialogViewReader(
         var ticket = state is null ? null : Ticket(await ticketText.GetAsync(state.JobId, cancellationToken));
         return new SpecDialogView(
             dialogId,
-            state is null ? null : Session(dialogId, state, latest, held!.Images, ticket) with
-            {
-                References = held.References,
-                UploadBytes = held.Bytes,
-                UploadCapBytes = ReferenceUploadLimits.MaxConversationBytes,
-                SeesImages = held.Sight?.Images ?? true,
-                SeesUploadedImages = held.Sight?.UploadedImages ?? true,
-                ImageCount = held.ImageCount,
-                Mocks = await MocksAsync(state.JobId, cancellationToken), // 2026-10-13-8762r: no bytes
-                RatifiedMocks = RatifiedMocks.Of(state.Transcript) is { Count: > 0 } ratified ? ratified : null,
-            },
+            state is null ? null : await HeldAsync(Session(dialogId, state, latest, held!.Images, ticket), state, held, cancellationToken),
             projects.All(),
             asked,
             state is null || asked is not null
@@ -93,6 +83,22 @@ public sealed class SpecDialogViewReader(
             card,
             ticket);
     }
+
+    // What the conversation holds beside its turns: uploads, mocks, ratified versions and 2026-11-05-862ea its work picture.
+    private async Task<SpecDialogSessionView> HeldAsync(
+        SpecDialogSessionView session, ConversationState state, ConversationUploadsView held, CancellationToken ct) =>
+        session with
+        {
+            References = held.References,
+            UploadBytes = held.Bytes,
+            UploadCapBytes = ReferenceUploadLimits.MaxConversationBytes,
+            SeesImages = held.Sight?.Images ?? true,
+            SeesUploadedImages = held.Sight?.UploadedImages ?? true,
+            ImageCount = held.ImageCount,
+            Mocks = await MocksAsync(state.JobId, ct), // 2026-10-13-8762r: no bytes
+            RatifiedMocks = RatifiedMocks.Of(state.Transcript) is { Count: > 0 } ratified ? ratified : null,
+            WorkPicture = WorkPictureView.Of(state.WorkPicture),
+        };
 
     private async Task<IReadOnlyList<SpecDialogMockView>?> MocksAsync(string sessionId, CancellationToken ct) =>
         mocks is null ? null : (await mocks.ListAsync(sessionId, ct)) is { Count: > 0 } held

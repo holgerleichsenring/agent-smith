@@ -34,6 +34,9 @@ internal static class PackagedMaster
     /// <summary>Any file of the pinned catalog by its path inside the tarball.</summary>
     internal static string ReadEntry(string path) => ReadEntry(Catalog, path);
 
+    /// <summary>A catalog reference by its slug, as outcome_format and {{ref:slug}} read it.</summary>
+    internal static string Reference(string slug) => ReadEntry(Catalog, $"references/{slug}.md");
+
     private static string ReadEntry(EmbeddedSkillsCatalog catalog, string path)
     {
         ArgumentNullException.ThrowIfNull(catalog);

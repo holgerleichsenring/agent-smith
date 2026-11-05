@@ -38,11 +38,15 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// reads the head it moved to. Off by default, so every head stays the one fixed sha.</summary>
     public bool AdvancesHeadOnCommit { get; set; }
 
+    /// <summary>2026-11-04-6768a: a git command whose space-joined argv starts with a key exits with its code
+    /// and says its output — empty by default, so every git command keeps its stub answer.</summary>
+    public Dictionary<string, (int ExitCode, string Output)> GitAnswers { get; } = new(StringComparer.Ordinal);
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
         var sandbox = new StubSandbox(
             MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers,
-            AdvancesHeadOnCommit);
+            AdvancesHeadOnCommit, GitAnswers);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

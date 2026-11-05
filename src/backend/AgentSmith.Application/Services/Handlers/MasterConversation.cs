@@ -31,11 +31,13 @@ public sealed class MasterConversation
     private readonly List<ChatMessage> _messages = [];
 
     /// <summary>
-    /// The first pass: the master's own turn — composed exactly as the runner puts it on
-    /// the wire, so ticket images survive into the thread — and everything it answered with.
+    /// The first pass: the thread it continued (a dialog turn's replayed history), the master's own turn — composed
+    /// exactly as the runner puts it on the wire, so ticket images survive into the thread — and everything it
+    /// answered with.
     /// </summary>
     public void Opened(AgenticLoopRequest request, ChatResponse? response)
     {
+        if (request.PriorMessages is { Count: > 0 } prior) _messages.AddRange(prior);
         _messages.Add(LoopUserMessage.Compose(request.UserPrompt, request.UserImageParts));
         Append(response);
     }

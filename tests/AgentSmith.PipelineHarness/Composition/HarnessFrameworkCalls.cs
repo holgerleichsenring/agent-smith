@@ -87,6 +87,17 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
         return this;
     }
 
+    private readonly Dictionary<int, (string Premise, string Pattern, string Path)> _searchedPerCall = [];
+
+    /// <summary>2026-11-04-6768a: the Nth check takes a search through the look it is handed — minted as the
+    /// real search tool mints one, pattern included — and reports the premise false citing that look. The
+    /// admission is stood down here, so the finding carries the cited id it would have set.</summary>
+    internal HarnessSpecPremiseChecker FindsBySearchOnCall(int call, string premise, string pattern, string path)
+    {
+        lock (_searchedPerCall) _searchedPerCall[call] = (premise, pattern, path);
+        return this;
+    }
+
     public Task<PremiseCheck> CheckAsync(
         SpecDraft draft, SpecPremises premises, DerivationLook look,
         IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes, string key, AgentConfig agent,
@@ -105,9 +116,23 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
         }
         PremiseFinding[]? against;
         lock (_perCall) _perCall.TryGetValue(call, out against);
+        (string Premise, string Pattern, string Path) searched;
+        bool searches;
+        lock (_searchedPerCall) searches = _searchedPerCall.TryGetValue(call, out searched);
+        if (searches) against = [Searched(look, searched.Premise, searched.Pattern, searched.Path)];
         return Task.FromResult(against is null or { Length: 0 }
             ? PremiseCheck.Held
             : new PremiseCheck(against, []));
+    }
+
+    private static PremiseFinding Searched(DerivationLook look, string premise, string pattern, string path)
+    {
+        var repository = look.Repositories[0];
+        var what = $"grep -E '{pattern}' {path}";
+        var id = look.Evidence.Remember(new EvidenceRecord(
+            repository, EvidenceRecord.Search, what, 1, Ran: true, path, Pattern: pattern));
+        return new PremiseFinding(premise, "no-longer-holds", $"'{pattern}' now matches", id,
+            look.Evidence.Looks.Single(l => l.Id == id).Line, $"{repository}: {what}", CitedId: id);
     }
 }
 

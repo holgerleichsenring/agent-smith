@@ -12,6 +12,9 @@ namespace AgentSmith.Tests.Skills;
 /// 2026-08-28-3302: no longer armed at the pin. The pinned catalog carries the minted
 /// placeholder, and an assertion that skips itself below a floor reads as one that holds.
 /// </para>
+/// <para>
+/// 2026-11-05-862ec: the example ids moved with the spec and epic formats into their references.
+/// </para>
 /// </summary>
 public sealed class DesignPartnerPlaceholderTests
 {
@@ -20,7 +23,9 @@ public sealed class DesignPartnerPlaceholderTests
     [Fact]
     public void PackagedDesignPartner_PlaceholderMatchesAValidatingShape()
     {
-        var master = PackagedMaster.Read("design-partner-master");
+        var master = PackagedMaster.Read("design-partner-master")
+            + PackagedMaster.Reference("design-outcome-spec")
+            + PackagedMaster.Reference("design-outcome-epic");
 
         master.Should().NotMatchRegex(
             @"\bpNNNN",
