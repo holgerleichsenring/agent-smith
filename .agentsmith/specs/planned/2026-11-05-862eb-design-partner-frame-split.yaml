@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-05-862eb
+goal: "A skills PR splits the design-partner frame: role, stance and reading stay, outcome formats move to catalog references served by a new outcome_format(kind) tool on the proposing turn."
+requires: [2026-11-05-862ea]
+
+applies_to: "default (Application design-master tools) and the agent-smith-skills repository (design-partner-master SKILL.md, catalog references)"
+
+facts:
+  - claim: "The deployed design-partner master (pin v5.23.0, master 1.20.0) resolves to about 42,830 characters (about 10.7k tokens at chars/4) with its three references inlined; everything from 'Writing a document' on is 15,264 characters, and memory-discipline plus source-precedence take about 8.7k."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54; observed: 2026-11-05, agentsmith-skills-v5.23.0.tar.gz skills/_masters/design-partner-master/SKILL.md resolved as SkillBodyResolver does"
+  - claim: "The skill tells the master the code map is tier 1 and source reads an escalation with real cost, to read narrowly — the files the question implicates, not the tree."
+    evidence: "observed: 2026-11-05, agent-smith-skills tag v5.23.0 skills/_masters/design-partner-master/SKILL.md lines 38-53"
+  - claim: "The skill says the work has converged when the operator has replied to an answer and nothing is open, and only then to propose; it says twice that work across several repositories is one spec, which the server's one-repository-per-spec rule contradicts."
+    evidence: "observed: 2026-11-05, agent-smith-skills tag v5.23.0 skills/_masters/design-partner-master/SKILL.md lines 247-250, 262-264, 286-301; src/backend/AgentSmith.Application/Services/Specs/SpecReposRule.cs:45-77"
+  - claim: "The master body is rendered by plain token replacement over the catalog SKILL.md with {{ref:slug}} inlined one level deep from the catalog's references/ folder; nothing includes or excludes part of a body per turn."
+    evidence: "src/backend/AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs:62-94; src/backend/AgentSmith.Infrastructure.Core/Services/SkillBodyResolver.cs:29-65; src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogSkillReferenceSource.cs:14-25"
+  - claim: "The system prompt is one automatic cache prefix, so a body that differed between turns would miss the cache on every switch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:300-303; src/backend/AgentSmith.Contracts/Models/Configuration/CacheConfig.cs:8-9"
+  - claim: "ISkillReferenceSource (singleton) returns a references/<slug>.md body or null when the pinned catalog does not ship it; TicketActToolsFactory is transient and is also built by hand in two tests."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ISkillReferenceSource.cs:9-17; src/backend/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs:86; src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:108; tests/AgentSmith.Tests/Handlers/MasterHandlerFixture.cs; tests/AgentSmith.Tests/Derivation/DeriveSpecsToolTests.cs"
+  - claim: "Design-master tools are built in TicketActToolsFactory, joined outside the base surface; the steward drops a named exclusion list."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:18-38; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:86; src/backend/AgentSmith.Application/Services/Tools/TicketStewardTools.cs:14-17"
+  - claim: "A validation or review-cuts re-prompt reuses the request's tools within the same master conversation, so a tool result from earlier in the turn is still in context."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:42-65; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:391-392"
+  - claim: "The skills repository's validation checks only that cited references exist, cite no reference and carry no placeholder, and its package ships all of references/, so a reference no master cites is allowed."
+    evidence: "observed: 2026-11-05, agent-smith-skills tag v5.23.0 scripts/validate-skills.sh lines 139-167 and package.sh"
+
+assumptions:
+  - "A gpt-5.6-class model calls outcome_format before drafting when the frame says so; a draft written without it still meets the schema validation and its one re-prompt."
+
+scope:
+  in: "Skills PR: design-partner-master rewritten (major version) as role, stance (lead: anticipate, read, state contradictions, ask the decisions that matter in one batch, push through), reading (uploads first when present, repositories compared against them, code map for orientation), work picture, convergence by 'Ready to propose: …', a one-line-per-kind outcome list and the merge/branch-state shape test; formats moved to references design-outcome-spec, -bug, -epic, -tickets, -comment; the master stops citing writing-documents, which outcome_format('document') serves. Server: outcome_format(kind) on design turns, with a fallback that keeps the current pin coherent."
+  out: "Pin bump, pinned-catalog tests, size measurement, frame harness test and live replay — 2026-11-05-862ec, after the release. Conditional SKILL.md sections or a per-turn system prompt. Memory-discipline and source-precedence references. The ticket steward master. Merging the skills PR."
+
+steps:
+  - id: skills-frame
+    action: "In agent-smith-skills, branched from main: rewrite skills/_masters/design-partner-master/SKILL.md with the sections in scope.in, at most 26,000 characters resolved; v5.23.0 lines 86-222 (Reading a design, Reading a website/mock/design system, Conversation style) stay verbatim except the Figma ticket-criteria paragraph (109-122) and the upload-citation paragraph (196-206), which move to design-outcome-spec, and the grounding text at 38-53, which the uploads-first reading section replaces; remove both one-spec-across-repositories sentences (v5.23.0 lines 247-250 and 262-264); the outcome list says to call outcome_format(kind) before drafting or re-drafting any block, including after a review's cuts or an operator's edit note."
+  - id: skills-references
+    action: "Add references/design-outcome-spec.md (Drafting a spec, the Figma ticket-criteria and upload-citation paragraphs, Operator edits, the review-cuts line), -epic.md, -tickets.md (each with its filing paragraph from 'When spec and epic both look right'), -bug.md, -comment.md (with the bound-ticket comment bullets); text verbatim except the removed sentences; no reference cites a reference or carries a placeholder."
+  - id: skills-pr
+    action: "Run the skills repository's validation, open the PR with a conventional title (feat: …); merging it and the release-please PR is the operator's."
+  - id: tool
+    action: "OutcomeFormatToolHost(ISkillReferenceSource): outcome_format(kind) with kind spec|bug|epic|tickets|comment|document returns the reference text (epic returns spec then epic; document returns writing-documents); an unknown kind names the valid ones; a catalog without the reference answers that the formats are in the master's own instructions. Built in TicketActToolsFactory on design turns (the two hand-built factories in MasterHandlerFixture and DeriveSpecsToolTests get the new argument); added to TicketStewardTools.Excluded."
+
+tests:
+  - "OutcomeFormat_Epic_ReturnsSpecThenEpicFormat"
+  - "OutcomeFormat_Document_ReturnsWritingDocuments"
+  - "OutcomeFormat_UnknownKind_NamesTheValidKinds"
+  - "OutcomeFormat_CatalogWithoutReference_PointsAtTheMastersInstructions"
+  - "TicketActToolsFactory_DesignTurn_OffersOutcomeFormat"
+  - "TicketStewardTools_StewardSurface_DropsOutcomeFormat"
+
+done:
+  - when: "a design turn's master calls outcome_format with a kind on a catalog that ships the reference"
+    then: "it receives that kind's format"
+  - when: "it calls outcome_format for any kind other than document on the current v5.23.0 pin"
+    then: "it is told the formats are in its own instructions, and the turn proceeds as today"
+  - "The skills PR is open with a conventional title, passes the skills repository's validation, and its design-partner master resolves to at most 26,000 characters with no outcome format and neither one-spec-across-repositories sentence."
+  - "Build green, full suite green, dashboard gen/test/build green."

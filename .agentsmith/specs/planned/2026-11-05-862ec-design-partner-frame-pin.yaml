@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-05-862ec
+goal: "The embedded skills pin moves to the release carrying the split design-partner frame; tests prove the frame is at most 26,000 characters and formats arrive only through outcome_format."
+requires: [2026-11-05-862eb]
+
+applies_to: "default (embedded skills pin, pinned-catalog tests, PipelineHarness)"
+
+facts:
+  - claim: "The last pin bump changed SkillsCatalogVersion and SkillsCatalogSha256 in the csproj, swapped the tarball under Resources, and touched config/agentsmith.example.yml, three docs pages and SkillsConfigValidatorTests."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-56; config/agentsmith.example.yml; observed: 2026-11-05, git show --stat 9a3c35399"
+  - claim: "Eight test classes read the packaged design-partner SKILL.md; DesignPartnerPlaceholderTests and TicketCommentSkillRulesTests parse text inside the format sections, and DesignReferenceRulesTests asserts the writing-documents citation."
+    evidence: "tests/AgentSmith.Tests/Prompts/PackagedMaster.cs:29-35; tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs; tests/AgentSmith.Tests/Skills/SeriesSkillRulesTests.cs; tests/AgentSmith.Tests/Skills/TicketGraphSkillRulesTests.cs; tests/AgentSmith.Tests/Skills/TicketCommentSkillRulesTests.cs:37; tests/AgentSmith.Tests/Skills/ShapeRuleMasterRulesTests.cs; tests/AgentSmith.Tests/Skills/DesignReferenceRulesTests.cs:42; tests/AgentSmith.Tests/Skills/UploadCoverageSkillRulesTests.cs; tests/AgentSmith.Tests/Skills/DesignPartnerPlaceholderTests.cs"
+  - claim: "PackagedMasterPromptCatalog serves the raw SKILL.md without resolving references, and the harness points ISkillsCatalogPath at a fixture catalog; the scan eval swaps in EmbeddedSkillsCatalogPath so the real catalog and reference source resolve the packaged files."
+    evidence: "tests/AgentSmith.PipelineHarness/Evals/PackagedMasterPromptCatalog.cs:13-21; tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs; tests/AgentSmith.PipelineHarness/Evals/ScanEvalComposition.cs"
+
+assumptions:
+  - "The production package and repositories used for the replay are available to the operator on a local server; no agent holds them."
+
+scope:
+  in: "Pin bump to the release of 862eb's skills PR; pinned-catalog tests moved to where their text lives; a size test; a frame-split harness test; the live replay as operator-supplied evidence."
+  out: "Any further skills change. The live replay's run is the operator's; this spec states its expectation."
+
+steps:
+  - id: pin
+    action: "Bump SkillsCatalogVersion, SkillsCatalogSha256 and the Resources tarball to the release, with config/agentsmith.example.yml, the docs pages and SkillsConfigValidatorTests as in 9a3c35399."
+  - id: pinned-tests
+    action: "Move each pinned-catalog assertion to where its text now lives (PackagedMaster.ReadEntry of references/design-outcome-*.md, including the placeholder and comment-block parses); DesignReferenceRulesTests asserts outcome_format serves writing-documents instead of the citation; replace the 'Discussion comes first' and cheap-tier assertions with the convergence, uploads-first and work-picture sentences; an assertion whose sentence was reworded is re-pinned to the new sentence carrying the same rule, and none is deleted without naming the rule it dropped in the decisions file."
+  - id: measure
+    action: "DesignPartnerFrameSizeTests over the embedded catalog: the design-partner body resolved through SkillBodyResolver is at most 26,000 characters, carries no '```outcome', no 'kind: epic' and no '## Drafting a spec', and every design-outcome reference exists; record the before (about 42,830) and after in the decisions file."
+  - id: harness
+    action: "PipelineHarness test with EmbeddedSkillsCatalogPath (as ScanEvalComposition does) so the real prompt catalog and CatalogSkillReferenceSource resolve the packaged files: a first turn's system prompt carries no format; a discussed turn where the scripted master calls outcome_format('epic') gets the epic format back and its following epic block is accepted as an EpicOutcome."
+  - id: live
+    action: "State the replay for the operator: the same 66-file package uploaded to a new conversation over the same three boilerplate repositories, the operator's original first sentence as the first message, on a local server with this pin."
+
+tests:
+  - "DesignPartnerFrameSize_EmbeddedCatalog_BodyAtMost26000CharsAndCarriesNoFormat"
+  - "DesignPartnerFrameSize_EmbeddedCatalog_EveryOutcomeReferenceExists"
+  - "SpecDialogHarness_FrameSplit_FormatArrivesOnlyThroughOutcomeFormat"
+
+done:
+  - "The design-partner master body resolved from the embedded catalog is at most 26,000 characters (v5.23.0: about 42,830) and carries no outcome format; the decisions file records both figures."
+  - "No text in the pinned design-partner master tells it to read narrowly, that one operator reply means converged, or that work across several repositories is one spec."
+  - given: "the 66-file package from the production conversation uploaded to a new conversation over the same three repositories"
+    when: "the operator sends their original first sentence"
+    then: "the first answer states the work picture in its first line (stored and shown on the page), and the turn's trail shows read_file on the upload before any read in a repository"
+  - "Build green, full suite green, dashboard gen/test/build green."

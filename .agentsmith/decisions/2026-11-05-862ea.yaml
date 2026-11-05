@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-05-862ea
+
+decisions:
+  - category: Scope
+    chose: "Drop 2026-11-04-6768b (proposal contract slice): spec file, its decisions file and its state.planned line deleted"
+    over: "Build 6768b beside this series"
+    reason: "6768b added contract readers, a slices list and three mechanical findings to the proposal, while the finding from the production conversation is that the frame already overloads the agent. Its one real finding — the server's 'one child per repository, the dependent second' wording pushed proposals into one whole layer per repository — is taken up here as a rewording with no new check."
+  - category: Architecture
+    chose: "A series: 862ea server side (work picture, uploads-first line, convergence wording, repository wording), 862eb skills frame split, outcome_format, release and pin"
+    over: "One spec across both repositories"
+    reason: "The frame split ships only through a skills release that needs a merge in another repository; the server half ships complete without it and is useful on the current pin, as name_conversation was (96a0a)."
+  - category: Architecture
+    chose: "Work picture stated by the model through a state_work_picture tool and stored in one nullable JSON column"
+    over: "A classifier call, a heuristic over message text, a marker parsed from the reply, or reusing WorkShape"
+    reason: "The operator's direction is that the partner states it. A tool is the existing pattern for a model-stated conversation field (name_conversation) and refuses bad values back to the model; a reply marker would be a second grammar inside the one the outcome resolver parses (96a0a facts). WorkShape (deterministic/judgement/mixed) is the derivation's cutting dimension, not the kind of undertaking."
+  - category: Implementation
+    chose: "Kind and size are closed enums; truth is one line of prose"
+    over: "Free text for all three"
+    reason: "The picture selects a reading line and a readiness line in the prompt, which needs values code can switch on. Truth names uploads and repositories and has no closed set."
+  - category: Implementation
+    chose: "A correction overwrites the stored picture"
+    over: "Store once, like the subject"
+    reason: "The brief makes it correctable by the operator in a sentence; the partner records the correction with the same tool."
+  - category: Implementation
+    chose: "Keep the proposal floor (no proposal before the operator replied to an answer); reword only what an allowed turn is told"
+    over: "Drop the floor so the operator can ask for a proposal on the very first turn"
+    reason: "Nothing structural tells the server a first message asks for a proposal without reading its text. The floor guarantees the first answer, which now carries the work picture. 'Any time' therefore means any time after the first answer — a deviation from the brief's wording."
+  - category: Implementation
+    chose: "Uploads-first line selected by the presence of a reference: address in the turn's sandbox map"
+    over: "Selecting it from the work picture or from the operator's wording"
+    reason: "Whether uploads exist is data the turn already holds; the brief says uploads are worth considering by default."
+  - category: Scope
+    chose: "Reword the derivation's ScopeRepositoriesPromptSection too"
+    over: "Dialog texts only"
+    reason: "It carries the same 'one per repository, the dependent second' sentence, so a derivation would keep cutting whole layers after the dialog stopped."

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-05-862ec
+
+decisions:
+  - category: Implementation
+    chose: "The frame harness test runs on EmbeddedSkillsCatalogPath, as the scan eval does"
+    over: "PackagedMasterPromptCatalog with a hand-made reference source"
+    reason: "PackagedMasterPromptCatalog serves the raw SKILL.md without resolving references, so 'no format in the system prompt' would pass even with a format cited; the real catalog and CatalogSkillReferenceSource prove what production serves."
+  - category: Scope
+    chose: "The live replay is operator-supplied evidence"
+    over: "An agent step"
+    reason: "It needs the production package and a local server with the operator's repositories, which no agent holds."
