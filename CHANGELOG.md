@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.176.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.175.2...v0.176.0) (2026-11-05)
+
+
+### Features
+
+* a design turn says how much of each upload was read (2026-11-04-96a0c) ([3964e96](https://github.com/holgerleichsenring/agent-smith/commit/3964e968a9307dfe7cdfe7ca8d65eff20c0da670))
+* a design turn says which uploads it did not read (2026-11-04-96a0b) ([20b506a](https://github.com/holgerleichsenring/agent-smith/commit/20b506acd46c5ed4e901252d446422fb1c57bd0f))
+* an inline-ticket run asks a derivation question in the terminal and derives again with the answer in the same run (2026-11-04-9e8c) ([71d5503](https://github.com/holgerleichsenring/agent-smith/commit/71d55030c5da2d19fccb09b43d1b6a0f191aaab6))
+* an inline-ticket run asks a standing review objection in the terminal and builds on the default reading; other inline hand-backs end printing their question, not a park-status failure (2026-11-02-2b26d) ([1a23d07](https://github.com/holgerleichsenring/agent-smith/commit/1a23d07fe1e0252cbc7f5101e55a4642d5956952))
+* an inline-ticket run asks the master's mid-run question in the terminal and the master goes on with the answer (2026-11-02-2b26e) ([7545c87](https://github.com/holgerleichsenring/agent-smith/commit/7545c876a387f67406cf893d7eedd0d2aa49af63))
+* the demo runs on one LLM key with no config file, and a missing config ends any verb with its message instead of a stack trace (2026-11-02-2b26a) ([f35b8aa](https://github.com/holgerleichsenring/agent-smith/commit/f35b8aa6adc8f6643e5eefd7f4ec5566fe84a886))
+* the design partner names its conversation (2026-11-04-96a0a) ([79ac280](https://github.com/holgerleichsenring/agent-smith/commit/79ac2807601417c1e36fc97ab0230ff003b35736))
+
+
+### Bug Fixes
+
+* a design turn relays only questions asked after it started (2026-11-04-df50a) ([ac6b6dc](https://github.com/holgerleichsenring/agent-smith/commit/ac6b6dc53b0a359a05320e462346e70acc8676da))
+* a done criterion the code does not meet yet is the work, never a refusal or contradiction, in spec review, cut review and the contradiction check (2026-11-02-2b26c) ([9cf2c96](https://github.com/holgerleichsenring/agent-smith/commit/9cf2c966c5cd79ade903e1fc9fdb9858012fc8fe))
+* agent-smith demo runs end to end from an empty directory with one LLM key (2026-11-02-2b26) ([721e127](https://github.com/holgerleichsenring/agent-smith/commit/721e127b5f99e128f6dacba6ac136e87a6f70fe8))
+* parallel spec reviewers each keep their own cost scope, so the second no longer fails and every review runs on all its reviewers (2026-11-02-2b26b) ([49cf5f7](https://github.com/holgerleichsenring/agent-smith/commit/49cf5f7d3b99ce77885c9a5aa3793aa49c7f2dd2))
+* spec dialog questions, live-config filing, conversation names and upload coverage (2026-11-04-df50a, df50b, 96a0a-c) ([3cae9b5](https://github.com/holgerleichsenring/agent-smith/commit/3cae9b5e220da1e853b295165cf0a54d0464c0b0))
+* spec-dialog filing reads the live configuration (2026-11-04-df50b) ([aa59023](https://github.com/holgerleichsenring/agent-smith/commit/aa59023f63854b0e78d7234b9a33c17045e2afc1))
+* the CLI keeps Entity Framework's SQL out of a run's output unless --verbose (2026-11-02-2b26f) ([33a7f09](https://github.com/holgerleichsenring/agent-smith/commit/33a7f09265b0cfb4f0a6c93150949c4731ac409f))
+* the premise check keeps its own wording, so it no longer files a premise it found holding as broken (2026-11-04-0647) ([4cbc733](https://github.com/holgerleichsenring/agent-smith/commit/4cbc733f5f8818ae10ce0eed157cdd2d503c787c))
+
 ## [0.175.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.175.1...v0.175.2) (2026-10-29)
 
 
