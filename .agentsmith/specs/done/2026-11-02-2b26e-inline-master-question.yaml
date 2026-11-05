@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26e
+goal: "When the coding master asks a mid-run question on an inline-ticket run, the question is asked in the terminal and the master goes on with the answer."
+
+applies_to: "default (MasterOpenQuestionsHandler, MasterAnswerIntake, inline-ticket runs)"
+
+requires: [2026-11-02-2b26d]
+
+facts:
+  - claim: "The code preset's spec block runs AgenticMaster then MasterOpenQuestions, and with a ticket the master gets TicketClarificationToolHost; inline runs have a ticket, so their questions go to MasterOpenQuestionsHandler."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:254-259"
+  - claim: "The handler first tries a resumed answer, then resolves a park status and fails when there is none — the same failure as the spec hand-back."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:48-55"
+  - claim: "Reengage only splices AgenticMaster + MasterOpenQuestions and names the answer in its message; the master sees an answer only through ContextKeys.PlanAnswers, which the intake writes while clearing MasterOpenQuestions and OpenQuestionsAwaitingAnswer."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:90-94, src/backend/AgentSmith.Application/Services/Triage/MasterAnswerIntake.cs:39-42"
+  - claim: "MasterQuestionCheckpoint.Compose builds the DialogQuestion with no default answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterQuestionCheckpoint.cs:75, src/backend/AgentSmith.Application/Services/Triage/MasterQuestionCheckpoint.cs:86"
+  - claim: "With stdin at EOF the console transport returns null and the gate falls back to DefaultAnswer ?? \"\"; an inline run has no TicketId, so the gate cannot checkpoint and waits in memory."
+    evidence: "src/backend/AgentSmith.Cli/Services/ConsoleDialogueTransport.cs:86-92, src/backend/AgentSmith.Application/Services/Resume/DialogueAskGate.cs:53-55, src/backend/AgentSmith.Application/Services/Resume/DialogueAskGate.cs:66-72"
+  - claim: "The handler is 95 lines with a 43-line ExecuteAsync; principles cap methods at 20 and classes at 120 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:40-83, .agentsmith/contexts/default/principles.md:25-26"
+
+scope:
+  in: >
+    InlineMasterAsk(IDialogueAskGate, IMasterAnswerIntake), its own class; the handler gets one
+    pipeline.Has(ContextKeys.InlineTicket) branch after the resumed-answer check. It asks
+    Compose(...) with { DefaultAnswer = "No answer was given — proceed on your best reading and record the assumption." },
+    a blank answer counts as that default and is printed as such; then IMasterAnswerIntake.Accept(pipeline, questions,
+    answer) — the write half of the intake lifted out (PlanAnswers merge, clear MasterOpenQuestions and
+    OpenQuestionsAwaitingAnswer; no second trail write, the gate records). Accept writes '{question text} — {answer}' and
+    keys inline asks by round (1, 2, ...) so a later ask never drops an earlier answer. Then Reengage. 'Redirected' means stdin at EOF yielding that default; no new IsInputRedirected check. A pipeline key per SpecId counts asks answered by
+    'system' (the default): the first re-engages; the next on the same spec removes MasterOpenQuestions and returns
+    Fail naming the question. InlineMasterAsk is registered in AddMasterQuestionParking. A Parked outcome is unreachable on an inline run and fails with that reason.
+  out: "Tracker-backed runs, which keep parking."
+
+decisions:
+  - key: "THE GATE, NOT HUMANTOOLHOST. Seeding DialogueJobId changes nothing while parksMasterQuestions is checked first, and HumanToolHost waits a fixed five minutes and records no trail; the gate already prints, waits and records."
+  - key: "LIFT THE INTAKE'S WRITE HALF. The answer reaches the master only through PlanAnswers; duplicating that dictionary logic in a second place is how the two drift."
+
+steps:
+  - id: intake
+    action: "IMasterAnswerIntake.Accept extracted; TryDeliverAsync uses it."
+  - id: ask
+    action: "InlineMasterAsk and the branch; constructors updated in MasterQuestionResumeTests, MidRunQuestionIsAnswerableTests, ParkRecordsARefusedMoveTests."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "InlineMasterAskTests.InlineRun_AsksAndReengagesWithTheAnswer"
+  - "InlineMasterAskTests.Answer_ReachesPlanAnswers_AndClearsTheQuestion"
+  - "InlineMasterAskTests.SplicedSecondStep_FindsNoQuestion"
+  - "InlineMasterAskTests.EofInput_GivesTheNamedDefault_NotEmpty"
+  - "InlineMasterAskTests.AskedAgainAfterDefault_ReengagesOnceThenFails_AndClearsTheQuestion"
+  - "InlineMasterAskTests.TwoAsks_BothQuestionAnswerPairsInPlanAnswers"
+  - "InlineMasterAskTests.BlankChoiceAnswer_TakesTheDefault"
+  - "InlineMasterAskTests.Handler_ResolvesFromTheRealProvider"
+
+done:
+  - "An inline run whose master asks a question no longer fails for a missing park status; the master's next prompt carries the answer."
+  - "Build green, full suite green, dashboard gen/test/build green."

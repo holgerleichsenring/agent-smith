@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26a
+goal: "`agent-smith demo` in an empty directory with only OPENAI_API_KEY or ANTHROPIC_API_KEY set runs; a missing or broken config ends a CLI verb with its message, not a stack trace."
+
+applies_to: "default (CLI: DemoCommand, ConfigDiscovery, CliRootCommand)"
+
+facts:
+  - claim: "With no config file found, discovery returns the literal 'config/agentsmith.yml'; './agentsmith.yml' is never looked up; --config defaults to discovery."
+    evidence: "src/backend/AgentSmith.Cli/ConfigDiscovery.cs:7-25, src/backend/AgentSmith.Cli/Commands/CliRootCommand.cs:13"
+  - claim: "The demo throws during DI resolution, before its preflight: DemoExecutor -> LlmReachableCheck -> ChatClientFactory -> IEventPublisher -> CliRunStore -> AgentSmithConfig, whose factory loads the file by path."
+    evidence: "src/backend/AgentSmith.Cli/Commands/DemoCommand.cs:40-41, src/backend/AgentSmith.Cli/Services/CliRunStore.cs:16, src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:75-76, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/YamlConfigurationLoader.cs:75"
+  - claim: "The config is loaded by path again in the demo runner and twice in the use case, so an in-memory config would have to replace three loaders."
+    evidence: "src/backend/AgentSmith.Cli/Services/Demo/DemoRunner.cs:26, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:261, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:518"
+  - claim: "The default demo workspace path is computed inside DemoRunner, after the provider is built."
+    evidence: "src/backend/AgentSmith.Cli/Services/Demo/DemoRunner.cs:62-63"
+  - claim: "Program has no exception handler; System.CommandLine beta4 prints the whole exception. RunCommand's own catch prints 'Fatal: {ex}' but the config loads before it, at provider resolution."
+    evidence: "src/backend/AgentSmith.Cli/Program.cs:7, src/backend/AgentSmith.Cli/AgentSmith.Cli.csproj:27, src/backend/AgentSmith.Cli/Commands/RunCommand.cs:62-66"
+  - claim: "An unresolvable config raises a multi-line 'Configuration error(s):' message."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/YamlConfigurationLoader.cs:59-60"
+  - claim: "The openai and claude builders read OPENAI_API_KEY / ANTHROPIC_API_KEY from the environment when no api_key_secret is set; azure_openai needs an endpoint that only config supplies."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:96-111, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:97-104, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:56"
+  - claim: "Unknown YAML keys are ignored on load, so only the real loader plus validator proves a generated file."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/YamlConfigurationLoader.cs:88"
+  - claim: "Tests that swap Console.Error run in the ConsoleOut collection."
+    evidence: "tests/AgentSmith.Tests/Cli/Commands/ConfigImportRefusalTests.cs:16"
+  - claim: "first-run.md tells the reader to put agentsmith.yml in the working directory, which discovery never reads."
+    evidence: "docs/get-it-running/first-run.md:12, docs/get-it-running/first-run.md:55"
+  - claim: "On v0.175.2 in an empty directory, `agent-smith demo` printed 'Unhandled exception: ConfigurationException: Configuration file not found: config/agentsmith.yml' and 88 lines of stack."
+    evidence: "observed: 2026-11-02, release binary osx-arm64, empty scratch directory"
+
+scope:
+  in: >
+    DemoCommand: only when --config was NOT given (the option result is implicit) and discovery found no file, the
+    workspace path is computed in DemoCommand (moved out of DemoRunner) and DemoConfigFile writes
+    Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspace)) + '.agentsmith.yml', a sibling outside the workspace; an existing file is returned untouched (null means only that neither key is set): one
+    openai agent (gpt-4.1 / gpt-4.1-mini) when OPENAI_API_KEY is non-empty, else one claude agent (claude-sonnet-4-6 /
+    claude-haiku-4-5) when ANTHROPIC_API_KEY is non-empty. Its path is printed and the demo runs against it. With neither
+    key: one line naming both variables and the three discovery paths, exit 1. An explicit --config to a missing file
+    is never replaced. CliRootCommand.BuildParser() installs a handler: ConfigurationException prints ex.Message
+    (as is, lists included) to stderr without a stack, exit 1; any other exception keeps the default print; for a not-found config the handler adds the three discovery paths from
+    ConfigDiscovery. The shared loader's and FileConfigStore's messages stay unchanged. first-run.md names the paths too.
+  out: "Azure OpenAI without a file (needs an endpoint). ConfigurationExceptions raised later inside a use case keep RunCommand's own 'Fatal:' print."
+
+decisions:
+  - key: "A GENERATED FILE, NOT AN IN-MEMORY CONFIG. Three loaders read the config by path; a file keeps them untouched and leaves the reader something to copy for step 2."
+  - key: "IMPLICIT --config ONLY. A typo in an explicit --config must fail, not be silently replaced by a demo config."
+
+steps:
+  - id: workspace
+    action: "Default workspace path computed in DemoCommand and passed in DemoInvocation."
+  - id: config-file
+    action: "DemoConfigFile.TryWrite(env, workspacePath) -> path or null; DemoCommand uses it under the implicit-option condition."
+  - id: parser
+    action: "CliRootCommand.BuildParser() with the exception handler; Program calls it."
+  - id: message
+    action: "ConfigDiscovery exposes its search paths; the no-key line and the not-found handler print them."
+  - id: docs
+    action: "first-run.md: the discovery order and that the demo needs no file."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "DemoConfigFileTests.TryWrite_OpenAiKeySet_WritesOpenAiAgent"
+  - "DemoConfigFileTests.TryWrite_OnlyAnthropicKeySet_WritesClaudeAgent (also with OPENAI_API_KEY empty)"
+  - "DemoConfigFileTests.TryWrite_NoKey_ReturnsNull"
+  - "DemoConfigFileTests.TryWrite_FileExists_ReturnsItsPathUnchanged"
+  - "DemoConfigFileTests.TryWrite_WorkspaceWithTrailingSeparator_WritesOutsideIt"
+  - "DemoConfigFileTests.Generated_LoadsAndValidates (openai and claude, real loader + validator, no findings)"
+  - "DemoCommandTests.ExplicitMissingConfig_DoesNotGenerate"
+  - "CliErrorTests.MissingConfig_PrintsMessageWithoutStack_ExitsOne ([Collection(\"ConsoleOut\")])"
+
+done:
+  - "In an empty directory with OPENAI_API_KEY set, `agent-smith demo` reaches the pipeline and prints the generated config's path."
+  - "With no key and no file it prints one line naming OPENAI_API_KEY, ANTHROPIC_API_KEY and the discovery paths, exit 1, no stack trace."
+  - "Any verb that loads the config, given a missing or unparseable one, prints its message without a stack trace, exit 1."
+  - "Build green, full suite green, dashboard gen/test/build green."

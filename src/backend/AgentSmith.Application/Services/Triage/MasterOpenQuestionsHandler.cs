@@ -27,12 +27,15 @@ namespace AgentSmith.Application.Services.Triage;
 /// splicing the master and this step back in front of the remaining block — the master
 /// continues from the answer instead of the run re-asking, or parking, on it.
 /// </para>
+/// <para>2026-11-02-2b26d: an inline-ticket run has no ticket to park on; <see cref="InlineMasterAsk"/> asks in the
+/// terminal instead.</para>
 /// </summary>
 public sealed class MasterOpenQuestionsHandler(
     IPlanOpenQuestionsPoster poster,
     IClarificationParkStatusResolver parkStatus,
     MasterQuestionCheckpoint checkpoint,
     IMasterAnswerIntake answerIntake,
+    InlineMasterAsk inline, // 2026-11-02-2b26d
     Lifecycle.UnmovedTicketReport unmovedTickets,
     ILogger<MasterOpenQuestionsHandler> logger)
     : ICommandHandler<MasterOpenQuestionsContext>
@@ -47,6 +50,8 @@ public sealed class MasterOpenQuestionsHandler(
 
         if (await answerIntake.TryDeliverAsync(context.Pipeline, questions) is { } answer)
             return Reengage(context.Step, answer);
+        if (context.Pipeline.Has(ContextKeys.InlineTicket))
+            return await inline.AskAsync(context.Pipeline, context.Step, questions, cancellationToken);
 
         var status = parkStatus.TryResolve(context.Pipeline, context.TrackerConnection);
         if (status is null)
@@ -87,7 +92,7 @@ public sealed class MasterOpenQuestionsHandler(
 
     // The master, then this step again so a second question parks the same way — the rest
     // of the block (commit, verify, record) is already ahead of the cursor.
-    private static CommandResult Reengage(PipelineCommand step, DialogAnswer answer) =>
+    internal static CommandResult Reengage(PipelineCommand step, DialogAnswer answer) =>
         CommandResult.OkAndContinueWith(
             $"operator answered: {answer.Answer} — re-engaging the master",
             new PipelineCommand(CommandNames.AgenticMaster) { SpecId = step.SpecId },

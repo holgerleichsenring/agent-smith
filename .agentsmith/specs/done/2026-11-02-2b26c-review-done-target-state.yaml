@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26c
+goal: "Spec review, cut review and the contradiction check treat a done criterion as the state after the work: code that does not meet it yet is the work, never a refusal or a contradiction."
+
+applies_to: "default (review and derivation prompts: SpecAttackPrompt, SpecCutVerdicts, SpecCutReviewTicketText, ContradictionCheckPrompt, SpecPromptComposer)"
+
+requires: [2026-09-05-c4e1, 2026-10-13-8762g]
+
+facts:
+  - claim: "The rule already exists once, in the premise check: 'Do NOT report that a completion criterion of the spec is not satisfied yet. That is what the spec is FOR'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:66-68"
+  - claim: "The attack prompt tells the reviewer the spec 'describes the code as it is now'; nothing says a done criterion describes the state after the work. Its brief is verbatim from the plugin."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:17-24, src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:82-86"
+  - claim: "CONTRADICTION is two statements of the same spec; NOT IN THE TICKET is something the ticket never asked for. Both demo runs' cut reviews used these two against the boundary criterion."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutVerdicts.cs:80, src/backend/AgentSmith.Application/Services/Specs/SpecCutVerdicts.cs:87, observed: 2026-11-02, v0.175.2 demo run.log line 3230 and run2.log lines 2469-2470"
+  - claim: "The cut reviewer gets title, description and acceptance criteria joined by blank lines with no labels, so a bug title reads as a statement of the rule."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewTicketText.cs:17-25, src/backend/AgentSmith.Cli/Services/Demo/DemoTicket.cs:13"
+  - claim: "The contradiction check asks only whether the claim is true of the repositories now; 'the code does not do what the ticket asks' is always true."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ContradictionCheckPrompt.cs:28-35"
+  - claim: "A cut-review rejection is sent back as 'Your cut cannot be delivered' with no way to dispute a finding; in run 2 the deriver answered with a contradiction hand-back whose reason denied one."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:101-103, observed: 2026-11-02, v0.175.2 demo run2.log lines 2518 and 3527"
+  - claim: "Every derivation prompt says a requirement that contradicts what the repositories contain is a hand-back."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:109-111"
+  - claim: "The derivation master defines requirements_contradict_repository as a ticket that 'contradicts what the analysed repositories actually contain'; the embedded catalog is v5.22.0."
+    evidence: "observed: 2026-11-02, agent-smith-skills commit c272e97, skills/_masters/spec-derivation-master/SKILL.md lines 181-184, src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "c4e1 named a test for this case, SpecReview_AnOutcomeCriterionThatIsFalseAtBaseline_PassesUntouched; it exists nowhere in tests/."
+    evidence: ".agentsmith/specs/done/2026-09-05-c4e1-spec-review-unsatisfiable.yaml:138"
+
+scope:
+  in: >
+    One shared sentence, lifted from PremiseCheckPrompt into a constant: that the code does not meet a done criterion
+    or the goal today is never by itself a finding, a premise or a contradiction. Rendered in the premise check (as
+    today), the attack prompt (beside Today, not in the verbatim brief), the cut verdicts CONTRADICTION / NOT IN THE
+    TICKET / FALSE PREMISE, the contradiction check (such a claim is refuted), and the composer's codebase line.
+    CONTRADICTION adds: both statements are the spec's own; the ticket's wording or today's code is never one side.
+    NOT IN THE TICKET adds: a title describing a defect states the symptom. SpecCutReviewTicketText labels Title,
+    Description and Acceptance criteria, on non-blank parts only, so an all-blank ticket still renders empty (the
+    labels also reach the attack reviewers' wider goal). The decidability lens and the absence rule stay as they are.
+  out: "The skills masters' copy of the sentence and the catalog bump: 2026-11-04-c443 (skills-done-target-state). A channel for the deriver to dispute a cut-review finding; the reviewer rules above remove the finding at its source. A mechanical filter on attack findings: they carry no register field."
+
+decisions:
+  - key: "ONE SENTENCE, EVERY PLACE. Four fresh wordings would drift; the premise check already carries the tested one."
+  - key: "PROMPT RULE FOR ATTACK FINDINGS. PremiseCheckAdmission already filters verbatim restatements; attack findings name no spec register, so there is nothing to filter on."
+
+steps:
+  - id: constant
+    action: "The shared sentence as a constant; PremiseCheckPrompt renders it."
+  - id: attack
+    action: "SpecAttackPrompt renders it beside Today."
+  - id: cut
+    action: "SpecCutVerdicts: CONTRADICTION, NOT IN THE TICKET, FALSE PREMISE as in scope; SpecCutReviewTicketText labels the parts."
+  - id: contradiction-check
+    action: "ContradictionCheckPrompt: a claim that is only that today's code does not yet do what the ticket asks is refuted, citing the checker's own read of the file that holds that code (an uncited refutation is discarded by ContradictionChecker)."
+  - id: derive
+    action: "SpecPromptComposer: the codebase line carries the sentence."
+  - id: eval
+    action: "LiveLLM eval in AgentSmith.Tests (sees DemoTicket; client as LiveSkillProbeTests builds one) over the materialised demo sample: run 1's draft for one attack reviewer, and for the cut reviewer a draft whose done entries carry the rejected boundary wordings (run.log 3230, run2.log 2480-2481), first reproduced once on today's prompts; no .md pointer; three runs each."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "SpecAttackPromptTests.Prompt_SaysAGapToDoneIsTheWork"
+  - "CutReviewVerdictPromptTests.Contradiction_IsBetweenTwoStatementsOfTheSpec"
+  - "CutReviewVerdictPromptTests.NotInTicket_ATitleStatesTheSymptom"
+  - "SpecCutReviewTests.TicketText_LabelsTitleDescriptionAndCriteria"
+  - "TicketHtmlDownstreamTests.Of_ATicketWhoseBodyIsPlainText_IsUnchanged (updated for the labels)"
+  - "CutReviewWithoutTicketTests (unchanged, stays green)"
+  - "ContradictionCheckerTests.Prompt_AGapToTheTicketIsRefuted_CitingItsOwnRead"
+  - "SpecReview_AnOutcomeCriterionThatIsFalseAtBaseline_PassesUntouched (LiveLLM, run by hand; no admitted finding or cut rests on the boundary criterion being false today)"
+
+done:
+  - "The five backend places carry the one sentence."
+  - "The LiveLLM eval, run by hand with a real key, shows no finding or cut on the boundary criterion in three runs each."
+  - "Build green, full suite green, dashboard gen/test/build green."

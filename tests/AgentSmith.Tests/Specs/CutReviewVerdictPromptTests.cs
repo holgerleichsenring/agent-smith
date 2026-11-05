@@ -66,6 +66,33 @@ public sealed class CutReviewVerdictPromptTests
     }
 
     [Fact]
+    public void Contradiction_IsBetweenTwoStatementsOfTheSpec()
+    {
+        var look = CutReviewLookTests.ReviewLook(new CountingSandbox(0));
+
+        var verdicts = SpecCutVerdicts.Describe(
+            SpecCutVerdicts.Offered(CutReviewTicket.Whole, canLook: true), CutReviewTicket.Whole);
+        var contradiction = verdicts[verdicts.IndexOf("CONTRADICTION", StringComparison.Ordinal)..verdicts.IndexOf("2. ", StringComparison.Ordinal)];
+
+        contradiction.Should().Contain("statements are the spec's own")
+            .And.Contain("the ticket's wording or today's code is never one\n   side")
+            .And.Contain(DoneTargetState.Rule);
+        verdicts[verdicts.IndexOf("FALSE PREMISE", StringComparison.Ordinal)..].Should().Contain(DoneTargetState.Rule);
+        SpecCutReviewPrompt.For(Drafts("a criterion"), "the ticket", look).Should().Contain(contradiction);
+    }
+
+    [Fact]
+    public void NotInTicket_ATitleStatesTheSymptom()
+    {
+        var verdicts = SpecCutVerdicts.Describe(
+            SpecCutVerdicts.Offered(CutReviewTicket.Whole, canLook: false), CutReviewTicket.Whole);
+        var notInTicket = verdicts[verdicts.IndexOf("NOT IN THE TICKET", StringComparison.Ordinal)..verdicts.IndexOf("4. ", StringComparison.Ordinal)];
+
+        notInTicket.Should().Contain("title describing a defect states the symptom")
+            .And.Contain(DoneTargetState.Rule);
+    }
+
+    [Fact]
     public void Prompt_WithAWholeTicket_SaysADoneDroppedQuotesTheTicket()
     {
         var prompt = SpecCutReviewPrompt.For(Drafts("a criterion"), "the ticket", look: null);

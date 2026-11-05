@@ -107,6 +107,7 @@ public sealed class TicketHtmlDownstreamTests
     public void Of_ATicketWhoseBodyIsPlainText_IsUnchanged()
     {
         SpecCutReviewTicketText.Of(TextTicket()).Should()
-            .Be("Dependency update\n\n## Goal\nUpdate all direct dependencies.\n\n- the build is green");
+            .Be("Title: Dependency update\n\nDescription:\n## Goal\nUpdate all direct dependencies."
+                + "\n\nAcceptance criteria:\n- the build is green");
     }
 }

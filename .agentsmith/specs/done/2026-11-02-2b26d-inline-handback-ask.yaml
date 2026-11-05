@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26d
+goal: "An inline-ticket run with a standing review objection asks it in the terminal and builds on the default reading; every other inline hand-back ends with its question printed, not a park-status failure."
+
+applies_to: "default (SpecHandbackHandler, ReviewObjectionPark, inline-ticket runs, CLI dialogue)"
+
+requires: [2026-10-26-bdd0c]
+
+facts:
+  - claim: "The handler skips parking only when ticket or tracker is null; the pointer read and repeat guard come after that, before the park-status lookup."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:55-56, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:61-83"
+  - claim: "A CLI ephemeral project never sets Tracker, so it gets the default TrackerConnection (GitHub), and the inline ticket is set; the null branch is never taken."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:412-430, src/backend/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs:15, src/backend/AgentSmith.Contracts/Models/InlineTicket.cs:21"
+  - claim: "Six other tracker writes skip inline runs by pipeline.Has(ContextKeys.InlineTicket)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionNotice.cs:28, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKeptNotice.cs:48, src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:50"
+  - claim: "A derivation hand-back carries no specs, so continuing after it builds nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:71-78, src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:33-37"
+  - claim: "A review objection on the first unbuilt spec asks right after review; on a later spec it sets a Park stop, and the sequence splices only the specs before it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ReviewObjectionPark.cs:34-45"
+  - claim: "A review objection carries readings [build as reviewed, change as asked] with Taken 0."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ReviewObjectionQuestion.cs:15-23"
+  - claim: "IDialogueAskGate asks in-process and falls back to the question's default; with stdin at EOF the console transport returns null at once; an empty Choice answer comes back as an empty string, not the default."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IDialogueAskGate.cs:13-28, src/backend/AgentSmith.Cli/Services/ConsoleDialogueTransport.cs:86-92, src/backend/AgentSmith.Cli/Services/ConsoleDialogueTransport.cs:163-166"
+  - claim: "The harness answers attack reviewers from a private script that always says BUILD."
+    evidence: "tests/AgentSmith.PipelineHarness/Llm/SpecAttackScript.cs:14-25"
+  - claim: "The handler is at its length limit; the no-tracker case already lives in its own class."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackWithoutTracker.cs:7-8"
+
+scope:
+  in: >
+    ReviewObjectionPark: an inline run never sets a Park stop; it always asks before any spec is built. SpecHandbackHandler:
+    an inline branch directly after the null-tracker check (before LeavesTicketAlone and the pointer), delegated to
+    InlineHandbackAsk. A ReviewObjection becomes a Choice: the reason as context, the readings as choices,
+    RecommendedIndex = Taken, DefaultAnswer = Readings[Taken], Timeout 10 minutes. An empty or unrecognised answer means the default
+    (printed as such); taking it removes ContextKeys.SpecHandback, sets nothing that parks, returns Ok — SpecSet.Handback
+    stays, the gate exempts it. An explicit other reading ends the run with a Fail naming the choice. Every other
+    inline hand-back (derivation Question, RequirementsContradictRepository, NotImplementable,
+    SpecificationMissingFromBranch) ends with a Fail that prints the reason, the question and its readings and says to
+    re-run with the answer in the ticket text. Refused, ScopeUnassigned and SeriesOutOfStep keep SpecHandbackWithoutTracker.
+  out: "Asking a derivation question in the terminal and re-deriving with the answer: 2026-11-04-9e8c (inline-derivation-answer). The master's mid-run question: 2026-11-02-2b26e."
+
+decisions:
+  - key: "INLINE KEY, NOT A NULL TRACKER. The ephemeral project's default GitHub tracker is a design smell, but six sites already key on InlineTicket; fixing the default is a wider change than this run path."
+  - key: "ASK ONLY WHERE AN ANSWER CAN BE USED. A review objection's default builds the reviewed specs; a derivation hand-back has no specs, so asking without re-deriving would report an empty run as done."
+  - key: "EOF, NOT ISINPUTREDIRECTED. Closed stdin already yields the default at once; a redirect check would stop a demo answered through a pipe."
+
+steps:
+  - id: park
+    action: "ReviewObjectionPark asks before any build on inline runs."
+  - id: ask
+    action: "InlineHandbackAsk(IDialogueAskGate) and the branch in SpecHandbackHandler."
+  - id: harness
+    action: "ScriptedChatClient.EnqueueSpecAttackReply(string) forwarding to the attack script for the REFUSE replies (one per round reached); the rewrite reply goes in the main FIFO via EnqueueText between the DeriveSpec reply and the master's first tool call, since SpecRederivePrompt is not an attack prompt; a non-spec rewrite reply leaves the REFUSE standing after round 1."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "InlineHandbackAskTests.ReviewObjection_DefaultTaken_ClearsHandbackAndContinues"
+  - "InlineHandbackAskTests.ReviewObjection_EmptyAnswer_TakesDefault"
+  - "InlineHandbackAskTests.ReviewObjection_ChangeAsAsked_FailsNamingTheChoice"
+  - "InlineHandbackAskTests.DerivationQuestion_FailsPrintingQuestionAndReadings"
+  - "ReviewObjectionParkTests.InlineRun_LaterSpecObjected_AsksBeforeAnySpecIsBuilt"
+  - "ConsoleDialogueTransportTests.ClosedInput_ReturnsNullWithoutWaiting"
+  - "SpecHandbackTests.InlineRun_NoParkStatus_AsksInsteadOfFailing"
+  - "DemoFixBugTests.Demo_ReviewObjection_DefaultReading_StillCommitsTheFix"
+
+done:
+  - "An inline run with a standing review objection and no needs_clarification_status asks, and on the default reading commits the fix."
+  - "An inline derivation hand-back ends with its question and readings printed, not the park-status message."
+  - "Build green, full suite green, dashboard gen/test/build green."

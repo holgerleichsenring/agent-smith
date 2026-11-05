@@ -66,6 +66,8 @@ public sealed class SkillCallScope : IDisposable
 
     public void Finalize(LimitEnforcer enforcer) => _enforcer = enforcer;
 
+    internal bool IsEnded => _disposed;
+
     public void Dispose()
     {
         if (_disposed) return;

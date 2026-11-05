@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-0647
+
+decisions:
+  - category: Implementation
+    chose: "The premise check renders its pre-2b26c sentence; the shared rule stays in the other four prompts"
+    over: "Rewording the shared rule for every reader, or checking a verdict against its own reason"
+    reason: |
+      'Never by itself a premise' is right for reviewers and misleading in the one prompt that judges premises: a live
+      container run filed a holding premise as broken. The old sentence had run clean in every earlier demo. Comparing a
+      verdict to the words of its reason would be a wording heuristic.
+  - category: Testing
+    chose: "Measured with the real smoke script in a linux container: three of three green after the change"
+    over: "Unit tests alone"
+    reason: |
+      The failure is a model's reading of a prompt; only live runs show it. Before the change one container run failed
+      at the premise check; after it three runs passed, plus three earlier macOS runs.

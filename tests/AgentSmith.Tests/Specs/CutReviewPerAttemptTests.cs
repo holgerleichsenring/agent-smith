@@ -82,7 +82,8 @@ public sealed class CutReviewPerAttemptTests
             TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
             repositories: [], new AgentConfig(), Pipeline(), CancellationToken.None);
 
-        reviewer.Tickets[0].Should().Be($"Raise the package floors\n\n{Ticket}\n\nThe audit is clean");
+        reviewer.Tickets[0].Should().Be(
+            $"Title: Raise the package floors\n\nDescription:\n{Ticket.Trim()}\n\nAcceptance criteria:\nThe audit is clean");
     }
 
     private static PipelineContext Pipeline()

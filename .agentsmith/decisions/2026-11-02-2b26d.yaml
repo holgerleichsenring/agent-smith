@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26d
+
+decisions:
+  - category: Implementation
+    chose: "InlineHandbackAsk as its own class, called from one InlineTicket branch in SpecHandbackHandler after the null-tracker check; the printed end of a hand-back it does not ask about in InlineHandbackEnd"
+    over: "Clearing the ephemeral project's default GitHub tracker, or growing SpecHandbackHandler"
+    reason: |
+      Six other tracker writes already key on InlineTicket; the handler sat at its length limit. The no-tracker
+      cases (refusal, undivided scope, series out of step) keep SpecHandbackWithoutTracker's result unchanged.
+  - category: Implementation
+    chose: "An answer that matches no reading, a blank one, or the gate's own default (AnsweredBy 'system') all take Readings[Taken] and say so in the step message"
+    over: "Treating an unrecognised answer as a refusal"
+    reason: |
+      The console transport hands a blank Choice back as an empty string, not the default, and stdin at EOF comes
+      back as the gate's default. Only an explicit other reading ends the run, naming it.
+  - category: Testing
+    chose: "EnqueueSpecAttackToolCall beside EnqueueSpecAttackReply, and a thread-safe attack slot"
+    over: "EnqueueSpecAttackReply alone, as the spec's harness step named"
+    reason: |
+      SpecAttackAdmission drops a finding that rests on no look of the reviewer's own, so a REFUSE text alone is
+      stored as BUILD and no objection stands. Each reviewer searches first and cites that search (A1). The panel's
+      two reviewers draw the slot in parallel, so it is a ConcurrentQueue. Deviation from the spec's step text.
+  - category: Testing
+    chose: "StubSandboxFactory.AdvancesHeadOnCommit (opt-in): every write is staged and every commit moves rev-parse to a new sha"
+    over: "Leaving the demo harness on one fixed 'stub-head'"
+    reason: |
+      SpecReviewRevision fails a revision whose sha did not move, and the stub answered every head as one sha, so
+      the objection's revision could never be published in the harness. A real clone moves on every commit; the
+      default stays off so no other test changes.
+  - category: Testing
+    chose: "Proved against the product without the change"
+    over: "Trusting the green run"
+    reason: |
+      With the inline branch and the park check disabled, the demo test failed with the exact
+      'needs_clarification_status is not configured' message, and the handler and park tests failed too.

@@ -20,6 +20,8 @@ namespace AgentSmith.Cli;
 /// </summary>
 internal static class ServiceProviderFactory
 {
+    internal const string EfCoreCategory = "Microsoft.EntityFrameworkCore";
+
     /// <summary>p0419: configPath comes FIRST and has no default, so no verb can build a
     /// container without deciding what config it runs on — as a trailing optional
     /// parameter it was simply never passed by `run`. See CliConfigCompositionTests.</summary>
@@ -54,6 +56,8 @@ internal static class ServiceProviderFactory
             builder.AddConsoleFormatter<ShortCategoryFormatter, ShortCategoryFormatterOptions>();
             builder.AddConsole(options => options.FormatterName = "short");
             builder.SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Information);
+            // 2026-11-02-2b26f: the run store's SQL drowned the run's own output; the server filters it the same way.
+            if (!verbose) builder.AddFilter(EfCoreCategory, LogLevel.Warning);
         });
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();

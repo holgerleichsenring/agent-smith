@@ -6,27 +6,16 @@ Two steps. Step 1 proves the whole loop in minutes on a bundled sample project â
 
 `agent-smith demo` materializes a tiny C# project (with a seeded, deterministic bug and a failing unit test that pins the expected behavior) into a local git workspace, files an inline ticket describing the bug, and runs the real `code` pipeline against it. No tracker, no repo remote, no Docker, no Redis â€” the result is a local commit plus a printed diff.
 
-The minimal config is just one agent and its key:
-
-```yaml
-# agentsmith.yml
-agents:
-  default-openai:
-    type: openai
-    models:
-      scout:   { model: gpt-4.1-mini }
-      primary: { model: gpt-4.1 }
-      planning:      { model: gpt-4.1 }
-      summarization: { model: gpt-4.1-mini }
-
-```
-
-The agent reads `OPENAI_API_KEY` from the environment; no `secrets:` entry is needed for it.
+The demo needs no config file. Export one key and run it:
 
 ```bash
-export OPENAI_API_KEY=sk-...
+export OPENAI_API_KEY=sk-...        # or ANTHROPIC_API_KEY=sk-ant-...
 agent-smith demo
 ```
+
+When no config is found, the demo writes one agent for the key you set next to its workspace (`<workspace>.agentsmith.yml`), prints the path and runs on it. With `OPENAI_API_KEY` that is gpt-4.1 with gpt-4.1-mini for the cheap roles; with only `ANTHROPIC_API_KEY` it is claude-sonnet-4-6 with claude-haiku-4-5. The agent reads its key from the environment; no `secrets:` entry is needed.
+
+The CLI looks for a config in this order: `./.agentsmith/agentsmith.yml`, `./config/agentsmith.yml`, `~/.agentsmith/agentsmith.yml`, or the file `--config` names. If you already have one, the demo uses its first agent (`--agent NAME` picks another). A `--config` that points at a missing file is an error, never replaced by a generated one.
 
 What happens, in order:
 
@@ -52,7 +41,7 @@ About ten minutes of your time.
 
 ### Write the config
 
-This walkthrough runs from the CLI, which reads its whole configuration from a file. `agentsmith.yml` in the working directory:
+This walkthrough runs from the CLI, which reads its whole configuration from a file. Put it at `config/agentsmith.yml` in the working directory (or `.agentsmith/agentsmith.yml`, `~/.agentsmith/agentsmith.yml`, or pass `--config`):
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json

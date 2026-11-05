@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26g
+
+decisions:
+  - category: Implementation
+    chose: "A demo-smoke job after the binary upload, its logic in .github/scripts/demo-smoke.sh taking the binary path"
+    over: "Inline workflow steps, or a separate workflow triggered by the release"
+    reason: |
+      A release made with GITHUB_TOKEN starts no other workflow, so the job lives in release-please.yml. A script that
+      takes the binary path runs the same way on a runner and in a local container, which is how it was proven.
+  - category: Implementation
+    chose: "A missing OPENAI_API_KEY secret warns and skips the remaining steps green"
+    over: "Failing the job"
+    reason: |
+      The repository has no such secret today; every release would be red until the operator adds it.
+  - category: Testing
+    chose: "Dry run in mcr.microsoft.com/dotnet/sdk:10.0 (linux/amd64) against a linux-x64 binary published from this branch"
+    over: "Running against the current release binary"
+    reason: |
+      v0.175.2 carries none of the series' fixes. The container run used an Azure agent through a mounted
+      ~/.agentsmith/agentsmith.yml because no OpenAI key is at hand; the job itself uses OPENAI_API_KEY and the generated
+      config. Three of three runs passed.

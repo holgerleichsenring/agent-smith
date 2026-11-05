@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-0647
+goal: "The premise check keeps its own sentence about done criteria, so it no longer reads 'never a premise' and files a premise it found holding as broken."
+
+applies_to: "default (PremiseCheckPrompt)"
+
+requires: [2026-11-02-2b26c]
+
+facts:
+  - claim: "2b26c replaced the premise check's 'Do NOT report that a completion criterion of the spec is not satisfied yet' with the shared rule, which says the gap to a done entry 'is never by itself a finding, a premise or a contradiction' — inside the prompt whose subject is premises."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:67-69, src/backend/AgentSmith.Application/Services/Specs/DoneTargetState.cs:14-16"
+  - claim: "A demo run in a linux container, binary built from spec/2026-11-02-2b26, stopped at CheckSpecPremises: the check filed 'PriceCalculator.Total currently applies the bulk discount only to orders strictly above 100.00' as no longer holding, with the reason 'so the premise remains true and still holds'."
+    evidence: "observed: 2026-11-04, scratchpad rt/demo.log, SpecPremiseChecker warnings"
+
+scope:
+  in: "PremiseCheckPrompt renders its pre-2b26c sentence again; the shared rule stays in the four other places."
+  out: "A mechanical check of a verdict against its own reason (wording-based, a heuristic)."
+
+decisions:
+  - key: "THE PREMISE CHECK KEEPS ITS OWN WORDS. The shared rule's 'never a premise' is right for reviewers and wrong in the one prompt that judges premises."
+
+steps:
+  - id: prompt
+    action: "Restore the sentence."
+  - id: tests
+    action: "A prompt test pins it; demo runs in the linux container measure it."
+
+tests:
+  - "PremiseCheckPromptTests.Prompt_SaysACompletionCriterionNotYetMetIsNotReported"
+
+done:
+  - "The premise prompt carries its own sentence and not the shared rule."
+  - "Build green, full suite green, dashboard gen/test/build green."

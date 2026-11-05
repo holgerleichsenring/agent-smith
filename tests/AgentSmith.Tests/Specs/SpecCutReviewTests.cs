@@ -91,6 +91,18 @@ public sealed class SpecCutReviewTests
             "asked adversarially, because 'the cut is fine' is the cheap answer");
     }
 
+    [Fact]
+    public void TicketText_LabelsTitleDescriptionAndCriteria()
+    {
+        var ticket = new AgentSmith.Domain.Entities.Ticket(
+            new TicketId("1"), "Bulk discount is not applied at 100.00", "The boundary is wrong.",
+            "  ", "open", "test");
+
+        SpecCutReviewTicketText.Of(ticket).Should()
+            .Be("Title: Bulk discount is not applied at 100.00\n\nDescription:\nThe boundary is wrong.",
+                "a blank part carries no label");
+    }
+
     private static async Task<SpecCutReview> Review(string answer) =>
         await Reviewer(new RecordingChatClient(answer)).ReviewAsync(
             Drafts(), "azuredevops-19106", "the ticket", look: null, new AgentConfig(),

@@ -5,7 +5,13 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using AgentSmith.Application.Services.Events;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 
@@ -66,4 +72,60 @@ public sealed class SpecReviewPanelTests
 
     private static SpecAttackInput Input() =>
         new(CutRevisionFixtures.Draft(), SpecReviewScopes.Spec, 1, 0, null, true, [], 0, 2, []);
+
+    // 2026-11-02-2b26b: with real reviewers both calls held in flight at once shared one cost scope and the second
+    // threw "skill calls do not nest"; the mocked reviewer above never touches the tracker.
+    [Fact]
+    public async Task ReviewAsync_TwoRealReviewersInFlightAtOnce_BothAnswerWithTheirOwnTokens()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox> { ["shop"] = new DerivationTestLooks.CountingSandbox(0) });
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>());
+        var reviewer = new SpecAttackReviewer(new HeldInFlightFactory(2), new AsyncLocalRunContextAccessor(),
+            new SpecAttackAdmission(NullLogger<SpecAttackAdmission>.Instance), NullLogger<SpecAttackReviewer>.Instance);
+
+        var answers = await new SpecReviewPanel(reviewer, DerivationTestLooks.Factory()).ReviewAsync(
+            pipeline, Input(), new SpecReviewConfig { Reviewers = 2, MaxConcurrent = 2 }, new AgentConfig(), CancellationToken.None);
+
+        answers.Should().HaveCount(2).And.OnlyContain(a => a != null, "neither reviewer may lose its call to the other's scope");
+        PipelineCostTracker.GetOrCreate(pipeline).PerSkillBreakdown.Should().HaveCount(2)
+            .And.OnlyContain(r => r.InputTokens == 10);
+    }
+
+    /// <summary>Answers only once <paramref name="calls"/> requests are in flight, so their scopes overlap.</summary>
+    private sealed class HeldInFlightFactory(int calls) : IChatClientFactory
+    {
+        private readonly TaskCompletionSource _allIn = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly int _calls = calls;
+        private int _inFlight;
+
+        public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, MasterLoopHooks? masterLoopHooks = null) =>
+            new Client(this);
+
+        public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 4096;
+        public string GetModel(AgentConfig agent, TaskType task) => "stub-model";
+
+        private sealed class Client(HeldInFlightFactory owner) : IChatClient
+        {
+            public async Task<ChatResponse> GetResponseAsync(
+                IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            {
+                if (Interlocked.Increment(ref owner._inFlight) == owner._calls) owner._allIn.TrySetResult();
+                await owner._allIn.Task.OrHang("both reviewers in flight at once");
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant, """{"verdict": "BUILD", "cuts": [], "findings": []}"""))
+                {
+                    Usage = new UsageDetails { InputTokenCount = 10, OutputTokenCount = 1 },
+                };
+            }
+
+            public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+                IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+                throw new NotImplementedException();
+
+            public object? GetService(Type serviceType, object? serviceKey = null) => null;
+            public void Dispose() { }
+        }
+    }
 }

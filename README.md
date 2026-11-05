@@ -113,7 +113,7 @@ agent-smith demo
 
 That materializes a small sample project with a seeded bug, runs the real `code` pipeline against it, and leaves you a local commit plus the diff. No tracker, no Docker, no Redis — if this works, the loop works.
 
-For your real systems, drop an `agentsmith.yml` in a working directory:
+For your real systems, put a `config/agentsmith.yml` in a working directory (or pass `--config`):
 
 ```yaml
 agents:

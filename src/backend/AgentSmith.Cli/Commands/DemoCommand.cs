@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
 using AgentSmith.Cli.Services.Demo;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,12 +31,16 @@ internal static class DemoCommand
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
-            var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
-            var invocation = new DemoInvocation(
-                configPath,
-                ctx.ParseResult.GetValueForOption(agentOption),
-                ctx.ParseResult.GetValueForOption(workspaceOption));
+            var workspace = ctx.ParseResult.GetValueForOption(workspaceOption) ?? DemoInvocation.DefaultWorkspaceDir();
+            var configPath = ResolveConfig(ctx.ParseResult, configOption, workspace);
+            if (configPath is null)
+            {
+                Console.Error.WriteLine(DemoConfigFile.NoKeyLine());
+                ctx.ExitCode = 1;
+                return;
+            }
+            var invocation = new DemoInvocation(configPath, ctx.ParseResult.GetValueForOption(agentOption), workspace);
 
             await using var services = ServiceProviderFactory.BuildDemo(verbose, configPath);
             ctx.ExitCode = await services.GetRequiredService<DemoExecutor>()
@@ -43,5 +48,17 @@ internal static class DemoCommand
         });
 
         return cmd;
+    }
+
+    // 2026-11-02-2b26a: only a DISCOVERED config that found nothing is replaced by a generated one; an explicit
+    // --config to a missing file must fail, not be swapped for a demo config.
+    private static string? ResolveConfig(ParseResult parse, Option<string> configOption, string workspace)
+    {
+        var configPath = parse.GetValueForOption(configOption)!;
+        var given = parse.FindResultFor(configOption) is { IsImplicit: false };
+        if (given || File.Exists(configPath)) return configPath;
+        var generated = DemoConfigFile.TryWrite(Environment.GetEnvironmentVariable, workspace);
+        if (generated is not null) Console.WriteLine($"No config found — the demo runs on {generated}");
+        return generated;
     }
 }

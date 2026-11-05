@@ -79,11 +79,12 @@ public static class SpecAttackPrompt
     private static string WiderGoal(string? goal) =>
         string.IsNullOrWhiteSpace(goal) ? string.Empty : $"\nThe wider goal this spec serves: {goal.Trim()}\n";
 
-    private static string Today(bool describesToday) => describesToday
+    private static string Today(bool describesToday) => (describesToday
         ? "\nThis spec describes the code as it is now: its facts cite the tree you can open.\n"
         : "\nThis spec requires specs of its series that are not built yet. Its facts may describe the state "
           + "those requires leave; a cited file they create is not missing. Judge everything else against "
-          + "the code as it is.\n";
+          + "the code as it is.\n")
+        + DoneTargetState.Rule + "\n";
 
     private static string Evidence(SpecAttackInput input)
     {
