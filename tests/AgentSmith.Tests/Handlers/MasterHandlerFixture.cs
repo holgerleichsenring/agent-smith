@@ -179,7 +179,7 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
-            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification()),
+            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification(), Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>()),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
             AgentSmith.Tests.TestHelpers.TestSanity.Wrapper(),

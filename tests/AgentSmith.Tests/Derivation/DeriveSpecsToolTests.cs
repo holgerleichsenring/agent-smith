@@ -65,7 +65,7 @@ public sealed class DeriveSpecsToolTests
     [Fact]
     public void BoundTicket_PosterWithoutRunsControl_GetsNoDeriveSpecs()
     {
-        var factory = new TicketActToolsFactory(Handlers.MasterHandlerFixture.Verification());
+        var factory = new TicketActToolsFactory(Handlers.MasterHandlerFixture.Verification(), Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>());
         var seeded = Context();
         seeded.Pipeline.Set(ContextKeys.SpecDialogDerivationStart, _start.Object);
 

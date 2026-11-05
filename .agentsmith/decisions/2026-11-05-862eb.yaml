@@ -26,3 +26,31 @@ decisions:
     chose: "The master stops citing writing-documents; outcome_format('document') serves it"
     over: "Keep the citation and have the tool return text already in the prompt"
     reason: "A document is an outcome like the others, and the citation is 2k characters on every turn."
+  - category: Implementation
+    chose: "Skills PR holgerleichsenring/agent-smith-skills#246 (commit 13c81a3, branch feat/2026-11-05-862eb-design-partner-frame-split from v5.23.0); measured as SkillBodyResolver resolves the body (frontmatter off, {{ref:slug}} inlined, TrimEnd): 42,829 characters before, 25,228 after"
+    over: "Counting the file with its frontmatter, or bytes"
+    reason: "The resolver renders the body; the before figure reproduces the spec's 42,830, so the after figure is measured the same way."
+  - category: Implementation
+    chose: "Plain 'feat:' PR title, no '!' or BREAKING CHANGE footer, for the master's 2.0.0"
+    over: "feat!: for a master major bump"
+    reason: "Precedent: project-bootstrap went to 2.0.0 under a plain feat: (f0e7947, #141); '!' is used in the skills repo only for catalog-wide breaks (masters-only catalog, domain profiles retire), and it would push the catalog to 6.0.0 for a change the server's fallback already absorbs."
+  - category: Deviation
+    chose: "The memory paragraph and the 'What you work on' line lose their tier wording ('belongs to tier 1', 'ordinary tier-2 read', 'grounding tiers below'), and 'Ground every claim in one of the two tiers' becomes a list of what grounds a claim"
+    over: "Keeping lines 35 and 55-73 verbatim"
+    reason: "The spec replaces the tier grounding at 38-53; the tier words around it would point at a section that no longer exists."
+  - category: Implementation
+    chose: "The branch-state test keeps 'If yes it is a spec' without 'however many repositories, files or steps', followed by 'Each spec names one repository … a repository may carry several', matching the server's 862ea wording; the spec filing line stays in the master as one sentence, the epic and tickets filing bullets move to their references, and the comment bullet moves to design-outcome-comment with a one-line pointer left in the bound-ticket section"
+    over: "Deleting the branch-state question with the sentence; moving the spec filing bullet too"
+    reason: "The sentence's defect was the repositories claim, the test itself is the shape test scope.in keeps; the master still has to say what a spec files when it names its choice."
+  - category: Implementation
+    chose: "design-outcome-spec carries a sub-heading 'A spec derived from a design or an upload' above the two moved paragraphs; all moved text is cut from the v5.23.0 file by line range"
+    over: "Hand-copied text"
+    reason: "Verbatim by construction; the heading only says where the paragraphs came from."
+  - category: Implementation
+    chose: "outcome_format is offered inside TicketActToolsFactory's reply-slot block, beside state_work_picture; the fallback triggers when any slug a kind needs is missing, so epic on v5.23.0 answers the fallback"
+    over: "Returning the parts that exist"
+    reason: "A reply slot is what marks a design turn there; half an epic format reads as complete."
+  - category: Implementation
+    chose: "WorkPictureSurfaceTests' hand-built factory also gets the new argument"
+    over: "Only the two the spec names"
+    reason: "862ea added a third hand-built TicketActToolsFactory after the spec was written."
