@@ -12,10 +12,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// for the router to send first, and the reply stays the entry its card and the window's pinned answer read.
 /// </para>
 /// <para>And the thread the turn's master ended with, for the next turn to replay; a failed turn drops it.</para>
+/// <para>2026-11-05-862ea: and the work picture the turn stated, over the stored one.</para>
 /// </summary>
 public sealed class SpecDialogTurnKeeper(
     SpecDialogSessionManager sessions, SpecDialogSubjectStore subjects, SpecDialogDigestWriter digests,
-    SpecDialogUploadArrivals arrivals, SpecDialogThreadStore threads)
+    SpecDialogUploadArrivals arrivals, SpecDialogThreadStore threads, SpecDialogWorkPictureStore pictures)
 {
     /// <summary>Keeps the turn and returns the notice about uploads it did not hold, or null.</summary>
     public async Task<string?> KeepAsync(
@@ -33,6 +34,9 @@ public sealed class SpecDialogTurnKeeper(
         // so a conversation that asks one question and never comes back is still headed with its name.
         if (state.Subject is null && result.Subject is { } subject && result.Kind != SpecDialogTurnKind.Failure)
             await subjects.StoreAsync(platform, threadId, subject, ct);
+        // 2026-11-05-862ea: stated or corrected on any turn that answered; it replaces the stored one.
+        if (result.WorkPicture is { } picture && result.Kind != SpecDialogTurnKind.Failure)
+            await pictures.StoreAsync(platform, threadId, picture, ct);
         return notice;
     }
 

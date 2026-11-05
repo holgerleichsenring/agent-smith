@@ -2594,6 +2594,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("WorkPictureJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SessionId")

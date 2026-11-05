@@ -51,7 +51,15 @@ public sealed class DialogDraftReposTests
             "spec: p9999\ngoal: g\nrepos: [Server, BackgroundWorker]\n", Scope);
 
         yaml.Should().BeNull();
-        error.Should().Contain("names 2 repositories").And.Contain("propose it as an epic, one child per repository");
+        error.Should().Contain("names 2 repositories").And.Contain("propose it as an epic whose children each name one repository");
+    }
+
+    [Fact]
+    public void DialogDraftRepos_MultiRepoSpec_RefusalAllowsSeveralSpecsPerRepository()
+    {
+        var (_, error) = DialogTestRepos.Real().ForSpec("spec: p9999\ngoal: g\nrepos: [Server, BackgroundWorker]\n", Scope);
+
+        error.Should().Contain("a repository may carry several children").And.NotContain("depends on the other second");
     }
 
     [Fact]

@@ -23,7 +23,8 @@ namespace AgentSmith.Tests.SpecDialog;
 /// <summary>
 /// 2026-09-20-4b0af: the subject a conversation is headed with — 2026-11-04-96a0a: named by the master through
 /// name_conversation and stored by the router between persisting the turn and sending the reply that makes the page
-/// read the conversation again, and served on the session view that read returns.
+/// read the conversation again, and served on the session view that read returns. 2026-11-05-862ea: the work picture
+/// state_work_picture stated is stored the same way, over a stored one, and served on the same view.
 /// </summary>
 public sealed class ConversationSubjectTests : IDisposable
 {
@@ -56,6 +57,12 @@ public sealed class ConversationSubjectTests : IDisposable
     /// <summary>The stored subject as it stood when the reply was sent.</summary>
     private string? _subjectAtReply;
 
+    /// <summary>What the master stated through state_work_picture, or null.</summary>
+    private WorkPicture? _pictured;
+
+    /// <summary>The stored work picture's JSON as it stood when the reply was sent.</summary>
+    private string? _pictureAtReply;
+
     /// <summary>What the design turn answers.</summary>
     private string _reply = "canned design answer";
 
@@ -78,6 +85,7 @@ public sealed class ConversationSubjectTests : IDisposable
             {
                 _order.Add("reply");
                 _subjectAtReply = _context.SpecDialogSessions.AsNoTracking().Select(row => row.Subject).Single();
+                _pictureAtReply = _context.SpecDialogSessions.AsNoTracking().Select(row => row.WorkPictureJson).Single();
             })
             .Returns(Task.CompletedTask);
 
@@ -208,6 +216,61 @@ public sealed class ConversationSubjectTests : IDisposable
         view.Session!.Subject.Should().BeNull();
     }
 
+    private static readonly WorkPicture Rebuild =
+        new(UndertakingKind.Rebuild, "the handover upload; repo-a is scaffolding", UndertakingSize.Series);
+
+    [Fact]
+    public async Task SpecDialogRouter_TurnThatStatedAWorkPicture_StoresItBeforeTheReplyIsSent()
+    {
+        await OpenAsync();
+        _pictured = Rebuild;
+
+        await SendAsync("rebuild the legacy app from the upload");
+
+        SpecDialogSessionMapper.ReadWorkPicture((await Row()).WorkPictureJson).Should().Be(Rebuild);
+        SpecDialogSessionMapper.ReadWorkPicture(_pictureAtReply).Should().Be(Rebuild,
+            "the reply makes the page re-read the conversation, so the picture is stored first");
+    }
+
+    [Fact]
+    public async Task SpecDialogRouter_TurnCorrectingTheWorkPicture_OverwritesIt()
+    {
+        await OpenAsync();
+        _pictured = Rebuild;
+        await SendAsync("rebuild the legacy app from the upload");
+        var corrected = Rebuild with { Kind = UndertakingKind.Feature, Size = UndertakingSize.OneSpec };
+        _pictured = corrected;
+
+        await SendAsync("no, it is one feature in repo-a");
+
+        SpecDialogSessionMapper.ReadWorkPicture((await Row()).WorkPictureJson).Should().Be(corrected);
+        _ranOn[^1].WorkPicture.Should().Be(Rebuild, "the second turn was seeded from the stored picture");
+    }
+
+    [Fact]
+    public async Task SpecDialogRouter_FailedTurn_StoresNoWorkPicture()
+    {
+        await OpenAsync();
+        _pictured = Rebuild;
+        _turnKind = SpecDialogTurnKind.Failure;
+
+        await SendAsync("rebuild the legacy app from the upload");
+
+        (await Row()).WorkPictureJson.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SpecDialogViewReader_StoredWorkPicture_ReachesTheView()
+    {
+        await OpenAsync();
+        (await Row()).WorkPictureJson = SpecDialogSessionMapper.WriteWorkPicture(Rebuild);
+        await _repository.SaveAsync(CancellationToken.None);
+
+        var view = await Reader().ReadAsync(Thread, CancellationToken.None);
+
+        view.Session!.WorkPicture.Should().Be(new WorkPictureView("rebuild", Rebuild.Truth, "series"));
+    }
+
     private Task<ConversationState> OpenAsync() =>
         _sessions.OpenAsync(Platform, Channel, Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
@@ -245,7 +308,7 @@ public sealed class ConversationSubjectTests : IDisposable
         turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .Callback((ConversationState state, TurnPoster _, CancellationToken _) => _ranOn.Add(state))
-            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind, subject: _named));
+            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind, subject: _named, workPicture: _pictured));
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
@@ -272,7 +335,8 @@ public sealed class ConversationSubjectTests : IDisposable
                     AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), TimeProvider.System,
                     NullLogger<SpecDialogDigestWriter>.Instance),
                 new SpecDialogUploadArrivals(new ReferenceSetRepository(_context)),
-                AgentSmith.Tests.TestSupport.DialogThreadStores.Over(_context)),
+                AgentSmith.Tests.TestSupport.DialogThreadStores.Over(_context),
+                new SpecDialogWorkPictureStore(_repository, NullLogger<SpecDialogWorkPictureStore>.Instance)),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             composer, messenger, NullLogger<SpecDialogRouter>.Instance);
     }

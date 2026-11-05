@@ -20,7 +20,7 @@ public sealed class DialogScopeRepositoriesSectionTests
         var rendered = DialogScopeRepositoriesSection.Render(With("BackgroundWorker", "Server", "template:base"));
 
         rendered.Should().Contain("## Repositories in scope").And.Contain("EXACTLY ONE")
-            .And.Contain("proposed as an epic, one child per repository")
+            .And.Contain("proposed as an epic whose children each name one repository")
             .And.Contain("- BackgroundWorker").And.Contain("- Server").And.NotContain("template:base");
     }
 
@@ -39,7 +39,18 @@ public sealed class DialogScopeRepositoriesSectionTests
             ContextKeys.SpecDialogTranscript, [new SpecDialogTurn("user", "move the retry policy")]);
 
         new SpecDialogPromptFactory().Build(pipeline, 0, 0)
-            .Should().Contain("proposed as an epic, one child per repository");
+            .Should().Contain("proposed as an epic whose children each name one repository");
+    }
+
+    // 2026-11-05-862ea: a repository may carry several children, so a shared definition is cut ahead of its users.
+    [Fact]
+    public void DialogScopeRepositoriesSection_TwoRepositories_AllowsSeveralSpecsPerRepository()
+    {
+        var rendered = DialogScopeRepositoriesSection.Render(With("BackgroundWorker", "Server"));
+
+        rendered.Should().Contain("a repository may carry several children")
+            .And.Contain("a definition used across repositories can be its own child ahead of those that use it")
+            .And.NotContain("depends on the other second");
     }
 
     private static PipelineContext With(params string[] keys)

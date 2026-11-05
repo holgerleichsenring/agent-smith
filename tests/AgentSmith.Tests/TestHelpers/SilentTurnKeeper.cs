@@ -16,7 +16,8 @@ internal static class SilentTurnKeeper
         SpecDialogSessionRepository repository, SpecDialogSessionManager sessions,
         AgentSmith.Infrastructure.Persistence.AgentSmithDbContext context, string project = "sample") =>
         new(sessions, new SpecDialogSubjectStore(repository), Writer(repository, project),
-            new SpecDialogUploadArrivals(new ReferenceSetRepository(context)), DialogThreadStores.Over(context));
+            new SpecDialogUploadArrivals(new ReferenceSetRepository(context)), DialogThreadStores.Over(context),
+            new SpecDialogWorkPictureStore(repository, NullLogger<SpecDialogWorkPictureStore>.Instance));
 
     private static SpecDialogDigestWriter Writer(SpecDialogSessionRepository repository, string project = "sample") =>
         new(new SilentChatModel.SilentChatClients(), SilentChatModel.Loader(project),

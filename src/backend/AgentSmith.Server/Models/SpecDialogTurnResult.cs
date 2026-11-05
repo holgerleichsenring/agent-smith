@@ -35,18 +35,19 @@ namespace AgentSmith.Server.Models;
 /// <paramref name="Thread"/> is what the master last forwarded and was answered, which the keeper stores for the next
 /// turn to replay; null on a failed turn.
 /// </para>
+/// <para>2026-11-05-862ea: <paramref name="WorkPicture"/> is what the master stated through state_work_picture, or null.</para>
 public sealed record SpecDialogTurnResult(
     string Reply, OutcomeProposal Outcome, string Shown, SpecDialogTurnKind Kind, bool Stewarded = false,
-    string? Subject = null, ForwardedThreadCapture? Thread = null)
+    string? Subject = null, ForwardedThreadCapture? Thread = null, WorkPicture? WorkPicture = null)
 {
     public static SpecDialogTurnResult On(
         string platform, string reply, OutcomeProposal outcome, SpecDialogTurnKind? kind = null, bool stewarded = false,
-        string? subject = null, ForwardedThreadCapture? thread = null) =>
+        string? subject = null, ForwardedThreadCapture? thread = null, WorkPicture? workPicture = null) =>
         new(reply, outcome,
             !stewarded && string.Equals(platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase)
                 ? SpecDialogDraftBlocks.Strip(reply)
                 : reply,
-            kind ?? KindOf(outcome), stewarded, subject, thread);
+            kind ?? KindOf(outcome), stewarded, subject, thread, workPicture);
 
     public static SpecDialogTurnKind KindOf(OutcomeProposal outcome) => outcome switch
     {

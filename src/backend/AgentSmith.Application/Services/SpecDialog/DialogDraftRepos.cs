@@ -8,14 +8,15 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// Decided by <see cref="SpecReposRule"/> against the turn's scope: an out-of-scope name is
 /// refused for the one re-prompt. The dialog declares no contexts, so only the scope is checked.
 /// 2026-10-12-f5f7a: in a scope of several repositories each names exactly one; a lone spec
-/// naming several is told to become an epic, one child per repository, because the dialog's
+/// naming several is told to become an epic whose children each name one repository, because the dialog's
 /// way to cut one piece of work into several specs is the epic.
 /// </summary>
 public sealed class DialogDraftRepos(SpecReposRule rule, SpecDraftReposWriter writer)
 {
     /// <summary>How the dialog splits a spec that changes several repositories.</summary>
     public const string EpicSplit =
-        "propose it as an epic, one child per repository, the child that depends on the other second";
+        "propose it as an epic whose children each name one repository; a repository may carry several children, "
+        + "and a definition used across repositories can be its own child ahead of those that use it";
 
     /// <summary>The lone spec's text with its repos decided, or why the reply is refused.</summary>
     public (string? Yaml, string? Error) ForSpec(string yaml, IReadOnlyList<string> scope)

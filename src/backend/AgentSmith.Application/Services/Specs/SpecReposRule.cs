@@ -71,8 +71,8 @@ public sealed class SpecReposRule
             1 => (named, null),
             _ => ([], SpecReposResolution.SplitNeeded(
                 $"spec {position} names {named.Count} repositories ({string.Join(", ", named)}) — a spec "
-                + "changes exactly one repository; split it into one spec per repository, the one that "
-                + "depends on the other second")),
+                + "changes exactly one repository; split it into specs that each name one repository; "
+                + "a repository may carry several")),
         };
     }
 

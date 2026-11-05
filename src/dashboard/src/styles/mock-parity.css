@@ -1750,6 +1750,7 @@
    divider because a fields block draws the line under it; the bodies here are
    prose, so the line belongs to the head. */
 .mock-dialog .d-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 3px 12px; padding: 10px 14px; border-bottom: 1px solid var(--line-2); }
+.mock-dialog .d-head .d-work-picture { flex-basis: 100%; min-width: 0; }
 .mock-dialog .d-head .d-head-t { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
 .mock-dialog .d-body { padding: 14px 16px; }
 .mock-dialog .d-foot { padding: 12px 14px; border-top: 1px solid var(--line-2); }

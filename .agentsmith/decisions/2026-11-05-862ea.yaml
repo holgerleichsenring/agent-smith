@@ -34,3 +34,35 @@ decisions:
     chose: "Reword the derivation's ScopeRepositoriesPromptSection too"
     over: "Dialog texts only"
     reason: "It carries the same 'one per repository, the dependent second' sentence, so a derivation would keep cutting whole layers after the dialog stopped."
+  - category: Deviation
+    chose: "Re-verified the facts against d3369ecb3 (2ce7): the runner's success line is still :77-79 and the file 120 lines; workPicture: slot.WorkPicture is appended to that one line, so nothing is extracted. ContextKeys.SpecDialog.cs reaches 120, SpecDialogPromptFactory 110, SpecDialogExtensions stays 120 (the store is chained on the SpecDialogSubjectStore line), MasterToolComposition is untouched"
+    over: "Extracting a success-result builder out of the runner"
+    reason: "The brief allowed extraction only if the argument did not fit; it fits on the existing line, and the tool joins the master through TicketActToolsFactory, which MasterToolComposition already adds on design turns."
+  - category: Deviation
+    chose: "SpecDialogViewReader: the uploads/mocks `with` block moves out of ReadAsync into HeldAsync, which also sets WorkPicture"
+    over: "A helper beside Session, as the spec's page step says"
+    reason: "The block the picture belongs to lives in ReadAsync, not Session; extracting it shortens the over-long method instead of growing it."
+  - category: Implementation
+    chose: "Kind and size are matched by enum NAME, case-insensitive, dashes dropped; truth refuses empty, over 300, control characters and the markup marks ` * # |"
+    over: "Enum.TryParse; the subject's fuller markup set"
+    reason: "Enum.TryParse admits '1'. A truth names files and repositories, whose names carry underscores, brackets and dashes the subject rule refuses."
+  - category: Implementation
+    chose: "FirstAnswer drops 'the edge cases' for the work picture, uploads and code (files named), contradictions and one batch of operator decisions, and both FirstAnswer and the MAY-propose contract name 'Ready to propose: <the cut in one line>'; the contract now ends '…and reply with neither block.'"
+    over: "Naming the ready line only in the may-propose contract"
+    reason: "A one-spec picture can be ready after the first answer, and the next turn's condition reads that earlier reply, so the first answer must know the line. SpecDialogDiscussionPromptTests and SpecDialogFiledWorkContractTests now pin the new wording."
+  - category: Implementation
+    chose: "The prompt renders kind and size dashed (rebuild, one-spec), as the tool accepts them; the page view serves camelCase (oneSpec) and the dashboard labels 'one spec'"
+    over: "One spelling for both"
+    reason: "The model reads and writes the dashed form; the view follows the server's camelCase JSON convention as the spec says."
+  - category: Implementation
+    chose: "DialogWorkPicture sits in the dialog head as a full-width row (.d-work-picture, flex-basis 100%) after the identity line"
+    over: "Inside d-head-t beside the project"
+    reason: "Under the heading, on one line, without crowding the project and identity labels the head already wraps."
+  - category: Scope
+    chose: "Reword docs/how-it-works/multi-repo.md's 'cut as two specs, one per repository' too"
+    over: "Prompt texts only"
+    reason: "The docs would otherwise describe a rule the prompts no longer state."
+  - category: Implementation
+    chose: "The router tests extend ConversationSubjectTests' fixture; the harness test seeds its second turn by storing through SpecDialogWorkPictureStore and re-reading the state through SpecDialogSessionManager"
+    over: "A new router fixture; a hand-built state with the picture"
+    reason: "The subject's fixture already captures the row at reply time; re-reading the row proves the mapper and seeds, not a hand-set field."

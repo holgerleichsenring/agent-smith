@@ -22,12 +22,15 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 {
-    // A request for work is answered with what a proposal would need settled; a question is
-    // answered as it is asked, and a request for a text to take elsewhere with that text
-    // (2026-10-01-aeb6b) — neither is padded into the work shape.
+    // A request for work is answered with the work picture and what a proposal would need settled; a question is
+    // answered as it is asked, and a request for a text to take elsewhere with that text (2026-10-01-aeb6b) —
+    // neither is padded into the work shape. 2026-11-05-862ea: readiness is said in one line the next turn reads.
+    private const string ReadyLine = "'Ready to propose: <the cut in one line>'";
+
     private const string FirstAnswer =
-        "When the operator asks for work, answer with what you found in the code (with the files "
-        + "you read), the edge cases, and the open questions only the operator can decide. "
+        "When the operator asks for work, answer with the work picture, what the uploads and the code show (with the "
+        + "files you read), the contradictions between them, and in one batch the decisions only the operator can "
+        + $"make. Once you are ready, say so in one line: {ReadyLine}. "
         + "A question is answered as it is asked, and a request for a document — a prompt, a "
         + "summary, a brief to take elsewhere — with the document itself.";
 
@@ -48,10 +51,10 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 
             ## Your reply
             Write the reply text now — it is delivered verbatim to the chat thread.
-            Answer from the code map above when it suffices; read source files through
-            your tools only when the question needs real file content.
+            {DialogReadingLine.Render(pipeline)}
             {DialogImageNote.Render(imagesExisting, imagesCarried)}
             {ConversationNameNote.Render(pipeline)}
+            {WorkPictureSection.Render(pipeline)}
             {TurnContract(transcript)}
             """;
     }
@@ -83,9 +86,10 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             : string.Empty;
 
     private static string ProposalContract(bool mayPropose) => mayPropose
-        ? "The operator has replied to a discussion, so this turn MAY propose: draft a fenced "
-          + "```yaml spec (or an ```outcome block) only when the conversation has converged "
-          + "on work that warrants it — otherwise reply with neither block."
+        ? "The operator has replied to a discussion, so this turn MAY propose: draft a fenced ```yaml spec (or an "
+          + $"```outcome block) when an earlier reply of yours said {ReadyLine} and the operator's reply to it leaves "
+          + "nothing open, or when the operator asks for it. Otherwise keep leading: say "
+          + $"{ReadyLine} once you are, and reply with neither block."
         : "This turn MAY NOT propose: the operator has not yet replied to a discussion of this "
           + "work. Draft no ```yaml or ```outcome block — it would be refused. " + FirstAnswer;
 

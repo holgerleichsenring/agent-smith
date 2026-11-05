@@ -150,6 +150,18 @@ export interface SpecDialogSession {
   ratifiedMocks?: Record<string, number> | null;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
+  /** 2026-11-05-862ea: what the design partner said the work is; null while none is stored. */
+  workPicture?: SpecDialogWorkPicture | null;
+}
+
+/** 2026-11-05-862ea: the work picture the design partner stated — kind and size as camelCase strings. */
+export interface SpecDialogWorkPicture {
+  /** rebuild, feature, fix or document. */
+  kind: string;
+  /** Where the truth lives: which upload, which repositories are scaffolding. */
+  truth: string;
+  /** oneSpec, series or plan. */
+  size: string;
 }
 
 /** What a conversation's latest filing created. Only a filing produces one. */
