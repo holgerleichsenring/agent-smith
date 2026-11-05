@@ -76,7 +76,7 @@ public sealed class ReferenceApprovalCiteTests
         var approvals = new ApprovedSeriesRepository(db);
         await approvals.SaveAsync(Record("s-1", [cited.SetId]), CancellationToken.None);
         var deleter = new SpecDialogConversationDeleter(db, new SpecDialogSessionRepository(db),
-            new DialogueAnswerRepository(db, new SqliteUniqueViolationTranslator()), new ReferenceFileRepository(db), approvals);
+            new DialogueAnswerRepository(db, new SqliteUniqueViolationTranslator()), new ReferenceFileRepository(db), approvals, new SpecDialogThreadRepository(db));
 
         await deleter.DeleteAsync("s-1", CancellationToken.None);
 
@@ -161,7 +161,7 @@ public sealed class ReferenceApprovalCiteTests
 
     private static SpecDialogConversationDeleter Deleter(AgentSmith.Infrastructure.Persistence.AgentSmithDbContext db, ApprovedSeriesRepository approvals) =>
         new(db, new SpecDialogSessionRepository(db),
-            new DialogueAnswerRepository(db, new SqliteUniqueViolationTranslator()), new ReferenceFileRepository(db), approvals);
+            new DialogueAnswerRepository(db, new SqliteUniqueViolationTranslator()), new ReferenceFileRepository(db), approvals, new SpecDialogThreadRepository(db));
 
     private sealed class WithImage : AgentSmith.Contracts.Sandbox.IReferenceSetReader
     {

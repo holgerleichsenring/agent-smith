@@ -36,7 +36,7 @@ public sealed class AgenticLoopRunner(
         // the request, so a surface that raises its ceiling can also reduce what it holds.
         var chat = chatClientFactory.Create(
             request.AgentConfig, request.TaskType, request.MaxIterations, request.MasterLoopHooks,
-            request.Compaction, request.ContextWindowTokensOverride);
+            request.Compaction, request.ContextWindowTokensOverride, request.ThreadCapture);
         var maxTokens = request.MaxOutputTokensOverride
             ?? chatClientFactory.GetMaxOutputTokens(request.AgentConfig, request.TaskType);
         // p0317: ticket images ride the user message as image content parts
@@ -64,6 +64,7 @@ public sealed class AgenticLoopRunner(
             role, request.SubAgentId, request.ParentSubAgentId);
         var response = await chat.GetResponseAsync(messages, options, cancellationToken);
         sw.Stop();
+        request.ThreadCapture?.Answered(response.Text);
         return new AgenticLoopResult(response, sw.Elapsed);
     }
 }

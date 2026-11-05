@@ -11,10 +11,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// a turn only when it is sent, and the live proposal card attaches to the last agent entry, so the notice is returned
 /// for the router to send first, and the reply stays the entry its card and the window's pinned answer read.
 /// </para>
+/// <para>And the thread the turn's master ended with, for the next turn to replay; a failed turn drops it.</para>
 /// </summary>
 public sealed class SpecDialogTurnKeeper(
     SpecDialogSessionManager sessions, SpecDialogSubjectStore subjects, SpecDialogDigestWriter digests,
-    SpecDialogUploadArrivals arrivals)
+    SpecDialogUploadArrivals arrivals, SpecDialogThreadStore threads)
 {
     /// <summary>Keeps the turn and returns the notice about uploads it did not hold, or null.</summary>
     public async Task<string?> KeepAsync(
@@ -24,7 +25,10 @@ public sealed class SpecDialogTurnKeeper(
         var notice = await arrivals.NoticeAsync(state, result, ct);
         if (notice is not null)
             await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Notice, null, ct);
-        await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
+        var kept = await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
+        // A failed turn's thread would replay a turn that never answered; the next one starts fresh from the transcript.
+        if (result.Kind == SpecDialogTurnKind.Failure) await threads.DropAsync(state.JobId, ct);
+        else await threads.KeepAsync(state, result, kept, ct);
         // 2026-11-04-96a0a: before the router sends the reply, which is what makes the page re-read the conversation,
         // so a conversation that asks one question and never comes back is still headed with its name.
         if (state.Subject is null && result.Subject is { } subject && result.Kind != SpecDialogTurnKind.Failure)

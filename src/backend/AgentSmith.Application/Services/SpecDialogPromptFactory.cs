@@ -40,7 +40,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             The transcript of this design thread so far, oldest first. Respond to the
             LAST user turn; earlier turns are context you already produced or received.
 
-            {DialogTranscriptSection.Render(transcript)}
+            {DialogTranscriptSection.Render(pipeline, transcript, stewarded: false)}
             {SpecDialog.SeededTicketSection.Render(pipeline)}
             {SpecDialog.FrameworkFactsSection.Render(pipeline)}
             {SpecDialog.DialogScopeRepositoriesSection.Render(pipeline)}

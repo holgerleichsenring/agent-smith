@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Turns;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -21,13 +22,21 @@ public sealed class SpecDialogOutcomeGate(
     ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
     ILogger<SpecDialogOutcomeGate> logger)
 {
+    private static readonly OutcomeInvalid Cut = new(
+        "the reply was cut off at the output limit before it ended; write the whole reply again");
+
     public async Task<AgenticLoopResult> GateAsync(
         PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
         AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
     {
-        loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
         // 2026-10-12-3a36e: the turn's repositories, keyed by their configured names in the dialog.
         IReadOnlyList<string> scope = [.. Specs.DerivationLookFactory.ProposalRepositories(pipeline)?.Keys ?? []];
+        // A reply cut at the output limit is re-asked under the raised budget before anything reads it, a refusal
+        // included: a draft cut inside its block would otherwise be refused and re-asked at the old budget.
+        if (loopResult.Response.FinishReason == ChatFinishReason.Length)
+            return await RetryAsync(pipeline, request with { MaxOutputTokensOverride = request.AgentConfig.DialogMasterMaxOutputTokens },
+                userPrompt, loopResult, conversation, costTracker, Cut, scope, ct);
+        loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
         var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty, scope);
         if (resolution is OutcomeResolved first)
             return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
@@ -57,6 +66,7 @@ public sealed class SpecDialogOutcomeGate(
             logger.LogWarning(ex, "Outcome-fix re-prompt failed");
             return MasterOutcomes.FailOutcome(pipeline, loopResult, invalid.Error);
         }
+        if (retry.Response.FinishReason == ChatFinishReason.Length) return MasterOutcomes.FailOutcome(pipeline, retry, Cut.Error);
         var resolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty, scope);
         if (resolution is OutcomeResolved second) return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, retry);
         var stillInvalid = (OutcomeInvalid)resolution;

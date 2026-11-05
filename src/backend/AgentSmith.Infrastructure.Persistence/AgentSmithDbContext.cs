@@ -58,6 +58,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         new DialogFileConfigurations(Database.ProviderName).Apply(modelBuilder); // 3af8 + 283da
         modelBuilder.ApplyConfiguration(new SpecDialogTicketTextConfiguration()); // 8e51c
+        modelBuilder.ApplyConfiguration(new SpecDialogThreadConfiguration()); // a turn's thread, replayed by the next
         new TicketRecordConfigurations().Apply(modelBuilder); // 2026-09-25-b4d9
         modelBuilder.ApplyConfiguration(new ApprovedSeriesConfiguration()); // 2026-09-17-0e79a, 2026-10-06-03c7f
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());

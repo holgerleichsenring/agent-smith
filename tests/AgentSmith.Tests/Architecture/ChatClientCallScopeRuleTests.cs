@@ -61,6 +61,9 @@ public sealed class ChatClientCallScopeRuleTests
         // list in-flight and delegates; the outer master call's BeginCallScope is still live
         // (the summarizer call it makes goes through the instrumented factory path).
         "CompactingChatClient.cs",
+        // Pass-through recorder under the compactor — keeps what it forwarded and was answered and delegates; the
+        // outer master call's BeginCallScope is still live.
+        "ThreadCapturingChatClient.cs",
         // p0293: ChatClientFactory.ProbeAsync (connection diagnostics) calls the
         // BARE builder client directly — no EventPublishingChatClient wrapper — so
         // it emits NO LlmCallFinished event. With nothing to attribute, the

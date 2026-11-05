@@ -36,7 +36,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogPendingQuestions pendingQuestions,
     SpecDialogTurnGate gate, TicketTextForConversation ticketText, BoundTicketReaders readers,
     DashboardReadingChannel reading,
-    DashboardActivityChannel activity, AgentSmith.Contracts.Dialogue.IFiledTicketWithdrawal withdrawal,
+    DashboardActivityChannel activity, AgentSmith.Contracts.Dialogue.IFiledTicketWithdrawal withdrawal, SpecDialogThreadStore threads,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
 {
     public async Task<SpecDialogTurnResult> RunTurnAsync(
@@ -54,7 +54,7 @@ public sealed class SpecDialogTurnRunner(
         var seeds = SpecDialogTurnSeeds.Build(
             state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
             withdrawal, await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
-            await readers.ForAsync(state.JobId, project, poster, cancellationToken), project.DesignSources, project);
+            await readers.ForAsync(state.JobId, project, poster, cancellationToken), project.DesignSources, project, await threads.LoadAsync(state, project.Agent, cancellationToken));
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
             Headless: true, Context: seeds);
@@ -76,7 +76,7 @@ public sealed class SpecDialogTurnRunner(
             // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
                 ? SpecDialogTurnResult.On(
-                    state.Platform, slot.Reply, await readOnlyScopes.StampAsync(slot.Outcome, project, templates, cancellationToken), slot.Kind, slot.Stewarded, subject: slot.Subject)
+                    state.Platform, slot.Reply, await readOnlyScopes.StampAsync(slot.Outcome, project, templates, cancellationToken), slot.Kind, slot.Stewarded, subject: slot.Subject, thread: slot.Thread)
                 : SpecDialogTurnResult.On(
                     state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
                     SpecDialogTurnKind.Failure);

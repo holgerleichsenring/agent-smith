@@ -247,7 +247,7 @@ public sealed class DialogDraftSplitTests : IDisposable
                 new SpecDialogReplyComposer(), _messenger),
             _turnRunner.Object, flow, gate,
             new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object),
-            SilentTurnKeeper.Over(repository, _sessions, new ReferenceSetRepository(_context)),
+            SilentTurnKeeper.Over(repository, _sessions, _context),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), _messenger, NullLogger<SpecDialogRouter>.Instance);
     }

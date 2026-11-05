@@ -100,7 +100,7 @@ public sealed class ChatClientFactory(
     public IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations,
         MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction,
-        int? contextWindowOverride = null)
+        int? contextWindowOverride = null, ForwardedThreadCapture? capture = null)
     {
         var assignment = GetAssignment(agent, task);
         // 2026-09-01-7df4: a role's own stated window always wins; the override is what the
@@ -188,13 +188,13 @@ public sealed class ChatClientFactory(
             loopInner = new ContextPressureFinalizingChatClient(
                 loopInner, stated, task.ToString(),
                 loggerFactory.CreateLogger<ContextPressureFinalizingChatClient>());
+        if (capture is not null) loopInner = new ThreadCapturingChatClient(loopInner, capture); // what a dialog replays
         var effective = masterLoopHooks?.Compaction
             ?? windowCompaction.Derive(compaction, window);
         if (effective is { IsEnabled: true })
             loopInner = new CompactingChatClient(
                 loopInner, effective, masterLoopHooks,
-                BuildCompactionSummarizer(agent),
-                loggerFactory.CreateLogger<CompactingChatClient>());
+                BuildCompactionSummarizer(agent), loggerFactory.CreateLogger<CompactingChatClient>(), capture is not null);
         if (masterLoopHooks is not null)
             loopInner = new MasterLoopGovernorChatClient(loopInner, masterLoopHooks);
 

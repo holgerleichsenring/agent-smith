@@ -13,9 +13,10 @@ namespace AgentSmith.Tests.TestHelpers;
 internal static class SilentTurnKeeper
 {
     internal static SpecDialogTurnKeeper Over(
-        SpecDialogSessionRepository repository, SpecDialogSessionManager sessions, ReferenceSetRepository sets,
-        string project = "sample") =>
-        new(sessions, new SpecDialogSubjectStore(repository), Writer(repository, project), new SpecDialogUploadArrivals(sets));
+        SpecDialogSessionRepository repository, SpecDialogSessionManager sessions,
+        AgentSmith.Infrastructure.Persistence.AgentSmithDbContext context, string project = "sample") =>
+        new(sessions, new SpecDialogSubjectStore(repository), Writer(repository, project),
+            new SpecDialogUploadArrivals(new ReferenceSetRepository(context)), DialogThreadStores.Over(context));
 
     private static SpecDialogDigestWriter Writer(SpecDialogSessionRepository repository, string project = "sample") =>
         new(new SilentChatModel.SilentChatClients(), SilentChatModel.Loader(project),

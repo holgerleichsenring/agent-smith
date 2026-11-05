@@ -52,4 +52,7 @@ public sealed record AgenticLoopRequest(
     // 2026-09-01-7df4: the input window to run against when the resolved model role states
     // none. A role that states its own window wins — the window is a property of the
     // deployment, and this is only the surface saying what it assumes when nobody said.
-    int? ContextWindowTokensOverride = null);
+    int? ContextWindowTokensOverride = null,
+    // What this loop forwards below the compactor, and the text it answered — a dialog turn's thread, kept for the
+    // next turn to replay. Null records nothing.
+    ForwardedThreadCapture? ThreadCapture = null);

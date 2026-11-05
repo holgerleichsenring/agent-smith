@@ -62,3 +62,39 @@ decisions:
     chose: "The Length check runs before the proposal refusal"
     over: "Running it after, as an outcome-validation error"
     reason: "Review round 2: RefuseEarlyProposalAsync runs first (SpecDialogOutcomeGate.cs:28), so a draft cut inside its block would be refused and re-prompted at the old budget."
+  - category: Deviation
+    chose: "SpecDialogTurnResult.Thread carries the ForwardedThreadCapture itself; the runner's success line passes slot.Thread"
+    over: "Carrying slot.Thread.Messages only, as step wiring words it"
+    reason: "The keeper sets ReplyAt only when the kept reply equals the capture's Answered text (step store), so it needs both. Messages being null still means nothing is stored."
+  - category: Implementation
+    chose: "A Length re-prompt is the gate's one outcome-fix re-prompt; its reply is resolved, not passed through the early-proposal refusal again"
+    over: "Running the refusal on the re-asked reply as well"
+    reason: "The spec allows one re-prompt per cut and a second cut fails honestly. A second refusal pass would add a third model call. The proposal review still runs on the result."
+  - category: Implementation
+    chose: "The pinned current prompt goes straight after the head, before the summary"
+    over: "Keeping it at its chronological place between the summary and the tail"
+    reason: "The summary header calls 'the ticket above' authoritative, so the current prompt has to sit above it. Head plus prompt is also a prefix that stays byte-stable across folds."
+  - category: Implementation
+    chose: "Keep a thread row whenever the turn captured one; only LoadAsync applies the fold policy"
+    over: "Also skipping the write when compaction or the window is off"
+    reason: "The spec names Messages == null as the only reason to store nothing. A row that is never loaded costs one row per conversation, and it is current again as soon as the policy turns on."
+  - category: Implementation
+    chose: "The codec masks texts and results but not call arguments"
+    over: "Masking arguments too"
+    reason: "Step store lists texts and results, and SecretValueMaskingChatClient, which decides what a provider sees, masks the same two. The model wrote the arguments from what it was shown, which was already masked."
+  - category: Implementation
+    chose: "The table is reached through IUnitOfWork.Set; AgentSmithDbContext gains only the ApplyConfiguration line"
+    over: "A DbSet property as well"
+    reason: "The context is at 118 of 120 lines and the spec allows one line. SpecDialogTicketText is reached the same way."
+  - category: Implementation
+    chose: "ThreadCapturingChatClient joins ChatClientCallScopeRuleTests' exempt list; the archive tests count 54 tables"
+    over: "Opening a call scope in the recorder"
+    reason: "It delegates a call that is already scoped, like CompactingChatClient. The new table is archived and restored like every other one."
+  - category: Implementation
+    chose: "The harness criterion seeds the stub sandbox's SourceFiles with src/Router.cs"
+    over: "Asserting on the empty text the stub returns by default"
+    reason: "The criterion requires the file's text in the replayed FunctionResultContent. An empty result would also pass if the result were lost."
+  - category: Scope
+    chose: "The production-replay criterion (input growth across turns, 170k ceiling, cached share) is the operator's to measure"
+    over: "Claiming it from the harness"
+    reason: "It needs the production upload conversation replayed on a local server against a real provider. Nothing in this commit measures it."

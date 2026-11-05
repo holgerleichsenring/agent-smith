@@ -51,11 +51,13 @@ public interface IChatClientFactory
     /// assume when the resolved role states none — a surface that raises its iteration
     /// ceiling has to be able to reduce, and no shipped configuration states a window for
     /// the scan role. A role that states its own window wins over it.</para>
+    /// <para><paramref name="capture"/> records what the tool loop forwards below the compactor, for a dialog turn
+    /// to replay on the next.</para>
     /// </summary>
     IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations,
         MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction,
-        int? contextWindowOverride = null)
+        int? contextWindowOverride = null, ForwardedThreadCapture? capture = null)
         => Create(agent, task, maxIterations, masterLoopHooks);
 
     /// <summary>

@@ -590,7 +590,10 @@
         "scan_min_source_reads": { "type": "integer", "description": "Default 6." },
         "scan_master_max_output_tokens": { "type": "integer", "description": "Default 32000." },
         "scan_master_loop_iterations": { "type": "integer", "description": "Default 100." },
-        "scan_context_window_tokens": { "type": "integer", "description": "Default 200000." }
+        "scan_context_window_tokens": { "type": "integer", "description": "Default 200000." },
+        "dialog_master_loop_iterations": { "type": "integer", "description": "Default 100." },
+        "dialog_master_max_output_tokens": { "type": "integer", "description": "Output budget a dialog turn is re-asked under once its reply was cut. Default 32000." },
+        "dialog_context_window_tokens": { "type": "integer", "description": "Window a dialog turn folds against when the role states none; <= 0 states none and stops the thread replay. Default 200000." }
       }
     },
     "repo": {

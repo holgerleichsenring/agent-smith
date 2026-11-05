@@ -40,7 +40,7 @@ internal static class SpecDialogTurnSeeds
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
         IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null,
         BoundTicket? bound = null, IReadOnlyList<DesignSource>? designSources = null,
-        ResolvedProject? project = null)
+        ResolvedProject? project = null, DialogThread? thread = null)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -91,6 +91,7 @@ internal static class SpecDialogTurnSeeds
         if (designSources is { Count: > 0 }) seeds[ContextKeys.SpecDialogDesignSources] = designSources;
         // 2026-10-01-283de: and the project itself, whose spec render_reference's browser sandbox is built from.
         if (project is not null) seeds[ContextKeys.SpecDialogProject] = project;
+        if (thread is not null) seeds[ContextKeys.SpecDialogThread] = thread; // the thread this turn continues
         return seeds;
     }
 

@@ -87,7 +87,7 @@ new DashboardOutcomeChannel(
             new SpecCommandParser(), commandHandler,
             _turnRunner.Object, outcomeFlow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object),
-            SilentTurnKeeper.Over(repository, _sessions, new ReferenceSetRepository(_context)),
+            SilentTurnKeeper.Over(repository, _sessions, _context),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
