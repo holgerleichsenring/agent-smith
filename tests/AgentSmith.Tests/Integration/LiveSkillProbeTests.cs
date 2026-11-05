@@ -370,7 +370,7 @@ public sealed class LiveSkillProbeTests
     /// Build an IChatClient against whatever provider is configured in env. Tries
     /// Azure OpenAI first (the user's primary), falls back to public OpenAI.
     /// </summary>
-    private static IChatClient BuildChatClient()
+    internal static IChatClient BuildChatClient()
     {
         var azureKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
         var azureEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");

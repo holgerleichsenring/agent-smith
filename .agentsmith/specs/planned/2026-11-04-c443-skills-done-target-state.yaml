@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-c443
+goal: "The derivation and coding masters carry the same target-state sentence as the backend prompts, and the embedded skills catalog pins the release that ships it."
+
+applies_to: "default (skills catalog pin: AgentSmith.Infrastructure.Core); agent-smith-skills spec-derivation-master, coding-agent-master"
+
+requires: [2026-11-02-2b26c]
+
+facts:
+  - claim: "The derivation master defines requirements_contradict_repository as a ticket that 'contradicts what the analysed repositories actually contain'."
+    evidence: "observed: 2026-11-02, agent-smith-skills commit c272e97, skills/_masters/spec-derivation-master/SKILL.md lines 181-184"
+  - claim: "The embedded catalog is pinned by version and sha in the Infrastructure.Core project."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+  - claim: "The skills repo releases through release-please; the PR title must be a conventional commit."
+    evidence: "observed: 2026-11-04, operator memory reference_skills_repo_releases"
+
+scope:
+  in: >
+    agent-smith-skills, branched from origin/main: the shared sentence from 2026-11-02-2b26c in spec-derivation-master's
+    requirements_contradict_repository case and in coding-agent-master's ask_human guidance; a PR titled
+    'fix(masters): a gap to a done criterion is the work, not a contradiction'. After the operator merges it and the
+    release exists: SkillsCatalogVersion, SkillsCatalogSha256 and the tarball here, plus the version mentions in
+    config/agentsmith.example.yml, docs/how-it-works/skills-catalog.md, docs/reference/skills and
+    SkillsConfigValidatorTests.
+  out: "Any other master text."
+
+steps:
+  - id: skills-pr
+    action: "The skills change and its PR."
+  - id: pin
+    action: "After the release: the catalog bump and the version mentions."
+
+tests:
+  - "SkillsConfigValidatorTests (updated version)"
+  - "The embedded-catalog tests stay green with the new sha."
+
+done:
+  - "The skills PR is open; after its release the catalog here pins it and both masters carry the sentence."
+  - "Build green, full suite green, dashboard gen/test/build green."

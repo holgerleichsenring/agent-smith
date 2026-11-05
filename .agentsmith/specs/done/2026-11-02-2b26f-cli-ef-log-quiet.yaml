@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-02-2b26f
+goal: "CLI output shows the run, not Entity Framework: EF Core logs at Warning unless --verbose."
+
+applies_to: "default (CLI logging: ServiceProviderFactory)"
+
+facts:
+  - claim: "CLI logging sets only a minimum level (Information, Debug with --verbose) and no category filter."
+    evidence: "src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:52-57"
+  - claim: "The server already filters Microsoft.EntityFrameworkCore to Warning."
+    evidence: "src/backend/AgentSmith.Server/appsettings.json:8"
+  - claim: "One demo run printed 5,455 lines, 1,148 of them 'Executed DbCommand' with the SQL."
+    evidence: "observed: 2026-11-02, v0.175.2 demo run log"
+
+scope:
+  in: "AddFilter(\"Microsoft.EntityFrameworkCore\", LogLevel.Warning) when not verbose."
+  out: "Other categories."
+
+steps:
+  - id: filter
+    action: "The filter in BuildServices."
+  - id: tests
+    action: "Test below."
+
+tests:
+  - "CliLoggingTests.NotVerbose_EfCoreInformation_IsNotLogged"
+
+done:
+  - "A CLI run without --verbose prints no EF Core command or migration lines."
+  - "Build green, full suite green, dashboard gen/test/build green."

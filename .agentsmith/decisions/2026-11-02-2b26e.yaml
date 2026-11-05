@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26e
+
+decisions:
+  - category: Implementation
+    chose: "InlineMasterAsk asks the composed question through IDialogueAskGate with a named DefaultAnswer, then IMasterAnswerIntake.Accept and the handler's Reengage (made internal)"
+    over: "HumanToolHost, or a second copy of the PlanAnswers merge"
+    reason: |
+      The gate already prints, waits and records; PlanAnswers is the only seam the master reads an answer through,
+      so the write half of the intake is lifted into Accept and TryDeliverAsync calls it too.
+  - category: Implementation
+    chose: "Accept writes '{question} — {answer}' on both paths; inline asks are keyed by round (the first free 1, 2, ...)"
+    over: "Keeping the resumed path's bare answer"
+    reason: |
+      The prompt renders each entry as 'Q{key}: value', so a bare answer never said what it answered. The master's
+      question id is '1' on every ask, so on an inline run a second ask would overwrite the first; the resume test's
+      expected value moved to the new shape.
+  - category: Implementation
+    chose: "An answer by 'system' and a blank one both become the named default, with the gate's '(timeout)' note dropped; the per-spec count of 'system' answers is a pipeline key private to InlineMasterAsk"
+    over: "A ContextKeys constant"
+    reason: |
+      At stdin EOF the gate's comment says 'timeout', which is not what happened and not the master's to read.
+      ContextKeys sits in the file-length baseline, which a new line would grow.
+  - category: Testing
+    chose: "The EOF test drives the real DialogueAskGate over ConsoleDialogueTransport on an empty reader, bounded by OrHang"
+    over: "A mocked gate answering the default"
+    reason: |
+      It proves the named default reaches PlanAnswers through the path the CLI takes. With the handler's inline branch
+      disabled, seven of the eight tests failed (the provider test does not depend on the branch).

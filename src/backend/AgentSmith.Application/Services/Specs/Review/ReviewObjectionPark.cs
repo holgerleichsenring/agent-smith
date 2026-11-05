@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// next run reads. The ticket parks at the EARLIEST asked spec: before any spec is built when that is the first
 /// unbuilt spec or an objection is the series' own (SpecHandback spliced in behind the step); otherwise through a
 /// parking <see cref="SpecSequenceStop"/>, so the specs before it are built first. A park never moves an existing
-/// stop later; at equal position the park wins.
+/// stop later; at equal position the park wins. An inline-ticket run never sets a parking stop (2026-11-02-2b26d).
 /// </summary>
 public sealed class ReviewObjectionPark(SpecReviewRevision revision, ILogger<ReviewObjectionPark> logger)
 {
@@ -30,8 +30,10 @@ public sealed class ReviewObjectionPark(SpecReviewRevision revision, ILogger<Rev
         var set = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
         var asked = $"{done.Message}; asked the author once: {string.Join(", ", ask.Select(o => o.MarkerKey))}";
         var at = ask.Any(o => o.SpecId is null) ? null : ask.Select(o => o.SpecId!).MinBy(id => IndexOf(set, id));
-        // 2026-10-26-bdd0c: a derivation builds nothing, so every objection is asked now.
-        if (at is null || at == set.UnexecutedTail.FirstOrDefault()?.SpecId || PipelinePresets.LeavesTicketAlone(pipeline))
+        // 2026-10-26-bdd0c: a derivation builds nothing, so every objection is asked now. 2026-11-02-2b26d: an inline
+        // run asks in the terminal and has no ticket to park a later spec on, so it asks before any spec is built too.
+        if (at is null || at == set.UnexecutedTail.FirstOrDefault()?.SpecId || PipelinePresets.LeavesTicketAlone(pipeline)
+            || pipeline.Has(ContextKeys.InlineTicket))
         {
             logger.LogInformation("Review objection asked — parking before any spec is built: {Keys}", asked);
             return CommandResult.OkAndContinueWith($"{asked}; parked before any spec is built",

@@ -36,10 +36,7 @@ public sealed class MasterAnswerIntake(
         if (!ResumedAnswerPolicy.TryConsume(pipeline, question, out var answer) || answer is null)
             return null;
 
-        pipeline.Set(ContextKeys.PlanAnswers, Answered(pipeline, questions, answer));
-        // The question is answered: neither this step nor a later pass may park on it again.
-        pipeline.Remove(ContextKeys.MasterOpenQuestions);
-        pipeline.Remove(ContextKeys.OpenQuestionsAwaitingAnswer);
+        Accept(pipeline, questions, answer);
         await dialogueTrail.RecordAsync(question, answer);
         logger.LogInformation(
             "Operator answered the master's question '{QuestionId}' ({By}) — re-engaging the master",
@@ -47,8 +44,20 @@ public sealed class MasterAnswerIntake(
         return answer;
     }
 
-    // One reply covers every question of the ask, exactly as the ticket comment asks for it;
-    // answers an earlier round already carried stay in place.
+    public void Accept(PipelineContext pipeline, IReadOnlyList<PlanOpenQuestion> questions, DialogAnswer answer)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(questions);
+        ArgumentNullException.ThrowIfNull(answer);
+        pipeline.Set(ContextKeys.PlanAnswers, Answered(pipeline, questions, answer));
+        // The question is answered: neither this step nor a later pass may park on it again.
+        pipeline.Remove(ContextKeys.MasterOpenQuestions);
+        pipeline.Remove(ContextKeys.OpenQuestionsAwaitingAnswer);
+    }
+
+    // One reply covers every question of the ask, exactly as the ticket comment asks for it; answers an earlier
+    // round already carried stay in place. 2026-11-02-2b26d: each answer names its question. An inline run asks
+    // the master's "1" again on every round, so its asks are keyed by round instead.
     private static Dictionary<string, string> Answered(
         PipelineContext pipeline, IReadOnlyList<PlanOpenQuestion> questions, DialogAnswer answer)
     {
@@ -59,7 +68,17 @@ public sealed class MasterAnswerIntake(
         var text = string.IsNullOrWhiteSpace(answer.Comment)
             ? answer.Answer
             : $"{answer.Answer} ({answer.Comment})";
-        foreach (var question in questions) answers[question.Id] = text;
+        if (pipeline.Has(ContextKeys.InlineTicket))
+            answers[NextRound(answers)] = $"{string.Join("; ", questions.Select(q => q.Question))} — {text}";
+        else
+            foreach (var question in questions) answers[question.Id] = $"{question.Question} — {text}";
         return answers;
+    }
+
+    private static string NextRound(Dictionary<string, string> answers)
+    {
+        var round = 1;
+        while (answers.ContainsKey(round.ToString(System.Globalization.CultureInfo.InvariantCulture))) round++;
+        return round.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 }

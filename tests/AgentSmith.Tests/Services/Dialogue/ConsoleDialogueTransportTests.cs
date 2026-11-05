@@ -1,6 +1,7 @@
 using AgentSmith.Cli.Services;
 using AgentSmith.Contracts.Dialogue;
 using FluentAssertions;
+using AgentSmith.Tests.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services.Dialogue;
@@ -131,6 +132,22 @@ public sealed class ConsoleDialogueTransportTests
 
         result.Should().BeNull();
         output.ToString().Should().Contain("Timed out");
+    }
+
+    /// <summary>2026-11-02-2b26d: stdin at EOF (a demo run with its input closed) answers nothing at once, so the
+    /// gate falls back to the question's default instead of waiting out the question's timeout.</summary>
+    [Fact]
+    public async Task ClosedInput_ReturnsNullWithoutWaiting()
+    {
+        var sut = CreateSut(string.Empty, out var output);
+        var question = MakeQuestion(QuestionType.Choice, "Pick one", choices: ["Alpha", "Beta"], defaultAnswer: "Alpha");
+
+        await sut.PublishQuestionAsync("job-1", question, CancellationToken.None);
+        var result = await sut.WaitForAnswerAsync("job-1", "q-1", Timeout.InfiniteTimeSpan,
+            CancellationToken.None).OrHang("the closed input's answer");
+
+        result.Should().BeNull();
+        output.ToString().Should().NotContain("Timed out", "end of input is not a timeout");
     }
 
     [Fact]

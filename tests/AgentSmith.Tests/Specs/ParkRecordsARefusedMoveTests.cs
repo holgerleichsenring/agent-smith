@@ -232,6 +232,7 @@ public sealed class ParkRecordsARefusedMoveTests
                 new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
+            new InlineMasterAsk(Mock.Of<IDialogueAskGate>(), new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance), NullLogger<InlineMasterAsk>.Instance),
             Report(),
             handlerLog ?? NullLogger<MasterOpenQuestionsHandler>.Instance);
         var pipeline = Pipeline();
@@ -250,7 +251,7 @@ public sealed class ParkRecordsARefusedMoveTests
         new InMemorySpecSetPointerStore(),
         new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
         AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
-        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), NullLogger<SpecHandbackHandler>.Instance);
+        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Inline(), NullLogger<SpecHandbackHandler>.Instance);
 
     private TicketClaimService ClaimService()
     {

@@ -34,6 +34,10 @@ public static class ContradictionCheckPrompt
             {{Refuted}} only when a look YOU took shows the claim is not so, and cite that look's
             evidence id. {{Holds}} when your looks confirm it; {{Unproven}} when you could not settle it.
 
+            A ticket asks for a change. A claim that is only that today's code does not yet do
+            what the ticket asks is {{Refuted}}: read the file that holds that code and cite that
+            read. {{DoneTargetState.Rule}}
+
             Answer with JSON and nothing else:
 
               [{"verdict": "{{Refuted}}|{{Holds}}|{{Unproven}}",

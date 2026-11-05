@@ -61,7 +61,7 @@ public sealed class MasterQuestionResumeTests
         await Handler(new RecordingWriter(), new RecordingPoster()).ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.Get<Dictionary<string, string>>(ContextKeys.PlanAnswers)
-            .Should().ContainKey("1").WhoseValue.Should().Be("15 minutes (the session must survive one refresh)",
+            .Should().ContainKey("1").WhoseValue.Should().Be($"{Question} — 15 minutes (the session must survive one refresh)",
                 "the spec prompt renders PlanAnswers as the operator's answers — the seam that already exists");
         context.Pipeline.Has(ContextKeys.MasterOpenQuestions).Should().BeFalse("the question is answered");
         context.Pipeline.Has(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeFalse("the run is no longer parked");
@@ -137,6 +137,7 @@ public sealed class MasterQuestionResumeTests
                 writer, new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             intake ?? new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
+            new InlineMasterAsk(Mock.Of<IDialogueAskGate>(), new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance), NullLogger<InlineMasterAsk>.Instance),
             new Application.Services.Lifecycle.UnmovedTicketReport(
                 new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
                 NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),

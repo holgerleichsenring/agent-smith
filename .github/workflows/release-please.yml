@@ -75,3 +75,51 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ needs.release-please.outputs.tag_name }} ./publish/${{ matrix.binary }} --clobber
         shell: bash
+
+  # 2026-11-02-2b26g: the binary a reader downloads runs `demo` from an empty directory with a real key.
+  # It runs after the upload, so a red run is a fix-forward signal, not a held release.
+  demo-smoke:
+    needs: [release-please, build]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Key present
+        id: key
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::warning::OPENAI_API_KEY is not set as a repository secret — the demo smoke did not run"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download the published binary
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download ${{ needs.release-please.outputs.tag_name }} -p agent-smith-linux-x64 -D "$RUNNER_TEMP/bin"
+          chmod +x "$RUNNER_TEMP/bin/agent-smith-linux-x64"
+
+      - name: Demo from an empty directory
+        if: steps.key.outputs.present == 'true'
+        run: .github/scripts/demo-smoke.sh "$RUNNER_TEMP/bin/agent-smith-linux-x64"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: demo-log
+          path: ${{ runner.temp }}/demo.log

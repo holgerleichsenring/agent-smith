@@ -13,15 +13,18 @@ namespace AgentSmith.PipelineHarness.Llm;
 public sealed class SpecAttackScript
 {
     private const string Build = """{"verdict": "BUILD", "cuts": [], "findings": []}""";
-    private readonly Queue<ChatResponse> _replies = new();
+    // 2026-11-02-2b26d: the panel's reviewers call in parallel, so the slot is drawn from concurrently.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<ChatResponse> _replies = new();
 
-    public void Enqueue(string text) =>
-        _replies.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
+    public void Enqueue(string text) => Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
+
+    /// <summary>2026-11-02-2b26d: any reply, a tool call among them — a finding is admitted only on a look of its own.</summary>
+    public void Enqueue(ChatResponse reply) => _replies.Enqueue(reply);
 
     /// <summary>True when these messages are an attack reviewer's call — its prompt opens with the brief.</summary>
     public static bool Answers(IReadOnlyList<ChatMessage> messages) =>
         messages.Any(m => m.Text?.StartsWith(SpecAttackPrompt.Brief, StringComparison.Ordinal) == true);
 
     public ChatResponse Next() =>
-        _replies.Count > 0 ? _replies.Dequeue() : new ChatResponse(new ChatMessage(ChatRole.Assistant, Build));
+        _replies.TryDequeue(out var reply) ? reply : new ChatResponse(new ChatMessage(ChatRole.Assistant, Build));
 }

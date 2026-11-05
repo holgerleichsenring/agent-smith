@@ -250,6 +250,30 @@ public sealed class SpecHandbackTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>2026-11-02-2b26d: the CLI's ephemeral project carries a default tracker with no park status; an
+    /// inline run asks its review objection in the terminal instead of failing on the missing status.</summary>
+    [Fact]
+    public async Task InlineRun_NoParkStatus_AsksInsteadOfFailing()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var objection = Application.Services.Specs.Review.ReviewObjectionQuestion.For(
+            [new Application.Services.Specs.Review.StandingObjection("2026-11-02-1234a",
+                [new AgentSmith.Contracts.Events.SpecReviewFinding("The handler does not exist.", "src/H.cs:1")])]);
+        var pipeline = PipelineWith(objection);
+        pipeline.Set(ContextKeys.InlineTicket, new AgentSmith.Contracts.Models.InlineTicket("t", "d"));
+        var gate = InlineHandbackAskTests.Answering(string.Empty, by: "system");
+
+        var result = await Handler(tickets, gate: gate.Object).ExecuteAsync(
+            Context(pipeline, new TrackerConnection { Type = TrackerType.GitHub }), default);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        result.Message.Should().NotContain("needs_clarification_status");
+        gate.Verify(g => g.AskAsync(pipeline, It.IsAny<AgentSmith.Contracts.Dialogue.DialogQuestion>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        tickets.Verify(t => t.FinalizeAsync(It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     /// <summary>
     /// 2026-09-22-6ad7: the specification a person approved is not on the branch. The ticket is
     /// PARKED where a clarification parks — not closed, and not moved to the failure status a
@@ -460,7 +484,8 @@ public sealed class SpecHandbackTests
             "the capability is derived from the command list, spliced block included");
 
     private static SpecHandbackHandler Handler(
-        Mock<ITicketProvider> tickets, ISpecSetPointerStore? pointers = null)
+        Mock<ITicketProvider> tickets, ISpecSetPointerStore? pointers = null,
+        AgentSmith.Contracts.Services.IDialogueAskGate? gate = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
@@ -476,7 +501,7 @@ public sealed class SpecHandbackTests
             pointers ?? new Application.Services.Persistence.InMemorySpecSetPointerStore(),
             Repeat(),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
-            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Derivation(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Inline(gate), NullLogger<SpecHandbackHandler>.Instance);
     }
 
     private static SpecHandbackRepeat Repeat() => new(NullLogger<SpecHandbackRepeat>.Instance);

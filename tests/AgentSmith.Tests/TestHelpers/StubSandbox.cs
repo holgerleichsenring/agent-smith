@@ -15,7 +15,8 @@ internal sealed class StubSandbox(
     IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false,
     IReadOnlyDictionary<string, string>? baseFiles = null,
     IReadOnlyDictionary<string, string>? sourceFiles = null,
-    IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null)
+    IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null,
+    bool advancesHead = false)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -39,6 +40,8 @@ internal sealed class StubSandbox(
 
     /// <summary>What rev-parse answers; a refreshed tree lands on a different one.</summary>
     public string Head { get; set; } = "stub-head";
+
+    private int _commits;
 
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
@@ -71,6 +74,8 @@ internal sealed class StubSandbox(
                 a => line.StartsWith(a.Key, StringComparison.Ordinal)) is { Key: not null } shell)
             return Task.FromResult(Answer(step, shell.Value.ExitCode, shell.Value.Output));
         if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
+        // 2026-11-02-2b26d: and every write is a staged change, so each revision is a commit of its own.
+        if (advancesHead && IsGit(step, "--cached") && IsGit(step, "--quiet")) return Task.FromResult(Answer(step, 1, null));
         // 2026-10-06-8565c: tracked sources a test seeded — listed by 'git ls-files -z --full-name'
         // and read back. Without any, the listing is empty and the init takes no baseline.
         if (sourceFiles is not null && SourceAnswer(step) is { } source) return Task.FromResult(source);
@@ -85,6 +90,8 @@ internal sealed class StubSandbox(
             // who the work path is a clone OF, which is what tells the refresh rung apart.
             StepKind.Run when IsGit(step, "remote.origin.url") => Origin ?? string.Empty,
             StepKind.Run when IsGit(step, "rev-parse") => Head,
+            // 2026-11-02-2b26d: opted into, a commit lands on a new head, as a second revision's write does.
+            StepKind.Run when advancesHead && IsGit(step, "commit") => Advance(),
             StepKind.Run when IsGit(step, "--name-status") => string.Empty,
             StepKind.Run when reportsWorkingTree && IsGit(step, "--porcelain") =>
                 string.Concat(_stagedFiles.Select(file => $"?? {file}\n")),
@@ -138,6 +145,12 @@ internal sealed class StubSandbox(
         path.StartsWith("/work/", StringComparison.Ordinal) ? path["/work/".Length..] : path;
 
     private static bool IsGitDiff(Step step) => IsGit(step, "diff");
+
+    private string Advance()
+    {
+        Head = $"stub-head-{++_commits}";
+        return string.Empty;
+    }
 
     private static bool IsGit(Step step, string arg) =>
         step.Command == "git" && step.Args is { } a && a.Contains(arg);

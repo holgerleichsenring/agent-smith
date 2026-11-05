@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-9e8c
+goal: "An inline-ticket run whose derivation hands back a question asks it in the terminal and derives again with the answer, in the same run."
+
+applies_to: "default (inline-ticket runs: InlineHandbackAsk, DeriveSpec, ticket conversation prompt)"
+
+requires: [2026-11-02-2b26d]
+
+facts:
+  - claim: "A derivation hand-back carries no specs; the answer can only be used by deriving again."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:71-78"
+  - claim: "The derivation prompt renders the ticket thread from ContextKeys.TicketComments; an inline ticket has none."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:50-58"
+  - claim: "A handler can splice commands after itself with CommandResult.OkAndContinueWith."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:30-31"
+
+assumptions:
+  - "2026-11-02-2b26d has shipped: an inline derivation hand-back ends with a Fail that prints its question and readings, and InlineHandbackAsk exists."
+
+scope:
+  in: >
+    InlineHandbackAsk handles a derivation Question (and RequirementsContradictRepository with its reason as the
+    question): a Choice of the readings plus free text, default Readings[Taken] when there are readings. An empty Choice
+    answer maps to Readings[Taken]. Two comments are appended to ContextKeys.TicketComments: the question as our own
+    (SpecHandbackComment.Build(handback, null, "")), then the answer as the author's with a strictly later CreatedAt
+    and a body that matches none of the Ours markers. ContextKeys.SpecHandback is removed and the handler continues
+    with OkAndContinueWith(DeriveSpec, SpecHandback); the rest of the preset stays in place. A second DERIVATION
+    hand-back (Reading question or contradiction) in the same run is not asked again and ends as in 2b26d; a review
+    objection after the re-derive is still asked by 2b26d. An empty answer with no default (a contradiction at stdin
+    EOF) ends as in 2b26d without re-deriving.
+  out: "Tracker-backed runs, which keep parking on the ticket."
+
+steps:
+  - id: ask
+    action: "The derivation branch in InlineHandbackAsk and the splice."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "InlineHandbackAskTests.DerivationQuestion_AnswerBecomesAComment_AndDerivesAgain"
+  - "InlineHandbackAskTests.SecondDerivationHandback_EndsWithoutAsking"
+  - "InlineHandbackAskTests.ReviewObjectionAfterReDerive_IsStillAsked"
+  - "InlineHandbackAskTests.ContradictionAtEof_EndsWithoutReDeriving"
+  - "InlineHandbackAskTests.AnswerComment_IsLaterThanTheQuestion_AndNotOurs"
+  - "DemoFixBugTests.Demo_DerivationQuestion_AnsweredInTheTerminal_CommitsTheFix"
+
+done:
+  - "An inline run whose derivation asks a question asks it in the terminal and, with the answer, derives and builds."
+  - "Build green, full suite green, dashboard gen/test/build green."

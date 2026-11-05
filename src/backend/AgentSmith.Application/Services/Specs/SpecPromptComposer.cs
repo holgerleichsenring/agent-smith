@@ -108,7 +108,7 @@ internal static class SpecPromptComposer
         sb.AppendLine("## Codebase analysis");
         sb.AppendLine(
             "This is what the repositories actually contain. A requirement that contradicts "
-            + "it is a hand-back, not a spec.");
+            + "it is a hand-back, not a spec. " + DoneTargetState.Rule);
         foreach (var (repoName, codeMap) in maps)
         {
             if (string.IsNullOrWhiteSpace(codeMap)) continue;

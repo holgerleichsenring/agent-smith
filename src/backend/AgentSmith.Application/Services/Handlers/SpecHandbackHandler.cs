@@ -26,6 +26,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// what must not be done is the one wrong answer. With no tracker to park on it ends
 /// the run as a failed step — the continue branch would run checkout.
 /// </para>
+/// <para>2026-11-02-2b26d: an inline-ticket run has no ticket of anyone's to park on — <see cref="InlineHandbackAsk"/>.</para>
 /// <para>2026-10-26-bdd0c: a spec derivation asks through <see cref="DerivationQuestion"/> and ends; it parks nothing and
 /// records nothing on the pointer, whose repeat guard and heads belong to code attempts.</para>
 /// <para>
@@ -42,6 +43,7 @@ public sealed class SpecHandbackHandler(
     HandbackHeadsReader heads,
     SpecSetAnnouncer announcer,
     DerivationQuestion derivation, // 2026-10-26-bdd0c
+    InlineHandbackAsk inline, // 2026-11-02-2b26d
     ILogger<SpecHandbackHandler> logger)
     : ICommandHandler<SpecHandbackContext>
 {
@@ -54,6 +56,8 @@ public sealed class SpecHandbackHandler(
             return CommandResult.Ok("The derivation handed nothing back");
         if (context.Ticket is null || context.Tracker is null)
             return SpecHandbackWithoutTracker.Result(handback);
+        if (context.Pipeline.Has(ContextKeys.InlineTicket))
+            return await inline.HandleAsync(context.Pipeline, handback, cancellationToken);
         // 2026-10-26-bdd0c: a spec derivation asks on the ticket and ends; it parks nothing.
         if (PipelinePresets.LeavesTicketAlone(context.Pipeline))
             return await derivation.AskAsync(context, handback, cancellationToken);

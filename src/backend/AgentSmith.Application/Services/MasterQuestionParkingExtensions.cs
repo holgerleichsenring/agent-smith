@@ -15,6 +15,7 @@ public static class MasterQuestionParkingExtensions
     {
         services.AddTransient<MasterQuestionCheckpoint>();
         services.AddTransient<IMasterAnswerIntake, MasterAnswerIntake>();
+        services.AddTransient<InlineMasterAsk>(); // 2026-11-02-2b26d
         return services;
     }
 }

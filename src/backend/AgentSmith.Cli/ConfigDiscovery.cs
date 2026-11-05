@@ -13,6 +13,9 @@ internal static class ConfigDiscovery
             ProjectMetaPaths.ConfigYaml),
     ];
 
+    /// <summary>2026-11-02-2b26a: where a config is looked for, in order — printed when none is found.</summary>
+    public static IReadOnlyList<string> Paths => SearchPaths;
+
     public static string Resolve()
     {
         foreach (var path in SearchPaths)

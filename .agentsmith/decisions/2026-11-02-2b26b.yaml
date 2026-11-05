@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-02-2b26b
+
+decisions:
+  - category: Implementation
+    chose: "The active cost scope as a per-instance AsyncLocal; an ended scope never counts as active"
+    over: "Serialising the review panel, or a static AsyncLocal like the run-context accessor"
+    reason: |
+      Every place that opens a scope tracks its response in the same async flow, so a per-flow scope attributes each
+      reviewer's tokens to its own row. Serialising would double review wall time to hide an accounting limit; a static
+      AsyncLocal would share one scope across every tracker in a flow (a dialog turn's tracker beside the pipeline's).
+  - category: Implementation
+    chose: "EndCall clears the flow's scope to null instead of restoring a saved outer scope"
+    over: "A frame stack that restores the previous scope"
+    reason: |
+      Opening a second scope in the same flow still throws, so the only previous value a scope can have is none or an
+      already-ended one, which Active ignores. Restoring null is the same result without a stack.
+  - category: Testing
+    chose: "A panel test with the real SpecAttackReviewer over a chat client that answers only once both calls are in flight"
+    over: "The existing mocked-reviewer panel test"
+    reason: |
+      The mock never touches the tracker, which is how the defect passed 8762g. Both new tests were run against the old
+      manager first and failed there.

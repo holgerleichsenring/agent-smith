@@ -41,6 +41,20 @@ public sealed class ContradictionCheckerTests
     }
 
     [Fact]
+    public async Task Prompt_AGapToTheTicketIsRefuted_CitingItsOwnRead()
+    {
+        var provider = new ReadingProvider(RequestPath,
+            """[{"verdict": "refuted", "why": "the code is what the ticket changes", "cites": "C1"}]""");
+
+        await Check(provider);
+
+        provider.Prompt.Should()
+            .Contain("A claim that is only that today's code does not yet do\nwhat the ticket asks is refuted")
+            .And.Contain("read the file that holds that code and cite that\nread.")
+            .And.Contain(DoneTargetState.Rule);
+    }
+
+    [Fact]
     public async Task ContradictionChecker_RefutationCitingNoOwnLook_LetsTheClaimStand()
     {
         var provider = new ReadingProvider(RequestPath,
