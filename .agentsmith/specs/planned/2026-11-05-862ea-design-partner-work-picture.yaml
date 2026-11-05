@@ -34,7 +34,7 @@ facts:
 
 assumptions:
   - "A model reliably calls a tool that its turn prompt names for the first answer, as name_conversation is called (96a0a); not measured on gpt-5.6-class models for a second tool in the same turn."
-  - "Reading every file of a 66-file upload in one turn fits through the existing compaction; the design turn has no iteration ceiling (AgenticMasterHandler.cs:367-369)."
+  - "Reading every file of a 66-file upload in one turn fits through compaction under a ceiling that allows it. False today — a design turn has no compaction and the factory's 25-iteration default (2026-11-05-2ce7 facts); 2ce7 makes it true, so build it first."
 
 scope:
   in: "WorkPicture (kind: rebuild | feature | fix | document; truth: one line; size: one-spec | series | plan) stated by state_work_picture, stored on the conversation row, rendered in each turn prompt and on the page, overwritten when the partner records a correction. Uploads-first reading line when the turn holds uploads. Proposal contract worded around 'Ready to propose: …'. Repository split wording that allows several specs per repository."

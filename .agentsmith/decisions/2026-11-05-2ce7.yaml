@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-05-2ce7
+
+decisions:
+  - category: Scope
+    chose: "One spec, no series"
+    over: "A series: dialog surface limits first, then the durable thread"
+    reason: "The brief splits only when one spec cannot ship complete. Every piece here ships in one commit, and the thread needs the limits anyway: without a window and compaction a replayed thread would grow into a context refusal."
+  - category: Architecture
+    chose: "Store the last view the provider received plus its response, captured by a client directly under the compactor"
+    over: "Storing MasterConversation's raw list; seeding the compactor's summary and watermark across turns; a second fold at persistence time"
+    reason: "A raw list grows without bound, and a fresh compactor would re-summarize all of it every turn. Seeding state needs the compactor to be told about the past. A second fold is a second compaction mechanism, and the brief allows only the window trigger. What was sent is already folded, matches the provider cache byte for byte, and needs no change to how the compactor folds."
+  - category: Architecture
+    chose: "The compactor pins the current turn's prompt as well as the first one"
+    over: "Leaving the compactor unchanged"
+    reason: "Review round 1 showed the compactor pins system plus the FIRST user message (CompactingChatClient.cs:199-205). With a replayed thread that message is turn 1's prompt. The current operator message would be folded into the summary, and the summary header would point at the stale prompt as authoritative."
+  - category: Architecture
+    chose: "One database row per conversation, written add-then-delete, read newest by id"
+    over: "A unique row upserted; an in-memory or Redis cache"
+    reason: "Multi-replica is a requirement and the turn gate is per process (ReferenceReadRepository.cs:13-16). Add-then-delete cannot raise a uniqueness or concurrency error. Ids decide order, so replica clocks do not matter. A race loses only the older turn's tool results; its reply still renders as unseen."
+  - category: Implementation
+    chose: "Leave out the reply index from unseen turns only when the kept reply equals the capture's last assistant text"
+    over: "Always leave it out"
+    reason: "An early proposal is kept as its prose and a twice-invalid outcome as a notice (SpecDialogProposalRefusal.cs:55-62, SpecDialogOutcomeGate.cs:58,64). In those cases the model's last message is not what the operator saw. An equality check over two stored strings is data, not a heuristic."
+  - category: Implementation
+    chose: "Messages admitted while a turn runs count as unseen, even if one answered an ask_human"
+    over: "Telling answers apart from other messages"
+    reason: "Admission stores both kinds in the transcript, and nothing records which was which (SpecDialogAnswerAdmission.cs:38). Repeating an answer costs a line. Dropping a real message loses the operator's words. The note says one may repeat."
+  - category: Implementation
+    chose: "Raise the output budget only on the one re-prompt after a Length finish"
+    over: "A 32000-token default on every design turn, as scan has"
+    reason: "Review round 1: a model with a smaller output cap would refuse every turn. Raising on a cut fixes truncation without changing turns that fit."
+  - category: Scope
+    chose: "Cut: moving upload coverage and notes from the system prompt to the user prompt"
+    over: "Keeping the system prompt byte-stable for the cache"
+    reason: "It is a cost optimisation, not one of the four goals. It would not make the prompt stable anyway: a new upload adds an address, and naming the conversation changes the tool list. It also rewrites the factory lines 862ea edits. The cached share per call keeps the cost visible."
+  - category: Scope
+    chose: "Cut: moving the sensitive-tool history marker to Contracts"
+    over: "Scrubbing sensitive results at rest"
+    reason: "No dialog surface carries get_artifact_credentials. Masking secret values with the provider placeholder covers what is at rest."
+  - category: Scope
+    chose: "Per-turn sections (ticket text, framework facts, scope) are still sent every turn"
+    over: "Sending a section only when it changed"
+    reason: "A section can change between turns (a moved ticket), and sending only changes needs a fingerprint per section. The repeated characters show up in the per-call input the measurement reads. If that cost matters, the measurement is the evidence to act on."
+  - category: Deviation
+    chose: "Follow the code where the brief's config facts read otherwise"
+    over: "Treating ThresholdIterations 8, KeepRecentIterations 3, TriggerRatio 0.85 and MaxMasterLoopIterations 200 as governing design turns"
+    reason: "ThresholdIterations has been a no-op since p0357 (CompactionConfig.cs:11-19). Design turns ran with no compactor at all, since hooks and request.Compaction are both null (AgenticMasterHandler.cs:364-366, WindowDerivedCompaction.cs:23). MaxMasterLoopIterations reaches only the coding master. A design turn ran under the factory's private 25 (ChatClientFactory.cs:40,206). This spec gives design turns the agent's compaction for the first time."
+  - category: Deviation
+    chose: "The proposal-turn input figure is judged in 862ec's replay"
+    over: "A done criterion here that the proposal turn's input exceeds 100k"
+    reason: "That figure depends on the master reading the upload itself, which is 862ea's prompt. This spec makes that reading persist and fit, and its own criterion is that each turn's input does not shrink without a logged fold."
+  - category: Coordination
+    chose: "No requires edge; 862ea's false assumption corrected in place to point here"
+    over: "862ea requires 2ce7"
+    reason: "Neither spec's done criteria need the other. 862ea's assumption that a 66-file read fits through compaction with no iteration ceiling was false (AgenticMasterHandler.cs:367-369 hands the dialog 25 iterations and no compactor). It becomes true after this spec, so this one builds first."
+  - category: Implementation
+    chose: "Match the kept reply against the response text AgenticLoopRunner reports for the last pass (ForwardedThreadCapture.Answered)"
+    over: "Matching against the captured last assistant message"
+    reason: "Review round 2: the reply is ChatResponse.Text, which joins every text message of the tool loop (AgenticMasterHandler.cs:533-534, CollectSpecDialogReplyHandler.cs:25,39), so any text the model writes beside a tool call is part of it. The last call's message alone would never match, and the model's own reply would render as unseen on every turn."
+  - category: Implementation
+    chose: "The Length check runs before the proposal refusal"
+    over: "Running it after, as an outcome-validation error"
+    reason: "Review round 2: RefuseEarlyProposalAsync runs first (SpecDialogOutcomeGate.cs:28), so a draft cut inside its block would be refused and re-prompted at the old budget."

@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-05-2ce7
+goal: "A design turn starts from the previous turn's model-visible history, stored in the database and replayed, folded only by the context-window trigger, with room to read and to answer."
+
+applies_to: "default (Contracts thread capture and dialog knobs, Infrastructure chat chain, Application dialog limits, prompts and outcome gate, Server thread store, keeper and runner, Persistence table and three migration sets)"
+
+facts:
+  - claim: "A dialog turn's model input is the system prompt plus ONE user message: the transcript is seeded as text and rendered into the prompt; no earlier message, tool call or tool result is sent."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:48,97-100; src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:36-43; src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:49-51; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:378-386"
+  - claim: "The turn's full message thread exists only in memory: MasterConversation records the user message and the responses for the turn's own re-prompts and is dropped when the run ends; it never records request.PriorMessages."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterConversation.cs:31,37-41,54; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:392,402"
+  - claim: "Per turn the server persists the reply (and a notice) in the transcript, the subject, the opened upload paths and the upload notes — never what a read returned."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnKeeper.cs:24-31; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceReadRepository.cs:9-16; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceNoteRepository.cs:10-15"
+  - claim: "A long transcript is windowed at 60,000 characters and folded into a digest turn by the summarization model after the turn."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TranscriptWindow.cs:14-15,22-38; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDigestWriter.cs:15-24; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnKeeper.cs:36"
+  - claim: "A dialog turn gets no in-turn compaction: hooks are null for it, the request carries no Compaction, and the window clamp derives nothing from a null request."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:364-366; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:191-197; src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/WindowDerivedCompaction.cs:21-24"
+  - claim: "A dialog turn's tool loop runs under the factory's private 25-iteration default; MaxMasterLoopIterations reaches the coding master only."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:367-369; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:40,204-206"
+  - claim: "ThresholdIterations is a deprecated no-op; the only compaction trigger is the estimated view size against MaxContextTokens × ratio; the pinned head is the system message plus the first user message."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/CompactionConfig.cs:11-19,30-38; src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:88-93,199-205"
+  - claim: "A dialog turn's output ceiling is the Primary role's MaxTokens; nothing on the dialog path reads a Length finish reason. The scan surface already overrides output, iterations, compaction and window in one place."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:40-41; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:31-37; src/backend/AgentSmith.Application/Services/Specs/Review/SpecCutReviser.cs:59; src/backend/AgentSmith.Application/Services/Handlers/ScanSurfaceLimits.cs:26-39; src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.Scan.cs:28,38,48"
+  - claim: "A design turn may spawn up to four children; spawn_agents returns counts and ids, and a child's final answer reaches the master only through read_sub_agent_observations."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:101,115; src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:12-19,76-92; src/backend/AgentSmith.Application/Services/Tools/ReadSubAgentObservationsToolHost.cs:29-31; src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:56,68"
+  - claim: "Secret values are masked on a copy of every outbound message with the named provider placeholder, which differs from SecretMasker's default mask."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/SecretValueMaskingChatClient.cs:8-14; src/backend/AgentSmith.Contracts/Runs/SecretMasker.cs:22,25-29,33"
+  - claim: "The summary message the compactor forwards names 'the ticket above' as authoritative, meaning the pinned first user message."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:158-160,199-205"
+  - claim: "The Copilot transport names a ConversationId on its responses, after which the function-invoking client forwards only the new tool messages, not the history."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotSessionChatClient.cs:50; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotPendingCalls.cs:26-35"
+  - claim: "The reply kept can differ from the model's last text: an early proposal is answered with its prose only, and an invalid outcome twice becomes a failure notice."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRefusal.cs:55-62; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:58,64"
+  - claim: "A message typed while a turn runs is admitted into the transcript before the gate refuses a second turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:38; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:57-66"
+  - claim: "The turn gate is per process and replicas run side by side, so two writes for one conversation can race; the reference stores add-then-delete and read the newest or the union."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceReadRepository.cs:13-16; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceNoteRepository.cs:13-14"
+  - claim: "A side table keyed on the session id, declared by length only, is the pattern for per-conversation data read only when a turn runs; it needs a configuration line in the context and a migration per set."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogTicketText.cs:3-17; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/SpecDialogTicketTextConfiguration.cs:18-29; src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:60; src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:86"
+  - claim: "Per call the run records TokensIn as the uncached remainder beside CachedTokensIn and CacheCreationTokensIn (total = the three), so the cached share of every design-turn call is already one query."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs:18-27; src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:122-125"
+  - claim: "The harness factory adapter implements only the four-argument Create, so the extended overload falls through to it and composes no compactor or finaliser."
+    evidence: "tests/AgentSmith.PipelineHarness/Llm/ScriptedChatClientFactoryAdapter.cs:42-55; src/backend/AgentSmith.Contracts/Services/IChatClientFactory.cs:55-59"
+  - claim: "Line budgets: AgenticMasterHandler is at its baseline 681, CompactingChatClient at 243, ChatClientFactory 253 of 260; SpecDialogTurnRunner and SpecDialogExtensions are at 120, AgentSmithDbContext at 118, PipelineContextSerializer at 117, ContextKeys.SpecDialog.cs at 117; RelationalPersistenceExtensions at its baseline 223."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6,25,31,36; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+  - claim: "In a production conversation the design turns ran on ~20k fixed cached tokens, master calls carried 1k-10k of conversation, the largest master input was ~56k, three children read the upload at 73k/73k/38k input while the master got their summaries, the next turn had none of it, and the proposal turn ran on ~28k with none of the 547 KB upload."
+    evidence: "observed: 2026-11-05, RunLlmCalls of a production design conversation"
+
+assumptions:
+  - "Providers accept a replayed tool call whose tool is absent from this turn's surface (name_conversation once the subject is set). Untested per provider; a refusal fails the turn, which drops the thread (step wiring)."
+  - "Arguments and results round-tripped through the codec re-serialize to the bytes the provider cached; where they do not, the cost is a cache miss from that message on, visible per call."
+
+scope:
+  in: "Durable per-conversation thread (the last view the provider received plus the response), replayed as PriorMessages with only the turns since the last reply rendered; a capture client in the chat chain; the compactor keeps the current turn's prompt when it folds a replayed thread; dialog surface limits (window, compaction, iterations) beside the scan ones; a Length finish re-prompted once with a raised output budget; schema and docs for three knobs."
+  out: "Prompt or skill wording about how to read (2026-11-05-862ea, 862eb). Sub-agents unchanged. The transcript digest stays as the fallback's window. Per-turn sections (ticket, facts, scope) re-sent each turn as today. Upload coverage stays in the system prompt. The coding and scan masters and the 23a2c clamp untouched. No in-memory thread state."
+
+decisions:
+  - key: "STORE THE FOLDED VIEW, NOT THE RAW LIST. The capture client sits under the compactor, so a folded turn stores its folded view; the next turn neither re-summarizes the whole history nor grows a row without bound. The finaliser's instruction and the scrub/mask rewrites below it are not stored; the codec re-masks."
+  - key: "THE COMPACTOR CHANGES FOR A CAPTURED LOOP ONLY. It pins system plus the FIRST user message; with a replayed thread that is turn 1's prompt, and the current turn's prompt would be folded. A captured loop also pins the message its first call ended with, held by reference so a transport that forwards only tool messages cannot shift it."
+  - key: "ONE ROW PER CONVERSATION, ADD-THEN-DELETE, NEWEST BY ID. Two replicas racing lose the older turn's tool results, never a transcript turn: its reply index lies past the winner's start and renders as unseen."
+  - key: "THE THREAD APPLIES ONLY WHERE IT CAN FOLD: compaction enabled with a positive ratio and a window (the role's or dialog_context_window_tokens). Otherwise the turn renders the transcript as today."
+  - key: "A FAILED TURN DROPS THE ROW; A TRANSPORT THAT KEEPS ITS OWN SESSION STORES NONE. Either way the next turn falls back to today's transcript prompt and starts a fresh thread."
+  - key: "PER MASTER. The row records whether the steward led; a turn never replays the other master's thread."
+  - key: "IMAGES AND REASONING ARE NOT STORED. Image parts become a one-line text marker; reasoning content is dropped."
+  - key: "OUTPUT: RAISE ON A CUT, NOT ALWAYS. Turns keep the role's MaxTokens; a Length finish re-prompts once with dialog_master_max_output_tokens, so a model with a small output cap is not refused on every turn."
+  - key: "NO REQUIRES EDGE. 862ea builds without this and this without 862ea; 862ea's assumption about compaction and iterations is true only after this, so build this first. Both touch SpecDialogTurnRunner.cs:79; the second rebases."
+
+steps:
+  - id: contracts
+    action: "Contracts: ForwardedThreadCapture (Providers) — Record(IReadOnlyList<ChatMessage> sent, ChatResponse received) keeps sent without leading system messages plus received.Messages, last call wins, and marks itself unusable when received.ConversationId is set; Messages is null when unusable. Answered(string text), called by AgenticLoopRunner with response.Text after each RunAsync that carries the capture, last pass wins. DialogThread(bool Stewarded, IReadOnlyList<ChatMessage> Messages, IReadOnlyList<SpecDialogTurn> Unseen); ContextKeys.SpecDialogThread in a new ContextKeys.DialogThread.cs; SpecDialogReplySlot.Thread = new ForwardedThreadCapture(); AgentConfig.Dialog.cs with DialogMasterLoopIterations 100, DialogMasterMaxOutputTokens 32000, DialogContextWindowTokens 200000."
+  - id: chain
+    action: "ThreadCapturingChatClient (Infrastructure) forwards and records. IChatClientFactory's extended Create gains ForwardedThreadCapture? capture = null; ChatClientFactory inserts the client directly under the compactor (above the finaliser) in at most three lines; the harness adapter implements the extended overload and inserts it over the scripted client. AgenticLoopRequest.ThreadCapture, passed by AgenticLoopRunner."
+  - id: compactor
+    action: "CompactingChatClient, when built with a capture (ChatClientFactory passes capture is not null), also pins the ChatMessage instance, by reference, that was last in its first call's list while that instance is still present; the fold summarizes what lies between the pins and the tail. Built without one it pins exactly as today, so the coding and scan masters do not change. Stays at or under 243 lines by trimming the p0341d/p0357/p0362 history from its class summary."
+  - id: dialog-limits
+    action: "DialogSurfaceLimits.Apply(request, context) beside ScanSurfaceLimits: MaxIterations, Compaction = agent.Compaction, ContextWindowTokensOverride, ThreadCapture = the slot's, PriorMessages = DialogThreadSeed.For(pipeline, context.IsTicketSteward)?.Messages. AgenticMasterHandler applies it where ScanSurfaceLimits is applied (lines 388-389 become one conditional) and stays at 681. MasterConversation.Opened records request.PriorMessages first, so gate and review re-prompts carry the replayed history."
+  - id: prompt
+    action: "DialogTranscriptSection.Render(pipeline, transcript, stewarded): with a seeded thread for that master it renders '[Your earlier turns — what you read, called and answered — are the messages before this one. These turns were added while or since you last answered; one may repeat an answer you already received. The contract below is this turn's.]' and the unseen turns; otherwise the window as today. Both prompt factories call it."
+  - id: output
+    action: "SpecDialogOutcomeGate: before the proposal refusal runs, a response whose FinishReason is Length is OutcomeInvalid with an error naming the cut; its one re-prompt runs with MaxOutputTokensOverride = DialogMasterMaxOutputTokens, and a second cut fails honestly."
+  - id: persistence
+    action: "SpecDialogThread entity (SessionId, Stewarded, MessagesJson unbounded, TranscriptFrom, ReplyAt nullable, WrittenAt), configuration by length, non-unique index on SessionId, a line in AgentSmithDbContext; SpecDialogThreadRepository (NewestAsync by Id, ReplaceAsync adds then deletes older rows by id, DeleteBySessionAsync), chained onto RelationalPersistenceExtensions.cs:86 with no new line; migration AddSpecDialogThreads in the SQLite, SQL Server and Postgres sets with snapshots; SpecDialogConversationDeleter sweeps it in its transaction."
+  - id: store
+    action: "DialogThreadCodec (Server) writes role, text, calls (id, name, arguments JSON) and results (call id, text; a non-string result serialized as JSON, never ToString), masks every text and result with SecretMasker.Apply(text, ProviderPlaceholder), turns images into a text marker, drops other contents, and drops any call without a result and any result without a call. SpecDialogThreadStore.LoadAsync(state, agent) returns null when the policy is off, no row exists, TranscriptFrom exceeds the transcript, or no operator turn is unseen; Unseen = transcript turns from TranscriptFrom on, except Digest turns and except ReplyAt when set. KeepAsync stores the capture with TranscriptFrom = the turn's starting count and ReplyAt = the kept reply's index (from the state AppendTurnAsync returns) only when the kept reply equals the capture's Answered text, else null so a substituted reply renders; DropAsync deletes."
+  - id: wiring
+    action: "SpecDialogTurnRunner: the store as a constructor parameter on line 37, LoadAsync inside the Build call (lines 54-57), slot.Thread.Messages on the success line — stays at 120. SpecDialogTurnSeeds.Build seeds the thread; SpecDialogTurnResult.Thread; SpecDialogTurnKeeper stores it after appending the reply, stores nothing when Messages is null, and drops the row on a Failure turn; store and codec registered in SpecDialogDigestExtensions.cs:11; ContextKeys.SpecDialogThread joins PipelineContextSerializer's excluded keys."
+  - id: config-docs
+    action: "config/agentsmith.schema.json and docs/reference/configuration/agentsmith-yml.md list dialog_master_loop_iterations, dialog_master_max_output_tokens and dialog_context_window_tokens with their defaults."
+
+tests:
+  - "ForwardedThreadCapture_TwoCalls_KeepsTheLastViewWithoutSystemPlusItsResponse"
+  - "ForwardedThreadCapture_ResponseWithConversationId_IsUnusable"
+  - "ChatClientFactory_DialogCapture_RecordsTheFoldedViewBelowTheCompactor"
+  - "CompactingChatClient_ReplayedThread_FoldKeepsTheCurrentTurnPrompt"
+  - "CompactingChatClient_NoPriorMessages_PinsAsBefore"
+  - "DialogSurfaceLimits_DesignTurn_SetsWindowCompactionIterationsAndCapture"
+  - "DialogSurfaceLimits_StewardThreadOnDesignTurn_SeedsNoPriorMessages"
+  - "MasterConversation_OpenedWithPriorMessages_ThreadStartsWithThem"
+  - "DialogTranscriptSection_SeededThread_RendersOnlyUnseenTurnsUnderTheNote"
+  - "DialogTranscriptSection_NoThread_RendersTheWindowAsBefore"
+  - "SpecDialogOutcomeGate_LengthFinish_RePromptsWithTheRaisedBudget"
+  - "DialogThreadCodec_RoundTrip_KeepsPairsMasksWithPlaceholderDropsImagesAndOrphans"
+  - "SpecDialogThreadStore_UnseenTurns_SkipTheModelsOwnReplyAndDigests"
+  - "SpecDialogThreadStore_SubstitutedReply_RendersAsUnseen"
+  - "SpecDialogOutcomeGate_CutDraft_LengthCheckedBeforeTheRefusal"
+  - "AgenticLoopRunner_RequestWithCapture_RecordsTheResponseText"
+  - "SpecDialogThreadStore_CompactionOff_LoadsNothing"
+  - "SpecDialogThreadRepository_TwoWriters_NewestByIdWinsAndOlderAreDeleted"
+  - "SpecDialogTurnKeeper_FailedTurn_DropsTheThread"
+  - "SpecDialogConversationDeleter_Delete_SweepsTheThread"
+  - "SpecDialogHarness_SecondTurn_FirstCallCarriesTheFirstTurnsToolResult"
+
+done:
+  - given: "a harness conversation whose first turn's scripted master calls read_file and answers, kept through SpecDialogTurnKeeper, and an operator reply appended through SpecDialogSessionManager.AppendTurnAsync and the state read back"
+    when: "the second turn runs from a fresh DI scope"
+    then: "ScriptedChatClient.CallMessages for the second turn's first call carries the first turn's read_file FunctionCallContent and its FunctionResultContent with the file's text, and the user prompt renders only the operator reply as unseen"
+  - when: "a design turn runs"
+    then: "its request carries the dialog window, the agent's compaction and 100 iterations; a Length finish is re-prompted once with 32000 output tokens"
+  - "No thread state lives outside the database: a new SpecDialogThreadStore instance reads the row a previous one wrote."
+  - "Measured by the operator on the production upload conversation replayed on a local server, from RunLlmCalls with input = TokensIn + CachedTokensIn + CacheCreationTokensIn: every turn's first master call input is at least the previous turn's last master call input unless a 'Compaction fold' line is logged for that turn (was: the turn after 73k/73k/38k child reads started from scratch); no master call input exceeds 170k at a 200k window; CachedTokensIn / input is recorded on every call and is at least 0.5 on every master call of a turn after its first, except the call after a fold and the first call of a gate or review re-prompt. A turn's first call after a gap past the provider's cache lifetime re-writes the thread to cache and is reported, not exempted from cost. The proposal-turn figure (was ~28k with none of the 547 KB upload) is judged in 862ec's replay, since reading the upload itself is 862ea's prompt."
+  - "Build green, full suite green, dashboard gen/test/build green."
