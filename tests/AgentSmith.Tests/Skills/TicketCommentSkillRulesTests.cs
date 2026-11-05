@@ -34,7 +34,7 @@ public sealed partial class TicketCommentSkillRulesTests
     [Fact]
     public void EmbeddedCatalog_DesignPartnerCommentBlock_IsWhatTheParserReads()
     {
-        var block = CommentBlock().Match(PackagedMaster.Read("design-partner-master")).Groups[1].Value;
+        var block = CommentBlock().Match(PackagedMaster.Reference("design-outcome-comment")).Groups[1].Value;
 
         new TicketCommentOutcomeParser().Parse(OutcomeYamlReader.ReadMap(block))
             .Should().BeOfType<OutcomeResolved>(Because("the comment block"))

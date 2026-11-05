@@ -12,9 +12,9 @@ public sealed class ShapeRuleMasterRulesTests
     [Fact]
     public void PackagedMaster_DesignPartner_KeepsShapeRulesOutOfDone()
     {
-        var master = PackagedMaster.Read("design-partner-master");
+        var format = PackagedMaster.Reference("design-outcome-spec");
 
-        master.Should().Contain("A shape rule is a step, never a done criterion.");
+        format.Should().Contain("A shape rule is a step, never a done criterion.");
     }
 
     [Fact]

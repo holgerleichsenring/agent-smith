@@ -6,10 +6,8 @@ namespace AgentSmith.Tests.Skills;
 /// </summary>
 internal static class TicketGraphSkillSentences
 {
-    /// <summary>S1, in the Outcomes list.</summary>
-    internal const string MergeBoundaries =
-        "- **tickets** (the work has MERGE boundaries: a piece must be merged before the next can be built or "
-        + "reviewed) → propose a list of tickets in merge order as described in \"Proposing tickets\".";
+    /// <summary>S1, in the Outcomes list; 2026-11-05-862ec shortened it to one line when the format moved out.</summary>
+    internal const string MergeBoundaries = "- **tickets** — the work has merge boundaries: tickets in merge order.";
 
     /// <summary>S2, opening "When spec and epic both look right".</summary>
     internal const string MergeTestFirst =
