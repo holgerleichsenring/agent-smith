@@ -87,22 +87,38 @@ internal static class PremiseCheckTestDoubles
     /// <summary>The handler with everything real but the model and the sandbox.</summary>
     public static Harness For(
         SpecDraft draft, string answer, int exitCode = 0,
+        params (string Repository, string Pattern)[] searches) =>
+        Over(draft, answer, Pipeline(draft, new CountingSandbox(exitCode)), searches);
+
+    /// <summary>2026-11-04-6768a: the handler over a scripted sandbox, the set stamped with a series
+    /// id, so the series-base replay has a branch to read.</summary>
+    public static Harness ForSeries(
+        SpecDraft draft, string answer, ISandbox sandbox, string series,
         params (string Repository, string Pattern)[] searches)
     {
+        var pipeline = Pipeline(draft, sandbox);
+        pipeline.Set(ContextKeys.SpecSet, pipeline.Get<SpecSet>(ContextKeys.SpecSet) with { Series = series });
+        return Over(draft, answer, pipeline, searches);
+    }
+
+    private static Harness Over(
+        SpecDraft draft, string answer, PipelineContext pipeline, (string Repository, string Pattern)[] searches)
+    {
         var provider = new SearchingProvider(answer, searches);
-        var pipeline = Pipeline(draft, new CountingSandbox(exitCode));
         var events = EventTestStubs.Recording();
         var ticket = new RecordingTicketComments();
         var decisions = new RecordingRunDecisions();
+        var progress = new SpecProgressRecorder(events);
         var handler = new CheckSpecPremisesHandler(
             new SpecPremiseChecker(
                 new CutReviewTestDoubles.CappingFactory(provider),
                 new Application.Services.Events.AsyncLocalRunContextAccessor(),
                 NullLogger<SpecPremiseChecker>.Instance),
             Factory(),
-            new SpecProgressRecorder(events),
+            progress,
             new PremiseHandbackNotice(
                 ticket.Factory(), decisions, NullLogger<PremiseHandbackNotice>.Instance),
+            PremiseReplayDoubles.Filter(progress),
             NullLogger<CheckSpecPremisesHandler>.Instance);
         return new Harness(
             handler, new CheckSpecPremisesContext(new AgentConfig(), ticket.Tracker, pipeline),

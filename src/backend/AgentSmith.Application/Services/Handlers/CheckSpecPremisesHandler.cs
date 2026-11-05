@@ -28,6 +28,7 @@ public sealed class CheckSpecPremisesHandler(
     DerivationLookFactory looks,
     ISpecProgressRecorder progress,
     PremiseHandbackNotice notice,
+    PremiseSupersessionFilter supersession, // 2026-11-04-6768a: a sibling's own work is no false premise
     ILogger<CheckSpecPremisesHandler> logger)
     : ICommandHandler<CheckSpecPremisesContext>
 {
@@ -39,11 +40,9 @@ public sealed class CheckSpecPremisesHandler(
             return Skipped("no spec is current, so there are no premises to check");
 
         var premises = SpecPremises.For(draft);
-        // Nothing back-fills premises: a spec drafted before the design partner stated them is
-        // checked against nothing. The skip is recorded so an operator can tell it from a pass.
         // Nothing back-fills premises, and the deriver's own boilerplate decision is not one
-        // (DerivedSpecDecision) — so a derived spec that states nothing of its own lands here
-        // and costs no call at all.
+        // (DerivedSpecDecision): a spec stating nothing of its own costs no call, and the skip is
+        // recorded so an operator can tell it from a pass.
         if (premises.None)
             return Skipped($"spec {draft.SpecId} states no premises of its own");
         if (PipelineCostTracker.GetOrCreate(context.Pipeline) is { IsBudgetExhausted: true } capped)
@@ -59,9 +58,10 @@ public sealed class CheckSpecPremisesHandler(
             PrecedingSpecs.NotesOf(context.Pipeline, draft.SpecId), // 2026-10-13-8762m
             draft.SpecId, context.AgentConfig,
             PipelineCostTracker.GetOrCreate(context.Pipeline), cancellationToken);
-        return check.False.Count == 0
-            ? Held(draft, check)
-            : await HandBackAsync(context, draft, check, cancellationToken);
+        var sorted = await supersession.SortAsync(context.Pipeline, draft, check.False, look, cancellationToken);
+        return sorted.StillFalse.Count == 0
+            ? Held(draft, check, sorted.Superseded)
+            : await HandBackAsync(context, draft, check with { False = sorted.StillFalse }, cancellationToken);
     }
 
     /// <summary>The question was put and produced no answer. Failing open is right; calling it
@@ -80,11 +80,11 @@ public sealed class CheckSpecPremisesHandler(
         return CommandResult.Ok(message);
     }
 
-    private CommandResult Held(SpecDraft draft, PremiseCheck check)
+    private CommandResult Held(SpecDraft draft, PremiseCheck check, string? superseded)
     {
         if (check.Skipped is not null) return Skipped(check.Skipped);
         if (check.NotTaken is not null) return NotTaken(check.NotTaken);
-        var message = $"Spec {draft.SpecId}: every stated premise still holds"
+        var message = (superseded ?? $"Spec {draft.SpecId}: every stated premise still holds")
             + (check.Unproven.Count == 0
                 ? "."
                 : $"; {check.Unproven.Count} reported premise(s) could not be proven either way "

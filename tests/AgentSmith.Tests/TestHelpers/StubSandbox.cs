@@ -16,7 +16,8 @@ internal sealed class StubSandbox(
     IReadOnlyDictionary<string, string>? baseFiles = null,
     IReadOnlyDictionary<string, string>? sourceFiles = null,
     IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null,
-    bool advancesHead = false)
+    bool advancesHead = false,
+    IReadOnlyDictionary<string, (int ExitCode, string Output)>? gitAnswers = null)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -73,6 +74,9 @@ internal sealed class StubSandbox(
         if (step.Command == "/bin/sh" && step.Args is [_, var line] && shellAnswers?.FirstOrDefault(
                 a => line.StartsWith(a.Key, StringComparison.Ordinal)) is { Key: not null } shell)
             return Task.FromResult(Answer(step, shell.Value.ExitCode, shell.Value.Output));
+        // 2026-11-04-6768a: a git command whose space-joined argv starts with a key answers as scripted;
+        // '{grep}' in the output stands for the command's own --grep value.
+        if (step.Command == "git" && GitAnswer(step) is { } git) return Task.FromResult(git);
         if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
         // 2026-11-02-2b26d: and every write is a staged change, so each revision is a commit of its own.
         if (advancesHead && IsGit(step, "--cached") && IsGit(step, "--quiet")) return Task.FromResult(Answer(step, 1, null));
@@ -122,6 +126,15 @@ internal sealed class StubSandbox(
     }
 
     private const string BaseCommit = "base-commit-sha";
+
+    private StepResult? GitAnswer(Step step)
+    {
+        var argv = string.Join(' ', step.Args ?? []);
+        var hit = gitAnswers?.FirstOrDefault(a => argv.StartsWith(a.Key, StringComparison.Ordinal));
+        if (hit is not { Key: not null } scripted) return null;
+        var grep = step.Args?.FirstOrDefault(a => a.StartsWith("--grep=", StringComparison.Ordinal))?["--grep=".Length..];
+        return Answer(step, scripted.Value.ExitCode, scripted.Value.Output.Replace("{grep}", grep ?? string.Empty));
+    }
 
     private StepResult? SourceAnswer(Step step)
     {

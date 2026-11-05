@@ -11,5 +11,9 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public static class RunCheckpointCommit
 {
-    public static string MessageFor(string runId) => $"[checkpoint] agent-smith run {runId}";
+    /// <summary>2026-11-04-6768a: the part every run's checkpoint shares, so a reader can find the
+    /// series' work across runs without knowing their ids.</summary>
+    public const string Marker = "[checkpoint] agent-smith run";
+
+    public static string MessageFor(string runId) => $"{Marker} {runId}";
 }

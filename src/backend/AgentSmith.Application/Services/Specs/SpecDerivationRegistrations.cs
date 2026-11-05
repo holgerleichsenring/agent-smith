@@ -22,6 +22,7 @@ public static class SpecDerivationRegistrations
         // 2026-09-17-0e79c: and each spec's stated premises are checked before it is worked
         services.AddTransient<ISpecPremiseChecker, SpecPremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
+        services.AddTransient<SeriesBase>().AddTransient<PremiseLookFlip>().AddTransient<PremiseBaseReplay>().AddTransient<PremiseSupersessionFilter>(); // 2026-11-04-6768a
         // 2026-10-12-3a36b: a contradiction hand-back is read a second time before it parks
         services.AddTransient<IContradictionChecker, ContradictionChecker>();
         services.AddTransient<ContradictionHandbackGate>();
