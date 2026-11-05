@@ -396,6 +396,20 @@ export interface SpecDialogProposalPush {
   tickets?: SpecDialogGraphTicket[];
   /** 2026-10-28-7a69c: the comment a ticket's conversation proposes to post; absent for every other kind. */
   comment?: string | null;
+  /** 2026-11-04-96a0c: per upload, what the proposing turn and the conversation opened; absent on an older proposal. */
+  uploads?: SpecDialogUploadRead[];
+}
+
+/** 2026-11-04-96a0c: one upload's read_file coverage, counted over the files read_file can open. */
+export interface SpecDialogUploadRead {
+  address: string;
+  setId: string;
+  /** Readable files the proposing turn opened. */
+  thisTurn: number;
+  /** Readable files the conversation has opened, that turn included. */
+  opened: number;
+  /** The files read_file can open. */
+  files: number;
 }
 
 /** 2026-10-13-8762i: one review round of one draft (or "series"), as it stays on the proposal. */

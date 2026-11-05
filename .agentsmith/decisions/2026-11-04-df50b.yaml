@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-df50b
+
+decisions:
+  - category: Implementation
+    chose: "Project lookups go through the existing TicketProjects reader; FiledWorkMove loads the configuration per call"
+    over: "Making the AgentSmithConfig registration transient or scoped; a new live-config wrapper type"
+    reason: |
+      Changing the AgentSmithConfig lifetime would change ~85 constructors at once, including hosted singletons that
+      would capture one copy anyway — the broad 'config frozen at boot' finding, out of scope here. TicketProjects
+      already reads IConfigurationLoader per call and is what the ticket surfaces use, so the filing path now
+      answers from the same source as the turns that drafted the outcome. FiledWorkMove needs the whole
+      configuration for the envelope resolver, so it loads it the way the other per-call readers do.
+  - category: Scope
+    chose: "Every SpecDialog class that took AgentSmithConfig in its constructor: the filers, the start move, the tracker reach, withdrawal, amendment and the ticket-continuation act and reader"
+    over: "OutcomeTicketFiler alone"
+    reason: |
+      Filing into a new project would then succeed while starting the filed ticket (FiledWorkMove routing) and
+      reading or withdrawing it (FiledWorkTrackerProjects, FiledTicketWithdrawal) still answered from the boot copy:
+      the same defect one step later.

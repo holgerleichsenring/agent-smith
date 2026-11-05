@@ -1,6 +1,7 @@
 "use client";
 
 import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
+import { DialogProposalUploads } from "@/components/dialog/DialogProposalUploads";
 import { DialogProposalRounds } from "@/components/dialog/DialogProposalRounds";
 import { Markdown } from "@/components/ui/Markdown";
 import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
@@ -116,6 +117,7 @@ export function DialogQuestionCard({
       )}
       {decision && proposal && <DialogProposalRounds rounds={proposal.reviewRounds} notReviewed={proposal.notReviewed} />}
       {decision && proposal && <DialogProposalFindings findings={proposal.findings} />}
+      {decision && proposal && <DialogProposalUploads uploads={proposal.uploads} />}
       {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {controls.map((control) => (

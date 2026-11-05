@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-96a0c
+goal: "Per upload, a design turn's prompt and proposal card state how many readable files this turn and the conversation opened with read_file; the note asks what the material says."
+
+applies_to: "default (Application reference sandbox and prompt section, Persistence reference rows, Server read-only scopes and proposal push); dashboard (proposal card); agent-smith-skills (design-partner-master)"
+
+requires: [2026-11-04-96a0b]
+
+facts:
+  - claim: "Every step on an upload passes through ReferenceSetSandbox.RunStepAsync, which serves ReadFile, ListFiles, Grep, DirectoryTree and Run, and records none of them."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:54-76"
+  - claim: "read_file sends a ReadFile step carrying the path (and an optional slice), and fails on a non-zero exit code."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs:20-30; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:223-240"
+  - claim: "Within a turn the filesystem host already collects successful read_file paths and publishes them as MasterReadPaths for every master. Nothing keeps them after the turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:51-54,236-238; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:538"
+  - claim: "The activity steps a turn reports go to the dialog's hub group and to an in-memory list of the running turn, and are never stored."
+    evidence: "src/backend/AgentSmith.Application/Services/Turns/ActivityReportingAIFunction.cs:28-36; src/backend/AgentSmith.Server/Services/SpecDialog/DashboardActivityChannel.cs:46-60; src/backend/AgentSmith.Server/Services/SpecDialog/RunningDialogTurn.cs:30-32"
+  - claim: "A design turn's children share the master's sandbox map, so their reads go through the same reference sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:109-112"
+  - claim: "An upload is written into the sandbox at the root, each file at its stored relative path, plus a marker file that belongs to no set."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:24,28-29,57"
+  - claim: "A set's note is a ReferenceFiles row of its own kind under the set id, replaced in one save with no migration. The kind column is 16 characters wide."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceNoteRepository.cs:10-49; src/backend/AgentSmith.Infrastructure.Persistence/Models/ReferenceFileKind.cs:4-19"
+  - claim: "The note is read when the turn opens, carried on the sandbox, and rendered under the upload's address. With no note, the line under the address asks only for 'what this is and how to run it'."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:50-54; src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:19-35; src/backend/AgentSmith.Application/Services/Handlers/ReferenceNoteText.cs:13-15"
+  - claim: "note_reference allows 8000 characters and its description is about running the material: commands, versions, services."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ReferenceNoteToolHost.cs:21-37; src/backend/AgentSmith.Contracts/Sandbox/IReferenceNotes.cs:11"
+  - claim: "The deployed master's 'Working out what an upload is' paragraph is about running the material and says nothing about how much of it was read."
+    evidence: "observed: 2026-11-04, agent-smith-skills tag v5.22.0 skills/_masters/design-partner-master/SKILL.md ('Working out what an upload is'); src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "read_file refuses files over 1 MB, even a slice, and binary or non-UTF-8 content; the upload keeps such files as bytes. A rooted path is read as given."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:18-23,58-79; src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:5; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:63-79"
+  - claim: "A set's stored media type cannot say whether read_file can open a file: only about 20 web extensions are typed, and everything else, source code and PDFs alike, is application/octet-stream."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceFileTypes.cs:12-27; src/backend/AgentSmith.Server/Services/References/ReferenceSetUpload.cs:81"
+  - claim: "The master and its parallel children share one sandbox instance; FilesystemToolHost locks its own read set for that reason."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:51-54"
+  - claim: "A turn's prompt carries an upload's note and address and nothing of what earlier turns read; only their replies and the note reach the next turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:19-25"
+  - claim: "Deleting a set removes its site and note rows only; deleting its last file removes only the note."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceUploadDeletion.cs:21-39"
+  - claim: "The one-turn-per-conversation gate lives in each process; a second replica knows nothing of it, and a note read takes the newest row."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-20; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceNoteRepository.cs:27-28"
+  - claim: "The reference sandbox factory returns ISourceScopeSandbox and passes the note through Create; the scope tests mock that factory."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandboxFactory.cs:18-22; tests/AgentSmith.Tests/References/SpecDialogReadOnlyScopesTests.cs:31-39"
+  - claim: "A proposal's review findings travel through the stored DTO and the pane push and are rendered on the question card."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:42,57,72-84; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:41-46; src/dashboard/src/components/dialog/DialogQuestionCard.tsx:118"
+  - claim: "In production, a conversation's 66-file, 547 KB upload was answered from 6 files by the master's own account, and no note row was ever written for the set."
+    evidence: "observed: 2026-11-04, a production conversation's transcript and ReferenceFiles rows"
+
+scope:
+  in: "Recording successful read_file paths on a reference sandbox. Keeping each set's opened paths across turns. A coverage line, and a bounded list of unopened files, under each address in the prompt. Opened/total stamped on the proposal and shown on its card. The no-note line and note_reference's description reframed for source and documents. The master paragraph, its release and the pin."
+  out: "Counting grep_in_tree hits or run_in_reference output as reads, since a command or match shows a fragment and not a file. Telling a whole read from a slice. Reading PDFs, office files or images, which read_file cannot open: they are listed apart and never counted. Raising the 8000-character note cap (see decisions). Coverage for repositories and templates."
+
+steps:
+  - id: record
+    action: "ReferenceSetSandbox hands each ReadFile step that came back with exit code 0 to a ReferenceReadLog, which normalises the path (a leading '/work/' root, './' and '/' removed) and is thread-safe. The log is its own class, so the sandbox stays at or under 120 lines. It is exposed as OpenedPaths."
+  - id: store
+    action: "ReferenceFileKind.Reads = \"reads\"; ReferenceReadRepository mirrors ReferenceNoteRepository with one row per set holding the sorted, newline-joined paths. AddAsync adds a row of this turn's merged paths only while the set's site rows exist. A read returns the UNION of every reads row of the set, so two replicas writing at once lose nothing; the write deletes the rows it merged by id with ExecuteDeleteAsync, so two replicas deleting one row do not raise a concurrency error. ReferenceUploadDeletion removes reads rows with the set and with its last file."
+  - id: open
+    action: "A ReferenceCoverageReader (its own class, so SpecDialogReadOnlyScopes stays at or under 120 lines) reads each set's entries and stored paths into a Contracts ReferenceCoverage. M is the files read_file can open, by read_file's own rule: 1 MB or under, and bytes that decode as strict UTF-8. Only rows of 1 MB or under have their content loaded; a set never changes, so the answer is cached per set id. It also holds the opened readable paths, the first 25 unopened readable paths in path order, the unopened count, and the count of unreadable files. OpenAsync passes it through IReferenceSetSandboxFactory.Create as a new parameter, as the note is passed."
+  - id: prompt
+    action: "ReferencePromptSection renders, under each address: 'Earlier turns of this conversation opened N of the M files read_file can read. Their content is not in this turn; only the note carries it forward.' Then the bounded unopened list ('… and K more'), or 'All M opened earlier.', and 'U files read_file cannot open (binary or over 1 MB) are not counted.' when U > 0. It says that grep and run_in_reference are not counted."
+  - id: stamp
+    action: "UploadProvenance (from 96a0b) gains ThisTurn (readable paths this turn opened), Opened (after the merge) and Files (M). Stamp becomes StampAsync on the runner's success line, which still keeps the runner at 120 lines. A ReferenceReadRecorder, its own class in its own DI scope like DbReferenceNotes, stores the merged paths. A store failure is logged and swallowed, and the counts are stamped from memory, so storing never fails a finished answer. Callers to update: SpecDialogReadOnlyScopesTests.cs:75, DialogHoldProvenanceTests.cs:47, and the Moq setups of Create at SpecDialogReadOnlyScopesTests.cs:32,52."
+  - id: card
+    action: "OutcomeProposalJson's Dto, SpecDialogProposalPush and the dashboard type carry uploads. The question card and the proposal pane show one line per upload beside the findings ('reference:<name> — this turn opened 6; the conversation 60 of 66'). A proposal stored before this change shows no line."
+  - id: note
+    action: "ReferenceNoteText.Under, ReferenceNoteText.Carried and the note_reference description ask for what the material IS. For an application that is how to run it. For source or documents it is what each area says, citing the files a fact rests on, with no list of the files read (the system keeps that)."
+  - id: skill
+    action: "In design-partner-master: the 'Working out what an upload is' paragraph points at the coverage line, and a proposal built on part of an upload says which part. Bump the skill version, open the skills PR with a conventional title, merge it and its release, then raise SkillsCatalogVersion and SkillsCatalogSha256, replace the tarball, and update the version named in the skills docs and the example config."
+  - id: tests
+    action: "Unit tests below, and a PipelineHarness spec-dialog test where a scripted master reads two of three files over two turns."
+
+tests:
+  - "ReferenceReadLog_ASuccessfulReadFile_IsRecordedNormalised"
+  - "ReferenceReadLog_ARootedWorkPath_IsRecordedRelative"
+  - "ReferenceReadLog_ConcurrentReads_AreAllRecorded"
+  - "ReferenceReadLog_AFailedReadOrAGrepOrARun_IsNotRecorded"
+  - "ReferenceReadRepository_AddAsync_MergesWithTheStoredPaths"
+  - "ReferenceReadRepository_AddAsync_ASetNoLongerHeld_StoresNothing"
+  - "ReferenceReadRepository_TwoRowsForOneSet_ReadsTheUnion"
+  - "ReferenceUploadDeletion_DeleteSet_RemovesItsReads"
+  - "ReferenceCoverageReader_NonUtf8OrOversizedFiles_AreOutsideMAndCountedApart"
+  - "ReferenceCoverageReader_OctetStreamSourceFile_CountsAsReadable"
+  - "SpecDialogReadOnlyScopes_OpenAsync_CountsOnlyPathsThatAreFilesOfTheSet"
+  - "ReferencePromptSection_PartlyOpened_SaysNOfMNotInThisTurnAndListsTheFirstUnopened"
+  - "ReferencePromptSection_AllOpened_SaysSo"
+  - "SpecDialogTurnRunner_AFailedTurn_StoresNoReads"
+  - "ReferenceReadRecorder_StoreThrows_StampStillCarriesTheCounts"
+  - "OutcomeProposalJson_RoundTrip_KeepsUploads"
+  - "DialogProposalUploads: renders opened of total per upload and nothing for an older proposal"
+  - "EmbeddedCatalog_DesignPartner_NamesTheCoverageLine"
+  - "SpecDialogHarness_ReadsAcrossTwoTurns_SecondPromptSaysTwoOfThree"
+
+done:
+  - given: "a conversation whose upload has M files, of which earlier non-failed turns opened N with read_file"
+    when: "the next design turn starts"
+    then: "its prompt says that earlier turns opened N of the M readable files, that their content is not in this turn, and lists up to 25 unopened files"
+  - when: "a turn proposes work in a conversation with an upload"
+    then: "the proposal card shows, for each upload, how many readable files that turn opened and how many the conversation has opened"
+  - "The no-note line and note_reference's description ask for what the material says, not only how to run it."
+  - "The embedded catalog carries the released master text."
+  - "Build green, full suite green, dashboard gen/test/build green."

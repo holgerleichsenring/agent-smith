@@ -18,10 +18,12 @@ internal sealed class ReferenceNoteToolHost(
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode) =>
         [AIFunctionFactory.Create(NoteReference, name: "note_reference")];
 
-    [Description("Replaces the note of one upload — the reference:<name> address. Write what it is, the exact commands "
-        + "and versions that worked (relative to the upload's folder), what it needs (services, keys by name), and what "
-        + "you saw. Every later turn shows the note under the address, and a run that carries the upload shows it too; "
-        + "follow it there instead of rediscovering. Replace it when it stops being true.")]
+    [Description("Replaces the note of one upload — the reference:<name> address. Write what the material IS. For an "
+        + "application, that is how to run it: the exact commands and versions that worked (relative to the upload's "
+        + "folder), what it needs (services, keys by name), and what you saw. For source or documents, it is what each "
+        + "area says, citing the files a fact rests on; list no files you read — the system keeps that. Every later "
+        + "turn shows the note under the address, and a run that carries the upload shows it too; follow it there "
+        + "instead of rediscovering. Replace it when it stops being true.")]
     public async Task<string> NoteReference(
         [Description("The upload's address, reference:<name>.")] string reference,
         [Description("The whole note, replacing the one before; at most 8000 characters.")] string note,

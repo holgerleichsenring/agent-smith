@@ -23,7 +23,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class FiledTicketWithdrawal(
     IServiceScopeFactory scopeFactory,
-    AgentSmithConfig config,
+    Tickets.TicketProjects projects,
     ITicketProviderFactory ticketFactory,
     FiledWorkTrackerProjects trackerProjects,
     FiledWorkNudge? nudge,
@@ -55,7 +55,7 @@ public sealed class FiledTicketWithdrawal(
             return Refused(
                 $"{displayKey} was filed before its id and project were recorded, so this cannot "
                 + "reach its tracker — close it there instead.");
-        if (!config.Projects.TryGetValue(projectName, out var project))
+        if (projects.Of(projectName) is not { } project)
             return Refused(
                 $"Project '{projectName}' is no longer in the configuration catalog, so "
                 + $"{displayKey}'s tracker cannot be reached from here.");

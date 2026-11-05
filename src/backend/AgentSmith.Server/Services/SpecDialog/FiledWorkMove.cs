@@ -15,7 +15,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// filed; an approval in a never-worked ticket's own conversation starts that EXISTING ticket here too.
 /// </summary>
 public sealed class FiledWorkMove(
-    AgentSmithConfig config,
+    IConfigurationLoader configLoader, ServerContext serverContext,
     IEnvelopeProjectResolver resolver,
     FiledWorkTagger tagger,
     ILogger<FiledWorkMove> logger,
@@ -54,7 +54,8 @@ public sealed class FiledWorkMove(
         // A MATCH naming the filing project is the whole test, for a work ticket and for a bug
         // alike; the resolver decides the pipeline. When it names other projects instead, the
         // ticket IS routed — somewhere else — and the reason says so rather than "nothing".
-        var matches = resolver.Resolve(config, envelope);
+        // The configuration as it reads now: a project created after startup is routed like a booted one.
+        var matches = resolver.Resolve(configLoader.LoadConfig(serverContext.ConfigPath), envelope);
         if (!matches.Any(m => m.ProjectName == project.Name && m.Kind == platform))
             return NotStarted(FiledWorkReasons.NotRouted(
                 project, platform, trigger, envelope, matches,

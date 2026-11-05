@@ -59,7 +59,7 @@ internal sealed class TicketGraphRig
     {
         var factory = Factory();
         var config = Config();
-        return new TicketGraphFiler(config, factory.Object, new TicketExistence(factory.Object, NullLogger<TicketExistence>.Instance),
+        return new TicketGraphFiler(LiveConfig.Projects(config), factory.Object, new TicketExistence(factory.Object, NullLogger<TicketExistence>.Instance),
             new TicketGraphOrderer(), Requirements,
             new GraphTicketApproval(Approvals, References, new SeriesRepos(), TimeProvider.System, NullLogger<GraphTicketApproval>.Instance),
             Starts(config), ApprovedSetDoubles.Kinds(), TimeProvider.System, NullLogger<TicketGraphFiler>.Instance);

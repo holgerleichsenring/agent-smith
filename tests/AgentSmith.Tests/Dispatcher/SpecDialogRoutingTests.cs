@@ -87,7 +87,7 @@ new DashboardOutcomeChannel(
             new SpecCommandParser(), commandHandler,
             _turnRunner.Object, outcomeFlow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object),
-            SilentTurnKeeper.Over(repository, _sessions),
+            SilentTurnKeeper.Over(repository, _sessions, new ReferenceSetRepository(_context)),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
@@ -108,6 +108,37 @@ new DashboardOutcomeChannel(
         _adapter.Verify(a => a.SendInfoAsync(
             Channel, It.IsAny<string>(), It.Is<string>(t => t.Contains("sample")),
             "1111.0001", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // 2026-11-04-96a0b: a set stored while the turn runs is one the turn never listed. The notice is kept and sent
+    // BEFORE the reply, so the page shows it live and the reply stays the last entry its proposal card attaches to.
+    [Fact]
+    public async Task SpecDialogRouter_UploadStoredDuringTheTurn_KeepsAndSendsANoticeBeforeTheReply()
+    {
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-up", Platform, false, CancellationToken.None);
+        var sent = new List<string>();
+        _adapter.Setup(a => a.SendInfoAsync(
+                Channel, It.IsAny<string>(), It.IsAny<string>(), "th-up", It.IsAny<CancellationToken>()))
+            .Callback((string _, string _, string text, string? _, CancellationToken _) => sent.Add(text))
+            .Returns(Task.CompletedTask);
+        _turnRunner
+            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ConversationState state, TurnPoster _, CancellationToken ct) =>
+            {
+                await new ReferenceSetRepository(_context).AddAsync(state.JobId,
+                    [new() { RelativePath = "app/a.cs", MediaType = "text/plain", Content = [0x61] }], ct);
+                return SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome());
+            });
+
+        await _router.TryRouteAsync("what does the app do?", "U1", Channel, "th-up", Platform, false, CancellationToken.None);
+
+        const string Notice = "reference:app (1 file) was uploaded while this answer was being written, so the answer "
+            + "did not read it. The next answer can read it.";
+        sent.Should().Equal(Notice, CannedReply);
+        var kept = (await _sessions.GetOpenByThreadAsync(Platform, "th-up", CancellationToken.None))!.Transcript
+            .Where(t => t.Role == TranscriptRole.Assistant).ToList();
+        kept.Select(t => (t.Text, t.Kind)).Should().Equal(
+            (Notice, SpecDialogTurnKind.Notice), (CannedReply, SpecDialogTurnKind.Answer));
     }
 
     [Fact]

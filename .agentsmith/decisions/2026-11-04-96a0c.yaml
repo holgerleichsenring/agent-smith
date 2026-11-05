@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-96a0c
+
+decisions:
+  - category: Architecture
+    chose: "Record reads on the reference sandbox"
+    over: "FilesystemToolHost.ReadPaths; the activity steps; an estimate from the model's reply"
+    reason: "The sandbox is the one place every read of an upload passes, including the children's, and it sees routed paths that are relative to the set. FilesystemToolHost is baselined at 617 lines and is shared by every master. Activity steps are never stored. An estimate is the guess this spec exists to replace."
+  - category: Architecture
+    chose: "Count read_file only, and say so in the line"
+    over: "Count grep hits and run_in_reference commands"
+    reason: "A match or a command's output shows part of a file, not the file. A count that includes them would claim reading that never happened. The prompt names what it counts, so the master can tell the operator precisely."
+  - category: Implementation
+    chose: "A slice of a file counts as opened"
+    over: "Track whole and partial reads separately"
+    reason: "The prompt and the card say 'opened', never 'read'. A split would double the state for a difference the question in production never needed: 6 of 66 was the problem."
+  - category: Implementation
+    chose: "Store reads only from a non-failed turn"
+    over: "Store on dispose, whatever the outcome"
+    reason: "A failed turn's reading never reached a kept answer, so the conversation does not have it. Counting it would overstate coverage. The stamp line is also the only place the runner offers without growing past 120."
+  - category: Implementation
+    chose: "One 'reads' row per set, on the note's pattern"
+    over: "A new table or column"
+    reason: "The note shows that a kind row under the set id needs no migration and stays out of the set's files, count and hash. 'reads' fits the 16-character kind column."
+  - category: Implementation
+    chose: "Keep the 8000-character note cap and move the file inventory out of the note"
+    over: "Raise the cap"
+    reason: "A per-file inventory of 66 files, at about 35 characters of path plus an 80-character gist each, comes to roughly 7.6 KB: the whole cap, with nothing left for what the material says. The system now keeps which files were opened (the prompt lists the unopened ones), so the note's 8000 characters go to content by area. That is about 1,300 words, enough for an application's structure and entry points. A note written by area does not grow with the number of files, so the argument holds up to the 500-file set limit (ReferenceSetLimits.cs:10)."
+  - category: Tooling
+    chose: "A skills release and pin bump in this spec"
+    over: "Server text only"
+    reason: "The deployed master's paragraph on uploads is about running them. Left alone, it contradicts the reframed tool description in the same prompt."
+  - category: Architecture
+    chose: "State this turn's reads and the conversation's reads apart, and say that earlier reads are not in context"
+    over: "One conversation-wide 'N of M opened'"
+    reason: "Earlier turns' file content does not reach the next turn, only their replies and the note do. A single conversation count would let the master claim it had read the whole application on a turn that holds none of it, which is the production failure again."
+  - category: Implementation
+    chose: "M counts only the files read_file can open, decided by read_file's own rule (size and strict UTF-8)"
+    over: "M is every file of the set"
+    reason: "read_file refuses files over 1 MB and binary content. Counting those would hold a documents upload at 0 of M forever and fill the unopened list with files that cannot be opened. The stored media type cannot decide this, because source code and PDFs are both octet-stream."
+  - category: Implementation
+    chose: "Read the union of all reads rows"
+    over: "Read the newest row, as the note does"
+    reason: "The turn gate is per process and several replicas are a requirement. Two read-merge-replace writes can race, and taking the newest row would drop one turn's reads."
+  - category: Tooling
+    chose: "Deviation: the skills PR is opened, not merged; the release, the SkillsCatalogVersion/Sha256 bump, the tarball, the docs' version and EmbeddedCatalog_DesignPartner_NamesTheCoverageLine follow that release"
+    over: "Merging the skills PR and bumping the pin inside this spec, as its skill step says"
+    reason: "The operator asked for the skills PR to stay open for review. Until it is released, the embedded v5.22.0 master keeps its run-the-upload paragraph beside the reframed tool description; the server text alone already carries the coverage line and the note framing."
+  - category: Implementation
+    chose: "Deviation: the readable-file cache is keyed by set id AND file count"
+    over: "Keyed by set id alone, as the open step says ('a set never changes')"
+    reason: "Since 2026-10-09-86e1 one file of a set can be removed (ReferenceUploadDeletion.DeleteFileAsync), so a set does change. The file count comes with the listing every turn already reads, so the key costs nothing."
+  - category: Architecture
+    chose: "ReferenceCoverageReader and ReferenceReadRecorder are singletons that open a scope per call; ReferenceCoverage (Contracts) computes the stamp counts"
+    over: "A scoped reader with a separate singleton cache; the recorder counting inline"
+    reason: "The cache has to outlive a turn's scope, and the recorder stores in its own scope like DbReferenceNotes. The coverage is what knows which paths are readable, so it answers ThisTurn, Opened and Files, and the recorder only adds the store."
+  - category: Implementation
+    chose: "The unopened list renders as 'Not opened yet: `a`, `b` … and K more.' and the not-counted rule rides the first coverage line"
+    over: "A bare list; a separate line for the grep rule"
+    reason: "The list needs a lead-in to read as unopened files rather than as the upload's contents, and one sentence per address keeps the rule beside the count it qualifies."

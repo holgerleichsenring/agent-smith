@@ -6,6 +6,7 @@ import type {
   SpecDialogProposalPush,
 } from "@/types/spec-dialog";
 import { DialogProposalGraph } from "./DialogProposalGraph";
+import { DialogProposalUploads } from "./DialogProposalUploads";
 import { MockVersions } from "./MockVersions";
 
 // 2026-09-15-6d9c: WHAT WOULD BE FILED, rendered by kind. The proposal is the part of a
@@ -47,6 +48,7 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
   );
   return (
     <div data-testid="dialog-proposal" data-kind={proposal.kind} className="flex flex-col gap-3.5">
+      <DialogProposalUploads uploads={proposal.uploads} />
       {proposal.bug && (
         <div data-testid="dialog-proposal-bug">
           <Label>A bug ticket</Label>

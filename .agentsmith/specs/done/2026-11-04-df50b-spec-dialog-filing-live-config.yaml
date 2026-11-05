@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-df50b
+goal: "Filing and starting the work a spec dialog approved reads the current configuration, so a project created in the Config Studio after server start is filed into without a restart."
+
+applies_to: "default (Server SpecDialog filing and filed work)"
+
+requires: [2026-11-04-df50a]
+
+facts:
+  - claim: "AgentSmithConfig is a singleton loaded once, when first resolved."
+    evidence: "src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:79-80"
+  - claim: "OutcomeTicketFiler resolves the filing project off that singleton and throws for any project it lacks."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:62-71"
+  - claim: "The dialog itself reads projects per call, so every turn on a new project ran and only filing failed."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProjectCatalog.cs:36-37, SpecDialogTurnRunner.cs:95-101"
+  - claim: "A project created at 13:03 UTC could not be filed into until the server restarted."
+    evidence: "observed: production, the operator's project, 2026-11-04"
+
+scope:
+  in: "Every spec-dialog filing and filed-work class that took the boot-time AgentSmithConfig reads the live one: OutcomeTicketFiler, TicketGraphFiler, FiledWorkMove, FiledWorkTrackerProjects, FiledTicketWithdrawal, TicketAmendment, TicketContinuationAct, TicketContinuationStateReader."
+  out: "The other constructors that still take the boot-time AgentSmithConfig (webhooks, pollers, preflight, startup, run retry) — the open 'config frozen at boot' finding of the 2026-10-26 redundancy audit, to be specced on its own."
+
+steps:
+  - id: projects
+    action: "Project lookups go through TicketProjects (IConfigurationLoader per call); FiledWorkMove loads the config per call for the envelope resolver."
+  - id: tests
+    action: "Unit tests build the classes over a fixed loader; a harness test files into a project saved to the config store after the provider was built."
+
+tests:
+  - "SpecDialogLateProjectFilingTests.FileAsync_ProjectSavedAfterStartup_IsFiledInto"
+
+done:
+  - "A bug outcome on a project added to the config store after AgentSmithConfig was resolved is filed, through the real composition."
+  - "No class on the spec-dialog filing path takes AgentSmithConfig in its constructor."
+  - "Build green, full suite green, dashboard gen/test/build green."

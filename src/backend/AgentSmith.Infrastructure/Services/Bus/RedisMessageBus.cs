@@ -15,14 +15,22 @@ public sealed class RedisMessageBus(
     ILogger<RedisMessageBus> logger) : IMessageBus
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
+    private const string StreamStart = "0-0";
+
+    public async Task<string> TailAsync(string jobId, CancellationToken cancellationToken)
+    {
+        var newest = await redis.GetDatabase().StreamRangeAsync(
+            OutboundKey(jobId), "-", "+", count: 1, messageOrder: Order.Descending);
+        return newest is { Length: > 0 } ? newest[0].Id.ToString() : StreamStart;
+    }
 
     public async IAsyncEnumerable<BusMessage> SubscribeToJobAsync(
-        string jobId,
+        string jobId, string afterId,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
         var streamKey = OutboundKey(jobId);
-        var lastId = "0-0";
+        var lastId = afterId;
 
         logger.LogInformation("Subscribing to job stream {Stream}", streamKey);
 

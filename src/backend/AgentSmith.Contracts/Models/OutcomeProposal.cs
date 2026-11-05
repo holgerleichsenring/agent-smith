@@ -18,6 +18,9 @@ public abstract record OutcomeProposal
     /// </summary>
     public IReadOnlyList<TemplateProvenance> Templates { get; init; } = [];
 
+    /// <summary>2026-11-04-96a0b: the uploads the turn had open, stamped beside the templates for the same reason.</summary>
+    public IReadOnlyList<UploadProvenance> Uploads { get; init; } = [];
+
     /// <summary>
     /// 2026-09-17-042ed: what the review of this proposal found, taken inside the turn that
     /// produced it. On the BASE record for the same reason the templates are: it is a fact about

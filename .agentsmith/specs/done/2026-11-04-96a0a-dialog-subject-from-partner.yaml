@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-96a0a
+goal: "The design partner names its conversation with a name_conversation tool, in the language it answers in; the separate small-model subject call is deleted."
+
+applies_to: "default (Server SpecDialog keeper and seeds, Application tools and spec-dialog prompt, Contracts reply slot)"
+
+facts:
+  - claim: "The subject is minted by a separate call on TaskType.Summarization after the first assistant turn, never on a failed or notice turn, and never re-minted."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:47-53,64-71"
+  - claim: "The mint call is told to write in the language of the answer it is shown; 2026-10-09-753b narrowed its input to that answer after it guessed Spanish twice."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectInstruction.cs:8-23"
+  - claim: "The keeper calls the mint between appending the reply and the router sending it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnKeeper.cs:16-22"
+  - claim: "The digest writer is the only other caller of SpecDialogSubjectMinter.AgentOf."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDigestWriter.cs:63"
+  - claim: "With no subject the heading shows the first prose line the person wrote, then 'untitled'."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationTitle.cs:17-20; src/dashboard/src/components/dialog/DialogConversations.tsx:148; src/dashboard/src/components/dialog/SpecDialogSurface.tsx:321"
+  - claim: "Admission stores one line of plain prose within 120 characters and discards anything else; the bound is a Persistence constant the Application project cannot reference."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectAdmission.cs:24-38; src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:19; src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5"
+  - claim: "A plain-prose reply IS the answer outcome and an ```outcome block of kind answer is refused, so a subject marker in the reply text would be a second grammar inside the one the resolver parses."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:43-46,81-82"
+  - claim: "The reply slot is seeded before the run and read back after it; the runner builds the turn result from it on one line."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDialogReplySlot.cs:9-26; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:53,77-79"
+  - claim: "Design-master-only tools join outside the base surface, so children never get them; the steward surface drops only a named exclusion list."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:86-87; src/backend/AgentSmith.Application/Services/Tools/SpecDialogChildTools.cs:19-23; src/backend/AgentSmith.Application/Services/Tools/TicketStewardTools.cs:14-17"
+  - claim: "SpecDialogTurnRunner, MasterToolComposition and SpecDialogExtensions are at 120 lines and not in the length baseline; AgenticMasterHandler is baselined at 681 and may not grow."
+    evidence: "tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6"
+  - claim: "The deployed design-partner master (pin v5.22.0) says nothing about naming the conversation, but it tells the master to make no tool call for code-map answers and off-topic questions, which competes with a prompt line asking for one."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54; observed: 2026-11-04, agent-smith-skills tag v5.22.0 skills/_masters/design-partner-master/SKILL.md lines 32-34 and 45"
+  - claim: "A bound conversation is named from its ticket title when it opens, and the steward builds its prompt from its own factory, so steward turns are almost never nameable."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:41-45; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogTurnFlow.cs:26-28"
+  - claim: "The reply delivered is the loop's aggregated response text across every tool round, so text written around a tool call reaches the reply."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:533-534; src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:65-67"
+  - claim: "The keeper test helper builds the digest writer from SilentSubjectMinter's chat clients and loader, and ConversationSubjectTests builds the minter directly and asserts its call shape and its mint-once rule."
+    evidence: "tests/AgentSmith.Tests/TestHelpers/SilentTurnKeeper.cs:17-20; tests/AgentSmith.Tests/SpecDialog/ConversationSubjectTests.cs:79-198,200-227,340-342"
+  - claim: "In production the mint named a conversation in Spanish from a plainly English first answer, on gpt-4.1-mini."
+    evidence: "observed: 2026-11-04, a production conversation's SpecDialogSessions.Subject"
+
+scope:
+  in: "name_conversation on the design master's surface (children not) while the conversation has no subject; a prompt line asking for it; the subject carried from the slot to the keeper and stored on a non-failed turn; admission moved to Application and run inside the tool so the model sees a refusal; deleting the minter, its instruction and its test helper; AgentOf moved into the digest writer."
+  out: "Renaming a conversation that has a subject. The digest writer's own model and language (it stays on summarization). Chat platforms' thread titles. Any skills change."
+
+steps:
+  - id: contracts
+    action: "SpecDialogReplySlot.Subject (string?); ContextKeys.SpecDialogNameable; the 120 bound as a Contracts constant that PersistenceLimits.ConversationSubject is set from."
+  - id: admission
+    action: "Move SpecDialogSubjectAdmission to Application/Services/SpecDialog with the same accept/reject rules, reading the Contracts bound, and have it return the admitted line or the rule that failed (today it returns only string?, SpecDialogSubjectAdmission.cs:26-38)."
+  - id: tool
+    action: "NameConversationToolHost(slot): name_conversation(subject) runs admission; refused, it returns the rule that failed; admitted, it sets slot.Subject (the last admitted call in a turn wins) and answers 'Stored. Write your reply; do not mention the name.' Its description says: one line naming what the conversation is about, in the language you answer the operator in; call it before writing the reply; it is not a source read."
+  - id: seeds
+    action: "SpecDialogTurnSeeds.Build seeds SpecDialogNameable only when state.Subject is null."
+  - id: compose
+    action: "The tool is built where the design master's own acts are built, TicketActToolsFactory.Tools, which is already joined outside BaseSurface at MasterToolComposition.cs:86, so the composition grows by zero lines. Update that factory's summary, which says it builds the acts on the bound ticket: it now also builds the naming tool, which works in unbound conversations. The steward surface keeps the tool only because its exclusion list does not name it. Like every design-master tool it is wrapped by ActivityReportingAIFunction (AgenticMasterHandler.cs:376), so the operator sees name_conversation as one activity step; that is accepted."
+  - id: prompt
+    action: "SpecDialogPromptFactory adds one line under '## Your reply' when nameable: the conversation has no name yet; before writing the reply, call name_conversation once, in the language of this reply — it is not a source read and is called even when the answer needs no tool. The steward's prompt factory is not changed."
+  - id: result
+    action: "SpecDialogTurnResult gains Subject; the runner passes slot.Subject as a named argument inside the existing success call (the runner stays at 120 lines; 96a0b and 96a0c change the same call). A notice turn carries what the master named, since it is in the master's language; a failed turn carries none."
+  - id: keeper
+    action: "SpecDialogTurnKeeper stores result.Subject after appending the reply, only when the row still has none (the minter's StoreAsync, moved into a SpecDialogSubjectStore); no model call."
+  - id: delete
+    action: "Delete SpecDialogSubjectMinter and SpecDialogSubjectInstruction; AgentOf becomes the digest writer's own; the registration at SpecDialogExtensions.cs:69 registers the store in the minter's place. In tests: SilentSubjectMinter's SilentChatClients and Loader move to a renamed helper and SilentTurnKeeper builds the store; ConversationSubjectTests drops its eight mint tests (lines 79-198; the throwing-minter test at line 186 has no counterpart), moves the admission tests to the Application type, and keeps the digest and view tests."
+  - id: tests
+    action: "Unit tests below, and a PipelineHarness spec-dialog test through ISpecDialogTurnRunner where a scripted master calls name_conversation and the turn result carries the subject; storing it is covered by the router tests."
+
+tests:
+  - "NameConversation_OneLineOfProse_SetsTheSlotSubject"
+  - "NameConversation_AParagraphOrMarkup_ReturnsTheRuleAndSetsNothing"
+  - "SpecDialogTurnSeeds_AConversationWithoutSubject_SeedsNameable"
+  - "SpecDialogTurnSeeds_AConversationWithSubject_SeedsNothing"
+  - "MasterToolComposition_NameableDesignTurn_OffersNameConversationToTheMasterOnly"
+  - "SpecDialogPromptFactory_NameableTurn_AsksForTheNameInTheReplyLanguage"
+  - "SpecDialogRouter_ATurnThatNamedTheConversation_StoresTheSubjectBeforeItSendsTheReply"
+  - "SpecDialogRouter_AFailedTurn_StoresNoSubject"
+  - "SpecDialogRouter_AConversationWithASubject_KeepsIt"
+  - "SpecDialogRouter_ATurnThatNamedNothing_StoresNothingAndTheNextTurnIsNameable"
+  - "ConversationSubjectAdmission_AParagraphOrAFencedAnswer_IsDiscarded"
+  - "SpecDialogHarness_ScriptedMasterNamesTheConversation_TurnResultCarriesTheSubject"
+
+done:
+  - when: "the design master calls name_conversation with one line of prose in a turn of a conversation that has no subject"
+    then: "that line is the stored subject before the reply is sent, and no Summarization call is made for it"
+  - when: "a turn of an unnamed conversation ends without naming it, or fails"
+    then: "no subject is stored, the heading shows the first line the person wrote, and the next turn is offered name_conversation again"
+  - "No type named SpecDialogSubjectMinter or SpecDialogSubjectInstruction remains."
+  - "Build green, full suite green, dashboard gen/test/build green."

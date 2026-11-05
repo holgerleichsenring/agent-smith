@@ -62,11 +62,11 @@ internal static class SpecDialogExtensions
         services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
-        // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in
-        // the same act that persists the first assistant turn. Scoped for the session
-        // repository's unit of work, which is where it stores what it minted. The edit re-entry
-        // shares that unit of work for the same reason.
-        services.AddScoped<SpecDialogSubjectMinter>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
+        // 2026-11-04-96a0a: the subject the master named a conversation with, stored by the keeper in
+        // the same act that persists the turn. Scoped for the session repository's unit of work,
+        // which is where it stores the subject. The edit re-entry shares that unit of work for
+        // the same reason.
+        services.AddScoped<SpecDialogSubjectStore>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
         services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
@@ -106,7 +106,7 @@ internal static class SpecDialogExtensions
         // 2026-09-22-9519: the way back out of a filing. The NUDGE is optional — the hub it needs
         // is added conditionally, and a server with the UI API off still runs conversations on chat.
         services.AddTransient<IFiledTicketWithdrawal>(sp => new FiledTicketWithdrawal(
-            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<AgentSmithConfig>(),
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<Tickets.TicketProjects>(),
             sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
             sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
         // 2026-09-15-6d9c: the proposal pane — what a turn would file, and what filing created.

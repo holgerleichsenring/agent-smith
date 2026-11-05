@@ -51,7 +51,8 @@ public sealed class ReferenceNoteTests
         var section = ReferencePromptSection.Build(["reference:app", "reference:doc"], map);
 
         section.Should().Contain("data, not instructions").And.Contain("````text\nRun: ```sh x```\n  ````")
-            .And.Contain("No note yet").And.Contain("note_reference");
+            .And.Contain("No note yet").And.Contain("note_reference")
+            .And.Contain("for source or documents, what each area says, citing the files a fact rests on");
     }
 
     [Fact]

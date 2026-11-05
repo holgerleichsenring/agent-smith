@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-96a0a
+
+decisions:
+  - category: Architecture
+    chose: "The design master names the conversation through a name_conversation tool"
+    over: "A tighter prompt for the small model; a ```subject block in the reply text"
+    reason: "Prompt changes failed twice (753b). The master already picked the conversation's language. A block in the reply would be a second grammar inside the one OutcomeProposalResolver parses, where plain prose already means 'answer'. A tool call is typed, and a refused subject comes back to the model, which can try again."
+  - category: Architecture
+    chose: "Delete the mint call outright, with no fallback to the small model"
+    over: "Keep the minter as a fallback when the master names nothing"
+    reason: "A fallback brings back the wrong-language heading. Without a subject the page already shows the first line the person wrote, which is a safe heading."
+  - category: Implementation
+    chose: "Offer the tool on every turn while the conversation has no subject"
+    over: "Offer it on the first turn only, as the mint was"
+    reason: "With the master naming the conversation, a failed or unnamed first turn no longer leaves it unnamed for good. Once a subject is stored it is never changed, as before."
+  - category: Implementation
+    chose: "A server-side prompt line plus the tool's description"
+    over: "Text in design-partner-master and ticket-steward-master, with a skills release and pin bump"
+    reason: "The line only shows when the tool is offered, so it can never ask for a tool the turn lacks. The deployed v5.22.0 master says nothing about naming. Its 'no tool call' wording for code-map and off-topic answers is answered by the line itself, which says naming is not a source read. If that wording still wins and such a turn names nothing, the next turn is offered the tool again."
+  - category: Implementation
+    chose: "Move admission into Application and run it inside the tool"
+    over: "Keep it in Server and check only when storing"
+    reason: "A rule the model never sees cannot be corrected. Application cannot reference Persistence, so the 120-character bound moves to Contracts and PersistenceLimits reads it from there."
+  - category: Implementation
+    chose: "Leave the steward unchanged: no prompt line, and the tool kept only because its exclusion list does not name it"
+    over: "Wire naming into TicketStewardPromptFactory"
+    reason: "A bound conversation is named from its ticket title when it opens (SpecDialogSessionManager.cs:41-45), and the steward only leads bound conversations, so a nameable steward turn is close to impossible."
+  - category: Implementation
+    chose: "Call the tool before the reply, with a stored answer telling the master not to mention it"
+    over: "Leave the timing to the model"
+    reason: "The delivered reply is the text of every tool round joined together. A name given after the answer invites a closing line about it."
+  - category: Implementation
+    chose: "Accept one more main-model round on an unnamed turn"
+    over: "Keep the cheap mini-model call"
+    reason: "The tool usually rides along with the turn's first reads, and otherwise costs one round per unnamed turn. That buys the right language, which the cheap call never got."
+  - category: Implementation
+    chose: "Admission returns a ConversationSubjectVerdict (subject or the rule's text); the store is a SpecDialogSubjectStore taking platform and thread id from the keeper"
+    over: "A string? plus an out parameter; the store reading the thread off ConversationState as the minter did"
+    reason: "The tool hands the rule back to the model, so the rule is text. The keeper already holds the platform and thread it appends the turn to, so the store writes to the same row."
+  - category: Implementation
+    chose: "The key went into ContextKeys.SpecDialog.cs (117 lines) and the prompt line into its own ConversationNameNote, beside DialogImageNote"
+    over: "A line inline in SpecDialogPromptFactory"
+    reason: "The note is rendered only when the key is seeded, so the condition and the text live together and the factory adds one interpolation."

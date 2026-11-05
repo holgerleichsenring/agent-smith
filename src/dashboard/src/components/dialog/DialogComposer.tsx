@@ -42,6 +42,8 @@ import type { UploadNote } from "./uploadNote";
 // is no room above); Escape gives focus back to the plus. A single picked file the conversation
 // already holds is held back with where it is and a "Send anyway"; a larger pick is marked in the
 // selection card.
+// 2026-11-04-96a0b: Send waits while a pick is on screen or an upload is still going, and a line says
+// why: a message sent ahead of its files starts a turn that never reads them. The text is kept.
 
 export function DialogComposer({
   onSend,
@@ -55,10 +57,10 @@ export function DialogComposer({
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
-  onAttach: (file: File) => void;
+  onAttach: (file: File) => void | Promise<unknown>;
   /** 2026-10-01-283db: a website the operator picked — its files, stored as one set.
    *  2026-10-02-075db: with what the selection card left out, when one was shown. */
-  onAttachSite?: (files: File[], leftOut?: PickLeftOut) => void;
+  onAttachSite?: (files: File[], leftOut?: PickLeftOut) => void | Promise<unknown>;
   /** What the last upload left: a refusal, or what a stored website went without. */
   note?: UploadNote | null;
   disabled?: boolean;
@@ -77,13 +79,23 @@ export function DialogComposer({
   const attach = useRef<HTMLDivElement>(null);
   const plus = useRef<HTMLButtonElement>(null);
   const [heldPick, setHeldPick] = useState<{ file: File; name: string } | null>(null);
+  // 2026-11-04-96a0b: uploads not yet settled, counted from the pick, so a single file's held check counts too.
+  const [pending, setPending] = useState(0);
+  const track = (work: void | Promise<unknown>) => {
+    setPending((count) => count + 1);
+    const done = () => setPending((count) => count - 1);
+    void Promise.resolve(work).then(done, done);
+  };
   const sendOne = async (file: File) => {
     setHeldPick(null);
     const name = await heldWhere(file, loadHeld);
     if (name) setHeldPick({ file, name });
-    else if (onAttachSite && fits([file])) onAttachSite([file]);
+    else if (onAttachSite && fits([file])) await onAttachSite([file]);
   };
   const [pick, setPick] = useState<File[] | null>(null);
+  const waiting = pick || heldPick
+    ? "Send or cancel the selected files first."
+    : pending > 0 ? "Waiting for the upload to finish." : null;
   const [over, setOver] = useState<string | null>(null);
 
   /** Whether `files` fit what is left; says why not when they do not. */
@@ -103,7 +115,7 @@ export function DialogComposer({
 
   const send = () => {
     const said = text.trim();
-    if (said.length === 0 || disabled) return;
+    if (said.length === 0 || disabled || waiting) return;
     setText("");
     onSend(said);
   };
@@ -149,7 +161,7 @@ export function DialogComposer({
             onChange={(event) => {
               const picked = event.target.files?.[0];
               event.target.value = "";
-              if (picked && fits([picked])) onAttach(picked);
+              if (picked && fits([picked])) track(onAttach(picked));
             }}
           />
           {onAttachSite && (
@@ -160,7 +172,7 @@ export function DialogComposer({
                 type="file"
                 multiple
                 className="hidden"
-                onChange={(event) => pickFiles(event.target, (files) => void sendOne(files[0]), setPick)}
+                onChange={(event) => pickFiles(event.target, (files) => track(sendOne(files[0])), setPick)}
               />
               <input
                 ref={folder}
@@ -229,7 +241,7 @@ export function DialogComposer({
           aria-label="Send"
           title="Send"
           onClick={send}
-          disabled={disabled}
+          disabled={disabled || waiting !== null}
           className="d-icon send"
         >
           <ArrowGlyph />
@@ -239,7 +251,7 @@ export function DialogComposer({
         <HeldFileNote file={heldPick.file} name={heldPick.name} onDismiss={() => setHeldPick(null)}
           onSendAnyway={() => {
             setHeldPick(null);
-            if (onAttachSite && fits([heldPick.file])) onAttachSite([heldPick.file]);
+            if (onAttachSite && fits([heldPick.file])) track(onAttachSite([heldPick.file]));
           }} />
       )}
       {pick && onAttachSite && (
@@ -250,9 +262,14 @@ export function DialogComposer({
           onCancel={() => setPick(null)}
           onSend={(files, leftOut) => {
             setPick(null);
-            onAttachSite(files, leftOut);
+            track(onAttachSite(files, leftOut));
           }}
         />
+      )}
+      {waiting && text.trim().length > 0 && (
+        <p role="status" data-testid="dialog-composer-waiting" className="d-upload-note">
+          {waiting}
+        </p>
       )}
       {shown && !pick && !heldPick && (
         <p

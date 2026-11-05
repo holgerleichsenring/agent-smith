@@ -60,7 +60,7 @@ public sealed class SpecDialogTurnRunner(
             Headless: true, Context: seeds);
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var pump = questionPump.PumpAsync(state, pumpCts.Token);
+        var pump = await questionPump.StartAsync(state, pumpCts.Token); // positioned before the run
         // Set before the pipeline runs, so the scope repos and the templates it opens both report
         // through the flow, and 2026-09-17-042ee what it DOES with them. 2026-09-18-2f8b: the turn
         // COMPUTES from here to the finally below, its steps kept on it for a page arriving
@@ -76,7 +76,7 @@ public sealed class SpecDialogTurnRunner(
             // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
                 ? SpecDialogTurnResult.On(
-                    state.Platform, slot.Reply, readOnlyScopes.Stamp(slot.Outcome, project, templates), slot.Kind, slot.Stewarded)
+                    state.Platform, slot.Reply, await readOnlyScopes.StampAsync(slot.Outcome, project, templates, cancellationToken), slot.Kind, slot.Stewarded, subject: slot.Subject)
                 : SpecDialogTurnResult.On(
                     state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
                     SpecDialogTurnKind.Failure);

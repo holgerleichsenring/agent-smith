@@ -246,7 +246,8 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
 
     private FiledTicketWithdrawal Withdraw(
         ITicketProvider? tracker = null, FiledWorkNudge? nudge = null) =>
-        new(Scopes(), Config(), Factory(tracker ?? _tracker), new FiledWorkTrackerProjects(Config()),
+        new(Scopes(), LiveConfig.Projects(Config()), Factory(tracker ?? _tracker),
+            new FiledWorkTrackerProjects(LiveConfig.Projects(Config())),
             nudge, NullLogger<FiledTicketWithdrawal>.Instance);
 
     private ActiveRunRepository Leases() => new(

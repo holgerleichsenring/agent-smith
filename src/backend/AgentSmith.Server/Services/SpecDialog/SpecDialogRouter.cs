@@ -97,7 +97,8 @@ public sealed class SpecDialogRouter(
                 return;
             }
 
-            await keeper.KeepAsync(current, result, platform, threadId, ct);
+            if (await keeper.KeepAsync(current, result, platform, threadId, ct) is { } notice) // 2026-11-04-96a0b
+                await messenger.SendAsync(platform, channelId, threadId, notice, ct);
             await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs

@@ -169,13 +169,14 @@ public sealed class DialogDraftSplitTests : IDisposable
     {
         const string question = "Should the draft keep this block?\n" + Draft;
         var bus = new Mock<IMessageBus>();
-        bus.Setup(b => b.SubscribeToJobAsync("s-1", It.IsAny<CancellationToken>()))
-            .Returns((string _, CancellationToken ct) => OneQuestion(question, ct));
+        bus.Setup(b => b.TailAsync("s-1", It.IsAny<CancellationToken>())).ReturnsAsync("0-0");
+        bus.Setup(b => b.SubscribeToJobAsync("s-1", "0-0", It.IsAny<CancellationToken>()))
+            .Returns((string _, string _, CancellationToken ct) => OneQuestion(question, ct));
         var pump = new SpecDialogQuestionPump(bus.Object, _messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
             new SpecDialogReplyComposer(), NullLogger<SpecDialogQuestionPump>.Instance);
         using var stop = new CancellationTokenSource();
 
-        var pumping = pump.PumpAsync(State(), stop.Token);
+        var pumping = await pump.StartAsync(State(), stop.Token);
         await WaitForAsync(() => DashboardTexts().Any());
         await stop.CancelAsync();
         await pumping;
@@ -246,7 +247,7 @@ public sealed class DialogDraftSplitTests : IDisposable
                 new SpecDialogReplyComposer(), _messenger),
             _turnRunner.Object, flow, gate,
             new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object),
-            SilentTurnKeeper.Over(repository, _sessions),
+            SilentTurnKeeper.Over(repository, _sessions, new ReferenceSetRepository(_context)),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), _messenger, NullLogger<SpecDialogRouter>.Instance);
     }

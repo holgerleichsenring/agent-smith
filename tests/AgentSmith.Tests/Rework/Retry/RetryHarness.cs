@@ -64,7 +64,8 @@ internal sealed class RetryHarness : IDisposable
         var services = new ServiceCollection().AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddSingleton(Config).AddSingleton<ITicketProviderFactory>(Tracker);
-        services.AddSingleton<TrackerIdentity>().AddTransient<TicketClosure>().AddTransient<FiledWorkTrackerProjects>();
+        services.AddSingleton<TrackerIdentity>().AddTransient<TicketClosure>().AddTransient<FiledWorkTrackerProjects>()
+            .AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(Config)).AddSingleton(LiveConfig.Context);
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddScoped<RunRepository>().AddScoped<RunRetryRequestRepository>().AddScoped<ActiveRunRepository>();
         services.AddScoped<RunDeletionRepository>();

@@ -21,7 +21,8 @@ internal static class ClosedTicketFollowUps
 
     /// <summary>What the served check resolves, over a configuration that knows no project.</summary>
     public static void Register(IServiceCollection services) =>
-        services.AddSingleton(new Contracts.Models.Configuration.AgentSmithConfig()).AddTransient<FiledWorkTrackerProjects>();
+        services.AddSingleton(LiveConfig.Projects(new Contracts.Models.Configuration.AgentSmithConfig()))
+            .AddTransient<FiledWorkTrackerProjects>();
 
     /// <summary>A lock held in memory; <see cref="Held"/> makes every acquire fail.</summary>
     internal sealed class InMemoryLock : IRedisClaimLock

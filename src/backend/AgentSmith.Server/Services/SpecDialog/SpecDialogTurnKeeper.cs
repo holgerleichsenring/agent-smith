@@ -1,25 +1,35 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Keeps a design turn's reply in the conversation and names a conversation that has none, and, once the turn gate
-/// is released, folds a conversation that has grown past its window into a digest. Both masters' turns are kept here.
+/// Keeps a design turn's reply in the conversation with the name the master gave it, and, once the turn gate is
+/// released, folds a conversation that has grown past its window into a digest. Both masters' turns are kept here.
+/// <para>
+/// 2026-11-04-96a0b: an upload stored while the turn ran is named in a Notice turn kept BEFORE the reply. The page shows
+/// a turn only when it is sent, and the live proposal card attaches to the last agent entry, so the notice is returned
+/// for the router to send first, and the reply stays the entry its card and the window's pinned answer read.
+/// </para>
 /// </summary>
 public sealed class SpecDialogTurnKeeper(
-    SpecDialogSessionManager sessions, SpecDialogSubjectMinter subjects, SpecDialogDigestWriter digests)
+    SpecDialogSessionManager sessions, SpecDialogSubjectStore subjects, SpecDialogDigestWriter digests,
+    SpecDialogUploadArrivals arrivals)
 {
-    public async Task KeepAsync(
+    /// <summary>Keeps the turn and returns the notice about uploads it did not hold, or null.</summary>
+    public async Task<string?> KeepAsync(
         ConversationState state, SpecDialogTurnResult result, string platform, string threadId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(result);
+        var notice = await arrivals.NoticeAsync(state, result, ct);
+        if (notice is not null)
+            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Notice, null, ct);
         await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
-        // 2026-09-20-4b0af: between the two, and nowhere else. The trigger — a conversation
-        // with no subject and no assistant turn yet — is only true once its first assistant
-        // turn is persisted, and the reply the router sends next is what makes the page re-read the
-        // conversation, so a subject stored after it would be a read too late for a
-        // conversation that asks one question and never comes back.
-        await subjects.MintAsync(state, result.Kind, result.Reply, ct);
+        // 2026-11-04-96a0a: before the router sends the reply, which is what makes the page re-read the conversation,
+        // so a conversation that asks one question and never comes back is still headed with its name.
+        if (state.Subject is null && result.Subject is { } subject && result.Kind != SpecDialogTurnKind.Failure)
+            await subjects.StoreAsync(platform, threadId, subject, ct);
+        return notice;
     }
 
     /// <summary>Writes the digest that is due, if one is; it never throws but on the caller's cancellation.</summary>

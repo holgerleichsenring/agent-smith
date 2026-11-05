@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-04-df50a
+
+decisions:
+  - category: Implementation
+    chose: "IMessageBus.TailAsync plus an afterId parameter on SubscribeToJobAsync"
+    over: "Reading the tail lazily inside the subscription; skipping question ids the pump has seen before; deleting the stream after each turn"
+    reason: |
+      A lazy tail is taken whenever the enumerator first runs, which may be after the pipeline already asked, so a
+      fast ask_human would be skipped. A seen-ids set is in-memory state that dies with a replica and cannot tell
+      another replica's turn. Deleting the stream would also drop answers the transport keeps on the same keys.
+      The position is the stream's own fact, so the bus reports it and the caller says where to read from.
+  - category: Implementation
+    chose: "SpecDialogQuestionPump.StartAsync awaits the tail and returns the running relay (Task<Task>)"
+    over: "The turn runner calling the bus directly, then the pump"
+    reason: |
+      The pump already owns the degrade-to-warning rule for a dead question bridge; a tail read that fails is the
+      same failure and belongs in the same place. The runner keeps one call, awaited before ExecuteAsync.

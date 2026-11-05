@@ -18,7 +18,7 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// cannot answer for is not guessed about: the read fails with the reason.
 /// </summary>
 public sealed class TicketContinuationStateReader(
-    AgentSmithConfig config, FiledWorkTrackerProjects trackerProjects, ITicketProviderFactory trackers,
+    TicketProjects projects, FiledWorkTrackerProjects trackerProjects, ITicketProviderFactory trackers,
     TicketClosure closure, TicketRunsQuery runs, TicketAttempts attempts, TicketSeriesRecordsReader seriesRecords,
     ISpecSetPointerStore pointers, ApprovedSpecSetRecorder approvals, OperatorStartArm startArm,
     ILogger<TicketContinuationStateReader> logger)
@@ -26,7 +26,7 @@ public sealed class TicketContinuationStateReader(
     /// <param name="mayStartRuns">2026-10-13-9a59m: whether the approver holds runs.control — the start arm's input.</param>
     public async Task<TicketContinuationRead> ReadAsync(string projectName, string ticketId, bool mayStartRuns, CancellationToken ct)
     {
-        if (!config.Projects.TryGetValue(projectName, out var project))
+        if (projects.Of(projectName) is not { } project)
             return TicketContinuationRead.Failed($"Project '{projectName}' is no longer in the configuration catalog.");
         bool closed;
         try

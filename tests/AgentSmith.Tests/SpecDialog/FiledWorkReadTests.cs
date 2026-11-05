@@ -716,7 +716,7 @@ public sealed class FiledWorkReadTests : IDisposable
                 NullLogger<SpecDialogLatestOutcomeStore>.Instance)),
             new FiledWorkBoundTicket(
                 new SpecDialogSessionRepository(ctx), new SpecDialogTicketTextRepository(ctx)),
-            new FiledWorkTrackerProjects(Config()),
+            new FiledWorkTrackerProjects(LiveConfig.Projects(Config())),
             new FiledWorkRunsReader(
                 _scopes, new FiledWorkSpecReviews(NullLogger<FiledWorkSpecReviews>.Instance),
                 new DbRunCheckpointStore(_scopes), NullLogger<FiledWorkRunsReader>.Instance),

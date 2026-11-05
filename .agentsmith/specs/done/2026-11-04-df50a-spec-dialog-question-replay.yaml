@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-04-df50a
+goal: "A design turn relays only the ask_human questions published after it started, so an answered question never comes back pending and swallows the operator's next message."
+
+applies_to: "default (Server SpecDialog, Infrastructure bus)"
+
+facts:
+  - claim: "The bus subscription read job:{jobId}:out from the start of the stream."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Bus/RedisMessageBus.cs:25 (lastId = \"0-0\")"
+  - claim: "The pump subscribes once per turn under the session id, which every turn of a conversation shares."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogQuestionPump.cs:26, SpecDialogTurnRunner.cs:62"
+  - claim: "A replayed question is set pending, so the next message is routed as its answer and no turn starts."
+    evidence: "observed: production conversation lost two operator messages; a question answered 10 minutes earlier reappeared on every later turn"
+
+scope:
+  in: "IMessageBus gains TailAsync (the newest entry id, 0-0 when empty) and SubscribeToJobAsync reads after a given id; the pump takes the tail before the turn's pipeline runs and relays only what follows."
+  out: "Any change to the dialogue transport's stream layout or TTL."
+
+steps:
+  - id: bus
+    action: "TailAsync via XREVRANGE COUNT 1; SubscribeToJobAsync(jobId, afterId, ct)."
+  - id: pump
+    action: "SpecDialogQuestionPump.StartAsync awaits the tail, then starts the relay; a dead bridge still degrades to a warning."
+  - id: runner
+    action: "SpecDialogTurnRunner awaits StartAsync before ExecuteAsync."
+  - id: tests
+    action: "Real RedisMessageBus + RedisDialogueTransport over FakeRedisStreams."
+
+tests:
+  - "SpecDialogQuestionPumpTests.StartAsync_EarlierTurnsQuestionOnTheStream_IsNotRelayed"
+  - "SpecDialogQuestionPumpTests.StartAsync_QuestionPublishedAfterStart_IsRelayedAndPending"
+  - "RedisMessageBusTests.TailAsync_*"
+
+done:
+  - "A question already on the stream when a turn starts is neither posted nor set pending."
+  - "A question published after the turn starts is posted and set pending."
+  - "Build green, full suite green, dashboard gen/test/build green."

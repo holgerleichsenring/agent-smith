@@ -43,6 +43,7 @@ public sealed class SpecDialogProposalComposer(
         return push is null ? null : push with
         {
             Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
+            Uploads = proposal.Uploads,
         };
     }
 

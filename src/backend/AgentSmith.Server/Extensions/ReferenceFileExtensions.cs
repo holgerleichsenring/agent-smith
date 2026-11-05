@@ -4,6 +4,7 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Archive;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using AgentSmith.Server.Services.Lifecycle;
+using AgentSmith.Server.Services.References;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -24,6 +25,8 @@ internal static class ReferenceFileExtensions
         services.AddSingleton<IReferenceSetReader, DbReferenceSetReader>();
         services.AddScoped<ReferenceNoteRepository>(); // 2026-10-02-075dd
         services.AddSingleton<IReferenceNotes, DbReferenceNotes>();
+        services.AddScoped<ReferenceReadRepository>() // 2026-11-04-96a0c: what earlier turns opened of a set
+            .AddSingleton<ReferenceCoverageReader>().AddSingleton<ReferenceReadRecorder>();
         services.AddScoped<ConversationMockRepository>().AddScoped<ConversationMockReadRepository>() // 2026-10-13-8762r
             .AddSingleton<DbConversationMocks>() // one store, two ports
             .AddSingleton<IConversationMocks>(sp => sp.GetRequiredService<DbConversationMocks>())

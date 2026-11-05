@@ -23,4 +23,7 @@ public sealed class SpecDialogReplySlot
 
     /// <summary>The ticket steward led the turn, so its reply is an answer and a stored proposal is superseded.</summary>
     public bool Stewarded { get; set; }
+
+    /// <summary>2026-11-04-96a0a: the conversation's name, as the master last gave it through name_conversation.</summary>
+    public string? Subject { get; set; }
 }

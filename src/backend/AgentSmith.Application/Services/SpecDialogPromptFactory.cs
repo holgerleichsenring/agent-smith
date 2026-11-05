@@ -51,6 +51,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             Answer from the code map above when it suffices; read source files through
             your tools only when the question needs real file content.
             {DialogImageNote.Render(imagesExisting, imagesCarried)}
+            {ConversationNameNote.Render(pipeline)}
             {TurnContract(transcript)}
             """;
     }

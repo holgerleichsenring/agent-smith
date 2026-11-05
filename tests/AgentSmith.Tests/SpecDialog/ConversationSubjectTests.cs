@@ -21,9 +21,9 @@ using AgentSmith.Tests.TestSupport;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-20-4b0af: the subject a conversation is headed with — minted once by the router,
-/// between persisting the first assistant turn and sending the reply that makes the page read
-/// the conversation again, and served on the session view that read returns.
+/// 2026-09-20-4b0af: the subject a conversation is headed with — 2026-11-04-96a0a: named by the master through
+/// name_conversation and stored by the router between persisting the turn and sending the reply that makes the page
+/// read the conversation again, and served on the session view that read returns.
 /// </summary>
 public sealed class ConversationSubjectTests : IDisposable
 {
@@ -42,10 +42,19 @@ public sealed class ConversationSubjectTests : IDisposable
     private readonly RecordingChatClients _chat;
     private readonly SpecDialogTurnGate _turnGate = new(TimeProvider.System);
 
-    /// <summary>What happened, in the order it happened: the mint and the reply.</summary>
+    /// <summary>What happened, in the order it happened: the reply and the digest.</summary>
     private readonly List<string> _order = [];
 
+    /// <summary>The states the turn runner was handed, in order.</summary>
+    private readonly List<ConversationState> _ranOn = [];
+
     private string _answer = Minted;
+
+    /// <summary>What the master named the conversation with through name_conversation, or null.</summary>
+    private string? _named;
+
+    /// <summary>The stored subject as it stood when the reply was sent.</summary>
+    private string? _subjectAtReply;
 
     /// <summary>What the design turn answers.</summary>
     private string _reply = "canned design answer";
@@ -65,166 +74,86 @@ public sealed class ConversationSubjectTests : IDisposable
         _adapter.Setup(a => a.SendInfoAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Callback(() => _order.Add("reply"))
+            .Callback(() =>
+            {
+                _order.Add("reply");
+                _subjectAtReply = _context.SpecDialogSessions.AsNoTracking().Select(row => row.Subject).Single();
+            })
             .Returns(Task.CompletedTask);
 
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
-        _chat = new RecordingChatClients(() => _answer) { OnCall = () => _order.Add("mint") };
+        _chat = new RecordingChatClients(() => _answer);
         _router = Router();
     }
 
     [Fact]
-    public async Task SpecDialogRouter_AFirstTurn_MintsASubjectBeforeItSendsTheReply()
+    public async Task SpecDialogRouter_ATurnThatNamedTheConversation_StoresTheSubjectBeforeItSendsTheReply()
     {
         await OpenAsync();
+        _named = Minted;
 
         await SendAsync("a widget that reads the ledger");
 
         (await SubjectAsync()).Should().Be(Minted);
-        _order.Should().Equal(["mint", "reply"],
+        _subjectAtReply.Should().Be(Minted,
             "a subject stored after the push that makes the page re-read the conversation "
             + "would be a read too late for a conversation that never comes back");
-        _chat.Tasks.Should().Equal(TaskType.Summarization);
-        _chat.Ceilings.Should().ContainSingle().Which.Should().Be(128);
-        _chat.AgentModels.Should().Equal([ProjectModel],
-            "the mint runs on the project's own agent, not on a fabricated one");
+        _chat.Prompts.Should().BeEmpty("the master names the conversation; no summarization call is made for it");
     }
 
-    // 2026-10-09-753b: the answer is the language authority. The person's message — mixed, quoting
-    // code, naming identifiers — is not in front of the model at all, so it cannot pick a language
-    // from it; a German conversation whose opening was English context came out Spanish.
+    // A notice is in the master's language too, so what the master named on it is kept.
     [Fact]
-    public async Task SpecDialogRouter_AFirstTurn_MintsFromTheAnswerAlone()
+    public async Task SpecDialogRouter_ANoticeTurnThatNamedTheConversation_StoresTheSubject()
     {
         await OpenAsync();
-        _reply = "Der Dienst liest das Hauptbuch und blättert die Ergebnisse seitenweise.";
-
-        await SendAsync("Context: repo-a/src/LedgerReader.cs, AACA-1234, see ledger_v2 schema");
-
-        var prompt = _chat.Prompts.Should().ContainSingle().Which;
-        prompt.Should().Contain("Write the line in the language the answer is written in.")
-            .And.Contain("The answer:\n" + _reply);
-        prompt.Should().NotContain("LedgerReader.cs", "the person's message is no language source");
-        prompt.Should().NotContain("AACA-1234");
-    }
-
-    // A notice is the code's text, not the model's answer: it carries neither the subject nor the
-    // conversation's language, and the heading keeps its fallback.
-    [Fact]
-    public async Task SpecDialogRouter_ANoticeFirstTurn_MintsNothing()
-    {
-        await OpenAsync();
+        _named = Minted;
         _turnKind = SpecDialogTurnKind.Notice;
 
         await SendAsync("a widget that reads the ledger");
 
-        _chat.Prompts.Should().BeEmpty();
-        (await SubjectAsync()).Should().BeNull();
-    }
-
-    // The first mint here is REFUSED, so the row still has no subject when the second turn runs:
-    // what stops the second turn is the conversation's own first assistant turn, and nothing
-    // else. A conversation whose mint was refused must not pay for another one every turn.
-    [Fact]
-    public async Task SpecDialogRouter_ALaterTurn_MintsNothing()
-    {
-        await OpenAsync();
-        _answer = "```\nnot one line of prose\n```";
-        await SendAsync("a widget that reads the ledger");
-        _answer = Minted;
-
-        await SendAsync("and it should page the results");
-
-        _chat.Prompts.Should().ContainSingle(
-            "the subject is minted once, and a refused mint is not retried turn after turn");
-        (await SubjectAsync()).Should().BeNull();
-    }
-
-    [Fact]
-    public async Task SpecDialogRouter_ASecondTurnOfAMintedConversation_MintsNothing()
-    {
-        await OpenAsync();
-        await SendAsync("a widget that reads the ledger");
-        _answer = "a second subject nobody asked for";
-
-        await SendAsync("and it should page the results");
-
-        _chat.Prompts.Should().ContainSingle("a subject already minted is never revised");
         (await SubjectAsync()).Should().Be(Minted);
     }
 
-    // A failed turn is half an exchange. Because the subject is never re-minted, a heading named
-    // after one would stand over the conversation for good.
+    // A failed turn is half an exchange; a stored subject is never revised, so a heading named after one would stand.
     [Fact]
-    public async Task SpecDialogRouter_AFailedTurn_MintsNothing()
+    public async Task SpecDialogRouter_AFailedTurn_StoresNoSubject()
     {
         await OpenAsync();
+        _named = Minted;
         _turnKind = SpecDialogTurnKind.Failure;
 
         await SendAsync("a widget that reads the ledger");
 
-        _chat.Prompts.Should().BeEmpty("a failed turn names nothing, and nothing would rename it");
         (await SubjectAsync()).Should().BeNull();
     }
 
     [Fact]
-    public async Task SpecDialogRouter_AConversationThatAlreadyHasASubject_MintsNothing()
+    public async Task SpecDialogRouter_AConversationWithASubject_KeepsIt()
     {
         await OpenAsync();
-        await SetSubjectAsync("a subject minted somewhere else");
+        await SetSubjectAsync("a subject named somewhere else");
+        _named = "a second subject nobody asked for";
 
         await SendAsync("a widget that reads the ledger");
 
-        _chat.Prompts.Should().BeEmpty();
-        (await SubjectAsync()).Should().Be("a subject minted somewhere else");
+        (await SubjectAsync()).Should().Be("a subject named somewhere else");
     }
 
     [Fact]
-    public async Task SpecDialogRouter_AMinterThatThrows_StillPersistsTheTurnAndSendsTheReply()
+    public async Task SpecDialogRouter_ATurnThatNamedNothing_StoresNothingAndTheNextTurnIsNameable()
     {
         await OpenAsync();
-        _chat.OnCall = () => throw new TimeoutException("the model did not answer");
-
         await SendAsync("a widget that reads the ledger");
 
-        (await SubjectAsync()).Should().BeNull("a refused mint stores nothing");
-        var state = await _sessions.GetOpenByThreadAsync(Platform, Thread, CancellationToken.None);
-        state!.Transcript.Should().Contain(turn => turn.Role == TranscriptRole.Assistant);
-        _order.Should().Equal(["reply"],
-            "a heading is not worth the reply the turn already has");
+        await SendAsync("and it should page the results");
+
+        (await SubjectAsync()).Should().BeNull();
+        _ranOn.Should().HaveCount(2);
+        _ranOn[^1].Subject.Should().BeNull("the next turn is seeded as nameable and offered name_conversation again");
     }
-
-    [Theory]
-    [InlineData("A widget that reads the ledger.\nAnd pages the results.")]
-    [InlineData("```\nA widget that reads the ledger\n```")]
-    [InlineData("**A widget that reads the ledger**")]
-    [InlineData("- A widget that reads the ledger")]
-    [InlineData("\"A widget that reads the ledger\"")]
-    [InlineData("1. A widget that reads the ledger")]
-    public void ConversationSubject_AParagraphOrAFencedAnswer_IsDiscarded(string answer) =>
-        SpecDialogSubjectAdmission.Of(answer).Should().BeNull();
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   \t  ")]
-    public void ConversationSubject_AnEmptyAnswer_IsDiscarded(string? answer) =>
-        SpecDialogSubjectAdmission.Of(answer).Should().BeNull();
-
-    [Fact]
-    public void ConversationSubject_AnOverlongAnswer_IsDiscarded()
-    {
-        SpecDialogSubjectAdmission.Of(new string('a', 121)).Should().BeNull(
-            "a subject longer than the column is discarded, not truncated — it is never re-minted");
-        SpecDialogSubjectAdmission.Of(new string('a', 120)).Should().Be(new string('a', 120));
-    }
-
-    [Fact]
-    public void ConversationSubject_OneLineOfProse_IsAdmittedAsWritten() =>
-        SpecDialogSubjectAdmission.Of($"  {Minted}  ").Should().Be(Minted);
 
     // 2026-10-14-dbceo: the router keeps the reply and the subject, and folds a conversation past its window only
     // once the turn gate is released, so a message typed while the digest is written starts its own turn.
@@ -315,7 +244,8 @@ public sealed class ConversationSubjectTests : IDisposable
         var turnRunner = new Mock<ISpecDialogTurnRunner>();
         turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind));
+            .Callback((ConversationState state, TurnPoster _, CancellationToken _) => _ranOn.Add(state))
+            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind, subject: _named));
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
@@ -336,14 +266,12 @@ public sealed class ConversationSubjectTests : IDisposable
             new SpecDialogAnswerAdmission(
                 _sessions, pendingQuestions,
                 Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>()),
-            new SpecDialogTurnKeeper(_sessions,
-                new SpecDialogSubjectMinter(
-                    _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
-                    NullLogger<SpecDialogSubjectMinter>.Instance),
+            new SpecDialogTurnKeeper(_sessions, new SpecDialogSubjectStore(_repository),
                 new SpecDialogDigestWriter(
                     _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
                     AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), TimeProvider.System,
-                    NullLogger<SpecDialogDigestWriter>.Instance)),
+                    NullLogger<SpecDialogDigestWriter>.Instance),
+                new SpecDialogUploadArrivals(new ReferenceSetRepository(_context))),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             composer, messenger, NullLogger<SpecDialogRouter>.Instance);
     }
@@ -359,7 +287,7 @@ public sealed class ConversationSubjectTests : IDisposable
                 {
                     Name = "sample",
                     Repos = [new RepoConnection { Name = "repo-a" }],
-                    // The mint must reach for THIS, not for a bare fabricated config.
+                    // The digest must reach for THIS, not for a bare fabricated config.
                     Agent = new AgentConfig { Type = "claude", Model = ProjectModel },
                 },
             },
@@ -368,7 +296,7 @@ public sealed class ConversationSubjectTests : IDisposable
     }
 
     /// <summary>
-    /// The chat factory the minter is given, which hands out itself: what was asked for, of
+    /// The chat factory the digest writer is given, which hands out itself: what was asked for, of
     /// which agent, on which task type and under which ceiling.
     /// </summary>
     private sealed class RecordingChatClients(Func<string> answer) : IChatClientFactory, IChatClient

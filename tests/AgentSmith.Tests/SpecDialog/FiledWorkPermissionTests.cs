@@ -239,7 +239,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
                 new SpecDialogReplyComposer(), messenger),
             turnRunner.Object, flow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pending, transport.Object),
-            SilentTurnKeeper.Over(repository, _sessions, "proj"),
+            SilentTurnKeeper.Over(repository, _sessions, new ReferenceSetRepository(_context), "proj"),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }

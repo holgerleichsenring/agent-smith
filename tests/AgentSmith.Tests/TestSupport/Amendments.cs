@@ -18,9 +18,9 @@ namespace AgentSmith.Tests.TestSupport;
 internal static class Amendments
 {
     internal static TicketAmendment Unused() =>
-        new(new AgentSmithConfig(),
+        new(LiveConfig.Projects(new AgentSmithConfig()),
             new Mock<IServiceScopeFactory>().Object,
-            new FiledWorkTrackerProjects(new AgentSmithConfig()),
+            new FiledWorkTrackerProjects(LiveConfig.Projects(new AgentSmithConfig())),
             new SpecDialogTicketTextRepository(Mock.Of<IUnitOfWork>()),
             ApprovedSetDoubles.Recorder(),
             new Mock<ITicketProviderFactory>().Object,

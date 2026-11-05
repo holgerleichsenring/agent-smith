@@ -111,4 +111,7 @@ public static partial class ContextKeys
     /// <summary>2026-10-01-283de: <c>ResolvedProject</c> — the turn's project, from which render_reference
     /// builds its browser sandbox's spec; a run reads ProjectConfig instead.</summary>
     public const string SpecDialogProject = "SpecDialogProject";
+
+    /// <summary>2026-11-04-96a0a: <c>bool</c> — the conversation has no subject yet, so the master is offered name_conversation.</summary>
+    public const string SpecDialogNameable = "SpecDialogNameable";
 }
