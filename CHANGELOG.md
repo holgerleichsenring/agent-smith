@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.177.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.176.0...v0.177.0) (2026-11-05)
+
+
+### Features
+
+* a design turn starts from the previous turn's thread, stored in the database and folded only by the window trigger (2026-11-05-2ce7) ([d3369ec](https://github.com/holgerleichsenring/agent-smith/commit/d3369ecb3c1c835950463eb1991a07b6084cdcc8))
+* a premise only a series sibling made false is noted superseded and the spec runs (2026-11-04-6768a) ([8929af8](https://github.com/holgerleichsenring/agent-smith/commit/8929af8bb4e86307d2c571274b3bbc36dde3265e))
+* the design master reads an outcome's format from the catalog through outcome_format on the turn it drafts (2026-11-05-862eb) ([5e55108](https://github.com/holgerleichsenring/agent-smith/commit/5e5510886744b39f7ade743f4da39917027b31cb))
+* the design partner leads — frame split, uploads first, work picture, kept context ([88e3555](https://github.com/holgerleichsenring/agent-smith/commit/88e3555810a05182fd6e674192362f62deb7583f))
+* the design partner states a work picture that is stored on the conversation and shown under its heading (2026-11-05-862ea) ([bb42d5f](https://github.com/holgerleichsenring/agent-smith/commit/bb42d5f89c4ac4e13af9ff9a826a72485e93a056))
+
 ## [0.176.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.175.2...v0.176.0) (2026-11-05)
 
 
