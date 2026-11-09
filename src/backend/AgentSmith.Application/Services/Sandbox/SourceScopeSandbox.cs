@@ -49,7 +49,7 @@ public sealed class SourceScopeSandbox(
         if (string.IsNullOrEmpty(repo.Url))
             return Task.FromResult(SourceScopeRefusal.Because(step, NoCloneUrl().Message));
         // A scope's steps are reads and programs the server built, so all of them may be repeated.
-        return _steps.RunAsync(step, progress, OpenAsync, ex => ex.Message, _ => null, cancellationToken);
+        return _steps.RunAsync(step, progress, OpenAsync, ex => ex.Message, _ => null, ReportAsync, cancellationToken);
     }
 
     /// <summary>2026-09-13-9802: the preparation a read triggers, made explicit so a caller that
@@ -70,7 +70,9 @@ public sealed class SourceScopeSandbox(
     {
         logger.LogInformation("Materialising source scope '{Repo}' at '{Revision}'",
             repo.Name, revision ?? "the clone's own default");
-        await ReportAsync(SourceScopeProgress.Opening, ct);
+        // 2026-11-09-9631c: a reopen has its own line, drawn and ended by the runner.
+        var told = !_steps.Slot.Reopened;
+        if (told) await ReportAsync(SourceScopeProgress.Opening, ct);
         ISandbox opened;
         try
         {
@@ -82,10 +84,10 @@ public sealed class SourceScopeSandbox(
         catch
         {
             // Not open, so the next read reports opening again; this ends the line it drew.
-            await ReportAsync(SourceScopeProgress.Failed, CancellationToken.None);
+            if (told) await ReportAsync(SourceScopeProgress.Failed, CancellationToken.None);
             throw;
         }
-        await ReportAsync(SourceScopeProgress.Ready, ct);
+        if (told) await ReportAsync(SourceScopeProgress.Ready, ct);
         return opened;
     }
 

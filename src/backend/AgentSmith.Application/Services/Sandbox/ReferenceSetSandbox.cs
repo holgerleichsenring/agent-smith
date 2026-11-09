@@ -31,7 +31,8 @@ public sealed class ReferenceSetSandbox(
     SourceScopeOpener opener,
     ReferenceSetMaterialiser materialiser,
     ILogger logger,
-    SandboxStepWatch? watch = null) : ISourceScopeSandbox
+    SandboxStepWatch? watch = null,
+    ISourceScopeObserverAccessor? observers = null) : ISourceScopeSandbox
 {
     /// <summary>2026-11-09-9631a: the cached sandbox, and what happens when it turns out to be gone.</summary>
     private readonly ReopeningStepRunner _steps = new(address, watch, logger);
@@ -64,8 +65,12 @@ public sealed class ReferenceSetSandbox(
     {
         if (Refusal(step) is { } refused) return refused;
         return _reads.Record(step, await _steps.RunAsync(step, progress, OpenAsync,
-            ex => $"The upload '{address}' could not be opened: {ex.Message}", NotRepeated, cancellationToken));
+            ex => $"The upload '{address}' could not be opened: {ex.Message}", NotRepeated, ReportAsync, cancellationToken));
     }
+
+    // 2026-11-09-9631c: an upload draws no line for its first open, only when it has to reopen.
+    private Task ReportAsync(SourceScopeProgress state, CancellationToken ct) =>
+        observers?.Current?.ReportAsync(address, state, ct) ?? Task.CompletedTask;
 
     // 2026-11-09-9631a: a command may rest on what an earlier one installed or started in the lost
     // container, so repeating it could fail for a reason nobody can see. The reads are safe to repeat.

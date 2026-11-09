@@ -28,7 +28,8 @@ internal sealed class ReferenceSandboxFixture : ISandboxFactory, IReferenceSetRe
 
     public int SetReads { get; private set; }
 
-    public IReferenceSetSandboxFactory Factory(IHeldSandboxRegister holds, SandboxStepWatch? watch = null)
+    public IReferenceSetSandboxFactory Factory(
+        IHeldSandboxRegister holds, SandboxStepWatch? watch = null, ISourceScopeObserverAccessor? observers = null)
     {
         var specBuilder = new SandboxSpecBuilder(
             new StubSandboxResourceResolver(),
@@ -36,7 +37,7 @@ internal sealed class ReferenceSandboxFixture : ISandboxFactory, IReferenceSetRe
         var opener = new SourceScopeOpener(
             new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), this, specBuilder, Mock.Of<IRunContextAccessor>());
         return new ReferenceSetSandboxFactory(
-            opener, new ReferenceSetMaterialiser(this, this, new SandboxBinaryFileWriter()), holds, NullLogger<ReferenceSetSandbox>.Instance, watch);
+            opener, new ReferenceSetMaterialiser(this, this, new SandboxBinaryFileWriter()), holds, NullLogger<ReferenceSetSandbox>.Instance, watch, observers);
     }
 
     public ISourceScopeSandbox Open(IHeldSandboxRegister holds, string address = "reference:site") =>

@@ -20,6 +20,9 @@ internal sealed class ReopeningSandboxSlot(string name, ILogger logger) : IDispo
 
     public ISandbox? Current => _current;
 
+    /// <summary>2026-11-09-9631c: what opens from here on is the reopen, which the runner tells of.</summary>
+    public bool Reopened => _reopened;
+
     /// <summary>Why the scope cannot be read for the rest of this turn; null while it can.</summary>
     public string? Unavailable { get; private set; }
 

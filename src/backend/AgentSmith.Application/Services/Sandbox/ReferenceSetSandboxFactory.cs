@@ -14,12 +14,13 @@ public sealed class ReferenceSetSandboxFactory(
     ReferenceSetMaterialiser materialiser,
     IHeldSandboxRegister holds,
     ILogger<ReferenceSetSandbox> logger,
-    SandboxStepWatch? watch = null) : IReferenceSetSandboxFactory
+    SandboxStepWatch? watch = null,
+    ISourceScopeObserverAccessor? observers = null) : IReferenceSetSandboxFactory
 {
     public ISourceScopeSandbox Create(
         ResolvedProject project, string conversationId, string address, string setId, string? note = null,
         ReferenceCoverage? coverage = null) =>
         new ReferenceSetSandbox(project, conversationId, address, setId,
             new SourceScopeHold(holds, conversationId, address, setId, logger),
-            opener, materialiser, logger, watch) { Note = note, Coverage = coverage };
+            opener, materialiser, logger, watch, observers) { Note = note, Coverage = coverage };
 }

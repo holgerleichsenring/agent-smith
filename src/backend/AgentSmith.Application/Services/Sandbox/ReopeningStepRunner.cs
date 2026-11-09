@@ -19,7 +19,8 @@ internal sealed class ReopeningStepRunner(string name, SandboxStepWatch? watch, 
     /// </summary>
     public async Task<StepResult> RunAsync(
         Step step, IProgress<StepEvent>? progress, Func<CancellationToken, Task<ISandbox>> open,
-        Func<Exception, string> openFailure, Func<Step, string?> notRepeated, CancellationToken ct)
+        Func<Exception, string> openFailure, Func<Step, string?> notRepeated,
+        Func<SourceScopeProgress, CancellationToken, Task> report, CancellationToken ct)
     {
         if (Slot.Unavailable is { } why) return SourceScopeRefusal.Because(step, why);
         ISandbox sandbox;
@@ -39,7 +40,7 @@ internal sealed class ReopeningStepRunner(string name, SandboxStepWatch? watch, 
         catch (SandboxVanishedException gone)
         {
             logger.LogInformation("Scope '{Name}': {Gone} Opening a fresh sandbox", name, gone.Message);
-            return await RecoverAsync(sandbox, step, progress, open, notRepeated, ct);
+            return await RecoverAsync(sandbox, step, progress, open, notRepeated, report, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -56,11 +57,13 @@ internal sealed class ReopeningStepRunner(string name, SandboxStepWatch? watch, 
 
     private async Task<StepResult> RecoverAsync(
         ISandbox dead, Step step, IProgress<StepEvent>? progress, Func<CancellationToken, Task<ISandbox>> open,
-        Func<Step, string?> notRepeated, CancellationToken ct)
+        Func<Step, string?> notRepeated, Func<SourceScopeProgress, CancellationToken, Task> report, CancellationToken ct)
     {
         try
         {
+            await report(SourceScopeProgress.Reopening, ct);
             var fresh = await Slot.ReopenAsync(dead, open, ct);
+            await report(SourceScopeProgress.Ready, ct);
             return notRepeated(step) is { } instead
                 ? SourceScopeRefusal.Because(step, instead)
                 : await RunThroughAsync(fresh, step, progress, ct);
@@ -68,6 +71,7 @@ internal sealed class ReopeningStepRunner(string name, SandboxStepWatch? watch, 
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Scope '{Name}' could not be reopened", name);
+            await report(SourceScopeProgress.Failed, CancellationToken.None);
             return SourceScopeRefusal.Because(step, Slot.MarkUnavailable(ex));
         }
     }

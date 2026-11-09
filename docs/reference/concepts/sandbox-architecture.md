@@ -139,7 +139,8 @@ exit state, removes what is left, opens one fresh sandbox and repeats the read, 
 is a clone rather than a step timeout per read. The fresh sandbox carries the live run's
 label and the reapers spare it. If it cannot be opened, or a second one is lost in the same
 turn, reads of that repository are refused at once for the rest of the turn with the reason,
-and the next turn tries again. On an upload's container the reads are repeated and a command
+and the next turn tries again. The dashboard's reading line shows the repository as reopening,
+then ready or could not be opened. On an upload's container the reads are repeated and a command
 is not: it answers that the container was replaced and earlier setup is gone.
 
 ## RBAC

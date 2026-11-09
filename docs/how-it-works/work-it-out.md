@@ -87,7 +87,7 @@ A `DESIGN.md` at the root of a repository (design tokens as frontmatter, then pr
 A turn takes anywhere from seconds to a few minutes, so the exchange shows what it's doing instead of a spinner and nothing else. The working line says what it's opening: "Reading the ticket…", "Opening the repositories it needs…", or "Working it out…" once everything is open. Beside that, the elapsed time and the number of steps taken. Under it:
 
 - one line per repository (and the bound ticket) with its state: opening, ready, or could not be opened;
-- the latest three steps: which tool read what, "thinking", "reviewing its own proposal against the code", "revising its answer". Older steps fold into "N earlier steps".
+- the latest three steps: which tool read what, "thinking", "reviewing its own proposal against the code", "revising its answer". Older steps fold into "N earlier steps", which counts every step the turn took before the ones shown. A page that holds fewer than that says how many it lists.
 
 If you leave and come back to a conversation mid-turn, the working line is still there.
 

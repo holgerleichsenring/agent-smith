@@ -173,6 +173,60 @@ public sealed class SandboxReopeningTests
         uploads.Spawned[3].Shells.Should().BeEmpty("a command that may rest on the lost container is not repeated");
     }
 
+    [Fact]
+    public async Task SourceScope_Reopen_ReportsReopeningThenReady()
+    {
+        var observer = new RecordingScopeObserver();
+        using var observing = _fixture.Observers.Observe(observer);
+        var scope = await _fixture.OpenAsync(Scopes());
+        _fixture.Spawner.Only.Vanished = true;
+
+        await scope.RunStepAsync(Read(), null, CancellationToken.None).OrHang("the read recovering");
+
+        observer.Reports.Select(r => r.Item2).Should().Equal(
+            SourceScopeProgress.Opening, SourceScopeProgress.Ready,
+            SourceScopeProgress.Reopening, SourceScopeProgress.Ready);
+    }
+
+    [Fact]
+    public async Task SourceScope_ReopenFails_ReportsReopeningThenFailed()
+    {
+        var observer = new RecordingScopeObserver();
+        using var observing = _fixture.Observers.Observe(observer);
+        var scope = await _fixture.OpenAsync(Scopes());
+        _fixture.Spawner.Only.Vanished = true;
+        _fixture.Spawner.FailsFrom = 1;
+
+        await scope.RunStepAsync(Read(), null, CancellationToken.None).OrHang("the read refusing");
+
+        observer.Reports.Select(r => r.Item2).Should().Equal(
+            SourceScopeProgress.Opening, SourceScopeProgress.Ready,
+            SourceScopeProgress.Reopening, SourceScopeProgress.Failed);
+    }
+
+    [Fact]
+    public async Task ReferenceSet_Reopen_ReportsItsAddress()
+    {
+        var uploads = new ReferenceSandboxFixture();
+        uploads.Set.Add(new ReferenceSetFile("a.txt", "hello"u8.ToArray()));
+        var observers = new AsyncLocalSourceScopeObserverAccessor();
+        var observer = new RecordingScopeObserver();
+        using var observing = observers.Observe(observer);
+        var scope = uploads.Factory(
+                Holds.Live(), new SandboxStepWatch(new FixedHeartbeat(false), NullLogger<SandboxStepWatch>.Instance, Quick), observers)
+            .Create(ReferenceSandboxFixture.Project, ReferenceSandboxFixture.Conversation, "reference:a", "set-1");
+        await scope.MaterializeAsync(CancellationToken.None);
+        observer.Reports.Should().BeEmpty("an upload draws no line for its first open");
+        uploads.Spawned[0].Vanished = true;
+
+        await scope.RunStepAsync(
+            new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile, Path: "a.txt"), null, CancellationToken.None)
+            .OrHang("the read recovering");
+
+        observer.Reports.Should().Equal(
+            ("reference:a", SourceScopeProgress.Reopening), ("reference:a", SourceScopeProgress.Ready));
+    }
+
     private sealed class FakeHeartbeat(FakeSandboxSpawner spawner) : ISandboxHeartbeatProbe
     {
         public Task<bool> IsAliveAsync(string jobId, CancellationToken cancellationToken) =>

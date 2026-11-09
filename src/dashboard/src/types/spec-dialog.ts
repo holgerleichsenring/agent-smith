@@ -267,7 +267,7 @@ export interface SpecDialogQuestionPush {
 }
 
 /** How far a design turn got with opening one repository. */
-export type SpecDialogReadingState = "opening" | "ready" | "failed";
+export type SpecDialogReadingState = "opening" | "ready" | "failed" | "reopening";
 
 /** 2026-09-17-c7aec: one repository a running design turn opened, pushed as it happens. */
 export interface SpecDialogReadingPush {
