@@ -27,8 +27,8 @@ public sealed class ReadSubAgentObservationsToolHost : IToolHost
     }
 
     [Description(
-        "Read one child's full findings (its final answer) behind a spawn_agents anchor " +
-        "count. Pass the sub_agent_id returned by spawn_agents.")]
+        "Returns one child's whole final answer. spawn_agents already returns each answer cut at about 6000 " +
+        "characters; use this when a cut answer holds more you need. Pass the sub_agent_id spawn_agents returned.")]
     public string ReadObservations(
         [Description("Sub-agent id from a prior spawn_agents result.")]
         string sub_agent_id)

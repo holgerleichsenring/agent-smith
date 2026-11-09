@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-09-0620e: "SUB-AGENT SITUATION (sub-agent runner, spawn and observation tools). Every child is told its repositories and path prefix, whether it writes, its round bound and that its last message is all its master gets; spawn_agents returns each answer cut at 6000 characters instead of counts. -> .agentsmith/specs/done/2026-11-09-0620e-sub-agent-situation.yaml"
     2026-11-09-0620d: "TRACE PROMPT HALF (recording chat client, trace switch, trace reader). A traced run records answers and tool results; prompts live only in the always-on deduplicated store of 0620a and open from the call table. Older traces keep their prompt entries. -> .agentsmith/specs/done/2026-11-09-0620d-trace-prompt-half.yaml"
     2026-11-09-0620c: "MASTER ROLE PROMPTS (master handler, scan prompt, master closing, change passes). pr-review gets a diff-judging prompt and no coverage re-drive; mad-discussion and legal close on their report, legal told the converted document and its type; test and doc passes get a short prompt of their own. -> .agentsmith/specs/done/2026-11-09-0620c-master-role-prompts.yaml"
     2026-11-09-0620b: "DESIGN TURN SITUATION (spec dialog: reading line, work picture, turn contract, code-map step). Told what uploads and repositories each show, not an order; repositories are what exists, not scaffolding; the first-turn proposal ban and its refusal are gone; a repo without a code map shows its two-level remote layout there. -> .agentsmith/specs/done/2026-11-09-0620b-design-turn-situation.yaml"

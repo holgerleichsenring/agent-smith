@@ -326,9 +326,8 @@ internal static class MasterHandlerFixture
             return Task.FromResult<IReadOnlyList<SubAgentResult>>(
                 [.. specs.Select((spec, index) => new SubAgentResult(
                     TaskIndex: index, Status: SubAgentStatus.Succeeded,
-                    SubAgentId: $"sa-{index}", Name: spec.Name,
-                    ObservationsCount: 1, FindingsCount: 0, FilesWrittenCount: 0,
-                    ToolCalls: 0, CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
+                    SubAgentId: $"sa-{index}", Name: spec.Name, ToolCalls: 0,
+                    CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
         }
     }
 

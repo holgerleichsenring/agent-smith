@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620e
+
+decisions:
+  - category: Architecture
+    chose: "The spawn result carries each child's answer, cut at 6000 characters, and drops the message count and the two always-zero counts"
+    over: "p0177's counts with lazy reads"
+    reason: "Live, a design turn spent $0.83 on three children whose answers reached it only through a second call per child, which the reference told it to make only when a count earned it; the counts measured nothing. Anthropic's context-engineering guidance has a sub-agent return a condensed result of about one to two thousand tokens. The reversal of p0177 is deliberate; the whole answer stays behind read_sub_agent_observations."
+  - category: Implementation
+    chose: "A fixed situation block appended after the master's own words, derived from the context the runner already holds"
+    over: "Asking each master to write it"
+    reason: "Repositories, reach and bound are facts the runner knows exactly; a master that forgets one leaves its child guessing. Reach is read off the granted tools, so a scan child is told it only reads without a second source of truth."
+  - category: Implementation
+    chose: "SubAgentCompletedEvent keeps its counts"
+    over: "Changing the event"
+    reason: "The dashboard and the trail read the event; the model-facing result is what was wrong."

@@ -99,13 +99,6 @@ public sealed class SpawnAgentToolHostTests
             .Which.Repo.Should().BeNull("a host with no sandbox has no repository to write into");
     }
 
-    [Fact]
-    public void SpawnAgentToolHost_ResultHasNoResultTextField()
-    {
-        var props = typeof(SubAgentResult).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        props.Should().NotContain(p => string.Equals(p.Name, "ResultText", StringComparison.OrdinalIgnoreCase));
-    }
-
     private static (SpawnAgentToolHost host, RecordingDecisionLogger logger) BuildHost(
         IAgenticLoopRunner loopRunner, int budget = 100)
     {

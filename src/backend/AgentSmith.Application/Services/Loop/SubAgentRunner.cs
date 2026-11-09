@@ -92,6 +92,7 @@ public sealed class SubAgentRunner(
             var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
             var observationsCount = CountObservations(loopResult.Response);
             var toolCalls = CountToolCalls(loopResult.Response);
+            var answer = SubAgentAnswer.Condensed(loopResult.Response.Text); // 2026-11-09-0620e
 
             await PublishCompletedAsync(
                 subAgentId, context, status,
@@ -102,12 +103,10 @@ public sealed class SubAgentRunner(
                 Status: status,
                 SubAgentId: subAgentId,
                 Name: spec.Name,
-                ObservationsCount: observationsCount,
-                FindingsCount: 0,
-                FilesWrittenCount: 0,
                 ToolCalls: toolCalls,
                 CostUsd: costUsd,
-                OccurredAt: DateTimeOffset.UtcNow);
+                OccurredAt: DateTimeOffset.UtcNow,
+                Answer: answer);
         }
         catch (OperationCanceledException)
         {
@@ -129,7 +128,8 @@ public sealed class SubAgentRunner(
         // The master grants the child tool surface: read-only for a scan master, read/write
         // for a coding master, never spawn_agents.
         var tools = context.ChildTools.ToList();
-        var systemPrompt = BuildSystemPrompt(spec);
+        var systemPrompt = BuildSystemPrompt(spec) + SubAgentSituation.Render( // 2026-11-09-0620e
+            context.Sandboxes.Keys, tools, context.ChildIterationCeiling ?? context.AgentConfig.MaxSubAgentLoopIterations);
         var userPrompt = BuildUserPrompt(spec);
         // The master's real AgentConfig, passed on the context: the coding-master path never
         // publishes it to the pipeline, so a lookup there would fail every child at Create.
@@ -208,9 +208,6 @@ public sealed class SubAgentRunner(
             Status: SubAgentStatus.Failed,
             SubAgentId: subAgentId,
             Name: spec.Name,
-            ObservationsCount: 0,
-            FindingsCount: 0,
-            FilesWrittenCount: 0,
             ToolCalls: 0,
             CostUsd: cost,
             OccurredAt: DateTimeOffset.UtcNow,
