@@ -20,7 +20,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// the spec-dialog preset → the master → the tool, with the LLM scripted.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
-public sealed class SpecDialogWorkPictureTests
+public sealed partial class SpecDialogWorkPictureTests
 {
     private const string Repo = "spec-dialog-fixture";
     private const string Project = "fixture-spec-dialog";

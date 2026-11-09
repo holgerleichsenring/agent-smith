@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620i
+goal: "Reference turns through the real composition pin what a design turn and a coding spec run are told, and that a changed section kept its place."
+requires: [2026-11-09-0620h]
+
+applies_to: "default (PipelineHarness)"
+
+facts:
+  - claim: "The harness runs a design turn on an upload through the real server composition and a coding spec run with the embedded catalog, and records every prompt it was sent."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/SpecDialogWorkPictureTests.cs; tests/AgentSmith.PipelineHarness/Presets/CodingPromptHeadingsTests.cs; tests/AgentSmith.PipelineHarness/Llm/ScriptedChatClient.cs:36"
+
+scope:
+  in: "A first design turn on an upload and an unmapped repository, with the real catalog: both sources described, no reading order, no proposal ban, the repository's code-map slot present, the changed sections in their old order. A coding spec run: every checkout listed, no nudge or note text this series removed."
+  out: "Prefix-stability assertions; prompt order is not changed by this series. A live model run: the operator's A/B test covers it."
+
+steps:
+  - id: design
+    action: "SpecDialogWorkPictureTests becomes partial; SpecDialogReferenceTurnTests runs the first turn with the embedded catalog and asserts the user prompt's wording and order and the system prompt's code-map slot."
+  - id: coding
+    action: "CodingPromptHeadingsTests gains a reference coding turn asserting the checkout list and the absence of removed texts."
+
+tests:
+  - "ReferenceTurn_FirstDesignTurnOnUploadAndUnmappedRepo_IsToldItsSituation"
+  - "ReferenceTurn_CodingSpecRun_ListsCheckoutsAndNoContradictingNudge"
+
+done:
+  - when: "a later change brings back an ordered reading, a proposal ban or a removed nudge"
+    then: "a reference turn fails"
+  - "Harness tests green."

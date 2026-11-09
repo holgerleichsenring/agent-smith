@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620i
+
+decisions:
+  - category: Implementation
+    chose: "Reference turns assert wording and the relative order of the changed sections"
+    over: "Byte-prefix stability across turns"
+    reason: "The operator asked that no prompt be reordered in this series, since caching works on today's order; a test that a changed section stayed in place guards exactly that."
+  - category: Implementation
+    chose: "Assert the code-map slot, not the listed layout, in the harness"
+    over: "Listing the fixture repository"
+    reason: "The harness fixture cannot be listed through a source provider; the listed layout is pinned by the unit test over a mocked provider."
