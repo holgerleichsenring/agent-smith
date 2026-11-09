@@ -16,16 +16,16 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed partial class SpecDialogOutcomeTests
 {
     [Fact]
-    public async Task DialogTurn_RefusedOutcome_ReportsRevising()
+    public async Task DialogTurn_InvalidOutcome_ReportsRevising()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}").EnqueueText("Two questions first, then.");
+        harness.ChatClient.EnqueueText("Draft:\n```yaml\nspec: not-a-valid-spec-id\n```").EnqueueText("Two questions first, then.");
         using var recorded = Observing(out var recorder);
 
         var result = await RunTurnAsync(harness, State("update the widgets"));
 
         result.Reply.Should().Contain("Two questions first");
-        recorder.Lines.Should().Contain("revising", "a first-turn proposal is sent back to answer instead");
+        recorder.Lines.Should().Contain("revising", "an invalid outcome is sent back once with its error");
     }
 
     [Fact]

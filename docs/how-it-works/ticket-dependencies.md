@@ -2,7 +2,7 @@
 
 Some work doesn't fit one ticket and one branch. The schema change has to be merged before the API on top of it makes sense, and the screens want the API merged before anybody builds them. A cut of specs on one ticket puts all of that on one branch and one pull request, which is fine until a reviewer wants to merge the first part on its own. For that case Work it out files a list of tickets instead, and agent-smith records which ticket requires which. A ticket that requires another waits until that one has landed, and then it starts by itself.
 
-`requires` here is between tickets. The `requires:` edges between the specs of one ticket's series are a different thing, described on [Spec dialogue](spec-dialogue.md#discussion-first-proposal-after).
+`requires` here is between tickets. The `requires:` edges between the specs of one ticket's series are a different thing, described on [Spec dialogue](spec-dialogue.md#from-discussion-to-proposal).
 
 ## Where requires come from
 

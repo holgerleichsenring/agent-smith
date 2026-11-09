@@ -52,14 +52,15 @@ public sealed class StewardTurnTests
     }
 
     [Fact]
-    public async Task DesignTurn_SameQuotedYaml_StillPassesTheProposalRule()
+    public async Task DesignTurn_SameQuotedYaml_GoesThroughTheDesignContract()
     {
         var loop = new ReplyingLoop(QuotedYaml);
 
         await Run(loop, TurnContext(DesignMaster));
 
-        loop.Requests.Should().HaveCountGreaterThan(1, "the design partner may not propose on a first turn and is re-prompted");
-        loop.Requests[0].UserPrompt.Should().Contain("## Design conversation").And.Contain("MAY NOT propose");
+        loop.Requests[0].UserPrompt.Should().Contain("## Design conversation")
+            .And.Contain("Propose the work once it is clear enough to cut", "the design partner's block is its proposal")
+            .And.NotContain("MAY NOT propose");
     }
 
     [Fact]

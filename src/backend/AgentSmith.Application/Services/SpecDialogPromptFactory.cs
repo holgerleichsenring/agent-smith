@@ -11,10 +11,6 @@ namespace AgentSmith.Application.Services;
 /// user turn; the reply text is delivered verbatim to the chat thread) so the
 /// SKILL.md stays about behaviour, not plumbing.
 /// <para>
-/// 2026-09-17-042ec: the contract says whether this turn may propose. The gate refuses a
-/// proposal from a turn that may not, so saying it first spares the turn a second model call.
-/// </para>
-/// <para>
 /// 2026-09-22-deda: the contract also says what a conversation that has already filed work
 /// cannot do to it. A capability, not a state: it names no ticket and claims nothing about a
 /// tracker, so it cannot go stale between the filing and the turn that reads it.
@@ -22,17 +18,14 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 {
-    // A request for work is answered with the work picture and what a proposal would need settled; a question is
-    // answered as it is asked, and a request for a text to take elsewhere with that text (2026-10-01-aeb6b) —
-    // neither is padded into the work shape. 2026-11-05-862ea: readiness is said in one line the next turn reads.
-    private const string ReadyLine = "'Ready to propose: <the cut in one line>'";
-
-    private const string FirstAnswer =
-        "When the operator asks for work, answer with the work picture, what the uploads and the code show (with the "
-        + "files you read), the contradictions between them, and in one batch the decisions only the operator can "
-        + $"make. Once you are ready, say so in one line: {ReadyLine}. "
-        + "A question is answered as it is asked, and a request for a document — a prompt, a "
-        + "summary, a brief to take elsewhere — with the document itself.";
+    // 2026-11-09-0620b: one contract for every turn. The first-turn proposal ban (2026-09-17-042ec) is gone: since
+    // 2026-11-09-9a98 a draft is shown under review and filed only on approval, so the operator still decides first.
+    private const string ProposalContract =
+        "Propose the work once it is clear enough to cut. A proposal is shown to the operator marked under review while "
+        + "reviewers check it against the code, and nothing is filed until the operator approves it — so decide what "
+        + "you can defend from what you read, say so in the proposal, and ask only what neither the material nor the "
+        + "code settles and where a wrong guess would cost a rebuild. A question is answered as it is asked, and a "
+        + "request for a document — a prompt, a summary, a brief to take elsewhere — with the document itself.";
 
     public string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried)
     {
@@ -64,7 +57,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
     // filing clause is appended to the proposal line rather than rendered on its own, so a
     // conversation that never filed gets byte-for-byte the prompt it gets today.
     private static string TurnContract(IReadOnlyList<SpecDialogTurn> transcript) =>
-        ProposalContract(SpecDialogProposalRule.MayPropose(transcript)) + FiledWorkContract(transcript);
+        ProposalContract + FiledWorkContract(transcript);
 
     // The trigger is the conversation's own filing record — a kept filing turn — not the
     // outcome type, which a failed turn, a twice-invalid proposal and a refused proposal all
@@ -85,14 +78,6 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
               + "approves, and reporting the continuation as done is as false as the rest."
             : string.Empty;
 
-    private static string ProposalContract(bool mayPropose) => mayPropose
-        ? "The operator has replied to a discussion, so this turn MAY propose: draft a fenced ```yaml spec (or an "
-          + $"```outcome block) when an earlier reply of yours said {ReadyLine} and the operator's reply to it leaves "
-          + "nothing open, or when the operator asks for it. Otherwise keep leading: say "
-          + $"{ReadyLine} once you are, and reply with neither block."
-        : "This turn MAY NOT propose: the operator has not yet replied to a discussion of this "
-          + "work. Draft no ```yaml or ```outcome block — it would be refused. " + FirstAnswer;
-
     // p0315e: one nudge covers every typed terminal outcome — a spec draft
     // (```yaml) and a bug/epic payload (```outcome) fail the same gate.
     public string BuildOutcomeFixNudge(string originalUserPrompt, string validationError) =>
@@ -102,9 +87,4 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
         + "block (plus at most a line of framing). Do not repeat the invalid output.\n\n"
         + "Original task:\n" + originalUserPrompt;
 
-    public string BuildProposalRefusalNudge(string originalUserPrompt) =>
-        "Your previous reply proposed work before the operator had replied to a discussion "
-        + "of it, so it was NOT shown. Reply again with no ```yaml or ```outcome block. "
-        + FirstAnswer + "\n\n"
-        + "Original task:\n" + originalUserPrompt;
 }

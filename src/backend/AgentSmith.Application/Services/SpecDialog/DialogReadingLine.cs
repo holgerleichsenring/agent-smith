@@ -5,19 +5,22 @@ using AgentSmith.Contracts.Sandbox;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-11-05-862ea: what a design turn reads first. A turn whose sandbox map holds an upload is told the uploads are
-/// the subject, read before the repositories; a turn with none keeps the line that answers from the code map.
+/// 2026-11-05-862ea: what a design turn is told about its sources. 2026-11-09-0620b: told what each source shows rather
+/// than which to read first — a turn told to read every upload before the repositories never read the repositories, and
+/// asked the operator questions the repositories already answered.
 /// </summary>
 public static class DialogReadingLine
 {
     public const string CodeMap =
-        "Answer from the code map above when it suffices; read source files through your tools only when the "
-        + "question needs real file content.";
+        "The code map above says where things live and how they relate. When an answer rests on what a file actually "
+        + "says, read the file with your tools.";
 
-    public const string UploadsFirst =
-        "The uploads are the subject of this conversation: read them before the repositories — every file read_file "
-        + "can open, across turns, until the coverage under each upload says all are opened, unless the operator names "
-        + "the part that matters. Record what each area says with note_reference, then compare the repositories against them.";
+    public const string Uploads =
+        "Two sources are in front of you. The uploads show what the operator wants built. The repositories show what "
+        + "already exists and what it already decides — how a caller is authenticated, how data is stored, how messages "
+        + "travel. A proposal rests on both: the behaviour the uploads ask for, built the way the repositories already "
+        + "build it wherever they have a counterpart. Under each upload the prompt says how much of it earlier turns "
+        + "opened; note_reference keeps what an area says for later turns.";
 
     public static string Render(PipelineContext pipeline)
     {
@@ -25,6 +28,6 @@ public static class DialogReadingLine
         var holdsUpload = pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var sandboxes)
             && sandboxes is not null
             && sandboxes.Keys.Any(key => key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal));
-        return holdsUpload ? UploadsFirst : CodeMap;
+        return holdsUpload ? Uploads : CodeMap;
     }
 }

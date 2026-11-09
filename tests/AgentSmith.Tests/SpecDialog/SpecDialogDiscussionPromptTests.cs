@@ -8,8 +8,8 @@ using FluentAssertions;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-042ec: the design prompt says whether the turn may propose, the refusal has its
-/// own nudge, and a kept turn records its kind.
+/// 2026-09-17-042ec: the design prompt's contract, and a kept turn records its kind. 2026-11-09-0620b: one contract for
+/// every turn, with no proposal ban.
 /// </summary>
 public sealed class SpecDialogDiscussionPromptTests
 {
@@ -20,25 +20,44 @@ public sealed class SpecDialogDiscussionPromptTests
         return pipeline;
     }
 
+    // 2026-11-09-0620b: the first-turn ban is gone — a draft is shown under review and filed only on approval.
     [Fact]
-    public void DesignPrompt_TurnThatMayNotPropose_SaysSo()
+    public void SpecDialogPrompt_FirstTurn_StatesNoProposalBan()
     {
         var prompt = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
 
-        prompt.Should().Contain("MAY NOT propose").And.Contain("When the operator asks for work, answer with")
-            .And.Contain("the work picture").And.Contain("in one batch the decisions only the operator can make").And.Contain("A question is answered as it is asked")
-            .And.NotContain("MAY propose");
+        prompt.Should().Contain("Propose the work once it is clear enough to cut")
+            .And.Contain("nothing is filed until the operator approves it")
+            .And.Contain("A question is answered as it is asked")
+            .And.NotContain("MAY NOT propose").And.NotContain("Ready to propose");
     }
 
     [Fact]
-    public void DesignPrompt_TurnThatMayPropose_SaysSo()
+    public void SpecDialogPrompt_LaterTurn_StatesTheSameContract()
     {
-        var prompt = new SpecDialogPromptFactory().Build(With(
+        var first = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
+        var later = new SpecDialogPromptFactory().Build(With(
             new SpecDialogTurn("user", "update everything"),
             new SpecDialogTurn("assistant", "found three libraries", SpecDialogTurnKind.Answer),
             new SpecDialogTurn("user", "all three, one spec")), 0, 0);
 
-        prompt.Should().Contain("MAY propose").And.NotContain("MAY NOT propose");
+        later[later.IndexOf("Propose the work", StringComparison.Ordinal)..]
+            .Should().Be(first[first.IndexOf("Propose the work", StringComparison.Ordinal)..]);
+    }
+
+    // 2026-11-09-0620b: the texts changed, not their places — the cached prefix and the reading of the prompt stay.
+    [Fact]
+    public void SpecDialogPrompt_SectionOrder_IsUnchanged()
+    {
+        var prompt = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
+
+        string[] order =
+        [
+            "## Design conversation", "[user", "## Your reply", "Write the reply text now",
+            "The code map above says", "No work picture is stored yet", "Propose the work once",
+        ];
+        var positions = order.Select(marker => prompt.IndexOf(marker, StringComparison.Ordinal)).ToList();
+        positions.Should().OnlyContain(p => p >= 0).And.BeInAscendingOrder();
     }
 
     // 2026-09-17-042ed: the confirmation the findings were shown in is posted to the thread and
@@ -78,18 +97,6 @@ public sealed class SpecDialogDiscussionPromptTests
             .Should().NotContain("What the review of your last proposal found",
                 "a clean review has nothing to show the master");
     }
-
-    [Fact]
-    public void RefusalNudge_AsksForAnAnswer_NotTheBlockAgain()
-    {
-        var nudge = new SpecDialogPromptFactory().BuildProposalRefusalNudge("ORIGINAL");
-
-        nudge.Should().Contain("NOT shown").And.Contain("no ```yaml or ```outcome block")
-            .And.Contain("A question is answered as it is asked")
-            .And.EndWith("ORIGINAL").And.NotContain("schema validation");
-    }
-
-    private sealed record FutureOutcome : OutcomeProposal;
 
     [Fact]
     public void TurnResult_KindOf_AnOutcomeWithNoKind_Throws()
@@ -143,4 +150,6 @@ public sealed class SpecDialogDiscussionPromptTests
         turns[0].Kind.Should().BeNull();
         turns[1].Kind.Should().Be(SpecDialogTurnKind.Answer);
     }
+
+    private sealed record FutureOutcome : OutcomeProposal;
 }

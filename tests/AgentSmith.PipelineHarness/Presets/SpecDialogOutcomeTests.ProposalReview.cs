@@ -68,19 +68,6 @@ public sealed partial class SpecDialogOutcomeTests
         reviewer.Asked.Should().BeEmpty("a bug is a ticket someone will run, not a plan to check");
     }
 
-    [Fact]
-    public async Task Turn_RefusedThenStrippedProposal_IsNotReviewed()
-    {
-        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        var reviewer = Reviewer(harness);
-        harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}").EnqueueText($"Draft again:\n{ValidDraft}");
-
-        var result = await RunTurnAsync(harness, State("update the widgets"));
-
-        result.Outcome.Should().BeOfType<AnswerOutcome>();
-        reviewer.Asked.Should().BeEmpty("the refusal stripped the draft, so there is no proposal to review");
-    }
-
     // 2026-09-17-042ed: the stand-in answers what it was ASKED about. A design session proposes
     // several specs across its turns, and findings that followed every later review would report
     // one turn's fault against a spec nobody reviewed — a case would then pass on a lie.

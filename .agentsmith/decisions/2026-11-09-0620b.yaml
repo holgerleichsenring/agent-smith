@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620b
+
+decisions:
+  - category: Architecture
+    chose: "Lift the first-turn proposal ban and remove its refusal path"
+    over: "Keeping the ban and only rewording it"
+    reason: "The ban kept work from being proposed before the operator had spoken. Since 2026-11-09-9a98 a proposal is shown under review and filed only on approval, so the operator decides first either way; the ban only turned first turns into question lists. Nothing else read the rule."
+  - category: Implementation
+    chose: "Tell the turn what each source shows — the uploads what is wanted, the repositories what exists and decides — and that a counterpart's form wins"
+    over: "An order of reading"
+    reason: "Live, 'read the uploads before the repositories, every file' sent every sub-agent to the upload; the turn asked whether to use bearer tokens or cookies while the repository already did cookies with a bearer fallback. The source-precedence rule the master already carries says an existing counterpart gives the form; the line now points at it instead of overriding it."
+  - category: Implementation
+    chose: "A two-level remote listing in the code-map slot of a repository without a cached map, kept ten minutes per process"
+    over: "A sandbox clone, an analyzer run, or a list of where auth and storage live"
+    reason: "The grounding already reads repositories remotely through the source provider; a listing needs no container. Naming auth or storage locations would be a per-language guess; project and folder names already say it, and the model reads on with its tools. A failed listing keeps the old line."
+  - category: Implementation
+    chose: "Every changed text stays in its place; a test pins the order of the design prompt's parts"
+    over: "Moving the operator's words last"
+    reason: "Prompt caching works on the current order; the operator asked that content change and positions not."
+  - category: Implementation
+    chose: "Remove ReadyLine and the readiness lines"
+    over: "Keeping 'Ready to propose' as a handshake"
+    reason: "The skills release this pins no longer mentions the phrase; with no ban there is nothing for it to unlock."

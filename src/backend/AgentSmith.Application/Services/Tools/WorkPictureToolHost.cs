@@ -29,7 +29,7 @@ public sealed class WorkPictureToolHost(SpecDialogReplySlot slot) : IToolHost
         + "expected size. Call it again to record a correction; the last call replaces the stored picture. It is not a source read.")]
     private string StateWorkPicture(
         [Description("rebuild, feature, fix or document (writing documentation as the work).")] string kind,
-        [Description("One line of plain prose, at most 300 characters: which upload holds the truth, which repositories are scaffolding.")] string truth,
+        [Description("One line of plain prose, at most 300 characters: where what is wanted is described (an upload, the ticket, the conversation) and what the repositories already provide.")] string truth,
         [Description("one-spec, series or plan.")] string size)
     {
         var (picture, refusal) = WorkPictureAdmission.Of(kind, truth, size);

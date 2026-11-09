@@ -70,7 +70,7 @@ public sealed class EventPublishingChatClientPromptTests
         public int? CurrentStepIndex => null;
         public string? CurrentSpecId => null;
         public IDisposable BeginStepScope(int stepIndex, string? specId = null) => new NoOpScope();
-        public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOpScope();
+        public IDisposable BeginCallScope(string role, string stage, string? repoName = null) => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 

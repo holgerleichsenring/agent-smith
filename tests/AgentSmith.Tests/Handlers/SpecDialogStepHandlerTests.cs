@@ -30,7 +30,7 @@ public sealed class SpecDialogStepHandlerTests
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
             [new RepoConnection { Name = "repo-a" }, new RepoConnection { Name = "repo-b" }]);
-        var sut = new LoadCachedCodeMapHandler(store.Object, NullLogger<LoadCachedCodeMapHandler>.Instance);
+        var sut = new LoadCachedCodeMapHandler(store.Object, AgentSmith.Tests.SpecDialog.RepositoryLayoutTests.Reader(new Mock<AgentSmith.Contracts.Providers.ISourceProviderFactory>().Object), NullLogger<LoadCachedCodeMapHandler>.Instance);
 
         var result = await sut.ExecuteAsync(new LoadCachedCodeMapContext(pipeline), CancellationToken.None);
 

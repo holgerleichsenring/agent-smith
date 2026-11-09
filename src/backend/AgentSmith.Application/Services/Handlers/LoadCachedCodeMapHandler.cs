@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class LoadCachedCodeMapHandler(
     IProjectMapStore mapStore,
+    SpecDialog.RepositoryLayoutReader layouts, // 2026-11-09-0620b
     ILogger<LoadCachedCodeMapHandler> logger)
     : ICommandHandler<LoadCachedCodeMapContext>
 {
@@ -30,7 +31,10 @@ public sealed class LoadCachedCodeMapHandler(
         foreach (var repo in repos)
         {
             var maps = await mapStore.ListByPrefixAsync(repo.Name, cancellationToken);
-            perRepo[repo.Name] = RenderRepoSection(maps);
+            // 2026-11-09-0620b: a repository nobody has mapped shows its layout where the map would stand.
+            perRepo[repo.Name] = maps.Count == 0 && await layouts.ReadAsync(repo, cancellationToken) is { } layout
+                ? layout
+                : RenderRepoSection(maps);
             hits += maps.Count;
             if (maps.Count == 0)
                 logger.LogInformation(

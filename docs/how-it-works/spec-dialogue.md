@@ -23,9 +23,9 @@ The agent on the other end is the `design-partner-master`. (A conversation about
 
 The design partner stays on its project and, in a ticket's conversation, on that ticket. A question about neither gets one sentence pointing back to the project, and no tool call.
 
-## Discussion first, proposal after
+## From discussion to proposal
 
-The first reply to a new piece of work is always a discussion: what it found in the code, the edge cases, the open questions. It won't propose anything until you've answered. Once you have, and the conversation has converged, a turn may end in one of these outcomes:
+The design partner reads what you uploaded and what your repositories already do, and proposes the work as soon as it is clear enough to cut — in the first reply, if the material settles it. A proposal is shown to you marked under review while reviewers check it against the code, and nothing is filed until you approve it, so you still decide before anything starts. Where neither the material nor the code settles a choice, it asks, with the option it would take. A turn may end in one of these outcomes:
 
 - **An answer.** Sometimes talking it through *is* the work. Nothing gets filed.
 - **A document.** You asked for a text to take elsewhere (a prompt, a summary, a brief), and it's written straight away. On the dashboard it shows with a **Copy** button. Nothing gets filed.

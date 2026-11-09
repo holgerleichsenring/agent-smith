@@ -103,13 +103,9 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
-    /// <summary>The design turn's outcome gate over the given loop, with the real resolver and refusal.</summary>
+    /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate OutcomeGate(IAgenticLoopRunner loop) =>
         new(loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
-            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
-                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
 

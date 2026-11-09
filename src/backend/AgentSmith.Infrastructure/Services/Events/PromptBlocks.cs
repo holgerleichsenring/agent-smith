@@ -17,8 +17,6 @@ namespace AgentSmith.Infrastructure.Services.Events;
 /// </summary>
 public static class PromptBlocks
 {
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
-
     public static IReadOnlyList<PromptBlock> From(IEnumerable<ChatMessage> messages, ChatOptions? options)
     {
         var blocks = new List<PromptBlock>();
@@ -41,7 +39,7 @@ public static class PromptBlocks
             sb.Append("## ").AppendLine(tool.Name);
             if (!string.IsNullOrWhiteSpace(tool.Description)) sb.AppendLine(tool.Description.Trim());
             if (tool is AIFunction function)
-                sb.AppendLine(JsonSerializer.Serialize(function.JsonSchema, Json));
+                sb.AppendLine(function.JsonSchema.GetRawText());
             sb.AppendLine();
         }
         return sb.ToString();
@@ -59,7 +57,7 @@ public static class PromptBlocks
                     break;
                 case FunctionCallContent call:
                     sb.Append("[tool call ").Append(call.Name).Append(" #").Append(call.CallId).AppendLine("]");
-                    sb.AppendLine(JsonSerializer.Serialize(call.Arguments, Json));
+                    sb.AppendLine(JsonSerializer.Serialize(call.Arguments));
                     break;
                 case FunctionResultContent result:
                     sb.Append("[tool result #").Append(result.CallId).AppendLine("]");
@@ -81,7 +79,7 @@ public static class PromptBlocks
         null => string.Empty,
         string text => text,
         JsonElement element => element.ValueKind == JsonValueKind.String ? element.GetString() ?? string.Empty : element.GetRawText(),
-        _ => JsonSerializer.Serialize(result, Json),
+        _ => JsonSerializer.Serialize(result),
     };
 
     private static string DataLine(DataContent data) =>
