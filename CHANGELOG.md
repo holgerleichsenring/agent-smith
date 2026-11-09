@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.178.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.177.0...v0.178.0) (2026-11-09)
+
+
+### Features
+
+* a design turn survives a removed sandbox by reopening it (2026-11-09-9631a) ([f3fb37a](https://github.com/holgerleichsenring/agent-smith/commit/f3fb37a0be72bfc275d657ebee637a65de202b58))
+* a design turn's proposal is readable while it is reviewed and survives a cancel (2026-11-09-9a98) ([b16520b](https://github.com/holgerleichsenring/agent-smith/commit/b16520b5dfbdb98d43931e7b0a24e9ea857fae22))
+* a review that could read nothing stands as not reviewed (2026-11-09-9631b) ([a0511be](https://github.com/holgerleichsenring/agent-smith/commit/a0511beee9d5590b1afda1c9d61423851778f6a2))
+* the design dialog survives removed sandboxes, blind reviews and cancelled reviews ([4144634](https://github.com/holgerleichsenring/agent-smith/commit/4144634d7047df9fd4e11ed20bad81210054278a))
+* the running turn's lines say what is happening (2026-11-09-9631c) ([5da4d2c](https://github.com/holgerleichsenring/agent-smith/commit/5da4d2c41dafd67dfedf541bf1ee6a0d5c390be8))
+
 ## [0.177.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.176.0...v0.177.0) (2026-11-05)
 
 
