@@ -88,10 +88,6 @@ public sealed class SeriesSkillRulesTests
             "Otherwise, use `decide_by_default` for a choice a person might overrule, `log_decision` for an "
             + "implementation choice.",
             Because("the coding master's default-choice rule"));
-        coding.Should().Contain(
-            "- Prefer decide_by_default (a choice a person might overrule) or log_decision (an implementation "
-            + "choice) over asking the human.",
-            Because("the coding master's default-choice rule"));
 
         DesignPartner().Should().Contain(
             "- `decide_by_default` is for a choice a person might overrule but need not make first: it returns at "

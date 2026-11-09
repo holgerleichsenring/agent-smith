@@ -27,7 +27,7 @@ public sealed class DesignPartnerDialogRulesTests
     private static string Master() => PackagedMaster.Read("design-partner-master");
 
     /// <summary>First release whose convergence ends at a "Ready to propose" line (master 2.0.0).</summary>
-    private static readonly Version ConvergenceRelease = new(5, 24, 0);
+    private static readonly Version ConvergenceRelease = new(5, 25, 0);
 
     /// <summary>
     /// The conversation may be in any language; the artifacts it produces may not.
@@ -82,32 +82,25 @@ public sealed class DesignPartnerDialogRulesTests
     }
 
     /// <summary>
-    /// The first reply to a request for work is an answer, never a proposal. The
-    /// framework refuses an early proposal, so a master that does not know the rule
-    /// spends a turn on an outcome that is never shown.
+    /// 2026-11-09-0620j: a request for work is answered with what was found and, as soon as one can be defended, a
+    /// draft — the server no longer refuses a first-turn proposal, because a draft is shown under review and filed
+    /// only on approval. The skill says so, and no longer keys proposing to a phrase.
     /// </summary>
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_DiscussesBeforeItProposes()
+    public void EmbeddedSkills_DesignPartnerMaster_DraftsAsSoonAsItCanDefendOne()
     {
         var master = Master();
 
         master.Should().Contain(
             "## Converging",
             $"the pin is {PackagedMaster.Pin} and this section ships from v{ConvergenceRelease}");
-
         master.Should().Contain(
-            "The first reply to a request for work is always an **answer**",
-            "however clear a request looks, a spec drafted before the grounding is shown "
-            + "is a spec the operator never got to steer");
-
+            "A request for work is answered with what you found and, as soon as you",
+            "a first turn that can defend a cut proposes it");
         master.Should().Contain(
-            "`Ready to propose: <the cut in one line>` — the shape and its pieces.",
-            "the master needs the test for when discussion ENDS, or 'discuss first' "
-            + "becomes an extra turn rather than a gate");
-
-        master.Should().Contain(
-            "before the operator has replied to a discussion — it is never shown.",
-            "the master is told the framework enforces this, so an early proposal reads "
-            + "as a wasted turn rather than a style preference");
+            "A draft is not a filing. The framework validates it, shows it to the",
+            "the master is told why an early draft is safe: it is reviewed and approved before anything is filed");
+        master.Should().NotContain("Ready to propose", "nothing waits for a phrase any more");
+        master.Should().NotContain("always an **answer**", "the first-turn ban is gone on both sides");
     }
 }

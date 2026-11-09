@@ -60,7 +60,7 @@ public sealed class DesignPartnerFrameSizeTests : IDisposable
         master.Should().NotContain("read\n   narrowly").And.NotContain("## Grounding — cheap tier first");
         master.Should().NotContain("The work has **converged** when the operator has replied");
         master.Should().NotContain("still one spec").And.NotContain("however many\nrepositories");
-        master.Should().Contain("**Uploads first.**").And.Contain("## Work picture").And.Contain("`state_work_picture`");
+        master.Should().NotContain("**Uploads first.**").And.Contain("## Work picture").And.Contain("`state_work_picture`");
     }
 
     [Theory]

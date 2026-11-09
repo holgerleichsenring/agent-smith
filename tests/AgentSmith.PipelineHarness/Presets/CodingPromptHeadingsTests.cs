@@ -48,7 +48,7 @@ public sealed class CodingPromptHeadingsTests
             "the step heading appears once, and nothing else is headed like it");
         headings.Should().Contain(h => h.StartsWith("## Spec 1 of 1: ", StringComparison.Ordinal))
             .And.Contain("## Spec contract")
-            .And.Contain("## Validate the plan").And.Contain("## Build & test").And.Contain("## Your verdict");
+            .And.Contain("## Working the spec").And.Contain("## Build & test").And.Contain("## Your verdict");
     }
 
     // 2026-11-09-0620i: a reference coding turn — the spec run lists its checkouts, and the server texts that
