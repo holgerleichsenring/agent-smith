@@ -76,7 +76,7 @@ public sealed class ScanMasterBudgetTests
             readCount: 0, readFloor: 6, CancellationToken.None);
 
         var thread = conversation.Thread();
-        thread.Should().Contain(m => m.Text != null && m.Text.Contains("FULL surface"),
+        thread.Should().Contain(m => m.Text != null && m.Text.Contains("a review that covers the source reads at least"),
             "the drive that ran is part of the conversation it drove");
         thread.Should().Contain(m => m.Text != null && m.Text.Contains("deeper-pass finding"));
     }

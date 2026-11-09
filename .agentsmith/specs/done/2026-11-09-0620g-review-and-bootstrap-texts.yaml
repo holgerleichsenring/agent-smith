@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620g
+goal: "Review, analyzer and bootstrap prompts state facts and reasons: read-only as a fact, the coverage numbers, one answer form, the missing diff outside data, no unused master."
+requires: [2026-11-09-0620f]
+
+applies_to: "default (Application scan prompt factory and coverage re-drive, PR diff section, project analyzer, bootstrap prompt factories, prompt ownership; harness fixture)"
+
+facts:
+  - claim: "The scan prompt opens 'You are running a SECURITY REVIEW … Do NOT modify any source, do NOT run a build, do NOT run tests', the coverage nudge says 'very little' without the numbers that triggered it, and the reconciliation asks for a three-way classification in prose and then for 'ONLY' the JSON array."
+    evidence: "src/backend/AgentSmith.Application/Services/ScanMasterPromptFactory.cs:27-28,51-62,69-76; src/backend/AgentSmith.Application/Services/Handlers/ScanCoverageRedrive.cs:31-36"
+  - claim: "A missing PR diff is reported by an instruction inside the UNTRUSTED block, which the model is told never to follow."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/PrDiffPromptSection.cs:31-38"
+  - claim: "The analyzer's user prompt ends 'Start by listing the root directory.'; the bootstrap rounds head the skill '{DisplayName}: {Description}' (': …' when the name is empty) under 'Role-Specific Rules'; context-generator-system and context-quality-template are owned but never requested."
+    evidence: "src/backend/AgentSmith.Application/Services/ProjectAnalyzer.cs:42-46; src/backend/AgentSmith.Application/Services/BootstrapPromptFactory.cs:35-40; src/backend/AgentSmith.Application/Prompts/PromptOwnership.cs:28-29"
+
+scope:
+  in: "The wording of the scan header, coverage nudge (with read count and floor) and reconciliation; the missing-diff sentence outside the untrusted block; the analyzer's procedure line; one role header for both bootstrap rounds; the two context-generator ownership entries; the recorded analyzer prompt fixture."
+  out: "Section order. The scan's anchor-free first pass, which stays."
+
+steps:
+  - id: scan
+    action: "The scan header says the tools read and probe and nothing changes the repository; BuildCoverageNudge takes the read count and the floor; the reconciliation names the three outcomes and asks for one JSON array without dismissed facts."
+  - id: pr
+    action: "PrDiffPromptSection wraps only the coordinates when there is no diff and states the consequence outside the block; the pr-review checkout section is headed 'The checkout' so it does not repeat the diff's heading."
+  - id: analyzer-bootstrap
+    action: "The analyzer drops 'Start by listing the root directory.' and its recorded fixture follows; RoleHeader renders the role's name and purpose and then the skill for both bootstrap rounds."
+  - id: ownership
+    action: "PromptOwnership retires context-generator-system and context-quality-template, so the catalog no longer requires context-generator-master."
+
+tests:
+  - "ScanMasterPromptFactory_AlwaysForbidsCodeChangesAndBuild (reworded)"
+  - "AgenticMaster_ScanMaster_BelowReadFloor_RePromptsOnceForCoverage (reworded)"
+  - "Build_PrNumberButNoAnalysedDiff_SaysSoInsteadOfRenderingNothing (reworded)"
+
+done:
+  - when: "a scan, a pr-review, an analysis or a bootstrap round starts"
+    then: "its prompt states read-only and the coverage floor as facts, asks for one answer form, keeps instructions out of untrusted blocks and heads the skill with its role"
+  - "Backend build and tests green."

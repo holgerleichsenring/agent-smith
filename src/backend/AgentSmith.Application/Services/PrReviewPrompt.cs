@@ -11,7 +11,7 @@ internal static class PrReviewPrompt
 {
     internal static string Build(Repository repository, string repos, string conversation) =>
         $"""
-        ## Pull request under review
+        ## The checkout
         The repository is checked out at the pull request's head. Your tools read it; nothing you do changes it.
         **Path:** {repository.LocalPath}
         **Branch:** {repository.CurrentBranch}

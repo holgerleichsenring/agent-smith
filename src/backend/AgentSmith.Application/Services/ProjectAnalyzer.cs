@@ -42,8 +42,7 @@ public sealed class ProjectAnalyzer(
         var userPrompt =
             $"Repository to analyze: {repositoryPath}\n\n"
             + $"You have a budget of {ExplorationBudget} tool calls for exploration. "
-            + "Reserve your final reply for the JSON object only.\n\n"
-            + "Start by listing the root directory.";
+            + "Reserve your final reply for the JSON object only.";
         var fs = new FilesystemToolHost(sandbox, repositoryPath);
         var tools = toolSurface.Scout(fs);
         var options = new ChatOptions

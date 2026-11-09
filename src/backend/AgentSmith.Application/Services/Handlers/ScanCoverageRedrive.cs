@@ -33,7 +33,7 @@ public sealed class ScanCoverageRedrive(
         logger.LogWarning(
             "Scan master read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
             readCount, readFloor);
-        var nudge = promptFactory.BuildCoverageNudge(userPrompt);
+        var nudge = promptFactory.BuildCoverageNudge(userPrompt, readCount, readFloor);
         try
         {
             var deeper = await loopRunner.RunAsync(

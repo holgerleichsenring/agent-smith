@@ -42,7 +42,7 @@ public sealed class ScanUnanchoredFirstPassTests
         prompt.Should().NotContain("Scanner Findings", "the list is an anchor")
             .And.NotContain("hardcoded AWS secret");
         prompt.Should().Contain("Nobody has handed you a list");
-        prompt.Should().Contain("SECURITY REVIEW").And.Contain("observation array");
+        prompt.Should().Contain("This is a security review of the source").And.Contain("observation array");
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class ScanUnanchoredFirstPassTests
 
         prompt.Should().NotBeNull();
         prompt.Should().Contain("Scanner Findings").And.Contain("hardcoded AWS secret");
-        prompt.Should().Contain("already covered").And.Contain("dismissed");
+        prompt.Should().Contain("already covered").And.Contain("a fact you dismiss stays out");
         _prompts.BuildReconciliation(new PipelineContext()).Should().BeNull(
             "a scan whose scanners found nothing has no list to reconcile");
     }

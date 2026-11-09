@@ -25,8 +25,8 @@ public static class PromptOwnership
             ["project-analyzer-system"] = PromptOwner.Catalog("project-analyzer-master"),
             ["knowledge-system"] = PromptOwner.Catalog("knowledge-master"),
             ["contract-classifier-system"] = PromptOwner.Catalog("contract-classifier-master"),
-            ["context-generator-system"] = PromptOwner.Catalog("context-generator-master"),
-            ["context-quality-template"] = PromptOwner.Catalog("context-generator-master"),
+            // 2026-11-09-0620g: context-generator-system and context-quality-template are retired —
+            // nothing requested either name, so the master was required at startup and never sent.
 
             // p0442: and it did. p0415 held this name embedded because no released
             // catalog carried both the ships_code obligation and the cut-sizing rule,

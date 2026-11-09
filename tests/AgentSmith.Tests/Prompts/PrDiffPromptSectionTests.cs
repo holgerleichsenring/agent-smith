@@ -47,6 +47,6 @@ public sealed class PrDiffPromptSectionTests
         var section = PrDiffPromptSection.Build(pipeline);
 
         section.Should().NotBeEmpty();
-        section.Should().Contain("no structured diff available");
+        section.Should().Contain("No diff could be produced for this pull request");
     }
 }

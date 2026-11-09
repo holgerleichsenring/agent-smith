@@ -135,7 +135,7 @@ public sealed class AgenticMasterHandlerTests
         tools.Should().NotContain("edit");
         tools.Should().NotContain("run_command");
         tools.Should().NotContain("ask_human");
-        loop.SeenRequests[0].UserPrompt.Should().Contain("SECURITY REVIEW");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("This is a security review of the source");
         loop.SeenRequests[0].UserPrompt.Should().Contain("observation array");
     }
 
@@ -182,7 +182,7 @@ public sealed class AgenticMasterHandlerTests
             .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master"), CancellationToken.None);
 
         loop.SeenRequests.Should().HaveCount(2, "0 reads is below the floor → one coverage re-drive");
-        loop.SeenRequests[1].UserPrompt.Should().Contain("FULL surface");
+        loop.SeenRequests[1].UserPrompt.Should().Contain("a review that covers the source reads at least");
     }
 
     [Fact]

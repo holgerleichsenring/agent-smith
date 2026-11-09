@@ -49,8 +49,8 @@ public sealed class MasterRolePromptTests
 
         var prompt = new ScanMasterPromptFactory().Build(new PipelineContext(), repo, ["repo"], "pr-review-master");
 
-        prompt.Should().Contain("## Pull request under review").And.Contain("Judge the change the diff above shows")
-            .And.NotContain("SECURITY REVIEW").And.NotContain("inventory the surface yourself");
+        prompt.Should().Contain("## The checkout").And.Contain("Judge the change the diff above shows")
+            .And.NotContain("This is a security review").And.NotContain("inventory the surface yourself");
     }
 
     [Fact]

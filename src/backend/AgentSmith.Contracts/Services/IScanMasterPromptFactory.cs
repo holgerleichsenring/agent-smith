@@ -25,5 +25,5 @@ public interface IScanMasterPromptFactory
     /// <summary>p0279: the one-shot coverage nudge re-prompt when the master read too
     /// little source — push a full-surface inventory + per-area review (responsibility
     /// language, read-only), re-emitting the COMPLETE observation array.</summary>
-    string BuildCoverageNudge(string originalUserPrompt);
+    string BuildCoverageNudge(string originalUserPrompt, int readCount, int readFloor);
 }

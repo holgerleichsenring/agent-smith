@@ -69,9 +69,9 @@ public sealed class ScanMasterPromptFactoryTests
     {
         var prompt = _sut.Build(new PipelineContext(), Repo, ["repo"]);
 
-        prompt.Should().Contain("SECURITY REVIEW");
-        prompt.Should().Contain("NOT modify");
-        prompt.Should().Contain("NOT run a build");
+        prompt.Should().Contain("This is a security review of the source");
+        prompt.Should().Contain("nothing you do changes the repository");
+        prompt.Should().Contain("no build");
         prompt.Should().Contain("observation array");
     }
 }

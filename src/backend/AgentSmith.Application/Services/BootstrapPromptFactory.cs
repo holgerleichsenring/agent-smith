@@ -33,11 +33,7 @@ internal static class BootstrapPromptFactory
         PrinciplesMode principlesMode = PrinciplesMode.SkillWrites)
     {
         var system = $"""
-            ## Your Role
-            {role.DisplayName}: {role.Description}
-
-            ## Role-Specific Rules
-            {role.Rules}
+            {RoleHeader.Render(role)}
             """;
         var projectMapJson = JsonSerializer.Serialize(
             projectMap, new JsonSerializerOptions { WriteIndented = true });
