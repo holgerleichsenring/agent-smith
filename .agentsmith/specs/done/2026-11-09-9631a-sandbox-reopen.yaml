@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-9631a
+goal: "A design turn whose sandbox was removed notices through the heartbeat, opens a fresh one once and retries the read, instead of waiting out each step timeout."
+
+applies_to: "default (Application: source scope and upload sandboxes)"
+
+facts:
+  - claim: "A source scope caches its inner sandbox and pushes every read through it with no liveness check, so a removed sandbox fails each read only at the channel timeout."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:49-50; src/backend/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs:84-99"
+  - claim: "A read that fails on an already open sandbox is logged as failed to materialise."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:52-56"
+  - claim: "A hold is verified by the heartbeat only when a turn takes it; once taken nothing asks again."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/HeldSandboxRegister.cs:26-39"
+  - claim: "A sandbox re-taken from a hold keeps the run label of the turn that spawned it, so past the hold window it is reaped during the turn that uses it; this deletion frees capacity and stays."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxReapJudge.cs:28-36; src/backend/AgentSmith.Server/Services/Sandbox/HeldConversationReader.cs:63-67"
+  - claim: "A sandbox spawned by a scope carries the run id read at spawn time, which the live-run rail spares."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:50-58; src/backend/AgentSmith.Server/Services/Sandbox/SandboxReapJudge.cs:29-30"
+  - claim: "The agent writes its heartbeat every two seconds with a ten second expiry from a timer independent of the step in flight, so a long step keeps it alive."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISandboxHeartbeatProbe.cs:7-11; src/backend/AgentSmith.Sandbox.Agent/Program.cs:69-72"
+  - claim: "The Redis probe answers false when it cannot read, and the in-process sandbox writes no heartbeat at all; Docker and Kubernetes sandboxes are the holdable ones and can read their own exit."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/RedisSandboxHeartbeatProbe.cs:31-37; src/backend/AgentSmith.Contracts/Sandbox/IHoldableSandbox.cs:15; src/backend/AgentSmith.Contracts/Sandbox/ISandboxExitReader.cs:8-12"
+  - claim: "A held upload sandbox has the same cached inner sandbox and the same log line, and serves commands that may write into its copy."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:60-73"
+  - claim: "Force removal of a Kubernetes sandbox tears down its channel and deletes the pod without a shutdown wait."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs:68-77"
+  - claim: "Evidence reads and the turn's scope record skip a scope that says it is not materialized."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceRead.cs:26; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:109-110"
+
+scope:
+  in: "A heartbeat watch beside every step of a source scope and an upload sandbox; force-remove the vanished sandbox, reopen once per scope and retry the read; a failed reopen or second loss answers reads with a refusal at once for the rest of the turn; separate log lines for opening and reading."
+  out: "The reaper's rails, the hold window default and capacity eviction: deleting is right and stays. A coding run's own workspace sandbox: it holds uncommitted work a reopen would lose in silence, and the run's liveness handling stays in charge of it. A step that hangs while its heartbeat lives: that is a slow step, not a lost sandbox. A browser sandbox's hold: it takes the hold through its own opener, follow-up 2026-11-09-d27b. The prepare steps of an opening are not watched: their replies are what proves the agent alive, and a loss there costs one refused read and the next read spawns."
+
+decisions:
+  - key: "RECOVERY, NOT PROTECTION. The sandbox may go whenever capacity asks; the read recovers. A running turn does not extend its hold."
+  - key: "TWO MISSES, THEN THE BACKEND'S OWN WORD. A Redis hiccup also reads as a miss, and acting on it would delete a live sandbox. After two misses three seconds apart the watch asks the sandbox's exit reader: Running keeps waiting, Exited or Gone is a loss."
+  - key: "ONE REOPEN PER SCOPE INSTANCE, which is one turn. The fresh sandbox has the live run's label, so a second loss is not capacity at work and does not earn a third spawn."
+  - key: "ONLY HOLDABLE SANDBOXES ARE WATCHED. The in-process sandbox has no heartbeat to read and nothing to lose."
+  - key: "AN UPLOAD'S COMMAND IS NOT RETRIED. It may rest on what an earlier command installed in the lost container; reads are retried, a command answers that the container was replaced."
+  - key: "A SHA MAY MOVE ON A REOPEN with no pinned revision. Pinning it would leave a detached tree for the next turn's refresh; the new sha is what the later reads are read at."
+  - key: "A SCOPE WHOSE REOPEN FAILED STILL COUNTS AS OPENED, so the record keeps its sha and evidence reads reach the refusal and mint a look that could not run."
+
+steps:
+  - id: watch
+    action: "SandboxStepWatch runs a step beside the probe and throws SandboxVanishedException on a confirmed loss; a sandbox that is not holdable runs the step plainly."
+  - id: slot
+    action: "ReopeningSandboxSlot owns the cached sandbox and its gate: open once, run through the watch, on a loss swap only if the dead sandbox is still current, force-remove it, reopen and retry once, remember an unavailable scope."
+  - id: scopes
+    action: "SourceScopeSandbox and ReferenceSetSandbox serve reads through the slot; the upload names what it does not repeat."
+  - id: wiring
+    action: "Both factories pass a watch registered in SourceScopeExtensions."
+
+tests:
+  - "SandboxStepWatch_HeartbeatGoneAndExitGone_ThrowsVanishedAndCancelsTheStep"
+  - "SandboxStepWatch_MissesButExitReadsRunning_KeepsWaiting"
+  - "SandboxStepWatch_LongStepWithLiveHeartbeat_ReturnsItsResult"
+  - "SandboxStepWatch_NotHoldable_RunsWithoutProbing"
+  - "SourceScope_SandboxVanishes_ReopensOnceAndRetriesTheRead"
+  - "SourceScope_ReopenFails_RefusesAndLaterReadsDoNotWait"
+  - "SourceScope_SecondLossInATurn_RefusesWithoutAThirdSpawn"
+  - "SourceScope_ParallelReads_ShareOneReopen"
+  - "SourceScope_ReopenedSandbox_IsWhatTheHoldKeeps"
+  - "ReferenceSet_SandboxVanishes_RetriesReadButNotCommand"
+  - "SpecDialogTurn_HeldSandboxDisappearsMidTurn_NextReadRecoversAndTheTurnAnswers"
+  - "SpecDialogTurn_CancelledThenRetried_NeedsNoWaitAndSurvivesTheReaper"
+
+done:
+  - when: "a turn reads through a sandbox an earlier turn left and that sandbox disappears mid-turn"
+    then: "the next read answers from a fresh sandbox within seconds, the removed sandbox is not held, and the turn finishes with its answer"
+  - when: "a cancelled run's live sandbox goes back to the hold, the next turn re-takes it at once and the reaper deletes it during that turn"
+    then: "the retry needed no wait and its next read recovers from a fresh sandbox within seconds"
+  - when: "reopening fails"
+    then: "that read and every later read of the scope in the turn return a refusal naming the reason without waiting for a step timeout"
+  - when: "a step runs longer than the watch's interval on a sandbox whose heartbeat lives"
+    then: "the step keeps waiting and returns its result"
+  - "A read that fails on an open sandbox is no longer logged as failed to materialise."
+  - "Build green, full suite green."

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-9631c
+goal: "The running turn's lines say what is happening: a repository or upload reopening or failing to, and an earlier-steps row whose number follows the steps and whose content matches it."
+requires: [2026-11-09-9631a]
+
+applies_to: "default (Contracts progress, reopen slot) and dashboard (reading words, step row)"
+
+facts:
+  - claim: "A scope reports opening, ready and failed to an ambient observer, and a dashboard turn pushes the lower-cased name to the dialog."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/SourceScopeProgress.cs:8-13; src/backend/AgentSmith.Server/Services/SpecDialog/DashboardReadingChannel.cs:43-46"
+  - claim: "The dialog keeps one line per repository at its latest state, maps each state to a word and a mark, and picks the header by state === opening."
+    evidence: "src/dashboard/src/components/dialog/DialogWorking.tsx:29-38; src/dashboard/src/components/dialog/DialogWorking.tsx:54; src/dashboard/src/types/spec-dialog.ts:270"
+  - claim: "An upload's sandbox reports nothing to the observer."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:25-33"
+  - claim: "The page keeps the last 50 steps of a turn while the step count is the highest sequence, so past 50 the header counts on and the row stays at 47."
+    evidence: "src/dashboard/src/components/dialog/turnSteps.ts:16; src/dashboard/src/components/dialog/turnSteps.ts:52; src/dashboard/src/components/dialog/turnSteps.ts:60-62; src/dashboard/src/components/dialog/DialogWorking.tsx:67-69"
+
+scope:
+  in: "A Reopening progress value reported before the swap, then Ready or Failed; the state, word and mark in the existing reading line; an upload reports only when it reopens. The page holds up to 1000 steps of a turn; the row counts every earlier step the turn took and, when it holds fewer, says how many it lists."
+  out: "A new visual element, banner or notice: none, so no mock is due. An upload's first open: nothing changes for a turn with no loss. A server-side read of a turn's steps."
+
+decisions:
+  - key: "THE ROW CLAIMS WHAT IT SHOWS. Holding everything is the plain fix up to a size a long turn really reaches; the bound exists for a tab left open, so it stays, higher. Past it the row says the truth about both numbers rather than freezing or lying."
+
+steps:
+  - id: state
+    action: "SourceScopeProgress.Reopening; the slot reports it through the scope, then Ready or Failed."
+  - id: upload
+    action: "ReferenceSetSandbox takes the observer accessor and reports its address on a reopen."
+  - id: dashboard-state
+    action: "SpecDialogReadingState adds reopening; the two maps name it; the header counts it as opening."
+  - id: dashboard-row
+    action: "ACTIVITY_KEPT is 1000; the row's number is taken minus the steps shown below it; a helper words the row, naming the listed count when it is smaller."
+
+tests:
+  - "SourceScope_Reopen_ReportsReopeningThenReady"
+  - "SourceScope_ReopenFails_ReportsReopeningThenFailed"
+  - "ReferenceSet_Reopen_ReportsItsAddress"
+  - "dashboard: DialogWorking names a reopening repository under the opening header"
+  - "dashboard: a turn of 438 held steps shows 435 earlier steps and lists 435"
+  - "dashboard: a turn holding fewer than it took says how many of the earlier steps it lists"
+
+done:
+  - when: "a sandbox is lost during a dashboard turn"
+    then: "the turn's reading line shows that repository reopening and then ready or could not be opened, with no new element on the page"
+  - when: "a turn has taken 438 steps"
+    then: "the row's number plus the steps shown below it equals the header's count, and opening the row lists what it says"
+  - "Backend and dashboard build and tests green."

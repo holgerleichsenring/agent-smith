@@ -42,8 +42,17 @@ internal sealed class FakeHoldableSandbox : IHoldableSandbox
     public bool Ran(string fragment) =>
         Commands.Any(command => command.Contains(fragment, StringComparison.Ordinal));
 
-    public Task<StepResult> RunStepAsync(
+    /// <summary>2026-11-09-9631a: removed under the reader: a step pushed now never gets an answer.</summary>
+    public bool Vanished { get; set; }
+
+    public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
+    {
+        if (Vanished) await Task.Delay(Timeout.Infinite, cancellationToken);
+        return await AnswerAsync(step);
+    }
+
+    private Task<StepResult> AnswerAsync(Step step)
     {
         RanSteps.Add(step);
         var args = string.Join(" ", step.Args ?? []);

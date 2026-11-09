@@ -30,10 +30,12 @@ public sealed class ReferenceSetSandbox(
     SourceScopeHold hold,
     SourceScopeOpener opener,
     ReferenceSetMaterialiser materialiser,
-    ILogger logger) : ISourceScopeSandbox
+    ILogger logger,
+    SandboxStepWatch? watch = null,
+    ISourceScopeObserverAccessor? observers = null) : ISourceScopeSandbox
 {
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private ISandbox? _inner;
+    /// <summary>2026-11-09-9631a: the cached sandbox, and what happens when it turns out to be gone.</summary>
+    private readonly ReopeningStepRunner _steps = new(address, watch, logger);
     private readonly ReferenceReadLog _reads = new();
 
     public string RepoName => address;
@@ -52,27 +54,30 @@ public sealed class ReferenceSetSandbox(
 
     /// <summary>2026-11-04-96a0c: the set-relative paths read_file opened through this sandbox in this turn.</summary>
     public IReadOnlyCollection<string> OpenedPaths => _reads.Paths;
-    public bool IsMaterialized => _inner is not null;
+    public bool IsMaterialized => _steps.Slot.Current is not null || _steps.Slot.Unavailable is not null;
 
     /// <summary>The set's content hash once it is in the sandbox.</summary>
     public string? ResolvedSha { get; private set; }
-    public string JobId => _inner?.JobId ?? $"reference-{setId}";
+    public string JobId => _steps.Slot.Current?.JobId ?? $"reference-{setId}";
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
         if (Refusal(step) is { } refused) return refused;
-        try
-        {
-            var inner = await EnsureAsync(cancellationToken);
-            return _reads.Record(step, await inner.RunStepAsync(step, progress, cancellationToken));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "Reference '{Address}' failed to materialise", address);
-            return SourceScopeRefusal.Because(step, $"The upload '{address}' could not be opened: {ex.Message}");
-        }
+        return _reads.Record(step, await _steps.RunAsync(step, progress, OpenAsync,
+            ex => $"The upload '{address}' could not be opened: {ex.Message}", NotRepeated, ReportAsync, cancellationToken));
     }
+
+    // 2026-11-09-9631c: an upload draws no line for its first open, only when it has to reopen.
+    private Task ReportAsync(SourceScopeProgress state, CancellationToken ct) =>
+        observers?.Current?.ReportAsync(address, state, ct) ?? Task.CompletedTask;
+
+    // 2026-11-09-9631a: a command may rest on what an earlier one installed or started in the lost
+    // container, so repeating it could fail for a reason nobody can see. The reads are safe to repeat.
+    private string? NotRepeated(Step step) => step.Kind == StepKind.Run
+        ? $"The container of the upload '{address}' was removed and a fresh one opened, so this command did "
+          + "not finish and what earlier commands installed or started is gone. Set it up again, then rerun it."
+        : null;
 
     private static StepResult? Refusal(Step step) => step.Kind switch
     {
@@ -84,36 +89,24 @@ public sealed class ReferenceSetSandbox(
 
     public async Task<string> MaterializeAsync(CancellationToken cancellationToken)
     {
-        await EnsureAsync(cancellationToken);
+        await _steps.Slot.EnsureAsync(OpenAsync, cancellationToken);
         return ResolvedSha ?? string.Empty;
     }
 
-    private async Task<ISandbox> EnsureAsync(CancellationToken ct)
+    private async Task<ISandbox> OpenAsync(CancellationToken ct)
     {
-        if (_inner is not null) return _inner;
-        await _gate.WaitAsync(ct);
-        try
-        {
-            if (_inner is not null) return _inner;
-            logger.LogInformation("Materialising reference '{Address}' (set {SetId})", address, setId);
-            (var opened, ResolvedSha) = await hold.OpenAsync(
-                (conversation, c) => opener.SpawnAsync(project, c, conversation, withoutSecrets: true),
-                (sandbox, c) => materialiser.PrepareAsync(sandbox, conversationId, setId, c), ct);
-            _inner = opened;
-            return opened;
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        logger.LogInformation("Materialising reference '{Address}' (set {SetId})", address, setId);
+        (var opened, ResolvedSha) = await hold.OpenAsync(
+            (conversation, c) => opener.SpawnAsync(project, c, conversation, withoutSecrets: true),
+            (sandbox, c) => materialiser.PrepareAsync(sandbox, conversationId, setId, c), ct);
+        return opened;
     }
 
     public async ValueTask DisposeAsync()
     {
-        var inner = _inner;
-        _inner = null;
+        var inner = _steps.Slot.Take();
         // A held inner sandbox goes back to the register: the next turn reads through it.
         if (inner is not null && !hold.Keep(inner)) await inner.DisposeAsync();
-        _gate.Dispose();
+        _steps.Dispose();
     }
 }

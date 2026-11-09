@@ -87,7 +87,7 @@ A `DESIGN.md` at the root of a repository (design tokens as frontmatter, then pr
 A turn takes anywhere from seconds to a few minutes, so the exchange shows what it's doing instead of a spinner and nothing else. The working line says what it's opening: "Reading the ticket…", "Opening the repositories it needs…", or "Working it out…" once everything is open. Beside that, the elapsed time and the number of steps taken. Under it:
 
 - one line per repository (and the bound ticket) with its state: opening, ready, or could not be opened;
-- the latest three steps: which tool read what, "thinking", "reviewing its own proposal against the code", "revising its answer". Older steps fold into "N earlier steps".
+- the latest three steps: which tool read what, "thinking", "reviewing its own proposal against the code", "revising its answer". Older steps fold into "N earlier steps", which counts every step the turn took before the ones shown. A page that holds fewer than that says how many it lists.
 
 If you leave and come back to a conversation mid-turn, the working line is still there.
 
@@ -123,9 +123,11 @@ The right-hand pane has up to five tabs. It picks the most useful one on its own
 
 ### Review rounds
 
+The proposal reaches the Proposal tab as soon as the design partner has written it, with each draft marked under review, and every round updates it with its cuts and findings. You can read it the whole time, and you can't approve it until the review has finished. If you stop the turn or the review fails, the proposal stays there and its unfinished drafts read as not reviewed. The next message continues from it: what was reviewed stays reviewed and the rest is reviewed then, so nothing already paid for is lost.
+
 A spec or a cut doesn't reach you raw. Inside the turn that made it, every draft goes through the same review rounds a run gives its specs before building: fresh reviewers read the draft against the code and answer build, build with cuts, or refuse, each with file and line. The design partner applies the cuts they agree on and the draft is reviewed again, up to `spec_review.rounds` rounds (4 by default; 0 leaves one plain review). The settings live in Settings → Spec review ([Global settings](../configure-it/settings.md)).
 
-The Proposal tab shows every round per draft: what each reviewer answered, the cuts that were applied, the findings, and any wording a cut objected to that still stands. A draft the review budget didn't reach says it wasn't reviewed. Before the rounds, the framework checks every fact the proposal cites, and a citation that doesn't resolve is listed with the findings ([Spec dialogue](spec-dialogue.md#discussion-first-proposal-after) has the rules).
+The Proposal tab shows every round per draft: what each reviewer answered, the cuts that were applied, the findings, and any wording a cut objected to that still stands. A draft the review budget didn't reach says it wasn't reviewed. So does a draft whose reviewers couldn't read the repositories it names: it says so and can't be approved until a later turn tries again. If that turn can't read them either, you may approve it knowing that, and the finding stays on the card; a run reviews the spec again before it builds. Before the rounds, the framework checks every fact the proposal cites, and a citation that doesn't resolve is listed with the findings ([Spec dialogue](spec-dialogue.md#discussion-first-proposal-after) has the rules).
 
 ### Mock versions
 

@@ -44,7 +44,20 @@ internal sealed class StubSandbox(
 
     private int _commits;
 
-    public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
+    /// <summary>2026-11-09-9631a: removed under the reader: a step pushed now never gets an answer.</summary>
+    public bool Vanished { get; set; }
+
+    /// <summary>2026-11-09-9631a: told of each step that reached this sandbox, for a test that acts mid-turn.</summary>
+    public Action<Step>? OnStep { get; set; }
+
+    public async Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
+    {
+        if (Vanished) await Task.Delay(Timeout.Infinite, cancellationToken);
+        OnStep?.Invoke(step);
+        return await AnswerAsync(step, progress, cancellationToken);
+    }
+
+    private Task<StepResult> AnswerAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
         RanSteps.Add(step);
         if (IsGit(step, "clone"))

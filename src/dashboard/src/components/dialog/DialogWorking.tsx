@@ -8,7 +8,7 @@ import type {
 import { DialogActivityLines } from "./DialogActivityLines";
 import { DialogElapsed } from "./DialogElapsed";
 import { DialogMessage } from "./DialogTranscript";
-import { stepCount } from "./turnSteps";
+import { earlierStepsLabel, stepCount } from "./turnSteps";
 
 // 2026-09-15-cb3e, found in use: a design turn materialises the scope's repositories and
 // reads them — a long silence is normal, and a page that shows nothing reads as broken.
@@ -30,12 +30,14 @@ const READING_WORDS: Record<SpecDialogReadingState, string> = {
   opening: "opening",
   ready: "ready",
   failed: "could not be opened",
+  reopening: "removed, reopening",
 };
 
 const READING_MARK: Record<SpecDialogReadingState, string> = {
   opening: "before:content-['›_'] text-body",
   ready: "before:content-['✓_'] before:text-primary-deep text-body",
   failed: "before:content-['×_'] text-ink",
+  reopening: "before:content-['›_'] text-body",
 };
 
 /** How many steps stay in the open; everything older folds into the disclosure above them. */
@@ -51,7 +53,9 @@ export function DialogWorking({
   /** The moment on this browser's clock to count up from; null while nothing measured one. */
   since: number | null;
 }) {
-  const opening = readings.filter((reading) => reading.state === "opening");
+  const opening = readings.filter(
+    (reading) => reading.state === "opening" || reading.state === "reopening",
+  );
   // 2026-09-27-481be: the line above the readings answers for WHAT is being read. It said
   // "the repositories it needs" whatever was open, and a bound conversation reads a ticket too.
   const openingWhat =
@@ -103,7 +107,7 @@ export function DialogWorking({
         {folded.length > 0 && (
           <details data-testid="dialog-activity-folded">
             <summary className="fl cursor-pointer">
-              {folded.length} earlier {folded.length === 1 ? "step" : "steps"}
+              {earlierStepsLabel(taken - latest.length, folded.length)}
             </summary>
             <DialogActivityLines steps={folded} testId="dialog-activity-earlier" />
           </details>

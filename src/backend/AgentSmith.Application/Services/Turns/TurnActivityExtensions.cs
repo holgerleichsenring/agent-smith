@@ -12,6 +12,7 @@ public static class TurnActivityExtensions
     public static IServiceCollection AddTurnActivity(this IServiceCollection services)
     {
         // One instance per process is right: the observer lives in the async flow, not here.
+        services.TryAddSingleton<ITurnProposalObserverAccessor, AsyncLocalTurnProposalObserverAccessor>(); // 2026-11-09-9a98
         services.TryAddSingleton<ITurnActivityObserverAccessor, AsyncLocalTurnActivityObserverAccessor>();
         services.TryAddSingleton<TurnActivityTools>();
         services.TryAddSingleton<SubAgentActivityFrame>();

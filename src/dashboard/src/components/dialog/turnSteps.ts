@@ -12,8 +12,10 @@ import type { SpecDialogActivityPush } from "@/types/spec-dialog";
 //   gap — so the next turn's steps would meet a stale list and be filtered out as duplicates.
 
 /** How many steps of one turn the page keeps. A long turn in a tab someone leaves open would
- *  otherwise grow without limit; a server-side bound does not bound this array. */
-export const ACTIVITY_KEPT = 50;
+ *  otherwise grow without limit; a server-side bound does not bound this array. 2026-11-09-9631c:
+ *  it was 50, so a turn of 438 steps showed "47 earlier steps" and the row froze there while the
+ *  count beside it ran on. A long review really reaches hundreds, so the bound sits above that. */
+export const ACTIVITY_KEPT = 1000;
 
 /** The turn the held steps belong to, or null when none are held. */
 function heldTurn(held: SpecDialogActivityPush[]): string | null {
@@ -59,4 +61,11 @@ export function mergedSteps(
  *  cues dies for the rest of the turn. The sequence is the true count. */
 export function stepCount(held: SpecDialogActivityPush[]): number {
   return held.reduce((highest, step) => Math.max(highest, step.seq), 0);
+}
+
+/** 2026-11-09-9631c: the row over the folded steps counts what the turn took before the steps
+ *  shown, and when the page holds fewer it says how many opening the row will list. */
+export function earlierStepsLabel(earlier: number, listed: number): string {
+  const count = `${earlier} earlier ${earlier === 1 ? "step" : "steps"}`;
+  return listed < earlier ? `${count}, the last ${listed} listed` : count;
 }

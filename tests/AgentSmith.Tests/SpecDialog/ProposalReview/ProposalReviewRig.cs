@@ -11,6 +11,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Turns;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Handlers;
 using AgentSmith.Tests.Specs;
@@ -145,7 +146,7 @@ internal sealed class ProposalReviewRig
     public SpecDialogProposalReview Review(ISpecReviewSettingsReader? reader = null) =>
         new(WholeSetReviewer(), DerivationTestLooks.Factory(), ProposalEvidenceTestReview.Create(),
             reader ?? Reader(() => Settings), Loop(), TicketPlanReviewRig.Default(), TurnActivityRecorder.Silent(),
-            NullLogger<SpecDialogProposalReview>.Instance);
+            NullLogger<SpecDialogProposalReview>.Instance, Proposals);
 
     public async Task<AgenticLoopResult> RunAsync(ISpecReviewSettingsReader? reader = null)
     {
@@ -155,6 +156,9 @@ internal sealed class ProposalReviewRig
         return await Review(reader).ReviewAsync(Pipeline, request, "user", FirstReply, conversation, new AgentConfig(),
             PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
     }
+
+    /// <summary>2026-11-09-9a98: set by a test that watches what the review publishes as it goes.</summary>
+    public ITurnProposalObserverAccessor? Proposals { get; init; }
 
     public OutcomeProposal Outcome => Pipeline.Get<OutcomeProposal>(ContextKeys.SpecDialogOutcome);
 
@@ -180,7 +184,7 @@ internal sealed class ProposalReviewRig
         return new ProposalReviewLoop(
             new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
             revision, new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(),
-                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Clock);
+                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Clock, Proposals);
     }
 
     private ISeriesContractReviewer SeriesReviewer()

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-9631c
+
+decisions:
+  - category: Implementation
+    chose: "A Reopening state in the existing reading line, worded 'removed, reopening'"
+    over: "Reusing Opening, or a notice of its own"
+    reason: "Reusing Opening would be cheaper, but the reader's question is why a repository that was ready is opening again in the middle of a turn. A word answers it with no new element, so no mock is due."
+  - category: Implementation
+    chose: "The runner draws and ends the reopen's line; the scope stays silent during a reopen"
+    over: "Passing a first word into the scope's open"
+    reason: "An upload reports nothing on its first open, so the only code both kinds of scope share is the reopen path, and the ordering of the two reports stays in one place."
+  - category: Architecture
+    chose: "The page keeps 1000 steps, and the row counts what the turn took and says how many it lists when it holds fewer"
+    over: "Keeping 50 and only correcting the number, or no bound"
+    reason: "The live finding: a turn of 438 steps showed 47 earlier steps, because the list is capped at 50 while the header counts the highest sequence. Correcting the number alone would make a row that claims 435 and opens to 47. A review really reaches hundreds of steps, so holding them is the plain fix; the bound exists for a tab left open, so it stays, higher. Sub-agent and reviewer steps were not the cause: they share the one sequence."

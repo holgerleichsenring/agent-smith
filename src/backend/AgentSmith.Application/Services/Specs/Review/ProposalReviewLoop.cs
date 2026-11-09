@@ -16,7 +16,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public sealed class ProposalReviewLoop(
     ProposalAttackPanel panel, ProposalRoundRevision revision, ProposalSeriesRound series,
-    ITurnActivityObserverAccessor turnActivity, TimeProvider clock)
+    ITurnActivityObserverAccessor turnActivity, TimeProvider clock,
+    ITurnProposalObserverAccessor? proposals = null)
 {
     public async Task<ProposalReviewOutcome> RunAsync(
         ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, AgenticLoopResult reply,
@@ -35,8 +36,26 @@ public sealed class ProposalReviewLoop(
         var parentProblems = parent is null ? [] : (await revision.CheckAsync(session, parent, ct)).Problems;
         while (session.Round < settings.Review.Rounds
             && ProposalRoundGate.Admit(session, session.Open) is { Count: > 0 } open)
-            if (!await RoundAsync(session, open, ct)) break;
+        {
+            var goesOn = await RoundAsync(session, open, ct);
+            await PublishAsync(session, parentProblems, ct);
+            if (!goesOn) break;
+        }
         return await series.AddAsync(session, ProposalReviewSummary.Of(session, parentProblems), ct);
+    }
+
+    // 2026-11-09-9a98: what a person may read so far: this round's cuts, and what is still open.
+    private async Task PublishAsync(
+        ProposalReviewSession session, IReadOnlyList<SpecEvidenceProblem> parentProblems, CancellationToken ct)
+    {
+        if (proposals?.Current is null) return;
+        var sofar = ProposalReviewSummary.Of(session, parentProblems);
+        await proposals.PublishUnderReviewAsync(sofar.Proposal with
+        {
+            Findings = sofar.Standing,
+            ReviewRounds = sofar.Rounds,
+            NotReviewed = [.. session.Drafts.Where(d => d.NotReviewed || !d.Stopped).Select(d => d.SpecId)],
+        }, ct);
     }
 
     /// <summary>False when the review ends after this round.</summary>
@@ -57,10 +76,15 @@ public sealed class ProposalReviewLoop(
     private static bool Judge(ProposalReviewSession session, ProposalDraftReview draft, IReadOnlyList<SpecAttackResult?> answers)
     {
         var merged = SpecReviewMerge.Merge(answers);
+        if (merged.Blind)
+        {
+            draft.MarkUnread();
+            return false;
+        }
         if (merged.IsTaken)
         {
             draft.Merged = merged;
-            draft.Verdicts = [.. answers.Select(answer => answer?.Verdict)];
+            draft.Verdicts = [.. answers.Select(answer => answer is { Blind: false } ? answer.Verdict : null)];
         }
         var toFix = merged.Cuts.Count > 0 || merged.Verdict == SpecReviewVerdicts.Refuse;
         if (merged.IsTaken && !toFix) draft.Record(session.Round, []);

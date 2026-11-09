@@ -10,16 +10,19 @@ import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 
 export const SERIES_TOKEN = "series";
 
-export function notReviewedLabel(entry: string): string {
+export function notReviewedLabel(entry: string, underReview = false): string {
+  if (underReview) return entry === SERIES_TOKEN ? "the series contract is under review" : `${entry} — under review`;
   return entry === SERIES_TOKEN ? "the series contract is not reviewed yet" : `${entry} — not reviewed yet`;
 }
 
 export function DialogProposalRounds({
   rounds,
   notReviewed,
+  underReview,
 }: {
   rounds?: SpecDialogReviewRound[];
   notReviewed?: string[] | null;
+  underReview?: boolean;
 }) {
   const waiting = notReviewed ?? [];
   if (!rounds?.length && waiting.length === 0) return null;
@@ -38,7 +41,7 @@ export function DialogProposalRounds({
       ))}
       {waiting.map((entry) => (
         <p key={entry} data-testid="dialog-not-reviewed" className="dsh-body font-semibold text-ink">
-          {notReviewedLabel(entry)}
+          {notReviewedLabel(entry, underReview)}
         </p>
       ))}
     </div>

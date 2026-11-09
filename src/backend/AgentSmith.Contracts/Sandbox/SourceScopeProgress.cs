@@ -10,4 +10,7 @@ public enum SourceScopeProgress
     Opening,
     Ready,
     Failed,
+
+    /// <summary>2026-11-09-9631c: its sandbox was removed and a fresh one is opening; Ready or Failed follows.</summary>
+    Reopening,
 }

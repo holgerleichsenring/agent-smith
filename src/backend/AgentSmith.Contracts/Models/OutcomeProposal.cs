@@ -36,6 +36,10 @@ public abstract record OutcomeProposal
     /// <summary>2026-10-13-8762i: the spec ids (or <see cref="ProposalReviewTokens.Series"/>) not reviewed yet,
     /// which cannot be approved; null when all were.</summary>
     public IReadOnlyList<string>? NotReviewed { get; init; }
+
+    /// <summary>2026-11-09-9a98: published while its turn's review runs, which a final proposal never is.
+    /// Stored, it outlives a cancel; a reader takes it as true only while that turn computes.</summary>
+    public bool UnderReview { get; init; }
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>

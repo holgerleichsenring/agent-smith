@@ -132,6 +132,17 @@ A design conversation holds its source sandboxes between turns for `sandbox.hold
 message pays for the spawn and clone. The reapers spare a held sandbox, and every
 capacity check releases holds before it probes, so a hold never costs a run its slot.
 
+A held sandbox may still go while a turn reads through it: it keeps the label of the turn
+that spawned it, and past the window a reaper removes it. That frees capacity and is
+intended. The turn notices through the agent's heartbeat, confirmed by the sandbox's own
+exit state, removes what is left, opens one fresh sandbox and repeats the read, so the cost
+is a clone rather than a step timeout per read. The fresh sandbox carries the live run's
+label and the reapers spare it. If it cannot be opened, or a second one is lost in the same
+turn, reads of that repository are refused at once for the rest of the turn with the reason,
+and the next turn tries again. The dashboard's reading line shows the repository as reopening,
+then ready or could not be opened. On an upload's container the reads are repeated and a command
+is not: it answers that the container was replaced and earlier setup is gone.
+
 ## RBAC
 
 The Server's `ServiceAccount` needs:

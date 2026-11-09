@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-9631a
+
+decisions:
+  - category: Architecture
+    chose: "A removed sandbox is recovered by the reader: watch, reopen once, retry"
+    over: "A running turn protecting its sandboxes through the reaper's rails, or a longer hold window"
+    reason: "The operator's ruling: removing a sandbox to free capacity is right, restarting it afterwards was always the design, and the balance is resources against answer speed. A protection would keep capacity held and leave every other cause of a loss (node crash, idle exit) standing still."
+  - category: Implementation
+    chose: "Two heartbeat misses three seconds apart, then the sandbox's own exit read decides"
+    over: "One missed read, or misses alone"
+    reason: "The Redis probe answers no when it cannot read, and it was written for a hold with nothing in flight. Here a false positive force-removes a live sandbox. Review of the spec found this; a probe that throws counts as alive, the channel timeout stays the backstop."
+  - category: Implementation
+    chose: "Watch only IHoldableSandbox, with no change to ISandboxHeartbeatProbe"
+    over: "A CanTell member on the probe"
+    reason: "The first draft added CanTell for the no-Redis default. Only Docker and Kubernetes sandboxes are holdable and those run with the Redis probe, while the in-process sandbox writes no heartbeat, so the type already answers it. A step answered at once never meets a probe that says no."
+  - category: Implementation
+    chose: "One reopen per scope instance, which is one turn; a failed reopen is remembered"
+    over: "A reopen per read"
+    reason: "Spawn has no capacity door and waits for readiness, so reopening per read would recreate the wait at a higher price exactly when capacity is short. The fresh sandbox has the live run's label, so a second loss is not capacity at work."
+  - category: Implementation
+    chose: "An upload's reads are repeated, its commands are not"
+    over: "Repeating every step"
+    reason: "A command may rest on what an earlier one installed or started in the lost container; repeating it could fail for a reason the model cannot see. Source scope steps are reads and server-built programs and no production caller declares a writable prefix."
+  - category: Implementation
+    chose: "A scope whose reopen failed still reports IsMaterialized"
+    over: "Falling back to not materialized"
+    reason: "SandboxEvidenceRead and the scope record skip a scope that never opened. This one did open: its sha stands and an evidence read must reach the refusal so its look is recorded as could not run."
+  - category: Implementation
+    chose: "Accept a sha that moves on a reopen when no revision is pinned, and an unwatched prepare"
+    over: "Pinning the first sha; watching the materialiser's steps"
+    reason: "Pinning leaves a detached tree for the next turn's refresh. A prepare's replies are what prove the agent alive, and a loss there costs one refused read after which the next read spawns."
+  - category: Scope
+    chose: "A coding run's workspace sandbox stays out; the browser hold gets the follow-up 2026-11-09-d27b"
+    over: "Covering every sandbox here"
+    reason: "A workspace holds uncommitted work a reopen would lose in silence, and the run's liveness handling is in charge of it. The browser opener takes its hold directly, so it needs its own change; it is planned rather than left unnamed."
+  - category: Scope
+    chose: "The retry after a cancel needs no new code: pinned by a composition test"
+    over: "Releasing the sandbox on cancel"
+    reason: "The turn's finally already hands a live sandbox back to the hold, the next turn takes it straight away when its heartbeat lives, and a reaper deleting it during that turn is now a loss the read recovers from. Nothing waits for the reaper."

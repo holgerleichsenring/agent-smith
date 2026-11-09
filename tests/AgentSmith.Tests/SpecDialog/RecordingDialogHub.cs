@@ -21,6 +21,9 @@ internal sealed class RecordingDialogHub : IHubContext<JobsHub>, IHubClients, IG
     public ConcurrentQueue<HubPush> Pushes { get; } = new();
     public List<string> Joined { get; } = [];
 
+    /// <summary>2026-11-09-9a98: told of each push as it is sent, for a test that acts on what the page saw.</summary>
+    public Action<string, object?[]>? OnPush { get; set; }
+
     IHubClients IHubContext<JobsHub>.Clients => this;
     IGroupManager IHubContext<JobsHub>.Groups => this;
 
@@ -62,6 +65,7 @@ internal sealed class RecordingDialogHub : IHubContext<JobsHub>, IHubClients, IG
             string method, object?[] args, CancellationToken cancellationToken = default)
         {
             hub.Pushes.Enqueue(new HubPush(group, method, args));
+            hub.OnPush?.Invoke(method, args);
             return Task.CompletedTask;
         }
     }

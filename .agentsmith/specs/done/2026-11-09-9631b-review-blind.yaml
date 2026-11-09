@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-9631b
+goal: "An attack reviewer whose looks could not run is not one who found nothing: a design turn's draft with no reviewer who could read shows as not reviewed, not as build."
+requires: [2026-11-09-9631a]
+
+applies_to: "default (Application: spec attack reviewer, merge, proposal loop)"
+
+facts:
+  - claim: "A refuse with no admitted finding and no admitted cut is stored as build, also when every look of that reviewer failed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackAdmission.cs:32-37"
+  - claim: "Each look records whether it ran, and a read of a missing file counts as ran."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceLook.cs:19-20"
+  - claim: "A design turn's draft whose reviewers were all not taken stops with no round and is not marked not reviewed, so approval passes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:57-69; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:109"
+  - claim: "A review with no look at all, because the run holds no repository, is a null answer, and it must not hold a proposal."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackReviewer.cs:31-37"
+  - claim: "A draft marked not reviewed produces a finding, is reviewed first on a later turn, shows an amber mark and holds the approval."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs:25-29; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewCarryOver.cs:16-20; src/dashboard/src/components/dialog/DialogProposalRounds.tsx:13-14"
+  - claim: "The diff review after a build has its own report and its own not-taken reason, a different report than this draft review; the planned 2026-09-18-44c2 concerns that one."
+    evidence: "src/backend/AgentSmith.Domain/Models/SpecReviewReport.cs:30"
+  - claim: "A coding run's review reports a round with no taken answer as not taken and goes on."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewState.cs:20-22; src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewLoop.cs:29-30"
+
+scope:
+  in: "The attack reviewer marks a blind answer; merge leaves it out; a draft of a design turn whose round had a blind reviewer and no taken one becomes not reviewed with its own reason. If the same draft is blind again on the turn that was to review it, the hold lifts and the finding stands."
+  out: "2026-09-18-44c2 stays planned: unrelated, neither reused nor superseded. A reviewer who read and refused without evidence stays build (2026-10-13-8762e). A reviewer who read part and said build stays what it said. A failed or unreadable model call stays a plain not taken. The series contract's own admission: it holds no look to judge. A coding run: its round becomes not taken through the merge, and its reads of a non-scope sandbox do not record a failed look, so blindness there stays out of reach. New card elements: the existing amber mark and finding carry it."
+
+decisions:
+  - key: "BLIND IS TWO CASES: at least one look and none ran; or a refuse with no admitted finding while at least one look could not run, because that refuse may rest on what it failed to read. A reviewer who opened nothing never tried and is not blind."
+  - key: "DECIDED BY THE REVIEWER AFTER ADMISSION, not inside Admit, which the series review also calls."
+  - key: "A FLAG, NOT A FOURTH VERDICT. Verdicts reach stored rounds and the dashboard; a blind reviewer never reaches either."
+  - key: "THE HOLD HAS AN EXIT. A repository that can never be read would otherwise hold the Approve button forever, which harms the dialog. One further turn is the chance to read; after that the person decides with the finding in front of them, and the run reviews again before it builds."
+  - key: "ONE READER IS ENOUGH: a sibling who read keeps the round taken."
+
+steps:
+  - id: mark
+    action: "SpecAttackResult gains Blind; SpecAttackReviewer marks it in the two cases and logs which."
+  - id: merge
+    action: "SpecReviewMerge leaves blind answers out and SpecReviewMerged says Blind when none was taken and one was blind."
+  - id: draft
+    action: "ProposalReviewLoop.Judge stops such a draft with the unread reason; it is not reviewed unless it was already waiting; reviewer verdicts name no blind reviewer; ProposalReviewSummary states the reason as a finding either way."
+
+tests:
+  - "SpecAttackReviewer_EveryLookFailed_IsBlindWhateverItSaid"
+  - "SpecAttackReviewer_RefuseWithoutFindingAndAFailedLook_IsBlind"
+  - "SpecAttackReviewer_RefuseWithoutFindingAndAllLooksRan_StaysBuild"
+  - "SpecAttackReviewer_NoLookAtAll_IsNotBlind"
+  - "SpecReviewMerge_BlindAndBuild_IsBuild"
+  - "SpecReviewMerge_OnlyBlind_IsNotTakenAndBlind"
+  - "ProposalReviewLoop_OneReviewerBlind_TheOtherKeepsTheRoundTaken"
+  - "ProposalReviewLoop_AllReviewersBlind_DraftIsNotReviewedWithTheUnreadReason"
+  - "ProposalReviewLoop_BlindAgainOnTheTurnThatWaited_LiftsTheHoldAndKeepsTheFinding"
+  - "ProposalReviewLoop_NoRepositoryToOpen_DoesNotHoldTheProposal"
+
+done:
+  - when: "every reviewer of a design turn's draft could read nothing"
+    then: "the proposal lists the draft as not reviewed, states why, and approval is held until a later turn"
+  - when: "that later turn could read nothing either"
+    then: "approval is possible and the finding still stands on the card"
+  - when: "a reviewer read and refused without an admitted finding, no look having failed"
+    then: "it is stored as build, as before"
+  - "Build green, full suite green."

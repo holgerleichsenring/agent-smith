@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-9a98
+
+decisions:
+  - category: Scope
+    chose: "Its own number, 2026-11-09-9a98, following 2026-11-09-9631a-c in prose"
+    over: "A fourth letter of the 9631 series"
+    reason: "Per CLAUDE.md a series is minted in one go and a later addition mints anew; 9631a was already committed when this came in."
+  - category: Architecture
+    chose: "Publish the proposal through an ambient observer before the review and after each round, stored on the session row and pushed"
+    over: "Holding the proposal until the review ends, or a second pipeline step after the review"
+    reason: "The live finding: a minute of drafting, then many minutes of review with nothing visible, and a cancel discarded what had been paid for. The row is what survives a cancel and what every replica reads. An observer set by the turn runner reaches the review without a signature change, as the activity and reading observers do."
+  - category: Architecture
+    chose: "No approval while under review"
+    over: "Letting a person approve a draft the review has not finished"
+    reason: "No approval question exists during the turn: the flow asks only after the turn ends. After an interruption the stored proposal lists its unfinished drafts as not reviewed, which the confirmer already holds back. Reading is always possible. Approving unreviewed text would skip the gate that this whole series makes honest."
+  - category: Implementation
+    chose: "The stored mark is read as true only while the turn computes on this replica"
+    over: "Clearing the mark on cancel, failure and crash"
+    reason: "A crash runs no cleanup, and a cancel may land anywhere. Not reviewed is the truth in all three, so the reader decides from the turn gate. Another replica reads not reviewed during a live review: it cannot see that turn, and the page keeps its own working flag as the floor (SpecDialogTurnGate's multi-replica note)."
+  - category: Implementation
+    chose: "The next turn continues the interrupted proposal: it is seeded as the proposal being revised and its text is rendered with the instruction to repropose it unchanged unless the message changes it"
+    over: "Starting over"
+    reason: "Neither the thread nor the transcript holds the draft, because both are written when a turn ends. A byte-identical repropose keeps the rounds the review already had (ProposalReviewCarryOver), so nothing paid for is paid twice."
+  - category: Implementation
+    chose: "Round results are published from the loop with the summary's own rules"
+    over: "A second rendering of what is open"
+    reason: "ProposalReviewSummary already decides what stands; publishing through it means what is shown mid-review is what the final card would say for the same rounds."
+  - category: Scope
+    chose: "Data and behaviour only; the panel reuses DialogProposalRounds with one word for under review"
+    over: "A new visual element such as a review progress block"
+    reason: "A visual change needs a mock and a yes first. The existing rounds component and the not-reviewed line carry every state needed."

@@ -28,7 +28,7 @@ internal sealed class SourceScopeHoldFixture
 
     public AsyncLocalSourceScopeObserverAccessor Observers { get; } = new();
 
-    public ISourceScopeSandboxFactory Scopes(IHeldSandboxRegister register)
+    public ISourceScopeSandboxFactory Scopes(IHeldSandboxRegister register, SandboxStepWatch? watch = null)
     {
         var specBuilder = new SandboxSpecBuilder(
             new StubSandboxResourceResolver(),
@@ -36,7 +36,7 @@ internal sealed class SourceScopeHoldFixture
         var opener = new SourceScopeOpener(
             new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), Spawner, specBuilder, Mock.Of<IRunContextAccessor>());
         return new SourceScopeSandboxFactory(
-            opener, Observers, register, NullLogger<SourceScopeSandbox>.Instance);
+            opener, Observers, register, NullLogger<SourceScopeSandbox>.Instance, watch);
     }
 
     public async Task<TurnRead> TurnAsync(

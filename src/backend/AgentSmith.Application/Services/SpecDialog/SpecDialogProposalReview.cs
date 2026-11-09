@@ -15,8 +15,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// 2026-09-17-042ed: reviews a design turn's spec or epic proposal INSIDE the turn — the read-only scopes are
 /// disposed in the runner's finally — and hands what it found back on the proposal. A review that could not be
 /// taken blocks nothing. 2026-10-02-3f06c: the evidence check runs first, each half in its own guard.
-/// 2026-10-13-8762i: with spec_review.rounds above 0 the whole-set call runs once and then the review rounds
-/// (<see cref="ProposalReviewLoop"/>), whose cuts the design partner applies; rounds 0 is the single review.
+/// 2026-10-13-8762i: with spec_review.rounds above 0 the whole-set call runs once, then the rounds; 0 reviews once.
 /// </summary>
 public sealed class SpecDialogProposalReview(
     ISpecCutReviewer reviewer,
@@ -25,7 +24,7 @@ public sealed class SpecDialogProposalReview(
     ISpecReviewSettingsReader settings, // 2026-10-13-8762i: read per turn, live
     ProposalReviewLoop rounds, TicketPlanReview plans, // 2026-10-14-dbcek: a list is reviewed as a plan
     ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the review is not dark
-    ILogger<SpecDialogProposalReview> logger)
+    ILogger<SpecDialogProposalReview> logger, ITurnProposalObserverAccessor? proposals = null) // 2026-11-09-9a98
 {
     /// <summary>The turn's reply: the one it had, unless rounds changed what it proposed.</summary>
     public async Task<AgenticLoopResult> ReviewAsync(
@@ -34,6 +33,9 @@ public sealed class SpecDialogProposalReview(
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal) || proposal is null) return loopResult;
+        // 2026-11-09-9a98: out before the review; an epic's parent is never reviewed, so only its children wait.
+        var waiting = proposal is EpicOutcome epic ? epic.Children : ProposalSpecSet.Drafts(proposal);
+        await (proposals?.PublishUnderReviewAsync(proposal with { NotReviewed = waiting.Count == 0 ? null : [.. waiting.Select(d => d.SpecId)] }, ct) ?? Task.CompletedTask);
         if (proposal is TicketGraphOutcome graph)
             return await plans.ReviewAsync(new ProposalTurn(pipeline, request, userPrompt, conversation, agent, costTracker), graph, loopResult, ct);
         if (ProposalSpecSet.Drafts(proposal) is not { Count: > 0 } drafts) return loopResult;

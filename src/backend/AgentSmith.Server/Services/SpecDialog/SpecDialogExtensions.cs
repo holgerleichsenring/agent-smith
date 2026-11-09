@@ -51,7 +51,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<FiledWorkTagger>();
         services.AddScoped<FiledWorkStarter>().AddScoped<FiledWorkMove>(); // 2026-10-13-9a59m: the move, shared
         services.AddScoped<SpecDialogOutcomeStore>();
-        services.AddScoped<SpecDialogLatestOutcomeStore>();
+        services.AddScoped<SpecDialogLatestOutcomeStore>().AddScoped<SpecDialogProposalContinuity>(); // 2026-11-09-9a98
         // 2026-09-17-0e79a: filing a spec stores the approved set under the ticket's spec key.
         // 2026-09-22-b3d7: one path does that for a lone spec and for an approved cut alike.
         services.AddScoped<ApprovedSpecSetRecorder>();
