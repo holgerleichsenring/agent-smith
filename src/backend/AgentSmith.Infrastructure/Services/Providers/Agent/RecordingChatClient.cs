@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
 using Microsoft.Extensions.AI;
@@ -7,20 +5,15 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
-/// p0423: records what was asked and what came back, one entry each, for every provider
-/// call of a traced run.
+/// p0423: records what came back for every provider call of a traced run, so a replay can serve it again.
 /// <para>
-/// It records the messages AS SENT — the composed system prompt, the whole conversation
-/// including previous tool results, the assistant's reply. That is the artefact p0422
-/// needed and did not have: a fix to what the model is told could not be confirmed,
-/// because nobody could read what the model was told.
+/// p0427: it sits in the FACTORY's chain, below the tool loop — so every consumer records (analyzer and spec derivation
+/// included, not only the master's skill calls) and every provider round-trip is its own entry.
 /// </para>
 /// <para>
-/// p0427: it sits in the FACTORY's chain, below the tool loop — so every consumer records
-/// (analyzer and spec derivation included, not only the master's skill calls) and every
-/// provider round-trip is its own entry. Recorded above the loop, a whole tool loop
-/// collapsed into one flattened entry that no replay could reproduce; p0176b had already
-/// moved the event decorator here for the same reason.
+/// 2026-11-09-0620d: it no longer records the prompt. Every call's prompt is stored always, deduplicated and with the
+/// tool list, tool calls and tool results this rendering dropped (2026-11-09-0620a), and opened from the call table; a
+/// second, whole copy here would only disagree with it.
 /// </para>
 /// </summary>
 public sealed class RecordingChatClient(
@@ -33,8 +26,6 @@ public sealed class RecordingChatClient(
     {
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
         var runId = runContext.CurrentRunId ?? string.Empty;
-        await trace.WriteAsync(
-            runId, RecordedTrace.PromptLabel, Render(materialised), cancellationToken);
         var response = await inner.GetResponseAsync(materialised, options, cancellationToken);
         // p0427: an answer is TEXT AND CALLS. Recording only the text made every tool-calling
         // answer record as empty — the half of a run a replay has to reproduce.
@@ -42,27 +33,6 @@ public sealed class RecordingChatClient(
             runId, RecordedTrace.AnswerLabel, TracedAnswer.Render(response), cancellationToken);
         return response;
     }
-
-    private static string Render(IEnumerable<ChatMessage> messages)
-    {
-        var sb = new StringBuilder();
-        foreach (var message in messages)
-        {
-            sb.Append("=== ").Append(message.Role).AppendLine(" ===");
-            foreach (var content in message.Contents)
-            {
-                if (content is TextContent text) sb.AppendLine(text.Text);
-                // 2026-10-01-283dd: an image is recorded as what identifies it, never as base64.
-                else if (content is DataContent data) sb.AppendLine(ImageLine(data));
-            }
-            sb.AppendLine();
-        }
-        return sb.ToString();
-    }
-
-    private static string ImageLine(DataContent data) =>
-        $"[image {data.MediaType}, {data.Data.Length} bytes, sha256 "
-        + $"{Convert.ToHexStringLower(SHA256.HashData(data.Data.Span))}]";
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,

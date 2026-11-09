@@ -3,9 +3,11 @@ namespace AgentSmith.Contracts.Runs;
 /// <summary>
 /// p0427: a recorded run, read back in the order it was written.
 /// <para>
-/// A replay drives the framework from <see cref="Answers"/> alone: the prompts and tool
-/// entries describe what the model SAW, which the framework composes again for itself when
-/// the recording is replayed. They are kept because they are the evidence a human reads.
+/// A replay drives the framework from <see cref="Answers"/> alone: the tool entries describe what
+/// the model SAW, which the framework composes again for itself when the recording is replayed.
+/// They are kept because they are the evidence a human reads. 2026-11-09-0620d: prompts are no
+/// longer written here; every call's prompt is stored deduplicated and always (2026-11-09-0620a).
+/// <see cref="PromptLabel"/> names the entries older traces hold.
 /// </para>
 /// </summary>
 public sealed class RecordedTrace

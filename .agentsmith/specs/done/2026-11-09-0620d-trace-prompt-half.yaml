@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620d
+goal: "The run trace's prompt half is the deduplicated prompt store: a traced run records answers and tool results on its switch, and every call's prompt always, once."
+requires: [2026-11-09-0620a]
+
+applies_to: "default (Infrastructure recording chat client, Contracts trace config) and dashboard (trace reader hint)"
+
+facts:
+  - claim: "A traced run writes every call's whole prompt as a 'prompt' entry beside its answer; a replay reads only the answers, and the prompt entries are kept as evidence for a person."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/RecordingChatClient.cs:36-41; src/backend/AgentSmith.Contracts/Runs/RecordedTrace.cs:6-9,24-26"
+  - claim: "Since 2026-11-09-0620a every call's prompt is stored deduplicated, always, with the tool list, tool calls and tool results the trace's rendering drops, and opened from the call table."
+    evidence: ".agentsmith/specs/done/2026-11-09-0620a-prompt-as-sent.yaml"
+
+scope:
+  in: "RecordingChatClient stops writing prompt entries; the trace switch's description and the trace reader say where prompts are; the image test moves to what the trace still records."
+  out: "Replay, answers and tool-result entries (unchanged). Prompt entries already recorded stay readable."
+
+decisions:
+  - key: "ONE STORE FOR PROMPTS. Two records of the same prompt, one whole and switched, one deduplicated and always on, would disagree the first time a rendering changes; the trace keeps what only it has — answers for replay and tool results as received."
+
+steps:
+  - id: recorder
+    action: "RecordingChatClient records the answer only; its summary names the prompt store as where the prompt lives."
+  - id: words
+    action: "TraceConfig and RecordedTrace say that prompts are always stored deduplicated and opened from the call table; the trace reader's absent hint says the same."
+  - id: tests
+    action: "RecordingChatClientImageTests asserts the trace holds no prompt entry; the image identity is pinned by PromptBlocksTests."
+
+tests:
+  - "RecordingChatClient_TracedCall_RecordsTheAnswerAndNoPrompt"
+
+done:
+  - when: "a run is traced after this ships"
+    then: "its trace holds answers and tool results and no whole-prompt entries, and each call's prompt opens from the call table"
+  - "Backend and dashboard build and tests green."
