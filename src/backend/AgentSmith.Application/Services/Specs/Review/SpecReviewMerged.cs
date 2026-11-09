@@ -10,4 +10,7 @@ public sealed record SpecReviewMerged(
     string? Verdict, IReadOnlyList<SpecReviewCut> Cuts, IReadOnlyList<SpecReviewFinding> Findings)
 {
     public bool IsTaken => Verdict is not null;
+
+    /// <summary>2026-11-09-9631b: no reviewer was taken, and at least one tried and could not read.</summary>
+    public bool Blind { get; init; }
 }

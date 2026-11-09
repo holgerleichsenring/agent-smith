@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-9631b
+
+decisions:
+  - category: Architecture
+    chose: "A reviewer is blind when every look it tried failed, or when it refused with nothing admitted while a look failed"
+    over: "Any failed look, or a reviewer who opened nothing"
+    reason: "A single failed path among real reads is ordinary work, and a reader who says build read what it read. A refuse with nothing admitted and a failed look may rest on what it could not read, and storing that as build is the reported defect. A reviewer who opened nothing never tried; 2026-10-13-8762e already judges that."
+  - category: Implementation
+    chose: "The reviewer marks Blind after admission; the merge leaves it out"
+    over: "Deciding inside SpecAttackAdmission.Admit, or a fourth verdict"
+    reason: "The series contract's admission calls Admit per item with no look of its own. Verdicts reach stored rounds and the dashboard, and a blind reviewer never reaches either."
+  - category: Architecture
+    chose: "Blind means not reviewed and holds approval for one further turn; if that turn is blind too the hold lifts and the finding stays"
+    over: "A permanent hold, or a finding with no hold"
+    reason: "Review of the spec found that a repository that can never be read, for example one with no clone URL, would remove the Approve button for good, which harms the dialog. A finding alone would pass a transient loss without a second try. One further turn is the chance to read; after that the person decides with the finding in front of them, and a run reviews the spec again before it builds."
+  - category: Scope
+    chose: "2026-09-18-44c2 stays planned, neither reused nor superseded"
+    over: "Folding it into this spec"
+    reason: "It concerns the diff review after a build and its report, not this draft review."
+  - category: Scope
+    chose: "A reviewer null for no repository or a failed model call stays a plain not taken"
+    over: "Marking every null not reviewed"
+    reason: "A turn with no repository has nothing a later turn could read, so a hold would never clear. Those causes are existing behaviour and out of this finding."
+  - category: Scope
+    chose: "Coding runs change only through the merge"
+    over: "Blindness detection in the run's review"
+    reason: "A coding run's reads of a non-scope sandbox record their look as ran, and a channel timeout mints none, so a run cannot see this the same way. It already reports not taken and goes on; the spec's own gates still follow."
+  - category: Implementation
+    chose: "An earlier taken round followed by a blind one keeps that earlier round's verdict for the draft's rounds"
+    over: "Discarding it"
+    reason: "It is what a run of rounds ending for any other reason does, and the not-reviewed mark and finding say the last text was not read."

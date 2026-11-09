@@ -18,6 +18,11 @@ internal static class ProposalReviewSummary
     public const string NotReviewedWhy =
         "the review's share of this turn ran out before this spec was reviewed; it cannot be approved until a later turn reviews it";
 
+    public const string UnreadWhy =
+        "the reviewers could not read what this spec names, so nobody checked it; it cannot be approved until a later turn tries again";
+    public const string UnreadAgainWhy =
+        "the reviewers could not read what this spec names on this turn either, so nobody checked it; it can be approved knowing that, and a run reviews it before it builds";
+
     public static ProposalReviewOutcome Of(ProposalReviewSession session, IReadOnlyList<SpecEvidenceProblem> parentProblems)
     {
         var order = ProposalSpecSet.Drafts(session.Proposal).Select(d => d.SpecId).ToList();
@@ -25,7 +30,9 @@ internal static class ProposalReviewSummary
         var waiting = drafts.Where(d => d.NotReviewed).Select(d => d.SpecId).ToList();
         var standing = Problems(ParentId(session.Proposal), parentProblems)
             .Concat(drafts.SelectMany(d => Problems(d.SpecId, d.Evidence.Problems).Concat(Uncleared(d))))
-            .Concat(waiting.Select(id => new ProposalFinding(id, NotReviewedYet, NotReviewedWhy)))
+            .Concat(drafts.Where(d => d.NotReviewed && !d.Unread).Select(d => new ProposalFinding(d.SpecId, NotReviewedYet, NotReviewedWhy)))
+            .Concat(drafts.Where(d => d.Unread).Select(d => new ProposalFinding(
+                d.SpecId, NotReviewedYet, d.NotReviewed ? UnreadWhy : UnreadAgainWhy)))
             .ToList();
         return new ProposalReviewOutcome(session.Proposal, [.. drafts.SelectMany(d => d.Rounds)],
             waiting.Count == 0 ? null : waiting, standing, Reply(session));

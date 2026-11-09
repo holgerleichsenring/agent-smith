@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-09-9631b: "BLIND REVIEW (spec attack reviewer, merge, proposal loop). A reviewer whose looks could not run leaves the merge instead of counting as build; a draft nobody could read stands as not reviewed with its reason, holds approval for one further turn, then only the finding stands. -> .agentsmith/specs/done/2026-11-09-9631b-review-blind.yaml"
     2026-11-09-9631a: "SANDBOX REOPEN (source scope and upload sandboxes: SandboxStepWatch, ReopeningSandboxSlot). A read beside the heartbeat notices a removed sandbox in seconds, reopens once and retries; a failed reopen refuses at once for the turn; an upload's command is not repeated. Reaper unchanged. -> .agentsmith/specs/done/2026-11-09-9631a-sandbox-reopen.yaml"
     2026-11-05-862ea: "DESIGN PARTNER WORK PICTURE (spec dialog: state_work_picture tool, prompt, conversation column, page). Kind, truth and size stored on the row and shown under the heading; uploads read before repos; ready-to-propose convergence; several specs per repository allowed. -> .agentsmith/specs/done/2026-11-05-862ea-design-partner-work-picture.yaml"
     2026-11-05-862eb: "DESIGN PARTNER FRAME SPLIT (design-master tools: outcome_format; skills PR). outcome_format(kind) on design turns returns the catalog reference for spec, bug, epic (spec then epic), tickets, comment or document; a catalog without it points at the master's own instructions; not on the steward. -> .agentsmith/specs/done/2026-11-05-862eb-design-partner-frame-split.yaml"

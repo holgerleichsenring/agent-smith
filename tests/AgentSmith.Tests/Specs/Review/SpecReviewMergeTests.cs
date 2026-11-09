@@ -9,6 +9,26 @@ namespace AgentSmith.Tests.Specs.Review;
 public sealed class SpecReviewMergeTests
 {
     [Fact]
+    public void SpecReviewMerge_BlindAndBuild_IsBuild()
+    {
+        var merged = SpecReviewMerge.Merge([
+            new SpecAttackResult(SpecReviewVerdicts.Refuse, [], []) { Blind = true },
+            new SpecAttackResult(SpecReviewVerdicts.Build, [], [])]);
+
+        merged.Verdict.Should().Be(SpecReviewVerdicts.Build);
+        merged.Blind.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SpecReviewMerge_OnlyBlind_IsNotTakenAndBlind()
+    {
+        var merged = SpecReviewMerge.Merge([new SpecAttackResult(SpecReviewVerdicts.Build, [], []) { Blind = true }, null]);
+
+        merged.IsTaken.Should().BeFalse();
+        merged.Blind.Should().BeTrue();
+    }
+
+    [Fact]
     public void ReviewMerge_MostSevereVerdictWins()
     {
         Merge(SpecReviewVerdicts.Build, SpecReviewVerdicts.BuildWithCuts).Verdict.Should().Be(SpecReviewVerdicts.BuildWithCuts);

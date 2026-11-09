@@ -57,10 +57,15 @@ public sealed class ProposalReviewLoop(
     private static bool Judge(ProposalReviewSession session, ProposalDraftReview draft, IReadOnlyList<SpecAttackResult?> answers)
     {
         var merged = SpecReviewMerge.Merge(answers);
+        if (merged.Blind)
+        {
+            draft.MarkUnread();
+            return false;
+        }
         if (merged.IsTaken)
         {
             draft.Merged = merged;
-            draft.Verdicts = [.. answers.Select(answer => answer?.Verdict)];
+            draft.Verdicts = [.. answers.Select(answer => answer is { Blind: false } ? answer.Verdict : null)];
         }
         var toFix = merged.Cuts.Count > 0 || merged.Verdict == SpecReviewVerdicts.Refuse;
         if (merged.IsTaken && !toFix) draft.Record(session.Round, []);

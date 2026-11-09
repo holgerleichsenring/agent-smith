@@ -42,7 +42,21 @@ public sealed class SpecAttackReviewer(
             logger.LogWarning("The attack review of {Spec} returned nothing readable", input.Draft.SpecId);
             return null;
         }
-        return admission.Admit(answer, SpecRegisters.Read(input.Draft.Yaml), look, input.RepositoryNames);
+        var admitted = admission.Admit(answer, SpecRegisters.Read(input.Draft.Yaml), look, input.RepositoryNames);
+        if (!IsBlind(answer, admitted, look)) return admitted;
+        logger.LogWarning("The attack review of {Spec} could not read what it reviews: its answer does not count",
+            input.Draft.SpecId);
+        return admitted with { Blind = true };
+    }
+
+    // 2026-11-09-9631b: every look it tried failed, or it refused with nothing admitted while a look failed,
+    // because that refuse may rest on what it could not read. One who opened nothing never tried: not blind.
+    private static bool IsBlind(SpecAttackAnswer answer, SpecAttackResult admitted, DerivationLook look)
+    {
+        var looks = look.Evidence.Looks;
+        if (looks.Count == 0 || looks.All(l => l.Ran)) return false;
+        return looks.All(l => !l.Ran)
+            || (answer.Verdict == SpecReviewVerdicts.Refuse && admitted.Findings.Count == 0);
     }
 
     private async Task<SpecAttackAnswer?> AskAsync(

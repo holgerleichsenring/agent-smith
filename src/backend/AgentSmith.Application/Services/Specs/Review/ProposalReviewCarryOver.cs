@@ -22,6 +22,7 @@ internal static class ProposalReviewCarryOver
     private static ProposalDraftReview Carried(
         ProposalDraftReview review, OutcomeProposal? revised, IReadOnlyList<string> waiting)
     {
+        review.WasWaiting = waiting.Contains(review.SpecId, StringComparer.Ordinal);
         if (revised is null || waiting.Contains(review.SpecId, StringComparer.Ordinal)
             || !ProposalSpecSet.Drafts(revised).Any(before => before.SpecId == review.SpecId
                 && string.Equals(before.Yaml, review.Draft.Yaml, StringComparison.Ordinal)))
