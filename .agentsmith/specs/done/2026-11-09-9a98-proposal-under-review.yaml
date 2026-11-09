@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-9a98
+goal: "A design turn's proposal reaches the conversation when the master has written it, marked under review, survives a cancel or failed review, and each round updates what is shown."
+
+applies_to: "default (Application proposal review; Server stored proposal, turn runner, view) and dashboard (proposal panel wording)"
+
+facts:
+  - claim: "A proposal is shown and stored only after its whole review, by the flow that runs when the turn has ended, so a cancel during the review leaves nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:37-41; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogTurnFlow.cs:37-40"
+  - claim: "The review lives inside the turn, after the outcome gate has resolved the proposal."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:32-52"
+  - claim: "Approval can only be given by answering the question the flow posts after the turn, and a proposal listing specs not reviewed is held."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:42; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:109-110"
+  - claim: "The latest proposal lives on the session row, so every replica reads it; whether a turn computes is known only to the replica running it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:36-39; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-22"
+  - claim: "A later turn reviews the listed not-reviewed drafts first and keeps the rounds of a draft that came back byte-identical, given the proposal it revises."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewCarryOver.cs:14-37"
+  - claim: "The thread and the transcript are written when a turn ends, so a cancelled turn's next turn cannot know its draft from either; the revision prompt renders findings only."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogRevisionSection.cs:18-34"
+
+scope:
+  in: "Publish the proposal, marked under review and with every draft listed not reviewed, before the review starts and again after each round; a final proposal clears the mark. A stored mark on a session whose turn is not computing reads as not reviewed. The next turn after an interruption revises the stored proposal and is told its text. Proposal panel shows rounds and the reviewed, not reviewed or under review state with the existing component."
+  out: "A new visual element. Streaming the master's draft before the outcome gate resolved it. An approval button on the panel. The ticket steward: it proposes nothing."
+
+decisions:
+  - key: "NO APPROVAL WHILE UNDER REVIEW. No question exists during the turn, and after an interruption the proposal lists its drafts as not reviewed, which the confirmer already holds. A person may always read it."
+  - key: "THE MARK IS STORED AND THE TRUTH IS READ. The row says the review started; a final proposal overwrites it. A cancel, a failure or a crash needs no cleanup: with no computing turn on this replica the view says not reviewed, which is what is true on every replica."
+  - key: "THE NEXT TURN CONTINUES RATHER THAN STARTS OVER. It gets the stored text with the instruction to repropose it unchanged unless the message changes it, so carried rounds stay and what was paid for is not paid again."
+  - key: "A PUBLISH NEVER FAILS THE REVIEW, and it writes in its own scope, because the turn's scope is in use around it."
+
+steps:
+  - id: contract
+    action: "OutcomeProposal.UnderReview; ITurnProposalObserver and its ambient accessor, silent by default."
+  - id: publish
+    action: "SpecDialogProposalReview publishes before reviewing; ProposalReviewLoop after each round, with what is stopped and what is still open."
+  - id: observer
+    action: "DialogProposalObserver stores and pushes in a scope of its own; the turn runner sets it."
+  - id: read
+    action: "OutcomeProposalJson and the composer carry the mark; the view reader keeps it only while the turn computes."
+  - id: resume
+    action: "The turn runner seeds an interrupted stored proposal as the one being revised; the revision section renders its drafts."
+  - id: dashboard
+    action: "The proposal panel renders DialogProposalRounds; a not-reviewed entry reads under review while the mark stands."
+
+tests:
+  - "ProposalReview_BeforeTheFirstRound_PublishesEveryDraftUnderReview"
+  - "ProposalReview_AfterARound_PublishesTheCutTextAndWhatIsStillOpen"
+  - "ProposalReview_ObserverThrows_TheReviewGoesOn"
+  - "OutcomeProposalJson_UnderReview_RoundTrips"
+  - "SpecDialogRevisionSection_InterruptedProposal_RendersItsDrafts"
+  - "SpecDialogTurn_CancelledDuringReview_KeepsTheProposalAndTheNextTurnContinuesIt"
+  - "SpecDialogView_StoredMarkWithNoComputingTurn_ReadsAsNotReviewed"
+  - "dashboard: DialogProposalRounds says under review, then not reviewed yet"
+
+done:
+  - when: "the master has written a proposal and the review is running"
+    then: "the conversation's stored proposal and the push carry it, marked under review, listing the drafts not yet through"
+  - when: "the turn is cancelled during the review"
+    then: "the proposal is still on the session, reads as not reviewed, cannot be approved, and the next turn continues from its text"
+  - when: "a review round finishes"
+    then: "the published proposal holds that round, its cuts and which drafts remain"
+  - when: "the review ends"
+    then: "the final proposal carries no mark"
+  - "Build green, full suite green, dashboard tests green."

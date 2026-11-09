@@ -42,6 +42,9 @@ public sealed record SpecDialogProposalPush(
     /// <summary>2026-10-13-8762i: the spec ids (or "series") not reviewed yet; null when all were.</summary>
     public IReadOnlyList<string>? NotReviewed { get; init; }
 
+    /// <summary>2026-11-09-9a98: its turn's review is running, so a not-reviewed entry is still under review.</summary>
+    public bool UnderReview { get; init; }
+
     /// <summary>2026-11-04-96a0c: per upload, how many readable files the proposing turn and the conversation opened.</summary>
     public IReadOnlyList<UploadProvenance> Uploads { get; init; } = [];
 

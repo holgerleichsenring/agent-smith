@@ -33,6 +33,15 @@ function proposal(notReviewed: string[] | null): SpecDialogProposalPush {
 }
 
 describe("DialogProposalRounds", () => {
+  // 2026-11-09-9a98: the proposal is readable while its review runs, and after the review was cut short.
+  it("DialogProposalRounds_UnderReview_SaysSoThenNotReviewedOnceItStops", () => {
+    const { rerender } = render(<DialogProposalRounds rounds={[]} notReviewed={["2026-10-14-9000b"]} underReview />);
+    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — under review");
+
+    rerender(<DialogProposalRounds rounds={[]} notReviewed={["2026-10-14-9000b"]} underReview={false} />);
+    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — not reviewed yet");
+  });
+
   it("DialogProposalRounds_RendersVerdictsCutsFindingsAndResiduePerRound", () => {
     render(<DialogProposalRounds rounds={rounds} />);
     const shown = screen.getAllByTestId("dialog-review-round");

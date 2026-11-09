@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-d27b
+goal: "A browser sandbox taken from a conversation's hold survives being removed mid-turn the way a source scope does, instead of waiting out the render timeout."
+requires: [2026-11-09-9631a]
+
+applies_to: "default (Application: browser sandbox opener and lease)"
+
+facts:
+  - claim: "The browser opener takes a hold directly through the register, so the source scope's reopen does not cover it."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/BrowserSandboxOpener.cs:45-49"
+
+scope:
+  in: "Run browser steps through SandboxStepWatch and, on a loss, open once more for that render."
+  out: "Source scopes and uploads: 2026-11-09-9631a."
+
+steps:
+  - id: watch
+    action: "Read how a lease serves a render, then wrap its steps in the watch and reopen on a loss."
+
+tests:
+  - "BrowserRender_HeldSandboxVanishes_ReopensAndRenders"
+
+done:
+  - when: "a held browser sandbox is removed during a render"
+    then: "the render finishes from a fresh sandbox or refuses with the reason within seconds"
+  - "Build green, full suite green."

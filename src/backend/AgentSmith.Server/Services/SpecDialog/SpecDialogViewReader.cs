@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.References;
@@ -60,6 +61,11 @@ public sealed class SpecDialogViewReader(
                 dialogId, pending.Question, state.LastActivityAt, pending.ExpiresAt)
             : null;
 
+    // 2026-11-09-9a98: a stored mark with no turn computing here was cancelled, failed or belongs to
+    // another replica. Not reviewed is true in all three, so the row needs no cleanup on any of them.
+    private OutcomeProposal Current(OutcomeProposal proposal, ConversationState state) =>
+        proposal.UnderReview && !turns.Liveness(state.JobId).Computing ? proposal with { UnderReview = false } : proposal;
+
     private SpecDialogSessionView Session(
         string dialogId, ConversationState state, SpecDialogLatestOutcome latest,
         IReadOnlyList<SpecDialogImageView> images, SpecDialogTicketView? ticket)
@@ -74,7 +80,7 @@ public sealed class SpecDialogViewReader(
             latest.Proposal is null
                 ? null
                 // The proposal was made by the turn that carried it, so that turn's moment is its own.
-                : proposalComposer.Compose(dialogId, latest.Proposal,
+                : proposalComposer.Compose(dialogId, Current(latest.Proposal, state),
                     card is { } turn ? state.Transcript[turn].At : state.LastActivityAt),
             latest.Filing is null
                 ? null

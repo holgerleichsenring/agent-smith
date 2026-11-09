@@ -42,6 +42,7 @@ internal static class OutcomeProposalJson
         Templates = proposal.Templates, Findings = proposal.Findings,
         ReviewRounds = proposal.ReviewRounds.Count == 0 ? null : proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
         Uploads = proposal.Uploads.Count == 0 ? null : proposal.Uploads,
+        UnderReview = proposal.UnderReview ? true : null,
     };
 
     private static OutcomeProposal FromDto(Dto dto) => (OutcomeProposal)(dto.Kind switch
@@ -56,7 +57,7 @@ internal static class OutcomeProposalJson
     }) with
     {
         Templates = dto.Templates ?? [], Findings = dto.Findings ?? [], ReviewRounds = dto.ReviewRounds ?? [],
-        NotReviewed = dto.NotReviewed, Uploads = dto.Uploads ?? [],
+        NotReviewed = dto.NotReviewed, Uploads = dto.Uploads ?? [], UnderReview = dto.UnderReview == true,
     };
 
     /// <param name="Findings">
@@ -81,6 +82,7 @@ internal static class OutcomeProposalJson
         IReadOnlyList<ProposalReviewRound>? ReviewRounds = null, // 2026-10-13-8762i: absent on an older row
         IReadOnlyList<string>? NotReviewed = null, AgentSmith.Contracts.Specs.SeriesContract? Contract = null, // 2026-10-13-8762j: epic only
         IReadOnlyList<GraphTicket>? Tickets = null, // 2026-10-14-dbcej: tickets only
+        bool? UnderReview = null, // 2026-11-09-9a98: absent on a final proposal
         string? Comment = null, // 2026-10-28-7a69c: comment only
         IReadOnlyList<UploadProvenance>? Uploads = null); // 2026-11-04-96a0c: absent on an older row
 }

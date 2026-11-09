@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-09-9a98: "PROPOSAL UNDER REVIEW (proposal review, stored proposal, turn runner, proposal panel). Published when written and after each round, marked under review; survives a cancel or failed review as not reviewed, and the next turn continues from its text. No approval until the review ends. -> .agentsmith/specs/done/2026-11-09-9a98-proposal-under-review.yaml"
     2026-11-09-9631c: "DIALOG ACTIVITY TRUTH (scope progress, reopen runner; dashboard reading line, step row). A lost sandbox reads as reopening, then ready or could not be opened, uploads included. The page keeps 1000 steps, not 50, so the earlier-steps row follows the count; holding fewer it says how many it lists. -> .agentsmith/specs/done/2026-11-09-9631c-dialog-activity-truth.yaml"
     2026-11-09-9631b: "BLIND REVIEW (spec attack reviewer, merge, proposal loop). A reviewer whose looks could not run leaves the merge instead of counting as build; a draft nobody could read stands as not reviewed with its reason, holds approval for one further turn, then only the finding stands. -> .agentsmith/specs/done/2026-11-09-9631b-review-blind.yaml"
     2026-11-09-9631a: "SANDBOX REOPEN (source scope and upload sandboxes: SandboxStepWatch, ReopeningSandboxSlot). A read beside the heartbeat notices a removed sandbox in seconds, reopens once and retries; a failed reopen refuses at once for the turn; an upload's command is not repeated. Reaper unchanged. -> .agentsmith/specs/done/2026-11-09-9631a-sandbox-reopen.yaml"
