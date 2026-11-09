@@ -52,7 +52,7 @@ internal static class MasterUserPrompt
     // addressed by repo-prefixed tool paths), not a singular "Working Repository" that
     // silently promoted the first sandbox. Single-repo runs render a one-entry list
     // through the same path.
-    private static string RenderCheckouts(Repository repo, IEnumerable<string> sandboxKeys)
+    internal static string RenderCheckouts(Repository repo, IEnumerable<string> sandboxKeys)
     {
         var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
         if (names.Count == 0)

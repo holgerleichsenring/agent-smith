@@ -35,11 +35,9 @@ internal static class MasterNudges
     // p0255: the focused second-shot prompt when the master planned but edited
     // nothing — the plan is not the deliverable, the edited source is.
     internal static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "You wrote a plan but have NOT edited any source file yet. The plan is not the "
-        + "deliverable — the edited source is. Apply your plan NOW: make the edits with "
-        + "edit / multi_edit / write_file (repo-prefixed paths), then build, run the tests, "
-        + "and emit your verdict. Do not stop until at least one SOURCE file is changed, or "
-        + "you report a concrete blocker explaining why no edit was possible.\n\n"
+        "You wrote a plan and have not made the changes it names yet. The plan is not the "
+        + "deliverable; the change is. Make those edits, then build, run the tests and emit "
+        + "your verdict. If an edit cannot be made, the verdict says what blocks it.\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -72,9 +70,9 @@ internal static class MasterNudges
         // scratch" is gone. It was asked of a pass that had been handed no left-off, so the
         // only way to obey it was to re-derive — 34 passes of the same greps on run 98b9.
         // The transcript now arrives with the request; the nudge names the next turn.
-        + "Continue the checklist — these plan steps still remain. You are NOT done until the "
-        + "checklist is drained. If a remaining step needs a decision only the operator can "
-        + "make, use ask_human and stop rather than guessing.\n\n"
+        + "These checklist steps are still open. Do the ones that hold work you have not done, "
+        + "and mark a step done or remove it when it holds none. If a step needs a decision "
+        + "only the operator can make, ask_human posts it and the run waits for the answer.\n\n"
         + LedgerNudgeSection(ledger)
         + WorkingStateSection.Build(decisions, verification, changedPaths, stagedRegistries)
         + "Original task:\n" + originalUserPrompt;

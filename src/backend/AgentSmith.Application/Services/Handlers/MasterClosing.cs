@@ -5,16 +5,16 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// 2026-11-09-0620c: the last words of a master's user prompt, written for the master's role. The generic user prompt
 /// served every master without a schema of its own, so a discussion master and a legal master ended on a coding
-/// procedure their skills forbid. The coding closing is kept as it was.
+/// procedure their skills forbid. 2026-11-09-0620f: the coding closing ends on the verdict block the framework parses,
+/// not on a summary, and leaves the tools to describe themselves.
 /// </summary>
 internal static class MasterClosing
 {
     internal const string Coding =
         """
         Investigate the repositories, plan your change, implement it, and verify
-        it (build + tests). Use the available tools — read_file, grep_in_tree,
-        edit, write_file, run_command, log_decision, ask_human. When you are
-        done, stop calling tools and summarise what changed.
+        it (build + tests). Your last message is your verdict block, which the
+        framework reads to decide what this run delivered.
         """;
 
     internal const string Report =

@@ -54,10 +54,9 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
         return $"""
             {header}
 
-            ## Working Repository
-            **Path:** {repository.LocalPath}
-            **Branch:** {repository.CurrentBranch}
-            **Sandbox keys:** {string.Join(", ", sandboxKeys)}
+            ## Working Repositories
+            One checkout per repository, all on the run branch:
+            {Handlers.MasterUserPrompt.RenderCheckouts(repository, sandboxKeys)}
             {SpecExecutionPromptBlocks.StagedRegistries(pipeline)}
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
             {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
