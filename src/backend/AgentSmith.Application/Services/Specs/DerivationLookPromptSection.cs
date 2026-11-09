@@ -38,7 +38,8 @@ internal static class DerivationLookPromptSection
             + $"of {look.Terms.Allowance}. A template answers HOW work is done here — "
             + "the shape a component takes, where things live, what a change touches. It never "
             + "says WHAT this ticket wants, and where the target already has a counterpart, the "
-            + "target's own form wins.");
+            + "target's own form wins. A cut that should follow a template cannot be made without reading "
+            + "it, so running out of the template allowance ends the derivation.");
         foreach (var template in look.Templates.Keys) sb.AppendLine($"- {template}");
         return sb.ToString();
     }

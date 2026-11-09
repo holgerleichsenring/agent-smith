@@ -13,7 +13,6 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class RunDirectoryReader
 {
     private const string LastCompiledFile = ".last-compiled";
-    private const string IndexFile = "index.md";
 
     public async Task<List<RunDirectoryInfo>> GetRunDirectoriesAsync(
         ISandboxFileReader reader, string runsDir, CancellationToken cancellationToken)
@@ -37,11 +36,20 @@ public sealed class RunDirectoryReader
         return content?.Trim() ?? string.Empty;
     }
 
+    // 2026-11-09-0620h: every page, not only the index. A page the compile returns replaces the stored one, so a model
+    // shown only index.md rewrote decisions.md and known-issues.md from nothing and their history was lost.
     public async Task<string> ReadExistingWikiAsync(
         ISandboxFileReader reader, string wikiDir, CancellationToken cancellationToken)
     {
-        var content = await reader.TryReadAsync(Path.Combine(wikiDir, IndexFile), cancellationToken);
-        return content ?? string.Empty;
+        var entries = await reader.ListAsync(wikiDir, maxDepth: 1, cancellationToken);
+        var sb = new System.Text.StringBuilder();
+        foreach (var path in entries.Where(e => e.EndsWith(".md", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            var content = await reader.TryReadAsync(path, cancellationToken);
+            if (content is null) continue;
+            sb.Append("### ").AppendLine(LastSegment(path)).AppendLine(content.TrimEnd()).AppendLine();
+        }
+        return sb.ToString().TrimEnd();
     }
 
     public async Task<List<RunData>> ReadRunDataAsync(

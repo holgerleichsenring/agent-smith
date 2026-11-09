@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620h
+
+decisions:
+  - category: Implementation
+    chose: "Tell the derivation that executed specs are kept by the system and need only a placeholder entry"
+    over: "Asking it to repeat them word for word"
+    reason: "The parser discards those entries and keeps the executed specs verbatim; asking for an exact copy cost output tokens and implied a check that never ran."
+  - category: Implementation
+    chose: "Show the knowledge compile every wiki page"
+    over: "Telling it to leave pages it cannot see"
+    reason: "It is asked to note when a later run supersedes an earlier decision, which needs the decisions page; without it, a returned decisions.md replaced the stored history with one run's view."

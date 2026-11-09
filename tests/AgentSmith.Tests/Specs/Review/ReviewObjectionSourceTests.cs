@@ -49,7 +49,7 @@ public sealed class ReviewObjectionSourceTests
         decision.Cause.Should().Be(SpecRevisionCause.Comment);
         decision.NeedsModel.Should().BeTrue();
         PreviousCutPromptSection.Render(decision.Set, decision.Cause!, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)
-            .Should().Contain($"{First} (EXECUTED — keep exactly as it is)").And.Contain($"{Second} (not started)");
+            .Should().Contain($"{First} (ran — kept as it is)").And.Contain($"{Second} (not started)");
     }
 
     [Fact]

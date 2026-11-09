@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-09-0620h: "DERIVATION AND KNOWLEDGE TEXTS (derivation prompt, previous cut, look tools, knowledge compile). Look tools name the right repository list; the code map is a summary; executed specs are placeholders the system fills; template exhaustion is stated; the knowledge compile sees every wiki page. -> .agentsmith/specs/done/2026-11-09-0620h-derivation-and-knowledge-texts.yaml"
     2026-11-09-0620g: "REVIEW AND BOOTSTRAP TEXTS (scan, PR diff, analyzer, bootstrap, ownership). Read-only as a fact; coverage nudge names count and floor; reconciliation asks one array; missing diff said outside the untrusted block; no analyzer procedure line; context-generator retired. -> .agentsmith/specs/done/2026-11-09-0620g-review-and-bootstrap-texts.yaml"
     2026-11-09-0620f: "CODING RUN TEXTS (master nudges, closing, spec prompt, ask_human, file tools). Nudges ask for remaining work, not any source edit or a drained list; the closing ends on the verdict; spec runs list every checkout; ask_human says once what happens and posts the recommended choice; paths explain multi-repo form. -> .agentsmith/specs/done/2026-11-09-0620f-coding-run-texts.yaml"
     2026-11-09-0620e: "SUB-AGENT SITUATION (sub-agent runner, spawn and observation tools). Every child is told its repositories and path prefix, whether it writes, its round bound and that its last message is all its master gets; spawn_agents returns each answer cut at 6000 characters instead of counts. -> .agentsmith/specs/done/2026-11-09-0620e-sub-agent-situation.yaml"
