@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620a
+
+decisions:
+  - category: Architecture
+    chose: "Store every call's prompt always, deduplicated: one row per distinct block (the tool list, one per message) and per call only the blocks it appended to a recent record of its run"
+    over: "Turning the p0423 trace on by default, or storing each call's prompt whole"
+    reason: "The trace was kept off because whole prompts grew from 145k to 4.1M characters within one spec, and its rendering drops the tool list, tool calls and tool results. A tool loop resends everything before it, so whole prompts grow with the square of the loop; storing the appended blocks grows with the messages, and the system prompt and tool list are one row however many calls send them."
+  - category: Implementation
+    chose: "Record in EventPublishingChatClient, below the tool loop and below the secret masking, and carry the id on LlmCallFinished"
+    over: "A separate decorator, or recording in the skill runtime"
+    reason: "That client already sees every provider round-trip of every consumer with masked messages, and it already emits the event the call table is folded from; one place, nothing new in the chain."
+  - category: Implementation
+    chose: "A failed store returns no id and the call goes out"
+    over: "Failing or retrying the call"
+    reason: "Recording is an instrument. Writes in one process are serialised so parallel sub-agents do not race on the shared tool list; a race with another replica is retried once and then given up."
+  - category: Implementation
+    chose: "The viewer opens from the prompt cell of the existing Why call table, one collapsible row per block"
+    over: "A page of its own"
+    reason: "The table already lists every call in call order with its prompt size; the viewer is a panel under it in the same visual language, so no mock is due. The table gains tool count and cached share per call."
+  - category: Implementation
+    chose: "Run deletion and the 90-day retention remove a run's records, then every block no record row names"
+    over: "Keeping blocks forever"
+    reason: "Blocks are shared across calls and runs, so they can only go once nothing holds them; the data archive picks the three tables up from the model, which is why the archive tests now count 57 tables."

@@ -11,12 +11,14 @@ import { CommandTable } from "./CommandTable";
 // returned non-zero; a spec that stalled shows the prompt climbing while the answer fell.
 
 export interface SpecAccountProps {
+  /** 2026-11-09-0620a: the run the calls belong to, so a call's prompt can be opened. */
+  runId?: string;
   spec: RunSpecStatistics;
   calls: RunCallPoint[];
   commands: RunCommandPoint[];
 }
 
-export function SpecAccount({ spec, calls, commands }: SpecAccountProps) {
+export function SpecAccount({ runId, spec, calls, commands }: SpecAccountProps) {
   const failed = spec.failedCommands > 0 || spec.calls.failedCalls > 0;
   return (
     <section className="card" data-testid="spec-account" data-spec={spec.specId ?? ""}>
@@ -33,7 +35,7 @@ export function SpecAccount({ spec, calls, commands }: SpecAccountProps) {
         <h4 style={HEADING}>Commands and how they ended</h4>
         <CommandTable commands={commands} />
         <h4 style={HEADING}>The calls in full</h4>
-        <CallTable calls={calls} />
+        <CallTable runId={runId} calls={calls} />
       </div>
     </section>
   );

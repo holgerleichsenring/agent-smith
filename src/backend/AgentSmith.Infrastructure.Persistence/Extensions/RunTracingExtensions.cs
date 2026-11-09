@@ -20,6 +20,10 @@ public static class RunTracingExtensions
         services.AddSingleton<IRunTraceWriter, RunTraceWriter>();
         // p0427: a record nobody can read back is a record nobody can replay.
         services.AddSingleton<IRunTraceReader, RunTraceReader>();
+        // 2026-11-09-0620a: every model call keeps what it was sent, deduplicated, so this is not behind the switch.
+        services.AddSingleton<Services.Prompts.PromptRecentRecords>();
+        services.AddSingleton<AgentSmith.Contracts.Prompts.IPromptRecorder, Services.Prompts.PromptRecorder>();
+        services.TryAddScoped<Services.Prompts.PromptRecordReader>();
         return services;
     }
 }

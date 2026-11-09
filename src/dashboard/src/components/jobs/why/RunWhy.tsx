@@ -69,6 +69,7 @@ export function RunWhy({ runId }: { runId: string }) {
             ) : (
               statistics.specs.map((spec) => (
                 <SpecAccount
+                  runId={runId}
                   key={spec.specId ?? "outside-any-spec"}
                   spec={spec}
                   calls={statistics.calls.filter((c) => c.specId === spec.specId)}

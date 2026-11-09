@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Prompts;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Turns;
 using Microsoft.Extensions.AI;
@@ -33,7 +34,9 @@ public sealed class EventPublishingChatClient(
     string configuredModel = "",
     // 2026-09-17-042ee: the ambient observer a design turn sets. Null where nothing was
     // injected, which is the same silence as nothing being set.
-    ITurnActivityObserverAccessor? turnActivity = null) : IChatClient
+    ITurnActivityObserverAccessor? turnActivity = null,
+    // 2026-11-09-0620a: keeps what each call was sent. Null where nothing was injected: nothing is kept.
+    IPromptRecorder? prompts = null) : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -59,6 +62,10 @@ public sealed class EventPublishingChatClient(
                 cancellationToken);
         }
 
+        var toolCount = PromptBlocks.ToolCount(options);
+        var promptId = await RecordPromptAsync(runId, materialised, options, toolCount, cancellationToken);
+        var sent = new SentPrompt(prompt.Length, promptId, toolCount);
+
         var sw = Stopwatch.StartNew();
         ChatResponse answered;
         string? intent;
@@ -68,7 +75,7 @@ public sealed class EventPublishingChatClient(
             sw.Stop();
             await PublishFinishedAsync(
                 runId, scope, model, response.Response, response.ThrottleWaitMs,
-                sw.ElapsedMilliseconds, prompt.Length, WorkOutcome.Ok, cancellationToken);
+                sw.ElapsedMilliseconds, sent, WorkOutcome.Ok, cancellationToken);
             // p0222: stash the assistant's one-sentence intent narration on the shared
             // call scope so the turn's ToolCall events can read it. Same scope instance
             // spans this call and its tool invocations; each turn overwrites it.
@@ -87,7 +94,7 @@ public sealed class EventPublishingChatClient(
             var outcome = ex is OperationCanceledException ? WorkOutcome.Cancelled : WorkOutcome.Failed;
             await PublishFinishedAsync(
                 runId, scope, model, null, 0, sw.ElapsedMilliseconds,
-                prompt.Length, outcome, CancellationToken.None);
+                sent, outcome, CancellationToken.None);
             throw;
         }
 
@@ -112,9 +119,27 @@ public sealed class EventPublishingChatClient(
         return (response, waitScope.WaitedMs);
     }
 
+    // 2026-11-09-0620a: a store that fails costs the call its prompt id, never the call.
+    private async Task<string?> RecordPromptAsync(
+        string? runId, IList<ChatMessage> messages, ChatOptions? options, int toolCount,
+        CancellationToken cancellationToken)
+    {
+        if (prompts is null || string.IsNullOrEmpty(runId)) return null;
+        try
+        {
+            return await prompts.RecordAsync(runId, PromptBlocks.From(messages, options), toolCount, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private sealed record SentPrompt(long Chars, string? Id, int ToolCount);
+
     private async Task PublishFinishedAsync(
         string? runId, CallScope? scope, string model, ChatResponse? response,
-        long throttleWaitMs, long durationMs, long promptChars,
+        long throttleWaitMs, long durationMs, SentPrompt sent,
         WorkOutcome outcome, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(runId)) return;
@@ -136,9 +161,11 @@ public sealed class EventPublishingChatClient(
                 CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
                 CacheCreationTokensIn: cache.Creation,
                 ThrottleWaitMs: throttleWaitMs,
-                PromptChars: promptChars,
+                PromptChars: sent.Chars,
                 ResponseChars: response?.Text?.Length ?? 0,
-                Outcome: outcome),
+                Outcome: outcome,
+                PromptId: sent.Id,
+                ToolCount: sent.ToolCount),
             cancellationToken);
     }
 

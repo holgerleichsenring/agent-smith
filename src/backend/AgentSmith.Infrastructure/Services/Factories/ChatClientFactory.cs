@@ -34,7 +34,8 @@ public sealed class ChatClientFactory(
     WindowDerivedCompaction windowCompaction,
     ToolImages.IToolImageRelay toolImages, // 2026-10-01-283dd
     Contracts.Runs.SecretMasker masker, // 2026-10-25-c5a7i
-    ILoggerFactory loggerFactory)
+    ILoggerFactory loggerFactory,
+    Contracts.Prompts.IPromptRecorder? prompts = null) // 2026-11-09-0620a
     : IChatClientFactory
 {
     private const int MaxIterationsPerRequest = 25;
@@ -146,7 +147,7 @@ public sealed class ChatClientFactory(
         // resolver can't price a config-only model → $0.0000 despite real tokens.
         var pricing = new OverlayModelPricingResolver(pricingResolver, agent.Pricing);
         var instrumented = new EventPublishingChatClient(resilient, eventPublisher, runContext,
-            new LlmCallCostCalculator(pricing), waitReporter, assignment.Model ?? "", turnActivity);
+            new LlmCallCostCalculator(pricing), waitReporter, assignment.Model ?? "", turnActivity, prompts);
 
         // p0427: a traced run records EVERY provider call here, below the tool loop, so the
         // record is a replayable sequence instead of one flattened entry per skill call —

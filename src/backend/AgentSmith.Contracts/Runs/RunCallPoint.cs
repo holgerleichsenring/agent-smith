@@ -8,6 +8,7 @@ namespace AgentSmith.Contracts.Runs;
 /// </summary>
 /// <param name="Index">Position in the run's call order, 1-based.</param>
 /// <param name="SpecId">The spliced spec the call belongs to; null outside any spec.</param>
+/// <param name="PromptId">2026-11-09-0620a: the stored prompt of the call; null for calls before it or unstored.</param>
 public sealed record RunCallPoint(
     int Index,
     string? SpecId,
@@ -19,4 +20,8 @@ public sealed record RunCallPoint(
     long DurationMs,
     long ThrottleWaitMs,
     string Outcome,
-    int Attempt);
+    int Attempt,
+    string? PromptId = null,
+    int ToolCount = 0,
+    long TokensIn = 0,
+    long CachedTokensIn = 0);
