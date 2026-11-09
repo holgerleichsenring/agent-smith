@@ -21,7 +21,7 @@ public sealed class AgentPromptBuilderVerifyNotesTests
         var prompts = new Mock<IPromptCatalog>();
         prompts.Setup(p => p.Render(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()))
                .Returns("system-stub");
-        _sut = new AgentPromptBuilder(prompts.Object);
+        _sut = new AgentPromptBuilder();
     }
 
     [Fact]

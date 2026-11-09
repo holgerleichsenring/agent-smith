@@ -14,7 +14,7 @@ internal static class MasterUserPrompt
 {
     internal static string Build(
         Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys,
-        string conversationSection, string attachmentsSection)
+        string conversationSection, string attachmentsSection, string? closing = null)
     {
         // 2026-09-24-b3c1: an Azure DevOps body arrives as HTML. The derivation path has
         // read it as TEXT since p0399; the coding master was simply never joined to the
@@ -44,10 +44,7 @@ internal static class MasterUserPrompt
             One checkout per repository, all on the run branch:
             {RenderCheckouts(repo, sandboxKeys)}
 
-            Investigate the repositories, plan your change, implement it, and verify
-            it (build + tests). Use the available tools — read_file, grep_in_tree,
-            edit, write_file, run_command, log_decision, ask_human. When you are
-            done, stop calling tools and summarise what changed.
+            {closing ?? MasterClosing.Coding}
             """;
     }
 

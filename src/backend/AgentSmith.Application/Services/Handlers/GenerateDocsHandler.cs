@@ -57,7 +57,7 @@ public sealed class GenerateDocsHandler(
         var plan = BuildSyntheticPlan(context.Changes);
         var (fs, log, human) = passTools.For(partition, context.Repository.LocalPath);
 
-        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
+        var systemPrompt = promptBuilder.BuildChangePassSystemPrompt(ChangePass.Docs,
             context.CodingPrinciples, context.RepoCodeMaps, context.ProjectContext);
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(plan, context.Repository);
 

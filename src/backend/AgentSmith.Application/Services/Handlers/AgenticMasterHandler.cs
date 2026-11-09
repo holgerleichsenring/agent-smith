@@ -344,9 +344,9 @@ public sealed class AgenticMasterHandler(
                     context.Repository, addressNames,
                     extras.Conversation, extras.Attachments)
                 : isScanMaster
-                    ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
+                    ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames, context.MasterSkillName)
                     : MasterUserPrompt.Build(ticket, context.Repository, addressNames,
-                        extras.Conversation, extras.Attachments);
+                        extras.Conversation, extras.Attachments, MasterClosing.For(context.MasterSkillName, context.Pipeline));
         // 2026-10-01-7f7ad: the Figma links of ticket or conversation, rebuilt from key and node.
         if (!isScanMaster)
             userPrompt += DesignReferenceSection.Render(DesignReferenceTexts.From(context.Pipeline, ticket),
@@ -476,7 +476,7 @@ public sealed class AgenticMasterHandler(
         {
             var passes = await scanPasses.DriveAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation,
-                fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads,
+                fs.ReadPaths.Count, ScanReadFloor.Of(context.MasterSkillName, context.AgentConfig),
                 TrackMasterResponse, cancellationToken);
             loopResult = passes.Result;
             scanAnswer = passes.Answer;

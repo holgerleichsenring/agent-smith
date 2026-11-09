@@ -77,4 +77,7 @@ public static partial class ContextKeys
     /// silently drop the rest.
     /// </summary>
     public const string BootstrapOutcomes = "BootstrapOutcomes";
+
+    // 2026-11-09-0620c: where the converted document sits, so the legal master is told rather than left to look.
+    public const string DocumentMarkdownPath = "DocumentMarkdownPath";
 }

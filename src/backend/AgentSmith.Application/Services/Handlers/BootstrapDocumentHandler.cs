@@ -51,7 +51,7 @@ public sealed class BootstrapDocumentHandler(
 
         var markdownPath = Path.Combine(workspace, $"{fileName}.md");
         await reader.WriteAsync(markdownPath, markdown, cancellationToken);
-        context.Pipeline.Set(ContextKeys.DocumentMarkdown, markdown);
+        context.Pipeline.Set(ContextKeys.DocumentMarkdown, markdown); context.Pipeline.Set(ContextKeys.DocumentMarkdownPath, markdownPath); // 0620c
         logger.LogInformation("Converted {File} to Markdown ({Chars} chars)", LastSegment(sourceFile), markdown.Length);
 
         var contractType = await DetectContractTypeAsync(markdown, context.Agent, cancellationToken);

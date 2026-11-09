@@ -162,7 +162,7 @@ public sealed class BootstrapPerContextTests
         // "Applies to: <value>" line near the top when the optional appliesTo
         // argument is non-empty; empty/null emits nothing (back-compat).
         var prompts = new Mock<IPromptCatalog>();
-        var builder = new AgentPromptBuilder(prompts.Object);
+        var builder = new AgentPromptBuilder();
         var plan = new Plan("test", new List<PlanStep> { new(1, "noop", new FilePath("x"), "Create") }, "{}");
         var repo = new Repository(new BranchName("main"), "https://x/y.git");
 

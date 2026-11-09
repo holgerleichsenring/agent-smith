@@ -20,12 +20,15 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
 {
-    public string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames)
+    public string Build(
+        PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames, string? master = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(repoNames);
         var repos = repoNames.Count > 1 ? $"**Repositories:** {string.Join(", ", repoNames)}\n" : string.Empty;
+        if (master == PipelinePresets.MasterFor("pr-review"))
+            return PrReviewPrompt.Build(repository, repos, BuildConversationSection(pipeline));
         var anchored = ScanFindingsSection.HasScannerReports(pipeline);
         return $"""
             You are running a SECURITY REVIEW, not a coding task. Do NOT modify any
