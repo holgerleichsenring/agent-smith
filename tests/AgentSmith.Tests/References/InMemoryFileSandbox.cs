@@ -27,8 +27,17 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
 
     public string JobId { get; } = "mem-" + Guid.NewGuid().ToString("N")[..8];
 
-    public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken) =>
-        Task.FromResult(step.Kind switch
+    /// <summary>2026-11-09-9631a: removed under the reader: a step pushed now never gets an answer.</summary>
+    public bool Vanished { get; set; }
+
+    public async Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
+    {
+        if (Vanished) await Task.Delay(Timeout.Infinite, cancellationToken);
+        return Answer(step);
+    }
+
+    private StepResult Answer(Step step) =>
+        step.Kind switch
         {
             StepKind.WriteFile => Write(step),
             StepKind.WriteBytes => WriteBytes(step),
@@ -39,7 +48,7 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
             StepKind.Run when step.Command == "python3" => Python(step),
             StepKind.Run when step.Command == "/bin/sh" => Shell(step),
             _ => Ok(step, string.Empty),
-        });
+        };
 
     private StepResult Write(Step step)
     {

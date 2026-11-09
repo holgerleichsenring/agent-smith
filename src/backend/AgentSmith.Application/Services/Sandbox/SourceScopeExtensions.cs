@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
@@ -34,6 +35,10 @@ public static class SourceScopeExtensions
         // 2026-09-22-2d11b: and the heartbeat a take is verified through. Inert for the
         // same reason: with no Redis there is no heartbeat, so no hold is ever handed out.
         services.TryAddSingleton<ISandboxHeartbeatProbe, NoSandboxHeartbeatProbe>();
+        // 2026-11-09-9631a: and asked beside every step of a scope, so a sandbox removed under a
+        // read is reopened. Only a holdable sandbox is watched, and those run where the probe is real.
+        services.TryAddSingleton(sp => new SandboxStepWatch(
+            sp.GetRequiredService<ISandboxHeartbeatProbe>(), sp.GetRequiredService<ILogger<SandboxStepWatch>>()));
         return services;
     }
 }
