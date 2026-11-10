@@ -16,8 +16,8 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
     public bool Stopped { get; set; }
     public bool NotReviewed { get; set; }
 
-    /// <summary>2026-11-10-18cf: why this draft's review has not finished — the run's cost cap, or no reviewer
-    /// answered — or null.</summary>
+    /// <summary>2026-11-10-18cf: why this draft's review has not finished — the run's cost cap, no reviewer
+    /// answered, or its reviewers could not read — or null.</summary>
     public string? StoppedBecause { get; set; }
 
     /// <summary>2026-11-10-18cf: the text the last taken round attacked.</summary>
@@ -25,24 +25,19 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
 
     public bool AttackedCurrentText => string.Equals(AttackedYaml, Draft.Yaml, StringComparison.Ordinal);
 
-    /// <summary>2026-11-09-9631b: the turn this draft came in on was already to review it because its reviewers
-    /// could not read. 2026-11-10-18cf: only that wait counts — a draft left waiting by the budget or a cancel was
-    /// never read, and is owed its first try.</summary>
-    public bool WaitedUnread { get; set; }
-
-    /// <summary>2026-11-09-9631b: this turn's reviewers could not read what it names.</summary>
-    public bool Unread { get; private set; }
+    /// <summary>2026-11-10-8e59: a review ended clean on exactly this text — its last round said build on it.</summary>
+    public bool ReviewedClean =>
+        !NotReviewed && AttackedCurrentText && Rounds is [.., { Verdict: SpecReviewVerdicts.Build }];
 
     public string SpecId => Draft.SpecId;
 
-    /// <summary>2026-11-09-9631b: not reviewed, and holding the approval for one further turn. A repository
-    /// that can never be read must not take the Approve button away for good: the finding stays and
-    /// a person decides, and a run reviews again before it builds.</summary>
+    /// <summary>2026-11-09-9631b: this turn's reviewers could not read what it names. 2026-11-10-8e59: the draft is
+    /// marked not reviewed with that reason, and the review before it is built reads it again.</summary>
     public void MarkUnread()
     {
-        Unread = true;
         Stopped = true;
-        NotReviewed = !WaitedUnread;
+        NotReviewed = true;
+        StoppedBecause = ProposalReviewSummary.UnreadWhy;
     }
 
     /// <summary>Records this round with the residues it left, the merged answer taken from <see cref="Merged"/>.</summary>

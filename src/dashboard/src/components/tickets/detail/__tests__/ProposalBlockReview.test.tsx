@@ -27,8 +27,9 @@ describe("ProposalBlock review", () => {
     expect(within(first).getByTestId("dialog-review-round")).toHaveTextContent("round 1: build-with-cuts");
     expect(within(first).getByTestId("dialog-round-cut")).toHaveTextContent("cut goal: “first” → “opening”");
     const second = screen.getByTestId("proposal-draft-2026-10-14-9000c");
-    expect(within(second).getByTestId("proposal-not-reviewed-2026-10-14-9000c")).toHaveTextContent("not reviewed yet");
-    expect(screen.getByTestId("proposal-not-reviewed-series")).toHaveTextContent("the series contract is not reviewed yet");
+    expect(within(second).getByTestId("proposal-not-reviewed-2026-10-14-9000c")).toHaveTextContent("not yet reviewed, will be reviewed before it is built");
+    expect(screen.getByTestId("proposal-not-reviewed-series"))
+      .toHaveTextContent("the series contract — not yet reviewed, will be reviewed before it is built");
     expect(screen.getByTestId("dialog-proposal-finding")).toHaveTextContent("2026-10-14-9000c — not reviewed yet");
   });
 

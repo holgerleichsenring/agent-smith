@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// is the unexecuted members before 8762g's <see cref="ContextKeys.SpecSequenceStop"/> — all of them when none was
 /// set — and the round never moves that stop. A cut lands only on a member g reviewed in this attempt: one naming an
 /// executed member (append-only, which nothing on <see cref="SpecSet"/> refuses) or a member at or past the stop is
-/// an evidence problem, and one naming a cleared member g skipped as the approved text becomes a finding.
+/// an evidence problem, and one naming a cleared member g skipped as reviewed clean in its exact text becomes a finding.
 /// </summary>
 internal static class SeriesRoundScope
 {
@@ -23,7 +23,7 @@ internal static class SeriesRoundScope
         set.Contract is null || set.Contract.IsEmpty ? "the set has no series contract"
         : set.UnexecutedTail.Count < 2 ? "the set has a single unexecuted member"
         : prefix.Count == 0 ? "no member is cleared before the stop"
-        : !prefix.Any(spec => reviewed.Contains(spec.SpecId)) ? "no cleared member was reviewed in this attempt (still the approved text)"
+        : !prefix.Any(spec => reviewed.Contains(spec.SpecId)) ? "no cleared member was reviewed in this attempt (each was reviewed clean in its exact text)"
         : null;
 
     /// <summary>Every member of the set, each marked executed, cleared or not cleared.</summary>

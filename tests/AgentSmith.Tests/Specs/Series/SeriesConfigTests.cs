@@ -86,4 +86,16 @@ public sealed class SeriesConfigTests
         new AgentSmithConfigValidator(new SkillsConfigValidator()).Validate(new AgentSmithConfig())
             .Should().BeEmpty("an advisory never blocks the schema check");
     }
+
+    [Fact]
+    public void SpecReviewConfigValidator_InvalidBlock_IsABlockingFinding()
+    {
+        var invalid = new AgentSmithConfig { SpecReview = new SpecReviewConfig { Rounds = -1 } };
+
+        SpecReviewConfigValidator.Findings(invalid).Should().ContainSingle(f => f.IsBlocking && f.Field == "spec_review")
+            .Which.Reason.Should().Contain("spec_review.rounds is -1");
+        new AgentSmithConfigValidator(new SkillsConfigValidator()).Validate(invalid)
+            .Should().Contain(reason => reason.Contains("spec_review.rounds is -1"), "the startup check refuses it (2026-11-10-8e59)");
+        SpecReviewConfigValidator.Findings(new AgentSmithConfig()).Should().BeEmpty();
+    }
 }

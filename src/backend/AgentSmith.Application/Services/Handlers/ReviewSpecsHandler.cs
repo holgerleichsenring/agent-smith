@@ -9,12 +9,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-10-13-8762g: every unbuilt spec whose text is not the one a person approved, reviewed in order through
+/// 2026-10-13-8762g: every unbuilt spec, reviewed in order through
 /// <see cref="SpecReviewLoop"/> on settings read once, live. The share never stops the first reviewed spec; once
 /// spent, the first spec not cleared is the <see cref="ContextKeys.SpecSequenceStop"/> — left, with every spec
 /// after it, to the next attempt. 8762h: a REFUSE standing at the end is asked once (<see cref="ReviewExhaustion"/>).
 /// 8762k: then ONE series round over the cleared prefix (<see cref="SeriesContractRound"/>), whose standing REFUSE
 /// joins the spec objections in the same decision, so one question lists both.
+/// 2026-11-10-8e59: a spec is spared only when a review ended clean on its exact text (<see cref="ReviewedText"/>);
+/// approved but never reviewed, rewritten after its review, or interrupted, it is attacked before it is built.
 /// </summary>
 public sealed class ReviewSpecsHandler(
     ISpecReviewSettingsReader settings, ISeriesSettingsReader attempt, ApprovedSpecSetResolver approvals, SpecReviewLoop loop,
@@ -28,7 +30,7 @@ public sealed class ReviewSpecsHandler(
         var set = context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var s) ? s : null;
         var approved = approvals.Published(context.Pipeline);
         // 2026-10-13-8762u: only what this attempt can build — never a spec its chunk defers.
-        var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !SpecApprovedText.Matches(approved, spec)).ToList() ?? [];
+        var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !ReviewedText.Covers(approved?.ReviewedClean, spec.SpecId, spec.Draft.Yaml)).ToList() ?? [];
         if (Skip(current, set, tail) is { } skip) return Done($"spec review skipped: {skip}");
         var run = new SpecReviewRun(context.Pipeline, current, context.AgentConfig, SpecReviewWiderGoal.Of(context.Ticket, set!));
         return await WalkAsync(run, tail, cancellationToken);
@@ -54,7 +56,7 @@ public sealed class ReviewSpecsHandler(
         : set is null ? "the run has no spec set"
         : set.IsHandedBack ? "the derivation handed the ticket back"
         : set.UnexecutedTail.Count == 0 ? "every spec of the set is built"
-        : tail.Count == 0 ? "every unbuilt spec is still the text a person approved"
+        : tail.Count == 0 ? "a review ended clean on the exact text of every unbuilt spec"
         : null;
 
     private async Task<CommandResult> WalkAsync(SpecReviewRun run, IReadOnlyList<DerivedSpec> tail, CancellationToken ct)

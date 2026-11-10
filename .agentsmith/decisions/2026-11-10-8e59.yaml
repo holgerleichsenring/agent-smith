@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-8e59
+
+decisions:
+  - category: Architecture
+    chose: "One guarantee before building: the run skips a spec only if a review ended clean on its exact current yaml, bound by a SHA-256 hash"
+    over: "Approval holds in the conversation (9a98, 9631b, 442af6e2b), or skipping any spec whose text equals the approved text (8762g)"
+    reason: "Operator decision, 2026-11-10: a spec is either reviewed in exactly this text or it is not, and nothing is built that was not. The approved-text skip built approved text that no review had attacked. The conversation holds put that guarantee into many locks and still left paths around them."
+  - category: Implementation
+    chose: "A clean review is recorded as spec id plus yaml hash, on the proposal, the filed series and the approval record"
+    over: "Carrying the review rounds into the run"
+    reason: "Rounds carry no text or hash. They bind to a text only through byte-identity during the next turn's carry-over, and they are stripped before the record reaches a run. A hash makes any changed byte void the review without anyone having to compare texts."
+  - category: Implementation
+    chose: "Clean means the last taken round said build on the current text"
+    over: "Accepting build-with-cuts once the cuts were applied cleanly"
+    reason: "Applying cuts produces a text that no reviewer attacked. The coding run attacks that text before building."
+  - category: Implementation
+    chose: "Filing moves a clean review to the filed id and yaml when the source draft's hash matches"
+    over: "Hashing only the filed text, or dropping clean reviews at filing"
+    reason: "Filing re-ids the drafts, which changes their yaml. That rename is our own and changes no content. Dropping the reviews would review every approved spec twice."
+  - category: Architecture
+    chose: "Approval never depends on review state; drafts are marked 'not yet reviewed, will be reviewed before it is built' with the reason"
+    over: "Keeping a hold for some of the reasons"
+    reason: "The guarantee sits in one place. Any hold in the conversation is a second gate, and an incomplete one."
+  - category: Architecture
+    chose: "An invalid spec_review block is refused at startup validation, on save and on import. At run time an unreadable or invalid block reviews nothing in the design turn and marks the drafts"
+    over: "A runtime fallback to the defaults (442af6e2b)"
+    reason: "The fallback broke SpecReviewConfig's one rule ('refuses, never clamps'), and the operator could not see it. What still reaches a turn is caught by the review before building."
+  - category: Scope
+    chose: "A spec the coding run itself cleared is reviewed again in a later attempt"
+    over: "Recording the coding run's clean reviews on the approval record"
+    reason: "The run writes no approval record. That costs one more review, never an unreviewed build."
+  - category: Process
+    chose: "The spec was checked against the code by the implementer, not by a fresh subagent"
+    over: "A fresh adversarial reviewer"
+    reason: "The implementing agent was a worker fork that may not spawn subagents."

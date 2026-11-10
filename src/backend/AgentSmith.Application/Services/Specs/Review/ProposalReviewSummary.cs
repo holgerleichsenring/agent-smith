@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
@@ -15,14 +16,14 @@ namespace AgentSmith.Application.Services.Specs.Review;
 internal static class ProposalReviewSummary
 {
     public const string NotReviewedYet = "not reviewed yet";
-    /// <summary>2026-11-10-18cf: the finding names why the review did not finish, never a share a design turn no
-    /// longer has.</summary>
+    /// <summary>2026-11-10-18cf: the finding names why the review did not finish. 2026-11-10-8e59: information, not
+    /// a hold — the spec is reviewed in its exact text before it is built.</summary>
     public static string NotReviewedWhy(string reason) =>
-        $"this spec's review did not finish: {reason}; it cannot be approved until a later turn reviews it";
+        $"not yet reviewed ({reason}); it will be reviewed before it is built";
 
-    /// <summary>2026-11-10-18cf: <paramref name="proposal"/> with every one of <paramref name="drafts"/> held as not
+    /// <summary>2026-11-10-18cf: <paramref name="proposal"/> with every one of <paramref name="drafts"/> marked not
     /// reviewed for <paramref name="reason"/>, beside <paramref name="findings"/>.</summary>
-    public static OutcomeProposal Held(
+    public static OutcomeProposal MarkedNotReviewed(
         OutcomeProposal proposal, IReadOnlyList<SpecDraft> drafts, IReadOnlyList<ProposalFinding> findings, string reason) =>
         proposal with
         {
@@ -34,10 +35,7 @@ internal static class ProposalReviewSummary
     public const string LastRevisionWhy = "its last revision came after the final round, so nobody attacked that text";
     public const string UnderReviewWhy = "it was still under review when this was published, and a turn that ends here leaves it unreviewed";
 
-    public const string UnreadWhy =
-        "the reviewers could not read what this spec names, so nobody checked it; it cannot be approved until a later turn tries again";
-    public const string UnreadAgainWhy =
-        "the reviewers could not read what this spec names on this turn either, so nobody checked it; it can be approved knowing that, and a run reviews it before it builds";
+    public const string UnreadWhy = "the reviewers could not read what this spec names";
 
     /// <summary>
     /// The review as it stands. A draft still open is not reviewed — its current text was never attacked — and
@@ -48,17 +46,18 @@ internal static class ProposalReviewSummary
     {
         var order = ProposalSpecSet.Drafts(session.Proposal).Select(d => d.SpecId).ToList();
         var drafts = session.Drafts.OrderBy(d => order.IndexOf(d.SpecId)).ToList();
-        var unfinished = drafts.Where(d => (d.NotReviewed || !d.Stopped) && !d.Unread).ToList();
-        var waiting = drafts.Where(d => d.NotReviewed || !d.Stopped).Select(d => d.SpecId).ToList();
+        var unfinished = drafts.Where(d => d.NotReviewed || !d.Stopped).ToList();
+        var waiting = unfinished.Select(d => d.SpecId).ToList();
         var standing = Problems(ParentId(session.Proposal), parentProblems)
             .Concat(drafts.SelectMany(d => Problems(d.SpecId, d.Evidence.Problems).Concat(Uncleared(d))))
             .Concat(unfinished.Select(d => new ProposalFinding(d.SpecId, NotReviewedYet,
                 NotReviewedWhy(d.StoppedBecause ?? (final ? LastRevisionWhy : UnderReviewWhy)))))
-            .Concat(drafts.Where(d => d.Unread).Select(d => new ProposalFinding(
-                d.SpecId, NotReviewedYet, d.NotReviewed ? UnreadWhy : UnreadAgainWhy)))
             .ToList();
         return new ProposalReviewOutcome(session.Proposal, [.. drafts.SelectMany(d => d.Rounds)],
-            waiting.Count == 0 ? null : waiting, standing, Reply(session));
+            waiting.Count == 0 ? null : waiting, standing, Reply(session))
+        {
+            ReviewedClean = [.. drafts.Where(d => d.ReviewedClean).Select(d => ReviewedText.Of(d.SpecId, d.Draft.Yaml))],
+        };
     }
 
     private static IEnumerable<ProposalFinding> Problems(string? specId, IReadOnlyList<SpecEvidenceProblem> problems) =>

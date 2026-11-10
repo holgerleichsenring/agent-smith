@@ -4,15 +4,20 @@ import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 
 // 2026-10-13-8762i: the review rounds a design turn's proposal went through before it reached the person who
 // approves it — per draft, round by round, what each reviewer answered, the cuts the design partner applied,
-// the findings, and any cut wording still standing. Drafts not reviewed yet say so; the reserved "series"
+// the findings, and any cut wording still standing. Drafts not yet reviewed say so; the reserved "series"
 // entry is the series contract. A proposal stored before the rounds shipped carries neither field, and an
 // absent field renders nothing.
 
 export const SERIES_TOKEN = "series";
 
+// 2026-11-10-8e59: information, not a hold — nothing is built before a review ends clean on its exact text.
+export const NOT_YET_REVIEWED = "not yet reviewed, will be reviewed before it is built";
+
 export function notReviewedLabel(entry: string, underReview = false): string {
   if (underReview) return entry === SERIES_TOKEN ? "the series contract is under review" : `${entry} — under review`;
-  return entry === SERIES_TOKEN ? "the series contract is not reviewed yet" : `${entry} — not reviewed yet`;
+  return entry === SERIES_TOKEN
+    ? `the series contract — ${NOT_YET_REVIEWED}`
+    : `${entry} — ${NOT_YET_REVIEWED}`;
 }
 
 export function DialogProposalRounds({

@@ -29,6 +29,8 @@ public sealed class TicketPlanCompositionTests
         rig.ReviewerAnswers.Enqueue(Finding("order-ui", "order", quote: "nothing like this"));
         var services = Composition();
         services.AddSingleton(rig.Factory());
+        // 2026-11-10-8e59: there is no config here; an unreadable block reviews nothing, so the test supplies one.
+        services.AddSingleton(ProposalReviewRig.Reader(() => ProposalReviewRig.Of(rounds: 4)));
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var review = scope.ServiceProvider.GetRequiredService<SpecDialogProposalReview>();

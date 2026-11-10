@@ -402,7 +402,7 @@ export interface SpecDialogProposalPush {
   findings?: SpecDialogProposalFinding[];
   /** 2026-10-13-8762i: every review round of the proposal's drafts; absent on an older proposal. */
   reviewRounds?: SpecDialogReviewRound[];
-  /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet — the proposal cannot be approved. */
+  /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet. 2026-11-10-8e59: information only — Approve stays. */
   notReviewed?: string[] | null;
   /** 2026-11-09-9a98: its turn's review is running, so what is listed above is still under review. */
   underReview?: boolean;

@@ -11,4 +11,8 @@ public sealed record ProposalReviewOutcome(
     IReadOnlyList<ProposalReviewRound> Rounds,
     IReadOnlyList<string>? NotReviewed,
     IReadOnlyList<ProposalFinding> Standing,
-    AgenticLoopResult Reply);
+    AgenticLoopResult Reply)
+{
+    /// <summary>2026-11-10-8e59: the drafts a review ended clean on, each bound to its exact text.</summary>
+    public IReadOnlyList<Contracts.Specs.ReviewedText> ReviewedClean { get; init; } = [];
+}

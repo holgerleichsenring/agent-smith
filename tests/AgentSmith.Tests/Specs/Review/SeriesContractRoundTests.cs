@@ -90,7 +90,7 @@ public sealed class SeriesContractRoundTests
 
         var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], CancellationToken.None);
 
-        round.Line.Should().Be("series contract round skipped: no cleared member was reviewed in this attempt (still the approved text)");
+        round.Line.Should().Be("series contract round skipped: no cleared member was reviewed in this attempt (each was reviewed clean in its exact text)");
         rig.SeriesCalls.Should().BeEmpty();
         rig.Events.Events.Should().BeEmpty();
     }

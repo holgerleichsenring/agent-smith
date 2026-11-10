@@ -26,6 +26,7 @@ scope:
   out: "Coding runs keep the wall-time watchdog for now: a series attempt depends on the wall clock through seconds_per_spec (SeriesSettings.SecondsLeft), so exempting them is a planned successor. The cost cap and a person's cancel are unchanged."
 
 decisions:
+  - key: "LESS HARMFUL SINCE 2026-11-10-8e59, STILL OPEN. Nothing holds an approval on review state any more, so a turn the watchdog cuts off leaves drafts marked not yet reviewed, approvable, and reviewed before they are built. But a turn whose review never fits the ceiling still never ends with its rounds done, every time it is asked."
   - key: "DO NOT EXEMPT YET. The operator's rule is that only cost and a person stop work, but the watchdog is today the only bound on a design turn whose await never completes in a live process. Exempting first would turn a hang into a turn that holds its conversation until someone notices."
   - key: "BOUND THE WAIT, NOT THE WORK. A per-call bound on every model provider, or a no-progress detector on the turn's activity, says something about a hang; a run's age says nothing about either."
 

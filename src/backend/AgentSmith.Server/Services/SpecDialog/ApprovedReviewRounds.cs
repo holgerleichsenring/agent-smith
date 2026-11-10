@@ -35,6 +35,15 @@ public static class ApprovedReviewRounds
         return kept;
     }
 
+    /// <summary>2026-11-10-8e59: the clean reviews the new record stores — the earlier record's and this filing's.
+    /// Each is bound to its yaml's hash, so an old one never covers a changed text; null when there are none.</summary>
+    public static IReadOnlyList<ReviewedText>? MergeClean(SpecApprovalRecord? previous, FiledSeries series)
+    {
+        ArgumentNullException.ThrowIfNull(series);
+        List<ReviewedText> all = [.. (previous?.ReviewedClean ?? []).Concat(series.ReviewedClean).Distinct()];
+        return all.Count > 0 ? all : null;
+    }
+
     /// <summary>The rounds the new record stores; null when there are none.</summary>
     public static IReadOnlyList<ProposalReviewRound>? Merge(
         SpecApprovalRecord? previous, FiledSeries series, SeriesContinuation? continuation)

@@ -93,7 +93,7 @@ public sealed class CrossReplicaButtonAnswerTests : IDisposable
         var confirmer = new SpecDialogOutcomeConfirmer(
             _stream,
             new SpecDialogMessenger([SlackAdapter(new RecordingHttpHandler())], NullLogger<SpecDialogMessenger>.Instance),
-            pending, new SpecDialogOutcomeComposer(), UnreviewedApprovals.Unused(), OpenQuestions(),
+            pending, new SpecDialogOutcomeComposer(), OpenQuestions(),
             NullLogger<SpecDialogOutcomeConfirmer>.Instance);
         var confirmation = confirmer.ConfirmAsync(
             state, new SpecOutcome(new SpecDraft("p9001", "goal", "spec: p9001", [])), CancellationToken.None);

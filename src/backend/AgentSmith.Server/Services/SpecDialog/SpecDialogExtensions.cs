@@ -42,7 +42,7 @@ internal static class SpecDialogExtensions
         // store. p0315c: the sink files real tickets via the active scope's
         // tracker (renderer + filer), replacing the session-store default.
         services.AddTransient<SpecDialogOutcomeComposer>();
-        services.AddTransient<SpecDialogOutcomeConfirmer>().AddTransient<SpecDialogUnreviewedApproval>(); // 2026-10-13-8762i
+        services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddSingleton<AgentSmith.Server.Contracts.IOpenDialogQuestions, RedisOpenDialogQuestions>().AddScoped<SpecDialogButtonAnswer>(); // 2026-10-26-0f19b
         services.AddTransient<SpecTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();

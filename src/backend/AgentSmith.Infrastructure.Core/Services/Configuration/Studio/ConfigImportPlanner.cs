@@ -21,6 +21,7 @@ public sealed class ConfigImportPlanner(
     {
         var raw = yaml.Deserialize(text);
         CatalogUseRule.Validate(raw.Agents);
+        SettingsBlockRule.Validate(raw); // 2026-11-10-8e59: a block the run would refuse is never imported
         var docs = assembler.Decompose(raw)
             .Where(d => d.Type != ConfigDocTypes.Persistence)
             .ToList();

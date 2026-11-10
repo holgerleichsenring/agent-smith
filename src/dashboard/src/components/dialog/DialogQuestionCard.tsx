@@ -82,12 +82,10 @@ export function DialogQuestionCard({
 }) {
   const expired = hasExpired(question);
   const bound = question.kind === "approval" && ticketEffect ? ticketEffect : null;
-  // 2026-10-13-8762i: a proposal with specs not reviewed yet cannot be approved — the server holds it anyway.
-  const unreviewed = (proposal?.notReviewed?.length ?? 0) > 0;
   // 2026-10-14-dbcek: the preview there answers a list with a plain refusal and no start arm, which would read as
   // approvable — so the card hides Approve itself and says where a list is filed.
   const boundList = question.kind === "approval" && proposal?.kind === "tickets" && (inTicket === true || bound !== null);
-  const controls = expired ? [] : controlsFor(question, bound, unreviewed || boundList);
+  const controls = expired ? [] : controlsFor(question, bound, boundList); // 2026-11-10-8e59: review state never hides Approve
   const decision = question.kind === "approval" && !expired;
   const shapes = decision && question.choices.length > 0;
   const summary = decision ? (boundList ? BOUND_LIST : bound ? bound.summary : proposal ? summaryOf(proposal) : null) : null;

@@ -16,8 +16,8 @@ using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
-/// 2026-10-13-8762i: an approval of a proposal with specs not reviewed yet is never an approval — it is held,
-/// its recorded decision taken back, and it becomes the edit note that sends those specs to review.
+/// 2026-11-10-8e59: an approval never depends on review state. A proposal with specs not reviewed yet is approved
+/// like any other, and its recorded decision stands; what is not reviewed is reviewed before it is built.
 /// </summary>
 public sealed class UnreviewedApprovalTests : IDisposable
 {
@@ -43,23 +43,20 @@ public sealed class UnreviewedApprovalTests : IDisposable
     }
 
     [Fact]
-    public async Task OutcomeConfirmer_ApproveWithNotReviewed_BecomesAnEditNote()
+    public async Task OutcomeConfirmer_ApproveWithNotReviewed_Confirms()
     {
         var (result, _) = await ConfirmAsync([First, ProposalReviewTokens.Series]);
 
-        result.Should().BeOfType<OutcomeEditRequested>().Which.Note.Should().Be(
-            $"{SpecDialogUnreviewedApproval.NotePrefix}{First}, the series contract");
+        result.Should().BeOfType<OutcomeConfirmed>("the guarantee sits before building, not on the button");
     }
 
     [Fact]
-    public async Task OutcomeConfirmer_ConvertedApproval_RecordsNoApprovedDecision()
+    public async Task OutcomeConfirmer_ApproveWithNotReviewed_KeepsTheApprovedDecision()
     {
         var (_, sessions) = await ConfirmAsync([First]);
 
         var stored = await sessions.GetOpenByThreadAsync(Platform, Thread, CancellationToken.None);
-        stored!.Transcript.Should().NotContain(turn => turn.Decision == SpecDialogDecision.Approved,
-            "a held approval approved nothing");
-        stored.Transcript[^1].Text.Should().Be("approve", "the person's words stay as they were typed");
+        stored!.Transcript.Should().Contain(turn => turn.Decision == SpecDialogDecision.Approved);
     }
 
     [Fact]
@@ -88,7 +85,7 @@ public sealed class UnreviewedApprovalTests : IDisposable
         var confirmer = new SpecDialogOutcomeConfirmer(transport.Object,
             new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance),
             new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), new SpecDialogOutcomeComposer(),
-            UnreviewedApprovals.Over(repository), Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
+            Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
         var proposal = new SpecOutcome(new SpecDraftReader().Read(Yaml(First))) { NotReviewed = notReviewed };
 
         return (await confirmer.ConfirmAsync(state, proposal, CancellationToken.None), sessions);

@@ -90,6 +90,23 @@ public sealed class SeriesIdentityTests
     }
 
     [Fact]
+    public void FiledSeriesFactory_CleanReview_FollowsTheRenamedDraft()
+    {
+        var clean = new SpecDraft("x", "g", "spec: x\ngoal: g", []);
+        var changed = new SpecDraft("y", "h", "spec: y\ngoal: h", []);
+        var source = new EpicOutcome(new SpecDraft("p", "parent", "spec: p", []), [clean, changed])
+        {
+            // y's clean review was on a different text, so it covers nothing (2026-11-10-8e59).
+            ReviewedClean = [ReviewedText.Of("x", clean.Yaml), ReviewedText.Of("y", "spec: y\ngoal: before")],
+        };
+
+        var filed = ApprovedSetDoubles.SeriesFiling().Under("2026-10-06-0001", [clean, changed], source);
+
+        filed.ReviewedClean.Should().Equal(ReviewedText.Of("2026-10-06-0001a", filed.Drafts[0].Yaml));
+        filed.Drafts[0].Yaml.Should().Contain("spec: 2026-10-06-0001a", "the clean review follows our rename");
+    }
+
+    [Fact]
     public void SeriesFiles_Series_NamesTheManifest()
     {
         var files = new SeriesFiles(new SeriesManifest());

@@ -72,8 +72,6 @@ public sealed class SpecReviewRegistrationsTests
             .Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogOutcomeConfirmer>()
             .Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogUnreviewedApproval>()
-            .Should().NotBeNull();
     }
 
     [Fact]

@@ -94,16 +94,16 @@ public sealed class TicketPlanReviewTests
     }
 
     [Fact]
-    public async Task TicketPlanReview_InvalidSettings_ReviewsOnceWithoutRePrompt()
+    public async Task TicketPlanReview_InvalidSettings_ReviewsNothingAndSaysWhy()
     {
         var rig = new TicketPlanReviewRig { Settings = ProposalReviewRig.Of(rounds: 4, reviewers: 0) };
         rig.ReviewerAnswers.Enqueue(CutOnUi());
 
         await rig.RunAsync(Two());
 
-        rig.ReviewerPrompts.Should().ContainSingle();
+        rig.ReviewerPrompts.Should().BeEmpty("a block the run refuses is never clamped (2026-11-10-8e59)");
         rig.Nudges.Should().BeEmpty();
-        rig.Outcome.Findings.Should().ContainSingle();
+        rig.Outcome.Findings.Should().ContainSingle().Which.Why.Should().Contain("spec_review.reviewers is 0");
     }
 
     [Fact]
