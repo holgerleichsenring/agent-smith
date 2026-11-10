@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-8e59
+goal: "A spec is built only after a review ended clean on its exact text; the design turn marks review state honestly and never holds an approval on it."
+requires: [2026-11-10-18cf]
+
+applies_to: "default (Application: coding-run review, proposal review; Server: approval, filing; Contracts; dashboard)"
+
+facts:
+  - claim: "A design turn's review rounds carry no text and no hash: a round is spec id, number, verdicts, cuts, findings and residues."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ProposalReviewRound.cs:16-23"
+  - claim: "Rounds bind to a text only through the next turn's carry-over, which keeps a draft's rounds when its yaml is byte-identical to the revised proposal's."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewCarryOver.cs:29"
+  - claim: "Filing re-keys the rounds by spec id only, and the approval record keeps them by filed id; they are stripped before the record reaches a run."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:29; src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:88; src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:42"
+  - claim: "The coding run skips every unbuilt spec whose yaml equals the approved yaml, whether or not any review ever attacked that text."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecApprovedText.cs:13-18; src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecsHandler.cs:31"
+  - claim: "Approving a proposal that lists drafts not reviewed is turned into an edit note instead of an approval."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:109-110; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogUnreviewedApproval.cs:17-29"
+  - claim: "A blind draft holds approval for one turn and then lifts the hold."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalDraftReview.cs:45"
+  - claim: "The dashboard hides Approve while any draft is not reviewed."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:86"
+  - claim: "A design turn falls back to the default spec_review block when the configured one is invalid or unreadable; the settings store refuses an invalid block on save, and the startup validator checks series but not spec_review."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSettingsReader.cs:13-26; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:45; src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:31"
+  - claim: "At 321d6be0c the coding run treated a review no reviewer answered as cleared, cleared a build-with-cuts once its cuts were applied, left a last-round rewrite unattacked, skipped the series contract when no member was reviewed, and hashed yaml that filing and the reader trim differently."
+    evidence: "observed: 2026-11-10, SpecReviewLoop.cs line 30, SpecReviewOutcome.cs line 24, SeriesRoundScope.cs line 26, SeriesFiles.cs line 28, SpecDraftReader.cs line 27 at commit 321d6be0c"
+  - claim: "Re-grounding at spec entry rewrites one citation token inside a fact's evidence scalar, located by its source span, and no other byte."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecFactRegrounding.cs:3-6"
+  - claim: "A YAML import stores its documents without checking the series or spec_review block."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigImportPlanner.cs:20-24"
+
+scope:
+  in: >
+    ONE GUARANTEE, BEFORE BUILDING. A clean review is recorded as the spec id plus the SHA-256 of the exact yaml it
+    attacked, when the last taken round said build on that text. The design turn puts these on the proposal;
+    filing carries an entry over to the filed id and yaml only when the source draft's hash matches. The approval
+    record keeps them and reaches the run. The coding run skips a spec only when its current yaml has such an
+    entry; every other unbuilt spec is attacked before the master builds. Approval never depends on review state:
+    the hold, the blind hold and its one-turn exit go, and each draft is marked reviewed or not yet reviewed,
+    with the reason as information. An invalid spec_review block is refused at startup validation and on import,
+    as on save; at run time the design turn reviews nothing when the block is unreadable or invalid and marks the
+    drafts with that reason, and the ticket plan does the same. The coding run clears a spec only when a round said
+    build on its current text: no answer is retried and, with rounds spent, stops the spec like the budget; a final
+    text the last round changed, a standing cut or a refuse goes to the author's exhaustion question. The series
+    contract carries its own clean review by hash and is attacked unless it matches. Hashes are of the trimmed yaml.
+    With rounds at 0 each draft says the review is turned off. An exhaustion question proceeds only on a person's
+    explicit build answer; silence sends the spec to fresh rounds and asks again. A member a series-round cut
+    changed is attacked again on its new text in this run, or is not cleared, and the stop lands at the first uncleared
+    member. A contract round not taken on an unreviewed contract stops the attempt; a series cut that could not land
+    is an objection. A build answer is the first line's keyword and binds to the hash of the asked text. Enter on
+    the shown default is a person's choice; a timeout is not. The run's result line names a review stop. A spec whose
+    current text a person answered build for is built as it stands with no fresh rounds; a contract with no clean
+    record is reviewed even with a single unexecuted member.
+  out: >
+    The coding run's budget share stays: a spec it does not clear is not built and moves to the next attempt.
+    A spec the coding run itself cleared is reviewed again in a later attempt, since that run records no
+    approval entry. A clean review of an epic's series contract is not recorded; the coding run's series round
+    runs as before. 2026-11-10-e706 stays planned.
+
+decisions:
+  - key: "THE HASH IS THE BINDING. The rounds carry no text, so a clean review is recorded as id plus yaml hash. Any changed byte makes the old review not apply, and the text is attacked again."
+  - key: "CLEAN MEANS BUILD ON THIS TEXT. A build-with-cuts whose cuts were applied produced a text no reviewer attacked, so it is not clean."
+  - key: "FILING RENAMES, IT DOES NOT REWRITE. Filing re-ids a draft, which changes its yaml. Its clean entry moves to the filed id and yaml only when the source draft's hash is the one reviewed, because the rename is ours and changes no content."
+  - key: "NO HOLD ANYWHERE IN THE CONVERSATION. The guarantee sits in one place, before building. The approve button carries no review state, and the mark tells the person what will happen."
+  - key: "CLEARED MEANS BUILD ON THE BUILT TEXT. Not taken, a cut applied, a rewrite or a standing cut is not clean; the author's answer to the exhaustion question is the one way past it."
+  - key: "GROUNDING IS THE ONE MECHANICAL EXCEPTION. It runs at spec entry, after earlier specs moved the code, so it cannot run before the review; it rewrites only an evidence path and lines, never a claim."
+  - key: "VALIDATION REFUSES, THE RUN DOES NOT CLAMP. An invalid block never runs with defaults. What still reaches a run unread reviews nothing in the turn and is caught before building."
+
+steps:
+  - id: contract
+    action: "Add a ReviewedText record (spec id, SHA-256 of yaml) in Contracts.Specs; add ReviewedClean to OutcomeProposal, its JSON, FiledSeries and SpecApprovalRecord."
+  - id: design-turn
+    action: "The proposal review records ReviewedClean for drafts whose last taken round said build on their current text, and carries it into the next turn by hash. Remove the blind exit (WaitedUnread, UnreadAgainWhy). Reword the not-reviewed finding to say the spec will be reviewed before it is built."
+  - id: approval
+    action: "Delete SpecDialogUnreviewedApproval and its call in SpecDialogOutcomeConfirmer; filing carries ReviewedClean by hash; the recorder stores it on the record."
+  - id: coding-run
+    action: "ReviewSpecsHandler skips a spec only when the approved record has its id and current yaml hash; delete SpecApprovedText."
+  - id: config
+    action: "Add SpecReviewConfigValidator to AgentSmithConfigValidator; ConfigImportPlanner refuses an invalid series or spec_review block; ProposalReviewSettingsReader returns the problem instead of defaults; SpecDialogProposalReview and TicketPlanReview mark and do not review on a problem."
+  - id: dashboard
+    action: "Approve no longer depends on notReviewed; the marks read not yet reviewed, will be reviewed before it is built."
+  - id: docs
+    action: "work-it-out.md and settings.md; a note in e706."
+
+tests:
+  - "OutcomeConfirmer_ApproveWithNotReviewed_Confirms"
+  - "ReviewSpecs_ApprovedButNeverReviewed_IsReviewedBeforeBuilding"
+  - "ReviewSpecs_ExactTextReviewedClean_IsSkipped"
+  - "ReviewSpecs_TextChangedAfterItsCleanReview_IsReviewedAgain"
+  - "SpecReviewConfigValidator_InvalidBlock_IsABlockingFinding"
+  - "ConfigImportPlanner_InvalidSpecReviewBlock_IsRefused"
+  - "ProposalReview_BuildOnTheCurrentText_IsRecordedAsReviewedClean"
+  - "ProposalReview_CutsAppliedAfterTheLastRound_AreNotReviewedClean"
+  - "ProposalReview_CarriedDraftUnchanged_KeepsItsCleanReview"
+  - "FiledSeriesFactory_CleanReview_FollowsTheRenamedDraft"
+  - "ProposalReview_InvalidSettings_ReviewsNothingAndMarksTheDrafts"
+  - "ReviewLoop_NoReviewerAnswersInAnyRound_IsStoppedLikeTheBudget"
+  - "ReviewLoop_NoAnswerThenBuild_IsClearedInTheNextRound"
+  - "ReviewLoop_LastRoundRefuseRewritten_IsNotClearedAndAsksTheAuthor"
+  - "ReviewLoop_CutsAppliedAndRevisedTextEvidenceClean_IsAttackedOnceMore"
+  - "ReviewLoop_RoundsSpentOnAnUnattackedText_IsNotClearedAndAsksTheAuthor"
+  - "ReviewSpecs_EveryMemberCleanButNotTheContract_AttacksTheContract"
+  - "ReviewSpecs_EveryMemberAndTheContractClean_SkipsTheReview"
+  - "ReviewedText_Contract_SurvivesTheManifestRoundTrip"
+  - "ReviewedText_CleanReview_SurvivesFilingTheBranchWriteAndTheRunsRead"
+  - "SpecFactRegrounding_TokenAlsoInTheClaim_RewritesOnlyTheEvidence"
+  - "SpecDialogProposalReview_RoundsOff_SaysTheReviewIsTurnedOffAndPromisesNoReview"
+  - "Exhaustion_UnansweredObjectionCommentForThisSpec_IsAskedAgain"
+  - "Exhaustion_AuthorAnsweredBuildAsReviewed_Proceeds"
+  - "Exhaustion_ObjectionAnsweredWithoutTheBuildReading_IsAskedAgain"
+  - "Exhaustion_LaterAttemptUnansweredObjection_ReviewsAgainAndAsksAgain"
+  - "Exhaustion_LaterAttemptAnsweredBuild_IsBuilt"
+  - "Exhaustion_BuildAnswerOnAnotherSpec_AsksOnlyTheOther"
+  - "Pin_ReviewObjectionUnanswered_PinsNothing"
+  - "Question_ReviewObjection_SaysWhatSilenceDoes"
+  - "ReviewSpecs_SeriesCutChangesAMember_AttacksItsNewTextBeforeBuilding"
+  - "ReviewSpecs_SeriesCutChangesAMemberAndTheShareIsSpent_ItIsNotBuiltThisAttempt"
+  - "ReviewSpecs_TwoMembersChangedAndTheShareSpent_StopsAtTheFirst"
+  - "ReviewSpecs_ContractRoundNotTaken_StopsBeforeThePrefixWithTheReason"
+  - "ReviewSpecs_SeriesCutThatCannotLand_RaisesAnObjection"
+  - "Exhaustion_BuildAnswerOnAnEarlierText_DoesNotCoverTheReCut"
+  - "ChoosesBuild_OnlyTheFirstLineKeywordCounts"
+  - "ReviewObjection_TimedOutWithNobodyThere_BuildsNothing"
+  - "ReviewObjection_EnterOnTheShownDefault_Builds"
+  - "Demo_ReviewObjection_EnterOnTheShownDefault_CommitsTheFix"
+  - "For_ReviewStoppedTheAttempt_NamesTheSpecAndTheReason"
+  - "Exhaustion_LaterAttemptAnsweredBuild_BuildsThatTextWithoutFreshRounds"
+  - "SeriesContractRound_SingleUnexecutedMemberAndNoCleanContract_IsStillTaken"
+  - "ProposalReview_SeriesRoundSaysBuild_RecordsTheContractReviewedClean"
+
+done:
+  - when: "a person approves a proposal whose drafts are not all reviewed"
+    then: "the approval is filed, and each draft shows not yet reviewed with its reason"
+  - when: "a run starts on an approved spec no review ended clean on"
+    then: "the spec is attacked before the master builds"
+  - when: "a run starts on an approved spec whose exact yaml was reviewed clean"
+    then: "the spec is not reviewed again"
+  - when: "the spec's text changed after its clean review"
+    then: "it is reviewed again before building"
+  - when: "the spec_review block is invalid in the file, the store or an import"
+    then: "it is refused at validation"
+  - "Build green, full suite green, dashboard tests green."

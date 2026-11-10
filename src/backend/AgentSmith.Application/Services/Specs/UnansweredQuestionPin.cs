@@ -29,12 +29,11 @@ public sealed class UnansweredQuestionPin(ILogger<UnansweredQuestionPin> logger)
         ArgumentNullException.ThrowIfNull(pipeline);
         var question = previous?.Handback;
         if (question is null || question.TakenReading is not { } taken) return null;
+        // 2026-11-10-8e59: silence on a review objection is not consent; the spec is reviewed again, nothing is pinned.
+        if (question.QuestionKind == SpecQuestionKind.ReviewObjection) return null;
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
-        // 2026-10-13-8762h: a review objection pins only when it was posted and nobody answered it, here or on a PR.
-        if (question.QuestionKind == SpecQuestionKind.ReviewObjection
-                ? !Review.ReviewObjectionComment.AskedAndUnanswered(pipeline)
-                : OwnTicketComment.IsAnswered(comments, SpecHandbackComment.QuestionMarker))
+        if (OwnTicketComment.IsAnswered(comments, SpecHandbackComment.QuestionMarker))
         {
             logger.LogInformation("The question on {Key} was answered or never posted — no pin", previous!.Key);
             return null;

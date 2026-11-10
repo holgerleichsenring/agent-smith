@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-18cf
+goal: "Every draft a design turn proposes is reviewed to its stop in that turn; only the run's cost cap or a cancel can stop it, and a stopped draft says why."
+requires: [2026-11-09-9631b]
+
+applies_to: "default (Application: proposal review session, series round, carry-over, summary)"
+
+facts:
+  - claim: "Before every round the gate stops all but the first open draft once the review share is spent, and stops every draft at the predicted wall-time ceiling, marking them not reviewed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalRoundGate.cs:18-27"
+  - claim: "The share is measured over the whole run's spend and over the time since RunStartedAt."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewBudget.cs:17-30"
+  - claim: "A design turn is its own pipeline run: RunStartedAt is set per run, and the run is registered with the watchdog that cancels it at max_run_wall_time_seconds."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:73; src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:87; src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:271; src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:44-52"
+  - claim: "The not-reviewed finding always blames the share, whatever stopped the draft."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs:17-18"
+  - claim: "A draft counts as having waited when the revised proposal listed it as not reviewed, for any reason; a draft that waited and is blind again stops holding approval."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewCarryOver.cs:25; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalDraftReview.cs:30-35"
+  - claim: "A proposal listing drafts as not reviewed cannot be approved."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:109"
+  - claim: "At 8494cc7d6, a draft whose reviewers all failed (not taken, not blind) stopped with no round and no hold."
+    evidence: "observed: 2026-11-10, ProposalReviewLoop.cs lines 84-91 at commit 8494cc7d6"
+  - claim: "At 8494cc7d6, a draft rewritten after a last-round refuse stayed open but the final summary listed only NotReviewed drafts."
+    evidence: "observed: 2026-11-10, ProposalRoundRevision.cs line 64 and ProposalReviewSummary.cs line 26 at commit 8494cc7d6"
+  - claim: "At 8494cc7d6, unreadable spec_review settings fell back to one whole-set call, and a failed call returned no finding."
+    evidence: "observed: 2026-11-10, SpecDialogProposalReview.cs lines 74 and 117 at commit 8494cc7d6"
+  - claim: "Live 2026-11-09: a 7-child epic's turn ran 1017 s against an 1800 s ceiling with a 40 % share; one child was reviewed and six were listed not reviewed."
+    evidence: "observed: 2026-11-09, local claude -p replay arm NEW3 on 0.179.0 prerelease, turn 1 metrics (review_coverage: 6 of 7 specs not reviewed)"
+
+scope:
+  in: "A design turn's review has no share, no first-draft floor and no wall-time rule; ProposalRoundGate is deleted and the session admits drafts against the run's cost cap only, writing that reason into the not-reviewed finding. The series round stops on the cost cap only. A draft that waited lifts its hold when blind again only if what it waited on was being blind. A draft whose current text no reviewer attacked is not reviewed, with a reason: the cost cap, no reviewer answered (retried in later rounds), its last revision came after the final round, or it was under review when the proposal was published (so a cancel leaves a reason). Unreadable or invalid spec_review settings review with the defaults; with rounds off, a failed whole-set call holds every draft."
+  out: "The coding run's review (SpecReviewLoop) keeps its share for now, because a spec it does not clear is not built and only moves to the next attempt; dropping it there is a planned successor. The run watchdog's hold on a design turn is 2026-11-10-e706. The dashboard is unchanged: the finding text and the amber mark already show the reason."
+
+decisions:
+  - key: "NO TIME AND NO SHARE IN A DESIGN TURN'S REVIEW (operator decision). Time measures nothing about a review's quality, and a spec handed out unreviewed is worse than a slow turn. The share kept money for the build after a coding run's review; a design turn builds nothing after it."
+  - key: "ONLY THE OPERATOR'S MONEY AND A CANCEL STOP IT. The run's cost cap is checked before every round and re-prompt; a cancel ends the turn and 2026-11-09-9a98's not-reviewed view applies."
+  - key: "THE GATE IS DELETED, NOT HOLLOWED. What is left is one cost-cap check, which lives on the session it reads from."
+  - key: "THE BLIND EXIT IS FOR BLINDNESS ONLY. A draft left waiting by the cost cap or a cancel was never read, so being blind on its first try holds for one further turn like any other."
+  - key: "ATTACKED OR HELD. A draft is reviewed only when a taken answer attacked its current text. No answer keeps it open for the next round; a rewrite after the final round, or an open draft when the turn ends, is held with its reason, and findings about a replaced text are not shown over the new one."
+  - key: "BROKEN SETTINGS REVIEW WITH THE DEFAULTS. A broken block must never give a proposal less than a full review; holding instead would block every proposal until the block is fixed."
+
+steps:
+  - id: gate
+    action: "Delete ProposalRoundGate; ProposalReviewSession.Admit stops open drafts only on the run's cost cap and records that reason. The session's floor, clock and round duration go."
+  - id: reason
+    action: "ProposalDraftReview carries the stop reason; ProposalReviewSummary words the not-reviewed finding from it."
+  - id: waited
+    action: "ProposalReviewCarryOver marks a draft as having waited unread only when the revised proposal holds its unread finding."
+  - id: series
+    action: "ProposalSeriesRound stops only on the run's cost cap, no longer on the share or the ceiling."
+  - id: unattacked
+    action: "Judge keeps a draft with no taken answer open with the no-answer reason when the turn holds a repository; the summary lists every open draft as not reviewed with its reason and drops findings about a replaced text; the first under-review publish carries a reason per draft."
+  - id: settings
+    action: "SpecDialogProposalReview reviews with the default spec_review block when the configured one is unreadable or invalid; with rounds off, a failed whole-set call holds every draft."
+  - id: docs
+    action: "settings.md and work-it-out.md say a proposal has no share and name every reason a draft can be left unreviewed."
+  - id: tests
+    action: "Replace the share and floor tests; add the 7-draft test, the reason tests and the blind-exit test."
+
+tests:
+  - "ProposalReview_SevenDraftsWithTheShareLongSpent_EveryDraftGetsARound"
+  - "ProposalReview_TimeShareSpentAfterRoundOne_FurtherRoundsStillRun"
+  - "ProposalReview_BudgetExhausted_StopsOnLastValidProposal_ListsNotReviewed"
+  - "ProposalReview_PastTheWallTimeCeiling_RoundsStillRunToTheirStop"
+  - "ProposalReviewLoop_BlindAgainOnTheTurnThatWaitedUnread_LiftsTheHoldAndKeepsTheFinding"
+  - "ProposalReviewLoop_BlindOnTheTurnAfterABudgetStop_StillHolds"
+  - "ProposalReview_ShareSpent_SeriesContractStillReviewed"
+  - "ProposalReview_PastTheWallTimeCeiling_SeriesContractStillReviewed"
+  - "ProposalReviewLoop_BothReviewersFail_DraftIsHeldWithTheNoAnswerReason"
+  - "ProposalReviewLoop_ReviewersFailThenAnswer_DraftIsReviewed"
+  - "ProposalReview_LastRoundRefuseRewritten_IsHeldWithoutTheOldFindings"
+  - "ProposalReview_CostCapReachedBeforeTheRePrompt_HeldWithTheCapReason"
+  - "ProposalReviewLoop_BlindAfterACancelledTurn_StillHolds"
+  - "ProposalReview_BeforeTheFirstRound_PublishesEveryDraftUnderReview"
+  - "ProposalReview_InvalidOrUnreadableSettings_ReviewsInRoundsWithTheDefaults"
+  - "Flow_ReviewFailed_HoldsTheProposalAsNotReviewed"
+  - "Flow_ReviewTimedOutOnAnUncancelledToken_HoldsTheProposalAsNotReviewed"
+  - "SpecDialogProposalReview_ModelReviewFails_KeepsTheEvidenceFindings"
+
+done:
+  - when: "a design turn proposes 7 drafts after the run's clock has passed the review share"
+    then: "every draft gets an attack round, and none is listed not reviewed"
+  - when: "the turn's run is already past its wall-time ceiling"
+    then: "the rounds still run to their stop"
+  - when: "the run's cost cap stops a draft"
+    then: "it is listed not reviewed, and its finding names the cost cap"
+  - when: "a draft left waiting by the budget is blind on the next turn"
+    then: "approval stays held for one further turn"
+  - when: "every reviewer of a draft fails in every round, or the partner rewrites a draft after the final round, or the turn is cancelled mid-review"
+    then: "the draft is listed not reviewed with that reason and cannot be approved"
+  - when: "the spec_review block is unreadable, or rounds are off and the one review call fails"
+    then: "no draft is approvable unreviewed"
+  - "A coding run's review still stops at its share."
+  - "Build green, full suite green."

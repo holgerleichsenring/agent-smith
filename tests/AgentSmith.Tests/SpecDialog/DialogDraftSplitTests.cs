@@ -234,7 +234,7 @@ public sealed class DialogDraftSplitTests : IDisposable
         var gate = new SpecDialogTurnGate(TimeProvider.System);
         var flow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(_transport.Object, _messenger, pending, composer,
-                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, _messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

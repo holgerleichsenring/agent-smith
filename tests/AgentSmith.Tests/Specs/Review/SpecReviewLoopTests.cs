@@ -38,14 +38,15 @@ public sealed class SpecReviewLoopTests
     }
 
     [Fact]
-    public async Task ReviewLoop_CutsAppliedAndRevisedTextEvidenceClean_StopsAfterThatRound()
+    public async Task ReviewLoop_CutsAppliedAndRevisedTextEvidenceClean_IsAttackedOnceMore()
     {
-        var rig = new ReviewLoopRig().Answers(Cuts(FlushCut)).Revisions((FlushScope, BatchScope));
+        var rig = new ReviewLoopRig().Answers(Cuts(FlushCut), Build()).Revisions((FlushScope, BatchScope));
 
         var outcome = await RunAsync(rig);
 
-        outcome.Rounds.Should().Be(1);
+        outcome.Rounds.Should().Be(2, "the revised text was attacked by nobody yet (2026-11-10-8e59)");
         outcome.StandingVerdict.Should().BeNull();
+        outcome.IsCleared.Should().BeTrue();
         outcome.Final.Yaml.Should().Contain(BatchScope);
         rig.Published.Should().ContainSingle().Which.Current.Cause.Should()
             .Be($"spec review round 1 of {First}: build-with-cuts");
@@ -129,7 +130,7 @@ public sealed class SpecReviewLoopTests
     }
 
     [Fact]
-    public async Task ReviewLoop_RoundsSpent_BuildsWithWhatAppliedAndNamesTheStandingVerdict()
+    public async Task ReviewLoop_RoundsSpentOnAnUnattackedText_IsNotClearedAndAsksTheAuthor()
     {
         var rig = new ReviewLoopRig().Answers(Cuts(FlushCut), Cuts(FlushCut))
             .Revisions(GoalOnly, ("into one dated file", "into one dated export file"));
@@ -140,11 +141,14 @@ public sealed class SpecReviewLoopTests
             .ExecuteAsync(Settings(rounds: 2))).Message;
 
         outcome.Rounds.Should().Be(2);
-        outcome.IsCleared.Should().BeTrue("exhausted rounds build the spec with what applied");
+        outcome.IsCleared.Should().BeFalse("the final text came from the last round's cuts; nobody attacked it (2026-11-10-8e59)");
+        outcome.Unattacked.Should().BeTrue();
         outcome.StandingVerdict.Should().Be(SpecReviewVerdicts.BuildWithCuts);
         outcome.Final.Yaml.Should().Contain("into one dated export file");
         rig.Published.Should().HaveCount(2);
-        line.Should().Contain($"{First}: build-with-cuts standing after 2 round(s), built with what applied");
+        StandingObjection.Of(outcome)!.Findings.Should().Contain(f => f.Text == StandingObjection.UnattackedText);
+        line.Should().Contain($"{First}: build-with-cuts standing after 2 round(s), its final text not attacked")
+            .And.Contain("asked the author once");
     }
 
     [Fact]

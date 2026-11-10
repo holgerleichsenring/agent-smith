@@ -42,7 +42,7 @@ internal static class ConfigSettingsAccess
         }
         var value = descriptor.Read(scratch).Single().Value;
         // 2026-10-13-8762v: a block the run would refuse is never saved — the one rule, read where it is used.
-        var problems = value switch { SeriesConfig series => series.Problems(), SpecReviewConfig review => review.Problems(), _ => [] };
+        var problems = SettingsBlockRule.Problems(value);
         return problems.Count == 0 ? value
             : throw new ConfigurationException($"Invalid '{type}' settings: {string.Join("; ", problems)}");
     }

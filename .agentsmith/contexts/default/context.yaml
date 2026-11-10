@@ -91,6 +91,8 @@ integrations:
 
 state:
   done:
+    2026-11-10-8e59: "REVIEW EXACT TEXT (coding-run review, proposal review, approval record, config validation, dashboard). Built only after a round said build on the exact text (id + SHA-256 of trimmed yaml), contract too; no answer retries then stops; approval never waits on review state; invalid spec_review refused at validation. -> .agentsmith/specs/done/2026-11-10-8e59-review-exact-text.yaml"
+    2026-11-10-18cf: "PROPOSAL REVIEW EVERY DRAFT (proposal review session, series round, carry-over, summary). No share, floor or wall-time rule; ProposalRoundGate deleted; only the cost cap or a cancel stops it. A draft no answer attacked in its current text is held with its reason; only an unread wait opens the blind exit. ->.agentsmith/specs/done/2026-11-10-18cf-proposal-review-every-draft.yaml"
     2026-11-09-0620n: "TURN FIRST PROSE (outcome gate, proposal reply text). One rule for every re-draft in a design turn: the operator reads the first full reply, and a schema fix or a review cut only replaces its block; both paths use TurnReply. -> .agentsmith/specs/done/2026-11-09-0620n-turn-first-prose.yaml"
     2026-11-09-0620m: "REVIEW REPLY AND CHILD ANSWERS (proposal review reply, sub-agent answer, layout reader). After a re-draft the operator reads the first reply's analysis with the revised block, no re-draft note; child answers cut at 12000; layouts skip .git, bin, obj, node_modules. -> .agentsmith/specs/done/2026-11-09-0620m-review-reply-and-child-answers.yaml"
     2026-11-09-0620l: "PROMPT STORE AND LAYOUT RISKS (prompt recorder, writer, sweep; layout reader). Prompts are written by a background writer, never on the call path; 64 recent records per run; paged sweep; blocks re-checked after a write; layout cache keyed by location, scoped repos only, four listings at once. -> .agentsmith/specs/done/2026-11-09-0620l-prompt-store-and-layout-risks.yaml"
@@ -1412,6 +1414,7 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
+    2026-11-10-e706: "TURN HANG DETECTION (run watchdog, chat client builders). Bound every model wait a design turn makes (Copilot idle wait, Ollama, Gemini), then exempt design turns from the wall-time watchdog; coding runs keep it. requires 18cf. -> .agentsmith/specs/planned/2026-11-10-e706-turn-hang-detection.yaml"
     2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"

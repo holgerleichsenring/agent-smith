@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 
 /// <summary>
 /// 2026-10-13-8762i: a review round's changes applied by the design partner. The drafts with cuts or a REFUSE
-/// still admitted by <see cref="ProposalRoundGate"/> go into ONE re-prompt (<see cref="ProposalCutsNudge"/>);
+/// still admitted by <see cref="ProposalReviewSession.Admit"/> go into ONE re-prompt (<see cref="ProposalCutsNudge"/>);
 /// the re-proposal is merged by <see cref="ProposalReProposalGuard"/> and published; each draft gets its
 /// residues, its re-checked evidence and its round, and stops on the stop rule or on unchanged text. A failed
 /// call, an unusable reply or one that changed no draft ends the review on the last valid proposal.
@@ -20,7 +20,7 @@ public sealed class ProposalRoundRevision(
     internal async Task<bool> ApplyAsync(
         ProposalReviewSession session, IReadOnlyList<ProposalDraftReview> toFix, CancellationToken ct)
     {
-        var applying = ProposalRoundGate.Admit(session, toFix);
+        var applying = session.Admit(toFix);
         foreach (var draft in toFix.Except(applying)) Unchanged(session, draft);
         if (applying.Count == 0) return true;
         var reply = await reprompt.RunAsync(session.Turn, Nudge(session, applying), ct);

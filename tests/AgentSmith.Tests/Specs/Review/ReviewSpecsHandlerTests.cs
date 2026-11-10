@@ -13,7 +13,7 @@ using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 namespace AgentSmith.Tests.Specs.Review;
 
 /// <summary>
-/// 2026-10-13-8762g: the review step — what it skips and says so, what an approved text and an executed head
+/// 2026-10-13-8762g: the review step — what it skips and says so, what a clean review of the exact text and an executed head
 /// spare, the share that never stops the first reviewed spec, the stop it sets once the share is spent, and
 /// a bad setting that fails the step by name.
 /// </summary>
@@ -37,23 +37,35 @@ public sealed class ReviewSpecsHandlerTests
     }
 
     [Fact]
-    public async Task ReviewSpecs_SpecEqualToTheApprovedText_IsNotReviewed()
+    public async Task ReviewSpecs_ApprovedButNeverReviewed_IsReviewedBeforeBuilding()
     {
         var rig = new ReviewLoopRig();
         Approve(rig, rig.Set);
 
+        await rig.ExecuteAsync(Settings());
+
+        rig.Inputs.Select(i => i.Draft.SpecId).Distinct().Should().Equal([First, Second],
+            "an approval says nothing about whether a review attacked the text (2026-11-10-8e59)");
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_ExactTextReviewedClean_IsSkipped()
+    {
+        var rig = new ReviewLoopRig();
+        Approve(rig, rig.Set, clean: rig.Set.Specs);
+
         var result = await rig.ExecuteAsync(Settings());
 
-        result.Message.Should().Contain("every unbuilt spec is still the text a person approved");
+        result.Message.Should().Contain("every unbuilt spec's exact text was reviewed clean");
         rig.Inputs.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task ReviewSpecs_ApprovedSetReDerivedByRework_IsReviewed()
+    public async Task ReviewSpecs_TextChangedAfterItsCleanReview_IsReviewedAgain()
     {
         var rig = new ReviewLoopRig();
         var approved = rig.Set;
-        Approve(rig, approved);
+        Approve(rig, approved, clean: approved.Specs);
         var recut = approved.Specs[1] with
         {
             Draft = approved.Specs[1].Draft with { Yaml = approved.Specs[1].Draft.Yaml.Replace("one file", "one zipped file") },
@@ -62,7 +74,7 @@ public sealed class ReviewSpecsHandlerTests
 
         await rig.ExecuteAsync(Settings());
 
-        rig.Inputs.Should().ContainSingle("the approval rides the re-cut set, but its text is not the approved one")
+        rig.Inputs.Should().ContainSingle("its clean review was on the text before the change")
             .Which.Draft.SpecId.Should().Be(Second);
     }
 
@@ -205,9 +217,12 @@ public sealed class ReviewSpecsHandlerTests
         PipelinePresets.CodeSpecBlock.Should().NotContain(CommandNames.ReviewSpecs);
     }
 
-    private static void Approve(ReviewLoopRig rig, SpecSet set) =>
+    private static void Approve(ReviewLoopRig rig, SpecSet set, IReadOnlyList<DerivedSpec>? clean = null) =>
         rig.Pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(new SpecApprovalRecord("shop-42",
-            set with { Approval = new SpecApproval(DateTimeOffset.UtcNow, "session-1", "carol") }, ["shop"])));
+            set with { Approval = new SpecApproval(DateTimeOffset.UtcNow, "session-1", "carol") }, ["shop"])
+        {
+            ReviewedClean = clean?.Select(s => ReviewedText.Of(s.SpecId, s.Draft.Yaml)).ToList(),
+        }));
 
     private static void Spend(PipelineCostTracker tracker, decimal usd) =>
         tracker.SeedPriorSpend(new PriorSpendSnapshot(0, 0, 0, 0, usd, 0, 0, 0, 0, 0m, string.Empty));

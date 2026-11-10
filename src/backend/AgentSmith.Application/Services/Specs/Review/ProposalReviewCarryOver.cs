@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
@@ -22,7 +23,6 @@ internal static class ProposalReviewCarryOver
     private static ProposalDraftReview Carried(
         ProposalDraftReview review, OutcomeProposal? revised, IReadOnlyList<string> waiting)
     {
-        review.WasWaiting = waiting.Contains(review.SpecId, StringComparer.Ordinal);
         if (revised is null || waiting.Contains(review.SpecId, StringComparer.Ordinal)
             || !ProposalSpecSet.Drafts(revised).Any(before => before.SpecId == review.SpecId
                 && string.Equals(before.Yaml, review.Draft.Yaml, StringComparison.Ordinal)))
@@ -30,6 +30,8 @@ internal static class ProposalReviewCarryOver
         review.Rounds.AddRange(revised.ReviewRounds.Where(round =>
             round.SpecId == review.SpecId && round.SpecId != ProposalReviewTokens.Series));
         review.Stopped = review.Rounds.Count > 0;
+        // 2026-11-10-8e59: a clean review carries over only for exactly the text it was on.
+        if (ReviewedText.Covers(revised.ReviewedClean, review.SpecId, review.Draft.Yaml)) review.AttackedYaml = review.Draft.Yaml;
         return review;
     }
 }

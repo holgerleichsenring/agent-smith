@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
@@ -41,6 +42,8 @@ public sealed class ProposalUnderReviewTests
         _published[0].UnderReview.Should().BeTrue();
         _published[0].NotReviewed.Should().Equal(First, Second);
         _published[0].ReviewRounds.Should().BeEmpty();
+        _published[0].Findings.Where(f => f.Problem == ProposalReviewSummary.NotReviewedYet).Select(f => f.SpecId)
+            .Should().Equal([First, Second], "a turn cancelled from here leaves each draft's reason behind (2026-11-10-18cf)");
     }
 
     [Fact]

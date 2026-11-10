@@ -45,6 +45,87 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
+    public async Task ReviewSpecs_SeriesCutChangesAMember_AttacksItsNewTextBeforeBuilding()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs())).Revisions(Edit);
+        rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(Second));
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        rig.Inputs.Where(i => i.Draft.SpecId == Second).Select(i => i.Draft.Yaml)
+            .Should().HaveCount(2).And.Contain(yaml => yaml.Contains(NewStep), "the series cut's text is attacked too (2026-11-10-8e59)");
+        result.Message.Should().Contain($"{Second} cleared after 1 round(s)", "its new text was reviewed clean");
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_SeriesCutChangesAMemberAndTheShareIsSpent_ItIsNotBuiltThisAttempt()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs())).Revisions(Edit);
+        rig.OnSeriesReview = _ =>
+        {
+            rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-1000));
+            return Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(Second));
+        };
+
+        await rig.ExecuteAsync(Settings(wallSeconds: 1000));
+
+        rig.Pipeline.Get<SpecSequenceStop>(ContextKeys.SpecSequenceStop).BeforeSpecId.Should().Be(Second,
+            "a member the series cut changed is not cleared until its new text is attacked");
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_TwoMembersChangedAndTheShareSpent_StopsAtTheFirst()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs())).Revisions(Edit, Edit);
+        rig.OnSeriesReview = _ =>
+        {
+            rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-1000));
+            return Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(First), SeriesCut(Second));
+        };
+
+        await rig.ExecuteAsync(Settings(wallSeconds: 1000));
+
+        rig.Pipeline.Get<SpecSequenceStop>(ContextKeys.SpecSequenceStop).BeforeSpecId.Should().Be(First,
+            "the stop lands at the first uncleared member; a later one never moves it back (2026-11-10-8e59)");
+    }
+
+    [Fact]
+    public async Task SeriesContractRound_SingleUnexecutedMemberAndNoCleanContract_IsStillTaken()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs()) with { Executed = [First] });
+
+        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], contractClean: false, CancellationToken.None);
+
+        rig.SeriesCalls.Should().ContainSingle("no review ended clean on the contract, one member or not (2026-11-10-8e59)");
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_ContractRoundNotTaken_StopsBeforeThePrefixWithTheReason()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs()));
+        rig.OnSeriesReview = _ => SeriesContractReview.Failed("the reviewer call failed");
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        var stop = rig.Pipeline.Get<SpecSequenceStop>(ContextKeys.SpecSequenceStop);
+        stop.BeforeSpecId.Should().Be(First, "nothing the unreviewed contract governs is built");
+        stop.Reason.Should().Contain("the series contract was not reviewed: the reviewer call failed");
+        result.Message.Should().Contain("stopped before " + First);
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_SeriesCutThatCannotLand_RaisesAnObjection()
+    {
+        var rig = new ReviewLoopRig(Contracted(ReviewExhaustionTests.ThreeSpecs()) with { Executed = [First] });
+        rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(First));
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        result.InsertNext.Should().ContainSingle("a cut on an executed member could not land, so the contract is not clean")
+            .Which.Name.Should().Be(CommandNames.SpecHandback);
+    }
+
+    [Fact]
     public async Task SeriesContractRound_ShareSpent_ReviewsOnlyTheClearedPrefix()
     {
         var rig = ShareSpentAfterTheFirst(Contracted(ReviewExhaustionTests.ThreeSpecs()));
@@ -84,21 +165,37 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
-    public async Task SeriesContractRound_ApprovedSetUnchanged_TakesNoRound()
+    public async Task SeriesContractRound_ContractReviewedCleanAndNoMemberReviewed_TakesNoRound()
     {
         var rig = new ReviewLoopRig(Contracted(TwoSpecs()));
 
-        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], CancellationToken.None);
+        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], contractClean: true, CancellationToken.None);
 
-        round.Line.Should().Be("series contract round skipped: no cleared member was reviewed in this attempt (still the approved text)");
+        round.Line.Should().Be("series contract round skipped: no cleared member was reviewed in this attempt, and a review ended clean on this exact contract");
         rig.SeriesCalls.Should().BeEmpty();
         rig.Events.Events.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task SeriesContractRound_SingleUnexecutedMember_TakesNoRound()
+    public async Task SeriesContractRound_ContractNotReviewedClean_IsAttackedEvenWhenNoMemberWasReviewed()
     {
-        var rig = new ReviewLoopRig(Contracted(TwoSpecs()) with { Executed = [First] });
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs()));
+
+        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], contractClean: false, CancellationToken.None);
+
+        rig.SeriesCalls.Should().ContainSingle("no review ended clean on this contract (2026-11-10-8e59)");
+    }
+
+    [Fact]
+    public async Task SeriesContractRound_SingleUnexecutedMemberAndCleanContract_TakesNoRound()
+    {
+        var set = Contracted(TwoSpecs()) with { Executed = [First] };
+        var rig = new ReviewLoopRig(set);
+        rig.Pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(new SpecApprovalRecord("shop-42",
+            set with { Approval = new SpecApproval(DateTimeOffset.UtcNow, "session-1", "carol") }, ["shop"])
+        {
+            ReviewedClean = [ReviewedText.Of(set.Contract!)],
+        }));
 
         var result = await rig.ExecuteAsync(Settings());
 
@@ -151,11 +248,11 @@ public sealed class SeriesContractRoundTests
         rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(First));
         using var _ = rig.RunContext.BeginScope(RunId);
 
-        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [Second], CancellationToken.None);
+        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [Second], contractClean: false, CancellationToken.None);
 
         var round = SeriesEvent(rig);
         round.Cuts.Should().BeEmpty();
-        round.Findings.Should().ContainSingle().Which.Text.Should().Contain($"{First} is the text a person approved");
+        round.Findings.Should().ContainSingle().Which.Text.Should().Contain($"{First} was not reviewed in this attempt");
         rig.Published.Should().BeEmpty("approved text is never re-cut at run time");
     }
 
@@ -180,7 +277,7 @@ public sealed class SeriesContractRoundTests
         tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10_000_000 });
         tracker.SeedPriorSpend(new PriorSpendSnapshot(0, 0, 0, 0, 11m, 0, 0, 0, 0, 0m, string.Empty));
 
-        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [First, Second], CancellationToken.None);
+        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [First, Second], contractClean: false, CancellationToken.None);
 
         round.Line.Should().StartWith("series contract round not taken: ");
         rig.SeriesCalls.Should().BeEmpty("the share is waived, the run cap is not");
@@ -204,21 +301,22 @@ public sealed class SeriesContractRoundTests
         var result = await rig.ExecuteAsync(Settings());
 
         result.InsertNext.Should().ContainSingle().Which.Name.Should().Be(CommandNames.SpecHandback);
-        rig.Set.Handback!.Reason.Should().Contain(ReviewObjectionComment.MarkerFor(First))
-            .And.Contain(ReviewObjectionComment.MarkerFor("series:" + First) + " (the series)");
+        rig.Set.Handback!.Reason.Should().Contain(ReviewObjectionComment.MarkerFor($"{First} at text {Short(rig.Set.Specs[0].Draft.Yaml)}"))
+            .And.Contain(ReviewObjectionComment.MarkerFor($"series:{First} at text {ShortContract()}") + " (the series)");
         rig.Published.Count(p => p.Handback is not null).Should().Be(1, "one question lists both");
     }
 
     [Fact]
-    public async Task ReviewSpecs_SeriesObjectionAlreadyAsked_ProceedsOnThePrefixMarker()
+    public async Task ReviewSpecs_SeriesObjectionAnsweredBuild_ProceedsOnThePrefixMarker()
     {
-        var rig = Thread(new ReviewLoopRig(Contracted(TwoSpecs())), SeriesAsked(First));
+        var rig = Thread(new ReviewLoopRig(Contracted(TwoSpecs())), SeriesAsked(First),
+            new AgentSmith.Domain.Entities.TicketComment("author", DateTimeOffset.UtcNow.AddYears(1), "(a)"));
         rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.Refuse, findings: Finding);
 
         var result = await rig.ExecuteAsync(Settings());
 
         result.InsertNext.Should().BeNull();
-        result.Message.Should().Contain($"series:{First}: its objection was asked before, built as reviewed");
+        result.Message.Should().Contain($"series:{First} at text {ShortContract()}: the author answered build as reviewed");
     }
 
     [Fact]
@@ -231,7 +329,7 @@ public sealed class SeriesContractRoundTests
         var result = await rig.ExecuteAsync(Settings());
 
         result.InsertNext.Should().ContainSingle().Which.Name.Should().Be(CommandNames.SpecHandback);
-        rig.Set.Handback!.Reason.Should().Contain(ReviewObjectionComment.MarkerFor("series:" + Second));
+        rig.Set.Handback!.Reason.Should().Contain(ReviewObjectionComment.MarkerFor($"series:{Second} at text {ShortContract()}"));
     }
 
     private static readonly SpecReviewFinding Finding = new("Both members mint event 87.", "shop/.agentsmith/specs/x.yaml:3 [A1]");
@@ -266,7 +364,15 @@ public sealed class SeriesContractRoundTests
     }
 
     private static TicketComment SeriesAsked(string head) =>
-        ReviewExhaustionTests.Ours(ReviewObjectionQuestion.For([new StandingObjection(null, [Finding], head)]));
+        ReviewExhaustionTests.Ours(ReviewObjectionQuestion.For([new StandingObjection(null, [Finding], head)
+        {
+            TextHash = ReviewedText.Hash(SeriesReviewFixtures.Contract(First)),
+        }]));
+
+    // 2026-11-10-8e59: an objection's marker names the text it is about, so an answer binds to that text.
+    private static string Short(string yaml) => ReviewedText.Hash(yaml)[..12];
+
+    private static string ShortContract() => ReviewedText.Hash(SeriesReviewFixtures.Contract(First))[..12];
 
     private static ReviewLoopRig Thread(ReviewLoopRig rig, params TicketComment[] thread)
     {

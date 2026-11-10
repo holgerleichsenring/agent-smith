@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-8e59
+
+decisions:
+  - category: Architecture
+    chose: "One guarantee before building: the run skips a spec only if a review ended clean on its exact current yaml, bound by a SHA-256 hash"
+    over: "Approval holds in the conversation (9a98, 9631b, 442af6e2b), or skipping any spec whose text equals the approved text (8762g)"
+    reason: "Operator decision, 2026-11-10: a spec is either reviewed in exactly this text or it is not, and nothing is built that was not. The approved-text skip built approved text that no review had attacked. The conversation holds put that guarantee into many locks and still left paths around them."
+  - category: Implementation
+    chose: "A clean review is recorded as spec id plus yaml hash, on the proposal, the filed series and the approval record"
+    over: "Carrying the review rounds into the run"
+    reason: "Rounds carry no text or hash. They bind to a text only through byte-identity during the next turn's carry-over, and they are stripped before the record reaches a run. A hash makes any changed byte void the review without anyone having to compare texts."
+  - category: Implementation
+    chose: "Clean means the last taken round said build on the current text"
+    over: "Accepting build-with-cuts once the cuts were applied cleanly"
+    reason: "Applying cuts produces a text that no reviewer attacked. The coding run attacks that text before building."
+  - category: Implementation
+    chose: "Filing moves a clean review to the filed id and yaml when the source draft's hash matches"
+    over: "Hashing only the filed text, or dropping clean reviews at filing"
+    reason: "Filing re-ids the drafts, which changes their yaml. That rename is our own and changes no content. Dropping the reviews would review every approved spec twice."
+  - category: Architecture
+    chose: "Approval never depends on review state; drafts are marked 'not yet reviewed, will be reviewed before it is built' with the reason"
+    over: "Keeping a hold for some of the reasons"
+    reason: "The guarantee sits in one place. Any hold in the conversation is a second gate, and an incomplete one."
+  - category: Architecture
+    chose: "An invalid spec_review block is refused at startup validation, on save and on import. At run time an unreadable or invalid block reviews nothing in the design turn and marks the drafts"
+    over: "A runtime fallback to the defaults (442af6e2b)"
+    reason: "The fallback broke SpecReviewConfig's one rule ('refuses, never clamps'), and the operator could not see it. What still reaches a turn is caught by the review before building."
+  - category: Scope
+    chose: "A spec the coding run itself cleared is reviewed again in a later attempt"
+    over: "Recording the coding run's clean reviews on the approval record"
+    reason: "The run writes no approval record. That costs one more review, never an unreviewed build."
+  - category: Process
+    chose: "The spec was checked against the code by the implementer, not by a fresh subagent"
+    over: "A fresh adversarial reviewer"
+    reason: "The implementing agent was a worker fork that may not spawn subagents."
+  - category: Architecture
+    chose: "The coding run clears a spec only when a round said build on its current text. An unanswered round is retried, and once the rounds are spent the spec is stopped like a budget stop. A changed final text, a standing cut or a refuse goes to the exhaustion question"
+    over: "Clearing on a stop rule that accepted build-with-cuts once applied, and on a round no reviewer answered"
+    reason: "An independent review of 321d6be0c found the build-time gate let unattacked text through: an outage counted as cleared, applied cuts counted as clean, and a last-round rewrite was built. The rule: the master builds only text a review ended clean on in exactly that form. A person's explicit answer to the exhaustion question is the one exception."
+  - category: Architecture
+    chose: "The series contract gets its own clean-review record, hashed from its JSON, and the run attacks the contract unless that record matches, even when every member is clean"
+    over: "Reviewing the contract only alongside members reviewed in the same attempt"
+    reason: "A contract whose design-turn series round was skipped or refused was never attacked at build time: an empty tail skipped the step, and the series round skipped itself when no member was reviewed. JSON is what the manifest's yaml round trip reproduces, and a test pins that."
+  - category: Implementation
+    chose: "Hash the trimmed yaml"
+    over: "Hashing the bytes as they stand"
+    reason: "Filing writes TrimEnd plus a newline and the reader trims, so a model's trailing newline made the run's text hash differently from the reviewed one. Trimming is the form both sides agree on."
+  - category: Implementation
+    chose: "Re-grounding stays after the review, as the one recorded mechanical exception"
+    over: "Moving it before the review"
+    reason: "It runs as each spec is entered, against code that the specs before it changed in the same run, so it cannot run earlier. SpecFactRegrounding rewrites only a citation token inside a fact's evidence scalar, located by its source span, so a path and its lines change and a claim never does. A test pins this."
+  - category: Implementation
+    chose: "With rounds at 0, every draft gets the finding 'review is turned off (spec_review.rounds: 0)' and is not listed as not reviewed"
+    over: "The not-reviewed mark, which promises a review before building"
+    reason: "With rounds at 0 the coding run skips its review as well. The operator's choice stands and is stated truthfully. The finding needs no new dashboard field."
+  - category: Scope
+    chose: "The approval record keeps only the current filing's clean reviews"
+    over: "Merging in the previous record's entries"
+    reason: "A clean review belongs to the filing that reviewed it. Carrying old entries forward added nothing the hash did not already decide, and it obscured which review the run relied on."
+  - category: Architecture
+    chose: "An exhaustion question lets a spec through only on a person's explicit build answer, '(a)' or its words, after our question on the ticket or a pull request. Silence sends the spec to fresh rounds, and the question is asked again if the objection still stands"
+    over: "8762h's 'asked once, proceeds answered or not', with the unanswered pin telling the derivation to keep the spec"
+    reason: "Silence is not consent. The goal is that nothing unattacked is built except by a person's call. The review-objection pin and its prompt section are removed, and an inline run with no answer fails without building. The question text says what silence does."
+  - category: Architecture
+    chose: "A member that a series-round cut changed is attacked again on its new text, in this run, through the same loop with the budget share; what that leaves uncleared is handled like any spec (stop or objection)"
+    over: "Building the series-cut text as cleared"
+    reason: "A series cut changes a member after its own rounds, so the text that would be built was never attacked."
+  - category: Implementation
+    chose: "The review stop lands at the first uncleared spec; a later one never moves it back"
+    over: "The last stop set wins"
+    reason: "A third review found that with the share spent, the series round's re-attacks overwrote the stop each time, so earlier changed members sat before it and were built unattacked."
+  - category: Architecture
+    chose: "A series round that is not taken on a contract with no clean review stops the attempt before the prefix, with the reason. A series cut that could not land, a cut wording still standing, or a refuse is an objection"
+    over: "Returning a line only, or objecting only on a refuse"
+    reason: "Both let a contract that no review ended clean on through to building. This applies the same bar as for specs."
+  - category: Architecture
+    chose: "A build answer binds to the hash of the text it was asked about, carried in the question's marker, and counts only when its first non-empty line is the keyword"
+    over: "Any later answer per spec id, matched as a substring"
+    reason: "An answer must not outlive its text, and 'don't build the spec as reviewed' must not read as consent. The rework keyword-comment pattern lives in the Server webhook and matches a substring, so it does not fit here. The first-line rule is local and stricter."
+  - category: Implementation
+    chose: "On an inline run, Enter on the shown default builds; a timeout with nobody there builds nothing"
+    over: "Treating Enter like silence"
+    reason: "The terminal shows build as the recommended reading. A person pressing Enter has chosen it. Only the gate's own 'system' answer means nobody was there."
+  - category: Implementation
+    chose: "A pipeline that runs to its end with a review stop says so in its result line"
+    over: "'Pipeline completed successfully' alone"
+    reason: "The result line becomes the run's summary, which the operator reads. An attempt stopped because no reviewer answered must say why."
+  - category: Architecture
+    chose: "Before the review rounds, a spec whose current text hash matches a person's build answer is built as it stands and runs no rounds"
+    over: "Checking the answer only at exhaustion, after the next run's fresh rounds"
+    reason: "The final review found that fresh rounds usually rewrite the text, so the hash no longer matched the answer. The ticket then looped, re-asking and paying for a full review on every re-trigger. The answer is about the exact text it was asked on, so that text is the one built."
+  - category: Implementation
+    chose: "Run the contract round even with a single unexecuted member when the contract has no clean record"
+    over: "Skipping it for a single member"
+    reason: "A contract that no review ended clean on must not reach a build unattacked, however many members are left."

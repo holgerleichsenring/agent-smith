@@ -4,8 +4,8 @@ import { DialogProposalRounds } from "../DialogProposalRounds";
 import { DialogQuestionCard } from "../DialogQuestionCard";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush, SpecDialogReviewRound } from "@/types/spec-dialog";
 
-// 2026-10-13-8762i: the approval card shows every review round of the proposal's drafts and drops its Approve
-// control while a spec (or the series contract) is not reviewed yet.
+// 2026-10-13-8762i: the approval card shows every review round of the proposal's drafts. 2026-11-10-8e59: a spec
+// not yet reviewed is marked, and Approve stays — nothing is built before a review ends clean on its exact text.
 
 const rounds: SpecDialogReviewRound[] = [
   {
@@ -39,7 +39,7 @@ describe("DialogProposalRounds", () => {
     expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — under review");
 
     rerender(<DialogProposalRounds rounds={[]} notReviewed={["2026-10-14-9000b"]} underReview={false} />);
-    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — not reviewed yet");
+    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — not yet reviewed, will be reviewed before it is built");
   });
 
   it("DialogProposalRounds_RendersVerdictsCutsFindingsAndResiduePerRound", () => {
@@ -61,18 +61,19 @@ describe("DialogProposalRounds", () => {
 });
 
 describe("DialogQuestionCard review rounds", () => {
-  it("DialogQuestionCard_NotReviewed_HasNoApproveControl", () => {
+  it("DialogQuestionCard_NotReviewed_KeepsTheApproveControl", () => {
     render(<DialogQuestionCard question={question} proposal={proposal(["2026-10-14-9000b"])} onAnswer={vi.fn()} />);
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+    expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
     expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — not reviewed yet");
+    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent("2026-10-14-9000b — not yet reviewed, will be reviewed before it is built");
     expect(screen.getAllByTestId("dialog-review-round")).toHaveLength(2);
   });
 
-  it("DialogQuestionCard_SeriesToken_SaysTheSeriesContractIsNotReviewedYet", () => {
+  it("DialogQuestionCard_SeriesToken_SaysTheSeriesContractIsNotYetReviewed", () => {
     render(<DialogQuestionCard question={question} proposal={proposal(["series"])} onAnswer={vi.fn()} />);
-    expect(screen.getByTestId("dialog-not-reviewed")).toHaveTextContent(/^the series contract is not reviewed yet$/);
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+    expect(screen.getByTestId("dialog-not-reviewed"))
+      .toHaveTextContent(/^the series contract — not yet reviewed, will be reviewed before it is built$/);
+    expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
   });
 
   it("AllReviewed_KeepsTheApproveControl", () => {

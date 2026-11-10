@@ -1,8 +1,11 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
@@ -33,18 +36,27 @@ public sealed class ProposalSeriesRoundTests
     }
 
     [Fact]
-    public async Task ProposalReview_ShareSpent_ListsContractInNotReviewed()
+    public async Task ProposalReview_ShareSpent_SeriesContractStillReviewed()
     {
         var rig = Contracted(CutOnSecond());
         rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-1000));
 
         await rig.RunAsync();
 
-        rig.SeriesReviewed.Should().BeEmpty();
-        rig.Outcome.NotReviewed.Should().Contain(ProposalReviewTokens.Series);
-        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Parent && f.Problem == ProposalSeriesRound.Problem
-            && f.Why.Contains("not reviewed yet"));
-        rig.Outcome.ReviewRounds.Should().NotContain(r => r.SpecId == ProposalReviewTokens.Series);
+        rig.SeriesReviewed.Should().ContainSingle("a design turn's review has no share (2026-11-10-18cf)");
+        rig.Outcome.ReviewRounds.Should().Contain(r => r.SpecId == ProposalReviewTokens.Series);
+    }
+
+    [Fact]
+    public async Task ProposalReview_PastTheWallTimeCeiling_SeriesContractStillReviewed()
+    {
+        var rig = Contracted(CutOnSecond());
+        rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-5000));
+
+        await rig.RunAsync();
+
+        rig.SeriesReviewed.Should().ContainSingle("a design turn's review has no wall-time rule (2026-11-10-18cf)");
+        rig.Outcome.ReviewRounds.Should().Contain(r => r.SpecId == ProposalReviewTokens.Series);
     }
 
     [Fact]

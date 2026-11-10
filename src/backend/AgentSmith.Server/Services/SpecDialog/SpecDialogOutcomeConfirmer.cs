@@ -26,7 +26,6 @@ public sealed class SpecDialogOutcomeConfirmer(
     SpecDialogMessenger messenger,
     SpecDialogPendingQuestions pendingQuestions,
     SpecDialogOutcomeComposer composer,
-    SpecDialogUnreviewedApproval unreviewed, // 2026-10-13-8762i: never approved unreviewed
     IOpenDialogQuestions openQuestions, // 2026-10-26-0f19b: a click on another replica finds it
     ILogger<SpecDialogOutcomeConfirmer> logger)
 {
@@ -52,7 +51,7 @@ public sealed class SpecDialogOutcomeConfirmer(
         {
             var answer = await dialogueTransport.WaitForAnswerAsync(
                 state.JobId, question.QuestionId, ConfirmationTimeout, cancellationToken);
-            return await InterpretAsync(state, proposal, answer, cancellationToken);
+            return Interpret(state, answer);
         }
         finally
         {
@@ -90,8 +89,8 @@ public sealed class SpecDialogOutcomeConfirmer(
         }
     }
 
-    private async Task<ConfirmationResult> InterpretAsync(
-        ConversationState state, OutcomeProposal proposal, DialogAnswer? answer, CancellationToken ct)
+    // 2026-11-10-8e59: an approval never depends on review state; what is not reviewed is reviewed before it is built.
+    private ConfirmationResult Interpret(ConversationState state, DialogAnswer? answer)
     {
         if (answer is null)
         {
@@ -106,8 +105,6 @@ public sealed class SpecDialogOutcomeConfirmer(
         // 2026-10-13-9a59l: in a ticket's own conversation the approval itself continues the ticket.
         return SpecDialogAnswerWords.DecisionIn(answer.Answer) switch
         {
-            SpecDialogDecision.Approved when proposal.NotReviewed is { Count: > 0 } waiting =>
-                await unreviewed.HoldAsync(state, waiting, ct),
             SpecDialogDecision.Approved => new OutcomeConfirmed(),
             SpecDialogDecision.Rejected => new OutcomeRejected(),
             _ => new OutcomeEditRequested(answer.Answer.Trim()),

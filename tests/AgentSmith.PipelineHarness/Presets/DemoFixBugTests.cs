@@ -71,10 +71,10 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
     }
 
-    /// <summary>2026-11-02-2b26d: a review objection standing on the demo's inline run is asked in the terminal;
-    /// nobody answers, the default reading builds the reviewed spec, and the fix is still made.</summary>
+    /// <summary>2026-11-02-2b26d: a review objection standing on the demo's inline run is asked in the terminal.
+    /// 2026-11-10-8e59: nobody is there, the question times out, so the spec is not built unreviewed.</summary>
     [Fact]
-    public async Task Demo_ReviewObjection_DefaultReading_StillCommitsTheFix()
+    public async Task Demo_ReviewObjection_Unanswered_BuildsNothing()
     {
         var workspace = await MaterializeAsync();
         await using var harness = Harness();
@@ -87,16 +87,44 @@ public sealed class DemoFixBugTests : IAsyncLifetime
             .EnqueueText(DerivedSpec)
             // The rewrite after a REFUSE without cuts reads the main FIFO; a reply that is no spec leaves it standing.
             .EnqueueText("The spec cannot be rewritten from what was opened.");
-        ScriptTheFix(harness.ChatClient);
 
         var runner = Runner(harness, workspace);
         var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeTrue($"the default reading builds the reviewed spec: {result.Message}");
+        result.IsSuccess.Should().BeFalse("silence never builds an unreviewed spec");
+        result.Message.Should().Contain("not built unreviewed");
         var set = runner.LastContext!.Get<AgentSmith.Contracts.Specs.SpecSet>(ContextKeys.SpecSet);
         set.Handback!.QuestionKind.Should().Be(AgentSmith.Contracts.Specs.SpecQuestionKind.ReviewObjection,
             "the objection was asked");
-        runner.LastContext!.Has(ContextKeys.SpecHandback).Should().BeFalse("the default reading was taken");
+        harness.ChatClient.ToolCalls.Select(c => c.Name).Should().NotContain("write_file");
+    }
+
+    /// <summary>2026-11-10-8e59: Enter on the shown default ("build") is a person's explicit choice, so the fix is made.</summary>
+    [Fact]
+    public async Task Demo_ReviewObjection_EnterOnTheShownDefault_CommitsTheFix()
+    {
+        var workspace = await MaterializeAsync();
+        var terminal = new StringWriter();
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
+        {
+            HarnessProjectAnalyzerStub.Register(services);
+            services.RemoveAll<IDialogueTransport>();
+            services.AddSingleton<IDialogueTransport>(new ConsoleDialogueTransport(
+                new StringReader("\n"), terminal, NullLogger<ConsoleDialogueTransport>.Instance));
+        });
+        harness.StubSandboxFactory!.AdvancesHeadOnCommit = true;
+        harness.ChatClient
+            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "BulkDiscountRule"}""")
+            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "BulkDiscountRule"}""")
+            .EnqueueSpecAttackReply(Refuse)
+            .EnqueueSpecAttackReply(Refuse)
+            .EnqueueText(DerivedSpec)
+            .EnqueueText("The spec cannot be rewritten from what was opened.");
+        ScriptTheFix(harness.ChatClient);
+
+        var result = await Runner(harness, workspace).RunAsync("code");
+
+        result.IsSuccess.Should().BeTrue($"Enter on the shown default is an explicit build: {result.Message}");
         harness.ChatClient.ToolCalls.Select(c => c.Name).Should().Contain("write_file");
     }
 

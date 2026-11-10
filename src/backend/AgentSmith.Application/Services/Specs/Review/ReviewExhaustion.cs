@@ -7,10 +7,10 @@ namespace AgentSmith.Application.Services.Specs.Review;
 
 /// <summary>
 /// 2026-10-13-8762h: which standing objections the author is asked about — decided once per review step, over
-/// the spec objections and the series' together, from the ticket thread only. An objection whose
-/// <see cref="ReviewObjectionComment.MarkerFor"/> line is on a comment of ours was asked: it proceeds, answered
-/// or not, and an answer is read by the next derivation through its comment or ticket-edit cause. Every other
-/// one is asked. A spec at or after an existing <see cref="ContextKeys.SpecSequenceStop"/> is never asked: it is
+/// the spec objections and the series' together, from the ticket thread only. 2026-11-10-8e59: an objection proceeds
+/// only when a person answered it with the build reading (<see cref="ReviewObjectionComment.BuildAsReviewedAnswered"/>);
+/// every other one is asked, again if it was asked before — silence is never consent, and the fresh rounds that
+/// led here already attacked the text again. A spec at or after an existing <see cref="ContextKeys.SpecSequenceStop"/> is never asked: it is
 /// not built in this attempt, and a park there would move the stop later. The run-scoped question pin is not
 /// the basis — it is set for any unanswered question and lives one run.
 /// </summary>
@@ -21,12 +21,12 @@ public sealed class ReviewExhaustion(ILogger<ReviewExhaustion> logger)
     {
         ArgumentNullException.ThrowIfNull(objections);
         ArgumentNullException.ThrowIfNull(pipeline);
-        var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c) ? c : null;
         var ask = new List<StandingObjection>();
         foreach (var objection in objections.Where(o => BeforeStop(o, pipeline)))
         {
-            if (!ReviewObjectionComment.IsAsked(comments, objection.MarkerKey)) ask.Add(objection);
-            else logger.LogInformation("The objection {Key} was asked before — it proceeds as reviewed", objection.MarkerKey);
+            // 2026-11-10-8e59: only a person's explicit build answer lets it through; asked and silent is asked again.
+            if (!ReviewObjectionComment.BuildAsReviewedAnswered(pipeline, objection.MarkerKey)) ask.Add(objection);
+            else logger.LogInformation("The author answered build as reviewed for {Key} — it is built", objection.MarkerKey);
         }
         return ask;
     }

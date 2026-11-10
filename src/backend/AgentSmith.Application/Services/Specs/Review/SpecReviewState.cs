@@ -15,9 +15,18 @@ internal sealed class SpecReviewState(SpecDraft draft, SpecRoundEvidenceResult e
     public bool Rederived { get; set; }
     public string? Failure { get; set; }
 
+    /// <summary>2026-11-10-8e59: the last round had no answer.</summary>
+    public bool Unanswered { get; set; }
+
+    /// <summary>2026-11-10-8e59: the text the last taken round attacked.</summary>
+    public string? AttackedYaml { get; set; }
+
     public SpecReviewOutcome Settled() => new(Draft, Round, null, [], Residues);
 
     public SpecReviewOutcome Standing(string? budgetStop = null, string? failure = null) =>
         new(Draft, Round, Merged?.Verdict ?? SpecReviewOutcome.NotTaken, Merged?.Findings ?? [], Residues,
-            budgetStop, failure);
+            budgetStop, failure)
+        {
+            Unattacked = !string.Equals(AttackedYaml, Draft.Yaml, StringComparison.Ordinal),
+        };
 }

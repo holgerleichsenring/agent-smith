@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-e706
+goal: "A design turn that stands still is detected by something other than its age, so the wall-time watchdog can let design turns run until cost or a person stops them."
+requires: [2026-11-10-18cf]
+
+applies_to: "default (Application lifecycle: run watchdog; Infrastructure: chat client builders)"
+
+facts:
+  - claim: "Each design turn is its own pipeline run, and PipelineRunWatchdog cancels any registered run older than max_run_wall_time_seconds, whatever it is doing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:73; src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:87; src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:51"
+  - claim: "RunLivenessReaper catches a run no process drives any more, by its row's heartbeat; a run alive in this process is refreshed, never flagged, so it does not see a turn hung inside a live process."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:50"
+  - claim: "A lost sandbox under a read is noticed beside the agent's heartbeat, so a sandbox tool call does not hang a turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxStepWatch.cs:1-12"
+  - claim: "OpenAI and Azure calls are bounded by NetworkTimeoutSeconds (300 by default), Claude calls by a 10-minute HttpClient timeout, and external-worker calls by NetworkTimeoutSeconds."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:35; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:93; src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerCliOptionsFactory.cs:24"
+  - claim: "A Copilot turn that is not answering pending tool calls waits for the session to go idle with only the run's token, so a session that never goes idle waits until the run is cancelled."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotTurnDriver.cs:47"
+  - claim: "Ollama and Gemini clients are built with their libraries' own HTTP settings; no timeout is set by agent-smith."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OllamaChatClientBuilder.cs:23"
+  - claim: "A series attempt computes its remaining work from the run's wall clock since RunStartedAt."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesSettings.cs:20-27"
+
+scope:
+  in: "GAP FIRST. Nothing other than the wall-time watchdog detects a design turn hung inside a live process: the liveness reaper skips locally active runs, and one model path (a Copilot turn awaiting idle) has no deadline of its own, while two (Ollama, Gemini) rely on library defaults. Before design turns leave the watchdog, every model call a design turn makes gets a bounded wait (NetworkTimeoutSeconds), or a turn-level no-progress detector cancels a turn whose activity stream stays silent beyond a bound. Then PipelineRunWatchdog skips runs that are design turns."
+  out: "Coding runs keep the wall-time watchdog for now: a series attempt depends on the wall clock through seconds_per_spec (SeriesSettings.SecondsLeft), so exempting them is a planned successor. The cost cap and a person's cancel are unchanged."
+
+decisions:
+  - key: "LESS HARMFUL SINCE 2026-11-10-8e59, STILL OPEN. Nothing holds an approval on review state any more, so a turn the watchdog cuts off leaves drafts marked not yet reviewed, approvable, and reviewed before they are built. But a turn whose review never fits the ceiling still never ends with its rounds done, every time it is asked."
+  - key: "DO NOT EXEMPT YET. The operator's rule is that only cost and a person stop work, but the watchdog is today the only bound on a design turn whose await never completes in a live process. Exempting first would turn a hang into a turn that holds its conversation until someone notices."
+  - key: "BOUND THE WAIT, NOT THE WORK. A per-call bound on every model provider, or a no-progress detector on the turn's activity, says something about a hang; a run's age says nothing about either."
+
+steps:
+  - id: bound-calls
+    action: "Every chat client builder a design turn can use bounds one call by NetworkTimeoutSeconds, including the Copilot idle wait and the Ollama and Gemini HTTP clients."
+  - id: exempt
+    action: "PipelineRunWatchdog skips a run registered as a design turn; the registry records that kind at registration."
+  - id: tests
+    action: "Pin the bounded waits and the exemption."
+
+tests:
+  - "CopilotTurnDriver_SessionNeverIdle_FailsAfterTheNetworkTimeout"
+  - "PipelineRunWatchdog_DesignTurnOlderThanTheCeiling_IsNotCancelled"
+  - "PipelineRunWatchdog_CodingRunOlderThanTheCeiling_IsStillCancelled"
+
+done:
+  - when: "a design turn's model call never returns, on any provider"
+    then: "the call fails within NetworkTimeoutSeconds and the turn ends with that error"
+  - when: "a design turn runs longer than max_run_wall_time_seconds while making progress"
+    then: "it is not cancelled"
+  - "A coding run is still cancelled at the ceiling."
+  - "Build green, full suite green."

@@ -42,15 +42,25 @@ public sealed class InlineHandbackAskTests
     }
 
     [Fact]
-    public async Task ReviewObjection_EmptyAnswer_TakesDefault()
+    public async Task ReviewObjection_TimedOutWithNobodyThere_BuildsNothing()
+    {
+        var pipeline = Pipeline(Objection);
+
+        var result = await Ask(Answering(string.Empty, by: "system")).HandleAsync(pipeline, Objection, default);
+
+        result.IsSuccess.Should().BeFalse("silence never builds an unreviewed spec (2026-11-10-8e59)");
+        result.Message.Should().Contain("not built unreviewed");
+    }
+
+    [Fact]
+    public async Task ReviewObjection_EnterOnTheShownDefault_Builds()
     {
         var pipeline = Pipeline(Objection);
 
         var result = await Ask(Answering(string.Empty)).HandleAsync(pipeline, Objection, default);
 
-        result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().Contain("the default stands").And.Contain(ReviewObjectionQuestion.BuildAsReviewed);
-        pipeline.Has(ContextKeys.SpecHandback).Should().BeFalse();
+        result.IsSuccess.Should().BeTrue("a person pressing Enter on the shown default has chosen it");
+        result.Message.Should().Contain(ReviewObjectionQuestion.BuildAsReviewed);
     }
 
     [Fact]
@@ -114,14 +124,13 @@ public sealed class InlineHandbackAskTests
     [Fact]
     public async Task ReviewObjectionAfterReDerive_IsStillAsked()
     {
-        var gate = Answering(string.Empty);
+        var gate = Answering(string.Empty, by: "system");
         var pipeline = Pipeline(DerivationQuestion);
         await Ask(gate).HandleAsync(pipeline, DerivationQuestion, default);
 
         var result = await Ask(gate).HandleAsync(Again(pipeline, Objection), Objection, default);
 
-        result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().Contain(ReviewObjectionQuestion.BuildAsReviewed);
+        result.Message.Should().Contain("not built unreviewed", "it was asked, and nobody chose to build it");
         gate.Verify(g => g.AskAsync(It.IsAny<PipelineContext>(), It.IsAny<DialogQuestion>(),
             It.IsAny<CancellationToken>()), Times.Exactly(2));
     }

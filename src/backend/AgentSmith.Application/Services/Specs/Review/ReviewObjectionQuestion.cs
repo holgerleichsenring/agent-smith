@@ -7,8 +7,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// 2026-10-13-8762h: the one question the objections to ask become — a <see cref="SpecHandbackCase.Question"/>
 /// of kind <see cref="SpecQuestionKind.ReviewObjection"/>, because the taken reading and the pin need the
 /// Question case. The reason names each objection by its <see cref="ReviewObjectionComment.MarkerFor"/> line,
-/// with every finding and the evidence line it rests on; building the spec as reviewed is the reading taken
-/// when nobody answers. Unlike a reading question it does not clear the specs: they are what it asks about.
+/// with every finding and the evidence line it rests on; building the spec as reviewed needs a person's
+/// explicit answer (2026-11-10-8e59); silence sends it to fresh review rounds. Unlike a reading question it does not clear the specs: they are what it asks about.
 /// </summary>
 public static class ReviewObjectionQuestion
 {
@@ -24,8 +24,10 @@ public static class ReviewObjectionQuestion
 
     private static string Reason(IReadOnlyList<StandingObjection> objections)
     {
-        var sb = new StringBuilder("After its review rounds a fresh reviewer that opened the code still refuses "
-            + "to build what follows. Only the author can say whether it is built as reviewed or changed.\n");
+        var sb = new StringBuilder("After its review rounds, what follows has no review that ended clean on its exact "
+            + "text: a reviewer that opened the code still objects, or the last changes were never attacked. Only the "
+            + "author can say whether it is built as it stands or changed. If nobody answers, it is not built: the next run "
+            + "reviews it again from fresh rounds.\n");
         foreach (var objection in objections)
         {
             var subject = objection.SpecId is null ? " (the series)" : string.Empty;

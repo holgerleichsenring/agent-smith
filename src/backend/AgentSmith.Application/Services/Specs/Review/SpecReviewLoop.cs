@@ -11,6 +11,9 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// the stop input and the next round's evidence. A REFUSE without cuts is rewritten once from the code and a
 /// fresh round follows; a second one stands. Each reviewer's answer is stored after the round's cuts. The
 /// share is not checked for the first reviewed spec; the run cap and the wall-time ceiling always are.
+/// 2026-11-10-8e59: a spec is cleared only when a round said build on its current text. A round with no answer is
+/// retried; rounds spent with no answer stop the spec like the budget does. A text the last round changed was
+/// attacked by nobody, so it is not cleared and the author is asked (<see cref="StandingObjection"/>).
 /// </summary>
 public sealed class SpecReviewLoop(
     SpecReviewPanel panel, ISpecRoundEvidence evidence, ISpecCutReviser reviser, SpecCutResidues residues,
@@ -26,14 +29,21 @@ public sealed class SpecReviewLoop(
             if (BudgetStop(run, first) is { } stop) return state.Standing(budgetStop: stop);
             state.Round++;
             var answers = await panel.ReviewAsync(run.Pipeline, Input(run, state), run.Settings.Review, run.Agent, ct);
-            state.Merged = SpecReviewMerge.Merge(answers);
-            if (!state.Merged.IsTaken) return state.Standing();
+            var merged = SpecReviewMerge.Merge(answers);
+            // 2026-11-10-8e59: no answer attacked this text; the next round tries again.
+            state.Unanswered = !merged.IsTaken;
+            if (state.Unanswered) continue;
+            state.Merged = merged;
+            state.AttackedYaml = state.Draft.Yaml;
             var ended = state.Merged is { Verdict: SpecReviewVerdicts.Refuse, Cuts.Count: 0 }
                 ? await RewriteAsync(run, state, answers, ct)
                 : await ApplyAsync(run, state, answers, ct);
             if (ended is not null) return ended;
         }
-        return state.Standing();
+        // 2026-11-10-8e59: rounds spent with no answer on the current text: not built, left to the next attempt.
+        return state.Unanswered
+            ? state.Standing(budgetStop: $"no reviewer answered on {spec.SpecId}'s text in round {state.Round}")
+            : state.Standing();
     }
 
     private static string? BudgetStop(SpecReviewRun run, bool first) =>
@@ -52,7 +62,8 @@ public sealed class SpecReviewLoop(
         var number = changed ? await ReviseAsync(run, state, revised.Revised, merged.Verdict!, ct) : null;
         if (changed && number is null) return state.Standing(failure: state.Failure);
         await PublishRoundAsync(state, seen, answers, number, ct);
-        if (SpecReviewStopRule.IsDone(merged, state.Residues, state.Evidence)) return state.Settled();
+        // 2026-11-10-8e59: cleared only on a build of the text that is built; a changed text goes to the next round.
+        if (!changed && merged.Verdict == SpecReviewVerdicts.Build) return state.Settled();
         // A round whose cuts changed nothing ends the loop: another reviewer over the same text is shopping.
         return changed ? null : state.Standing();
     }

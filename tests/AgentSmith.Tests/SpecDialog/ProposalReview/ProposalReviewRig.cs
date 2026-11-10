@@ -10,6 +10,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Turns;
 using AgentSmith.Domain.Models;
@@ -53,7 +54,6 @@ internal sealed class ProposalReviewRig
     public List<int> ThreadLengths { get; } = [];
     public int WholeSetCalls { get; private set; }
     public int MaxInFlight { get; private set; }
-    public TimeProvider Clock { get; set; } = TimeProvider.System;
     public bool RealEvidence { get; init; }
 
     /// <summary>When above 0, every reviewer call waits until this many are in flight at once.</summary>
@@ -128,6 +128,16 @@ internal sealed class ProposalReviewRig
             },
         });
 
+    /// <summary>2026-11-10-18cf: the turn holds a repository, so a reviewer could have read it.</summary>
+    public ProposalReviewRig WithRepository()
+    {
+        Pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)new Dictionary<string, ISandbox>
+        {
+            ["shop"] = new EvidenceTreeSandbox(new Dictionary<string, string>()),
+        });
+        return this;
+    }
+
     /// <summary>The proposal the gate admitted from <paramref name="reply"/>, published as the turn's outcome.</summary>
     public OutcomeProposal Propose(string reply)
     {
@@ -184,7 +194,7 @@ internal sealed class ProposalReviewRig
         return new ProposalReviewLoop(
             new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
             revision, new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(),
-                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Clock, Proposals);
+                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Proposals);
     }
 
     private ISeriesContractReviewer SeriesReviewer()

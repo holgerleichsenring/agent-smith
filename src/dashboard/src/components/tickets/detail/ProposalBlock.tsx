@@ -1,7 +1,7 @@
 "use client";
 
 import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
-import { DialogProposalRounds, notReviewedLabel } from "@/components/dialog/DialogProposalRounds";
+import { DialogProposalRounds, NOT_YET_REVIEWED, notReviewedLabel } from "@/components/dialog/DialogProposalRounds";
 import { dispositionMark } from "@/lib/tickets/approvalEffect";
 import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets";
 
@@ -53,7 +53,7 @@ export function ProposalBlock({ proposal, preview }: Props) {
                 <span className="pill ok" data-testid={`proposal-ratified-mock-${draft.specId}`}>mock v{draft.ratifiedMock} ratified</span>
               )}
               {waiting.includes(draft.specId) && (
-                <span className="pill amber" data-testid={`proposal-not-reviewed-${draft.specId}`}>not reviewed yet</span>
+                <span className="pill amber" data-testid={`proposal-not-reviewed-${draft.specId}`}>{NOT_YET_REVIEWED}</span>
               )}
               <DialogProposalRounds rounds={proposal.reviewRounds?.filter((r) => r.specId === draft.specId)} />
             </div>

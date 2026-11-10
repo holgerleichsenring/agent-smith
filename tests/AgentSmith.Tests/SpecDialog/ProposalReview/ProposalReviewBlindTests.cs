@@ -1,13 +1,14 @@
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using FluentAssertions;
 using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
-/// <summary>2026-11-09-9631b: a draft nobody could read is not reviewed, says so, and holds the
-/// approval for one further turn; a reviewer not taken for another reason changes nothing.</summary>
+/// <summary>2026-11-09-9631b: a draft nobody could read is not reviewed and says so. 2026-11-10-8e59: the mark is
+/// information, every turn; the review before building reads it again.</summary>
 public sealed class ProposalReviewBlindTests
 {
     private static SpecAttackResult Blind() => new(SpecReviewVerdicts.Build, [], []) { Blind = true };
@@ -22,7 +23,7 @@ public sealed class ProposalReviewBlindTests
 
         rig.Outcome.NotReviewed.Should().Equal(First);
         rig.Outcome.ReviewRounds.Should().NotContain(r => r.SpecId == First);
-        rig.Outcome.Findings.Should().Contain(f => f.SpecId == First && f.Why == ProposalReviewSummary.UnreadWhy);
+        rig.Outcome.Findings.Should().Contain(f => f.SpecId == First && f.Why == ProposalReviewSummary.NotReviewedWhy(ProposalReviewSummary.UnreadWhy));
     }
 
     [Fact]
@@ -39,16 +40,20 @@ public sealed class ProposalReviewBlindTests
     }
 
     [Fact]
-    public async Task ProposalReviewLoop_BlindAgainOnTheTurnThatWaited_LiftsTheHoldAndKeepsTheFinding()
+    public async Task ProposalReviewLoop_BlindOnAWaitingDraft_IsMarkedAgainWithNoExit()
     {
         var rig = new ProposalReviewRig { OnReview = input => input.Draft.SpecId == Second ? Blind() : Build() };
         var earlier = rig.Propose(Epic());
-        rig.Pipeline.Set(ContextKeys.SpecDialogRevisedProposal, earlier with { NotReviewed = [Second] });
+        rig.Pipeline.Set(ContextKeys.SpecDialogRevisedProposal, earlier with
+        {
+            NotReviewed = [Second],
+            Findings = [new ProposalFinding(Second, ProposalReviewSummary.NotReviewedYet,
+                ProposalReviewSummary.NotReviewedWhy(ProposalReviewSummary.UnreadWhy))],
+        });
 
         await rig.RunAsync();
 
-        rig.Outcome.NotReviewed.Should().BeNull("a repository that can never be read must not hold the approval for good");
-        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Second && f.Why == ProposalReviewSummary.UnreadAgainWhy);
+        rig.Outcome.NotReviewed.Should().Equal([Second], "a mark is information; there is no hold to lift");
     }
 
     [Fact]

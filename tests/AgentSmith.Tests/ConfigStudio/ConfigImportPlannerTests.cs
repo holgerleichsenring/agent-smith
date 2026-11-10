@@ -17,6 +17,18 @@ public sealed class ConfigImportPlannerTests
         new RetiredConfigKeyDetector(new RawConfigTreeReader(), new ConfigKeyPathMatcher()));
 
     [Fact]
+    public void ConfigImportPlanner_InvalidSpecReviewBlock_IsRefused()
+    {
+        var import = () => Planner.Plan("""
+            spec_review:
+              rounds: -1
+            """, "test.yml");
+
+        import.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>()
+            .WithMessage("*spec_review.rounds is -1*", "a block the run would refuse is never stored (2026-11-10-8e59)");
+    }
+
+    [Fact]
     public void Plan_MisspeltKey_IsNamed()
     {
         var plan = Planner.Plan("""

@@ -37,20 +37,17 @@ public sealed class ReviewObjectionThreadTests
 
         body.Should().StartWith($"## Agent Smith — {ReviewObjectionComment.Marker}")
             .And.Contain(ReviewObjectionComment.MarkerFor(First)).And.Contain(ReviewObjectionComment.MarkerFor(Second))
-            .And.Contain("(a) build the spec as reviewed").And.Contain("proceeds on (a)");
+            .And.Contain("(a) build the spec as reviewed").And.Contain("If nobody answers, nothing is built unreviewed");
         body.Should().NotContain(SpecHandbackComment.QuestionMarker, "the ticket does not read two ways");
     }
 
     [Fact]
-    public void Pin_ReviewObjectionUnanswered_IsFoundByItsOwnMarker()
+    public void Pin_ReviewObjectionUnanswered_PinsNothing()
     {
         var pipeline = Thread(OurObjection(First));
 
-        var unanswered = Pin().Pin(Previous(), pipeline);
-
-        unanswered.Should().NotBeNull();
-        unanswered!.TakenLabel.Should().Be("(a)");
-        pipeline.Get<string>(ContextKeys.SpecQuestionPin).Should().Contain("do not raise it again");
+        Pin().Pin(Previous(), pipeline).Should().BeNull("silence on an objection is not consent (2026-11-10-8e59)");
+        pipeline.Has(ContextKeys.SpecQuestionPin).Should().BeFalse();
     }
 
     [Fact]
@@ -107,10 +104,8 @@ public sealed class ReviewObjectionThreadTests
     }
 
     [Fact]
-    public void PinSection_ReviewObjection_SaysKeepTheSpecAndDoNotRaiseItAgain() =>
-        UnansweredQuestionPromptSection.Render(new UnansweredQuestion(Question, "(a)", Question.TakenReading!))
-            .Should().Contain("keep the spec as it stands, do not change it for this objection and do not raise it again")
-            .And.Contain(ReviewObjectionComment.MarkerFor(First)).And.NotContain("reads two ways");
+    public void Question_ReviewObjection_SaysWhatSilenceDoes() =>
+        Question.Reason.Should().Contain("If nobody answers, it is not built: the next run reviews it again from fresh rounds");
 
     [Fact]
     public async Task Reviewer_GivenThePin_ItsPromptCarriesIt()

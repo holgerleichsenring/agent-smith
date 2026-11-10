@@ -18,12 +18,9 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// 2026-10-13-8762i: with spec_review.rounds above 0 the whole-set call runs once, then the rounds; 0 reviews once.
 /// </summary>
 public sealed class SpecDialogProposalReview(
-    ISpecCutReviewer reviewer,
-    DerivationLookFactory looks,
-    ProposalEvidenceReview evidence,
+    ISpecCutReviewer reviewer, DerivationLookFactory looks, ProposalEvidenceReview evidence,
     ISpecReviewSettingsReader settings, // 2026-10-13-8762i: read per turn, live
-    ProposalReviewLoop rounds, TicketPlanReview plans, // 2026-10-14-dbcek: a list is reviewed as a plan
-    ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the review is not dark
+    ProposalReviewLoop rounds, TicketPlanReview plans, ITurnActivityObserverAccessor turnActivity, // dbcek: a list is a plan
     ILogger<SpecDialogProposalReview> logger, ITurnProposalObserverAccessor? proposals = null) // 2026-11-09-9a98
 {
     /// <summary>The turn's reply: the one it had, unless rounds changed what it proposed.</summary>
@@ -35,18 +32,26 @@ public sealed class SpecDialogProposalReview(
         if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal) || proposal is null) return loopResult;
         // 2026-11-09-9a98: out before the review; an epic's parent is never reviewed, so only its children wait.
         var waiting = proposal is EpicOutcome epic ? epic.Children : ProposalSpecSet.Drafts(proposal);
-        await (proposals?.PublishUnderReviewAsync(proposal with { NotReviewed = waiting.Count == 0 ? null : [.. waiting.Select(d => d.SpecId)] }, ct) ?? Task.CompletedTask);
+        // 2026-11-10-18cf: each waiting draft says why, so a turn cancelled from here leaves a reason behind.
+        await (proposals?.PublishUnderReviewAsync(
+            ProposalReviewSummary.MarkedNotReviewed(proposal, waiting, proposal.Findings, ProposalReviewSummary.UnderReviewWhy), ct)
+            ?? Task.CompletedTask);
         if (proposal is TicketGraphOutcome graph)
             return await plans.ReviewAsync(new ProposalTurn(pipeline, request, userPrompt, conversation, agent, costTracker), graph, loopResult, ct);
         if (ProposalSpecSet.Drafts(proposal) is not { Count: > 0 } drafts) return loopResult;
 
         await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Reviewing), ct);
-        if (Settings() is not { Review.Rounds: > 0 } current)
+        // 2026-11-10-8e59: a block that cannot be used reviews nothing here; the review before building attacks it.
+        var read = new ProposalReviewSettingsReader(settings, logger).Read();
+        if (read.Problem is { } problem)
+            pipeline.Set(ContextKeys.SpecDialogOutcome, ProposalReviewSummary.MarkedNotReviewed(proposal, waiting, proposal.Findings, problem));
+        if (read.Problem is not null) return loopResult;
+        if (read.Settings is not { Review.Rounds: > 0 } current)
         {
-            await SingleAsync(pipeline, proposal, drafts, agent, costTracker, ct);
+            await SingleAsync(pipeline, proposal, drafts, waiting, agent, costTracker, ct);
             return loopResult;
         }
-        var wholeSet = await ModelFindingsAsync(pipeline, drafts, agent, costTracker, ct);
+        var wholeSet = await ModelFindingsAsync(pipeline, drafts, agent, costTracker, ct) ?? [];
         var turn = new ProposalTurn(pipeline, request, userPrompt, conversation, agent, costTracker);
         var outcome = await rounds.RunAsync(turn, current, proposal, loopResult, wholeSet, ct);
         logger.LogInformation("The design turn's proposal was reviewed in {Rounds} round(s); {Waiting} spec(s) not reviewed yet",
@@ -54,29 +59,14 @@ public sealed class SpecDialogProposalReview(
         pipeline.Set(ContextKeys.SpecDialogOutcome, outcome.Proposal with
         {
             Findings = [.. outcome.Standing, .. wholeSet], ReviewRounds = outcome.Rounds, NotReviewed = outcome.NotReviewed,
+            ReviewedClean = outcome.ReviewedClean,
         });
         return outcome.Reply;
     }
 
-    /// <summary>The settings, or null when they cannot be read or are invalid — the turn then reviews once.</summary>
-    private SpecReviewSettings? Settings()
-    {
-        try
-        {
-            var current = settings.Current();
-            if (current.Review.Problems() is not { Count: > 0 } problems) return current;
-            logger.LogWarning("The spec_review settings are invalid ({Problems}); the proposal is reviewed once", string.Join("; ", problems));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "The spec_review settings could not be read; the proposal is reviewed once");
-        }
-        return null;
-    }
-
     private async Task SingleAsync(
-        PipelineContext pipeline, OutcomeProposal proposal, IReadOnlyList<SpecDraft> drafts, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken ct)
+        PipelineContext pipeline, OutcomeProposal proposal, IReadOnlyList<SpecDraft> drafts, IReadOnlyList<SpecDraft> waiting,
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken ct)
     {
         var findings = new List<ProposalFinding>();
         try
@@ -87,14 +77,19 @@ public sealed class SpecDialogProposalReview(
         {
             logger.LogWarning(ex, "The evidence of this design turn's proposal could not be checked");
         }
-        findings.AddRange(await ModelFindingsAsync(pipeline, drafts, agent, costTracker, ct));
-        if (findings.Count == 0) return;
-        logger.LogInformation(
-            "The review of this design turn's proposal reported {Count} finding(s)", findings.Count);
+        findings.AddRange(await ModelFindingsAsync(pipeline, drafts, agent, costTracker, ct) ?? []);
+        // 2026-11-10-8e59: with rounds off nothing attacks a draft, here or before it is built; each draft says so.
+        // An epic's parent is never reviewed, so only its children are marked.
+        findings.AddRange(waiting.Select(d => new ProposalFinding(d.SpecId, ReviewOffProblem, ReviewOffWhy)));
+        logger.LogInformation("Review rounds are off; the proposal carries {Count} finding(s)", findings.Count);
         pipeline.Set(ContextKeys.SpecDialogOutcome, proposal with { Findings = findings });
     }
 
-    private async Task<IReadOnlyList<ProposalFinding>> ModelFindingsAsync(
+    public const string ReviewOffProblem = "review is turned off (spec_review.rounds: 0)";
+    public const string ReviewOffWhy = "nothing reviews this spec before it is built";
+
+    /// <summary>The whole-set review's findings, or null when its call failed.</summary>
+    private async Task<IReadOnlyList<ProposalFinding>?> ModelFindingsAsync(
         PipelineContext pipeline, IReadOnlyList<SpecDraft> drafts, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken ct)
     {
@@ -114,7 +109,7 @@ public sealed class SpecDialogProposalReview(
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "The review of this design turn's proposal could not be taken");
-            return [];
+            return null;
         }
     }
 }

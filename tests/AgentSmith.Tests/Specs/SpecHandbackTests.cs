@@ -266,8 +266,7 @@ public sealed class SpecHandbackTests
         var result = await Handler(tickets, gate: gate.Object).ExecuteAsync(
             Context(pipeline, new TrackerConnection { Type = TrackerType.GitHub }), default);
 
-        result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().NotContain("needs_clarification_status");
+        result.Message.Should().NotContain("needs_clarification_status").And.Contain("not built unreviewed");
         gate.Verify(g => g.AskAsync(pipeline, It.IsAny<AgentSmith.Contracts.Dialogue.DialogQuestion>(),
             It.IsAny<CancellationToken>()), Times.Once);
         tickets.Verify(t => t.FinalizeAsync(It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string>(),

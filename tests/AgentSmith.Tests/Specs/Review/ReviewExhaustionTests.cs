@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Specs;
@@ -7,6 +9,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using FluentAssertions;
+using Moq;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 
@@ -28,15 +31,22 @@ public sealed class ReviewExhaustionTests
         Decide([Objection(First)]).Should().ContainSingle().Which.SpecId.Should().Be(First);
 
     [Fact]
-    public void Exhaustion_UnansweredObjectionCommentForThisSpec_Proceeds() =>
-        Decide([Objection(First)], OurObjection(First)).Should().BeEmpty();
+    public void Exhaustion_UnansweredObjectionCommentForThisSpec_IsAskedAgain() =>
+        Decide([Objection(First)], OurObjection(First)).Should().ContainSingle("silence is never consent (2026-11-10-8e59)");
+
+    [Fact]
+    public void Exhaustion_AuthorAnsweredBuildAsReviewed_Proceeds() =>
+        Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(a) build it as it stands"))
+            .Should().BeEmpty("an explicit build answer is the author's call");
 
     [Fact]
     public void Exhaustion_ObjectionCommentStoredHtmlEscaped_StillReadsAsAsked()
     {
         var ours = OurObjection(First);
 
-        Decide([Objection(First)], ours with { Body = System.Net.WebUtility.HtmlEncode(ours.Body) }).Should().BeEmpty("a tracker that escapes the comment must not ask again");
+        Decide([Objection(First)], ours with { Body = System.Net.WebUtility.HtmlEncode(ours.Body) },
+                new TicketComment("author", Asked.AddHours(1), "(a)"))
+            .Should().BeEmpty("a tracker that escapes our comment must still anchor the author's answer");
     }
 
     [Fact]
@@ -47,9 +57,31 @@ public sealed class ReviewExhaustionTests
     }
 
     [Fact]
-    public void Exhaustion_ObjectionCommentAnswered_Proceeds() =>
-        Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "build it"))
-            .Should().BeEmpty("an asked objection proceeds; the answer is the next derivation's input");
+    public void Exhaustion_BuildAnswerOnAnEarlierText_DoesNotCoverTheReCut()
+    {
+        var asked = OurObjectionOn(First, "spec: x\ngoal: before the re-cut");
+        var now = Objection(First) with { TextHash = ReviewedText.Hash("spec: x\ngoal: after the re-cut") };
+
+        Decide([now], asked, new TicketComment("author", Asked.AddHours(1), "(a)"))
+            .Should().ContainSingle("the answer was about the text the question showed, not this one (2026-11-10-8e59)");
+    }
+
+    [Theory]
+    [InlineData("(a)", true)]
+    [InlineData("a", true)]
+    [InlineData("(a) build it as it stands\nthanks", true)]
+    [InlineData("Build the spec as reviewed.", true)]
+    [InlineData("don't build the spec as reviewed", false)]
+    [InlineData("I would not take (a) here", false)]
+    [InlineData("(b)", false)]
+    [InlineData("", false)]
+    public void ChoosesBuild_OnlyTheFirstLineKeywordCounts(string body, bool builds) =>
+        ReviewObjectionComment.ChoosesBuild(body).Should().Be(builds);
+
+    [Fact]
+    public void Exhaustion_ObjectionAnsweredWithoutTheBuildReading_IsAskedAgain() =>
+        Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(b) change it"))
+            .Should().ContainSingle("only the build reading lets an unreviewed text through");
 
     [Fact]
     public void Exhaustion_ReadingQuestionPin_StillAsksTheObjection()
@@ -61,21 +93,43 @@ public sealed class ReviewExhaustionTests
     }
 
     [Fact]
-    public async Task Exhaustion_LaterAttemptWithoutPin_UnansweredObjection_DoesNotParkAgain()
+    public async Task Exhaustion_LaterAttemptUnansweredObjection_ReviewsAgainAndAsksAgain()
     {
         var rig = Thread(new ReviewLoopRig().Answers(Refuse()), OurObjection(First));
 
         var result = await rig.ExecuteAsync(Settings());
 
-        result.InsertNext.Should().BeNull();
-        rig.Pipeline.Has(ContextKeys.SpecSequenceStop).Should().BeFalse();
-        rig.Set.Handback.Should().BeNull();
-        result.Message.Should().Contain($"{First}: its objection was asked before, built as reviewed");
+        rig.Inputs.Should().Contain(i => i.Draft.SpecId == First, "the spec is attacked again from fresh rounds");
+        result.InsertNext.Should().NotBeNull("silence never builds the spec; the objection is asked again");
+        result.Message.Should().NotContain("build as reviewed");
     }
 
     [Fact]
-    public void Exhaustion_ObjectionOnAnotherSpec_AsksOnce() =>
-        Decide([Objection(First), Objection(Second)], OurObjection(First))
+    public async Task Exhaustion_LaterAttemptAnsweredBuild_BuildsThatTextWithoutFreshRounds()
+    {
+        // The rig rewrites a refused spec, as fresh rounds usually would; the answered text must still be what is built.
+        var rig = new ReviewLoopRig().Answers(Refuse(), Build());
+        var answered = rig.Set.Specs[0].Draft;
+        rig.Rederiver.Setup(r => r.RederiveAsync(It.IsAny<PipelineContext>(), It.IsAny<SpecDraft>(),
+                It.IsAny<IReadOnlyList<SpecReviewFinding>>(), It.IsAny<string?>(), It.IsAny<AgentConfig>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PipelineContext _, SpecDraft draft, IReadOnlyList<SpecReviewFinding> _, string? _, AgentConfig _,
+                CancellationToken _) => draft with { Yaml = draft.Yaml.Replace("one file", "one rewritten file") });
+        Thread(rig, OurObjectionOn(First, answered.Yaml),
+            new TicketComment("author", Asked.AddHours(1), "(a) build the spec as reviewed"));
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        rig.Inputs.Should().NotContain(i => i.Draft.SpecId == First, "the author answered build for exactly this text");
+        rig.Inputs.Should().Contain(i => i.Draft.SpecId == Second, "the other spec is reviewed, and rewritten, as usual");
+        rig.Set.Specs[0].Draft.Yaml.Should().Be(answered.Yaml, "the answered text is the one built");
+        result.InsertNext.Should().BeNull("no new question is posted");
+        rig.Published.Should().NotContain(p => p.Handback != null);
+    }
+
+    [Fact]
+    public void Exhaustion_BuildAnswerOnAnotherSpec_AsksOnlyTheOther() =>
+        Decide([Objection(First), Objection(Second)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(a)"))
             .Should().ContainSingle().Which.SpecId.Should().Be(Second);
 
     [Fact]
@@ -107,11 +161,11 @@ public sealed class ReviewExhaustionTests
             .Should().ContainSingle("a later prefix is a new objection");
 
     [Fact]
-    public void Exhaustion_ResiduesOnly_NeverAsks() =>
+    public void Exhaustion_ResiduesOnly_IsAsked() =>
         StandingObjection.Of(Outcome(SpecReviewVerdicts.BuildWithCuts) with
         {
             Residues = [new SpecReviewResidue(SpecRegisterNames.Goal, "one dated file")],
-        }).Should().BeNull();
+        }).Should().NotBeNull("a cut still standing is no clean review; only the author may build it (2026-11-10-8e59)");
 
     [Fact]
     public void Exhaustion_BudgetStoppedSpec_IsNotAsked()
@@ -206,6 +260,10 @@ public sealed class ReviewExhaustionTests
     internal static StandingObjection Objection(string specId) => new(specId, [Finding]);
 
     internal static TicketComment OurObjection(string specId) => Ours(ReviewObjectionQuestion.For([Objection(specId)]));
+
+    // 2026-11-10-8e59: the question as a run posts it — bound to the hash of the text it is about.
+    internal static TicketComment OurObjectionOn(string specId, string yaml) =>
+        Ours(ReviewObjectionQuestion.For([Objection(specId) with { TextHash = ReviewedText.Hash(yaml) }]));
 
     internal static TicketComment Ours(SpecHandback handback) =>
         new("agent-smith", Asked, SpecHandbackComment.Build(handback, null, string.Empty));

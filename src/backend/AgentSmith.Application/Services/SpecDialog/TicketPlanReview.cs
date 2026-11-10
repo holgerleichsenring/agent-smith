@@ -40,9 +40,19 @@ public sealed class TicketPlanReview(
             }));
             return loopResult;
         }
+        // 2026-11-10-8e59: read as a spec proposal reads it; a block that cannot be used reviews nothing and says so.
+        var read = new ProposalReviewSettingsReader(settings, logger).Read();
+        if (read.Problem is { } problem)
+        {
+            turn.Pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)(graph with
+            {
+                Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, problem)],
+            }));
+            return loopResult;
+        }
         var (final, reply) = (graph, loopResult);
         var verdict = await reviewer.ReviewAsync(turn, graph, ct);
-        if (verdict is { Cuts.Count: > 0 } && Rounds() > 0)
+        if (verdict is { Cuts.Count: > 0 } && read.Settings!.Review.Rounds > 0)
         {
             var revised = await reprompt.RunAsync(turn, TicketPlanReviewPrompt.CutsNudge(verdict.Cuts), ct);
             if (revised?.Proposal is TicketGraphOutcome list && SameKeys(graph, list))
@@ -57,22 +67,6 @@ public sealed class TicketPlanReview(
             final.Tickets.Count, findings.Count);
         turn.Pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)(final with { Findings = findings }));
         return reply;
-    }
-
-    /// <summary>The rounds setting, or 0 when the settings are invalid or unreadable: findings, no re-prompt.</summary>
-    private int Rounds()
-    {
-        try
-        {
-            var current = settings.Current();
-            if (current.Review.Problems() is not { Count: > 0 } problems) return current.Review.Rounds;
-            logger.LogWarning("The spec_review settings are invalid ({Problems}); the list is reviewed once", string.Join("; ", problems));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "The spec_review settings could not be read; the list is reviewed once");
-        }
-        return 0;
     }
 
     private static bool SameKeys(TicketGraphOutcome before, TicketGraphOutcome after) =>
