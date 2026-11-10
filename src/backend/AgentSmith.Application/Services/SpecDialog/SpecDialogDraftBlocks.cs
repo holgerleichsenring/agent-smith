@@ -46,6 +46,10 @@ public static partial class SpecDialogDraftBlocks
     /// <summary>2026-10-14-dbcej: an ```outcome fence opens outside the documents and no closing fence follows it.</summary>
     public static bool HasUnclosedOutcome(string? reply) => Regex.IsMatch(OutcomeBlock().Replace(OutsideDocuments(reply), string.Empty), "```outcome\\s*\\n");
 
+    /// <summary>2026-11-09-0620n: the reply's first draft block, fences included, outside its documents; null when it has none.</summary>
+    public static string? FirstBlock(string? reply) =>
+        AnyDraftBlock().Match(OutsideDocuments(reply)) is { Success: true } block ? block.Value : null;
+
     public static bool Contains(string? reply) =>
         !string.IsNullOrEmpty(reply) && AnyDraftBlock().IsMatch(OutsideDocuments(reply));
 

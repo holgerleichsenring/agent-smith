@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620n
+goal: "Every re-draft inside a design turn replaces only the outcome block: the operator reads the turn's first full reply, whether or not its block validated."
+requires: [2026-11-09-0620m]
+
+applies_to: "default (Application outcome gate, proposal reply text, draft blocks)"
+
+facts:
+  - claim: "After an invalid block the outcome gate re-prompts with BuildOutcomeFixNudge and publishes the fix's reply as it is; live, the fix's one sentence replaced the first reply's analysis, plan, proposals and four open questions, and the review then kept that sentence."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:51-73; live rerun NEW2, trace entries 0006, 0009, 0038"
+  - claim: "0620m already keeps the first reply across review re-drafts, reading session.FirstReply, which is the gate's result."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReplyText.cs"
+
+scope:
+  in: "One helper, TurnReply, used by the gate's schema fix and by the review's reply text; SpecDialogDraftBlocks.FirstBlock."
+  out: "A reply cut at the output limit: its re-ask is the first full reply. An operator's edit note is a new turn, not a re-draft inside one."
+
+steps:
+  - id: rule
+    action: "TurnReply.WithBlock places a block in the first reply; KeepFirstProse takes the later reply's first draft block."
+  - id: gate
+    action: "A successful schema fix publishes the first reply's prose with the fix's block, except after an output-limit cut."
+  - id: review
+    action: "ProposalReplyText places its rendered block through TurnReply.WithBlock, so both re-draft paths follow one rule."
+
+tests:
+  - "Turn_InvalidThenValidBlock_KeepsTheFirstReplysProseAndQuestions"
+  - "TurnReply_SchemaFixThenReviewCut_KeepsTheFirstProseAndQuestions"
+
+done:
+  - when: "a turn's first block is invalid, the fix validates, and the review re-drafts"
+    then: "the operator reads the first reply's analysis and questions with the last published block"
+  - "Backend build and tests green."

@@ -24,10 +24,7 @@ public static class ProposalReplyText
             EpicOutcome epic => Fence("outcome", EpicBody(firstReply, epic)),
             _ => SpecDialogDraftBlocks.OutcomeBlocks(lastReply) is { Count: > 0 } blocks ? blocks[0].Value : null,
         };
-        if (block is null) return firstReply;
-        return SpecDialogDraftBlocks.Contains(firstReply)
-            ? SpecDialogDraftBlocks.Replace(firstReply, block)
-            : $"{firstReply.TrimEnd()}\n\n{block}".TrimStart();
+        return block is null ? firstReply : TurnReply.WithBlock(firstReply, block);
     }
 
     private static string EpicBody(string reply, EpicOutcome epic)

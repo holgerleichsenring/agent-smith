@@ -65,7 +65,11 @@ public sealed class SpecDialogOutcomeGate(
         }
         if (retry.Response.FinishReason == ChatFinishReason.Length) return MasterOutcomes.FailOutcome(pipeline, retry, Cut.Error);
         var resolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty, scope);
-        if (resolution is OutcomeResolved second) return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, retry);
+        // 2026-11-09-0620n: a schema fix contributes its block; the operator reads the first reply's prose. A first reply
+        // cut at the output limit is not a full reply, so its re-ask stands as it came.
+        if (resolution is OutcomeResolved second)
+            return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, ReferenceEquals(invalid, Cut) ? retry
+                : MasterOutcomes.WithReplyText(retry, TurnReply.KeepFirstProse(loopResult.Response.Text ?? string.Empty, retry.Response.Text ?? string.Empty)));
         var stillInvalid = (OutcomeInvalid)resolution;
         logger.LogWarning("Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
         return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);

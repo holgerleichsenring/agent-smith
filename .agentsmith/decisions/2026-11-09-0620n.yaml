@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620n
+
+decisions:
+  - category: Architecture
+    chose: "One rule in one helper, applied where each re-draft is published: the gate's schema fix merges at once, and the review reads that merged reply as its first"
+    over: "A second special case beside 0620m"
+    reason: "The review already keeps session.FirstReply; making the gate hand it a reply that is already the first prose with the valid block means both paths share TurnReply and no later step can reintroduce a re-draft's prose."
+  - category: Implementation
+    chose: "Keep a cut-off first reply's re-ask as it came"
+    over: "Merging into a truncated first reply"
+    reason: "A reply cut at the output limit is not a full reply; its prose ends mid-sentence."
