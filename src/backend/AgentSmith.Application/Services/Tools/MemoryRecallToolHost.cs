@@ -52,7 +52,7 @@ public sealed class MemoryRecallToolHost(
         foreach (var name in names)
         {
             if (repositories.FilesOf(name) is not { } files) continue;
-            var found = await new MemoryStore(files, repoRoot, logger).SearchAsync(query, ct);
+            var found = await new FileMemoryStore(files, repoRoot, logger).SearchAsync(query, ct);
             if (found.Count == 0) continue;
             var record = await standings.OfAsync(pipeline, name, ct);
             foreach (var entry in found)

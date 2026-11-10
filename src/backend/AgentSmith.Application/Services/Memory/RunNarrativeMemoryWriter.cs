@@ -24,7 +24,7 @@ public sealed class RunNarrativeMemoryWriter(ILogger<RunNarrativeMemoryWriter> l
         var entry = RunNarrativeComposer.Compose(ticket, runId, changes, decisions);
         try
         {
-            var store = new MemoryStore(reader, repoRoot, logger);
+            var store = new FileMemoryStore(reader, repoRoot, logger);
             await store.UpsertAsync(entry, ct);
             logger.LogInformation(
                 "Green run {RunId}: curated project memory '{Name}' written to memory/MEMORY.md",

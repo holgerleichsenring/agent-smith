@@ -11,6 +11,9 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// into an EMPTY store, or with force into a non-empty one (bumping versions past
 /// the existing history). ALL entity rows are inserted before ANY edges, so the
 /// config_ref RESTRICT is satisfied regardless of the file's declaration order.
+/// 2026-11-10-fcd7a: with force, the edges are cleared first, an entity the file still holds is UPDATED by its
+/// natural key and only the ones it lacks are deleted — so a surviving project keeps its Id, and the memories
+/// cascading from it.
 /// </summary>
 public sealed class ConfigImportRepository(AgentSmithDbContext db)
 {
@@ -27,32 +30,31 @@ public sealed class ConfigImportRepository(AgentSmithDbContext db)
         ConfigNameCollisionGuard.WithinSet(entities);
 
         using var tx = db.Database.BeginTransaction();
-        if (force) ClearCurrent();
-        InsertEntities(entities);
+        if (force) ClearMissing(entities);
+        WriteEntities(entities);
         InsertEdges(entities);
         tx.Commit();
     }
 
-    private void ClearCurrent()
+    private void ClearMissing(IReadOnlyList<ConfigDocWrite> entities)
     {
         db.ConfigRefs.RemoveRange(db.ConfigRefs);
-        db.ConfigEntities.RemoveRange(db.ConfigEntities);
+        db.SaveChanges();
+        var kept = entities.Select(e => (e.Type, e.Id)).ToHashSet();
+        db.ConfigEntities.RemoveRange(db.ConfigEntities.AsEnumerable().Where(e => !kept.Contains((e.EntityType, e.EntityId))));
         db.SaveChanges();
     }
 
-    private void InsertEntities(IReadOnlyList<ConfigDocWrite> entities)
+    private void WriteEntities(IReadOnlyList<ConfigDocWrite> entities)
     {
         foreach (var entity in entities)
         {
             var version = NextVersion(entity.Type, entity.Id);
-            db.ConfigEntities.Add(new ConfigEntity
-            {
-                EntityType = entity.Type,
-                EntityId = entity.Id,
-                Doc = entity.Doc,
-                Version = version,
-                UpdatedBy = entity.ChangedBy,
-            });
+            var row = db.ConfigEntities.FirstOrDefault(e => e.EntityType == entity.Type && e.EntityId == entity.Id);
+            if (row is null) db.ConfigEntities.Add(row = new ConfigEntity { EntityType = entity.Type, EntityId = entity.Id });
+            row.Doc = entity.Doc;
+            row.Version = version;
+            row.UpdatedBy = entity.ChangedBy;
             db.ConfigEntityVersions.Add(new ConfigEntityVersion
             {
                 EntityType = entity.Type,

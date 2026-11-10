@@ -55,7 +55,7 @@ public sealed class MemoryWriteToolHost(IRunRepositories repositories, string re
         if (!await repositories.HasCodeChangeAsync(pick.Name, ct))
             return await NotLandingAsync(pick.Name, ct);
 
-        await new MemoryStore(files, repoRoot, logger)
+        await new FileMemoryStore(files, repoRoot, logger)
             .UpsertAsync(new MemoryEntry(slug, description, entryType, body), ct);
         return $"Memory '{slug}' recorded in {pick.Name} ({MemoryEntryTypes.ToSlug(entryType)}) — a hint whose " +
                "standing the runs that rely on it decide.";

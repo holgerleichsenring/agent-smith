@@ -11,9 +11,9 @@ public sealed class MemoryToolHostTests
     private const string MemoryDirPrefix = "/work/.agentsmith/memory/";
 
     private readonly InMemorySandboxFileReader _reader = new();
-    private readonly MemoryStore _store;
+    private readonly FileMemoryStore _store;
 
-    public MemoryToolHostTests() => _store = new MemoryStore(_reader, Root);
+    public MemoryToolHostTests() => _store = new FileMemoryStore(_reader, Root);
 
     private Task Seed(string name, MemoryEntryType type, string description, string body) =>
         _store.UpsertAsync(new MemoryEntry(name, description, type, body), CancellationToken.None);

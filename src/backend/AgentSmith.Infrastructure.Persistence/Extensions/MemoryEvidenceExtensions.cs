@@ -14,6 +14,8 @@ public static class MemoryEvidenceExtensions
         services.TryAddSingleton<MemoryEvidenceWriter>();
         services.TryAddSingleton<JudgedMemoryEvidence>(); // 2026-10-25-9324c: the judgement repository stages it
         services.RemoveAll<IMemoryEvidenceStore>();
+        services.RemoveAll<IProjectMemoryRepository>(); // 2026-11-10-fcd7a: a project's memories, beside its ledger
+        services.AddSingleton<IProjectMemoryRepository, ProjectMemoryRepository>();
         return services.AddSingleton<IMemoryEvidenceStore, MemoryEvidenceRepository>();
     }
 }

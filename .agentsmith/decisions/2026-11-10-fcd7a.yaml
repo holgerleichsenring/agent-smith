@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-fcd7a
+
+decisions:
+  - category: Architecture
+    chose: "ProjectMemories with a foreign key to ConfigEntities.Id, cascading on delete"
+    over: "Keying memories by the project's name"
+    reason: "The operator's call. A deleted project takes its memories with it; a name would leave them behind."
+  - category: Data
+    chose: "A forced config import clears the edges, updates every entity the file holds by its natural key and deletes only those it lacks"
+    over: "Clearing and re-inserting every entity, as before"
+    reason: "Re-inserting gave every entity a new Id, and the cascade would have wiped every project's memories on each forced import."
+  - category: Architecture
+    chose: "IMemoryStore with FileMemoryStore (the former MemoryStore) and ProjectMemoryStore; MemorySources lists the project first under '@project'"
+    over: "A virtual file reader over the table"
+    reason: "Code that reads memories needs entries, not paths; a fake file surface would invent paths and an index file nobody writes."
+  - category: Implementation
+    chose: "The ledger key of a project store lives in Contracts (ProjectMemorySource.LedgerKey), and MemoryRepositoryKey.OfProject delegates to it"
+    over: "Only an Application method"
+    reason: "Persistence deletes a slug's ledger rows with the entry and cannot reach Application, so both sides need the one format."
+  - category: Implementation
+    chose: "A repository name starting with '@' is a blocking config finding of its own validator, added to AgentSmithConfigValidator's existing findings line"
+    over: "A new validation method inside AgentSmithConfigValidator"
+    reason: "That file sits at its baselined length (177); a separate validator keeps it from growing, the way SeriesConfigValidator and SpecReviewConfigValidator do."
+  - category: Implementation
+    chose: "An insert that loses a unique-key race to a concurrent writer is retried once as an update, detected through IUniqueViolationTranslator"
+    over: "Catching every DbUpdateException"
+    reason: "A blanket catch would swallow unrelated write failures; the translator already names the provider's unique violation."
+  - category: Implementation
+    chose: "The DB-free NullProjectMemoryRepository reports IsAvailable false and throws on write with a sentence that says why"
+    over: "Silently accepting a write it cannot keep"
+    reason: "The CLI has no database; a memory that seems stored and is not would mislead the next run."

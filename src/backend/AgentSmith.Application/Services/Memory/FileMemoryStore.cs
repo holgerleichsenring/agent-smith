@@ -9,9 +9,10 @@ namespace AgentSmith.Application.Services.Memory;
 /// the TARGET repo checkout, accessed through the sandbox file reader/writer
 /// like every other project-meta artifact. Git-native: entries are Markdown
 /// files, the index is memory/MEMORY.md. Lenient by design — a malformed entry
-/// is skipped with a WARN, an absent store reads as empty.
+/// is skipped with a WARN, an absent store reads as empty. 2026-11-10-fcd7a: one of the two
+/// <see cref="IMemoryStore"/>s; a file carries no provenance, git does.
 /// </summary>
-public sealed class MemoryStore(ISandboxFileReader reader, string repoRoot, ILogger? logger = null)
+public sealed class FileMemoryStore(ISandboxFileReader reader, string repoRoot, ILogger? logger = null) : IMemoryStore
 {
     private string MemoryDir => Path.Combine(repoRoot, ProjectMetaPaths.Memory);
     private string IndexPath => Path.Combine(repoRoot, ProjectMetaPaths.MemoryIndex);
@@ -32,7 +33,7 @@ public sealed class MemoryStore(ISandboxFileReader reader, string repoRoot, ILog
         return entries;
     }
 
-    public async Task UpsertAsync(MemoryEntry entry, CancellationToken ct)
+    public async Task UpsertAsync(MemoryEntry entry, CancellationToken ct, MemoryProvenance? provenance = null)
     {
         var path = Path.Combine(MemoryDir, $"{entry.Name}.md");
         await reader.WriteAsync(path, MemoryEntrySerializer.Serialize(entry), ct);

@@ -10,9 +10,9 @@ public sealed class MemoryStoreTests
     private const string IndexPath = "/work/.agentsmith/memory/MEMORY.md";
 
     private readonly InMemorySandboxFileReader _reader = new();
-    private readonly MemoryStore _sut;
+    private readonly FileMemoryStore _sut;
 
-    public MemoryStoreTests() => _sut = new MemoryStore(_reader, Root);
+    public MemoryStoreTests() => _sut = new FileMemoryStore(_reader, Root);
 
     [Fact]
     public async Task MemoryStore_TypedEntry_RoundTripsAndUpdatesIndex()

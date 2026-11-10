@@ -932,6 +932,69 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.ToTable("PrSweepStates", (string)null);
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ProjectMemory", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long>("ProjectId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SourceRef")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "Slug")
+                        .IsUnique();
+
+                    b.ToTable("ProjectMemories", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.PromptBlockRow", b =>
                 {
                     b.Property<string>("Hash")
@@ -3115,6 +3178,15 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasForeignKey("ToType", "ToId")
                         .HasPrincipalKey("EntityType", "EntityId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ProjectMemory", b =>
+                {
+                    b.HasOne("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

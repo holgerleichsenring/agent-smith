@@ -45,7 +45,7 @@ public sealed class MemoryCitationResolver(MemoryRepositoryKey keys)
         CancellationToken ct)
     {
         if (held.TryGetValue(name, out var slugs)) return slugs;
-        var entries = repositories.FilesOf(name) is { } files ? await new MemoryStore(files, repoRoot).ListAsync(ct) : [];
+        var entries = repositories.FilesOf(name) is { } files ? await new FileMemoryStore(files, repoRoot).ListAsync(ct) : [];
         return held[name] = entries.Select(e => e.Name).ToHashSet(StringComparer.Ordinal);
     }
 

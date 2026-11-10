@@ -63,8 +63,9 @@ internal sealed class FullStoreSeed
         UpdatedAt = SeededAt.AddMinutes(1),
     };
 
-    // The one enforced foreign key in the model: a config reference points at a config
-    // entity by (EntityType, EntityId), so the seeded edges point at a seeded entity.
+    // The enforced foreign keys in the model: a config reference points at a config entity by
+    // (EntityType, EntityId), and 2026-11-10-fcd7a's project memory at one by its Id, so the
+    // seeded rows point at a seeded entity.
     private static void LinkConfigRefs(List<object> rows)
     {
         var entity = rows.OfType<ConfigEntity>().First();
@@ -73,6 +74,7 @@ internal sealed class FullStoreSeed
             reference.ToType = entity.EntityType;
             reference.ToId = entity.EntityId;
         }
+        foreach (var memory in rows.OfType<ProjectMemory>()) memory.ProjectId = entity.Id;
     }
 
     private static object Row(IEntityType type, int index, bool nullNullables)
