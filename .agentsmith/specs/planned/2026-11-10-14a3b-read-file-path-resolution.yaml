@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3b
+goal: "read_file on a multi-repository turn reads a path exactly one source holds, and names the sources when several hold it, instead of refusing it."
+applies_to: "default (filesystem tool routing)"
+facts:
+  - claim: "Six reads of conversation 43 failed with 'must start with a repo name' although each path existed in one source."
+    evidence: "observed: 2026-11-10, prod run 2026-11-10T11-22-43-0ee5, prompt positions 9-10"
+  - claim: "Route refuses an unprefixed path on a multi-repository host."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:124-144"
+steps:
+  - id: resolve
+    action: "When routing refuses, read_file tries the path in every source; one hit is returned with the source named first, several name the sources, none keeps the refusal."
+tests:
+  - "ReadFile_UnprefixedPathOneSourceHolds_ReadsItAndNamesTheSource"
+  - "ReadFile_UnprefixedPathTwoSourcesHold_NamesBoth"
+done:
+  - "An unprefixed path one source holds is read; one several hold is answered with their names."
+  - "Backend and dashboard build and tests green."

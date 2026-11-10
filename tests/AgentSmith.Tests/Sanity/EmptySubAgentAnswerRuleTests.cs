@@ -36,6 +36,24 @@ public sealed class EmptySubAgentAnswerRuleTests
         decisions.Lines.Single().Should().Contain("RepoScout (read the sources) — Empty");
     }
 
+    /// <summary>2026-11-10-14a3a: a cut answer is named before every entry, so a master scanning the result sees it.</summary>
+    [Fact]
+    public async Task SpawnAgents_ACutChild_IsNamedInTheResultSummary()
+    {
+        var context = SubAgentRunnerTests.BuildContext();
+        var host = new SpawnAgentToolHost(
+            SubAgentRunnerTests.BuildRunner(new StubLoopRunner(answer: new string('a', SubAgentAnswer.MaxChars + 10))),
+            new SubAgentBudget(5), new SubAgentNameValidator(), new RecordingDecisionLogger(), context);
+
+        var result = (await host.GetTools(null, null).Single().InvokeAsync(
+            new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, CancellationToken.None))!;
+
+        var root = JsonDocument.Parse(((JsonElement)result).GetString()!).RootElement;
+        root.EnumerateObject().First().Name.Should().Be("cut");
+        root.GetProperty("cut").GetString().Should().StartWith("Cut, not whole").And.Contain("RepoScout (sa-");
+        root.GetProperty("results")[0].GetProperty("answer").GetString().Should().StartWith(SubAgentAnswer.CutPrefix);
+    }
+
     [Fact]
     public async Task ReadSubAgentObservations_BlankAnswer_GetsAFrameworkLine()
     {

@@ -36,13 +36,16 @@ public sealed class SubAgentSituationTests
             .And.Contain("Your final message is what your master receives");
     }
 
+    /// <summary>2026-11-10-14a3a: the notice leads; at the end it read like the answer's last line.</summary>
     [Fact]
-    public void SubAgentAnswer_LongAnswer_IsCutWithAPointerToTheRest()
+    public void SubAgentAnswer_LongerThanTheCap_LeadsWithTheNotice()
     {
-        var cut = SubAgentAnswer.Condensed(new string('x', SubAgentAnswer.MaxChars + 50));
+        var cut = SubAgentAnswer.Condensed(new string('x', SubAgentAnswer.MaxChars + 50), "sa-1");
 
-        cut.Should().StartWith(new string('x', SubAgentAnswer.MaxChars))
-            .And.EndWith("[… 50 more characters — read_sub_agent_observations returns the whole answer]");
+        cut.Should().StartWith($"[CUT — the first {SubAgentAnswer.MaxChars} of {SubAgentAnswer.MaxChars + 50} characters; "
+            + "read_sub_agent_observations(\"sa-1\")").And.EndWith(new string('x', SubAgentAnswer.MaxChars));
+        SubAgentAnswer.WasCut(cut).Should().BeTrue();
+        SubAgentAnswer.Condensed("short", "sa-1").Should().Be("short");
     }
 
     [Fact]

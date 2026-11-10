@@ -92,7 +92,7 @@ public sealed class SubAgentRunner(
             var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
             var observationsCount = CountObservations(loopResult.Response);
             var toolCalls = CountToolCalls(loopResult.Response);
-            var answer = SubAgentAnswer.Condensed(loopResult.Response.Text); // 2026-11-09-0620e
+            var answer = SubAgentAnswer.Condensed(loopResult.Response.Text, subAgentId); // 2026-11-09-0620e, 14a3a
 
             await PublishCompletedAsync(
                 subAgentId, context, status,

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3a
+
+decisions:
+  - category: Implementation
+    chose: "The cut notice leads the answer and names the child's id in the call that returns the rest"
+    over: "Keeping the notice at the end, or raising the cap"
+    reason: "At the end of 12000 characters the notice read like the answer's last line; conversation 43's master never followed it. A higher cap only moves the edge."
+  - category: Implementation
+    chose: "A top-level 'cut' line in the spawn result, present only when a child was cut"
+    over: "A per-entry flag only"
+    reason: "A master reading several entries sees the one line first; a flag inside an entry is as easy to miss as the old notice."
+  - category: Implementation
+    chose: "The child is told its answer arrives whole up to the cap and that a longer one is cut"
+    over: "'About the first N characters arrive directly'"
+    reason: "The old wording read as a soft limit; a child that knows its answer is cut can write within it."

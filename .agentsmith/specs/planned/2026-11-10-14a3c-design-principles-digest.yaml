@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3c
+goal: "A design turn sees each distinct coding-principles file once, as its status, its Project Specifics and its path, instead of every body in full."
+applies_to: "default (design turn grounding)"
+facts:
+  - claim: "Conversation 43 rendered the same principles file twice, once per repository holding it, about 25000 characters."
+    evidence: "observed: 2026-11-10, prompt record of run 2026-11-10T11-22-43-0ee5, lines 178-683"
+  - claim: "The grounding renders every principles document in full through RenderLabelled."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:41-44,67-74"
+steps:
+  - id: digest
+    action: "Group identical bodies; per group render the repositories, the composition and status comment, the Project Specifics section, and the path to read for the rest."
+tests:
+  - "DesignPrinciplesDigest_TwoReposSameFile_RendersOnceWithStatusSpecificsAndPath"
+done:
+  - "A design turn's principles section holds no full body and names the path of each."
+  - "Backend and dashboard build and tests green."

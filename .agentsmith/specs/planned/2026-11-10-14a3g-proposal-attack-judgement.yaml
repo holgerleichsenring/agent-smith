@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3g
+goal: "A design turn's attack reviewer asks whether one run can build the draft, whether each done line can be checked against the code, and whether every approved capability is kept."
+applies_to: "default (attack review prompt)"
+facts:
+  - claim: "Conversation 43's review cut two citation ranges and passed an aggregate scope, uncheckable done lines and a dropped approved capability."
+    evidence: "observed: 2026-11-10, prompt record of run 2026-11-10T11-22-43-0ee5, position 22"
+  - claim: "The attack prompt carries the plugin brief and the decidability lens only."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:17-33"
+steps:
+  - id: questions
+    action: "A design turn's attack prompt adds the three questions, each answered by a cut or a finding; the run's prompt is unchanged."
+tests:
+  - "SpecAttackPrompt_ProposalScope_AsksTheThreeJudgementQuestions"
+done:
+  - "A proposal's attack reviewer is asked the three questions; a run's reviewer is not."
+  - "Backend and dashboard build and tests green."

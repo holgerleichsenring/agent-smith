@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3f
+goal: "outcome_format returns a kind's format once per turn; a second call for that kind points at the first."
+applies_to: "default (outcome format tool)"
+facts:
+  - claim: "Conversation 43 fetched the 12000-character epic format twice in one turn."
+    evidence: "observed: 2026-11-10, prompt record of run 2026-11-10T11-22-43-0ee5, positions 16 and 24"
+steps:
+  - id: once
+    action: "The tool remembers the kinds it returned in this turn and answers a repeat in one line."
+tests:
+  - "OutcomeFormat_SameKindTwiceInATurn_ReturnsItOnce"
+done:
+  - "A second call for one kind in a turn returns one line naming where the format stands."
+  - "Backend and dashboard build and tests green."

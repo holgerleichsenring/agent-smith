@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3e
+goal: "The design turn's user footer no longer repeats the one-repository rule the system prompt states."
+applies_to: "default (design turn prompt)"
+facts:
+  - claim: "The repository rule paragraph appears in the user-turn footer and again in the system prompt."
+    evidence: "observed: 2026-11-10, prompt record of run 2026-11-10T11-22-43-0ee5, lines 1122-1127 and 1180"
+steps:
+  - id: delete
+    action: "Delete the footer paragraph; the scope list stays."
+tests:
+  - "SpecDialogFooter_NamesTheScope_WithoutTheRepositoryRule"
+done:
+  - "The footer lists the repositories in scope and states no repository rule."
+  - "Backend and dashboard build and tests green."
