@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-864f
+goal: "A proposal's reviewers and evidence check read the uploads the design partner read, under the same reference address, so a fact resting on uploaded material can be checked."
+
+applies_to: "default (derivation look factory, evidence probe, proposal and run spec review)"
+
+facts:
+  - claim: "Live conversation 43 on 0.180.0: an attack reviewer called the epic parent a false premise because the repositories hold no Python Notification Center; the Python proof of concept was in the reference upload the master read."
+    evidence: "dated observation 2026-11-10, prod run 2026-11-10T11-22-43-0ee5"
+  - claim: "The proposal review's look and evidence probe share one filter that keeps only repository keys, so every reference:* sandbox was dropped."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:110-118; src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRepositories.cs:14-17"
+  - claim: "The evidence probe answered every qualified path, reference:… included, as not checked."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:33-34"
+  - claim: "A run carries an approved upload as files inside its carrying repository at the set's path, published as ContextKeys.ReferenceSets, not as a reference:* sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferenceMaterializer.cs:62-66; src/backend/AgentSmith.Contracts/Specs/CarriedReferenceSet.cs:15-16"
+  - claim: "A held upload records every read_file as what the turn opened, which later turns are told."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:66-70; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceReadLog.cs:26-30"
+
+scope:
+  in: "Review looks (proposal review, attack review, and the run's look holders) and both evidence checks read uploads through a view that serves the four reads only. A design turn's held upload is read without counting as what the turn opened; a run's carried copy is addressed as reference:<name>/<path>, rooted at the copy."
+  out: "Citations with a space in their path, which the evidence reader splits into tokens. The reviewer prompt's wording, which lists the look's names as it does today."
+
+steps:
+  - id: view
+    action: "ReviewReferenceView: an ISourceScopeSandbox over a held upload or a carried copy, refusing every step but ReadFile, ListFiles, Grep and DirectoryTree."
+  - id: map
+    action: "ReviewReferences.For collects the views by address; Beside joins them to a look's repositories."
+  - id: look
+    action: "DerivationLookFactory's proposal and on-terms looks read the uploads beside the repositories."
+  - id: probe
+    action: "SandboxEvidenceProbe routes the reference qualifier to the upload; ProposalEvidenceReview and SpecRoundEvidence hand it the uploads."
+
+tests:
+  - "DerivationLookFactory_ProposalReview_ListsAndReadsTheUploads"
+  - "ReviewReferenceView_ServesReadsOnly"
+  - "SandboxEvidenceProbe_ReferenceCitation_ResolvesInTheUpload"
+  - "ReviewReferences_CarriedSet_ResolvesACitationAtItsCopy"
+
+done:
+  - when: "a design turn holding an upload reviews its proposal"
+    then: "a reviewer can search and read reference:<name> and a fact citing reference:<name>/<path>:<line> is checked against the upload"
+  - when: "a run carrying an approved upload reviews its specs"
+    then: "the same citation is checked against the carried copy"
+  - "Backend and dashboard build and tests green."

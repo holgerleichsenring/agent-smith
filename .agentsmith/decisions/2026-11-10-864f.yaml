@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-864f
+
+decisions:
+  - category: Architecture
+    chose: "Uploads join a review look and the evidence probe under their own address, reference:<name>"
+    over: "Keeping them out (283dc), or listing them as repositories"
+    reason: "A spec carried from a proof of concept rests on the upload; a reviewer who cannot read it calls the premise false, as on conversation 43. The address is the one the design partner reads and cites, so one citation works for the partner, the reviewer and the check."
+  - category: Implementation
+    chose: "A read-only view serving ReadFile, ListFiles, Grep and DirectoryTree"
+    over: "Handing the reviewer the upload's sandbox itself"
+    reason: "An upload's container serves commands (run_in_reference). A review must not run or write anything; the view refuses every other step kind before it reaches the container."
+  - category: Implementation
+    chose: "A held upload is read by the review without being recorded as what the turn opened"
+    over: "Sending reviewer reads through the turn's read log"
+    reason: "Later turns are told which files of an upload earlier turns opened. A reviewer's read would claim coverage the design partner never had."
+  - category: Implementation
+    chose: "In a run, reference:<name>/<path> is rooted at the carried copy inside the carrying repository"
+    over: "Leaving reference citations unchecked in a run, or teaching the reviewer the copy's path"
+    reason: "The run carries the approved uploads as files, not as reference sandboxes, so the coding run's review was blind the same way. Rooting the view at the copy keeps one address for the same material in the turn and in the run."
+  - category: Implementation
+    chose: "Unknown upload names stay not checked"
+    over: "Reporting a citation of an upload the turn does not hold as missing"
+    reason: "A missed check costs less than a false finding; the probe's existing rule."

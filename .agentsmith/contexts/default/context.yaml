@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-10-864f: "REVIEW READS UPLOADS (derivation look factory, evidence probe, spec review). Reviewers and both evidence checks read the uploads read-only under reference:<name>, a held upload without counting as the turn's reading, a run's carried copy rooted at its path. -> .agentsmith/specs/done/2026-11-10-864f-review-reads-uploads.yaml"
     2026-11-10-fc66: "DESIGN TURN TOOL SURFACE (spec-dialog tool surface, children, work picture, skills pin v5.25.2). No ask_human, decide_by_default, http_request, remember, list_directory or grep_in_file; questions go in the reply; grep_in_tree takes one file; work-picture kinds defined; slices by behavior. -> .agentsmith/specs/done/2026-11-10-fc66-design-turn-tool-surface.yaml"
     2026-11-10-8e59: "REVIEW EXACT TEXT (coding-run review, proposal review, approval record, config validation, dashboard). Built only after a round said build on the exact text (id + SHA-256 of trimmed yaml), contract too; no answer retries then stops; approval never waits on review state; invalid spec_review refused at validation. -> .agentsmith/specs/done/2026-11-10-8e59-review-exact-text.yaml"
     2026-11-10-18cf: "PROPOSAL REVIEW EVERY DRAFT (proposal review session, series round, carry-over, summary). No share, floor or wall-time rule; ProposalRoundGate deleted; only the cost cap or a cancel stops it. A draft no answer attacked in its current text is held with its reason; only an unread wait opens the blind exit. ->.agentsmith/specs/done/2026-11-10-18cf-proposal-review-every-draft.yaml"
