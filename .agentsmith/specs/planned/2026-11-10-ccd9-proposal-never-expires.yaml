@@ -1,86 +1,99 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-ccd9
-goal: "A stored proposal awaits a decision until a person approves or rejects exactly that proposal or a newer draft supersedes it; nothing waits and nothing expires."
+goal: "A stored proposal awaits a decision until a person approves or rejects the exact card they saw or a newer draft supersedes it; nothing waits, nothing expires, nothing files twice."
 
-applies_to: "default (Server: spec dialog outcome flow, stores, admission, router, view, chat adapters; Persistence: session row; Dashboard: approval card and composers)"
+applies_to: "default (Server: spec dialog outcome flow, stores, sink, admission, router, view, chat adapters; Persistence: session row; Dashboard: approval card and composers)"
 
 facts:
-  - claim: "The confirmer asks with a fixed 15-minute ConfirmationTimeout, holds an in-memory pending question and a Redis open-question record with that TTL, and waits on the dialogue transport inside the router's turn loop, which re-runs the turn on an edit note."
+  - claim: "The confirmer asks with a fixed 15-minute ConfirmationTimeout, holds an in-memory pending question and a Redis open-question record with that TTL, and waits inside the router's turn loop, which re-runs the turn on an edit note."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:32-64; src/backend/AgentSmith.Server/Services/SpecDialog/RedisOpenDialogQuestions.cs:16-17; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:85-114; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogEditReload.cs:7-10"
   - claim: "On timeout the flow clears the stored proposal and sends ComposeTimeout through the messenger only; the comment encodes the old rule."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:76-81; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:54; src/backend/AgentSmith.Server/Services/SpecDialog/ConfirmationResult.cs; src/backend/AgentSmith.Server/Services/Adapters/DashboardAdapter.cs:40-41"
-  - claim: "The flow pushes the proposal and stores it before the confirmation; no id identifies the proposal a decision was made on."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-44; src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-29"
-  - claim: "Admission stores the message before the turn gate and decides a word only while a question is pending; the card turn is the last assistant turn that carried a draft."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:36-46; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:57-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerWords.cs:13-24; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:25-32"
-  - claim: "Approve buttons send only the word."
-    evidence: "src/dashboard/src/components/tickets/detail/useTicketComposer.ts:70; src/dashboard/src/hooks/useSpecDialog.ts:124-128"
+  - claim: "No id identifies the proposal a decision was made on: the flow pushes and stores the proposal before confirming, and approve buttons send only the word."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-44; src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-29; src/dashboard/src/components/tickets/detail/useTicketComposer.ts:70; src/dashboard/src/hooks/useSpecDialog.ts:124-128"
+  - claim: "Admission stores a message with a tentative decision before the turn gate and takes it back when nothing was waiting."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:36-54; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:57-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerWords.cs:13-24"
   - claim: "Chat buttons reach a wait through the adapter or SpecDialogButtonAnswer, both depending on the open question; Slack and Teams ask through a call that waits for the click."
     evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:72-73; src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs:88-89; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogButtonAnswer.cs:14-22; src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionManager.cs:45-49; src/backend/AgentSmith.Server/Services/Adapters/TeamsAdapter.cs:37-45"
   - claim: "The approval card is built from the pending question with its expiry; the resumer refuses while a question is pending; the dashboard hides an expired approval."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:58-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:40; src/backend/AgentSmith.Server/Models/SpecDialogChannelQuestion.cs:18-24; src/dashboard/src/components/dialog/DialogQuestionCard.tsx:48,83-102; src/dashboard/src/components/tickets/detail/useTicketComposer.ts:97-100"
-  - claim: "The turn's poster decides MayStartRuns for the filing, and a Slack message carries false."
+  - claim: "The turn's poster decides MayStartRuns for the filing; a Slack message carries false."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:107; src/backend/AgentSmith.Server/Services/Adapters/SlackMessageDispatcher.cs:45-46"
-  - claim: "Three sites write the stored proposal: the flow, the mid-review observer and the steward's supersede. The store swallows every failed write. The unbound filing leaves LatestProposalJson in place; filing can refuse or continue without acting. Nothing reads ConfirmedOutcomeJson to retry."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:42,89-94; src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:24-25; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:15-26,104-118; src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:40-48,49-83,107-112; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:23,31-37"
-  - claim: "A stored Notice turn is how a reload learns what happened."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:91-97"
+  - claim: "The sink files the whole proposal in one call and returns nothing; its notice is written after tickets exist; an acted-on proposal is cleared without checking which proposal is stored; the store's clear and writes take no id and swallow failures."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/IOutcomeSink.cs:22-24; src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:40-48,53-57,76-83,111-112; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:15-26,43-44,104-118"
+  - claim: "Three sites write the stored proposal: the flow, the mid-review observer and the steward's supersede."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:42,89-94; src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:24-25"
+  - claim: "Nothing reads ConfirmedOutcomeJson to retry a filing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:23,31-37"
   - claim: "The design turn has no ask_human since 0.180.1; the coding run's ask_human still waits five minutes."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56; src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs:45-48"
-  - claim: "Files at their line cap: SpecDialogLatestOutcomeStore 120, SpecDialogViewReader 119, SpecDialogSessionRepository 120, DashboardDialogDispatcher 120, TicketFilingOutcomeSink 119, SpecDialogRouter 116, SlackInteractionHandler 115."
-    evidence: "wc -l, 2026-11-10"
+  - claim: "At their line cap: SpecDialogLatestOutcomeStore 120, SpecDialogViewReader 119, DashboardDialogDispatcher 120, SpecDialogExtensions 120, TicketFilingOutcomeSink 119, SpecDialogRouter 116, SlackInteractionHandler 115; RelationalPersistenceExtensions is baselined at 223 and registers the session repository at line 85."
+    evidence: "wc -l, 2026-11-10; tests/AgentSmith.Tests/Architecture baseline; src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:85"
 
 scope:
-  in: "SPLIT FIRST: SpecDialogLatestOutcomeStore and SpecDialogViewReader. ID: the flow mints a proposal id before ProposeAsync; the push, the stored proposal, the view and a chat card's QuestionId carry it; the observer's mid-review pushes carry it too. STATE: the session row gains AwaitingProposalId and ProposalState (awaiting | filing), migration AddSpecDialogProposalState in the SQLite, SqlServer and Postgresql sets. At turn end, after the reply is kept, the flow writes the id and 'awaiting' and returns; nothing waits. Nothing clears 'awaiting' at turn start: a follow-up question, a failed turn or a crash leaves the proposal approvable. SUPERSEDE: a new draft, detected from LatestProposalJson holding a different id, replaces the awaiting id and appends a Notice at each write site (flow, observer, steward). DECIDING (a new SpecDialogDecisionPath class, used by the router, the dashboard dispatcher and the Slack and Teams interaction handlers): a decision with an id decides only when it is the stored awaiting id; admission still stores the message before the gate, and a typed answer word is evaluated only after TryEnter succeeds and only when SpecDialogShownTranscript.CardTurn is the last assistant turn before the word. Anything else is an ordinary message that runs an ordinary turn. CLAIM (a new SpecDialogProposalClaim type in Persistence): approve and reject move the row from awaiting to filing or cleared by compare-and-set on id and state; ClearProposalAsync fails its caller on the reject path. If filing throws, refuses (TicketFilingOutcomeSink.cs:40-48) or continues without acting (:107-109), the row returns to awaiting with the same id. A crash-stranded 'filing' row shows as an approvable card, and its next approve claims it with the same id; nothing retries on its own. RIGHTS: the decider's MayStartRuns. SHAPES AND EDITS: routed as the clicker's message, with the id. FAILING: SetProposalAsync fails its caller; the post-filing writes keep their logged drop. REMOVED: ConfirmationTimeout, OutcomeConfirmationTimedOut, ComposeTimeout, the pending approval question, the open-question TTL for approvals, ExpiresAt on approval cards, and the router's edit re-run loop (OutcomeFlowEditRequested, SpecDialogEditReload in that role), since an edit note is now an ordinary message. The view builds the approval card from the stored proposal; the resumer no longer refuses on an approval; Slack and Teams post the card with a post-only call. The comment at SpecDialogOutcomeFlow.cs:77-78 is rewritten. The runner and SpecDialogSessionManager are not touched."
+  in: |
+    SPLIT FIRST: SpecDialogLatestOutcomeStore, SpecDialogViewReader, DashboardDialogDispatcher, SpecDialogExtensions and TicketFilingOutcomeSink. SpecDialogSessionRepository and SpecDialogSessionManager stay untouched.
+    STATE: the session row gains ProposalId, ProposalState (reviewing | awaiting | filing), ClaimedAt, ClaimedBy and a filed map (proposal id + spec id -> ticket). Migration AddSpecDialogProposalState, one name in the SQLite, SqlServer and Postgresql sets, backfills: an open row with a stored proposal gets a minted id and 'awaiting'. Every write of state and proposal JSON is ONE compare-and-set guarded by the id it expects (a new SpecDialogProposalClaim, registered on the existing line 85 of RelationalPersistenceExtensions).
+    IDS: the mid-review observer stores its draft with state 'reviewing', which is never claimable and gets no Notice. At turn end the flow sets 'awaiting', keeping the id when the final proposal is that draft and minting a new one otherwise. A new 'awaiting' id over an older 'awaiting' one appends a Notice that the older proposal was replaced. The id rides the push, the view and a chat card's QuestionId.
+    DECIDING (a new SpecDialogDecisionPath, called by the router, the dashboard dispatcher and the Slack and Teams interaction handlers): every decision carries the id of the card the person saw. Buttons carry it. A typed approve or reject word on the dashboard is sent by the client with the id of the latest card it shows; in Slack and Teams a typed word binds to the QuestionId of the last card posted in that thread. A decision whose id is not the row's awaiting id appends a Notice ('replaced; the current proposal is below') and runs no turn. A message without a decision word is an ordinary message that runs an ordinary turn; the awaiting proposal stays and is in the master's context. The tentative decision on the stored message reuses the existing append-with-decision and ClearDecisionAsync.
+    FILING: approve claims awaiting -> filing with ClaimedAt and ClaimedBy. The sink records each created ticket in the filed map as it is created. IOutcomeSink.AcceptAsync returns a verdict: created (one or more tickets) -> the row is cleared under the id, and later errors are told, never re-filed by approve; nothing created -> the row returns to awaiting with the same id. The sink catches anything thrown after a ticket exists (TicketFilingOutcomeSink.cs:80-82). A 'filing' row may be re-claimed only after the filing bound (10 minutes) since ClaimedAt; the card then shows 'filing was interrupted — finish it', and a re-claim files only the specs with no recorded ticket. The bound limits the claim, never the proposal.
+    REJECT: one compare-and-set under the id, clearing the proposal; a failure fails the caller.
+    RIGHTS: the decider's MayStartRuns. A Slack or Teams interaction carries false, the same as a Slack message.
+    VIEW: approve is offered only for 'awaiting', 'finish' only for a stranded 'filing', nothing for 'reviewing'. The card is built from the row, so it survives a restart on any replica.
+    OLD CARDS: a click carrying an old random QuestionId gets the replaced Notice and a reposted card.
+    REMOVED: ConfirmationTimeout, OutcomeConfirmationTimedOut, ComposeTimeout, the pending approval question, the approval TTL, ExpiresAt on approval cards, the resumer's refusal on an approval, and the router's edit re-run loop (OutcomeFlowEditRequested, SpecDialogEditReload in that role). Slack and Teams post the card with a post-only call. The comment at SpecDialogOutcomeFlow.cs:77-78 is rewritten. Every clear, including the acted-on clear at TicketFilingOutcomeSink.cs:111-112, is guarded by the id, so a late filing never wipes a newer draft.
   out: "The coding run's ask_human five-minute wait is a named successor. Build gating is unchanged (2026-11-10-8e59)."
 
 decisions:
-  - key: "A STATE, NOT A TASK. Nothing has to be held while a person is away, so nothing has to time out."
-  - key: "BOUND TO THE TEXT SEEN. Clicks carry the id; a typed word binds through the card turn inside the gate; across replicas the claim decides."
-  - key: "AWAITING SURVIVES TURNS. Only a newer draft, an approval or a rejection ends it; a question in between, a failure or a crash does not."
-  - key: "ONE CLAIM, REVERSIBLE. Approve and reject claim the row; a filing that fails, refuses or does not act gives it back with the same id, so a person can approve again and nothing double-files."
-  - key: "THE DECIDER'S RIGHTS. Whoever approves is whoever files."
-  - key: "AN ORDINARY MESSAGE IS ORDINARY (operator's coordinator, 2026-11-10). No forced revising and no edit re-run loop; the master sees the awaiting proposal and revises when asked."
-  - key: "THE STORE FAILS LOUDLY FOR PROPOSALS. Only the post-filing writes keep their logged drop, for the duplicate-ticket reason the store documents."
+  - key: "FOUR INVARIANTS: never expire, never decide unseen text, never file twice, never lose a proposal. Each mechanism below serves one; nothing simpler kept all four. A plain claim without the filed map re-files after a partial failure; a server-side guess at the card a typed word meant races the next draft."
+  - key: "THE SURFACE NAMES THE CARD. The client or the chat thread knows which card the person saw; the server only compares ids."
+  - key: "DRAFTS UNDER REVIEW ARE NOT APPROVABLE. 'reviewing' cannot be claimed and supersedes nothing, so only the turn's final proposal ever stands for approval."
+  - key: "IDEMPOTENT BY RECORD, NOT BY TIMING. The filed map says what exists; a re-claim finishes the rest. The filing bound only decides when a stranded claim may be taken over."
+  - key: "ONE WRITE PER TRANSITION, GUARDED BY ID. State and JSON change together, so no reader sees one without the other and no late writer wipes a newer draft."
+  - key: "AN ORDINARY MESSAGE IS ORDINARY (operator's coordinator, 2026-11-10). No forced revising and no edit re-run loop."
+  - key: "CHAT INTERACTIONS START NO RUNS. A Slack or Teams click carries no permission, as a Slack message does not."
 
 steps:
   - id: split
-    action: "Split SpecDialogLatestOutcomeStore and SpecDialogViewReader."
+    action: "Split the five files at their caps."
   - id: state
-    action: "Migration AddSpecDialogProposalState in all three sets; SpecDialogProposalClaim with the compare-and-set; the flow mints the id and writes awaiting; supersede at the three write sites with a Notice; SetProposalAsync throws."
+    action: "Migration AddSpecDialogProposalState with the backfill; SpecDialogProposalClaim with guarded compare-and-set transitions (reviewing, awaiting, filing, cleared) and the filed map."
+  - id: ids
+    action: "Observer writes 'reviewing'; the flow sets 'awaiting', keeps or mints the id, and appends the replaced Notice; push, view and chat card carry the id."
   - id: decide
-    action: "SpecDialogDecisionPath: id check, word check inside the gate through CardTurn, claim, filing with the decider's MayStartRuns, return to awaiting on failure, refusal or no act; router, dispatcher and interaction handlers call it."
-  - id: surfaces
-    action: "Push and view carry the id; dashboard buttons send it; the view builds the card from the store; Slack and Teams post-only."
+    action: "SpecDialogDecisionPath: id comparison, replaced Notice, claim, filing with the decider's MayStartRuns, verdict handling; router, dispatcher and interaction handlers call it; dashboard sends the latest card id with a typed word; chat binds a typed word to the thread's last card."
+  - id: sink
+    action: "IOutcomeSink.AcceptAsync returns a verdict; the filer records each ticket in the filed map; a re-claim files only unrecorded specs; the catch after a ticket exists."
   - id: remove
-    action: "Remove the wait, the timeout result and notice, the expiry fields, the approval TTL and the edit re-run loop."
+    action: "Remove the wait, the timeout, the expiry fields, the approval TTL and the edit re-run loop; Slack and Teams post-only."
   - id: tests
     action: "Pin each path."
 
 tests:
-  - "OutcomeFlow_Proposal_MintsAnIdStoresAwaitingAndReturns"
+  - "OutcomeFlow_FinalProposal_IsAwaitingAndNothingWaits"
+  - "Observer_MidReviewDraft_IsReviewingAndCannotBeClaimed"
   - "Decision_ApproveWithStoredIdADayLater_Files"
-  - "Decision_ApproveWithOlderId_DecidesNothing"
-  - "TypedApprove_CardTurnNotLast_IsAnOrdinaryMessage"
-  - "TypedApprove_EvaluatedOnlyInsideTheGate"
+  - "Decision_OlderId_AppendsReplacedNoticeAndRunsNoTurn"
+  - "DashboardTypedApprove_CarriesTheLatestCardId"
+  - "SlackTypedApprove_BindsToTheThreadsLastCard"
   - "Decision_TwoApprovesOnTwoReplicas_FileOnce"
-  - "Decision_FilingThrows_ReturnsToAwaitingWithTheSameId"
-  - "Decision_FilingRefuses_ReturnsToAwaiting"
-  - "Decision_StrandedFilingRow_IsApprovableAndClaimsAgain"
-  - "Reject_ClearFails_FailsTheCaller"
-  - "Decision_UsesTheDecidersMayStartRuns"
-  - "FollowUpTurnWithoutDraft_LeavesTheProposalAwaiting"
-  - "NewDraft_SupersedesWithANotice_AtAllThreeSites"
-  - "SlackButton_AfterRestart_DecidesTheStoredProposal"
-  - "ShapeClick_RoutesAsTheClickersMessage"
-  - "ViewReader_AfterRestart_ShowsTheApprovalCardFromTheStore"
+  - "Decision_PartialFiling_ReClaimFilesOnlyTheRest"
+  - "Sink_ThrowAfterATicket_IsCaughtAndTheRowClears"
+  - "Decision_NothingCreated_ReturnsToAwaitingWithTheSameId"
+  - "Decision_StrandedFilingPastTheBound_ShowsFinishAndReClaims"
+  - "LateFilingClear_NewerDraftStored_LeavesTheDraft"
+  - "Reject_SingleGuardedUpdate_FailsTheCallerOnError"
+  - "SlackInteraction_DecidesWithMayStartRunsFalse"
+  - "OldRandomQuestionId_GetsNoticeAndRepostedCard"
+  - "Migration_BackfillsAwaitingForOpenRowsWithAProposal"
+  - "ViewReader_AfterRestart_ShowsTheCardFromTheRow"
 
 done:
   - when: "a turn proposes and nobody answers for a day, across a restart and a follow-up question"
-    then: "the card is shown from the store and approving it files exactly once"
-  - when: "filing fails"
-    then: "the proposal is approvable again with the same id"
-  - when: "a newer draft supersedes, or a person rejects"
-    then: "the transcript holds a Notice, and an approve on the old card decides nothing"
-  - "No code path clears a stored proposal for lack of an answer."
+    then: "the card is shown from the row and approving it files exactly once"
+  - when: "two replicas approve at once, or a filing dies after one of three tickets"
+    then: "each spec has exactly one ticket after the filing finishes"
+  - when: "a person approves a card that a newer draft replaced"
+    then: "a Notice says so and nothing is filed or run"
+  - "No code path clears a stored proposal for lack of an answer, and no clear removes a proposal with a different id."
   - "Build green, full suite and dashboard tests green."
