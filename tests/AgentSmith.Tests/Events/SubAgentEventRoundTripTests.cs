@@ -47,15 +47,6 @@ public sealed class SubAgentEventRoundTripTests
     }
 
     [Fact]
-    public void SubAgentResult_HasNoResultTextField_Reflection()
-    {
-        var props = typeof(SubAgentResult).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        var hasResultText = props.Any(p => string.Equals(p.Name, "ResultText", StringComparison.OrdinalIgnoreCase));
-        hasResultText.Should().BeFalse(
-            "p0177 explicitly forbids a distilled-text field on SubAgentResult");
-    }
-
-    [Fact]
     public void SubAgentResult_ImplementsIDomainEvent()
     {
         typeof(IDomainEvent).IsAssignableFrom(typeof(SubAgentResult)).Should().BeTrue(

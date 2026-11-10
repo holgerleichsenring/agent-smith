@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620c
+goal: "Every master's turn text is written for its role: pr-review judges a diff, mad-discussion and legal analysis deliver a report, and the test and doc passes see their own task."
+requires: [2026-11-09-0620b]
+
+applies_to: "default (Application master handler prompt choice, scan prompt factory, master user prompt, test and doc passes, document bootstrap)"
+
+facts:
+  - claim: "The master handler picks the user prompt by output schema: a master declaring 'observation' gets the security-scan prompt, every other non-dialog master the coding prompt ending 'plan your change, implement it, and verify it (build + tests)'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:116-117,336-348; src/backend/AgentSmith.Application/Services/Handlers/MasterUserPrompt.cs:44-47"
+  - claim: "pr-review-master declares output_schema observation, so it is told it runs a SECURITY REVIEW and, under six source reads, is re-driven to inventory the full surface."
+    evidence: "src/backend/AgentSmith.Application/Services/ScanMasterPromptFactory.cs:27-28,69-76; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:477-479"
+  - claim: "mad-discussion-master and legal-analyst-master declare no output schema and write a report, not code; legal's converted document path and detected type are computed and shown to no model."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs:52-58; src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Masters.cs:23-25"
+  - claim: "The test and doc passes render the whole coding master through 'agent-execute-system' with its run tokens bound empty, and end their user prompt with 'Start by listing the relevant files, then implement each step.'"
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs:35-63,88; src/backend/AgentSmith.Application/Services/Handlers/GenerateTestsHandler.cs:60-62"
+
+scope:
+  in: "A closing per master for the generic user prompt (coding unchanged here, mad-discussion and legal their own); a pr-review user prompt from the scan factory and no coverage re-drive for it; the legal document's path and type in its closing; a short system prompt for the test and doc passes and no procedure line in their user prompt."
+  out: "The coding closing's wording (2026-11-09-0620e). Section order of any prompt."
+
+steps:
+  - id: closing
+    action: "MasterClosing.For(master, pipeline) returns the coding closing as it is, a report closing for mad-discussion, and for legal the converted document's path and detected type; MasterUserPrompt.Build takes it."
+  - id: pr-review
+    action: "IScanMasterPromptFactory.Build takes the master name; pr-review gets a prompt that says the pull request's head is checked out read-only and the diff above is what to judge; ScanReadFloor gives pr-review no read floor."
+  - id: legal
+    action: "BootstrapDocumentHandler records the converted document's path under ContextKeys.DocumentMarkdownPath."
+  - id: passes
+    action: "AgentPromptBuilder.BuildChangePassSystemPrompt states the pass's job and reach above the project context, principles and code map; the 'Start by listing' line goes; BuildExecutionSystemPrompt is removed."
+
+tests:
+  - "MasterClosing_MadDiscussion_AsksForTheReportNotACodeChange"
+  - "MasterClosing_Legal_NamesTheConvertedDocumentAndItsType"
+  - "MasterClosing_Coding_IsUnchanged"
+  - "ScanMasterPrompt_PrReview_JudgesTheDiffWithoutTheSecurityHeader"
+  - "ScanReadFloor_PrReview_IsZero"
+  - "ChangePassSystemPrompt_Tests_StatesItsJobWithoutTheCodingMaster"
+
+done:
+  - when: "a pr-review, mad-discussion or legal-analysis run starts its master"
+    then: "the last words of its user prompt describe its own deliverable, and no coding procedure or security-review header reaches it"
+  - when: "a test or doc pass runs"
+    then: "its system prompt states that pass's job and carries no empty run tokens"
+  - "Backend build and tests green."

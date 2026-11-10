@@ -2,7 +2,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
 /// p0423: whether a run records its CONVERSATION as well as its numbers — every model
-/// call's prompt and answer, and every tool result as the model received it.
+/// call's answer, and every tool result as the model received it. 2026-11-09-0620d: the
+/// prompts are not behind this switch: every call's prompt is stored always, deduplicated
+/// (2026-11-09-0620a), and opened from the run's call table.
 /// <para>
 /// Off by default: prompts grow from 145k to 4.1M characters within a single spec, so
 /// this is a diagnostic instrument, not a default cost. On, it answers the question the

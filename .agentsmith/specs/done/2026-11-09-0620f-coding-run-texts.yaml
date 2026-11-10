@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620f
+goal: "The server texts a coding run reads agree with its stop rule and its tools: nudges, the closing, the repositories, ask_human, file paths and the omitted-comments note."
+requires: [2026-11-09-0620e]
+
+applies_to: "default (Application master nudges, closing, spec-execution prompt, ticket conversation section, filesystem and ticket clarification tools)"
+
+facts:
+  - claim: "The apply nudge says 'Do not stop until at least one SOURCE file is changed' and the checklist nudge 'You are NOT done until the checklist is drained', while the skill ends a run whose remaining steps hold no work and lets a report spec owe no source edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:38-42,75-77"
+  - claim: "The coding closing ends 'stop calling tools and summarise what changed', while the coding master's last message must be its verdict block, which the framework parses."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterClosing.cs; src/backend/AgentSmith.Application/Services/Handlers/MasterVerificationParser.cs"
+  - claim: "A spec run's user prompt shows one 'Working Repository' path and the sandbox keys, while the non-spec prompt lists every checkout since p0384."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:56-59; src/backend/AgentSmith.Application/Services/Handlers/MasterUserPrompt.cs:53-70"
+  - claim: "ask_human ignores recommended_index; the omitted-comments note asks the model to request the full history, which no coding tool can do; file tools describe paths as repository-relative although a multi-repo run refuses a path without the repository's name."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketClarificationToolHost.cs:39-58; src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:72-73; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:133-137,225"
+
+scope:
+  in: "The wording of the two nudges, the coding closing, the spec run's repositories block, ask_human's description and its use of the recommended option, the omitted-comments note, the file tools' path descriptions."
+  out: "Section order. The done list's repetitions across sections. The dead SourceAnchoringPreamble and BuildContextsInScopeSection, which no production prompt renders and the live probes still use."
+
+steps:
+  - id: nudges
+    action: "MasterNudges: the apply nudge asks for the edits the plan names or the verdict naming the blocker; the checklist nudge says to do the steps that still hold work and close the rest."
+  - id: closing
+    action: "MasterClosing.Coding ends on the verdict block and drops the tool list the tools already describe."
+  - id: repositories
+    action: "SpecExecutionPromptFactory renders 'Working Repositories' through MasterUserPrompt's checkout list."
+  - id: tools
+    action: "ask_human states once what happens and records the recommended choice; file path parameters say how a path is written with several repositories; the conversation note says comments were left out to fit."
+
+tests:
+  - "MasterNudges_Apply_AsksForTheEditsOrTheBlockerNotAnySourceFile"
+  - "MasterClosing_Coding_EndsOnTheVerdict"
+  - "AskHuman_RecommendedChoice_IsPostedWithTheQuestion"
+
+done:
+  - when: "a coding run is nudged, closed or asks"
+    then: "no server text it reads contradicts its stop rule, its verdict or what its tools do"
+  - "Backend build and tests green."

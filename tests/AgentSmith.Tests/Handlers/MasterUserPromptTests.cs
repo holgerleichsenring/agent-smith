@@ -17,7 +17,7 @@ public sealed class MasterUserPromptTests
         var prompt = MasterUserPrompt.Build(null, Repo, ["server", "worker"], string.Empty, string.Empty);
 
         prompt.Should().Contain("`server`").And.Contain("`worker`");
-        prompt.Should().Contain("Address files with the repository prefix");
+        prompt.Should().Contain("File tools address a file by its repository's name");
         prompt.Should().Contain("No ticket attached");
     }
 
@@ -27,7 +27,7 @@ public sealed class MasterUserPromptTests
         var prompt = MasterUserPrompt.Build(null, Repo, ["server"], string.Empty, string.Empty);
 
         prompt.Should().Contain("`server`");
-        prompt.Should().NotContain("Address files with the repository prefix");
+        prompt.Should().NotContain("File tools address a file by its repository's name");
     }
 
     [Fact]

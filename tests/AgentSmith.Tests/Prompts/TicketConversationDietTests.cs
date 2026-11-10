@@ -54,7 +54,7 @@ public sealed class TicketConversationDietTests
 
         rendered.Length.Should().BeLessThan(TicketConversationPromptSection.MaxChars + 2_000);
         rendered.Should().Contain("comment 59", "the operator's latest word is the one in force");
-        rendered.Should().Contain("earlier comment(s) omitted",
+        rendered.Should().Contain("earlier comment(s) were left out to fit",
             "a silently shortened thread is the kind of missing context nobody can debug");
     }
 

@@ -24,7 +24,7 @@ public sealed class CommentRecutNoticeTests
         section.Should().Contain("Cause of the revision you are writing now: comment on the ticket");
         section.Should().Contain("The ticket was commented on after revision 2 was cut");
         section.Should().Contain("the comment is in the ticket conversation above");
-        section.Should().Contain("p1a (EXECUTED — keep exactly as it is)");
+        section.Should().Contain("p1a (ran — kept as it is)");
         section.Should().Contain("p1b (not started)");
     }
 

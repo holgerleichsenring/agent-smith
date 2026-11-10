@@ -14,7 +14,7 @@ public sealed class KnowledgePromptBuilder(IPromptCatalog prompts)
 
         if (!string.IsNullOrWhiteSpace(existingWiki))
         {
-            sb.AppendLine("## Existing Wiki (index.md)");
+            sb.AppendLine("## Existing wiki pages");
             sb.AppendLine(existingWiki);
             sb.AppendLine();
         }
@@ -42,7 +42,6 @@ public sealed class KnowledgePromptBuilder(IPromptCatalog prompts)
             }
         }
 
-        sb.AppendLine("Please compile the above into wiki pages. Output JSON: { \"wiki_updates\": { \"filename.md\": \"content\" } }");
         return sb.ToString();
     }
 }

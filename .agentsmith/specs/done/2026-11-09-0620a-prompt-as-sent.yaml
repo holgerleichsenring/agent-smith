@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620a
+goal: "Every model call of a run keeps the prompt it was sent — tools, system and messages, deduplicated by block — and the run's call table opens it in send order."
+
+applies_to: "default (Contracts events and ports, Infrastructure chat client, Persistence store and three migration sets, Server endpoint) and dashboard (Why view call table)"
+
+facts:
+  - claim: "Every provider call passes EventPublishingChatClient below the tool loop and the secret masking; it emits LlmCallStarted with an 8-hex hash of the message text only and LlmCallFinished with sizes, tokens and cache counts."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:43-60; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:148-163"
+  - claim: "The only record of what a model saw is the p0423 trace: off by default because whole prompts were stored per call (145k to 4.1M characters within one spec), and its prompt rendering drops tool definitions, tool calls and tool results."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TraceConfig.cs; src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/RecordingChatClient.cs"
+  - claim: "RunLlmCall.PromptHash exists but the projection never sets it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs:23; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunLlmCallProjection.cs:41-50"
+  - claim: "The Why view's call table lists every model call of a run in call order from RunCallPoint, folded from LlmCallFinished events."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunWorkPoints.cs:15-31; src/dashboard/src/components/jobs/why/CallTable.tsx"
+  - claim: "Run deletion removes run-keyed rows by a RunId property; retention prunes events and artifacts by age; the data archive orders tables from the model, so a new table is archived without code."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:53-100; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveTableOrder.cs"
+
+assumptions:
+  - "Within a tool loop each call's messages extend the previous call's messages by appending, so a call can be stored as its predecessor plus the new blocks; a call that rewrites earlier messages (compaction) simply stores in full."
+
+scope:
+  in: "A prompt block store (one row per distinct block: the tool list, one per message), a per-call record (run, parent record and inherited length, its own blocks), the recorder in the chat client, the prompt id and tool count on LlmCallFinished and on the call point, an endpoint that serves one call's prompt in order, a viewer below the existing call table, retention and run deletion for the new tables."
+  out: "The p0423 trace and replay (unchanged). A new page or element beyond the viewer panel under the existing table, so no mock. Showing answers: the next call's prompt carries them."
+
+decisions:
+  - key: "ALWAYS ON, BECAUSE DEDUPLICATED. A block is stored once however many calls send it, and a call stores only what it appended, so a tool loop costs its new messages, not the square of its length."
+  - key: "RECORDING NEVER FAILS A CALL. A store error is logged and the call goes out without a prompt id."
+
+steps:
+  - id: contracts
+    action: "PromptBlockKind, PromptBlock(Kind, Role, Content), IPromptRecorder.RecordAsync(runId, blocks, toolCount, ct) -> prompt id or null, NullPromptRecorder; LlmCallFinishedEvent gains trailing PromptId and ToolCount; RunCallPoint gains PromptId, ToolCount, TokensIn, CachedTokensIn; PromptRecordView for the reader."
+  - id: capture
+    action: "PromptBlocks.From(messages, options) renders the tool list as one block (name, description, parameter schema) and each message as one block (text, tool call with arguments, tool result, image as its identity); EventPublishingChatClient records before the call and carries the id and tool count on the finished event."
+  - id: store
+    action: "Entities PromptBlock, PromptRecord, PromptRecordBlock with configurations; PromptRecorder keeps the last records per run and stores a call as parent plus appended blocks when a recent record is its prefix; migration AddPromptRecords in the SQLite, SQL Server and Postgres sets."
+  - id: lifecycle
+    action: "Run deletion removes the run's records and their block rows; retention removes records older than the retention age; both then remove blocks no record row names."
+  - id: read
+    action: "PromptRecordReader rebuilds a call's blocks by walking the parent chain; GET /api/runs/{runId}/prompts/{promptId} serves it, run-read permission and project scope as the other run endpoints."
+  - id: dashboard
+    action: "The call table's prompt cell opens the call's prompt below the table: one row per block in send order with kind, role and size, its content collapsible; the table shows tools and cached share per call."
+
+tests:
+  - "PromptBlocks_ToolLoopCall_RendersToolsAndEachMessageAsOneBlock"
+  - "PromptRecorder_AppendedCall_StoresOnlyTheNewBlocksUnderItsParent"
+  - "PromptRecorder_RepeatedBlock_IsStoredOnce"
+  - "PromptRecordReader_ChainedRecords_RebuildTheCallInSendOrder"
+  - "EventPublishingChatClient_Call_CarriesPromptIdAndToolCountOnFinished"
+  - "EventPublishingChatClient_RecorderThrows_CallStillSucceedsWithoutPromptId"
+  - "RunDeletion_RemovesPromptRecordsAndOrphanBlocks"
+  - "RunRetention_PrunesOldRecordsAndOrphanBlocks"
+  - "dashboard: the call table opens a call's prompt blocks in send order"
+
+done:
+  - when: "a run made model calls after this ships"
+    then: "each row of its Why call table opens the prompt that call was sent: the tool list, the system prompt and every message in order, with the tool count and cached share on the row"
+  - when: "a tool loop of 60 calls runs"
+    then: "the stored block rows grow with the messages the loop appended, not with the calls times the conversation length"
+  - "Backend and dashboard build and tests green."

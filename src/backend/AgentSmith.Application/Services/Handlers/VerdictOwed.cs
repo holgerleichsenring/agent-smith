@@ -40,10 +40,9 @@ internal sealed class VerdictOwed(
         return "Your progress checklist is complete — every step is marked done — and you have kept "
             + "calling tools instead of closing the run. The run is now waiting for your verdict. If the "
             + "checklist does not already record a build and test result, build the project and run the "
-            + "automated tests the way the repository defines them, once. Then emit ONLY your final fenced "
-            + "```verdict block reflecting the real build/test outcome (status: green | no-tests | failed) "
-            + "with the acceptance dispositions. Nothing before or after the block, and no tool call "
-            + "after it.\n\n"
+            + "automated tests the way the repository defines them, once. Then end with your fenced "
+            + "```verdict block for the real outcome (status: green | no-tests | failed) with the "
+            + "acceptance dispositions; the framework reads that block and nothing after it.\n\n"
             + ProgressLedgerRenderer.Render(ledger());
     }
 

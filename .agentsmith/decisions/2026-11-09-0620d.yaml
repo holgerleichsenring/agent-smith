@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620d
+
+decisions:
+  - category: Architecture
+    chose: "The trace's prompt half is the prompt store of 2026-11-09-0620a; the trace records answers and tool results only"
+    over: "Turning the trace on by default as the prompt store, or keeping both"
+    reason: "The trace was built as a diagnostic switch because whole prompts reached millions of characters per spec, and its rendering leaves out the tool list, tool calls and tool results — the parts a reader of a prompt needs. A replay reads only the answers. The deduplicated store holds the complete prompt at a cost that lets it be always on, so it is the one record of prompts; the trace keeps what only it has."
+  - category: Implementation
+    chose: "Prompt entries already written stay readable in the trace reader"
+    over: "Migrating or deleting them"
+    reason: "They are a run's evidence and age out with retention like every trace entry."

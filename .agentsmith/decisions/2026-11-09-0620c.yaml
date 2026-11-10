@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620c
+
+decisions:
+  - category: Architecture
+    chose: "Choose a master's closing and review prompt by the master, keeping the schema-driven surface"
+    over: "A new output schema per master, or a prompt factory per master"
+    reason: "The output schema still decides the tool surface and the parsing, which are right for pr-review; only the words were wrong. A closing per role is the smallest place that knows the role, and the master handler, at its length ceiling, passes one more argument on lines it already has."
+  - category: Implementation
+    chose: "No coverage re-drive for pr-review"
+    over: "A lower read floor"
+    reason: "A review that reads only the diff's surroundings is the review the skill asks for; any floor would re-drive small pull requests into a repository scan."
+  - category: Implementation
+    chose: "A short system prompt of its own for the test and doc passes"
+    over: "Keeping the coding master with empty tokens"
+    reason: "The passes have none of the coding master's run surface — no ledger, verdict, spawning or spec — and the empty tokens reached the model as broken sentences. The pass text states job and reach; the project's context, principles and code map follow as before."
+  - category: Implementation
+    chose: "The coding closing stays word for word here"
+    over: "Rewriting it in this spec"
+    reason: "Its contradictions with the verdict block belong to the coding-run spec of this series, 2026-11-09-0620e, so each change is reviewed where it is decided."

@@ -58,6 +58,7 @@ GET	/api/runs/{runId}/acceptance	runs.read	run
 GET	/api/runs/{runId}/compute	runs.read	run
 GET	/api/runs/{runId}/decisions	runs.read	run
 GET	/api/runs/{runId}/passes	runs.read	run
+GET	/api/runs/{runId}/prompts/{promptId}	runs.read	run
 GET	/api/runs/{runId}/specs	runs.read	run
 GET	/api/runs/{runId}/specs/{specId}	runs.read	run
 GET	/api/runs/{runId}/statistics	runs.read	run

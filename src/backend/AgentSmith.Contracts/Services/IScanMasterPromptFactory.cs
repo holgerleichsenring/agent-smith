@@ -11,7 +11,9 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface IScanMasterPromptFactory
 {
-    string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames);
+    /// <summary>2026-11-09-0620c: <paramref name="master"/> picks the prompt of a master that reviews something other
+    /// than the whole source — pr-review judges a diff.</summary>
+    string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames, string? master = null);
 
     /// <summary>2026-09-01-0e80: the scanners' raw output, presented in a SECOND turn once
     /// the master has committed to what it found on its own — which facts it already
@@ -23,5 +25,5 @@ public interface IScanMasterPromptFactory
     /// <summary>p0279: the one-shot coverage nudge re-prompt when the master read too
     /// little source — push a full-surface inventory + per-area review (responsibility
     /// language, read-only), re-emitting the COMPLETE observation array.</summary>
-    string BuildCoverageNudge(string originalUserPrompt);
+    string BuildCoverageNudge(string originalUserPrompt, IReadOnlyList<string> unreadAreas);
 }

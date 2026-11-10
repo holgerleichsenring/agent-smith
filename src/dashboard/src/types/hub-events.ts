@@ -186,6 +186,9 @@ export interface LlmCallFinishedEvent extends RunEventBase {
   /** p0363: portion of durationMs spent waiting on the client-side TPM/RPM
    *  rate limiter (0 = passed without queueing; absent on pre-p0363 events). */
   throttleWaitMs?: number;
+  /** 2026-11-09-0620a: the stored prompt of this call, and how many tools it offered. */
+  promptId?: string | null;
+  toolCount?: number;
 }
 
 export interface SandboxCommandEvent extends RunEventBase {

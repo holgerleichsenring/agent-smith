@@ -67,11 +67,9 @@ public sealed class DesignReferenceRulesTests
             "A question about neither — the weather, the news, a recipe — gets one",
             "the binding has to say what an off-subject question gets instead of an answer");
         master.Should().Contain(
-            "It gets no tool call and no answer from your own knowledge; this",
-            "an off-subject question must cost neither a tool call nor an ungrounded answer");
-        master.Should().Contain(
-            "comes before the reading below. A request for a document is",
-            "a document request is bound to the same subject, or it becomes the way around it");
+            "it, without tools or outside knowledge. A request for a document is",
+            "an off-subject question costs neither a tool call nor an ungrounded answer, and a document request is "
+            + "bound to the same subject");
     }
 
     [Fact]

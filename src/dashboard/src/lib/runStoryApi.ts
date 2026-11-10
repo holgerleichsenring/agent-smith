@@ -35,6 +35,28 @@ export interface RunCallPoint {
   throttleWaitMs: number;
   outcome: string;
   attempt: number;
+  /** 2026-11-09-0620a: the stored prompt of this call; absent on older calls and payloads. */
+  promptId?: string | null;
+  toolCount?: number;
+  tokensIn?: number;
+  cachedTokensIn?: number;
+}
+
+/** 2026-11-09-0620a: one block of what a model call was sent — the tool list or one message. */
+export interface PromptBlockView {
+  position: number;
+  kind: string;
+  role: string;
+  chars: number;
+  content: string;
+}
+
+/** 2026-11-09-0620a: a model call's prompt in send order. Incomplete when retention cut part of its chain. */
+export interface PromptRecordView {
+  id: string;
+  toolCount: number;
+  complete: boolean;
+  blocks: PromptBlockView[];
 }
 
 /** One command a spec ran, with the exit code it ended on. */
@@ -124,3 +146,13 @@ export async function fetchRunTraceEntry(
   return body.content ?? "";
 }
 
+export async function fetchCallPrompt(
+  runId: string,
+  promptId: string,
+  signal?: AbortSignal,
+): Promise<PromptRecordView> {
+  return getJson<PromptRecordView>(
+    `/api/runs/${encodeURIComponent(runId)}/prompts/${encodeURIComponent(promptId)}`,
+    signal,
+  );
+}

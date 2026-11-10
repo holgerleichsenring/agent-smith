@@ -263,7 +263,8 @@ public sealed class ProposalReviewRoundsTests
 
         var reply = await rig.RunAsync();
 
-        reply.Response.Text.Should().StartWith("Applied the first cut.").And.Contain(NewStep);
+        // 2026-11-09-0620m: the first reply's prose with the published block — not the re-draft's note.
+        reply.Response.Text.Should().StartWith("Here is the spec.").And.Contain(NewStep).And.NotContain("Applied the first cut.");
         rig.DraftOf(Lone).Yaml.Should().Contain(NewStep);
     }
 

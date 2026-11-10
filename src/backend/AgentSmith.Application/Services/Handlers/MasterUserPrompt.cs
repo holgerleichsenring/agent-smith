@@ -14,7 +14,7 @@ internal static class MasterUserPrompt
 {
     internal static string Build(
         Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys,
-        string conversationSection, string attachmentsSection)
+        string conversationSection, string attachmentsSection, string? closing = null)
     {
         // 2026-09-24-b3c1: an Azure DevOps body arrives as HTML. The derivation path has
         // read it as TEXT since p0399; the coding master was simply never joined to the
@@ -44,10 +44,7 @@ internal static class MasterUserPrompt
             One checkout per repository, all on the run branch:
             {RenderCheckouts(repo, sandboxKeys)}
 
-            Investigate the repositories, plan your change, implement it, and verify
-            it (build + tests). Use the available tools — read_file, grep_in_tree,
-            edit, write_file, run_command, log_decision, ask_human. When you are
-            done, stop calling tools and summarise what changed.
+            {closing ?? MasterClosing.Coding}
             """;
     }
 
@@ -55,18 +52,19 @@ internal static class MasterUserPrompt
     // addressed by repo-prefixed tool paths), not a singular "Working Repository" that
     // silently promoted the first sandbox. Single-repo runs render a one-entry list
     // through the same path.
-    private static string RenderCheckouts(Repository repo, IEnumerable<string> sandboxKeys)
+    internal static string RenderCheckouts(Repository repo, IEnumerable<string> sandboxKeys)
     {
         var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
         if (names.Count == 0)
             return $"- **Path:** {repo.LocalPath} — **Branch:** {repo.CurrentBranch}";
 
-        var checkouts = string.Join("\n", names.Select(n =>
-            $"- `{n}` — checked out at {repo.LocalPath} in its own sandbox — **Branch:** {repo.CurrentBranch}"));
+        // 2026-11-09-0620k: no path — each sandbox has its own, and one path printed for all of them was wrong for all
+        // but one. The prefix sentence is the one place the file tools' path form is stated.
+        var checkouts = string.Join("\n", names.Select(n => $"- `{n}` — its own sandbox — **Branch:** {repo.CurrentBranch}"));
         return names.Count > 1
             ? checkouts
-              + $"\nAddress files with the repository prefix (e.g. `{names[0]}/src/...`) so each"
-              + " change lands in the right checkout."
+              + $"\nFile tools address a file by its repository's name and its path from that root (`{names[0]}/src/...`),"
+              + " so each change lands in the right checkout."
             : checkouts;
     }
 }

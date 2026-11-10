@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620h
+goal: "The spec derivation is told what its code map, its executed specs and its template allowance really are, and the knowledge compile sees every page it can replace."
+requires: [2026-11-09-0620g]
+
+applies_to: "default (Application derivation prompt, previous-cut section, look tools, knowledge compile)"
+
+facts:
+  - claim: "The derivation's look tools tell it to use 'the names listed as in scope', while the names they resolve are listed under 'Repositories you may look into'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/RepositorySearchTool.cs:30; src/backend/AgentSmith.Application/Services/Specs/DerivationLookPromptSection.cs:22"
+  - claim: "The code-map section says 'This is what the repositories actually contain' for a cached analysis summary."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:109-111"
+  - claim: "A re-cut is told to repeat every executed spec unchanged, while the parser discards the model's entries for those positions and only checks there are as many."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:44-53; src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:24-27,92-94"
+  - claim: "A template look refused for budget ends the derivation, and the template section names the allowance but not that consequence."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:76-79; src/backend/AgentSmith.Application/Services/Specs/DerivationLookPromptSection.cs:36-41"
+  - claim: "The knowledge compile is shown only index.md, and every page it returns replaces the stored file, so the other pages are rewritten from nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RunDirectoryReader.cs:40-45; src/backend/AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs:107-110"
+
+scope:
+  in: "The four look tools' repository parameter; the code-map sentence; the previous-cut wording for executed specs; the template allowance's consequence; every wiki page in the knowledge prompt and what a returned page does."
+  out: "Section order. The derivation's upload paragraph."
+
+steps:
+  - id: derivation
+    action: "Tool parameters name 'Repositories you may look into'; the code map is called a summary to look past; executed specs are held as placeholders the system fills; the template allowance's exhaustion is stated."
+  - id: knowledge
+    action: "RunDirectoryReader reads every .md page of the wiki under its name; the knowledge prompt says a returned page replaces the stored one and asks for the pages that change, each whole."
+
+tests:
+  - "ReadExistingWiki_SeveralPages_ShowsEachUnderItsName"
+  - "KnowledgePrompt_ExistingPages_SaysAReturnedPageReplacesTheStoredOne"
+
+done:
+  - when: "a derivation re-cuts a series or reads a template"
+    then: "its prompt says the system keeps the executed specs and that running out of template looks ends it"
+  - when: "the knowledge compile runs"
+    then: "it is shown every wiki page and told that a returned page replaces the stored one"
+  - "Backend build and tests green."

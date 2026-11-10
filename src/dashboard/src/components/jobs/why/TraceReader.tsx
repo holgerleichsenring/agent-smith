@@ -28,8 +28,8 @@ export function TraceReader({ runId }: { runId: string }) {
   if (entries.length === 0) {
     return (
       <p className="hint" data-testid="trace-reader-absent">
-        This run was not traced, so there is no conversation to read. Runs record their
-        numbers always; the conversation is recorded on a switch.
+        This run was not traced, so there are no answers or tool results to read. Every
+        call&apos;s prompt is kept anyway — open it from the prompt size in the call table.
       </p>
     );
   }

@@ -48,15 +48,4 @@ public sealed class SpecDialogDocumentTests
         SpecDialogDraftBlocks.Strip(reply).Should().Be("Before.\n\n" + Document + "\n\nAfter.");
     }
 
-    [Fact]
-    public void SpecDialogDiscussionPrompt_FirstAnswer_AnswersADocumentRequestWithTheDocument()
-    {
-        var pipeline = new PipelineContext();
-        pipeline.Set<IReadOnlyList<SpecDialogTurn>>(
-            ContextKeys.SpecDialogTranscript, [new SpecDialogTurn("user", "give me a hand-off prompt")]);
-
-        var prompt = new SpecDialogPromptFactory().Build(pipeline, 0, 0);
-
-        prompt.Should().Contain("a request for a document — a prompt, a summary, a brief to take elsewhere — with the document itself");
-    }
 }

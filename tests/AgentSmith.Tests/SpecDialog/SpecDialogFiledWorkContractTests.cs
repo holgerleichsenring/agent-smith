@@ -22,9 +22,8 @@ public sealed class SpecDialogFiledWorkContractTests
         return new SpecDialogPromptFactory().Build(pipeline, 0, 0);
     }
 
-    // The same conversation twice, differing only in the kind of its last assistant turn:
-    // neither kind is an answer, so the proposal contract is identical and the clause is the
-    // only difference between the two prompts.
+    // The same conversation twice, differing only in the kind of its last assistant turn: the proposal contract is
+    // one text for every turn (2026-11-09-0620b), so the clause is the only difference between the two prompts.
     private static SpecDialogTurn[] EndingIn(SpecDialogTurnKind kind) =>
     [
         new("user", "update the three libraries"),
@@ -49,8 +48,8 @@ public sealed class SpecDialogFiledWorkContractTests
         var unfiled = Prompt(EndingIn(SpecDialogTurnKind.Notice));
         var filed = Prompt(EndingIn(SpecDialogTurnKind.Filing));
 
-        unfiled.Should().NotContain("already filed work").And.NotContain(Clause)
-            .And.EndWith("and reply with neither block.");
+        unfiled.Should().NotContain("already filed work").And.NotContain(Clause);
+        unfiled.TrimEnd().Should().EndWith("No work picture is stored yet.");
         filed.Should().StartWith(unfiled, "the clause is added to the contract, not woven into it")
             .And.NotBe(unfiled);
     }
@@ -60,7 +59,6 @@ public sealed class SpecDialogFiledWorkContractTests
     {
         var prompt = Prompt(EndingIn(SpecDialogTurnKind.Filing));
 
-        prompt.Should().Contain("MAY propose").And.NotContain("MAY NOT propose");
         prompt.Should().Contain(Clause, "a proposal turn files nothing either");
     }
 
@@ -73,7 +71,7 @@ public sealed class SpecDialogFiledWorkContractTests
                 SpecDialogTurnKind.Filing),
             new SpecDialogTurn("user", "now combine them into one"));
 
-        prompt.Should().Contain("MAY NOT propose", "no discussion has been replied to since");
+
         prompt.Should().Contain(Clause, "the clause does not key on what the turn may produce");
     }
 

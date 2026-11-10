@@ -103,13 +103,9 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
-    /// <summary>The design turn's outcome gate over the given loop, with the real resolver and refusal.</summary>
+    /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate OutcomeGate(IAgenticLoopRunner loop) =>
         new(loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
-            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
-                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
 
@@ -330,9 +326,8 @@ internal static class MasterHandlerFixture
             return Task.FromResult<IReadOnlyList<SubAgentResult>>(
                 [.. specs.Select((spec, index) => new SubAgentResult(
                     TaskIndex: index, Status: SubAgentStatus.Succeeded,
-                    SubAgentId: $"sa-{index}", Name: spec.Name,
-                    ObservationsCount: 1, FindingsCount: 0, FilesWrittenCount: 0,
-                    ToolCalls: 0, CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
+                    SubAgentId: $"sa-{index}", Name: spec.Name, ToolCalls: 0,
+                    CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
         }
     }
 

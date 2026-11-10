@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Services.Prompts;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
 
@@ -20,6 +21,8 @@ internal static class RunStoryEndpoints
         app.MapGet("/api/runs/{runId}/trace", GetTraceAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/trace/{sequence:int}/{label}", GetTraceEntryAsync)
            .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/prompts/{promptId}", GetPromptAsync)
+           .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
     }
 
@@ -36,6 +39,14 @@ internal static class RunStoryEndpoints
     {
         var entries = await trace.ListAsync(runId, cancellationToken);
         return Results.Ok(new { entries });
+    }
+
+    // 2026-11-09-0620a: what one model call was sent, in send order.
+    private static async Task<IResult> GetPromptAsync(
+        string runId, string promptId, PromptRecordReader prompts, CancellationToken cancellationToken)
+    {
+        var view = await prompts.ReadAsync(runId, promptId, cancellationToken);
+        return view is null ? Results.NotFound() : Results.Ok(view);
     }
 
     private static async Task<IResult> GetTraceEntryAsync(

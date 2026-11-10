@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public static class ProposalReplyText
 {
-    public static string Render(string firstReply, OutcomeProposal published)
+    /// <param name="lastReply">2026-11-09-0620m: the re-draft, whose block stands for a kind this class does not render.</param>
+    public static string Render(string firstReply, OutcomeProposal published, string? lastReply = null)
     {
         ArgumentNullException.ThrowIfNull(firstReply);
         ArgumentNullException.ThrowIfNull(published);
@@ -21,12 +22,9 @@ public static class ProposalReplyText
         {
             SpecOutcome spec => Fence("yaml", spec.Draft.Yaml),
             EpicOutcome epic => Fence("outcome", EpicBody(firstReply, epic)),
-            _ => null,
+            _ => SpecDialogDraftBlocks.OutcomeBlocks(lastReply) is { Count: > 0 } blocks ? blocks[0].Value : null,
         };
-        if (block is null) return firstReply;
-        return SpecDialogDraftBlocks.Contains(firstReply)
-            ? SpecDialogDraftBlocks.Replace(firstReply, block)
-            : $"{firstReply.TrimEnd()}\n\n{block}".TrimStart();
+        return block is null ? firstReply : TurnReply.WithBlock(firstReply, block);
     }
 
     private static string EpicBody(string reply, EpicOutcome epic)

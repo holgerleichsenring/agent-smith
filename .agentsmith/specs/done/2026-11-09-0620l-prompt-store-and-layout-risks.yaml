@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620l
+goal: "Recording a prompt never delays a model call, the prompt store keeps its links under wide fan-outs and pages its sweep, and a cached repository layout never crosses projects."
+requires: [2026-11-09-0620k]
+
+applies_to: "default (Persistence prompt recorder, writer, recent records, sweep; Application layout reader, code-map step)"
+
+facts:
+  - claim: "The recorder held one process-wide semaphore across three database round trips before every provider call."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Prompts/PromptRecorder.cs (0620a)"
+  - claim: "A run remembered eight recent records, so more than eight interleaving children lost their parents and stored whole prompts; the retention sweep loaded every record id; a block could be swept between the existence check and the record rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Prompts/PromptRecentRecords.cs; src/backend/AgentSmith.Infrastructure.Persistence/Services/Prompts/PromptRecordSweep.cs"
+  - claim: "The layout cache was keyed by repository name, listed every project repository, and listed up to forty directories at once."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/RepositoryLayoutReader.cs; src/backend/AgentSmith.Application/Services/Handlers/LoadCachedCodeMapHandler.cs"
+
+scope:
+  in: "A background writer for prompts with the id computed on the call; 64 recent records per run; a paged sweep; a re-check that writes back any block a record names but the store lacks; the layout cache keyed by location, listings only for scoped repositories, at most four at once."
+  out: "Schema changes (none); the migrations stay as 0620a wrote them."
+
+steps:
+  - id: recorder
+    action: "PromptRecorder computes the id and parent at once and queues the write; one writer stores queued prompts in order; a full queue drops the write; DrainAsync lets tests and shutdown wait."
+  - id: store
+    action: "PromptRecordWriter retries a cross-replica conflict once and re-checks the record's blocks after writing; PromptRecentRecords holds 64 per run; PromptRecordSweep prunes in pages of 1000 ids."
+  - id: layout
+    action: "RepositoryLayoutReader keys by URL, path and name and lists four directories at a time; LoadCachedCodeMapHandler lists only repositories in the turn's sandbox map."
+
+tests:
+  - "PromptRecorder_DatabaseHangs_CallGetsItsIdAtOnce"
+  - "PromptRecorder_TwelveInterleavedChildren_EachKeepsItsParent"
+  - "RepositoryLayout_SameNameOtherRemote_ListsItsOwnTree"
+
+done:
+  - when: "the database is slow or unreachable"
+    then: "model calls are not delayed, and the call keeps its prompt id"
+  - when: "two projects scope repositories of the same name"
+    then: "each turn sees its own repository's layout"
+  - "Backend build and tests green."

@@ -48,7 +48,11 @@ public sealed record LlmCallFinishedEvent(
     long PromptChars = 0,
     long ResponseChars = 0,
     WorkOutcome Outcome = WorkOutcome.Ok,
-    int Attempt = 1)
+    int Attempt = 1,
+    // 2026-11-09-0620a: the stored prompt this call was sent (null when nothing was stored) and how many tools
+    // it offered — the call table opens the prompt by this id.
+    string? PromptId = null,
+    int ToolCount = 0)
     : RunEvent(RunId, EventType.LlmCallFinished, Timestamp), IMeasuredWork
 {
     [JsonIgnore]

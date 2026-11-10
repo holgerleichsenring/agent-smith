@@ -24,7 +24,7 @@ public sealed class ScanCoverageRedrive(
     public async Task<AgenticLoopResult?> DriveAsync(
         AgenticLoopRequest request, string userPrompt, MasterConversation conversation,
         Action<ChatResponse> trackUsage, int readCount, int readFloor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, IReadOnlyList<string>? unreadAreas = null)
     {
         ArgumentNullException.ThrowIfNull(conversation);
         ArgumentNullException.ThrowIfNull(trackUsage);
@@ -33,7 +33,7 @@ public sealed class ScanCoverageRedrive(
         logger.LogWarning(
             "Scan master read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
             readCount, readFloor);
-        var nudge = promptFactory.BuildCoverageNudge(userPrompt);
+        var nudge = promptFactory.BuildCoverageNudge(userPrompt, unreadAreas ?? []);
         try
         {
             var deeper = await loopRunner.RunAsync(

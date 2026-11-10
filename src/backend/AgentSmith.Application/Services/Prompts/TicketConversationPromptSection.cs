@@ -69,8 +69,7 @@ public static class TicketConversationPromptSection
 
         var note = dropped == 0
             ? string.Empty
-            : $"\n\n[{dropped} earlier comment(s) omitted — this is the recent thread. "
-                + "Ask for the full history if you need it.]";
+            : $"\n\n[{dropped} earlier comment(s) were left out to fit; this is the most recent part of the thread.]";
         return TicketPromptDelimiters.WrapSection("## Ticket conversation", thread + note);
     }
 

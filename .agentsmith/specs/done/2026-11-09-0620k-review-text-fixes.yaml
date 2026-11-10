@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620k
+goal: "The server texts of this series say only what the server knows, in the order they had, true to the tools and without repeating the v5.25.1 skills."
+requires: [2026-11-09-0620j]
+
+applies_to: "default (Application closings, nudges, spawn tools, change passes, review prompt, checkout list, design turn, coverage nudge, knowledge compile, file tools, legal path)"
+
+facts:
+  - claim: "An independent re-review of PR #803 found: a coding closing that still prescribed a procedure and omitted ask_human; a discussion closing contradicting discussion.md; a spawn description claiming children get the master's tools; a change-pass prompt reordered; a pr-review prompt restructured; one path printed for every checkout; design-turn lines repeating the v5.25.1 skill; emphasis capitals in nudges and closings; a numeric coverage floor; an undelimited, unbounded wiki; a path sentence repeated in nine parameters; an absolute legal path."
+    evidence: "PR #803 review; src/backend/AgentSmith.Application/Services/Handlers/MasterClosing.cs; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:110-114"
+
+scope:
+  in: "The twelve findings' wording and the code they need: the listed-but-unread areas a review mapped, and the wiki's page markers and budget."
+  out: "Section order (restored where 0620c had changed it). The prompt store's code risks (2026-11-09-0620l)."
+
+steps:
+  - id: closings
+    action: "Coding closing names what the framework parses, verdict or the ask_human question; the discussion closing says the report is written where the methodology says and the code does not change; legal's path is repository-relative."
+  - id: children
+    action: "spawn_agents says what a child really gets; the 6000-character cut is stated once to the master and once to the child, who is told to lead with the conclusion."
+  - id: passes-review
+    action: "The change pass prompt is principles, context, code map, then the pass text; the plan carries only the changed files; the pr-review prompt keeps the review prompt's sections with its own opening and closing."
+  - id: checkouts-paths
+    action: "The checkout list prints no shared path and states the multi-repo path form once; file tool parameters say only 'from the repository root'."
+  - id: design
+    action: "The reading line, the proposal contract and the work-picture kind lines go; the work picture section states only whether one is stored and its values."
+  - id: nudges
+    action: "Verdict, verdict-owed, red-verification, in-pass, scan closings and the template section lose their emphasis capitals; the re-engage nudge says ask_human ends the pass; the coverage nudge names the listed areas never opened."
+  - id: knowledge
+    action: "Wiki pages between page markers, index first, within 60,000 characters, the rest named as left out; the prompt drops the skill's replace and JSON sentences."
+
+tests:
+  - "MasterClosing_Coding_NamesWhatIsParsedNotAProcedure"
+  - "ListedAreas_SomeListedNeverOpened_AreNamedInnermostFirst"
+  - "ReadExistingWiki_OverBudget_NamesThePagesLeftOut"
+  - "SpecDialogPrompt_FirstTurn_StatesNoProposalBan"
+  - "ChangePassSystemPrompt_Tests_StatesItsJobWithoutTheCodingMaster"
+
+done:
+  - when: "any master of this series is prompted"
+    then: "no server sentence repeats its skill, contradicts its tools, or moved from where it was"
+  - "Backend build and tests green."

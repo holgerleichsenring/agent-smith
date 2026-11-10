@@ -58,7 +58,7 @@ public sealed class GenerateTestsDocsSkipTests
     {
         var (repo, changes) = Inputs();
         var handler = new GenerateTestsHandler(
-            _chatFactory.Object, new AgentPromptBuilder(Mock.Of<IPromptCatalog>()),
+            _chatFactory.Object, new AgentPromptBuilder(),
             new PostExecutePassTools(
                 Mock.Of<IDecisionLogger>(),
                 new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory(), null),
@@ -79,7 +79,7 @@ public sealed class GenerateTestsDocsSkipTests
     {
         var (repo, changes) = Inputs();
         var handler = new GenerateDocsHandler(
-            _chatFactory.Object, new AgentPromptBuilder(Mock.Of<IPromptCatalog>()),
+            _chatFactory.Object, new AgentPromptBuilder(),
             new PostExecutePassTools(
                 Mock.Of<IDecisionLogger>(),
                 new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory(), null),

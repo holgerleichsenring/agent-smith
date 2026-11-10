@@ -32,7 +32,7 @@ public sealed class InPassReminderTextTests
         // mechanism that turns any added item into another loop pass, so a model appending
         // "verify X once more" re-drove itself until the money or the operator stopped it.
         text.Should().Contain("Add a step only for");
-        text.Should().Contain("work you have NOT done yet");
+        text.Should().Contain("work you have not done yet");
         text.Should().Contain("re-read or re-confirm evidence you already recorded");
         text.Should().Contain("you are done");
     }

@@ -40,6 +40,9 @@ public sealed class RunRetentionService(
         var artifacts = oldArtifactIds.Count == 0 ? 0 : await unitOfWork.Set<RunArtifact>()
             .Where(a => oldArtifactIds.Contains(a.Id)).ExecuteDeleteAsync(cancellationToken);
 
-        return events + artifacts;
+        // 2026-11-09-0620a: the prompts model calls were sent age out with the trail they belong to.
+        var prompts = await new Prompts.PromptRecordSweep(unitOfWork).PruneAsync(cutoff, cancellationToken);
+
+        return events + artifacts + prompts;
     }
 }

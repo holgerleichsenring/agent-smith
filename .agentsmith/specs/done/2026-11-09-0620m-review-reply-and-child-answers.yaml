@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620m
+goal: "After a review re-draft the operator still reads the turn's first full reply with the revised block, a child's whole answer usually reaches its master, and a layout lists no metadata folders."
+requires: [2026-11-09-0620l]
+
+applies_to: "default (Application proposal review reply, sub-agent answer, layout reader)"
+
+facts:
+  - claim: "When the published proposal was the re-draft's, the turn replied with the re-draft's text; live, a one-line English note replaced a German analysis and its four open questions."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs:54-61; live A/B run, NEW arm, trace entry 0027"
+  - claim: "Live, four children answered 8.6k-13.5k characters, all were cut at 6000, and the master read all four again."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentAnswer.cs; live A/B run, NEW arm"
+  - claim: "A local clone's layout listed .git and its content."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/RepositoryLayoutReader.cs; live A/B run"
+
+scope:
+  in: "The reply after a revised review: the first reply's prose with its block replaced by the published one, no re-draft prose; the answer cut at 12000 characters, told to the child and the master; .git, .hg, .svn, bin, obj and node_modules left out of a layout."
+  out: "A note of what the review changed — the proposal card shows the review's findings, so the reply carries no prose the turn did not write in the conversation's language."
+
+steps:
+  - id: reply
+    action: "ProposalReviewSummary returns the first reply when nothing was re-drafted, else the first reply rendered with the published proposal's block; ProposalReplyText takes the re-draft's outcome block for kinds it does not render."
+  - id: answer
+    action: "SubAgentAnswer.MaxChars is 12000; spawn_agents and the child's situation block state it."
+  - id: layout
+    action: "RepositoryLayoutReader skips VCS metadata and build output at both levels."
+
+tests:
+  - "ProposalReview_OneReDraft_KeepsTheFirstReplysAnalysisWithTheRevisedBlock"
+  - "ProposalReview_TwoReDrafts_KeepTheFirstReplysAnalysisWithTheLastBlock"
+  - "LoadCachedCodeMap_RepoWithoutMap_RendersItsTwoLevelLayout (extended)"
+
+done:
+  - when: "a proposal is re-drafted once or twice by the review"
+    then: "the reply the operator reads is the first reply's analysis and questions with the revised block, and no re-draft note"
+  - "Backend build and tests green."

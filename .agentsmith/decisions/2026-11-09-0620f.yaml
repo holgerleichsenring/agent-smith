@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620f
+
+decisions:
+  - category: Implementation
+    chose: "Nudges ask for the work that remains, not for a source edit or a drained list"
+    over: "Keeping the hard stop conditions"
+    reason: "A report spec owes no source edit and a step that holds no work is done; the nudges demanded both anyway and fought the skill's stop rule. The re-engage policy still decides when a nudge is sent."
+  - category: Implementation
+    chose: "The coding closing ends on the verdict block"
+    over: "'stop calling tools and summarise what changed'"
+    reason: "The framework parses the verdict as the run's last message; a summary instruction competed with it."
+  - category: Implementation
+    chose: "Keep the done list's repetitions and the two dead prompt helpers"
+    over: "Removing them here"
+    reason: "Removing a repeated section moves what follows it in the prompt, which the operator asked not to do in this series; the helpers render into no production prompt and the live probes still use one."

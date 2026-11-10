@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620b
+goal: "A design turn is told its situation, not a procedure: what uploads and repositories each show, an unmapped repository's layout, and that it may propose once the work is clear."
+requires: [2026-11-09-0620a]
+
+applies_to: "default (Application spec-dialog prompt, reading line, work picture, outcome gate, code-map step; Contracts prompt factory)"
+
+facts:
+  - claim: "A turn holding an upload is told to read the uploads before the repositories, every file, then compare the repositories against them; live, all three sub-agents read the upload and none the target repositories."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DialogReadingLine.cs:15-18"
+  - claim: "A turn whose transcript holds no answered discussion is told it MAY NOT propose, and a draft it writes anyway is refused and re-prompted once."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:88-94; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRefusal.cs:33-61; src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:39"
+  - claim: "Since 2026-11-09-9a98 a proposal is shown as soon as it is written, marked under review, and cannot be approved before its review ends; nothing is filed without the operator's approval."
+    evidence: ".agentsmith/specs/done/2026-11-09-9a98-proposal-under-review.yaml"
+  - claim: "The work picture names repositories as scaffolding in the tool parameter and in the section asking for one, and adds readiness lines keyed to 'Ready to propose'."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:32; src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureSection.cs:12-16,40-52"
+  - claim: "A repository with no cached code map is shown one line telling the model to read the source, and the turn's grounding already reads repositories remotely through ISourceProvider.ListDirectoryAsync without a sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LoadCachedCodeMapHandler.cs:45-48; src/backend/AgentSmith.Application/Services/SpecDialog/DialogGroundingReader.cs:33; src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:66-76"
+  - claim: "The skills release this series pins (v5.25.x) no longer mentions 'Ready to propose' and no longer says uploads are read first."
+    evidence: "agent-smith-skills PR #248 and #250"
+
+scope:
+  in: "The reading line's text for both cases; the work picture's wording and its kind lines without readiness lines; the turn contract without the proposal gate; the refusal path and the rule removed; a remote two-level layout per scoped repository in the code-map slot when no map is cached."
+  out: "The order of any prompt section: every changed text stays where it renders today. The steward turn. The filed-work clause, which stays as it is."
+
+decisions:
+  - key: "THE GATE GOES BECAUSE THE APPROVAL HOLDS. A first-turn draft used to be refused so nothing was proposed before a discussion; a draft is now shown under review and filed only on approval, so the person still decides first and the model may cut as soon as the work is clear."
+  - key: "SITUATION, NOT ORDER. The uploads show what is wanted, the repositories what exists and what it already decides; the turn says that and lets the model choose what to read first."
+
+steps:
+  - id: reading
+    action: "DialogReadingLine: the upload case describes both sources and the form rule for counterparts; the no-upload case says what the code map is for."
+  - id: picture
+    action: "WorkPictureSection and the tool's truth parameter word where what is wanted is described and what the repositories provide; kind lines describe what each kind reads; readiness lines go."
+  - id: gate
+    action: "SpecDialogPromptFactory states one contract (propose when clear, shown under review, filed only on approval; ask only what nothing settles); ReadyLine, FirstAnswer, BuildProposalRefusalNudge, SpecDialogProposalRefusal and SpecDialogProposalRule are removed with their registrations."
+  - id: layout
+    action: "RepositoryLayoutReader lists a repository's root and one level below through its source provider, capped and cached briefly per process; LoadCachedCodeMapHandler renders it in the code-map slot of a repository without a map, and the old one-liner when the listing fails."
+
+tests:
+  - "DialogReadingLine_TurnWithUpload_DescribesBothSourcesWithoutAnOrder"
+  - "SpecDialogPrompt_FirstTurn_StatesNoProposalBan"
+  - "SpecDialogOutcomeGate_FirstTurnDraft_IsKeptAsAProposal"
+  - "WorkPictureSection_NoneStored_NamesNoScaffolding"
+  - "LoadCachedCodeMap_RepoWithoutMap_RendersItsTwoLevelLayout"
+  - "LoadCachedCodeMap_ListingFails_KeepsTheOneLiner"
+  - "SpecDialogPrompt_SectionOrder_IsUnchanged"
+
+done:
+  - when: "a first design turn holds an upload and repositories without a code map"
+    then: "its prompt names what each source shows, lists each repository's top two levels where the code map would stand, and no longer forbids a proposal or orders the reading"
+  - when: "that turn writes a draft"
+    then: "the draft is reviewed and shown under review instead of refused"
+  - "Backend build and tests green."

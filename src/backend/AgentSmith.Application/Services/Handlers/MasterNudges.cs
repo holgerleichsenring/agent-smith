@@ -24,22 +24,20 @@ internal static class MasterNudges
     // p0263: the focused second-shot prompt when the master edited source but emitted
     // no verdict — verify only (no further edits) and emit ONLY the verdict block.
     internal static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "Your previous pass changed source but did NOT emit the verdict that \"Your verdict\" requires, "
-        + "so the run cannot be reported. Do NOT make further code changes now. Build the "
-        + "project and run the automated tests the way the repository defines them, then emit "
-        + "ONLY your final fenced ```verdict block reflecting the real build/test outcome "
-        + "(status: green | no-tests | failed). Nothing before or after the block.\n\n"
+        "Your previous pass changed source and emitted no verdict, so the run cannot be reported. "
+        + "The change is made; what is missing is its check. Build the project and run the tests "
+        + "the way the repository defines them, then end with your fenced ```verdict block for "
+        + "the real outcome (status: green | no-tests | failed); the framework reads only that "
+        + "block.\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
     // p0255: the focused second-shot prompt when the master planned but edited
     // nothing — the plan is not the deliverable, the edited source is.
     internal static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "You wrote a plan but have NOT edited any source file yet. The plan is not the "
-        + "deliverable — the edited source is. Apply your plan NOW: make the edits with "
-        + "edit / multi_edit / write_file (repo-prefixed paths), then build, run the tests, "
-        + "and emit your verdict. Do not stop until at least one SOURCE file is changed, or "
-        + "you report a concrete blocker explaining why no edit was possible.\n\n"
+        "You wrote a plan and have not made the changes it names yet. The plan is not the "
+        + "deliverable; the change is. Make those edits, then build, run the tests and emit "
+        + "your verdict. If an edit cannot be made, the verdict says what blocks it.\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -62,19 +60,19 @@ internal static class MasterNudges
         // p0363: a red verdict with open checklist items gets an explicit persistence
         // lead-in — the failing build IS the current step, not a reason to stop.
         (verification?.Status == VerificationStatus.Failed
-            ? "Your last verification came back RED — and your own checklist still has "
-              + "actionable steps for exactly that (fixing the build/tests IS the current "
-              + "step). Reporting the failure is not completing the step: keep working the "
-              + "checklist, and mark steps done as they actually pass. Only stop if you can "
-              + "justify concretely why the remaining steps cannot succeed.\n\n"
+            ? "Your last verification came back red, and your checklist still holds the steps "
+              + "that fix it — the failing build or tests are the current step. Keep working "
+              + "them and mark each done when it passes; stop only when you can say why no "
+              + "remaining step can succeed.\n\n"
             : "")
         // p0341f: the instruction to "resume from where you left off, do not restart from
         // scratch" is gone. It was asked of a pass that had been handed no left-off, so the
         // only way to obey it was to re-derive — 34 passes of the same greps on run 98b9.
         // The transcript now arrives with the request; the nudge names the next turn.
-        + "Continue the checklist — these plan steps still remain. You are NOT done until the "
-        + "checklist is drained. If a remaining step needs a decision only the operator can "
-        + "make, use ask_human and stop rather than guessing.\n\n"
+        + "These checklist steps are still open. Do the ones that hold work you have not done, "
+        + "and mark a step done or remove it when it holds none. If a step needs a decision "
+        + "only the operator can make, ask_human posts it; this pass ends and the next starts with "
+        + "the answer.\n\n"
         + LedgerNudgeSection(ledger)
         + WorkingStateSection.Build(decisions, verification, changedPaths, stagedRegistries)
         + "Original task:\n" + originalUserPrompt;
@@ -103,7 +101,7 @@ internal static class MasterNudges
             return "<system-reminder>\n"
                 + "Every step in the progress ledger is marked done. If the work is truly "
                 + "complete, verify (build + tests) and emit your verdict. Add a step only for "
-                + "work you have NOT done yet and that the checklist does not cover — a step "
+                + "work you have not done yet and that the checklist does not cover — a step "
                 + "that would only re-read or re-confirm evidence you already recorded is not "
                 + "remaining work, it means you are done: write the verdict.\n"
                 + "</system-reminder>";
@@ -111,7 +109,7 @@ internal static class MasterNudges
             + "The update_progress tool has not been used recently. If you completed steps, mark "
             + "them done; flip the step you are working on to in_progress. If the plan has "
             + "evolved, restructure the checklist (add, reword, or remove steps — full-state "
-            + "replace) so it reflects what you are ACTUALLY doing. Current recorded state:\n"
+            + "replace) so it reflects what you are actually doing. Current recorded state:\n"
             + ProgressLedgerRenderer.Render(ledger) + "\n"
             + "If this is still accurate and you are mid-step, ignore this reminder.\n"
             + "</system-reminder>";

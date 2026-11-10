@@ -41,16 +41,16 @@ public static class PreviousCutPromptSection
         {
             var executed = previous.Executed.Contains(spec.SpecId, StringComparer.Ordinal);
             sb.AppendLine(
-                $"- {spec.SpecId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
+                $"- {spec.SpecId} ({(executed ? "ran — kept as it is" : "not started")}): "
                 + spec.Draft.Goal);
         }
         if (previous.Contract is not null) // 2026-10-13-8762j
             sb.Append(SeriesContractPromptSection.Render(previous.Contract)).AppendLine(ContractMembers);
         sb.AppendLine();
         sb.AppendLine(
-            "Return the WHOLE set again. Repeat every executed spec unchanged — same goal, "
-            + "same done-list, same order. You may merge, split or reorder only the specs "
-            + "that have not started.");
+            "Return the whole set again. The specs that ran are kept by the system as they are, so hold one "
+            + "entry for each at the head of `specs`, in order — their content is not read — then the specs "
+            + "that have not started, which you may merge, split or reorder.");
         return sb.ToString();
     }
 

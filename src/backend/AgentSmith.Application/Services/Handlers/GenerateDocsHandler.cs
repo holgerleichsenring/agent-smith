@@ -57,7 +57,7 @@ public sealed class GenerateDocsHandler(
         var plan = BuildSyntheticPlan(context.Changes);
         var (fs, log, human) = passTools.For(partition, context.Repository.LocalPath);
 
-        var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
+        var systemPrompt = promptBuilder.BuildChangePassSystemPrompt(ChangePass.Docs,
             context.CodingPrinciples, context.RepoCodeMaps, context.ProjectContext);
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(plan, context.Repository);
 
@@ -90,17 +90,8 @@ public sealed class GenerateDocsHandler(
     {
         var fileList = string.Join("\n", changes.Select(c => $"- {c.Path.Value} ({c.ChangeType})"));
 
-        var description =
-            $"""
-             Update or generate documentation for the following code changes.
-             - If a README exists and new features/endpoints/commands were added, update it
-             - Add or update inline XML/JSDoc/docstring comments for new public types and methods
-             - If a CHANGELOG or API docs file exists, add an entry for the changes
-             - Do NOT create documentation files that don't follow existing repo conventions
-
-             Changed files:
-             {fileList}
-             """;
+        // 2026-11-09-0620k: the task is stated once, in the pass's system prompt; the plan carries only the files.
+        var description = $"Changed files:\n{fileList}";
 
         var step = new PlanStep(1, description, null, "modify");
         return new Plan("Update documentation for code changes", [step], description);

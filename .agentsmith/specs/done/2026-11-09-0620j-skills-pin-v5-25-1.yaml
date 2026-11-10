@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620j
+goal: "The embedded skills catalog is pinned to v5.25.1, the release whose texts this series' server texts were written to match."
+requires: [2026-11-09-0620i]
+
+applies_to: "default (Infrastructure.Core embedded catalog, pinned-catalog tests, docs, example config)"
+
+facts:
+  - claim: "The embedded catalog is pinned by version and SHA-256 in the Infrastructure.Core project, with the tarball under Resources, and the example config, three docs pages and SkillsConfigValidatorTests name the version."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55; git show 7a85ed546 --stat"
+  - claim: "v5.25.1 (skills PRs #248 and #250) drops 'Uploads first', 'Ready to propose' and the first-turn ban from the design partner, the 'Prefer decide_by_default … over asking the human' line from the coding master, renames 'Validate the plan' to 'Working the spec', and rewords the off-subject sentence."
+    evidence: "agentsmith-skills-v5.25.1.tar.gz, sha256 0ebe660b881cb19e266e0ad49366f58fb93270a0ae73e9c11791966ea1b3a164"
+
+scope:
+  in: "Version, digest and tarball; the example config and docs; tests that pin removed or reworded skill sentences, re-pinned to the sentence carrying the rule now or inverted where the rule is gone."
+  out: "The live A/B run, which the operator drives."
+
+steps:
+  - id: pin
+    action: "SkillsCatalogVersion v5.25.1, SkillsCatalogSha256 from the release's own digest file, tarball swapped, docs and example config moved, validator test gains v5.25.1."
+  - id: tests
+    action: "DesignPartnerDialogRulesTests pins the draft-when-defensible convergence and that 'Ready to propose' and the first-turn ban are gone; DesignPartnerFrameSizeTests inverts 'Uploads first'; SeriesSkillRulesTests drops the removed coding line; DesignReferenceRulesTests and CodingPromptHeadingsTests re-pin the reworded sentence and heading."
+
+tests:
+  - "EmbeddedSkills_DesignPartnerMaster_DraftsAsSoonAsItCanDefendOne"
+  - "Harness_CodingPrompt_HasOneHeadingPerMeaning (re-pinned)"
+
+done:
+  - when: "the server builds"
+    then: "it embeds v5.25.1 and the pinned-catalog tests read that release's sentences"
+  - "Backend and dashboard build and tests green."

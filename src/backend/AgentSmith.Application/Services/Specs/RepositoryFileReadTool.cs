@@ -29,7 +29,7 @@ public sealed class RepositoryFileReadTool(
         + $"evidence id such as [{look.Terms.EvidencePrefix}2]; a fact that rests on this file cites that id.";
 
     public async Task<string> ReadFile(
-        [Description("The repository the file is in. Use one of the names listed as in scope.")]
+        [Description("The repository the file is in. Use one of the names listed under 'Repositories you may look into'.")]
         string repository,
         [Description("The path relative to the repository root, e.g. 'src/Api/Api.csproj'.")]
         string path,

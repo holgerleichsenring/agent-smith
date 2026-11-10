@@ -20,16 +20,19 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
 {
-    public string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames)
+    public string Build(
+        PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames, string? master = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(repoNames);
         var repos = repoNames.Count > 1 ? $"**Repositories:** {string.Join(", ", repoNames)}\n" : string.Empty;
         var anchored = ScanFindingsSection.HasScannerReports(pipeline);
+        // 2026-11-09-0620k: a pull-request review keeps this prompt's sections and headings; only its opening and its
+        // closing say what it is for.
+        var review = master == PipelinePresets.MasterFor("pr-review");
         return $"""
-            You are running a SECURITY REVIEW, not a coding task. Do NOT modify any
-            source, do NOT run a build, do NOT run tests. You have read-only tools.
+            {(review ? PrReviewPrompt.Opening : SecurityOpening)}
 
             ## Working source
             **Path:** {repository.LocalPath}
@@ -39,7 +42,7 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             {(anchored ? ScanFindingsSection.Render(pipeline) : string.Empty)}
             {BuildSpecSection(pipeline)}
             {Surface.SurfaceDifferencePromptSection.Render(pipeline)}
-            {(anchored ? AnchoredClosing : UnanchoredClosing)}
+            {(review ? PrReviewPrompt.Closing : anchored ? AnchoredClosing : UnanchoredClosing)}
             """;
     }
 
@@ -55,42 +58,45 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
         if (ScanFindingsSection.RepoFindings(pipeline) is null) return null;
         return $"""
             {ScanFindingsSection.Render(pipeline)}
-            These are the automated scanners' RAW output. You are seeing them now, after
-            stating what your own review found. For each one, say which of three it is:
-            already covered by a finding you reported, real and now added, or dismissed —
-            and for a dismissal, name the code that makes it not exploitable.
-
-            Then output ONLY your COMPLETE JSON observation array: everything you already
-            reported plus every scanner fact you now judge real. Still read-only — do NOT
-            modify code and do NOT run a build or tests.
+            These are the automated scanners' raw output, shown now that you have stated
+            what your own review found. Each one is already covered by a finding you
+            reported, real and to be added, or not exploitable because of code you can
+            name. Your last message is the complete JSON observation array: everything you
+            reported plus every scanner fact you judge real; a fact you dismiss stays out.
             """;
     }
 
-    public string BuildCoverageNudge(string originalUserPrompt) =>
-        "Your review touched very little of the source — that is not a complete review. "
-        + "Inventory the FULL surface (every endpoint and every area of responsibility) "
-        + "and review EACH area: read the code that implements it, where its auth / "
-        + "sessions are handled, its input boundaries, and the configuration that wires "
-        + "CORS / headers / auth. Still read-only — do NOT modify code or run a build or "
-        + "tests. When done, output ONLY your COMPLETE JSON observation array (everything "
-        + "you found, including any earlier findings).\n\n"
+    // 2026-11-09-0620k: the nudge names the areas the review listed and did not open. A floor stated as a number
+    // invited reads made to reach it; the areas are the work that is missing.
+    public string BuildCoverageNudge(string originalUserPrompt, IReadOnlyList<string> unreadAreas) =>
+        (unreadAreas.Count > 0
+            ? $"Your review listed these areas and opened none of their files: {string.Join(", ", unreadAreas)}. "
+            : "Your review opened few of the source files that implement the surface. ")
+        + "Read the code each area implements, where its auth and sessions are handled, its input boundaries, and "
+        + "the configuration that wires CORS, headers and auth. Your last message is the complete JSON observation "
+        + "array, earlier findings included.\n\n"
         + originalUserPrompt;
+
+    private const string SecurityOpening =
+        """
+        This is a security review of the source, not a coding task. Your tools read
+        files and send HTTP probes; nothing you do changes the repository, and no build
+        or test runs here.
+        """;
 
     private const string AnchoredClosing =
         """
-        Work your methodology over these scanner inputs and the source — read the
-        implementing code to anchor each finding. When you are done, stop calling
-        tools and output ONLY your final JSON observation array (an empty array
-        `[]` if nothing survives your refutation step).
+        Work your methodology over these scanner inputs and the source, reading the
+        implementing code to anchor each finding. Your last message is your JSON
+        observation array — `[]` when nothing survives your refutation step.
         """;
 
     private const string UnanchoredClosing =
         """
-        Work your methodology over the SOURCE. Nobody has handed you a list of
+        Work your methodology over the source. Nobody has handed you a list of
         suspects: inventory the surface yourself, read the implementing code, and
-        report what you find. When you are done, stop calling tools and output ONLY
-        your final JSON observation array (an empty array `[]` if nothing survives
-        your refutation step).
+        report what you find. Your last message is your JSON observation array —
+        `[]` when nothing survives your refutation step.
         """;
 
     // p0317: a goal-bearing ticket's conversation reaches the scan master too —

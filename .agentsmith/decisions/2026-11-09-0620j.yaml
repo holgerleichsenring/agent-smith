@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620j
+
+decisions:
+  - category: Tooling
+    chose: "Pin v5.25.1 with the release's own digest, as 7a85ed546 did for v5.24.0"
+    over: "v5.25.0"
+    reason: "v5.25.1 carries the independent re-review's fixes to v5.25.0; the server texts of this series and the skill texts are one change and deploy together."
+  - category: Deviation
+    chose: "Re-pin reworded sentences to the sentence that carries the same rule, invert pins whose rule was removed on purpose"
+    over: "Deleting the tests"
+    reason: "The first-turn ban, 'Uploads first' and 'Ready to propose' were removed by this series on both sides, so their absence is now the rule a test should hold."

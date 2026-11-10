@@ -29,13 +29,13 @@ public static class PrDiffPromptSection
         var coordinates =
             $"PR #{number ?? "?"} by {author ?? "unknown"} — head {head ?? "?"}, base {baseSha ?? "?"}.";
 
-        var body = hasDiff
-            ? PrDiffPromptRenderer.Render(diff!)
-            : "(no structured diff available — AnalyzePrDiff did not run; emit a single "
-              + "blocking observation stating the diff is missing)";
-
-        // The diff is untrusted input: it is authored by whoever opened the PR.
+        // The diff is untrusted input: it is authored by whoever opened the PR. 2026-11-09-0620g: what the framework
+        // says about a missing diff sits outside the block, where an instruction is not data.
+        if (!hasDiff)
+            return TicketPromptDelimiters.WrapSection("## Pull request under review", coordinates)
+                + "\n\nNo diff could be produced for this pull request, so there is no change to judge: report one "
+                + "blocking observation saying the diff is missing.";
         return TicketPromptDelimiters.WrapSection(
-            "## Pull request under review", $"{coordinates}\n\n{body}");
+            "## Pull request under review", $"{coordinates}\n\n{PrDiffPromptRenderer.Render(diff!)}");
     }
 }

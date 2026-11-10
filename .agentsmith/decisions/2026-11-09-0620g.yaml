@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620g
+
+decisions:
+  - category: Implementation
+    chose: "State read-only as what the tools can do, and the coverage floor as the numbers"
+    over: "Capitals and 'very little'"
+    reason: "The review surface really is read-only, so a fact says it; the nudge fires because of a count against a floor, and naming both tells the model how far it is from done."
+  - category: Implementation
+    chose: "The reconciliation asks for one JSON array, dismissed facts left out"
+    over: "Prose classification followed by 'output ONLY' JSON"
+    reason: "The parser keeps only the array; prose the model was asked to write was thrown away."
+  - category: Implementation
+    chose: "Retire the context-generator prompt names from ownership"
+    over: "Keeping the master required"
+    reason: "Nothing requests either name, so the startup check required a master no run sends; the skill can now leave the catalog."

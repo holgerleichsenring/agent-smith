@@ -37,7 +37,7 @@ public sealed class VerifyStageRunTool(
         + $"evidence id such as [{look.Terms.EvidencePrefix}4]; a fact resting on it cites that id.";
 
     public async Task<string> RunVerifyStage(
-        [Description("The repository to run in. Use one of the names listed as in scope.")]
+        [Description("The repository to run in. Use one of the names listed under 'Repositories you may look into'.")]
         string repository,
         [Description("The LABEL of a stage that repository declared, e.g. 'build'. Only a "
             + "declared label runs; a command you compose is not executed.")]

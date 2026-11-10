@@ -13,7 +13,6 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class RunDirectoryReader
 {
     private const string LastCompiledFile = ".last-compiled";
-    private const string IndexFile = "index.md";
 
     public async Task<List<RunDirectoryInfo>> GetRunDirectoriesAsync(
         ISandboxFileReader reader, string runsDir, CancellationToken cancellationToken)
@@ -37,11 +36,30 @@ public sealed class RunDirectoryReader
         return content?.Trim() ?? string.Empty;
     }
 
+    // 2026-11-09-0620h/k: every page, not only the index, each between its own markers. A page the compile returns
+    // replaces the stored one, so a model shown only index.md rewrote the other pages from nothing. Pages are shown
+    // index first, then by name, within a character budget; the ones that do not fit are named as left out, and the
+    // skill does not let the compile return a page it was not shown.
+    internal const int WikiBudgetChars = 60_000;
+
     public async Task<string> ReadExistingWikiAsync(
         ISandboxFileReader reader, string wikiDir, CancellationToken cancellationToken)
     {
-        var content = await reader.TryReadAsync(Path.Combine(wikiDir, IndexFile), cancellationToken);
-        return content ?? string.Empty;
+        var entries = await reader.ListAsync(wikiDir, maxDepth: 1, cancellationToken);
+        var pages = entries.Where(e => e.EndsWith(".md", StringComparison.Ordinal))
+            .OrderBy(e => LastSegment(e) == "index.md" ? 0 : 1).ThenBy(e => e, StringComparer.Ordinal);
+        var sb = new System.Text.StringBuilder();
+        var left = new List<string>();
+        foreach (var path in pages)
+        {
+            var content = await reader.TryReadAsync(path, cancellationToken);
+            if (content is null) continue;
+            var page = $"<page name=\"{LastSegment(path)}\">\n{content.TrimEnd()}\n</page>\n";
+            if (sb.Length + page.Length > WikiBudgetChars) { left.Add(LastSegment(path)); continue; }
+            sb.Append(page);
+        }
+        if (left.Count > 0) sb.Append("Left out to fit: ").AppendJoin(", ", left).AppendLine(".");
+        return sb.ToString().TrimEnd();
     }
 
     public async Task<List<RunData>> ReadRunDataAsync(

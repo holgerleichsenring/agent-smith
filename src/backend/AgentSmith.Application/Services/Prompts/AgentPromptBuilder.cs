@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Prompts;
 /// Application-layer handlers can reach it without an Infrastructure dependency.
 /// p0415: the plan-prompt half went with the retired GeneratePlan command.
 /// </summary>
-public sealed class AgentPromptBuilder(IPromptCatalog prompts)
+public sealed class AgentPromptBuilder
 {
     internal static string BuildOperatorAnswersSection(
         IReadOnlyDictionary<string, string>? planAnswers)
@@ -32,39 +32,22 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             """;
     }
 
-    public string BuildExecutionSystemPrompt(
-        string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
-        string? projectContext = null)
-    {
-        return prompts.Render("agent-execute-system", new Dictionary<string, string>
-        {
-            ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
-            ["CodingPrinciples"] = codingPrinciples,
-            ["CodeMapSection"] = BuildCodeMapSection(repoCodeMaps),
-            // agent-execute-system resolves to the coding master via the NameMap.
-            // The master body owns a self-contained plan+execute+fix loop and so
-            // references the AgenticMaster-only tokens below; the secondary callers
-            // of this method (GenerateTests / GenerateDocs / AgenticExecute) do not
-            // supply them, so bind every KNOWN master token here (empty is fine —
-            // strict Render only rejects an UNBOUND token) rather than crash with
-            // "unbound master token(s): RepoNames, PlanSection, ...".
-            ["ExpectationSection"] = string.Empty,
-            ["RepoNames"] = string.Empty,
-            ["PlanSection"] = string.Empty,
-            ["RunRecordDir"] = string.Empty,
-            ["MaxFixIterations"] = string.Empty,
-            // p0313: these four were referenced by the coding master and bound only by
-            // AgenticMasterHandler, so GenerateTests/GenerateDocs shipped the literal
-            // strings "{SpecSection}" and "{ProgressLedgerSection}" to the model on
-            // every add-feature run. They were invisible to the strict-render check
-            // because MasterPromptTokens.All had not been extended when they landed —
-            // MasterPromptTokenDriftTests now fails on that omission instead.
-            ["SpecSection"] = string.Empty,
-            ["ProgressLedgerSection"] = string.Empty,
-            ["MemoryIndexSection"] = string.Empty,
-            ["PrDiffSection"] = string.Empty,
-        });
-    }
+    /// <summary>
+    /// 2026-11-09-0620c: the system prompt of a pass that follows a change — tests or documentation. It used to be the
+    /// whole coding master with its run tokens bound empty ("up to  attempts", a verdict block nobody parses), for a
+    /// call that has none of that master's surface. 2026-11-09-0620k: the project's principles, context and code map
+    /// come first, in the coding master's own order, and the pass's job and reach follow.
+    /// </summary>
+    public string BuildChangePassSystemPrompt(
+        ChangePass pass, string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
+        string? projectContext = null) =>
+        $"""
+        ## Coding Principles
+        {codingPrinciples}
+        {BuildProjectContextSection(projectContext)}
+        {BuildCodeMapSection(repoCodeMaps)}
+        {ChangePassText.For(pass)}
+        """;
 
     public string BuildExecutionUserPrompt(
         Plan plan, Repository repository, string? verifyNotes = null,
@@ -84,8 +67,6 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
             **Steps:**
             {steps}
-
-            Start by listing the relevant files, then implement each step.
             """;
     }
 

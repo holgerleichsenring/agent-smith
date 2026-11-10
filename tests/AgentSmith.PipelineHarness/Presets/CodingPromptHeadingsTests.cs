@@ -48,7 +48,25 @@ public sealed class CodingPromptHeadingsTests
             "the step heading appears once, and nothing else is headed like it");
         headings.Should().Contain(h => h.StartsWith("## Spec 1 of 1: ", StringComparison.Ordinal))
             .And.Contain("## Spec contract")
-            .And.Contain("## Validate the plan").And.Contain("## Build & test").And.Contain("## Your verdict");
+            .And.Contain("## Working the spec").And.Contain("## Build & test").And.Contain("## Your verdict");
+    }
+
+    // 2026-11-09-0620i: a reference coding turn — the spec run lists its checkouts, and the server texts that
+    // contradicted the stop rule are gone.
+    [Fact]
+    public async Task ReferenceTurn_CodingSpecRun_ListsCheckoutsAndNoContradictingNudge()
+    {
+        await using var harness = BuildHarness(new RecordingTicketProvider());
+        harness.ChatClient
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
+            .EnqueueText(GreenVerdict);
+
+        await new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.RunAsync("code");
+
+        var coding = harness.ChatClient.PromptsSeen.First(p => p.Contains("## Spec contract", StringComparison.Ordinal));
+        coding.Should().Contain("## Working Repositories").And.NotContain("**Sandbox keys:**")
+            .And.NotContain("at least one SOURCE file").And.NotContain("Ask for the full history");
     }
 
     private static RealCompositionHarness BuildHarness(RecordingTicketProvider tickets) =>

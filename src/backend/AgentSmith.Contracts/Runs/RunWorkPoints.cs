@@ -27,7 +27,11 @@ public static class RunWorkPoints
             c.Measure.DurationMs,
             c.ThrottleWaitMs,
             c.Measure.Outcome.ToString(),
-            c.Measure.Attempt))];
+            c.Measure.Attempt,
+            c.PromptId,
+            c.ToolCount,
+            c.TokensIn,
+            c.CachedTokensIn))];
     }
 
     public static IReadOnlyList<RunCommandPoint> Commands(

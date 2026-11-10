@@ -18,10 +18,4 @@ public interface ISpecDialogPromptFactory
     string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried);
 
     string BuildOutcomeFixNudge(string originalUserPrompt, string validationError);
-
-    /// <summary>
-    /// 2026-09-17-042ec: the re-prompt for a turn that proposed before the operator replied
-    /// to a discussion — answer instead, with no draft.
-    /// </summary>
-    string BuildProposalRefusalNudge(string originalUserPrompt);
 }

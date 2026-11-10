@@ -53,6 +53,12 @@ public sealed class FilesystemToolHost : IToolHost
     /// <summary>p0279: distinct paths successfully read this run (raw, agent-addressed).</summary>
     public IReadOnlyCollection<string> ReadPaths { get { lock (_sync) return _readPaths.ToArray(); } }
 
+    // 2026-11-09-0620k: directories listed this run, so a shallow review is told which of them it never opened.
+    private readonly HashSet<string> _listedPaths = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-09-0620k: listed directories under which no file was read, outermost dropped when a child is named.</summary>
+    public IReadOnlyList<string> UnreadAreas() => ListedAreas.Unread(_listedPaths, _readPaths, _sync);
+
     // Single-sandbox constructor — kept for back-compat with construction
     // sites that don't yet read the Sandboxes dict from PipelineContext.
     // Wraps the one sandbox in an empty-keyed dictionary so routing has a
@@ -222,7 +228,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Reads a file. Optional start_line (1-based) and line_count select a slice; omit both to read the whole file. By default each line is prefixed with its number and a tab so you can cite file:line directly; pass with_line_numbers=false to get bare content.")]
     public async Task<string> ReadFile(
-        [Description("Repository-relative path to read.")] string path,
+        [Description("Path of the file to read, from the repository root.")] string path,
         [Description("Optional 1-based starting line. Omit to read from the beginning.")] int? start_line = null,
         [Description("Optional count of lines to return from start_line. Omit to read to the end.")] int? line_count = null,
         [Description("When true (default), each output line is prefixed with its line number and a tab.")] bool with_line_numbers = true,
@@ -241,7 +247,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Writes the given content to a file at the given path. Overwrites if it exists.")]
     public async Task<string> WriteFile(
-        [Description("Repository-relative path to write.")] string path,
+        [Description("Path of the file to write, from the repository root.")] string path,
         [Description("Full content to write to the file.")] string content,
         CancellationToken ct = default)
     {
@@ -261,7 +267,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Lists the contents of a directory. Pass depth>1 for recursive listing. with_sizes=true adds a size column; sort_by={name|size|mtime} controls ordering. Use this for ad-hoc inspection; use directory_tree for a nested overview, find_files when you already know a name pattern.")]
     public Task<string> ListDirectory(
-        [Description("Repository-relative directory path. Use '.' for the repo root.")] string path = ".",
+        [Description("Directory to list, from the repository root; '.' is the root.")] string path = ".",
         [Description("Recursion depth (1 = direct children only). Omit for direct children only.")] int? depth = null,
         [Description("When true, include a size column. Default false.")] bool with_sizes = false,
         [Description("Sort order: 'name' (default), 'size' (descending), or 'mtime' (newest first).")] string sort_by = "name",
@@ -269,6 +275,7 @@ public sealed class FilesystemToolHost : IToolHost
     {
         _logger?.LogInformation("tool_call: ListDirectory path={Path} depth={Depth} sizes={Sizes} sort={Sort}", path, depth, with_sizes, sort_by);
         if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        lock (_sync) _listedPaths.Add(path);
         var sort = ParseSortBy(sort_by);
         var (runner, bare, routeErr) = Route(path);
         if (routeErr is not null) return Task.FromResult(routeErr);
@@ -284,7 +291,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Returns a nested text tree of the given directory, MCP filesystem-server directory_tree shape. Use this to get a one-shot layout overview instead of N list_directory walks.")]
     public Task<string> DirectoryTree(
-        [Description("Repository-relative root directory. Use '.' for the repo root.")] string root = ".",
+        [Description("Directory to start from, from the repository root; '.' is the root.")] string root = ".",
         [Description("Maximum recursion depth (default 4).")] int? max_depth = null,
         [Description("Optional list of basename globs to skip (e.g. ['*.min.js', 'bin']). The standard noisy dirs (.git, node_modules, bin, obj, etc.) are always skipped.")] IReadOnlyList<string>? exclude_globs = null,
         CancellationToken ct = default)
@@ -299,7 +306,7 @@ public sealed class FilesystemToolHost : IToolHost
     [Description("Finds files whose path (relative to root) matches a glob pattern. Pattern is path-relative — 'Controller.cs' matches any file with 'Controller.cs' in its path; '*.cs' matches every .cs file; 'src/**/*.cs' matches every .cs under src/. Truncates at head_limit and appends a marker line.")]
     public async Task<string> FindFiles(
         [Description("Glob pattern matched against the path relative to root. Substring match if no glob chars are present.")] string pattern,
-        [Description("Repository-relative directory to search under (default '.').")] string root = ".",
+        [Description("Directory to search under, from the repository root (default '.').")] string root = ".",
         [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         CancellationToken ct = default)
     {
@@ -320,7 +327,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Replaces an EXACT string occurrence in a file. By default old_string must appear EXACTLY ONCE — provide enough surrounding context to make it unique. With replace_all=true, every occurrence is replaced and the count is reported.")]
     public async Task<string> Edit(
-        [Description("Repository-relative path to edit.")] string path,
+        [Description("Path of the file to edit, from the repository root.")] string path,
         [Description("Exact string to find. Include enough surrounding context for uniqueness unless replace_all is true.")] string old_string,
         [Description("Replacement string.")] string new_string,
         [Description("When true, replace every occurrence and report the count. Default false.")] bool replace_all = false,
@@ -380,7 +387,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Atomically applies multiple text edits to a single file. All edits succeed or none apply. Useful for a refactor or rename across one file in one round-trip. With dry_run=true, returns a per-edit summary and writes nothing.")]
     public async Task<string> MultiEdit(
-        [Description("Repository-relative path to edit.")] string path,
+        [Description("Path of the file to edit, from the repository root.")] string path,
         [Description("Ordered list of edits to apply. Each edit is {old_string, new_string, replace_all (optional, default false)}.")] IReadOnlyList<MultiEditOp> edits,
         [Description("When true, simulate the edits and return a summary without writing.")] bool dry_run = false,
         CancellationToken ct = default)
@@ -448,7 +455,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     [Description("Searches a single file for lines matching a regular expression. Use when you already know the file path. context_before / context_after / context (shorthand) include adjacent lines. output_mode: 'content' (default, with line numbers), 'files_with_matches' (just the path), 'count' (matches per file).")]
     public Task<string> GrepInFile(
-        [Description("Repository-relative path to a specific file.")] string path,
+        [Description("Path of one file, from the repository root.")] string path,
         [Description("Regular expression pattern to search for.")] string pattern,
         [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         [Description("Lines of context before each match (-B). Overridden by 'context' if set.")] int? context_before = null,
@@ -469,7 +476,7 @@ public sealed class FilesystemToolHost : IToolHost
     [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'. NOT exhaustive: it skips " + GrepScope.Summary + ", and it honours the repository's own ignore rules, so no result here proves a string is absent from the checkout.")]
     public Task<string> GrepInTree(
         [Description("Regular expression pattern to search for.")] string pattern,
-        [Description("Repository-relative directory to search under (default '.').")] string root = ".",
+        [Description("Directory to search under, from the repository root (default '.').")] string root = ".",
         [Description("Optional glob filter for file names (e.g. '*.cs', '**/*.json').")] string? glob = null,
         [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         [Description("Lines of context before each match (-B). Overridden by 'context' if set.")] int? context_before = null,

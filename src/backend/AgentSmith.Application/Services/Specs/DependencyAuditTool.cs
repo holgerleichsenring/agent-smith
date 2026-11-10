@@ -38,7 +38,7 @@ public sealed class DependencyAuditTool(
         + "other exit means the tool could not run and the result proves nothing.";
 
     public async Task<string> AuditDependencies(
-        [Description("The repository to audit. Use one of the names listed as in scope.")]
+        [Description("The repository to audit. Use one of the names listed under 'Repositories you may look into'.")]
         string repository,
         CancellationToken ct = default)
     {

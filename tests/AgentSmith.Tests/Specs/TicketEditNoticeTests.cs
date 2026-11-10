@@ -23,7 +23,7 @@ public sealed class TicketEditNoticeTests
 
         section.Should().Contain("The ticket text changed since revision 2 was cut.");
         section.Should().Contain("cut the specs that have not started from it");
-        section.Should().Contain("p1a (EXECUTED — keep exactly as it is)");
+        section.Should().Contain("p1a (ran — kept as it is)");
         section.Should().Contain("p1b (not started)");
     }
 

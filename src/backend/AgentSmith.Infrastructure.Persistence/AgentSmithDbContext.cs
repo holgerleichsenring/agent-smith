@@ -73,6 +73,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         new ServerStateConfigurations().Apply(modelBuilder); // 2026-08-26-7a51 + 2026-10-02-5ab2a
         modelBuilder.ApplyConfiguration(new ChatRunBindingConfiguration());
         new RunChildConfiguration().Apply(modelBuilder);
+        new PromptRecordConfigurations().Apply(modelBuilder); // 2026-11-09-0620a
         // p0388a: AFTER the child loop, so the per-step trail index joins the uniform RunId one.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
         // Provider-conditional: an entity configuration cannot see the provider name.

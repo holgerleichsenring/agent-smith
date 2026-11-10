@@ -29,11 +29,7 @@ internal static class BootstrapDiscoverPromptFactory
         IReadOnlyList<DiscoveredComponent> declared)
     {
         var system = $$"""
-            ## Your Role
-            {{role.DisplayName}}: {{role.Description}}
-
-            ## Role-Specific Rules
-            {{role.Rules}}
+            {{RoleHeader.Render(role)}}
             """;
         var projectMapJson = JsonSerializer.Serialize(
             projectMap, new JsonSerializerOptions { WriteIndented = true });

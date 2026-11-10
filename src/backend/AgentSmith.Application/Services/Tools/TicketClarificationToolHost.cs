@@ -36,19 +36,21 @@ public sealed class TicketClarificationToolHost : IToolHost
         return [AIFunctionFactory.Create(AskHuman, name: "ask_human")];
     }
 
-    [Description("Asks the human operator for guidance. On this run the question is posted to the ticket and the run pauses until the operator answers — only ask when you are genuinely blocked.")]
+    [Description("Posts one question to the ticket for the operator. The run then stops and continues in a new pass with the answer in its input; a second question in the same run is refused. Ask what blocks the work and only a person can answer — a choice someone may overrule later is decide_by_default's.")]
     public string AskHuman(
         [Description("Question text to display to the human.")] string question,
         [Description("Optional context block shown alongside the question.")] string? context = null,
         [Description("Optional list of choices. Each entry is {label, description?}.")] IReadOnlyList<HumanToolHost.AskHumanChoice>? choices = null,
         [Description("Optional 0-based index into choices identifying the recommended option.")] int? recommended_index = null)
     {
-        _ = recommended_index;
         if (Captured is not null)
             return "A question is already posted to the ticket and this run is pausing "
                 + "for the operator's answer. Stop now — end your reply.";
 
         var text = string.IsNullOrWhiteSpace(context) ? question : $"{question}\n\n{context}";
+        // 2026-11-09-0620f: the recommended option reaches the ticket instead of being dropped.
+        if (recommended_index is { } at && choices is not null && at >= 0 && at < choices.Count)
+            text += $"\n\nRecommended: {choices[at].label}";
         Captured = new PlanOpenQuestion(
             TicketQuestionLabel, text, choices?.Select(c => c.label).ToList() ?? []);
         return "This run cannot receive a live answer. Your question will be posted to the "

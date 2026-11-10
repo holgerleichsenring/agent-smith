@@ -35,7 +35,7 @@ public sealed class TemplateInTheCutTests
         derivationPrompt.Should().Contain("## Templates this project is built after");
         derivationPrompt.Should().Contain("template:default",
             "a template is addressed by a name a model can tell from a target");
-        derivationPrompt.Should().Contain("answers HOW work is done here",
+        derivationPrompt.Should().Contain("answers how work is done here",
             "the precedence has to travel with the name, or the form gets copied from the wrong place");
     }
 

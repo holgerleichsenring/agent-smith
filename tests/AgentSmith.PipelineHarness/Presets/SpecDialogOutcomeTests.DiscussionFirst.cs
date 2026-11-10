@@ -8,74 +8,26 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-09-17-042ec: no proposal before the operator has replied to a discussion — refused
-/// where the outcome is gated, before validation, on every platform.
+/// 2026-09-17-042ec: the design turn's outcome kinds as kept. 2026-11-09-0620b: the first-turn proposal ban is gone.
 /// </summary>
 public sealed partial class SpecDialogOutcomeTests
 {
     private const string Answer = "The service has no widget store yet; is a widget per tenant or global?";
 
+    // 2026-11-09-0620b: the first-turn ban is gone. A draft is reviewed and shown under review, and nothing is filed
+    // before the operator approves it, so a first turn that already knows the cut proposes it.
     [Fact]
-    public async Task Turn_FirstTurnProposes_IsRefusedAndAnswersInstead()
+    public async Task SpecDialogOutcomeGate_FirstTurnDraft_IsKeptAsAProposal()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}").EnqueueText(Answer);
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
         string.Join("\n", harness.ChatClient.CallMessages[0].Select(m => m.Text)).Should()
-            .Contain("MAY NOT propose", "the prompt says it before the gate has to");
-        harness.ChatClient.InvocationCount.Should().Be(2, "the refusal re-prompts exactly once");
-        string.Join("\n", harness.ChatClient.LastScriptedMessages.Select(m => m.Text)).Should()
-            .Contain("proposed work before the operator had replied");
-        result.Outcome.Should().BeOfType<AnswerOutcome>();
-        result.Reply.Should().Be(Answer);
-        result.Kind.Should().Be(SpecDialogTurnKind.Answer);
-    }
-
-    [Fact]
-    public async Task Turn_FirstTurnProposesTwice_AnswersWithItsProseNotAFailureNotice()
-    {
-        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}")
-            .EnqueueText($"{Answer}\n```yaml\nspec: not-a-valid-spec-id\n```");
-
-        var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
-
-        harness.ChatClient.InvocationCount.Should().Be(2, "a refusal is not re-prompted as a validation failure");
-        result.Reply.Should().Be(Answer).And.NotContain("did not pass validation");
-        result.Outcome.Should().BeOfType<AnswerOutcome>();
-        result.Kind.Should().Be(SpecDialogTurnKind.Answer, "the prose is a discussion the operator can reply to");
-    }
-
-    [Fact]
-    public async Task Turn_ChatPlatform_FollowsTheSameRule()
-    {
-        var (bridge, adapter, sink) =
-            (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
-        await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText(BugOutcomeReply).EnqueueText(BugOutcomeReply);
-        var state = State("add a null check to AppendTurnAsync");
-
-        var result = await RunTurnAsync(harness, state);
-        await RunFlowAsync(harness, state, result.Outcome);
-
-        result.Reply.Should().Be("That is a one-line fix, not a spec.");
-        result.Outcome.Should().BeOfType<AnswerOutcome>();
-        adapter.Questions.Should().BeEmpty("a refused proposal is never put to the operator");
-        sink.Accepted.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task Turn_RefusedProposalWithNoProse_IsRecordedAsANotice()
-    {
-        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText(ValidDraft).EnqueueText(ValidDraft);
-
-        var result = await RunTurnAsync(harness, State("update the widgets"));
-
-        result.Reply.Should().Be(SpecDialogProposalRefusal.EmptyProseNotice);
-        result.Kind.Should().Be(SpecDialogTurnKind.Notice, "a notice is no discussion to reply to");
+            .NotContain("MAY NOT propose");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "nothing sends the draft back");
+        result.Outcome.Should().BeOfType<SpecOutcome>();
     }
 
     [Fact]

@@ -27,7 +27,7 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
         + "search cites that id.";
 
     public async Task<string> SearchRepository(
-        [Description("The repository to search. Use one of the names listed as in scope.")]
+        [Description("The repository to search. Use one of the names listed under 'Repositories you may look into'.")]
         string repository,
         [Description("A regular expression, e.g. 'PackageReference|<Version>'. Alternation, "
             + "character classes and quantifiers are available; lookaround and backreferences "

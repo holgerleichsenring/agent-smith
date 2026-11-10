@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-09-0620e
+goal: "A sub-agent is told where it works and what it can reach, and its master receives what each child found in the spawn result instead of counts."
+requires: [2026-11-09-0620d]
+
+applies_to: "default (Application sub-agent runner, spawn and observation tools)"
+
+facts:
+  - claim: "A child's system prompt is its name, its activity and whatever block the master wrote — no repositories, no path convention, no reach, no bound, and nothing saying its last message is all the master gets."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:156-163"
+  - claim: "The spawn result carries counts: observations_count is the number of assistant messages and findings_count and files_written_count are always 0; the answer is only behind read_sub_agent_observations."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:96-110,236-237; src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:80-91"
+  - claim: "p0177 forbade text on SubAgentResult and two tests pin that."
+    evidence: "tests/AgentSmith.Tests/Events/SubAgentEventRoundTripTests.cs:50-56; tests/AgentSmith.Tests/Application/Services/Tools/SpawnAgentToolHostTests.cs:103-107"
+
+scope:
+  in: "A fixed situation block appended to every child's system prompt; the child's answer, bounded, on SubAgentResult and in the spawn result; the meaningless counts out of the spawn result; the observation tool described as the whole answer behind a cut one."
+  out: "SubAgentCompletedEvent and the dashboard's counts. The master's instructions to its children."
+
+decisions:
+  - key: "THE ANSWER COMES BACK. A master that gets counts must make a second call per child to learn anything, and was told to skip it; Anthropic's guidance has a sub-agent return a condensed result of about one to two thousand tokens. The p0177 rule against text on the result is reversed on purpose."
+
+steps:
+  - id: situation
+    action: "SubAgentSituation renders the child's repositories with their path prefix, whether its tools write, its iteration bound, that its final message is what the master receives, and the untrusted-material sentence; the runner appends it after the master's block."
+  - id: answer
+    action: "SubAgentResult gains Answer, the child's final text cut at 6000 characters with a line naming how much was cut and the tool that returns the rest; spawn_agents returns it with status, id, name, tool calls and cost, and drops the counts."
+  - id: tools
+    action: "spawn_agents and read_sub_agent_observations descriptions say what comes back."
+
+tests:
+  - "SubAgentSituation_ReadOnlySurface_SaysTheChildReadsOnly"
+  - "SubAgentSituation_TwoRepositories_NamesThePrefixAndTheBound"
+  - "SpawnAgents_ChildAnswers_ResultCarriesTheAnswer"
+  - "SubAgentAnswer_LongAnswer_IsCutWithAPointerToTheRest"
+
+done:
+  - when: "a master spawns children"
+    then: "each child's prompt names its repositories, reach and bound, and the spawn result holds each child's answer"
+  - "Backend build and tests green."

@@ -19,6 +19,7 @@ public static class ContextLoadingExtensions
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
         services.AddTransient<DialogGroundingReader>();
+        services.AddSingleton<RepositoryLayoutReader>(); // 2026-11-09-0620b: keeps listings a few minutes
         services.AddTransient<RemoteFileRead>(); // 2026-10-01-283dg
         services.AddTransient<ICommandHandler<GroundSpecDialogContext>, GroundSpecDialogHandler>();
         return services;
