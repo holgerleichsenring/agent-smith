@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.179.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.178.0...v0.179.0) (2026-11-10)
+
+
+### Features
+
+* a design turn is told what its uploads and repositories each show, sees an unmapped repository's layout, and may propose once the work is clear (2026-11-09-0620b) ([7dc2ba2](https://github.com/holgerleichsenring/agent-smith/commit/7dc2ba2cb32c9c080364e6b77e4227158e3ba849))
+* a sub-agent is told where it works and what it can reach, and its master receives each child's answer instead of counts (2026-11-09-0620e) ([b26330f](https://github.com/holgerleichsenring/agent-smith/commit/b26330f8e88d4152f04bb219a8d9e983482c8ea3))
+* every master's turn text is written for its role - pr-review judges a diff, discussion and legal analysis deliver a report, test and doc passes see their own job (2026-11-09-0620c) ([e532e5a](https://github.com/holgerleichsenring/agent-smith/commit/e532e5a2d023f63add7a4e3e6530bfd4cb779cc1))
+* every model call keeps the prompt it was sent, and the run's call table opens it in send order (2026-11-09-0620a) ([b449081](https://github.com/holgerleichsenring/agent-smith/commit/b44908123f24b5ace3817c1616bd06e6b6ff0df4))
+* prompts describe the situation, not a procedure, and every sent prompt is visible (2026-11-09-0620) ([3e77543](https://github.com/holgerleichsenring/agent-smith/commit/3e775432ba16bb8bd2120872f6f0eaa1d78e86d4))
+* review, analyzer and bootstrap prompts state facts and reasons instead of capitals and procedures (2026-11-09-0620g) ([5bcf010](https://github.com/holgerleichsenring/agent-smith/commit/5bcf010a2c1583148d14f6e3e43b02ae71196314))
+* the run trace's prompt half is the deduplicated prompt store - a traced run records answers and tool results, every prompt is kept always, once (2026-11-09-0620d) ([33473ad](https://github.com/holgerleichsenring/agent-smith/commit/33473ad21c2c5ff732d2f1cb751268e973e5c38c))
+* the server texts a coding run reads agree with its stop rule, its verdict and its tools (2026-11-09-0620f) ([4eee570](https://github.com/holgerleichsenring/agent-smith/commit/4eee570c75dfbe1fe834729ff0fb59566765d705))
+* the spec derivation is told what its code map, executed specs and template allowance are, and the knowledge compile sees every wiki page (2026-11-09-0620h) ([958d0d3](https://github.com/holgerleichsenring/agent-smith/commit/958d0d3181beeb2df4d7db15f58da8200c07dd5e))
+
+
+### Bug Fixes
+
+* after a review re-draft the operator still reads the turn's first full reply, child answers reach the master whole, layouts skip metadata (2026-11-09-0620m) ([ab8b4bd](https://github.com/holgerleichsenring/agent-smith/commit/ab8b4bdaf27661cd39e781d4b6d78aca9e120761))
+* every re-draft inside a design turn replaces only the block - the operator reads the turn's first full reply (2026-11-09-0620n) ([3f16f71](https://github.com/holgerleichsenring/agent-smith/commit/3f16f7133b2777c9a338ec4cf814d2e192375a80))
+* recording a prompt never delays a model call, the store keeps its links under wide fan-outs, and a cached layout never crosses projects (2026-11-09-0620l) ([4d415fa](https://github.com/holgerleichsenring/agent-smith/commit/4d415fa2af153fd41155cfda89c858ad4bfac8ed))
+* the series' server texts say only what the server knows, in their old order, true to the tools (2026-11-09-0620k) ([14dc086](https://github.com/holgerleichsenring/agent-smith/commit/14dc086c402bc74a8732506b8bc769946733485c))
+
 ## [0.178.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.177.0...v0.178.0) (2026-11-09)
 
 
