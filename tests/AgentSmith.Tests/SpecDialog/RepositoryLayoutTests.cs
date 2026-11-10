@@ -47,6 +47,30 @@ public sealed class RepositoryLayoutTests
         maps["sample"].Should().Contain("no cached code map");
     }
 
+    // 2026-11-09-0620l: two projects may name different repositories alike; a cached layout is never shared by name.
+    [Fact]
+    public async Task RepositoryLayout_SameNameOtherRemote_ListsItsOwnTree()
+    {
+        var providers = new Mock<ISourceProviderFactory>();
+        providers.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Url!.Contains("one")))).Returns(Listing("OneApi"));
+        providers.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Url!.Contains("two")))).Returns(Listing("TwoApi"));
+        var reader = Reader(providers.Object);
+
+        var one = await reader.ReadAsync(new RepoConnection { Name = "server", Url = "https://example.invalid/one.git" }, default);
+        var two = await reader.ReadAsync(new RepoConnection { Name = "server", Url = "https://example.invalid/two.git" }, default);
+
+        one.Should().Contain("OneApi");
+        two.Should().Contain("TwoApi").And.NotContain("OneApi");
+    }
+
+    private static ISourceProvider Listing(string entry)
+    {
+        var provider = new Mock<ISourceProvider>();
+        provider.Setup(p => p.ListDirectoryAsync("", It.IsAny<CancellationToken>())).ReturnsAsync([entry]);
+        provider.Setup(p => p.ListDirectoryAsync(entry, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        return provider.Object;
+    }
+
     private static async Task<IReadOnlyDictionary<string, string>> RunAsync(Mock<ISourceProvider> provider)
     {
         var providers = new Mock<ISourceProviderFactory>();

@@ -37,6 +37,7 @@ public sealed class PromptRecorderTests : IDisposable
     {
         await RecordAsync(Tools, System, User("one"));
         await _store.Recorder.RecordAsync("2026-11-09T22-00-00-bbbb", [Tools, System, User("two")], 1, default);
+        await _store.Recorder.DrainAsync();
 
         using var db = _store.Db();
         (await db.Set<PromptBlockRow>().CountAsync()).Should().Be(4, "the tool list and the system prompt are shared");
@@ -63,6 +64,7 @@ public sealed class PromptRecorderTests : IDisposable
     {
         await RecordAsync(Tools, System, User("go"));
         await _store.Recorder.RecordAsync("2026-11-09T22-00-00-bbbb", [Tools, User("other")], 1, default);
+        await _store.Recorder.DrainAsync();
 
         using (var db = _store.Db()) await new RunDeletionRepository(db).DeleteAsync(Run, default);
 
@@ -86,7 +88,46 @@ public sealed class PromptRecorderTests : IDisposable
         (await check.Set<PromptBlockRow>().CountAsync()).Should().Be(0);
     }
 
-    private Task<string?> RecordAsync(params PromptBlock[] blocks) => _store.Recorder.RecordAsync(Run, blocks, 1, default);
+    // 2026-11-09-0620l: the id is returned before anything is written, so a database that hangs never holds a call.
+    [Fact]
+    public async Task PromptRecorder_DatabaseHangs_CallGetsItsIdAtOnce()
+    {
+        using var gate = new ManualResetEventSlim(false);
+        var recorder = new PromptRecorder(new HangingScopes(gate), new PromptRecentRecords(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<PromptRecorder>.Instance);
+
+        var record = recorder.RecordAsync(Run, [Tools, System, User("go")], 1, default);
+
+        record.IsCompleted.Should().BeTrue("recording must not wait for the store");
+        (await record).Should().NotBeNullOrEmpty();
+        gate.Set();
+    }
+
+    [Fact]
+    public async Task PromptRecorder_TwelveInterleavedChildren_EachKeepsItsParent()
+    {
+        for (var child = 0; child < 12; child++) await RecordAsync(Tools, User($"child {child}"));
+        for (var child = 0; child < 12; child++) await RecordAsync(Tools, User($"child {child}"), Assistant($"read {child}"));
+
+        using var db = _store.Db();
+        (await db.Set<PromptRecord>().CountAsync(r => r.ParentId != null)).Should().Be(12);
+    }
+
+    private sealed class HangingScopes(ManualResetEventSlim gate) : Microsoft.Extensions.DependencyInjection.IServiceScopeFactory
+    {
+        public Microsoft.Extensions.DependencyInjection.IServiceScope CreateScope()
+        {
+            gate.Wait();
+            throw new InvalidOperationException("store unreachable");
+        }
+    }
+
+    private async Task<string?> RecordAsync(params PromptBlock[] blocks)
+    {
+        var id = await _store.Recorder.RecordAsync(Run, blocks, 1, default);
+        await _store.Recorder.DrainAsync();
+        return id;
+    }
 
     private static readonly PromptBlock Tools = new(PromptBlockKind.Tools, string.Empty, "tools");
     private static readonly PromptBlock System = new(PromptBlockKind.Message, "system", "system");

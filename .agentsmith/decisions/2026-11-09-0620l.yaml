@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620l
+
+decisions:
+  - category: Architecture
+    chose: "One background writer per process, fed by a bounded queue; the id is a hash computed on the call"
+    over: "A per-run lock on the call path"
+    reason: "Any lock on the call path lets a slow database delay a model call. One writer keeps the order a parent needs before its child, and a write dropped by a full queue costs the viewer a prompt, never the run."
+  - category: Implementation
+    chose: "Re-check a record's blocks after writing it"
+    over: "A foreign key from record rows to blocks"
+    reason: "A key would make the retention sweep fail on a block a write is about to use, and blocks are shared across runs; writing a missing block back is the cheaper guarantee and needs no migration."
+  - category: Implementation
+    chose: "Key the layout cache by URL, path and name"
+    over: "By project name"
+    reason: "Where a repository lives identifies its tree; two projects naming different repositories alike get different keys, and one remote shared by two projects is the same tree."

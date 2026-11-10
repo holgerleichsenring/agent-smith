@@ -2,6 +2,7 @@ using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -26,13 +27,17 @@ public sealed class LoadCachedCodeMapHandler(
         LoadCachedCodeMapContext context, CancellationToken cancellationToken)
     {
         var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        // 2026-11-09-0620l: a layout is listed only for a repository the turn scoped, the ones its sandbox map names.
+        var scoped = context.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
+            && map is not null ? map.Keys.ToHashSet(StringComparer.Ordinal) : null;
         var perRepo = new Dictionary<string, string>(StringComparer.Ordinal);
         var hits = 0;
         foreach (var repo in repos)
         {
             var maps = await mapStore.ListByPrefixAsync(repo.Name, cancellationToken);
             // 2026-11-09-0620b: a repository nobody has mapped shows its layout where the map would stand.
-            perRepo[repo.Name] = maps.Count == 0 && await layouts.ReadAsync(repo, cancellationToken) is { } layout
+            perRepo[repo.Name] = maps.Count == 0 && (scoped is null || scoped.Contains(repo.Name))
+                && await layouts.ReadAsync(repo, cancellationToken) is { } layout
                 ? layout
                 : RenderRepoSection(maps);
             hits += maps.Count;

@@ -19,12 +19,22 @@ public sealed class PromptRecordSweep(IUnitOfWork unitOfWork)
     }
 
     // Filtered client-side, as RunRetentionService does: SQLite cannot translate a DateTimeOffset comparison.
+    // 2026-11-09-0620l: in pages by id, so the sweep holds one page in memory, not the table.
+    private const int Page = 1000;
+
     public async Task<int> PruneAsync(DateTimeOffset cutoff, CancellationToken ct)
     {
-        var ids = (await unitOfWork.Set<PromptRecord>().AsNoTracking()
-                .Select(r => new { r.Id, r.CreatedAt }).ToListAsync(ct))
-            .Where(r => r.CreatedAt < cutoff).Select(r => r.Id).ToList();
-        return await DeleteRecordsAsync(ids, ct);
+        var deleted = 0;
+        var after = string.Empty;
+        while (true)
+        {
+            var page = await unitOfWork.Set<PromptRecord>().AsNoTracking()
+                .Where(r => string.Compare(r.Id, after) > 0).OrderBy(r => r.Id).Take(Page)
+                .Select(r => new { r.Id, r.CreatedAt }).ToListAsync(ct);
+            if (page.Count == 0) return deleted;
+            after = page[^1].Id;
+            deleted += await DeleteRecordsAsync([.. page.Where(r => r.CreatedAt < cutoff).Select(r => r.Id)], ct);
+        }
     }
 
     private async Task<int> DeleteRecordsAsync(List<string> ids, CancellationToken ct)

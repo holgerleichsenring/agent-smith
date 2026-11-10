@@ -19,6 +19,7 @@ public sealed class RepositoryLayoutReader(
 {
     private const int RootEntries = 40;
     private const int ChildEntries = 20;
+    private const int ParallelListings = 4;
     private static readonly TimeSpan Kept = TimeSpan.FromMinutes(10);
 
     private readonly ConcurrentDictionary<string, (DateTimeOffset At, string Layout)> _kept = new();
@@ -27,16 +28,20 @@ public sealed class RepositoryLayoutReader(
     {
         if (!repo.HasLocation) return null;
         var now = clock.GetUtcNow();
-        if (_kept.TryGetValue(repo.Name, out var kept) && now - kept.At < Kept) return kept.Layout;
+        // 2026-11-09-0620l: keyed by where the repository lives, not its name — two projects may name different
+        // repositories alike, and one must never see the other's tree.
+        var key = $"{repo.Url}|{repo.Path}|{repo.Name}";
+        if (_kept.TryGetValue(key, out var kept) && now - kept.At < Kept) return kept.Layout;
         try
         {
             var provider = providers.Create(repo);
             var root = await provider.ListDirectoryAsync(string.Empty, ct);
             if (root.Count == 0) return null;
             var shown = root.Order(StringComparer.Ordinal).Take(RootEntries).ToList();
-            var children = await Task.WhenAll(shown.Select(name => ChildrenAsync(provider, name, ct)));
+            using var throttle = new SemaphoreSlim(ParallelListings);
+            var children = await Task.WhenAll(shown.Select(name => ChildrenAsync(provider, name, throttle, ct)));
             var layout = Render(shown, children, root.Count);
-            _kept[repo.Name] = (now, layout);
+            _kept[key] = (now, layout);
             return layout;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -48,8 +53,10 @@ public sealed class RepositoryLayoutReader(
 
     // A file lists as nothing, as itself, or as an error, depending on the provider; only a listing of other names is a
     // directory.
-    private static async Task<IReadOnlyList<string>?> ChildrenAsync(ISourceProvider provider, string name, CancellationToken ct)
+    private static async Task<IReadOnlyList<string>?> ChildrenAsync(
+        ISourceProvider provider, string name, SemaphoreSlim throttle, CancellationToken ct)
     {
+        await throttle.WaitAsync(ct);
         try
         {
             var listed = await provider.ListDirectoryAsync(name, ct);
@@ -58,6 +65,10 @@ public sealed class RepositoryLayoutReader(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
+        }
+        finally
+        {
+            throttle.Release();
         }
     }
 

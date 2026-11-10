@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-09-0620l: "PROMPT STORE AND LAYOUT RISKS (prompt recorder, writer, sweep; layout reader). Prompts are written by a background writer, never on the call path; 64 recent records per run; paged sweep; blocks re-checked after a write; layout cache keyed by location, scoped repos only, four listings at once. -> .agentsmith/specs/done/2026-11-09-0620l-prompt-store-and-layout-risks.yaml"
     2026-11-09-0620k: "REVIEW TEXT FIXES (closings, nudges, spawn, passes, pr-review, checkouts, design, coverage, knowledge). Server texts say only what it knows, old order kept: no procedure or emphasis, truthful child tools, design turn reduced to the stored picture, coverage names unread areas, wiki pages marked and bounded. -> .agentsmith/specs/done/2026-11-09-0620k-review-text-fixes.yaml"
     2026-11-09-0620j: "SKILLS PIN v5.25.1 (embedded catalog, pinned-catalog tests, docs). Pin and digest moved to the release matching this series; tests pin the draft-when-defensible convergence and the absence of the first-turn ban, Uploads first and Ready to propose. -> .agentsmith/specs/done/2026-11-09-0620j-skills-pin-v5-25-1.yaml"
     2026-11-09-0620i: "REFERENCE TURNS (pipeline harness). A first design turn on an upload and an unmapped repo, with the real catalog, and a coding spec run pin what each is told and that changed sections kept their place. -> .agentsmith/specs/done/2026-11-09-0620i-reference-turns.yaml"
