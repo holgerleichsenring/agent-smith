@@ -161,8 +161,9 @@ public sealed class SpecDialogDashboardWordingTests
         ("question", _replies.ComposeQuestion("Which repository holds the ledger?")),
         ("confirmation", _outcomes.ComposeConfirmation(Epic())),
         ("rejected", _outcomes.ComposeRejected()),
-        ("timed out", _outcomes.ComposeTimeout()),
-        ("edit acknowledged", _outcomes.ComposeEditAck("make it two slices")),
+        ("superseded", _outcomes.ComposeSuperseded()),
+        ("replaced", _outcomes.ComposeReplaced(another: true)),
+        ("no longer open", _outcomes.ComposeReplaced(another: false)),
         ("filed", _outcomes.ComposeFiled(Epic(), new FilingReport([new FiledTicket("T-1", "t")], null))),
         ("filing failed", _outcomes.ComposeFilingFailure(new FilingReport([], "the tracker refused"))),
     ];

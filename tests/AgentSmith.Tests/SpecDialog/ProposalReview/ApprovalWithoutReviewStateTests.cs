@@ -43,51 +43,49 @@ public sealed class ApprovalWithoutReviewStateTests : IDisposable
     }
 
     [Fact]
-    public async Task OutcomeConfirmer_ApproveWithNotReviewed_Confirms()
+    public async Task Decision_ApproveWithNotReviewed_ClaimsAndFiles()
     {
-        var (result, _) = await ConfirmAsync([First, ProposalReviewTokens.Series]);
+        var (filed, _) = await ApproveAsync([First, ProposalReviewTokens.Series]);
 
-        result.Should().BeOfType<OutcomeConfirmed>("the guarantee sits before building, not on the button");
+        filed.Should().BeTrue("the guarantee sits before building, not on the button");
     }
 
     [Fact]
-    public async Task OutcomeConfirmer_ApproveWithNotReviewed_KeepsTheApprovedDecision()
+    public async Task Decision_ApproveWithNotReviewed_KeepsTheApprovedDecision()
     {
-        var (_, sessions) = await ConfirmAsync([First]);
+        var (_, sessions) = await ApproveAsync([First]);
 
         var stored = await sessions.GetOpenByThreadAsync(Platform, Thread, CancellationToken.None);
         stored!.Transcript.Should().Contain(turn => turn.Decision == SpecDialogDecision.Approved);
     }
 
     [Fact]
-    public async Task OutcomeConfirmer_ApproveWhenAllReviewed_StillConfirms()
+    public async Task Decision_ApproveWhenAllReviewed_StillFiles()
     {
-        var (result, _) = await ConfirmAsync(null);
+        var (filed, _) = await ApproveAsync(null);
 
-        result.Should().BeOfType<OutcomeConfirmed>();
+        filed.Should().BeTrue();
     }
 
-    private async Task<(ConfirmationResult Result, SpecDialogSessionManager Sessions)> ConfirmAsync(
-        IReadOnlyList<string>? notReviewed)
+    // 2026-11-10-ccd9: the proposal is stored awaiting by the flow and approved later by its id.
+    private async Task<(bool Filed, SpecDialogSessionManager Sessions)> ApproveAsync(IReadOnlyList<string>? notReviewed)
     {
-        var repository = new SpecDialogSessionRepository(_context);
-        var sessions = new SpecDialogSessionManager(repository, BoundSessionNudges.Quiet(repository),
-            AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+        var sink = new Mock<IOutcomeSink>();
+        var harness = new SpecDialogDecisionHarness(_context, new DashboardOutcomeChannel(
+            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
+            NullLogger<DashboardOutcomeChannel>.Instance), sink.Object);
+        var sessions = harness.Sessions;
         var state = await sessions.OpenAsync(Platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
+        var proposal = new SpecOutcome(new SpecDraftReader().Read(Yaml(First))) { NotReviewed = notReviewed };
+        await harness.Flow().HandleAsync(state, proposal, CancellationToken.None);
+        var id = (await harness.Outcomes.ReadAsync(Platform, Thread, CancellationToken.None)).ProposalId!;
         await sessions.AppendTurnAsync(Platform, Thread, TranscriptRole.User, "approve", null,
             SpecDialogDecision.Approved, CancellationToken.None);
-        var transport = new Mock<IDialogueTransport>();
-        transport.Setup(t => t.WaitForAnswerAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
-                new DialogAnswer(questionId, "approve", null, DateTimeOffset.UtcNow, "U1"));
-        var confirmer = new SpecDialogOutcomeConfirmer(transport.Object,
-            new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance),
-            new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), new SpecDialogOutcomeComposer(),
-            Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
-        var proposal = new SpecOutcome(new SpecDraftReader().Read(Yaml(First))) { NotReviewed = notReviewed };
 
-        return (await confirmer.ConfirmAsync(state, proposal, CancellationToken.None), sessions);
+        await harness.Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, CancellationToken.None);
+
+        var filed = sink.Invocations.Any(i => i.Method.Name == nameof(IOutcomeSink.AcceptAsync));
+        return (filed, sessions);
     }
 }

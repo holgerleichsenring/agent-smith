@@ -152,6 +152,8 @@ export interface SpecDialogSession {
   ticket: SpecDialogSessionTicket | null;
   /** 2026-11-05-862ea: what the design partner said the work is; null while none is stored. */
   workPicture?: SpecDialogWorkPicture | null;
+  /** 2026-11-10-ccd9: a draft under review beside the awaiting `proposal`; never approvable. */
+  reviewing?: SpecDialogProposalPush | null;
 }
 
 /** 2026-11-05-862ea: the work picture the design partner stated — kind and size as camelCase strings. */
@@ -412,6 +414,10 @@ export interface SpecDialogProposalPush {
   comment?: string | null;
   /** 2026-11-04-96a0c: per upload, what the proposing turn and the conversation opened; absent on an older proposal. */
   uploads?: SpecDialogUploadRead[];
+  /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries; absent on a draft under review. */
+  proposalId?: string | null;
+  /** 2026-11-10-ccd9: a draft under review — shown, never approvable, never over the awaiting proposal. */
+  reviewing?: boolean;
 }
 
 /** 2026-11-04-96a0c: one upload's read_file coverage, counted over the files read_file can open. */

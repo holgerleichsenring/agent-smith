@@ -82,29 +82,22 @@ public sealed class SpecDialogTurnLivenessTests
     }
 
     /// <summary>
-    /// The router holds the TURN across the approval wait that follows the computation, and
-    /// that wait is a wait on a person. The two spans are not the same: the gate is still
-    /// entered while nothing is being computed. The wait is entered for real here — the
-    /// confirmation gate is resolved and its transport is what reads the liveness.
+    /// 2026-11-10-ccd9: no approval wait follows the computation any more. The proposal is stored and shown,
+    /// and the turn is over: nothing computes while it awaits a decision, however long that takes.
     /// </summary>
     [Fact]
-    public async Task TurnRunner_AcrossTheApprovalWait_IsNotComputing()
+    public async Task TurnRunner_AfterProposing_NothingWaitsAndNothingComputes()
     {
-        var waiting = new AnsweringTransport();
-        await using var harness = BuildHarness(transport: waiting);
+        await using var harness = BuildHarness();
         var gate = harness.Services.GetRequiredService<SpecDialogTurnGate>();
         var state = await OpenAsync(harness, DispatcherDefaults.PlatformDashboard, Dialog);
-        gate.TryEnter(state.JobId).Should().BeTrue("the router enters before the turn runs");
         harness.ChatClient.EnqueueText("Here is the slice.");
         await RunTurnAsync(harness, state);
 
-        await ConfirmAsync(harness, state, waiting);
+        await ProposeAsync(harness, state);
 
-        waiting.WhileWaiting.Should().NotBeNull("the approval gate did wait");
-        waiting.WhileWaiting!.Computing.Should().BeFalse(
-            "waiting for an approval is waiting on a person, not computing");
-        gate.TryEnter(state.JobId).Should().BeFalse(
-            "the turn stays entered across that wait, which is why the two spans differ");
+        gate.Liveness(state.JobId).Computing.Should().BeFalse("a proposal awaiting a decision computes nothing");
+        gate.TryEnter(state.JobId).Should().BeTrue("and holds no turn while it waits");
     }
 
     /// <summary>The computing span must be closed by something that always runs. A throw
@@ -156,41 +149,11 @@ public sealed class SpecDialogTurnLivenessTests
             .Where(p => p.Method == "SpecDialogActivity")
             .Select(p => ((SpecDialogActivityPush)p.Args[0]!).TurnStartedAt)];
 
-    private static async Task ConfirmAsync(
-        RealCompositionHarness harness, ConversationState state, AnsweringTransport waiting)
+    private static async Task ProposeAsync(RealCompositionHarness harness, ConversationState state)
     {
         await using var scope = harness.Services.CreateAsyncScope();
-        waiting.Gate = harness.Services.GetRequiredService<SpecDialogTurnGate>();
-        waiting.SessionId = state.JobId;
-        await scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeConfirmer>()
-            .ConfirmAsync(
-                state, new SpecOutcome(new SpecDraft("p9001", "a goal", "spec: p9001", [])),
-                CancellationToken.None);
-    }
-
-    /// <summary>Answers the approval the moment it is asked, reading the liveness first —
-    /// which is the only moment the turn is entered and not computing.</summary>
-    private sealed class AnsweringTransport : IDialogueTransport
-    {
-        public SpecDialogTurnGate? Gate { get; set; }
-        public string SessionId { get; set; } = string.Empty;
-        public SpecDialogTurnLivenessView? WhileWaiting { get; private set; }
-
-        public Task PublishQuestionAsync(
-            string jobId, DialogQuestion question, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task<DialogAnswer?> WaitForAnswerAsync(
-            string jobId, string questionId, TimeSpan timeout, CancellationToken cancellationToken)
-        {
-            WhileWaiting = Gate?.Liveness(SessionId);
-            return Task.FromResult<DialogAnswer?>(
-                new DialogAnswer(questionId, "no", null, DateTimeOffset.UtcNow, "U-liveness"));
-        }
-
-        public Task PublishAnswerAsync(
-            string jobId, DialogAnswer answer, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        await scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeFlow>().HandleAsync(
+            state, new SpecOutcome(new SpecDraft("p9001", "a goal", "spec: p9001", [])), CancellationToken.None);
     }
 
     /// <summary>An accessor that cannot take an observer — the scope the runner opens throws.</summary>

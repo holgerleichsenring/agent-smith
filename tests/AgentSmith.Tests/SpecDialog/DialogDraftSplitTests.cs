@@ -104,43 +104,14 @@ public sealed class DialogDraftSplitTests : IDisposable
     {
         Replies((ReplyWithDraft, new SpecOutcome(new SpecDraft("p9999", "widget goal", Draft, []))),
             ("A smaller cut.", new AnswerOutcome()));
-        _transport.Setup(transport => transport.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
-                new DialogAnswer(questionId, "cut it smaller", null, DateTimeOffset.UtcNow, "U1"));
 
         await TurnAsync(Dashboard);
+        // 2026-11-10-ccd9: the note is an ordinary message, and it runs an ordinary turn.
+        await _router.TryRouteAsync("cut it smaller", "U1", "C1", Thread, Dashboard, false, CancellationToken.None);
 
-        _turns.Should().HaveCount(2, "the edit note re-runs the design turn");
+        _turns.Should().HaveCount(2, "the note runs the design turn again");
         PromptOf(_turns[1]).Should().Contain(Draft,
             "the master revises a draft it can still read in its own transcript");
-    }
-
-    // 2026-09-17-042ed: the findings were shown in a confirmation that is POSTED, never appended to
-    // the transcript, so the router hands the edit turn the proposal they ride on.
-    [Fact]
-    public async Task EditTurn_AfterAReviewedProposal_IsShownItsFindings()
-    {
-        var reviewed = new SpecOutcome(new SpecDraft("p9999", "widget goal", Draft, [])) with
-        {
-            Findings =
-            [
-                new ProposalFinding("p9999", "false premise", "the endpoint is already there",
-                    Quote: null, Evidence: "[P1] repo-a: the proposal review ran 'read src/Api.cs' exited 0"),
-            ],
-        };
-        Replies((ReplyWithDraft, reviewed), ("A smaller cut.", new AnswerOutcome()));
-        _transport.Setup(transport => transport.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
-                new DialogAnswer(questionId, "the endpoint is new, keep it", null, DateTimeOffset.UtcNow, "U1"));
-
-        await TurnAsync(Dashboard);
-
-        PromptOf(_turns[0]).Should().NotContain("the review of your last proposal",
-            "the turn that proposed it had nothing to be shown");
-        PromptOf(_turns[1]).Should().Contain("What the review of your last proposal found")
-            .And.Contain("[P1] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
     }
 
     [Fact]
@@ -151,12 +122,13 @@ public sealed class DialogDraftSplitTests : IDisposable
             Findings = [new ProposalFinding("p9999", "false premise", "already there")],
         };
         Replies((ReplyWithDraft, reviewed));
-        _transport.Setup(transport => transport.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
-                new DialogAnswer(questionId, "approve", null, DateTimeOffset.UtcNow, "U1"));
 
         await TurnAsync(Dashboard);
+        var id = (await new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context),
+                AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<SpecDialogLatestOutcomeStore>.Instance)
+            .ReadAsync(Dashboard, Thread, CancellationToken.None)).ProposalId;
+        await _router.TryRouteAsync("approve", "U1", "C1", Thread, Dashboard, false, CancellationToken.None, proposalId: id);
         await _router.TryRouteAsync("now the next thing", "U1", "C1", Thread, Dashboard, false, CancellationToken.None);
 
         _turns.Should().HaveCount(2, "the approved proposal was filed; this is an ordinary next turn");
@@ -232,24 +204,11 @@ public sealed class DialogDraftSplitTests : IDisposable
         var composer = new SpecDialogOutcomeComposer();
         var pending = new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System));
         var gate = new SpecDialogTurnGate(TimeProvider.System);
-        var flow = new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(_transport.Object, _messenger, pending, composer,
-                Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), composer, _messenger,
-            new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance, _hub),
-            new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-        return new SpecDialogRouter(
-            new SpecCommandParser(),
-            new SpecDialogCommandHandler(_sessions,
+        var flowHarness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, new DashboardOutcomeChannel(new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), NullLogger<DashboardOutcomeChannel>.Instance, _hub), Mock.Of<IOutcomeSink>(), _messenger);
+        var flow = flowHarness.Flow();
+        return flowHarness.Router(new SpecDialogCommandHandler(_sessions,
                 new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()),
-                new SpecDialogReplyComposer(), _messenger),
-            _turnRunner.Object, flow, gate,
-            new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object),
-            SilentTurnKeeper.Over(repository, _sessions, _context),
-            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
-            new SpecDialogReplyComposer(), _messenger, NullLogger<SpecDialogRouter>.Instance);
+                new SpecDialogReplyComposer(), _messenger), _turnRunner.Object, gate, new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object), SilentTurnKeeper.Over(repository, _sessions, _context));
     }
 
     private static ConversationState State() => new()

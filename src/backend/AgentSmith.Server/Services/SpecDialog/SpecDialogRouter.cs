@@ -10,16 +10,18 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// p0315b: a follow-up turn runs the design-partner master (one in-process
 /// spec-dialog pipeline run) instead of the p0315a receipt; a turn blocked on
 /// an ask_human question consumes the next thread message as its answer.
+/// <para>2026-11-10-ccd9: an approve or reject decides a card inside the turn gate and runs no turn; any
+/// other message, a clicked shape included, is an ordinary message that runs an ordinary turn.</para>
 /// </summary>
 public sealed class SpecDialogRouter(
     SpecCommandParser parser,
     SpecDialogCommandHandler commandHandler,
     ISpecDialogTurnRunner turnRunner,
     SpecDialogOutcomeFlow outcomeFlow,
+    SpecDialogDecisionPath decisions,
     SpecDialogTurnGate turnGate,
     SpecDialogAnswerAdmission admission,
     SpecDialogTurnKeeper keeper,
-    SpecDialogEditReload edits,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger,
     ILogger<SpecDialogRouter> logger)
@@ -27,14 +29,16 @@ public sealed class SpecDialogRouter(
     /// <summary>
     /// Routes the message if it belongs to the spec-dialog flow. Returns true when handled; false hands
     /// the message back to the normal intent path. The poster's display name is recorded on its turn.
+    /// <paramref name="proposalId"/> is the card the message was sent from, when a surface names one.
     /// </summary>
     public async Task<bool> TryRouteAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, bool mayStartRuns, CancellationToken ct, string? author = null)
+        string platform, bool mayStartRuns, CancellationToken ct, string? author = null, string? proposalId = null)
     {
         var command = parser.Parse(text);
         if (command is null)
-            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, mayStartRuns, author, ct);
+            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform,
+                new TurnPoster(userId, mayStartRuns), author, proposalId, ct);
 
         if (threadId is null)
         {
@@ -48,12 +52,12 @@ public sealed class SpecDialogRouter(
 
     private async Task<bool> TryContinueThreadAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, bool mayStartRuns, string? author, CancellationToken ct)
+        string platform, TurnPoster poster, string? author, string? proposalId, CancellationToken ct)
     {
         if (threadId is null) return false;
 
-        // A live question wins: the running master is blocked on it, so this message IS the
-        // answer (it stays in the transcript either way).
+        // Stored first, whatever happens next: a live question takes it as the answer, a busy gate
+        // still keeps it in the transcript.
         var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct, author);
         if (admitted is null) return false;
         if (admitted.Answered) return true;
@@ -61,12 +65,17 @@ public sealed class SpecDialogRouter(
 
         if (!turnGate.TryEnter(state.JobId))
         {
+            await admission.UndecideAsync(state, ct);
             await messenger.SendAsync(platform, channelId, threadId, composer.ComposeTurnInProgress(state), ct);
             return true;
         }
         try
         {
-            await RunTurnAsync(state, channelId, threadId, platform, new TurnPoster(userId, mayStartRuns), author, ct);
+            if (admitted.Decision is { } decision
+                && await decisions.DecideAsync(state, decision, proposalId, poster.MayStartRuns, ct))
+                return true;
+            if (admitted.Decision is not null) state = await admission.UndecideAsync(state, ct);
+            await RunTurnAsync(state, channelId, threadId, platform, poster, ct);
         }
         finally
         {
@@ -78,39 +87,24 @@ public sealed class SpecDialogRouter(
     }
 
     private async Task RunTurnAsync(
-        ConversationState state, string channelId, string threadId,
-        string platform, TurnPoster poster, string? author, CancellationToken ct)
+        ConversationState state, string channelId, string threadId, string platform, TurnPoster poster, CancellationToken ct)
     {
-        var current = state;
-        while (true)
+        SpecDialogTurnResult result;
+        try
         {
-            SpecDialogTurnResult result;
-            try
-            {
-                result = await turnRunner.RunTurnAsync(current, poster, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogError(ex, "Spec-dialog turn failed for session {SessionId}", current.JobId);
-                await messenger.SendAsync(
-                    platform, channelId, threadId, composer.ComposeTurnFailed(ex.Message), ct);
-                return;
-            }
-
-            if (await keeper.KeepAsync(current, result, platform, threadId, ct) is { } notice) // 2026-11-04-96a0b
-                await messenger.SendAsync(platform, channelId, threadId, notice, ct);
-            await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
-            // p0315e: a non-answer outcome is proposed + confirmed in-thread,
-            // then handed to the outcome sink (p0315c: ticket filing). Runs
-            // inside the turn gate; the pending-question branch above routes
-            // the approval answer.
-            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, poster.MayStartRuns, ct, result.Stewarded);
-            if (flowResult is not OutcomeFlowEditRequested edit) return;
-            // p0315c edit: the turn re-runs on a re-read state. 2026-09-22-355b: the note travels
-            // as a VALUE — a shape clicked on a chat surface never passed the place that appends.
-            if (await edits.RefreshedAsync(current, result.Outcome, edit.Note, ct, author)
-                is not { } refreshed) return;
-            current = refreshed;
+            result = await turnRunner.RunTurnAsync(state, poster, ct);
         }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Spec-dialog turn failed for session {SessionId}", state.JobId);
+            await messenger.SendAsync(platform, channelId, threadId, composer.ComposeTurnFailed(ex.Message), ct);
+            return;
+        }
+
+        if (await keeper.KeepAsync(state, result, platform, threadId, ct) is { } notice) // 2026-11-04-96a0b
+            await messenger.SendAsync(platform, channelId, threadId, notice, ct);
+        await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
+        // p0315e: a non-answer outcome is stored as the proposal awaiting a decision and shown; nothing waits.
+        await outcomeFlow.HandleAsync(state, result.Outcome, ct, result.Stewarded);
     }
 }

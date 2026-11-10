@@ -15,7 +15,7 @@ facts:
   - claim: "A continuation act on a bound ticket is not recorded either, so a crash after it leaves no trace of having acted."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:44-48,99-112"
   - claim: "OutcomeTicketFiler is at its 120-line cap."
-    evidence: "wc -l, 2026-11-10"
+    evidence: "observed: 2026-11-10, wc -l src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs"
 
 scope:
   in: "SPLIT FIRST: OutcomeTicketFiler. A filing record keyed by the claimed proposal's id and each spec's own draft id or list key (FiledSeries.Sources), holding the series base, which a resumed filing reuses through FiledSeriesFactory.Under instead of minting; the epic parent and the ticket-graph ids are seeded from the record. Before each create the filer refreshes its claim with a compare-and-set on ClaimedBy, so a second filer stops; each created ticket carries a tracker marker (the proposal id and draft key), checked before create on a resume. A continuation act is recorded the same way. The confirmed proposal is cleared only when every spec has a ticket; until then the card offers 'finish', which claims and resumes."

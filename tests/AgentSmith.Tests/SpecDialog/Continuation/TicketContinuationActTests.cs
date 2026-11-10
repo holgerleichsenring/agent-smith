@@ -48,7 +48,7 @@ public sealed class TicketContinuationActTests : IDisposable
             (B, SpecDispositionKinds.Recut), (A, SpecDispositionKinds.Kept));
         record.Set.Specs.Should().ContainSingle().Which.Draft.Goal.Should().Be("B, re-cut");
         _h.Sources.Writes.Should().BeEmpty("the run applies the dispositions to the branch, not the server");
-        (await _h.OpenProposalJsonAsync()).Should().BeNull("an acted-on proposal is not offered again");
+        // 2026-11-10-ccd9: the claim, not the sink, takes an approved proposal out of the awaiting slot.
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public sealed class TicketContinuationActTests : IDisposable
         _h.Sources.Writes.Should().ContainSingle();
         _h.Tracker.Regions.Should().ContainSingle();
         _h.Tracker.Created.Should().BeEmpty();
-        (await _h.OpenProposalJsonAsync()).Should().BeNull();
+        // 2026-11-10-ccd9: the claim, not the sink, takes an approved proposal out of the awaiting slot.
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public sealed class TicketContinuationActTests : IDisposable
             .And.NotContain("A rewritten after it ran");
         _h.Tracker.Comments.Should().Contain(c => c.TicketId == "42" && c.Comment.Contains("#43"))
             .And.Contain(c => c.TicketId == "43" && c.Comment.Contains("#42"));
-        (await _h.OpenProposalJsonAsync()).Should().BeNull();
+        // 2026-11-10-ccd9: the claim, not the sink, takes an approved proposal out of the awaiting slot.
     }
 
     [Fact]

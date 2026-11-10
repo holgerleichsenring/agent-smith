@@ -75,14 +75,14 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
       )}
       {other && (
         <div className="cp-body mock-dialog">
-          <DialogQuestionCard question={other} proposal={dialog.proposal}
-            onAnswer={(answer, decision) => void dialog.send(answer, project, decision)} />
+          <DialogQuestionCard question={other} proposal={dialog.awaitingProposal}
+            onAnswer={(answer, decision) => void dialog.send(answer, project, decision, undefined, other.questionId)} />
         </div>
       )}
       <div className="cp-actions">
         {label?.approvable && (
           <button type="button" className="btn primary" data-testid="ticket-approve"
-            onClick={() => composer.act({ kind: "decide", decision: "approved" })}>Approve</button>
+            onClick={() => composer.act({ kind: "decide", decision: "approved", proposalId: conversation.proposal?.proposalId ?? undefined })}>Approve</button>
         )}
         {label && (
           <>

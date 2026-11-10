@@ -265,13 +265,7 @@ public sealed class DialogImageUploadTests : IDisposable
     }
 
     private async Task<SpecDialogSessionView?> ReadAsync(string dialogId) =>
-        (await new SpecDialogViewReader(
-                _sessions, new SpecDialogProjectCatalog(Loader()),
-                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                new SpecDialogLatestOutcomeStore(
-                    _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                new SpecDialogTurnGate(TimeProvider.System), _ticketText, TestUploads.Over(_context))
+        (await new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context).View(_sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), new SpecDialogTurnGate(TimeProvider.System), _ticketText, TestUploads.Over(_context))
             .ReadAsync(dialogId, CancellationToken.None)).Session;
 
     private async Task<long> StoreAgainstAsync(string sessionId) =>

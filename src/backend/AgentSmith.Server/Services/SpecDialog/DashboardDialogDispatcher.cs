@@ -11,12 +11,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class DashboardDialogDispatcher(
     SpecDialogRouter router,
-    SpecDialogConversationResolver conversations,
+    DashboardDialogOpening opening,
     SpecDialogMessenger messenger,
-    TicketConversationBinder binder,
-    TicketTextForConversation ticketText,
-    AgentSmith.Contracts.Services.IConfigurationLoader configLoader,
-    AgentSmith.Contracts.Models.Configuration.ServerContext serverContext,
     ILogger<DashboardDialogDispatcher> logger)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
@@ -43,17 +39,20 @@ public sealed class DashboardDialogDispatcher(
     /// <param name="ticketId">2026-09-25-8e51b: the ticket the page was opened on, when it was.
     /// It rides with the project: a FIRST message is what opens the conversation, and one that missed its
     /// binding can never be given one.</param><param name="author">The poster's display name, kept on the turn.</param>
+    /// <param name="proposalId">2026-11-10-ccd9: the card the message was sent from — the id of the proposal the
+    /// page showed — so an approve or reject decides exactly that card.</param>
     public async Task DispatchAsync(
         string dialogId, string text, string userId, bool mayStartRuns,
-        string? project, CancellationToken cancellationToken, string? ticketId = null, string? author = null)
+        string? project, CancellationToken cancellationToken, string? ticketId = null, string? author = null,
+        string? proposalId = null)
     {
         try
         {
-            if (!await OpenedAsync(dialogId, project, userId, cancellationToken, ticketId)) return;
+            if (!await opening.OpenedAsync(dialogId, project, userId, cancellationToken, ticketId)) return;
             // The dialog id is both channel and thread: a browser page holds exactly one
             // conversation and has no channel above it to group them by.
             if (await router.TryRouteAsync(
-                    text, userId, dialogId, dialogId, Platform, mayStartRuns, cancellationToken, author))
+                    text, userId, dialogId, dialogId, Platform, mayStartRuns, cancellationToken, author, proposalId))
                 return;
             await TellAsync(dialogId, NoOpenDialog, cancellationToken);
         }
@@ -64,44 +63,6 @@ public sealed class DashboardDialogDispatcher(
                 CancellationToken.None);
         }
     }
-
-    /// <summary>
-    /// Whether routing should go ahead. With no project named there is nothing to open on, so the
-    /// message takes its chances with the router exactly as it did before — an open session
-    /// continues, and a dialog with none gets the tutorial, which is the caller that really has
-    /// nothing to open. With a project named, the conversation is resolved or opened FIRST.
-    /// <para>
-    /// A resolve that yields no session has already been answered: the command handler names the
-    /// unknown project or the choice to be made, and a foreign conversation was refused by the
-    /// route before this task started. Routing on would only add the tutorial on top of a reason
-    /// that is already truer than it.
-    /// </para>
-    /// </summary>
-    private async Task<bool> OpenedAsync(
-        string dialogId, string? project, string userId, CancellationToken cancellationToken,
-        string? ticketId)
-    {
-        if (string.IsNullOrWhiteSpace(project)) return true;
-        // Only a conversation that NAMES a ticket reads the catalog here; one without must reach
-        // the resolver exactly as it did before, config read included.
-        var resolved = string.IsNullOrWhiteSpace(ticketId) ? null : Resolved(project!);
-        var binding = resolved is null
-            ? null
-            : await binder.BindingForAsync(resolved, ticketId!, cancellationToken);
-        var target = await conversations.ResolveOrOpenAsync(
-            dialogId, project, userId, cancellationToken, binding);
-        if (target.SessionId is null) return false;
-        // 2026-09-25-8e51c: the ticket is read ONCE, here, where the conversation has just come
-        // into existence — a turn reads what was kept, not the tracker. 481be: and says it is.
-        if (binding is not null && resolved is not null)
-            await ticketText.ReadAsync(target.SessionId, resolved, binding.TicketId, dialogId, cancellationToken);
-        return true;
-    }
-
-    /// <summary>The project this conversation is on, or null when the catalog does not hold it.</summary>
-    private AgentSmith.Contracts.Models.Configuration.ResolvedProject? Resolved(string project) =>
-        configLoader.LoadConfig(serverContext.ConfigPath)?.Projects
-            .TryGetValue(project, out var resolved) == true ? resolved : null;
 
     // The page is the only place this conversation exists, so failing to reach it leaves
     // a person waiting on a reply that will never arrive — worth a warning of its own.

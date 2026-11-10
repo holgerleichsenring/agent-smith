@@ -84,16 +84,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
             [new DashboardAdapter(NullLogger<DashboardAdapter>.Instance, _hub)],
             NullLogger<SpecDialogMessenger>.Instance);
         _ownership = new SpecDialogOwnership(_repository);
-        _services = Services(new DashboardDialogDispatcher(
-            Router(messenger),
-            new SpecDialogConversationResolver(_sessions, _ownership, Commands(messenger)),
-            messenger,
-            AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository),
-            AgentSmith.Tests.TestSupport.TicketBinders.NoTicketText(
-                new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository(_context)),
-            AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(),
-            AgentSmith.Tests.TestSupport.TicketBinders.NoPath(),
-            NullLogger<DashboardDialogDispatcher>.Instance));
+        _services = Services(new DashboardDialogDispatcher(Router(messenger), new DashboardDialogOpening(new SpecDialogConversationResolver(_sessions, _ownership, Commands(messenger)), AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository), AgentSmith.Tests.TestSupport.TicketBinders.NoTicketText(
+                new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository(_context)), AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(), AgentSmith.Tests.TestSupport.TicketBinders.NoPath()), messenger, NullLogger<DashboardDialogDispatcher>.Instance));
     }
 
     [Fact]
@@ -585,24 +577,9 @@ public sealed class DashboardDialogChannelTests : IDisposable
     {
         var composer = new SpecDialogReplyComposer();
         var outcomeComposer = new SpecDialogOutcomeComposer();
-        var outcomeFlow = new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(
-                _dialogueTransport.Object, messenger, _pendingQuestions, outcomeComposer,
-                Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
-new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance, _hub),
-            new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
-            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-        return new SpecDialogRouter(
-            new SpecCommandParser(), Commands(messenger),
-            _turnRunner.Object, outcomeFlow, _turnGate,
-            new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object),
-            SilentTurnKeeper.Over(_repository, _sessions, _context),
-            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
-            composer, messenger,
-            NullLogger<SpecDialogRouter>.Instance);
+        var outcomeFlowHarness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, new DashboardOutcomeChannel(new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), NullLogger<DashboardOutcomeChannel>.Instance, _hub), Mock.Of<IOutcomeSink>(), messenger);
+        var outcomeFlow = outcomeFlowHarness.Flow();
+        return outcomeFlowHarness.Router(Commands(messenger), _turnRunner.Object, _turnGate, new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object), SilentTurnKeeper.Over(_repository, _sessions, _context));
     }
 
     private ServiceProvider Services(DashboardDialogDispatcher dispatcher)

@@ -107,9 +107,7 @@ public sealed class TicketFilingOutcomeSink(
             await latestOutcome.SetFilingAsync(state.Platform, state.ThreadId!, report, filed, cancellationToken);
             await outcomeChannel.FiledAsync(state, report, cancellationToken);
         }
-        // An acted-on proposal is over: the pane, the ticket's conversation and the preview must not offer it again.
-        if (outcome.Acted)
-            await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
+        // 2026-11-10-ccd9: the claim already freed the awaiting slot; clearing here could only wipe a newer proposal.
         await messenger.SendAsync(
             state.Platform, state.ChannelId, state.ThreadId!, outcome.Notice, cancellationToken);
         await sessions.AppendTurnAsync(

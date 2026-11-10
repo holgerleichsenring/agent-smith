@@ -535,6 +535,8 @@ export interface TicketConversation {
     notReviewed?: string[] | null;
     /** 2026-10-28-7a69c: the comment proposed for the ticket; absent for every other kind. */
     comment?: string | null;
+    /** 2026-11-10-ccd9: the id the page's Approve sends, naming exactly this proposal. */
+    proposalId?: string | null;
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;

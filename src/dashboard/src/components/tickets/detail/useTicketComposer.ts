@@ -17,7 +17,8 @@ import type { TicketConversation } from "@/types/tickets";
 export type ComposerAct =
   | { kind: "focus" }
   | { kind: "send"; text: string }
-  | { kind: "decide"; decision: SpecDialogDecision };
+  /** 2026-11-10-ccd9: proposalId is the proposal the page showed when the act was taken — never a later one. */
+  | { kind: "decide"; decision: SpecDialogDecision; proposalId?: string };
 
 export type ResumeRefusal =
   | { kind: "question-pending" }
@@ -67,7 +68,9 @@ export function useTicketComposer(conversation: TicketConversation, project: str
     if (queued.kind === "send") {
       void dialog.send(queued.text, project, undefined, sessionId ? undefined : ticketId);
     } else if (queued.kind === "decide") {
-      if (isOpenApproval(dialog.question)) void dialog.send(queued.decision === "approved" ? "approve" : "reject", project, queued.decision);
+      // 2026-11-10-ccd9: the decision names the proposal SHOWN when it was queued, not a card loaded after it.
+      const shown = queued.proposalId ?? dialog.question?.questionId;
+      if (isOpenApproval(dialog.question)) void dialog.send(queued.decision === "approved" ? "approve" : "reject", project, queued.decision, undefined, shown);
       else setMissed(true);
     }
   }, [ready, queued, dialog, project, ticketId, sessionId]);

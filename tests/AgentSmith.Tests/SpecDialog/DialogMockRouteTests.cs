@@ -115,11 +115,7 @@ public sealed class DialogMockRouteTests : IDisposable
     }
 
     private SpecDialogViewReader Reader(IConversationMockReader mocks) =>
-        new(_sessions, new SpecDialogProjectCatalog(Loader()),
-            new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-            new SpecDialogLatestOutcomeStore(_repository, BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-            new SpecDialogTurnGate(TimeProvider.System), new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context), mocks);
+        new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context).View(_sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), new SpecDialogTurnGate(TimeProvider.System), new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context), mocks);
 
     private async Task<string> OpenAsync() =>
         (await _sessions.OpenAsync("dashboard", Dialog, Dialog, Owner,

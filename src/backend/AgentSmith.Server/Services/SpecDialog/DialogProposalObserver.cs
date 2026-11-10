@@ -10,6 +10,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// 2026-11-09-9a98: stores a proposal under review on the session row and pushes it to the page.
 /// The row is what survives a cancel and what every replica reads. It writes in a scope of its
 /// own, because the turn's scope is in use around it, and it never fails the review it reports on.
+/// <para>2026-11-10-ccd9: it writes only the reviewing column and pushes the draft without an id, so
+/// the proposal awaiting a decision stays as it was and the draft cannot be approved.</para>
 /// </summary>
 public sealed class DialogProposalObserver(
     IServiceScopeFactory scopes, ConversationState state, ILogger<DialogProposalObserver> logger)
@@ -21,8 +23,8 @@ public sealed class DialogProposalObserver(
         {
             await using var scope = scopes.CreateAsyncScope();
             var services = scope.ServiceProvider;
-            await services.GetRequiredService<SpecDialogLatestOutcomeStore>()
-                .SetProposalAsync(state.Platform, state.ThreadId!, proposal, cancellationToken);
+            await services.GetRequiredService<SpecDialogProposalState>()
+                .StoreReviewingAsync(state, proposal, cancellationToken);
             await services.GetRequiredService<DashboardOutcomeChannel>()
                 .ProposeAsync(state, proposal, cancellationToken);
         }

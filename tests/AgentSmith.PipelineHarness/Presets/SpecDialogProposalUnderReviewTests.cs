@@ -68,9 +68,9 @@ public sealed class SpecDialogProposalUnderReviewTests
         _cancel.IsCancellationRequested.Should().BeTrue($"the person saw the proposal and cancelled (the turn ended on {first?.Reply})");
         _proposals.Should().ContainSingle().Which.UnderReview.Should().BeTrue();
         var view = await ViewAsync(harness);
-        view.Session!.Proposal.Should().NotBeNull("what the master wrote survives the cancel");
-        view.Session.Proposal!.UnderReview.Should().BeFalse("no turn is reviewing it any more");
-        view.Session.Proposal.NotReviewed.Should().Equal("2026-11-09-aaaa");
+        view.Session!.Reviewing.Should().NotBeNull("what the master wrote survives the cancel, as the draft under review (2026-11-10-ccd9)");
+        view.Session.Reviewing!.UnderReview.Should().BeFalse("no turn is reviewing it any more");
+        view.Session.Reviewing.NotReviewed.Should().Equal("2026-11-09-aaaa");
 
         harness.ChatClient.EnqueueText("Continuing.");
         await TurnAsync(harness, state, CancellationToken.None);

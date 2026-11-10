@@ -47,11 +47,12 @@ public sealed class DialogProposalPaneTests : IDisposable
     [Fact]
     public async Task Flow_WithASpecProposal_PublishesTheTypedProposal()
     {
-        var flow = Flow(new OutcomeRejected());
+        var flow = Flow();
 
-        await flow.HandleAsync(State(), new SpecOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(await OpenAsync(), new SpecOutcome(Draft("p9001")), CancellationToken.None);
 
         var push = Proposals().Single();
+        push.ProposalId.Should().NotBeNullOrEmpty("2026-11-10-ccd9: the shown proposal carries the id a decision names");
         push.Kind.Should().Be(SpecDialogProposalComposer.SpecKind);
         push.Spec!.SpecId.Should().Be("p9001");
         push.Spec.Goal.Should().Be("goal of p9001");
@@ -66,35 +67,34 @@ public sealed class DialogProposalPaneTests : IDisposable
     [Fact]
     public async Task Flow_WithAnAnswerOutcome_PublishesNoProposal()
     {
-        var flow = Flow(new OutcomeRejected());
+        var flow = Flow();
 
-        await flow.HandleAsync(State(), new AnswerOutcome(), false, CancellationToken.None);
+        await flow.HandleAsync(await OpenAsync(), new AnswerOutcome(), CancellationToken.None);
 
         Proposals().Should().BeEmpty(
             "an answer proposes nothing, so the pane keeps whatever is still under discussion");
     }
 
     [Fact]
-    public async Task Flow_AfterAnEditNote_PublishesTheSupersedingProposal()
+    public async Task Flow_ASecondProposal_SupersedesTheFirstUnderANewId()
     {
-        var flow = Flow(new OutcomeEditRequested("cut it smaller"), new OutcomeRejected());
-        var state = State();
+        var flow = Flow();
+        var state = await OpenAsync();
 
-        var first = await flow.HandleAsync(
-            state, new SpecOutcome(Draft("p9001")), false, CancellationToken.None);
-        await flow.HandleAsync(state, new SpecOutcome(Draft("p9002")), false, CancellationToken.None);
+        await flow.HandleAsync(state, new SpecOutcome(Draft("p9001")), CancellationToken.None);
+        await flow.HandleAsync(state, new SpecOutcome(Draft("p9002")), CancellationToken.None);
 
-        first.Should().BeOfType<OutcomeFlowEditRequested>();
         Proposals().Select(push => push.Spec!.SpecId).Should().Equal(["p9001", "p9002"],
-            "the edit round sends the design turn round again and the pane follows it");
+            "a later turn's proposal takes the place of the one awaiting a decision");
+        Proposals().Select(push => push.ProposalId).Distinct().Should().HaveCount(2, "each awaiting proposal has its own id");
     }
 
     [Fact]
     public async Task Proposal_ReachesOnlyTheSessionGroup()
     {
-        var flow = Flow(new OutcomeRejected());
+        var flow = Flow();
 
-        await flow.HandleAsync(State(), new SpecOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(await OpenAsync(), new SpecOutcome(Draft("p9001")), CancellationToken.None);
 
         _hub.Pushes.Should().OnlyContain(push => push.Group == HubGroups.SpecDialog(Dialog),
             "a design conversation is addressed to the one person holding it");
@@ -217,42 +217,13 @@ public sealed class DialogProposalPaneTests : IDisposable
     private DashboardOutcomeChannel Channel() =>
         new(Composer(), NullLogger<DashboardOutcomeChannel>.Instance, _hub);
 
-    /// <summary>
-    /// The real flow over a confirmer whose answers are scripted: the proposal is published
-    /// before the gate is asked, so what the gate then answers only decides where the flow
-    /// goes next — never whether the pane was told.
-    /// </summary>
-    private SpecDialogOutcomeFlow Flow(params ConfirmationResult[] answers)
-    {
-        var transport = new Mock<IDialogueTransport>();
-        var queue = new Queue<ConfirmationResult>(answers);
-        transport
-            .Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
-                Answer(questionId, queue.Dequeue()));
-        var messenger = new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance);
-        var composer = new SpecDialogOutcomeComposer();
-        return new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(
-                transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer,
-                Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), composer, messenger, Channel(),
-            new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
-            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(new SpecDialogSessionRepository(_context)), NullLogger<SpecDialogOutcomeFlow>.Instance);
-    }
+    /// <summary>2026-11-10-ccd9: the real flow over this test's store; nothing waits on an answer.</summary>
+    private SpecDialogOutcomeFlow Flow() =>
+        new SpecDialogDecisionHarness(_context, Channel(), Mock.Of<IOutcomeSink>()).Flow();
 
-    private static DialogAnswer Answer(string questionId, ConfirmationResult scripted) =>
-        new(questionId,
-            scripted switch
-            {
-                OutcomeConfirmed => "approve",
-                OutcomeRejected => "reject",
-                OutcomeEditRequested edit => edit.Note,
-                _ => string.Empty,
-            },
-            null, DateTimeOffset.UtcNow, "U1");
+    private Task<ConversationState> OpenAsync() =>
+        new SpecDialogDecisionHarness(_context, Channel(), Mock.Of<IOutcomeSink>()).Sessions.OpenAsync(
+            "dashboard", Dialog, Dialog, "U1", new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
 
     private static ConversationState State() => new()
     {

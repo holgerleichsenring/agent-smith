@@ -291,12 +291,7 @@ public sealed class ConversationSubjectTests : IDisposable
         (await _repository.GetOpenByThreadAsync(Platform, Thread, CancellationToken.None))!;
 
     private SpecDialogViewReader Reader() =>
-        new(_sessions, new SpecDialogProjectCatalog(Loader()),
-            new SpecDialogPendingQuestions(_turnGate),
-            new SpecDialogLatestOutcomeStore(
-                _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-            _turnGate, new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context));
+        new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context).View(_sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(_turnGate), new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), _turnGate, new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context));
 
     private SpecDialogRouter Router()
     {
@@ -310,35 +305,19 @@ public sealed class ConversationSubjectTests : IDisposable
             .Callback((ConversationState state, TurnPoster _, CancellationToken _) => _ranOn.Add(state))
             .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind, subject: _named, workPicture: _pictured));
         var outcomeComposer = new SpecDialogOutcomeComposer();
-        var outcomeFlow = new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(
-                Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(), messenger,
-                pendingQuestions, outcomeComposer, Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
-            new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance),
-            new SpecDialogLatestOutcomeStore(
-                _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-        return new SpecDialogRouter(
-            new SpecCommandParser(),
-            new SpecDialogCommandHandler(
-                _sessions, new SpecDialogScopeResolver(Loader()), composer, messenger),
-            turnRunner.Object, outcomeFlow, _turnGate,
-            new SpecDialogAnswerAdmission(
+        var outcomeFlowHarness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, null, Mock.Of<IOutcomeSink>(), messenger);
+        var outcomeFlow = outcomeFlowHarness.Flow();
+        return outcomeFlowHarness.Router(new SpecDialogCommandHandler(
+                _sessions, new SpecDialogScopeResolver(Loader()), composer, messenger), turnRunner.Object, _turnGate, new SpecDialogAnswerAdmission(
                 _sessions, pendingQuestions,
-                Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>()),
-            new SpecDialogTurnKeeper(_sessions, new SpecDialogSubjectStore(_repository),
+                Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>()), new SpecDialogTurnKeeper(_sessions, new SpecDialogSubjectStore(_repository),
                 new SpecDialogDigestWriter(
                     _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
                     AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), TimeProvider.System,
                     NullLogger<SpecDialogDigestWriter>.Instance),
                 new SpecDialogUploadArrivals(new ReferenceSetRepository(_context)),
                 AgentSmith.Tests.TestSupport.DialogThreadStores.Over(_context),
-                new SpecDialogWorkPictureStore(_repository, NullLogger<SpecDialogWorkPictureStore>.Instance)),
-            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
-            composer, messenger, NullLogger<SpecDialogRouter>.Instance);
+                new SpecDialogWorkPictureStore(_repository, NullLogger<SpecDialogWorkPictureStore>.Instance)));
     }
 
     private static IConfigurationLoader Loader()

@@ -189,6 +189,8 @@ export async function postSpecDialogMessage(
    *  one. It rides with the project for the same reason: the first message is what OPENS the
    *  conversation, and a conversation that missed its binding can never be given one. */
   ticketId?: string,
+  /** 2026-11-10-ccd9: the card the message was sent from, so an approve or reject decides exactly that proposal. */
+  proposalId?: string,
 ): Promise<void> {
   const res = await apiFetch(MESSAGES_PATH, {
     method: "POST",
@@ -198,6 +200,7 @@ export async function postSpecDialogMessage(
       text,
       project: project ?? null,
       ticketId: ticketId ?? null,
+      proposalId: proposalId ?? null,
     }),
   });
   if (!res.ok) throw await refused(res, MESSAGES_PATH);

@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-10-ccd9: "PROPOSAL NEVER EXPIRES (spec dialog flow, decision path, session row, chat clicks, dashboard card). The awaiting proposal lives on the row with an id; buttons and typed words decide the card seen; one compare-and-set claim wins across replicas; no confirmer, no timeout, no edit loop. -> .agentsmith/specs/done/2026-11-10-ccd9-proposal-never-expires.yaml"
     2026-11-10-4778: "DESIGN TURN EXECUTES (work clones, design work gate, sandbox factories, skills pin v5.26.0). With runs.control, containers and a per-job bus, the master runs commands in a fresh clone of the commit its reads show; the clone is the only credentialed step and ends with the turn; no shared caches, uploads too. -> .agentsmith/specs/done/2026-11-10-4778-design-turn-executes.yaml"
     2026-11-10-fcd7d: "PROJECT MEMORY PANEL (project memory endpoints, ProjectMemorySection). GET lists a project's memories newest first with standing, record and source under runs.read on the project; DELETE removes one with its ledger rows under runs.control; the section sits in the config view's project panel. -> .agentsmith/specs/done/2026-11-10-fcd7d-project-memory-panel.yaml"
     2026-11-10-fcd7c: "PROJECT MEMORY FROM CODING RUNS (remember, hand_forward, dispute, memory-discipline, CLAUDE.md). remember '@project' writes on the project with run and spec as source and no code change; relied_on and disputes cite '@project/slug'; descriptions name '@project' only where a store exists, the CLI refuses it. -> .agentsmith/specs/done/2026-11-10-fcd7c-project-memory-coding-run.yaml"
@@ -1431,7 +1432,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-10-ccd9: "PROPOSAL NEVER EXPIRES (spec dialog flow, chat adapters). Decisions name the card seen; drafts under review have their own column; one compare-and-set claim wins across replicas; filing after it unchanged. -> .agentsmith/specs/planned/2026-11-10-ccd9-proposal-never-expires.yaml"
     2026-11-10-825f: "RESUMABLE FILING (outcome ticket filer). A filing record keyed by draft ids keeps the series base, claim refresh and tracker markers make each ticket exactly once, and finish resumes a partial filing. requires ccd9. -> .agentsmith/specs/planned/2026-11-10-825f-filing-resumable.yaml"
     2026-11-10-7da6: "ONE PROPOSAL CARD (dashboard useSpecDialog). A re-draft replaces the unanswered card; a reload mid-turn puts the card under review at the end, and only there. requires ccd9. -> .agentsmith/specs/planned/2026-11-10-7da6-dialog-card-one-per-proposal.yaml"
     2026-11-10-548f: "DESIGN TURN BUDGET TIER (work picture, cost cap). An optional effort in the work picture raises the turn's cap, which buys review; higher tier wins; a new xl tier defaults to $40. -> .agentsmith/specs/planned/2026-11-10-548f-budget-design-turn-tier.yaml"

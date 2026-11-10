@@ -16,8 +16,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// for want of a record.
 /// </para>
 /// <para>
-/// Nothing here may fail its caller, because its callers are the approval question and the
-/// filing notice. The filing write runs AFTER the tickets exist: had a transient database error
+/// Nothing here may fail its caller, because its caller is the filing notice (2026-11-10-ccd9: the
+/// proposal's own writes moved to <see cref="SpecDialogProposalState"/>, where a failure fails the turn). The filing write runs AFTER the tickets exist: had a transient database error
 /// propagated from it, the notice telling the master and the transcript what was filed would
 /// never be written, and an operator seeing no confirmation asks again and files everything a
 /// second time. A record the pane uses for display is not worth a duplicate ticket, so a failed
@@ -32,16 +32,6 @@ public sealed class SpecDialogLatestOutcomeStore(
     // In the OPTIONS, never on the property: there it outranks the enum's own and changes the page.
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         { Converters = { new TolerantNullableEnumConverter<FiledStartState>() } };
-
-    public Task SetProposalAsync(
-        string platform, string threadId, OutcomeProposal proposal, CancellationToken ct) =>
-        UpdateOpenAsync(platform, threadId,
-            session => session.LatestProposalJson = OutcomeProposalJson.Write(proposal), ct);
-
-    /// <summary>A rejected or timed-out proposal is no longer under discussion; a reload must
-    /// not offer an approval nobody is waiting for.</summary>
-    public Task ClearProposalAsync(string platform, string threadId, CancellationToken ct) =>
-        UpdateOpenAsync(platform, threadId, session => session.LatestProposalJson = null, ct);
 
     public Task SetFilingAsync(
         string platform, string threadId, FilingReport report, OutcomeProposal filed,
@@ -79,10 +69,14 @@ public sealed class SpecDialogLatestOutcomeStore(
     /// view and by the conversation list alike. Forgiving for both: one unreadable row shows as
     /// absent rather than failing the whole dialog read, or the whole list.
     /// </summary>
+    /// <para>2026-11-10-ccd9: the awaiting proposal and its id; a row no build of ccd9 has touched yet still
+    /// shows its LatestProposalJson until a read backfills it.</para>
     internal SpecDialogLatestOutcome Of(SpecDialogSession session) => new(
-        Readable(session.LatestProposalJson, OutcomeProposalJson.Read, session.ThreadId),
+        Readable(SpecDialogAwaitingRow.Json(session), OutcomeProposalJson.Read, session.ThreadId),
         Readable(session.LatestFilingJson,
-            json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), session.ThreadId));
+            json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), session.ThreadId),
+        SpecDialogAwaitingRow.Id(session),
+        Readable(session.ReviewingProposalJson, OutcomeProposalJson.Read, session.ThreadId));
 
     private T? Readable<T>(string? json, Func<string, T?> read, string? threadId) where T : class
     {

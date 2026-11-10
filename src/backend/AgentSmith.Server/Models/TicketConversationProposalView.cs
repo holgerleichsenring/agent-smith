@@ -17,6 +17,9 @@ public sealed record TicketConversationProposalView(string Kind, IReadOnlyList<T
 
     /// <summary>2026-10-13-8762i: the spec ids (or "series") not reviewed yet; null when all were.</summary>
     public IReadOnlyList<string>? NotReviewed { get; init; }
+
+    /// <summary>2026-11-10-ccd9: the id an approve or reject of this proposal carries; null before a read backfills it.</summary>
+    public string? ProposalId { get; init; }
 }
 
 /// <summary>2026-10-13-9a59h: one drafted spec of an open proposal.</summary>

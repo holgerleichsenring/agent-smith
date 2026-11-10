@@ -435,10 +435,11 @@ export function SpecDialogSurface() {
                     {dialog.question && (
                       <DialogQuestionCard
                         question={dialog.question}
-                        proposal={dialog.proposal}
+                        proposal={dialog.awaitingProposal}
                         ticketEffect={ticketEffect}
                         inTicket={bound !== null}
-                        onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
+                        onAnswer={(answer, decision) =>
+                          void dialog.send(answer, project, decision, undefined, dialog.question?.questionId)}
                       />
                     )}
                   </>

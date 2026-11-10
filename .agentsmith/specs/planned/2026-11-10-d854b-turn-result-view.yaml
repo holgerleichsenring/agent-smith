@@ -15,7 +15,7 @@ facts:
   - claim: "A finished turn shows no steps today: DialogWorking renders only while the dialog is working."
     evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:428-433"
   - claim: "The operator approved the layout in a mock."
-    evidence: "https://claude.ai/artifact/5sBqNLKzQ3GK96mGRvfnYg (2026-11-10)"
+    evidence: "observed: 2026-11-10, https://claude.ai/artifact/5sBqNLKzQ3GK96mGRvfnYg"
 
 scope:
   in: "A TurnResult component renders on every transcript turn that has its own proposal (d854c), live and after a reload: the reply prose as summary; one collapsed activity line (duration, steps, sub-agents, review rounds, cost) that opens the turn's steps page by page from its run; an amber banner when Spend.capHit; the questions from Questions with question, proposal and spec ids — 'Take proposal' sends the question and the proposal as the person's reply, 'Answer' puts the question into the composer; the specs in build order, one row each with id, goal, repository and a status pill (reviewed clean, findings, not reviewed), opening to findings, done criteria and links to yaml, facts and rounds; the approve bar on the current awaiting proposal only, sending its proposal id (2026-11-10-ccd9). SpecDialogDraftView gains Repos. ProposalBlock renders TurnResult: TicketConversationProposalView gains Questions and Spend and its drafts gain Yaml; dispositions and ratified mocks stay ticket-only, passed to TurnResult as optional parts. The side panel keeps graph and uploads; rounds move into the rows."

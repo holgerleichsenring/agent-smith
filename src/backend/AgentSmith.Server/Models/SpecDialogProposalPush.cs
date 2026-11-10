@@ -53,4 +53,10 @@ public sealed record SpecDialogProposalPush(
 
     /// <summary>2026-10-28-7a69c: the comment a ticket's conversation proposes to post; null for every other kind.</summary>
     public string? Comment { get; init; }
+
+    /// <summary>2026-11-10-ccd9: the awaiting proposal's id, which a decision on it carries; null on a draft under review.</summary>
+    public string? ProposalId { get; init; }
+
+    /// <summary>2026-11-10-ccd9: a draft under review, never approvable and never over the awaiting proposal.</summary>
+    public bool Reviewing { get; init; }
 }

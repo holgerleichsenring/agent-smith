@@ -38,10 +38,12 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
     /// <summary>The open proposal and its drafts; null when none is open.</summary>
     public TicketConversationProposalView? Proposal(SpecDialogSession session)
     {
-        if (session.LatestProposalJson is not { } json) return null;
+        // 2026-11-10-ccd9: the proposal awaiting a decision, with the id the page's approve sends.
+        if (SpecDialogAwaitingRow.Json(session) is not { } json) return null;
         var ratified = Read(session, () => RatifiedMocks.Of(SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson)),
             new Dictionary<string, int>());
-        return Read<TicketConversationProposalView?>(session, () => Of(OutcomeProposalJson.Read(json), ratified), null);
+        return Read<TicketConversationProposalView?>(session,
+            () => Of(OutcomeProposalJson.Read(json), ratified) with { ProposalId = SpecDialogAwaitingRow.Id(session) }, null);
     }
 
     private static TicketConversationProposalView Of(OutcomeProposal proposal, IReadOnlyDictionary<string, int> ratified) => (proposal switch

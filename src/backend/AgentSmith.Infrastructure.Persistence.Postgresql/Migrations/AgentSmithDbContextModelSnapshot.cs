@@ -2675,6 +2675,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("AwaitingProposalJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("ChannelId")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -2703,13 +2706,31 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<DateTimeOffset?>("PostedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PostedProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Project")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("ProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ProposalState")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("ReposJson")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewingProposalJson")
                         .HasColumnType("text");
 
                     b.Property<string>("SessionId")

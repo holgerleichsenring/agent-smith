@@ -19,7 +19,7 @@ public sealed class TeamsInteractionHandler(
     ClarificationTaker clarifications,
     SlackMessageDispatcher messageDispatcher,
     TeamsAdapter adapter,
-    SpecDialogButtonAnswer dialogButtons, // 2026-10-26-0f19b: a card submit for a question another replica asked
+    SpecDialogChatClick dialogClicks, // 2026-11-10-ccd9: a submit on a conversation's card, decided by its id
     ILogger<TeamsInteractionHandler> logger)
 {
     private const string ClarificationPrefix = "clarification";
@@ -82,21 +82,18 @@ public sealed class TeamsInteractionHandler(
         string conversationId, string userId, string questionId,
         string answer, string? comment, CancellationToken ct)
     {
-        // A typed question this replica asked completes its own wait; one another replica asked for a
-        // spec dialog is found through the conversation's session (2026-10-26-0f19b).
+        // A typed question this replica asked completes its own wait; a conversation's card is decided by its
+        // id (2026-11-10-ccd9); a run started from this conversation takes its answer; an older card is told so.
         var dialogAnswer = new DialogAnswer(questionId, answer, comment, DateTimeOffset.UtcNow, userId);
+        var teams = DispatcherDefaults.PlatformTeams;
         if (adapter.TryCompleteTypedQuestion(questionId, dialogAnswer)
-            || await dialogButtons.TryAnswerAsync(DispatcherDefaults.PlatformTeams, conversationId, dialogAnswer, ct))
+            || await dialogClicks.TryCurrentAsync(teams, conversationId, conversationId, dialogAnswer, ct)
+            || await answers.TryAnswerAsync(new ChatThread(teams, conversationId, conversationId, userId), questionId, answer, comment, ct)
+            || await dialogClicks.TryStaleAsync(teams, conversationId, conversationId, dialogAnswer, ct))
         {
-            logger.LogInformation("Teams typed question '{QuestionId}' answered with '{Answer}' by {User}",
-                questionId, answer, userId);
+            logger.LogInformation("Teams question '{QuestionId}' answered with '{Answer}' by {User}", questionId, answer, userId);
             return;
         }
-
-        // A run started from this conversation: the binding says which run the answer belongs to.
-        var thread = new ChatThread(DispatcherDefaults.PlatformTeams, conversationId, conversationId, userId);
-        if (!await answers.TryAnswerAsync(thread, questionId, answer, comment, ct))
-            logger.LogWarning("Teams answer for {QuestionId} in {ConversationId} matches no open run",
-                questionId, conversationId);
+        logger.LogWarning("Teams answer for {QuestionId} in {ConversationId} matches no open run", questionId, conversationId);
     }
 }

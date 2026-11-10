@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-ccd9
+
+decisions:
+  - category: Architecture
+    chose: "The awaiting proposal is a state of the session row, decided later by a message that carries its id; the confirmer and its 15-minute wait are deleted"
+    over: "A longer or configurable timeout, or keeping the wait and only storing the proposal on timeout"
+    reason: "Conversations 43 and 44 lost $1.82 and $5.72 proposals to the timeout clear. A wait holds a turn for a person; a row holds nothing and survives a restart and every replica."
+  - category: Architecture
+    chose: "New columns AwaitingProposalJson, ProposalId, ProposalState, ReviewingProposalJson, PostedProposalId, PostedAt; LatestProposalJson stays a mirror for old builds and is cleared with the awaiting slot"
+    over: "Reusing LatestProposalJson for the awaiting proposal"
+    reason: "Old-build replicas still write and time out LatestProposalJson during a rolling deploy; a column they never touch cannot be wiped or mixed by them. The mirror keeps their reads meaningful and lets the lazy backfill tell a pre-deploy row (no id, no awaiting) from a cleared one."
+  - category: Implementation
+    chose: "SpecDialogProposalClaim does every write by compare-and-set: claim WHERE id AND awaiting AND json not null moves it to ConfirmedOutcomeJson; reject and supersede clear json, id and state together WHERE awaiting"
+    over: "Read-modify-save through the tracked entity"
+    reason: "The turn gate is in-process; only the database decides between two replicas or two surfaces. A claim that frees the slot also lets the next turn propose at once, which is why the post-filing clear in TicketFilingOutcomeSink went."
+  - category: Implementation
+    chose: "Store before show, and SpecDialogProposalState fails its caller; the flow reports ComposeTurnFailed and shows no card when the awaiting write fails"
+    over: "The pane store's logged drop"
+    reason: "Once the row is the only record, a card the row does not hold is a card nobody can decide. The filing record keeps its logged drop, because it runs after tickets exist."
+  - category: Implementation
+    chose: "The surface names the card: buttons and the page's composer send the proposal id; a typed chat word binds to PostedProposalId when the last non-Notice agent entry is not later than PostedAt"
+    over: "The server guessing which card a typed word meant from the transcript"
+    reason: "A guess races the next draft. Deviation from the spec text: PostedAt is the server's clock when the post-only call returned, not the Slack ts or Teams activity time, because the thread adapters return no platform timestamp; the latest-entry check covers the race the timestamp was meant to close."
+  - category: Implementation
+    chose: "A chat click whose id is the awaiting or last-posted card routes as the clicker's message through the router; an unknown id first tries the run-answer binding, then gets the replaced Notice and a reposted card"
+    over: "Keeping SpecDialogButtonAnswer and the Redis open-question record"
+    reason: "With no wait there is nothing to publish an answer onto. Routing as a message reuses admission, the gate and the decision path, so a click and a typed word cannot disagree."
+  - category: Implementation
+    chose: "An ordinary message runs an ordinary turn; the awaiting proposal (or a draft under review) is seeded as the proposal being revised"
+    over: "The router's edit re-run loop and the forced 'Revising the proposal' acknowledgement"
+    reason: "The operator's coordinator decided it (2026-11-10). The master sees the proposal and revises it when the message asks for it; a new draft supersedes the old one with a Notice."
+  - category: Implementation
+    chose: "Split DashboardDialogDispatcher (opening moved to DashboardDialogOpening) and SpecDialogViewReader (holdings moved to SpecDialogHoldings); the latest-outcome store lost its proposal writes"
+    over: "Growing files at the 120-line cap"
+    reason: "FileLengthRatchetTests. SlackInteractionHandler shrank by itself once the button-answer branch collapsed into one chain, so it was not split."

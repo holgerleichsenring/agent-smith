@@ -16,7 +16,7 @@ facts:
   - claim: "Where loop hooks exist, they read the cap once when they are built."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterLoopHooksFactory.cs:27"
   - claim: "Conversation 44's turn has BudgetTier NULL and its review stopped at '$5.00 / 1,500,000 tokens' with 7 of 10 specs unreviewed."
-    evidence: "Runs and SpecDialogSessions rows of run 2026-11-10T19-36-22-96b7, read 2026-11-10"
+    evidence: "observed: 2026-11-10, Runs and SpecDialogSessions rows of run 2026-11-10T19-36-22-96b7"
   - claim: "The work picture is stated through state_work_picture, whose kind argument describes its values in its own [Description]; the stored picture is seeded into the next turn and rendered by WorkPictureSection."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:20-46; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:71; src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureSection.cs:14-23"
   - claim: "Admission parses a closed set by every enum value. The keeper stores a picture only from a turn that did not fail, and the runner's failure branch builds its result without the slot's picture; the runner is at its 120-line cap."

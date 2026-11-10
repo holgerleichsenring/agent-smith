@@ -42,8 +42,9 @@ internal static class SpecDialogExtensions
         // store. p0315c: the sink files real tickets via the active scope's
         // tracker (renderer + filer), replacing the session-store default.
         services.AddTransient<SpecDialogOutcomeComposer>();
-        services.AddTransient<SpecDialogOutcomeConfirmer>();
-        services.AddSingleton<AgentSmith.Server.Contracts.IOpenDialogQuestions, RedisOpenDialogQuestions>().AddScoped<SpecDialogButtonAnswer>(); // 2026-10-26-0f19b
+        // 2026-11-10-ccd9: no wait — the awaiting proposal lives on the row and a decision names it by id.
+        services.AddScoped<SpecDialogProposalState>().AddScoped<SpecDialogDecisionPath>().AddScoped<SpecDialogChatClick>()
+            .AddScoped<SpecDialogChatCard>().AddScoped<SpecDialogNotices>();
         services.AddTransient<SpecTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
@@ -67,7 +68,6 @@ internal static class SpecDialogExtensions
         // which is where it stores the subject. The edit re-entry shares that unit of work for
         // the same reason.
         services.AddScoped<SpecDialogSubjectStore>().AddScoped<SpecDialogWorkPictureStore>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
-        services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
@@ -78,11 +78,11 @@ internal static class SpecDialogExtensions
             .AddScoped<ApprovedSetDivergence>();  // 8e51c, 481ba, 8e51e
         services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb
         services.AddScoped<ApprovedSetForConversation>();  // 8e51d
-        services.AddScoped<DashboardDialogDispatcher>();
+        services.AddScoped<DashboardDialogDispatcher>().AddScoped<DashboardDialogOpening>();
         // 2026-09-15-cb3e: the dialog page's read — scoped for the session manager's unit of work,
         // the catalog transient because it re-reads the configuration per call.
         services.AddTransient<SpecDialogProjectCatalog>();
-        services.AddScoped<SpecDialogViewReader>();
+        services.AddScoped<SpecDialogViewReader>().AddScoped<SpecDialogHoldings>();
         services.AddScoped<SpecDialogConversationList>();
         // 2026-09-18-7a05: and the delete of one, over the same scoped unit of work that sweeps
         // the session row and its durable answers in one transaction.

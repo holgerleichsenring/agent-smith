@@ -259,7 +259,7 @@ public sealed class DialogConversationListTests : IDisposable
     {
         await OpenAsync("d-1");
         var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
-        await store.SetProposalAsync(Platform, "d-1", Epic(), CancellationToken.None);
+        await StoreAsync("d-1", Epic());
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: parent")], "the second slice was refused"),
             Epic(), CancellationToken.None);
@@ -273,8 +273,7 @@ public sealed class DialogConversationListTests : IDisposable
     public async Task Outcome_WithNothingFiled_IsNull()
     {
         await OpenAsync("d-1");
-        await new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
-            .SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
+        await StoreAsync("d-1", Spec());
 
         (await ListAsync()).Single().Outcome.Should().BeNull("only a filing produces an outcome");
     }
@@ -284,12 +283,12 @@ public sealed class DialogConversationListTests : IDisposable
     {
         var state = await StateAsync("d-1");
         var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
-        await store.SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
+        await StoreAsync("d-1", Spec());
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: the spec")], null), Spec(), CancellationToken.None);
         var before = (await ListAsync()).Single().Outcome;
 
-        await Flow(store).HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
+        await Flow(store).HandleAsync(state, new AnswerOutcome(), CancellationToken.None);
 
         before.Should().Be(new SpecDialogConversationOutcome("spec", Tickets: 1, Partial: false));
         (await ListAsync()).Single().Outcome.Should().Be(before);
@@ -306,12 +305,13 @@ public sealed class DialogConversationListTests : IDisposable
     {
         await OpenAsync("d-1");
         var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
-        await store.SetProposalAsync(Platform, "d-1", Epic(), CancellationToken.None);
+        await StoreAsync("d-1", Epic());
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: parent")], null), Epic(), CancellationToken.None);
 
-        await store.SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
-        await store.ClearProposalAsync(Platform, "d-1", CancellationToken.None);
+        await StoreAsync("d-1", Spec());
+        await new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context).Proposals.SupersedeAsync(
+            (await _sessions.GetOpenByThreadAsync(Platform, "d-1", CancellationToken.None))!, CancellationToken.None);
 
         (await ListAsync()).Single().Outcome!.Kind.Should().Be("epic",
             "what was filed does not change because a later idea was dropped");
@@ -397,19 +397,13 @@ public sealed class DialogConversationListTests : IDisposable
         listed.Should().ContainSingle(summary => summary.OpenDialogId == null);
     }
 
-    private SpecDialogOutcomeFlow Flow(SpecDialogLatestOutcomeStore store)
-    {
-        var messenger = new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance);
-        var composer = new SpecDialogOutcomeComposer();
-        return new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(Mock.Of<IDialogueTransport>(), messenger,
-                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer, Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), composer, messenger,
-            new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance, new RecordingDialogHub()),
-            store, AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-    }
+    // 2026-11-10-ccd9: the flow over this store; the store argument names what the test reads back.
+    private SpecDialogOutcomeFlow Flow(SpecDialogLatestOutcomeStore store) =>
+        new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context).Flow();
+
+    private async Task StoreAsync(string dialogId, OutcomeProposal proposal) =>
+        await new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context).Proposals.StoreAwaitingAsync(
+            (await _sessions.GetOpenByThreadAsync(Platform, dialogId, CancellationToken.None))!, proposal, CancellationToken.None);
 
     private static SpecOutcome Spec() => new(new SpecDraft("p1", "the spec", "spec: p1", []));
 

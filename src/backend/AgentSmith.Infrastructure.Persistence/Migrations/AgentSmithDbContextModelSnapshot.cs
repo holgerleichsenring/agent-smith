@@ -2593,6 +2593,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AwaitingProposalJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ChannelId")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -2621,13 +2624,31 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("PostedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PostedProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Project")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProposalState")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ReposJson")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReviewingProposalJson")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SessionId")

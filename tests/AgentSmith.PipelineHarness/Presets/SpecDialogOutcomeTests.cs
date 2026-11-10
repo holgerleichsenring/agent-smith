@@ -204,19 +204,15 @@ public sealed partial class SpecDialogOutcomeTests
         var state = Discussed("draft the widget spec now");
 
         var result = await RunTurnAsync(harness, state);
-        var flow = RunFlowAsync(harness, state, result.Outcome);
+        await RunFlowAsync(harness, state, result.Outcome);
         var question = await adapter.WaitForQuestionAsync();
 
         sink.Accepted.Should().BeEmpty("nothing routes before the explicit in-thread confirmation");
         question.Type.Should().Be(QuestionType.Approval);
         question.Text.Should().Contain("p9999", "the proposed outcome is shown for confirmation");
 
-        // The operator answers by TEXT in the thread — the dialogue-transport
-        // path — not by button; both surfaces feed the same wait.
-        await bridge.PublishAnswerAsync(state.JobId,
-            new DialogAnswer(question.QuestionId, "approve", null, DateTimeOffset.UtcNow, "U-harness"),
-            CancellationToken.None);
-        (await flow).Should().BeOfType<OutcomeFlowCompleted>();
+        // 2026-11-10-ccd9: the click arrives later, names the card by its id, and decides that card.
+        await ClickAsync(harness, state, question.QuestionId, "approve");
 
         sink.Accepted.Should().ContainSingle("the approval releases the proposal to the sink");
     }
@@ -229,9 +225,8 @@ public sealed partial class SpecDialogOutcomeTests
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-answer");
 
-        var flowResult = await RunFlowAsync(bed.Harness, state, new AnswerOutcome());
+        await RunFlowAsync(bed.Harness, state, new AnswerOutcome());
 
-        flowResult.Should().BeOfType<OutcomeFlowCompleted>();
         bed.Tickets.Created.Should().BeEmpty("an answer files nothing");
         bed.Adapter.Questions.Should().BeEmpty("an answer is never proposed for confirmation");
     }
@@ -379,28 +374,28 @@ public sealed partial class SpecDialogOutcomeTests
         var draft = new SpecDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        var flowResult = await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
+        await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
 
-        flowResult.Should().BeOfType<OutcomeFlowCompleted>("a rejection ends the flow — no revision loop");
         bed.Tickets.Created.Should().BeEmpty("reject files nothing");
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("Rejected — nothing was filed"),
             "the thread is told explicitly");
     }
 
     [Fact]
-    public async Task CreateSpec_EditReply_RequestsRevisionAndFilesNothing()
+    public async Task CreateSpec_NobodyAnswers_FilesNothingAndTheProposalStaysAwaiting()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "split the storage slice in two");
         var state = await bed.OpenSessionAsync("th-edit");
         var draft = new SpecDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        var flowResult = await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
+        await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
 
-        flowResult.Should().BeOfType<OutcomeFlowEditRequested>()
-            .Which.Note.Should().Be("split the storage slice in two");
-        bed.Tickets.Created.Should().BeEmpty("an edit note files nothing — the master revises first");
-        bed.Adapter.SentTexts.Should().Contain(t => t.Contains("Revising the proposal"));
+        bed.Tickets.Created.Should().BeEmpty("a note is an ordinary message; nothing is filed without an approve");
+        await using var scope = bed.Harness.Services.CreateAsyncScope();
+        (await scope.ServiceProvider.GetRequiredService<SpecDialogLatestOutcomeStore>()
+                .ReadAsync("slack", "th-edit", CancellationToken.None))
+            .ProposalId.Should().NotBeNullOrEmpty("2026-11-10-ccd9: the proposal never expires");
     }
 
     // ---- harness plumbing ----
@@ -434,6 +429,8 @@ public sealed partial class SpecDialogOutcomeTests
             // the approval question (blocks surface) and scripts the button.
             services.RemoveAll<IPlatformAdapter>();
             services.AddSingleton<IPlatformAdapter>(adapter);
+            services.RemoveAll<IChatThreadAdapter>();
+            services.AddSingleton<IChatThreadAdapter>(adapter);
             extra?.Invoke(services);
         });
 
@@ -445,12 +442,32 @@ public sealed partial class SpecDialogOutcomeTests
         return await runner.RunTurnAsync(state, new TurnPoster("U1", false), CancellationToken.None);
     }
 
-    private static async Task<OutcomeFlowResult> RunFlowAsync(
+    /// <summary>
+    /// 2026-11-10-ccd9: the flow stores and shows the proposal; nothing waits. When the recording adapter
+    /// scripts an answer, it is CLICKED on the posted card afterwards — the real chat-click path, decided by
+    /// the card's id. A note or a shape is an ordinary message and is not clicked here.
+    /// </summary>
+    private static async Task RunFlowAsync(
         RealCompositionHarness harness, ConversationState state, OutcomeProposal outcome)
     {
         await using var scope = harness.Services.CreateAsyncScope();
-        var flow = scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeFlow>();
-        return await flow.HandleAsync(state, outcome, false, CancellationToken.None);
+        var sessions = scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>();
+        var open = await sessions.GetOpenByThreadAsync(state.Platform, state.ThreadId!, CancellationToken.None)
+            ?? await sessions.OpenAsync(state.Platform, state.ChannelId, state.ThreadId!, state.UserId,
+                state.Scope ?? new ActiveScope { Project = Project, Repos = [Repo] }, CancellationToken.None);
+        await scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeFlow>()
+            .HandleAsync(open, outcome, CancellationToken.None);
+        var adapter = scope.ServiceProvider.GetServices<IPlatformAdapter>().OfType<RecordingChatAdapter>().Single();
+        if (adapter.AutoAnswer is not { } answer || SpecDialogAnswerWords.DecisionIn(answer) is null
+            || adapter.Questions.LastOrDefault() is not { } card) return;
+        await ClickAsync(harness, open, card.QuestionId, answer);
+    }
+
+    private static async Task ClickAsync(RealCompositionHarness harness, ConversationState state, string cardId, string answer)
+    {
+        await using var scope = harness.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<SpecDialogChatClick>().TryCurrentAsync(state.Platform, state.ChannelId,
+            state.ThreadId, new DialogAnswer(cardId, answer, null, DateTimeOffset.UtcNow, "U-harness"), CancellationToken.None);
     }
 
     // The p0315d inverse: the ticket body must hold exactly ONE ```yaml block
@@ -643,7 +660,7 @@ public sealed partial class SpecDialogOutcomeTests
     /// surface) and every threaded info post; AutoAnswer scripts the button
     /// click, otherwise the ask waits until the turn cancels it.
     /// </summary>
-    private sealed class RecordingChatAdapter : IPlatformAdapter
+    private sealed class RecordingChatAdapter : IPlatformAdapter, IChatThreadAdapter
     {
         private readonly List<DialogQuestion> _questions = [];
         private readonly List<string> _sent = [];
@@ -695,6 +712,22 @@ public sealed partial class SpecDialogOutcomeTests
 
         public Task SendMessageAsync(string channelId, string text, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        // 2026-11-10-ccd9: the approval card is POSTED to the thread; its answer arrives later as a click.
+        public string? ReplyEndpointFor(string channelId) => null;
+
+        public Task PostAsync(ChatThread thread, string text, CancellationToken cancellationToken)
+        {
+            lock (_sent) _sent.Add(text);
+            return Task.CompletedTask;
+        }
+
+        public Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
+        {
+            lock (_questions) _questions.Add(question);
+            _firstQuestion.TrySetResult(question);
+            return Task.CompletedTask;
+        }
 
         public Task UpdateQuestionAnsweredAsync(string channelId, string messageId, string questionText,
             string answer, CancellationToken cancellationToken) => Task.CompletedTask;

@@ -55,7 +55,7 @@ public sealed class TicketCommentOutcomeTests : IDisposable
         _h.Tracker.Created.Should().BeEmpty();
         (await _h.RecordAsync()).Should().BeNull("a comment records no series under the ticket");
         (await _h.NudgesAsync()).Should().BeEmpty("nothing starts");
-        (await _h.OpenProposalJsonAsync()).Should().BeNull("an acted-on proposal is not offered again");
+        // 2026-11-10-ccd9: the claim, not the sink, takes an approved proposal out of the awaiting slot.
     }
 
     [Fact]

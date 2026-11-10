@@ -82,8 +82,8 @@ public sealed class ChatRunInteractionTests : IDisposable
             NullLogger<SlackAdapter>.Instance),
         NoDialog(), NullLogger<SlackInteractionHandler>.Instance);
 
-    private SpecDialogButtonAnswer NoDialog() =>
-        SpecDialogButtons.Over(_chat.Connection, _chat.Get<IDialogueTransport>());
+    private SpecDialogChatClick NoDialog() =>
+        SpecDialogButtons.Over(_chat.Connection);
 
     private static TeamsAdapter TeamsAdapter() => new(
         null!, new TeamsTypedQuestionTracker(), null!, NullLogger<TeamsAdapter>.Instance);
