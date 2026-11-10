@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Specs;
@@ -7,6 +9,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using FluentAssertions;
+using Moq;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 
@@ -102,16 +105,26 @@ public sealed class ReviewExhaustionTests
     }
 
     [Fact]
-    public async Task Exhaustion_LaterAttemptAnsweredBuild_IsBuilt()
+    public async Task Exhaustion_LaterAttemptAnsweredBuild_BuildsThatTextWithoutFreshRounds()
     {
-        var spec = new ReviewLoopRig().Set.Specs[0];
-        var rig = Thread(new ReviewLoopRig().Answers(Refuse()), OurObjectionOn(First, spec.Draft.Yaml),
+        // The rig rewrites a refused spec, as fresh rounds usually would; the answered text must still be what is built.
+        var rig = new ReviewLoopRig().Answers(Refuse(), Build());
+        var answered = rig.Set.Specs[0].Draft;
+        rig.Rederiver.Setup(r => r.RederiveAsync(It.IsAny<PipelineContext>(), It.IsAny<SpecDraft>(),
+                It.IsAny<IReadOnlyList<SpecReviewFinding>>(), It.IsAny<string?>(), It.IsAny<AgentConfig>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PipelineContext _, SpecDraft draft, IReadOnlyList<SpecReviewFinding> _, string? _, AgentConfig _,
+                CancellationToken _) => draft with { Yaml = draft.Yaml.Replace("one file", "one rewritten file") });
+        Thread(rig, OurObjectionOn(First, answered.Yaml),
             new TicketComment("author", Asked.AddHours(1), "(a) build the spec as reviewed"));
 
         var result = await rig.ExecuteAsync(Settings());
 
-        result.InsertNext.Should().BeNull();
-        result.Message.Should().Contain("the author answered build as reviewed");
+        rig.Inputs.Should().NotContain(i => i.Draft.SpecId == First, "the author answered build for exactly this text");
+        rig.Inputs.Should().Contain(i => i.Draft.SpecId == Second, "the other spec is reviewed, and rewritten, as usual");
+        rig.Set.Specs[0].Draft.Yaml.Should().Be(answered.Yaml, "the answered text is the one built");
+        result.InsertNext.Should().BeNull("no new question is posted");
+        rig.Published.Should().NotContain(p => p.Handback != null);
     }
 
     [Fact]

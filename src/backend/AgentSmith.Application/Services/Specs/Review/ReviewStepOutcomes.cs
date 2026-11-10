@@ -20,6 +20,15 @@ internal static class ReviewStepOutcomes
         return outcome.BudgetStop;
     }
 
+    /// <summary>2026-11-10-8e59: a person answered build for exactly this text — the question's marker names its hash —
+    /// so it is built as it stands and runs no rounds; fresh rounds would rewrite it and ask about a text nobody saw.</summary>
+    public static bool AnsweredBuild(PipelineContext pipeline, DerivedSpec spec)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+        var key = new StandingObjection(spec.SpecId, []) { TextHash = ReviewedText.Hash(spec.Draft.Yaml) }.MarkerKey;
+        return ReviewObjectionComment.BuildAsReviewedAnswered(pipeline, key);
+    }
+
     public static void Stop(PipelineContext pipeline, string specId, string why, List<string> lines)
     {
         var set = pipeline.Get<SpecSet>(ContextKeys.SpecSet);

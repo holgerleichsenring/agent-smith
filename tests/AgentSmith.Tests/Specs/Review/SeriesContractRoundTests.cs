@@ -90,6 +90,16 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
+    public async Task SeriesContractRound_SingleUnexecutedMemberAndNoCleanContract_IsStillTaken()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs()) with { Executed = [First] });
+
+        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], contractClean: false, CancellationToken.None);
+
+        rig.SeriesCalls.Should().ContainSingle("no review ended clean on the contract, one member or not (2026-11-10-8e59)");
+    }
+
+    [Fact]
     public async Task ReviewSpecs_ContractRoundNotTaken_StopsBeforeThePrefixWithTheReason()
     {
         var rig = new ReviewLoopRig(Contracted(TwoSpecs()));
@@ -177,9 +187,15 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
-    public async Task SeriesContractRound_SingleUnexecutedMember_TakesNoRound()
+    public async Task SeriesContractRound_SingleUnexecutedMemberAndCleanContract_TakesNoRound()
     {
-        var rig = new ReviewLoopRig(Contracted(TwoSpecs()) with { Executed = [First] });
+        var set = Contracted(TwoSpecs()) with { Executed = [First] };
+        var rig = new ReviewLoopRig(set);
+        rig.Pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(new SpecApprovalRecord("shop-42",
+            set with { Approval = new SpecApproval(DateTimeOffset.UtcNow, "session-1", "carol") }, ["shop"])
+        {
+            ReviewedClean = [ReviewedText.Of(set.Contract!)],
+        }));
 
         var result = await rig.ExecuteAsync(Settings());
 

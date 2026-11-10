@@ -48,7 +48,9 @@ scope:
     changed is attacked again on its new text in this run, or is not cleared, and the stop lands at the first uncleared
     member. A contract round not taken on an unreviewed contract stops the attempt; a series cut that could not land
     is an objection. A build answer is the first line's keyword and binds to the hash of the asked text. Enter on
-    the shown default is a person's choice; a timeout is not. The run's result line names a review stop.
+    the shown default is a person's choice; a timeout is not. The run's result line names a review stop. A spec whose
+    current text a person answered build for is built as it stands with no fresh rounds; a contract with no clean
+    record is reviewed even with a single unexecuted member.
   out: >
     The coding run's budget share stays: a spec it does not clear is not built and moves to the next attempt.
     A spec the coding run itself cleared is reviewed again in a later attempt, since that run records no
@@ -122,6 +124,8 @@ tests:
   - "ReviewObjection_EnterOnTheShownDefault_Builds"
   - "Demo_ReviewObjection_EnterOnTheShownDefault_CommitsTheFix"
   - "For_ReviewStoppedTheAttempt_NamesTheSpecAndTheReason"
+  - "Exhaustion_LaterAttemptAnsweredBuild_BuildsThatTextWithoutFreshRounds"
+  - "SeriesContractRound_SingleUnexecutedMemberAndNoCleanContract_IsStillTaken"
   - "ProposalReview_SeriesRoundSaysBuild_RecordsTheContractReviewedClean"
 
 done:

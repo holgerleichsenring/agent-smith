@@ -30,7 +30,8 @@ public sealed class ReviewSpecsHandler(
         var set = context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var s) ? s : null;
         var approved = approvals.Published(context.Pipeline);
         // 2026-10-13-8762u: only what this attempt can build — never a spec its chunk defers.
-        var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !ReviewedText.Covers(approved?.ReviewedClean, spec.SpecId, spec.Draft.Yaml)).ToList() ?? [];
+        var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !ReviewedText.Covers(approved?.ReviewedClean, spec.SpecId, spec.Draft.Yaml)
+            && !ReviewStepOutcomes.AnsweredBuild(context.Pipeline, spec)).ToList() ?? [];
         // 2026-11-10-8e59: the series contract is attacked too, unless a review ended clean on exactly this contract.
         var contractClean = set?.Contract is not { IsEmpty: false } contract || ReviewedText.Covers(approved?.ReviewedClean, contract);
         if (Skip(current, set, tail, contractClean) is { } skip) return Done($"spec review skipped: {skip}");
@@ -58,7 +59,7 @@ public sealed class ReviewSpecsHandler(
         : set is null ? "the run has no spec set"
         : set.IsHandedBack ? "the derivation handed the ticket back"
         : set.UnexecutedTail.Count == 0 ? "every spec of the set is built"
-        : tail.Count == 0 && contractClean ? "a review ended clean on the exact text of every unbuilt spec and the contract"
+        : tail.Count == 0 && contractClean ? "every unbuilt spec's exact text was reviewed clean or answered build by a person, and so was the contract"
         : null;
 
     private async Task<CommandResult> WalkAsync(SpecReviewRun run, IReadOnlyList<DerivedSpec> tail, bool contractClean, CancellationToken ct)

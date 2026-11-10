@@ -22,7 +22,7 @@ internal static class SeriesRoundScope
     public static string? Skip(
         SpecSet set, IReadOnlyList<DerivedSpec> prefix, IReadOnlyCollection<string> reviewed, bool contractClean) =>
         set.Contract is null || set.Contract.IsEmpty ? "the set has no series contract"
-        : set.UnexecutedTail.Count < 2 ? "the set has a single unexecuted member"
+        : contractClean && set.UnexecutedTail.Count < 2 ? "the set has a single unexecuted member"
         : prefix.Count == 0 ? "no member is cleared before the stop"
         : contractClean && !prefix.Any(spec => reviewed.Contains(spec.SpecId))
             ? "no cleared member was reviewed in this attempt, and a review ended clean on this exact contract"

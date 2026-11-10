@@ -56,7 +56,7 @@ public sealed class ReviewSpecsHandlerTests
 
         var result = await rig.ExecuteAsync(Settings());
 
-        result.Message.Should().Contain("a review ended clean on the exact text of every unbuilt spec");
+        result.Message.Should().Contain("every unbuilt spec's exact text was reviewed clean");
         rig.Inputs.Should().BeEmpty();
     }
 

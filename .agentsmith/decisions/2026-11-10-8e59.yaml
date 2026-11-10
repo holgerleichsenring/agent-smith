@@ -86,3 +86,11 @@ decisions:
     chose: "A pipeline that runs to its end with a review stop says so in its result line"
     over: "'Pipeline completed successfully' alone"
     reason: "The result line becomes the run's summary, which the operator reads. An attempt stopped because no reviewer answered must say why."
+  - category: Architecture
+    chose: "Before the review rounds, a spec whose current text hash matches a person's build answer is built as it stands and runs no rounds"
+    over: "Checking the answer only at exhaustion, after the next run's fresh rounds"
+    reason: "The final review found that fresh rounds usually rewrite the text, so the hash no longer matched the answer. The ticket then looped, re-asking and paying for a full review on every re-trigger. The answer is about the exact text it was asked on, so that text is the one built."
+  - category: Implementation
+    chose: "Run the contract round even with a single unexecuted member when the contract has no clean record"
+    over: "Skipping it for a single member"
+    reason: "A contract that no review ended clean on must not reach a build unattacked, however many members are left."
