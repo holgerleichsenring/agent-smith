@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3g
+
+decisions:
+  - category: Implementation
+    chose: "The three questions join only a design turn's attack prompt, after the decidability lens"
+    over: "Asking them of the run's reviewer too"
+    reason: "A run reviews a cut a person already approved; the questions are about the cut itself, which the design turn still owns. The plugin brief stays verbatim and first."
+  - category: Implementation
+    chose: "The capability question tells the reviewer to open the material under reference:<name>"
+    over: "Asking it without a source"
+    reason: "864f gave the reviewer the uploads; without naming them the reviewer judges scope against the repositories, as it did on conversation 43."

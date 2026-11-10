@@ -105,7 +105,7 @@ public sealed class ProposalReviewLoop(
             SpecToday.Describes(draft.Draft, session.Set), draft.Evidence.Problems, draft.Evidence.Unchecked,
             draft.Evidence.Total, draft.Residues)
         {
-            RepositoryNames = SpecReviewRepositories.Names(session.Turn.Pipeline),
+            RepositoryNames = SpecReviewRepositories.Names(session.Turn.Pipeline), Proposal = true, // 14a3g
         };
 
     private static IReadOnlyList<SpecDraft> Reviewed(OutcomeProposal proposal) => proposal switch
