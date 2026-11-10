@@ -52,12 +52,14 @@ internal static class ProposalReviewSummary
 
     private static string? ParentId(OutcomeProposal proposal) => (proposal as EpicOutcome)?.Parent.SpecId;
 
+    // 2026-11-09-0620m: the operator reads the turn's first full reply — its analysis, contradictions and questions —
+    // with its block replaced by the published one. A re-draft's own prose is a note to the reviewers, often one line
+    // in another language, and replaced all of that when the published draft was the re-draft's.
     private static Loop.AgenticLoopResult Reply(ProposalReviewSession session)
     {
-        var published = ProposalSpecSet.Drafts(session.Proposal).Select(d => d.Yaml);
-        if (ProposalSpecSet.Drafts(session.LastReply.Proposal).Select(d => d.Yaml).SequenceEqual(published, StringComparer.Ordinal))
-            return session.LastReply.Result;
+        if (ReferenceEquals(session.LastReply.Result, session.FirstReply)) return session.FirstReply;
         var first = session.FirstReply.Response.Text ?? string.Empty;
-        return MasterOutcomes.WithReplyText(session.FirstReply, ProposalReplyText.Render(first, session.Proposal));
+        return MasterOutcomes.WithReplyText(session.FirstReply,
+            ProposalReplyText.Render(first, session.Proposal, session.LastReply.Result.Response.Text));
     }
 }

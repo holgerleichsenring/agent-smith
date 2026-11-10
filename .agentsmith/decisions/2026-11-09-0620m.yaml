@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620m
+
+decisions:
+  - category: Implementation
+    chose: "The reply after a re-draft is the first reply with the published block, and no review note"
+    over: "Appending a note of what the review changed"
+    reason: "A note written by the server could not be in the conversation's language without a translation step, and the re-draft's own note was the text that had replaced the analysis; the proposal card already shows what the review found."
+  - category: Implementation
+    chose: "Cut a child's answer at 12000 characters"
+    over: "6000"
+    reason: "The live run's answers were 8.6k-13.5k; at 6000 the master re-read every child, which costs more than the larger result."

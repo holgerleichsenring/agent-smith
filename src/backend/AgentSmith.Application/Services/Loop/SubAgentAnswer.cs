@@ -1,13 +1,14 @@
 namespace AgentSmith.Application.Services.Loop;
 
 /// <summary>
-/// 2026-11-09-0620e: the part of a child's final answer its master receives in the spawn result — about one to two
-/// thousand tokens, the size Anthropic's guidance gives a sub-agent's condensed result. A longer answer is cut, and the
-/// cut says how much is left and where it is.
+/// 2026-11-09-0620e: the part of a child's final answer its master receives in the spawn result. A longer answer is
+/// cut, and the cut says how much is left and where it is.
 /// </summary>
 internal static class SubAgentAnswer
 {
-    internal const int MaxChars = 6000;
+    // 2026-11-09-0620m: live, four children answered 8.6k-13.5k characters and a 6000 cut sent the master back to
+    // read all four whole; 12000 lets a full answer through and still bounds a runaway one.
+    internal const int MaxChars = 12000;
 
     internal static string Condensed(string? answer)
     {

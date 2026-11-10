@@ -52,7 +52,7 @@ public sealed class SpawnAgentToolHost : IToolHost
         "task description, and the inherited context: the goal and the slice of what you know that the child needs, " +
         "because it sees nothing else of your conversation. A child works in your checkouts with the base file and " +
         "command tools — only the read tools in a design conversation — and none of your run's progress, verdict, gate " +
-        "or spawn tools. The result lists per child its status, id, tool calls, cost and the first 6000 characters of " +
+        "or spawn tools. The result lists per child its status, id, tool calls, cost and the first 12000 characters of " +
         "its answer; read_sub_agent_observations returns a longer answer whole.")]
     public async Task<string> SpawnAgents(
         [Description("Array of task objects: name, activity, task_description, " +

@@ -37,10 +37,11 @@ public sealed class RepositoryLayoutReader(
             var provider = providers.Create(repo);
             var root = await provider.ListDirectoryAsync(string.Empty, ct);
             if (root.Count == 0) return null;
-            var shown = root.Order(StringComparer.Ordinal).Take(RootEntries).ToList();
+            var listed = root.Where(Shown).ToList();
+            var shown = listed.Order(StringComparer.Ordinal).Take(RootEntries).ToList();
             using var throttle = new SemaphoreSlim(ParallelListings);
             var children = await Task.WhenAll(shown.Select(name => ChildrenAsync(provider, name, throttle, ct)));
-            var layout = Render(shown, children, root.Count);
+            var layout = Render(shown, children, listed.Count);
             _kept[key] = (now, layout);
             return layout;
         }
@@ -60,7 +61,7 @@ public sealed class RepositoryLayoutReader(
         try
         {
             var listed = await provider.ListDirectoryAsync(name, ct);
-            return listed.Count == 0 || (listed.Count == 1 && listed[0] == name) ? null : listed;
+            return listed.Count == 0 || (listed.Count == 1 && listed[0] == name) ? null : [.. listed.Where(Shown)];
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -71,6 +72,11 @@ public sealed class RepositoryLayoutReader(
             throttle.Release();
         }
     }
+
+    // 2026-11-09-0620m: version-control metadata and build output say nothing about the code; a local clone listed
+    // `.git/` and its objects.
+    private static bool Shown(string name) =>
+        name is not (".git" or ".hg" or ".svn" or "bin" or "obj" or "node_modules");
 
     private static string Render(List<string> shown, IReadOnlyList<string>?[] children, int total)
     {

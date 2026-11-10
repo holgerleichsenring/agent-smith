@@ -25,15 +25,17 @@ public sealed class RepositoryLayoutTests
     public async Task LoadCachedCodeMap_RepoWithoutMap_RendersItsTwoLevelLayout()
     {
         var provider = new Mock<ISourceProvider>();
-        provider.Setup(p => p.ListDirectoryAsync("", It.IsAny<CancellationToken>())).ReturnsAsync(["Sample.Api", "README.md"]);
+        provider.Setup(p => p.ListDirectoryAsync("", It.IsAny<CancellationToken>()))
+            .ReturnsAsync([".git", "Sample.Api", "README.md", "node_modules"]);
         provider.Setup(p => p.ListDirectoryAsync("Sample.Api", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(["Extensions", "Program.cs"]);
+            .ReturnsAsync(["Extensions", "Program.cs", "bin", "obj"]);
         provider.Setup(p => p.ListDirectoryAsync("README.md", It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         var maps = await RunAsync(provider);
 
         maps["sample"].Should().Contain("No code map is cached for this repository yet")
-            .And.Contain("- Sample.Api/\n  - Extensions\n  - Program.cs").And.Contain("- README.md");
+            .And.EndWith("- Sample.Api/\n  - Extensions\n  - Program.cs").And.Contain("- README.md")
+            .And.NotContain(".git").And.NotContain("node_modules").And.NotContain("  - bin");
     }
 
     [Fact]
