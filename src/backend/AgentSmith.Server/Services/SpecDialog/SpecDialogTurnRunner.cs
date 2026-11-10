@@ -37,7 +37,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogTurnGate gate, TicketTextForConversation ticketText, BoundTicketReaders readers,
     DashboardReadingChannel reading,
     DashboardActivityChannel activity, SpecDialogTurnMaterial material, SpecDialogThreadStore threads,
-    ILogger<SpecDialogTurnRunner> logger, SpecDialogProposalContinuity continuity) : ISpecDialogTurnRunner
+    ILogger<SpecDialogTurnRunner> logger, SpecDialogProposalContinuity continuity, DesignTurnResourcesFactory turnResources) : ISpecDialogTurnRunner
 {
     public async Task<SpecDialogTurnResult> RunTurnAsync(
         ConversationState state, TurnPoster poster, CancellationToken cancellationToken)
@@ -49,12 +49,13 @@ public sealed class SpecDialogTurnRunner(
         var templates = await readOnlyScopes.OpenAsync(project, state.JobId, cancellationToken); // + 283dc sites
         var sandboxes = SpecDialogTurnSeeds.Sandboxes(scopeRepos,
             r => sourceSandboxFactory.Create(project, r, conversationId: state.JobId), templates);
+        var resources = turnResources.For(project, scopeRepos, sandboxes); // 2026-11-10-4778: scopes and work clones
 
         var slot = new SpecDialogReplySlot();
         var seeds = SpecDialogTurnSeeds.Build(
             await continuity.ContinuingAsync(state, cancellationToken), scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
             await material.OfAsync(state.JobId, cancellationToken), await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
-            await readers.ForAsync(state.JobId, project, poster, cancellationToken), project.DesignSources, project, await threads.LoadAsync(state, project.Agent, cancellationToken), poster.MayStartRuns);
+            await readers.ForAsync(state.JobId, project, poster, cancellationToken), project.DesignSources, project, await threads.LoadAsync(state, project.Agent, cancellationToken), poster.MayStartRuns, resources.Clones);
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
             Headless: true, Context: seeds);
@@ -87,8 +88,7 @@ public sealed class SpecDialogTurnRunner(
             pumpCts.Cancel();
             await pump;
             pendingQuestions.Clear(state.JobId);
-            foreach (var sandbox in sandboxes.Values)
-                await sandbox.DisposeAsync();
+            await resources.DisposeAsync();
         }
     }
 

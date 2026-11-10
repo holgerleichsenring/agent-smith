@@ -15,4 +15,10 @@ public static partial class ContextKeys
     /// it records no project memory (and, with 2026-11-10-4778, runs nothing).
     /// </summary>
     public const string MayStartRuns = "MayStartRuns";
+
+    /// <summary>
+    /// 2026-11-10-4778: WorkCloneSet — a design turn's work clones, one per repository it runs in, opened lazily and
+    /// disposed when the turn ends. Seeded by the turn runner; absent everywhere else.
+    /// </summary>
+    public const string WorkClones = "WorkClones";
 }

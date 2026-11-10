@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-4778
+
+decisions:
+  - category: Security
+    chose: "A fresh work clone per repository and turn whose only credentialed step is the clone, before any model command; a detached checkout of the held scope's sha without a credential; the clone disposed when the turn ends"
+    over: "Resetting a held tree between turns"
+    reason: "A model-touched container keeps .git/config helpers, hooks, ~/.gitconfig, a git on PATH and background processes; any later credentialed step there would run under them. Here none follows the model, and nothing survives the turn."
+  - category: Security
+    chose: "The same rights as a coding run, project secrets included, offered only when the poster holds runs.control, the runtime spawns containers, and the bus is per-job"
+    over: "Withholding secrets from design turns"
+    reason: "The operator's call: a coding run already reads uploads and holds secrets and a shell, so the exposure is shared and is fixed for both by the planned masking (23a2b), network policy (23a2d) and git-step hardening."
+  - category: Implementation
+    chose: "The bus check is twofold: DesignWorkToolGate reads ISandboxBusIsolation (the Server registers it over SANDBOX_BUS_CREDENTIAL), and the spawn refuses an issued shared credential through SandboxBusCredential.Require, honoured by the Docker and Kubernetes factories"
+    over: "A registered Application default that reports shared"
+    reason: "PipelineHandlersExtensions sits at its baselined length; the gate's optional collaborator being absent means shared, which is the same answer the default would give the CLI."
+  - category: Implementation
+    chose: "Build sizing by building the work clone's spec under the code preset's name"
+    over: "A new explicit argument to ISandboxResourceResolver"
+    reason: "The resolver's interface has many implementations and callers; the code preset is exactly the build-sizing case, and the project override still wins first. A deviation from the spec text, recorded here."
+  - category: Implementation
+    chose: "The root-first discovered context's image, found by its normalised workdir, through the chain with project overrides first"
+    over: "One sandbox per image, as a coding run gets"
+    reason: "Only the master runs, one command at a time; a second stack in the same repository installs what it needs."
+  - category: Implementation
+    chose: "DesignTurnResources holds the turn's scopes and its WorkCloneSet and disposes both; the runner's finally calls it, and the clone set reaches the pipeline through the turn seeds"
+    over: "Another loop in SpecDialogTurnRunner"
+    reason: "The runner is at the 120-line cap; it stays at 120."
+  - category: Implementation
+    chose: "Only run_command; the shell edits. Children keep their read allowlist"
+    over: "write_file and edit beside it"
+    reason: "Two writing paths would duplicate each other; builds run one at a time on the master, the operator's call."
+  - category: Implementation
+    chose: "The fail-closed bus test is pinned on SandboxBusCredential.Require, which both factories call"
+    over: "Factory-level tests per backend"
+    reason: "Both factories need a live Docker daemon or a Kubernetes client to construct; the refusal is one method they share."
+  - category: Process
+    chose: "One skills release (v5.26.0, PR #259) for fcd7b, fcd7c and 4778, pinned here; design-partner-master bumped to 2.3.0"
+    over: "A release per spec"
+    reason: "The operator asked for one skills PR."

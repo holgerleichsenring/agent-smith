@@ -71,6 +71,7 @@ src/backend/AgentSmith.Application/Services/Tools/IToolHost.cs	Per-phase	1
 src/backend/AgentSmith.Application/Services/Tools/IToolHost.cs	phase	3
 src/backend/AgentSmith.Application/Services/Tools/IToolKit.cs	per-phase	1
 src/backend/AgentSmith.Application/Services/Tools/IToolKit.cs	phase	6
+src/backend/AgentSmith.Application/Services/Tools/DesignWorkToolHost.cs	phase	2
 src/backend/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs	phase	4
 src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs	phase	2
 src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs	phase	2

@@ -47,4 +47,10 @@ public sealed record SandboxSpec(
     // Stamped as a container/pod label so a reaper can tell a sandbox a turn may come
     // back to from a corpse. Null (the default, and what every pipeline run passes)
     // leaves the label off entirely.
-    string? ConversationId = null);
+    string? ConversationId = null,
+    // 2026-11-10-4778: a sandbox a model's shell runs in mounts none of the host-wide package-cache volumes, which
+    // outlive every sandbox and would carry what one shell left to every later run. Honored by the Docker factory.
+    bool NoPackageCaches = false,
+    // 2026-11-10-4778: the spawn fails closed when the bus credential it was issued is the shared one, because a
+    // single job can fall back alone. Honored by the Docker and Kubernetes factories.
+    bool RequiresPerJobBus = false);

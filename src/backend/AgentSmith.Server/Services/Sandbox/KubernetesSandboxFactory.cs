@@ -27,7 +27,7 @@ public sealed partial class KubernetesSandboxFactory(
         var jobId = Guid.NewGuid().ToString("N");
         var podName = $"agentsmith-sandbox-{jobId[..12]}";
         // 2026-10-25-c5a7e: the sandbox reaches Redis as its own job's ACL user.
-        var bus = await busCredentials.IssueAsync(jobId, options.RedisUrl);
+        var bus = (await busCredentials.IssueAsync(jobId, options.RedisUrl)).Require(spec.RequiresPerJobBus); // 4778
         var pod = podSpecBuilder.Build(podName, jobId, bus.Url, spec, options.OwnerReference);
 
         try

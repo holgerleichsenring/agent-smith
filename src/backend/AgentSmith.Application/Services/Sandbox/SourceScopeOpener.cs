@@ -51,7 +51,8 @@ public sealed class SourceScopeOpener(
         // language/pipelineName null → generic git-bearing image, p0320a light profile.
         var spec = specBuilder.Build(project, language: null, pipelineName: null)
             with { RunId = runContext.CurrentRunId, ConversationId = conversationId };
-        if (withoutSecrets) spec = spec with { Secrets = ResolvedSandboxSecrets.Empty };
+        // 2026-11-10-4778: an upload's container runs a model's shell, so it mounts no shared package cache either.
+        if (withoutSecrets) spec = spec with { Secrets = ResolvedSandboxSecrets.Empty, NoPackageCaches = true };
         return sandboxFactory.CreateAsync(spec, ct);
     }
 
