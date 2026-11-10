@@ -85,7 +85,7 @@ agents:
       initial_delay_ms: 2000    # default 2000
       backoff_multiplier: 2.0   # default 2.0
       max_delay_ms: 60000       # default 60000
-    network_timeout_seconds: 300   # default; per-call HTTP timeout for OpenAI and Azure OpenAI
+    network_timeout_seconds: 300   # default; per-call timeout for OpenAI, Azure OpenAI, Ollama, Gemini and Copilot (a Copilot turn: per silence)
 ```
 
 The framework rate-limits itself per (provider, model) with token buckets on requests and estimated input tokens, so a parallel scan doesn't slam into the provider. When `rate_limit` is unset, a default is picked from the agent type: 50 requests / 40k input tokens per minute for a Claude API key, 5 / 20k for a Claude subscription OAuth token, 60 / 60k for OpenAI, Azure OpenAI and Copilot. If runs feel throttled, set `rate_limit` to your actual tier. `agent-smith doctor` calls this out.

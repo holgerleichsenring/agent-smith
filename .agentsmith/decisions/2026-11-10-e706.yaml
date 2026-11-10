@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-e706
+
+decisions:
+  - category: Architecture
+    chose: "Bound each model wait first, then let PipelineRunWatchdog skip runs registered as a design turn"
+    over: "Exempting design turns at once, or a turn-level no-progress detector on the activity stream"
+    reason: "The operator's rule is that only cost or a person stops a design turn. The watchdog was the only bound on a turn whose model await never completed inside a live process. A bound per call says something about a hang; a run's age says nothing. A no-progress detector would need a second notion of activity beside the heartbeat."
+  - category: Implementation
+    chose: "The registry records a RegisteredRunKind at registration, derived from the preset by PipelinePresets.RunKindOf; only spec-dialog is a DesignTurn"
+    over: "The watchdog looking up the run's pipeline elsewhere, or a boolean on Register"
+    reason: "The registry is the watchdog's only input, so the kind travels with the entry. spec-derive and every coding run stay Pipeline. A series attempt still counts its blocks against the wall clock (SeriesSettings.SecondsLeft), so exempting those is a separate change."
+  - category: Implementation
+    chose: "A Copilot turn is bounded by silence: every session event restarts the network timeout, for a prompted turn as well as a resumed one, and an expiry is a TimeoutException"
+    over: "One absolute deadline per turn, or keeping 2026-09-25-6b2e's fixed 300s on resumed turns only"
+    reason: "A prompted turn waited on idle with only the run's token. Bounding silence instead of the whole turn means a long answer that keeps streaming is never cut. The bound is now the agent's network_timeout_seconds rather than a constant, the same knob the other providers read."
+  - category: Implementation
+    chose: "Ollama and Gemini are wrapped in NetworkTimeoutChatClient: one call answers, or a streamed call delivers its next update, within the network timeout"
+    over: "Handing each library an HttpClient with a Timeout"
+    reason: "GenerativeAIChatClient takes no HttpClient. An HttpClient timeout covers a stream only up to its headers. One delegating client gives both providers the same rule and the same error. A library's own shorter limit still applies underneath."
+  - category: Implementation
+    chose: "Claude keeps its fixed 10-minute HttpClient bound"
+    over: "Lowering it to network_timeout_seconds"
+    reason: "p0235 set it to absorb the OAuth handler's Retry-After backoff inside one call. It is already a bound, which is all this spec needs."

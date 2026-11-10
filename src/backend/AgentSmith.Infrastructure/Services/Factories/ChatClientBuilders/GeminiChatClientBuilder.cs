@@ -22,7 +22,10 @@ public sealed class GeminiChatClientBuilder : IChatClientBuilder
             ?? throw new InvalidOperationException(
                 "GEMINI_API_KEY / GOOGLE_API_KEY (or configured ApiKeySecret) is required for type=gemini.");
 
-        return new GenerativeAIChatClient(apiKey, assignment.Model);
+        // 2026-11-10-e706: bounded by the agent's network timeout like every other provider.
+        return new NetworkTimeoutChatClient(
+            new GenerativeAIChatClient(apiKey, assignment.Model),
+            OpenAiChatClientBuilder.ResolveNetworkTimeout(agent));
     }
 
     private static string? ResolveApiKey(AgentConfig agent)

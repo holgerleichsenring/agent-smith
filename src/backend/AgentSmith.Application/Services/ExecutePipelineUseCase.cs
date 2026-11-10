@@ -84,7 +84,7 @@ public sealed class ExecutePipelineUseCase(
         var heartbeatPump = heartbeatPumps.RunAsync(projectConfig.Name, request.TicketId, runId, heartbeatCts.Token);
         // p0200: register a per-run CTS so /api/runs/{runId}/cancel and
         // PipelineRunWatchdog can signal this execution by runId.
-        var runCt = cancellationRegistry.Register(runId, cancellationToken);
+        var runCt = cancellationRegistry.Register(runId, cancellationToken, PipelinePresets.RunKindOf(request.PipelineName));
         try
         {
         CommandResult result;

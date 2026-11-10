@@ -63,6 +63,53 @@ public sealed class CopilotSessionChatClientTests
         (await act.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*model unavailable*");
     }
 
+    /// <summary>2026-11-10-e706: a prompted turn waited on idle with only the run's token, so a session
+    /// that never went idle held the run until the wall-time watchdog cut it.</summary>
+    [Fact]
+    public async Task SessionNeverIdle_FailsAfterTheNetworkTimeout()
+    {
+        var runtime = new FakeCopilotRuntime();
+        runtime.Script(new CopilotSessionEvent.AssistantDelta("thinking"));
+        var client = new CopilotSessionChatClient(
+            runtime, Template, NullLogger<CopilotSessionChatClient>.Instance, TimeSpan.FromMilliseconds(200));
+
+        var act = () => client.GetResponseAsync([new ChatMessage(ChatRole.User, "q")]);
+
+        (await act.Should().ThrowAsync<TimeoutException>()).WithMessage("*sent nothing*network timeout*");
+    }
+
+    [Fact]
+    public async Task AnsweredTurnNeverResumes_FailsAfterTheNetworkTimeout()
+    {
+        var runtime = new FakeCopilotRuntime();
+        runtime.Script(
+            new CopilotSessionEvent.AssistantMessage("working", ToolRequestCount: 1),
+            new CopilotSessionEvent.ExternalToolRequested("req-1", "call-1", "read_file", "{}"));
+        var client = new CopilotSessionChatClient(
+            runtime, Template, NullLogger<CopilotSessionChatClient>.Instance, TimeSpan.FromMilliseconds(200));
+        var tools = new ChatOptions { Tools = [AIFunctionFactory.Create(() => "ok", "read_file")] };
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "go")], tools);
+
+        var act = () => client.GetResponseAsync(
+            [new ChatMessage(ChatRole.Tool, [new FunctionResultContent("call-1", "41")])], tools);
+
+        await act.Should().ThrowAsync<TimeoutException>();
+    }
+
+    [Fact]
+    public async Task RunCancelledWhileWaiting_StaysACancellation()
+    {
+        var runtime = new FakeCopilotRuntime();
+        runtime.Script(new CopilotSessionEvent.AssistantDelta("thinking"));
+        using var run = new CancellationTokenSource();
+        var call = NewClient(runtime).GetResponseAsync([new ChatMessage(ChatRole.User, "q")], cancellationToken: run.Token);
+
+        await run.CancelAsync();
+        var act = () => call;
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     [Fact]
     public async Task SecondCallExtendingTheSentPrefix_SendsOnlyTheTail()
     {

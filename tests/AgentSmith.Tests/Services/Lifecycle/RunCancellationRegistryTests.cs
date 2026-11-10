@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -168,6 +169,19 @@ public sealed class RunCancellationRegistryTests
         registry.IsLocallyActive("cancelled").Should().BeFalse("a cancelled run is winding down, not live");
         registry.IsLocallyActive("unregistered").Should().BeFalse("an unregistered run is over");
         registry.IsLocallyActive("unknown").Should().BeFalse("a never-registered run is not local");
+    }
+
+    [Fact]
+    public void RunCancellationRegistry_Register_SnapshotCarriesTheKind()
+    {
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
+        registry.Register("turn", CancellationToken.None, RegisteredRunKind.DesignTurn);
+        registry.Register("run", CancellationToken.None);
+
+        var kinds = registry.Snapshot().ToDictionary(e => e.RunId, e => e.Kind);
+
+        kinds["turn"].Should().Be(RegisteredRunKind.DesignTurn);
+        kinds["run"].Should().Be(RegisteredRunKind.Pipeline, "an unnamed kind is a pipeline run");
     }
 
     [Fact]
