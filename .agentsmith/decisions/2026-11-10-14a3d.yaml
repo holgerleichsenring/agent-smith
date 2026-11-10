@@ -7,9 +7,9 @@ decisions:
     over: "Offering render, compare and the mock tools to every design turn"
     reason: "A turn on a source upload carried four tools with nothing to point them at. An upload whose file list the turn does not know counts as visual, so the tools are never withheld for want of a listing."
   - category: Implementation
-    chose: "The mock tools follow the same rule as render and compare"
-    over: "Keeping write_mock on every design turn so a first mock can be authored from words"
-    reason: "Operator direction for this series. Recorded as a cost: a conversation asking 'how should this page look' with no visual material and no mock yet is not offered write_mock; an upload of a sketch page or a design source brings it back."
+    chose: "write_mock and read_mock stay on every design turn, with the mock guidance in their descriptions; only render_reference and compare_reference (and design_read, as before) depend on visual material"
+    over: "Gating the mock tools with render and compare (this spec's first commit)"
+    reason: "Operator correction, 2026-11-10: a person can ask for a mock in any design conversation with nothing to compare against; gating it was a regression of 8762r. A mock already written still counts as visual for render and compare."
   - category: Implementation
     chose: "The grounding reads each repository's memory index, and recall and dispute_memory join a design turn only when one exists"
     over: "Offering them blind, or not at all"

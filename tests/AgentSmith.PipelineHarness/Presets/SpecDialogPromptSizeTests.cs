@@ -34,8 +34,9 @@ public sealed partial class SpecDialogWorkPictureTests
         var count = (harness.ChatClient.FirstOptions?.Tools ?? []).Count;
         _output?.WriteLine($"design-turn first call: system={system} user={user} tools={tools} ({count} tools) total={system + user + tools}");
 
-        // Measured 2026-11-10 on this fixture: 45654 before the series (26 tools), 28544 after it (12 tools).
-        (system + user + tools).Should().BeLessThan(30000, "a first design turn carries only what it can use");
-        count.Should().BeLessThanOrEqualTo(12);
+        // Measured 2026-11-10 on this fixture: 45654 before the series (26 tools), 29685 after it (14 tools, the two
+        // mock tools on every design turn).
+        (system + user + tools).Should().BeLessThan(31000, "a first design turn carries only what it can use");
+        count.Should().BeLessThanOrEqualTo(14);
     }
 }

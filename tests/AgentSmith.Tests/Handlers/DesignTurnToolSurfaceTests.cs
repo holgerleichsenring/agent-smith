@@ -49,7 +49,7 @@ public sealed class DesignTurnToolSurfaceTests
         await Run(withStore, DesignMaster, context);
 
         bare.MasterTools.Select(t => t.Name).Should().NotContain(["recall", "dispute_memory", "render_reference",
-            "compare_reference", "write_mock", "read_mock", "withdraw_filed_ticket"]);
+            "compare_reference", "withdraw_filed_ticket"]);
         withStore.MasterTools.Select(t => t.Name).Should().Contain(["recall", "dispute_memory"]);
     }
 

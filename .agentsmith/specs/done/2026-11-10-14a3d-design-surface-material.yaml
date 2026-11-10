@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-14a3d
-goal: "A design turn is offered the visual, mock, memory and withdrawal tools only when its conversation has what they work on."
+goal: "A design turn is offered the render, compare, memory and withdrawal tools only when its conversation has what they work on; the mock tools stay."
 applies_to: "default (design turn tool composition, grounding)"
 facts:
   - claim: "render_reference, compare_reference, write_mock and read_mock join every design turn with a project and a conversation."
@@ -11,7 +11,7 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:263-267"
 steps:
   - id: visual
-    action: "render/compare and the mock tools join when the turn holds an upload with a page or stylesheet, a design source, a design system, or a stored mock."
+    action: "render and compare join when the turn holds an upload with a page, a design source, a design system, or a stored mock; the mock tools stay on every design turn."
   - id: memory
     action: "The grounding reads each repository's memory index; recall and dispute_memory join only when one exists, and the index is shown."
   - id: withdraw
@@ -20,5 +20,5 @@ tests:
   - "DesignSurface_SourceUploadNoDesignNoMemoryNoFiling_HasNoVisualMockMemoryOrWithdrawTools"
   - "DesignSurface_WebsiteUpload_HasRenderAndMockTools"
 done:
-  - "A design turn on a source upload with no design source, no memory store and no filing carries none of those tools."
+  - "A design turn on a source upload with no design source, no memory store and no filing carries no render, compare, memory or withdraw tool, and still carries write_mock."
   - "Backend and dashboard build and tests green."

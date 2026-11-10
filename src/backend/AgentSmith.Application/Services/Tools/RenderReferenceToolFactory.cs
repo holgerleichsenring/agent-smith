@@ -38,7 +38,7 @@ public sealed class RenderReferenceToolFactory(
             ? [.. Visual(pipeline, isDesignTurn) ? new RenderReferenceToolHost(services, scope).GetTools(null, null) : [],
                .. Visual(pipeline, isDesignTurn) ? new CompareReferenceToolHost(compare, scope).GetTools(null, null) : [],
                .. isDesignTurn && design is not null ? design.For(pipeline) : [],
-               .. isDesignTurn && mocks is not null && mockReader is not null && DesignVisuals.Present(pipeline)
+               .. isDesignTurn && mocks is not null && mockReader is not null
                    ? new MockWriteToolHost(services, scope, mocks, mockReader).GetTools(null, null) : []]
             : Array.Empty<AITool>(),
          .. !isDesignTurn && design is not null ? design.ForRun(pipeline) : []];

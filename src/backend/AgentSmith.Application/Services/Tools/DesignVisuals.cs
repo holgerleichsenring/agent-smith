@@ -7,9 +7,9 @@ using AgentSmith.Contracts.Sandbox;
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
-/// 2026-11-10-14a3d: whether a design turn has something visual for render_reference, compare_reference and the mock
-/// tools to work on — an upload holding a page, a design source, a design system, or a mock already written in the
-/// conversation. A turn on a source upload had all four tools and nothing to point them at. An upload whose files the
+/// 2026-11-10-14a3d: whether a design turn has something visual for render_reference and compare_reference to work
+/// on — an upload holding a page, a design source, a design system, or a mock already written in the
+/// conversation. The mock tools stay on every design turn: a mock can be asked for with nothing to compare against. An upload whose files the
 /// turn does not know yet counts as visual, so a tool is never withheld for want of a listing.
 /// </summary>
 public static class DesignVisuals
