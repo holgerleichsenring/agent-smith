@@ -20,29 +20,16 @@ public sealed class SpecDialogDiscussionPromptTests
         return pipeline;
     }
 
-    // 2026-11-09-0620b: the first-turn ban is gone — a draft is shown under review and filed only on approval.
+    // 2026-11-09-0620b/k: no proposal ban, and no contract restating the skill — the turn's last words are the work
+    // picture fact, and the filed-work clause when the conversation filed.
     [Fact]
     public void SpecDialogPrompt_FirstTurn_StatesNoProposalBan()
     {
         var prompt = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
 
-        prompt.Should().Contain("Propose the work once it is clear enough to cut")
-            .And.Contain("nothing is filed until the operator approves it")
-            .And.Contain("A question is answered as it is asked")
-            .And.NotContain("MAY NOT propose").And.NotContain("Ready to propose");
-    }
-
-    [Fact]
-    public void SpecDialogPrompt_LaterTurn_StatesTheSameContract()
-    {
-        var first = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
-        var later = new SpecDialogPromptFactory().Build(With(
-            new SpecDialogTurn("user", "update everything"),
-            new SpecDialogTurn("assistant", "found three libraries", SpecDialogTurnKind.Answer),
-            new SpecDialogTurn("user", "all three, one spec")), 0, 0);
-
-        later[later.IndexOf("Propose the work", StringComparison.Ordinal)..]
-            .Should().Be(first[first.IndexOf("Propose the work", StringComparison.Ordinal)..]);
+        prompt.Should().NotContain("MAY NOT propose").And.NotContain("Ready to propose")
+            .And.NotContain("Propose the work once");
+        prompt.TrimEnd().Should().EndWith("No work picture is stored yet.");
     }
 
     // 2026-11-09-0620b: the texts changed, not their places — the cached prefix and the reading of the prompt stay.
@@ -54,7 +41,7 @@ public sealed class SpecDialogDiscussionPromptTests
         string[] order =
         [
             "## Design conversation", "[user", "## Your reply", "Write the reply text now",
-            "The code map above says", "No work picture is stored yet", "Propose the work once",
+            "No work picture is stored yet",
         ];
         var positions = order.Select(marker => prompt.IndexOf(marker, StringComparison.Ordinal)).ToList();
         positions.Should().OnlyContain(p => p >= 0).And.BeInAscendingOrder();

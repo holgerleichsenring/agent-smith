@@ -27,13 +27,12 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(repoNames);
         var repos = repoNames.Count > 1 ? $"**Repositories:** {string.Join(", ", repoNames)}\n" : string.Empty;
-        if (master == PipelinePresets.MasterFor("pr-review"))
-            return PrReviewPrompt.Build(repository, repos, BuildConversationSection(pipeline));
         var anchored = ScanFindingsSection.HasScannerReports(pipeline);
+        // 2026-11-09-0620k: a pull-request review keeps this prompt's sections and headings; only its opening and its
+        // closing say what it is for.
+        var review = master == PipelinePresets.MasterFor("pr-review");
         return $"""
-            This is a security review of the source, not a coding task. Your tools read
-            files and send HTTP probes; nothing you do changes the repository, and no build
-            or test runs here.
+            {(review ? PrReviewPrompt.Opening : SecurityOpening)}
 
             ## Working source
             **Path:** {repository.LocalPath}
@@ -43,7 +42,7 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             {(anchored ? ScanFindingsSection.Render(pipeline) : string.Empty)}
             {BuildSpecSection(pipeline)}
             {Surface.SurfaceDifferencePromptSection.Render(pipeline)}
-            {(anchored ? AnchoredClosing : UnanchoredClosing)}
+            {(review ? PrReviewPrompt.Closing : anchored ? AnchoredClosing : UnanchoredClosing)}
             """;
     }
 
@@ -67,29 +66,37 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             """;
     }
 
-    // 2026-11-09-0620g: the nudge says why it came — the numbers — instead of shouting "very little".
-    public string BuildCoverageNudge(string originalUserPrompt, int readCount, int readFloor) =>
-        $"Your review read {readCount} source file(s); a review that covers the source reads at least {readFloor}. "
-        + "Cover the areas of the surface you have not read yet: the code that implements each, where its auth and "
-        + "sessions are handled, its input boundaries, and the configuration that wires CORS, headers and auth. "
-        + "Your last message is the complete JSON observation array, earlier findings included.\n\n"
+    // 2026-11-09-0620k: the nudge names the areas the review listed and did not open. A floor stated as a number
+    // invited reads made to reach it; the areas are the work that is missing.
+    public string BuildCoverageNudge(string originalUserPrompt, IReadOnlyList<string> unreadAreas) =>
+        (unreadAreas.Count > 0
+            ? $"Your review listed these areas and opened none of their files: {string.Join(", ", unreadAreas)}. "
+            : "Your review opened few of the source files that implement the surface. ")
+        + "Read the code each area implements, where its auth and sessions are handled, its input boundaries, and "
+        + "the configuration that wires CORS, headers and auth. Your last message is the complete JSON observation "
+        + "array, earlier findings included.\n\n"
         + originalUserPrompt;
+
+    private const string SecurityOpening =
+        """
+        This is a security review of the source, not a coding task. Your tools read
+        files and send HTTP probes; nothing you do changes the repository, and no build
+        or test runs here.
+        """;
 
     private const string AnchoredClosing =
         """
-        Work your methodology over these scanner inputs and the source — read the
-        implementing code to anchor each finding. When you are done, stop calling
-        tools and output ONLY your final JSON observation array (an empty array
-        `[]` if nothing survives your refutation step).
+        Work your methodology over these scanner inputs and the source, reading the
+        implementing code to anchor each finding. Your last message is your JSON
+        observation array — `[]` when nothing survives your refutation step.
         """;
 
     private const string UnanchoredClosing =
         """
-        Work your methodology over the SOURCE. Nobody has handed you a list of
+        Work your methodology over the source. Nobody has handed you a list of
         suspects: inventory the surface yourself, read the implementing code, and
-        report what you find. When you are done, stop calling tools and output ONLY
-        your final JSON observation array (an empty array `[]` if nothing survives
-        your refutation step).
+        report what you find. Your last message is your JSON observation array —
+        `[]` when nothing survives your refutation step.
         """;
 
     // p0317: a goal-bearing ticket's conversation reaches the scan master too —

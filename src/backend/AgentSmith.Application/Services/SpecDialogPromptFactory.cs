@@ -18,15 +18,6 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 {
-    // 2026-11-09-0620b: one contract for every turn. The first-turn proposal ban (2026-09-17-042ec) is gone: since
-    // 2026-11-09-9a98 a draft is shown under review and filed only on approval, so the operator still decides first.
-    private const string ProposalContract =
-        "Propose the work once it is clear enough to cut. A proposal is shown to the operator marked under review while "
-        + "reviewers check it against the code, and nothing is filed until the operator approves it — so decide what "
-        + "you can defend from what you read, say so in the proposal, and ask only what neither the material nor the "
-        + "code settles and where a wrong guess would cost a rebuild. A question is answered as it is asked, and a "
-        + "request for a document — a prompt, a summary, a brief to take elsewhere — with the document itself.";
-
     public string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried)
     {
         var transcript = DialogTranscriptSection.Of(pipeline);
@@ -56,8 +47,10 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
     // with — what it may propose, and what it may not claim about work already filed. The
     // filing clause is appended to the proposal line rather than rendered on its own, so a
     // conversation that never filed gets byte-for-byte the prompt it gets today.
+    // 2026-11-09-0620k: the proposal contract is gone — the skill says when to draft and that a draft is reviewed and
+    // filed only on approval; what remains is the one fact only the server knows, whether this conversation filed work.
     private static string TurnContract(IReadOnlyList<SpecDialogTurn> transcript) =>
-        ProposalContract + FiledWorkContract(transcript);
+        FiledWorkContract(transcript).TrimStart('\n');
 
     // The trigger is the conversation's own filing record — a kept filing turn — not the
     // outcome type, which a failed turn, a twice-invalid proposal and a refused proposal all

@@ -12,10 +12,12 @@ internal static class ChangePassText
         ChangePass.Tests =>
             "You add tests for a change another pass of this run already made; the user message lists the changed "
             + "files. Test the public behaviour the change added or modified, the way the repository already tests — "
-            + "its framework, naming and folder layout. " + Reach,
+            + "its framework, naming and folder layout; where it has no test project yet, create one the way its "
+            + "framework does. " + Reach,
         _ =>
             "You update the documentation for a change another pass of this run already made; the user message lists "
             + "the changed files. Document what a reader of the changed public surface needs, where and how the "
-            + "repository already documents. " + Reach,
+            + "repository already documents: its README for new features, endpoints or commands, the doc comments "
+            + "of new public types and methods, its changelog or API docs when it keeps them. " + Reach,
     };
 }

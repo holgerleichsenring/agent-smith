@@ -477,7 +477,7 @@ public sealed class AgenticMasterHandler(
             var passes = await scanPasses.DriveAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation,
                 fs.ReadPaths.Count, ScanReadFloor.Of(context.MasterSkillName, context.AgentConfig),
-                TrackMasterResponse, cancellationToken);
+                TrackMasterResponse, cancellationToken, fs.UnreadAreas());
             loopResult = passes.Result;
             scanAnswer = passes.Answer;
         }

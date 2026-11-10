@@ -20,16 +20,28 @@ public sealed class KnowledgeWikiPagesTests
 
         var wiki = await new RunDirectoryReader().ReadExistingWikiAsync(files, "/w/wiki", CancellationToken.None);
 
-        wiki.Should().Contain("### decisions.md\n- chose SQL").And.Contain("### index.md\n# Index").And.NotContain("run-9");
+        wiki.Should().StartWith("<page name=\"index.md\">\n# Index\n</page>")
+            .And.Contain("<page name=\"decisions.md\">\n- chose SQL\n</page>").And.NotContain("run-9");
     }
 
     [Fact]
-    public void KnowledgePrompt_ExistingPages_SaysAReturnedPageReplacesTheStoredOne()
+    public async Task ReadExistingWiki_OverBudget_NamesThePagesLeftOut()
+    {
+        var files = new SpecBranchFiles();
+        files.Seed("/w/wiki/index.md", "# Index");
+        files.Seed("/w/wiki/big.md", new string('x', RunDirectoryReader.WikiBudgetChars));
+
+        var wiki = await new RunDirectoryReader().ReadExistingWikiAsync(files, "/w/wiki", CancellationToken.None);
+
+        wiki.Should().Contain("<page name=\"index.md\">").And.EndWith("Left out to fit: big.md.");
+    }
+
+    [Fact]
+    public void KnowledgePrompt_ExistingPages_RepeatsNoSkillRule()
     {
         var prompt = new KnowledgePromptBuilder(Moq.Mock.Of<AgentSmith.Contracts.Services.IPromptCatalog>())
-            .BuildUserPrompt("### decisions.md\n- chose SQL", []);
+            .BuildUserPrompt("<page name=\"decisions.md\">\n- chose SQL\n</page>", []);
 
-        prompt.Should().Contain("A page you return replaces the stored page entirely")
-            .And.Contain("Return the pages this run data changes, each whole");
+        prompt.Should().Contain("## Existing wiki pages").And.NotContain("replaces the stored page").And.NotContain("wiki_updates");
     }
 }

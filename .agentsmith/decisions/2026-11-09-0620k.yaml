@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-09-0620k
+
+decisions:
+  - category: Implementation
+    chose: "The design turn's server text keeps only what the server knows: whether a work picture is stored and its values, and the filed-work clause"
+    over: "Shorter versions of the reading line and the proposal contract"
+    reason: "v5.25.1's Reading, Orientation, Work picture and Converging sections say all of it; any server line would repeat them and could drift from them."
+  - category: Implementation
+    chose: "Name the listed directories the review never opened"
+    over: "Stating the read floor as a number"
+    reason: "A number invites reads made to reach it; the unread areas are the missing work. With nothing listed the nudge says few implementing files were opened."
+  - category: Implementation
+    chose: "Wiki pages between page markers, index first, within 60,000 characters, the rest named"
+    over: "Every page whole"
+    reason: "A grown wiki would fill the context; the skill already forbids returning a page it was not shown, so naming the left-out pages keeps them safe."
+  - category: Implementation
+    chose: "Restore the change pass's order: principles, context, code map, then the pass text"
+    over: "The pass text first"
+    reason: "The operator's rule is no reordering in this series, and the coding master opens the same way, so the passes share its prefix."
+  - category: Implementation
+    chose: "pr-review keeps the review prompt's sections and headings; only the opening and closing differ"
+    over: "A prompt of its own"
+    reason: "The sections were right; the security wording was not. The skill says how to judge the diff."

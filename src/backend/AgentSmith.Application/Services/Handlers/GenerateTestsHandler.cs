@@ -90,16 +90,8 @@ public sealed class GenerateTestsHandler(
     {
         var fileList = string.Join("\n", changes.Select(c => $"- {c.Path.Value} ({c.ChangeType})"));
 
-        var description =
-            $"""
-             Generate unit tests for the following code changes. Analyze existing test patterns
-             in the repository (test framework, naming conventions, folder structure) and follow them.
-             Only test new or modified public API — do not test private internals.
-             If no test project exists, create one following the project's framework conventions.
-
-             Changed files:
-             {fileList}
-             """;
+        // 2026-11-09-0620k: the task is stated once, in the pass's system prompt; the plan carries only the files.
+        var description = $"Changed files:\n{fileList}";
 
         var step = new PlanStep(1, description, null, "create");
         return new Plan("Generate unit tests for code changes", [step], description);

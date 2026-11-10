@@ -58,12 +58,13 @@ internal static class MasterUserPrompt
         if (names.Count == 0)
             return $"- **Path:** {repo.LocalPath} — **Branch:** {repo.CurrentBranch}";
 
-        var checkouts = string.Join("\n", names.Select(n =>
-            $"- `{n}` — checked out at {repo.LocalPath} in its own sandbox — **Branch:** {repo.CurrentBranch}"));
+        // 2026-11-09-0620k: no path — each sandbox has its own, and one path printed for all of them was wrong for all
+        // but one. The prefix sentence is the one place the file tools' path form is stated.
+        var checkouts = string.Join("\n", names.Select(n => $"- `{n}` — its own sandbox — **Branch:** {repo.CurrentBranch}"));
         return names.Count > 1
             ? checkouts
-              + $"\nAddress files with the repository prefix (e.g. `{names[0]}/src/...`) so each"
-              + " change lands in the right checkout."
+              + $"\nFile tools address a file by its repository's name and its path from that root (`{names[0]}/src/...`),"
+              + " so each change lands in the right checkout."
             : checkouts;
     }
 }

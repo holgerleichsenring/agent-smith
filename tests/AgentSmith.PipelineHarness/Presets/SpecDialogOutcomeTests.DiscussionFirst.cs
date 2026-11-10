@@ -25,7 +25,7 @@ public sealed partial class SpecDialogOutcomeTests
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
         string.Join("\n", harness.ChatClient.CallMessages[0].Select(m => m.Text)).Should()
-            .NotContain("MAY NOT propose").And.Contain("Propose the work once it is clear enough to cut");
+            .NotContain("MAY NOT propose");
         harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "nothing sends the draft back");
         result.Outcome.Should().BeOfType<SpecOutcome>();
     }

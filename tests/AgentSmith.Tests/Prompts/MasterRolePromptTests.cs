@@ -20,26 +20,27 @@ public sealed class MasterRolePromptTests
     {
         var closing = MasterClosing.For("mad-discussion-master", new PipelineContext());
 
-        closing.Should().Contain("the report your methodology names").And.NotContain("implement it")
-            .And.NotContain("build + tests");
+        closing.Should().Contain("the report your methodology names, written where it says")
+            .And.NotContain("nothing in the repositories needs to change").And.NotContain("build + tests");
     }
 
     [Fact]
     public void MasterClosing_Legal_NamesTheConvertedDocumentAndItsType()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.DocumentMarkdownPath, "/work/contract.md");
+        pipeline.Set(ContextKeys.DocumentMarkdownPath, "contract.md");
         pipeline.Set(ContextKeys.ContractType, "nda");
 
-        MasterClosing.For("legal-analyst-master", pipeline).Should().Contain("`/work/contract.md`")
+        MasterClosing.For("legal-analyst-master", pipeline).Should().Contain("`contract.md`, from the repository root")
             .And.Contain("`nda`").And.NotContain("implement it");
     }
 
     [Fact]
-    public void MasterClosing_Coding_IsUnchanged()
+    public void MasterClosing_Coding_NamesWhatIsParsedNotAProcedure()
     {
         MasterClosing.For("coding-agent-master", new PipelineContext()).Should()
-            .StartWith("Investigate the repositories, plan your change, implement it");
+            .Contain("your verdict block, or, when you asked with ask_human, the question")
+            .And.NotContain("plan your change");
     }
 
     [Fact]
@@ -49,7 +50,7 @@ public sealed class MasterRolePromptTests
 
         var prompt = new ScanMasterPromptFactory().Build(new PipelineContext(), repo, ["repo"], "pr-review-master");
 
-        prompt.Should().Contain("## The checkout").And.Contain("Judge the change the diff above shows")
+        prompt.Should().Contain("## Working source").And.Contain("This is a review of a pull request's change")
             .And.NotContain("This is a security review").And.NotContain("inventory the surface yourself");
     }
 
@@ -67,7 +68,8 @@ public sealed class MasterRolePromptTests
     {
         var prompt = new AgentPromptBuilder().BuildChangePassSystemPrompt(ChangePass.Tests, "PRINCIPLES", null);
 
-        prompt.Should().StartWith("You add tests for a change another pass of this run already made")
-            .And.Contain("## Coding Principles\nPRINCIPLES").And.NotContain("{").And.NotContain("attempts");
+        prompt.Should().StartWith("## Coding Principles\nPRINCIPLES", "the coding master's order, so the prefix is shared")
+            .And.Contain("You add tests for a change another pass of this run already made")
+            .And.NotContain("{").And.NotContain("attempts");
     }
 }

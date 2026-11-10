@@ -27,14 +27,14 @@ public sealed class ScanMasterPasses(
         PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
         AgenticLoopResult first, MasterConversation conversation,
         int readCount, int readFloor, Action<ChatResponse> trackUsage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, IReadOnlyList<string>? unreadAreas = null)
     {
         ArgumentNullException.ThrowIfNull(first);
         var passes = new List<MasterPassAnswer> { new(Unanchored, Text(first)) };
         var last = first;
 
         var deeper = await coverage.DriveAsync(
-            request, userPrompt, conversation, trackUsage, readCount, readFloor, cancellationToken);
+            request, userPrompt, conversation, trackUsage, readCount, readFloor, cancellationToken, unreadAreas);
         if (deeper is not null) { passes.Add(new MasterPassAnswer(Coverage, Text(deeper))); last = deeper; }
 
         var reconciled = await reconciliation.DriveAsync(

@@ -30,19 +30,18 @@ public sealed partial class SpecDialogWorkPictureTests
         var messages = harness.ChatClient.CallMessages[0];
         var system = string.Join("\n", messages.Where(m => m.Role.Value == "system").Select(m => m.Text));
         var user = string.Join("\n", messages.Where(m => m.Role.Value == "user").Select(m => m.Text));
-        user.Should().Contain("The uploads show what the operator wants built")
-            .And.Contain("The repositories show what already exists and what it already decides")
-            .And.Contain("Propose the work once it is clear enough to cut")
-            .And.NotContain("before the repositories").And.NotContain("MAY NOT propose")
-            .And.NotContain("Ready to propose").And.NotContain("scaffolding");
+        user.Should().NotContain("before the repositories").And.NotContain("MAY NOT propose")
+            .And.NotContain("Ready to propose").And.NotContain("scaffolding")
+            .And.NotContain("The uploads show", "the skill says what each source shows; the turn does not repeat it");
+        system.Should().Contain("An upload (a `reference:<name>` address) says what is wanted",
+            "the skill's own reading section reaches the model");
         // The fixture cannot be listed remotely, so its slot holds the fallback line; the listed layout itself is pinned
         // by RepositoryLayoutTests. What holds here is that the slot exists for the unmapped repository.
         system.Should().Contain("### Repository: spec-dialog-fixture");
 
         string[] order =
         [
-            "## Design conversation", "rebuild the uploaded app", "## Your reply", "The uploads show",
-            "No work picture is stored yet", "Propose the work once",
+            "## Design conversation", "rebuild the uploaded app", "## Your reply", "No work picture is stored yet",
         ];
         order.Select(marker => user.IndexOf(marker, StringComparison.Ordinal)).Should()
             .OnlyContain(p => p >= 0).And.BeInAscendingOrder("a changed section stays where it was");

@@ -22,7 +22,7 @@ public sealed class CodingRunTextTests
     public void MasterClosing_Coding_EndsOnTheVerdict()
     {
         MasterClosing.For("coding-agent-master", new PipelineContext()).Should()
-            .Contain("Your last message is your verdict block").And.NotContain("summarise what changed");
+            .Contain("The framework parses your last message").And.NotContain("summarise what changed");
     }
 
     [Fact]

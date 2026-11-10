@@ -73,10 +73,10 @@ public sealed class ScanMasterBudgetTests
 
         await Redrive(loop).DriveAsync(
             request, "REVIEW PROMPT", conversation, _ => { },
-            readCount: 0, readFloor: 6, CancellationToken.None);
+            readCount: 0, readFloor: 6, CancellationToken.None, ["src/Api"]);
 
         var thread = conversation.Thread();
-        thread.Should().Contain(m => m.Text != null && m.Text.Contains("a review that covers the source reads at least"),
+        thread.Should().Contain(m => m.Text != null && m.Text.Contains("listed these areas and opened none of their files: src/Api"),
             "the drive that ran is part of the conversation it drove");
         thread.Should().Contain(m => m.Text != null && m.Text.Contains("deeper-pass finding"));
     }

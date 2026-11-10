@@ -59,8 +59,7 @@ public sealed class StewardTurnTests
         await Run(loop, TurnContext(DesignMaster));
 
         loop.Requests[0].UserPrompt.Should().Contain("## Design conversation")
-            .And.Contain("Propose the work once it is clear enough to cut", "the design partner's block is its proposal")
-            .And.NotContain("MAY NOT propose");
+            .And.NotContain("MAY NOT propose", "the design partner's block is its proposal");
     }
 
     [Fact]

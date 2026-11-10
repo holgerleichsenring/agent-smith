@@ -117,7 +117,7 @@ public sealed class AgenticMasterHandlerTests
 
         ctx.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var v).Should().BeTrue();
         v!.Status.Should().Be(VerificationStatus.Green);
-        loop.SeenRequests[^1].UserPrompt.Should().Contain("did NOT emit the verdict that \"Your verdict\" requires");
+        loop.SeenRequests[^1].UserPrompt.Should().Contain("emitted no verdict, so the run cannot be reported");
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class AgenticMasterHandlerTests
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("write_file").And.Contain("run_command").And.Contain("ask_human");
-        loop.SeenRequests[0].UserPrompt.Should().Contain("implement");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("The framework parses your last message");
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class AgenticMasterHandlerTests
             .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master"), CancellationToken.None);
 
         loop.SeenRequests.Should().HaveCount(2, "0 reads is below the floor → one coverage re-drive");
-        loop.SeenRequests[1].UserPrompt.Should().Contain("a review that covers the source reads at least");
+        loop.SeenRequests[1].UserPrompt.Should().Contain("Read the code each area implements");
     }
 
     [Fact]

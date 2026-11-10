@@ -50,9 +50,10 @@ public sealed class SpawnAgentToolHost : IToolHost
         "Runs sub-agents in parallel, each in a fresh context, and returns when all have finished. Each task needs a " +
         "descriptive name (a role, not 'agent1' or 'worker' — generic names are refused), a one-line activity, the " +
         "task description, and the inherited context: the goal and the slice of what you know that the child needs, " +
-        "because it sees nothing else of your conversation. A child gets your tools without spawn_agents, the same " +
-        "checkouts, and its own bound on tool rounds. The result lists per child its status, id, tool calls, cost and " +
-        "its answer, cut at about 6000 characters; read_sub_agent_observations returns a cut answer whole.")]
+        "because it sees nothing else of your conversation. A child works in your checkouts with the base file and " +
+        "command tools — only the read tools in a design conversation — and none of your run's progress, verdict, gate " +
+        "or spawn tools. The result lists per child its status, id, tool calls, cost and the first 6000 characters of " +
+        "its answer; read_sub_agent_observations returns a longer answer whole.")]
     public async Task<string> SpawnAgents(
         [Description("Array of task objects: name, activity, task_description, " +
                      "optional output_hint, inherited_context " +

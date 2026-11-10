@@ -48,8 +48,8 @@ public sealed class SpecDialogFiledWorkContractTests
         var unfiled = Prompt(EndingIn(SpecDialogTurnKind.Notice));
         var filed = Prompt(EndingIn(SpecDialogTurnKind.Filing));
 
-        unfiled.Should().NotContain("already filed work").And.NotContain(Clause)
-            .And.EndWith("with the document itself.");
+        unfiled.Should().NotContain("already filed work").And.NotContain(Clause);
+        unfiled.TrimEnd().Should().EndWith("No work picture is stored yet.");
         filed.Should().StartWith(unfiled, "the clause is added to the contract, not woven into it")
             .And.NotBe(unfiled);
     }
@@ -59,7 +59,6 @@ public sealed class SpecDialogFiledWorkContractTests
     {
         var prompt = Prompt(EndingIn(SpecDialogTurnKind.Filing));
 
-        prompt.Should().Contain("Propose the work once it is clear enough to cut");
         prompt.Should().Contain(Clause, "a proposal turn files nothing either");
     }
 
@@ -72,7 +71,7 @@ public sealed class SpecDialogFiledWorkContractTests
                 SpecDialogTurnKind.Filing),
             new SpecDialogTurn("user", "now combine them into one"));
 
-        prompt.Should().Contain("Propose the work once it is clear enough to cut", "every turn states one contract");
+
         prompt.Should().Contain(Clause, "the clause does not key on what the turn may produce");
     }
 

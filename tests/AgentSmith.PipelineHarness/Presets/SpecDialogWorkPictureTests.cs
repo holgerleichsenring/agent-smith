@@ -45,8 +45,7 @@ public sealed partial class SpecDialogWorkPictureTests
         first.Kind.Should().NotBe(SpecDialogTurnKind.Failure);
         first.WorkPicture.Should().Be(new WorkPicture(
             UndertakingKind.Rebuild, "the uploaded app; the repository provides the host", UndertakingSize.Series));
-        firstPrompt.Should().Contain("The uploads show what the operator wants built")
-            .And.Contain("No work picture is stored yet").And.NotContain("The code map above says");
+        firstPrompt.Should().Contain("No work picture is stored yet").And.NotContain("before the repositories");
         harness.ChatClient.PromptsSeen.Last().Should().Contain("## Work picture").And.Contain("- kind: rebuild")
             .And.NotContain("No work picture is stored yet");
     }

@@ -15,7 +15,6 @@ public sealed class KnowledgePromptBuilder(IPromptCatalog prompts)
         if (!string.IsNullOrWhiteSpace(existingWiki))
         {
             sb.AppendLine("## Existing wiki pages");
-            sb.AppendLine("A page you return replaces the stored page entirely; a page you do not return stays as it is.");
             sb.AppendLine(existingWiki);
             sb.AppendLine();
         }
@@ -43,7 +42,6 @@ public sealed class KnowledgePromptBuilder(IPromptCatalog prompts)
             }
         }
 
-        sb.AppendLine("Return the pages this run data changes, each whole, as JSON: { \"wiki_updates\": { \"filename.md\": \"content\" } }");
         return sb.ToString();
     }
 }
