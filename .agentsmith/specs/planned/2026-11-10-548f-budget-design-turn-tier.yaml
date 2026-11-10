@@ -45,7 +45,7 @@ steps:
   - id: skill
     action: "design-partner-master, Work picture paragraph, one phrase added in place; the text is under skill_text."
   - id: tests
-    action: "Pin the raise, the override, the higher-wins rule, the failed-turn store and the five lists."
+    action: "Pin the raise, the override, the higher-wins rule, the failed-turn store and the four hand-written lists."
 
 skill_text:
   effort_description: "Optional. size is how the work is cut; effort is how much the review of this turn's drafts may spend. trivial or small: one small spec; medium: one spec of real work; large: a series; xl: a whole product or proof of concept carried into repositories. The turn's cost cap rises to this tier's cap and never falls."

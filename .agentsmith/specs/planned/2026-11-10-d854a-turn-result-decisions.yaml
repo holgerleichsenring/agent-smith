@@ -13,13 +13,13 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:15; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-39"
   - claim: "A design master records turn facts through small typed tools that write the reply slot; the ticket steward's surface excludes them by name."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:20-46; src/backend/AgentSmith.Contracts/Models/SpecDialogReplySlot.cs:11-33; src/backend/AgentSmith.Application/Services/Tools/TicketStewardTools.cs:15-19"
-  - claim: "Each mid-review push is built in ProposalReviewLoop.PublishAsync from a non-final summary; the final summary ends the review; the composer copies what the OutcomeProposal carries."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:44,48-58; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:36-48"
+  - claim: "The first under-review push is made before any review path forks; the ticket-graph, no-draft and rounds=0 paths then return early, rounds publish from ProposalReviewLoop.PublishAsync, and the series round spends after the loop; every path ends with the outcome CollectSpecDialogReplyHandler reads. The composer copies what the OutcomeProposal carries."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:32-49; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:48-58; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalSeriesRound.cs:26-27; src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:33; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:36-48"
   - claim: "The turn's spend and whether its cap is exhausted are on its cost tracker."
     evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:68; src/backend/AgentSmith.Application/Services/CostCapStop.cs:22-40"
 
 scope:
-  in: "A master tool state_open_questions(questions): each entry a question, the master's proposal and the spec ids it touches; a later call in the turn replaces the list; an entry with an empty question or proposal is refused with the rule. The slot carries the list onto the OutcomeProposal as Questions. The composer keeps each entry's spec ids that name a spec of the final proposal and drops the others. Spend (usd, capUsd, tier, capHit) is set on the OutcomeProposal from the turn's tracker in ProposalReviewLoop.PublishAsync for each mid-review push and on the final review summary for the total; the composer copies it, and the stored proposal keeps the final one. The ticket steward does not get the tool. design-partner-master changes in three passages, text under skill_text, shipped in one skills release with 2026-11-10-548f."
+  in: "A master tool state_open_questions(questions): each entry a question, the master's proposal and the spec ids it touches; a later call in the turn replaces the list; an entry with an empty question or proposal is refused with the rule. The slot carries the list onto the OutcomeProposal as Questions. The composer keeps each entry's spec ids that name a spec of the final proposal and drops the others. Spend (usd, capUsd, tier, capHit) is set on the OutcomeProposal from the turn's tracker on the first under-review push (SpecDialogProposalReview.cs:36-38) and on each ProposalReviewLoop.PublishAsync push, and the final Spend is set once in CollectSpecDialogReplyHandler, so every path (ticket graph, rounds=0, no draft, after the series round) carries the total; the composer copies it, and the stored proposal keeps the final one. The ticket steward does not get the tool. design-partner-master changes in three passages, text under skill_text, shipped in one skills release with 2026-11-10-548f."
   out: "The card that shows this is 2026-11-10-d854b. Answer turns keep their questions in the reply only, which every surface already shows."
 
 decisions:
@@ -28,13 +28,13 @@ decisions:
   - key: "ONE WORD: PROPOSAL. The field, the skill text and the button say proposal, the word the specs already use for 'proposed:'."
   - key: "A TOOL, NOT A YAML KEY. Every outcome kind would need the key and each parser would learn it; a tool beside state_work_picture serves every kind and refuses with a reason."
   - key: "IDS CHECKED AGAINST THE FINAL PROPOSAL. A review revision can renumber or drop specs after the tool was called; the composer sees the set the person will approve."
-  - key: "SPEND WHERE THE PUSH IS BUILT. The review loop builds every push and knows the tracker; the composer only copies."
+  - key: "SPEND SO FAR ON EACH PUSH, THE TOTAL AT THE ONE EXIT. The review forks into several paths; CollectSpecDialogReplyHandler is where all of them end, so the total is set once there; the composer only copies."
 
 steps:
   - id: tool
     action: "OpenQuestionsToolHost writes SpecDialogReplySlot.Questions; TicketActToolsFactory adds it on every turn with a reply slot; TicketStewardTools.Excluded names it."
   - id: spend
-    action: "OutcomeProposal gains Questions and Spend; ProposalReviewLoop.PublishAsync and the final summary set Spend; SpecDialogProposalComposer filters spec ids and copies both; OutcomeProposalJson stores them; the dashboard type gains both as optional fields."
+    action: "OutcomeProposal gains Questions and Spend; the first under-review push and ProposalReviewLoop.PublishAsync set Spend so far; CollectSpecDialogReplyHandler sets the final Spend; SpecDialogProposalComposer filters spec ids and copies both; OutcomeProposalJson stores them; the dashboard type gains both as optional fields."
   - id: skill
     action: "design-partner-master, three passages changed in place; no section is added or moved."
   - id: tests
@@ -59,7 +59,8 @@ tests:
   - "StateOpenQuestions_SecondCall_ReplacesTheList"
   - "ProposalComposer_QuestionCitingADroppedSpec_KeepsOnlyKnownIds"
   - "ProposalReviewLoop_MidReviewPush_CarriesSpendSoFar"
-  - "ProposalReviewLoop_FinalSummary_CarriesTotalSpendAndCapHit"
+  - "CollectSpecDialogReply_EveryProposalPath_CarriesTotalSpendAndCapHit"
+  - "SpecDialogProposalReview_FirstUnderReviewPush_CarriesSpend"
   - "OutcomeProposalJson_RoundTripsQuestionsAndSpend"
   - "TicketStewardTools_ExcludeStateOpenQuestions"
 

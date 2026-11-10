@@ -14,15 +14,15 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:50-52; src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:19"
   - claim: "A pipeline failure is already kept as a Failure turn; a turn that throws only sends a notice through the messenger and stores nothing."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:78-82; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:89-97"
-  - claim: "The mid-review observer writes the stored proposal while the turn runs."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:24-25"
+  - claim: "The mid-review observer writes the stored proposal while the turn runs, reached from Application through a Contracts port and accessor implemented in Server; Application has no access to the session repository."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:24-25; src/backend/AgentSmith.Contracts/Turns/ITurnProposalObserver.cs:11,20"
   - claim: "Run events are typed by EventType (120 lines, its cap) and mirrored in hub-events.ts; a run's events are served per step through /api/runs/{runId}/steps/{stepIndex}/events by TrailReader, baselined at 277 lines; an event records its origin step as OriginStepIndex."
     evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs; src/dashboard/src/types/hub-events.ts; src/backend/AgentSmith.Server/Extensions/RunStepQueryEndpoints.cs:6-23,54; src/backend/AgentSmith.Server/Services/Events/TrailReader.cs; src/backend/AgentSmith.Contracts/Events/RunEvent.cs:26"
   - claim: "Conversation 44's run kept 447 events (212 LLM calls, 4 sub-agents) but none of its 1,225 activity steps."
     evidence: "RunEvents rows of run 2026-11-10T19-36-22-96b7, read 2026-11-10"
 
 scope:
-  in: "EventType gains DialogActivity, with one line of EventType trimmed to stay at its cap; each activity step is a run event of that type on CurrentRunId, detail bounded to 500 characters; hub-events.ts mirrors it. A new DialogActivityReader (not TrailReader) serves a run's DialogActivity events RUN-WIDE, paged in order, with their count from an aggregate query, through /api/runs/{runId}/dialog-activity. GroundSpecDialog writes the run id to the reply slot and to the session row as the running turn's run id; the keeper stamps it on the agent transcript turn; after a crash the session row still names it. Every proposal is stored per turn, keyed by run id, by the flow and by DialogProposalObserver, beside the latest one a decision acts on. Thrown and cancelled turns keep a Notice turn with the run id (null when the pipeline never started): the catch moves into the runner, which is split below its cap first unless 2026-11-10-548f split it; cancellation notices are written with CancellationToken.None. SpecDialogViewReader, split by 2026-11-10-ccd9, returns each turn's proposal with its transcript turn."
+  in: "EventType gains DialogActivity, with one line of EventType trimmed to stay at its cap; each activity step is a run event of that type on CurrentRunId, detail bounded to 500 characters; hub-events.ts mirrors it. A new DialogActivityReader (not TrailReader) serves a run's DialogActivity events RUN-WIDE, paged in order, with their count from an aggregate query, through /api/runs/{runId}/dialog-activity. GroundSpecDialog writes the run id to the reply slot and reports it through a new Contracts port, ITurnRunRecorder (the ITurnProposalObserver pattern: interface and accessor in Contracts, implemented in Server), whose Server implementation writes it to the session row as the running turn's run id; the keeper stamps it on the agent transcript turn; after a crash the session row still names it. Every proposal is stored per turn, keyed by run id, by the flow and by DialogProposalObserver, beside the latest one a decision acts on. Thrown and cancelled turns keep a Notice turn with the run id (null when the pipeline never started): the catch moves into the runner, which is split below its cap first unless 2026-11-10-548f split it; cancellation notices are written with CancellationToken.None. SpecDialogViewReader, split by 2026-11-10-ccd9, returns each turn's proposal with its transcript turn."
   out: "The rendering of the activity line and of each turn's result is 2026-11-10-d854b."
 
 decisions:
@@ -37,11 +37,11 @@ steps:
   - id: reader
     action: "DialogActivityReader and its endpoint: run-wide pages in order plus the aggregate count."
   - id: link
-    action: "TranscriptTurn gains RunId (nullable); SpecDialogSession gains RunningRunId (all three migration sets, one name); GroundSpecDialogHandler writes both; the keeper stamps the turn."
+    action: "TranscriptTurn gains RunId (nullable); SpecDialogSession gains RunningRunId and a per-turn proposal table is added, migration AddSpecDialogTurnRuns in the SQLite, SqlServer and Postgresql sets; GroundSpecDialogHandler sets the slot and calls ITurnRunRecorder, implemented in Server against the session store; the keeper stamps the turn."
   - id: failures
     action: "Split SpecDialogTurnRunner if needed; move the catch into it; thrown and cancelled turns append a Notice turn with the run id."
   - id: proposals
-    action: "A per-turn proposal table keyed by run id (same migration name in all three sets); the flow and the observer write it; the view returns it per turn."
+    action: "The per-turn proposal table keyed by run id (migration AddSpecDialogTurnRuns); the flow and the observer write it; the view returns it per turn."
   - id: tests
     action: "Pin event, reader, link, crash, failure notices and the per-turn store."
 
@@ -49,7 +49,8 @@ tests:
   - "DialogActivityObserver_Step_IsRecordedOnTheTurnsRunWithBoundedDetail"
   - "DialogActivityReader_StepsAcrossPipelineSteps_PagesAllInOrderWithTheirCount"
   - "TurnKeeper_AgentTurn_CarriesItsRunId"
-  - "GroundSpecDialog_WritesTheRunningRunIdOnTheSession"
+  - "GroundSpecDialog_ReportsTheRunIdThroughTheTurnRunRecorder"
+  - "TurnRunRecorder_WritesTheRunningRunIdOnTheSession"
   - "Runner_ThrownTurn_AppendsANoticeTurnWithItsRunId"
   - "Runner_ThrowBeforeThePipelineStarts_AppendsANoticeWithNoRunId"
   - "Runner_CancelledTurn_AppendsANoticeWithCancellationTokenNone"
