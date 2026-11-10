@@ -33,7 +33,7 @@ public sealed class DesignTurnToolSurfaceTests
         var names = loop.MasterTools.Select(t => t.Name).ToList();
         names.Should().NotContain(Removed);
         names.Should().Contain(["read_file", "grep_in_tree", "find_files", "directory_tree",
-            "spawn_agents", "read_sub_agent_observations"]);
+            "spawn_agents"]);
     }
 
     /// <summary>2026-11-10-14a3d: the memory, visual, mock and withdrawal tools come with what they work on.</summary>

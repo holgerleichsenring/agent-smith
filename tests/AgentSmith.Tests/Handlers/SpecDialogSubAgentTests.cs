@@ -31,7 +31,7 @@ public sealed class SpecDialogSubAgentTests
 
         await RunDesignTurnAsync(loop);
 
-        MasterTools(loop).Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
+        MasterTools(loop).Should().Contain("spawn_agents").And.NotContain("read_sub_agent_observations");
     }
 
     [Fact]

@@ -36,16 +36,13 @@ public sealed class SubAgentSituationTests
             .And.Contain("Your final message is what your master receives");
     }
 
-    /// <summary>2026-11-10-14a3a: the notice leads; at the end it read like the answer's last line.</summary>
+    /// <summary>2026-11-10-14a3a: the child is told what a good answer holds; the harness does not cut it.</summary>
     [Fact]
-    public void SubAgentAnswer_LongerThanTheCap_LeadsWithTheNotice()
+    public void SubAgentSituation_TellsTheChildWhatAGoodAnswerHolds()
     {
-        var cut = SubAgentAnswer.Condensed(new string('x', SubAgentAnswer.MaxChars + 50), "sa-1");
-
-        cut.Should().StartWith($"[CUT — the first {SubAgentAnswer.MaxChars} of {SubAgentAnswer.MaxChars + 50} characters; "
-            + "read_sub_agent_observations(\"sa-1\")").And.EndWith(new string('x', SubAgentAnswer.MaxChars));
-        SubAgentAnswer.WasCut(cut).Should().BeTrue();
-        SubAgentAnswer.Condensed("short", "sa-1").Should().Be("short");
+        SubAgentSituation.Render(["server"], [], 9).Should()
+            .Contain("receives, whole").And.Contain("the conclusion first")
+            .And.Contain($"about {SubAgentAnswer.AimWords} words").And.Contain("Name what you left out");
     }
 
     [Fact]
@@ -59,7 +56,7 @@ public sealed class SubAgentSituationTests
         var pipeline = new PipelineContext();
         var context = new SubAgentContext(
             pipeline, new Dictionary<string, ISandbox> { ["server"] = Mock.Of<ISandbox>() },
-            PipelineCostTracker.GetOrCreate(pipeline), "run-1", [], new InMemoryChildAnswerStore(),
+            PipelineCostTracker.GetOrCreate(pipeline), "run-1", [],
             new SubAgentBudget(4), new AgentConfig { Type = "azure_openai", Model = "m" }, ChildIterationCeiling: 9);
 
         var results = await runner.RunAsync(

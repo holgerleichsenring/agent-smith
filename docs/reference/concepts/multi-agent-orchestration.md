@@ -25,10 +25,7 @@ The master's `output_schema` decides its tool surface. A master that declares `o
 
 ## Spawning children
 
-Every master surface carries two extra tools as long as `limits.max_sub_agents_per_run` is above zero (for the design partner, `limits.max_sub_agents_per_dialog_turn`):
-
-- `spawn_agents` takes a list of tasks and runs them in parallel.
-- `read_sub_agent_observations` returns one child's full final answer.
+Every master surface carries `spawn_agents` as long as `limits.max_sub_agents_per_run` is above zero (for the design partner, `limits.max_sub_agents_per_dialog_turn`). It takes a list of tasks and runs them in parallel.
 
 Each task the master passes to `spawn_agents` carries:
 
@@ -48,8 +45,8 @@ A child runs its own tool loop with the master's base surface:
 
 - It works in the same sandboxes as the master, so its reads and writes land in the same working copy.
 - A child of a scan master is read-only, like its parent. A child of a coding master can read and write.
-- A child never gets `spawn_agents` or `read_sub_agent_observations`, so it cannot spawn grandchildren. It also never gets `update_progress` or `ensure_repo_sandbox`; the ledger and the repository scope stay with the master.
-- A child of a design turn keeps only the reads: `read_file`, `grep_in_tree`, `find_files`, `directory_tree`, `web_fetch`, `recall` and the bound ticket's reads. It never acts on the ticket.
+- A child never gets `spawn_agents`, so it cannot spawn grandchildren. It also never gets `update_progress` or `ensure_repo_sandbox`; the ledger and the repository scope stay with the master.
+- A child of a design turn keeps only the reads: `read_file`, `grep_in_tree`, `find_files`, `directory_tree`, `web_fetch`, `recall` where the project keeps a memory store, and the bound ticket's reads. It never acts on the ticket.
 
 A child has no budget fence and no ledger reminders. Its only bound is its iteration ceiling: `max_sub_agent_loop_iterations` on the agent the run uses (default 100), or `limits.max_dialog_sub_agent_loop_iterations` (default 20) for a child of a design turn.
 
@@ -59,14 +56,15 @@ A child has no budget fence and no ledger reminders. Its only bound is its itera
 
 | Field | Meaning |
 |---|---|
-| `status` | `Succeeded` or `Failed`. |
-| `sub_agent_id` | The id to pass to `read_sub_agent_observations`. |
+| `status` | `Succeeded`, `Empty` or `Failed`. |
+| `sub_agent_id` | The child's id in the run's trail. |
 | `name` | The child's name. |
 | `observations_count`, `tool_calls` | How much the child did. |
 | `cost_usd` | What the child spent. |
+| `answer` | The child's final answer, whole. |
 | `reason` | Set on refusals: `invalid_name` or `budget_exhausted`. |
 
-The row carries counts, not content. To use what a child found, the master calls `read_sub_agent_observations` with the child's `sub_agent_id` and gets the child's final answer back as text.
+The answer comes back whole: a part of an answer is never useful, because the master cannot tell what is missing. How long it is, is the child's job — its prompt asks for the conclusion first, the facts with the files they rest on, typically up to about 1,500 words, and a line on what it left out. Only a runaway answer past 60,000 characters is cut; its entry then says so first, and the run's log records it.
 
 A failed child does not stop its siblings; it comes back as a `Failed` row and the master decides what to do next. Each call to `spawn_agents` is also written to the run's decision log with every child's name, activity, status and cost, and the failure reason for a child that failed.
 

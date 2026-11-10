@@ -5,9 +5,9 @@ namespace AgentSmith.Application.Services.Loop;
 /// <summary>
 /// p0177: one sub-agent invocation's return value — status, id, name, tool calls, cost.
 /// <para>
-/// 2026-11-09-0620e: and the child's answer, condensed to what a master can read in one spawn result. p0177 kept text
+/// 2026-11-09-0620e: and the child's answer — 2026-11-10-14a3a: whole, cut only past a runaway ceiling. p0177 kept text
 /// off this record so a master would read details lazily; in practice the master got counts — two of them always 0 —
-/// and had to call once per child to learn anything. read_sub_agent_observations still returns the whole answer.
+/// and had to call once per child to learn anything.
 /// </para>
 /// <para>Implements <see cref="IDomainEvent"/> via explicit interface
 /// members so the typed-contract discipline catches drift even though

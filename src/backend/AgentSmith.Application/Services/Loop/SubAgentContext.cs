@@ -13,8 +13,7 @@ namespace AgentSmith.Application.Services.Loop;
 /// deliberately re-used (children operate against the master's repo working tree and
 /// accrue cost against the same per-run total). p0280: the master also passes the child
 /// tool surface it granted (ChildTools — read-only for a scan master, read/write for a
-/// coding master; never spawn_agents) and the answer store children write their final
-/// answer to.
+/// coding master; never spawn_agents).
 /// </summary>
 public sealed record SubAgentContext(
     PipelineContext Pipeline,
@@ -22,7 +21,6 @@ public sealed record SubAgentContext(
     PipelineCostTracker CostTracker,
     string MasterRunId,
     IReadOnlyList<AITool> ChildTools,
-    IChildAnswerStore AnswerStore,
     SubAgentBudget Budget,
     // The master's resolved AgentConfig, passed EXPLICITLY. The coding-master path never
     // publishes it to ContextKeys.AgentConfig (only the api/security/pr round handlers do),

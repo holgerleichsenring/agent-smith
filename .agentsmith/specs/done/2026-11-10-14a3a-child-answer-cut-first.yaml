@@ -1,24 +1,26 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-14a3a
-goal: "A child answer that was cut says so at its start, the spawn result names every cut child in one line, and each child is told the cap it writes within."
+goal: "A child's answer reaches its master whole, the child is told what a good answer holds, and only a runaway past a high ceiling is cut, saying so first."
 applies_to: "default (sub-agent answer, spawn result, child situation)"
 facts:
   - claim: "Conversation 43's PoC-Analyst answer was cut at 12000 characters with the notice as its last line; the master never read the rest."
     evidence: "observed: 2026-11-10, prod run 2026-11-10T11-22-43-0ee5, prompt position 8"
-  - claim: "The cut appends its notice after the kept text."
-    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentAnswer.cs:14-20"
-  - claim: "The child's situation says about the first 12000 characters arrive directly."
-    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentSituation.cs:25-27"
+  - claim: "The answer was cut at 12000 characters with the notice appended after the kept text."
+    evidence: "observed: 2026-11-10, src/backend/AgentSmith.Application/Services/Loop/SubAgentAnswer.cs before this spec"
+  - claim: "read_sub_agent_observations and its answer store existed only to return a cut answer whole."
+    evidence: "observed: 2026-11-10, ReadSubAgentObservationsToolHost and IChildAnswerStore before this spec"
 steps:
-  - id: lead
-    action: "A cut answer starts with the notice: how much is shown, how much is left, read_sub_agent_observations with the child's id."
-  - id: summary
-    action: "The spawn result carries a top-level line naming each cut child and its id, absent when none was cut."
-  - id: cap
-    action: "The child's situation states the cap as the length its answer arrives whole within."
+  - id: whole
+    action: "spawn_agents returns every child's whole answer; a runaway past 60000 characters is cut, says so first and is logged."
+  - id: situation
+    action: "The child's situation asks for the conclusion first, the facts with their files, typically up to about 1500 words, and a line on what it left out."
+  - id: delete
+    action: "Delete read_sub_agent_observations, the child answer store and its sanity case; nothing else used them."
 tests:
-  - "SubAgentAnswer_LongerThanTheCap_LeadsWithTheNotice"
-  - "SpawnAgents_ACutChild_IsNamedInTheResultSummary"
+  - "SpawnAgents_LongAnswer_ComesBackWhole_ARunawayIsMarkedFirst"
+  - "SubAgentSituation_TellsTheChildWhatAGoodAnswerHolds"
+  - "SubAgentRunner_ChildFinalAnswer_IsTheResultsAnswer"
 done:
-  - "A cut answer's first line names the cut and the call that returns the rest."
+  - "A 20000-character answer reaches the master whole; a runaway's entry starts with the cut."
+  - "No master or child is offered read_sub_agent_observations."
   - "Backend and dashboard build and tests green."

@@ -2,15 +2,19 @@
 spec: 2026-11-10-14a3a
 
 decisions:
+  - category: Architecture
+    chose: "A child's answer is never cut; the size is the child's job, not the harness's"
+    over: "Cutting at 12000 characters with the notice first and a summary line (this spec's first commit)"
+    reason: "Operator decision, 2026-11-10: a part of an answer is never useful, because the master cannot tell what is missing. The child is told what a good answer holds and writes within it."
   - category: Implementation
-    chose: "The cut notice leads the answer and names the child's id in the call that returns the rest"
-    over: "Keeping the notice at the end, or raising the cap"
-    reason: "At the end of 12000 characters the notice read like the answer's last line; conversation 43's master never followed it. A higher cap only moves the edge."
+    chose: "One safety ceiling of 60000 characters against a runaway, marked first in the entry and logged"
+    over: "No ceiling"
+    reason: "A child that loops can produce an answer no master prompt can carry; the ceiling is far above what the situation asks for, so it only catches that case."
   - category: Implementation
-    chose: "A top-level 'cut' line in the spawn result, present only when a child was cut"
-    over: "A per-entry flag only"
-    reason: "A master reading several entries sees the one line first; a flag inside an entry is as easy to miss as the old notice."
+    chose: "Delete read_sub_agent_observations and the child answer store"
+    over: "Keeping them for the coding run"
+    reason: "Their only job was returning a cut answer whole; the coding run's children use the same spawn host and now get whole answers too, and nothing else read the store."
   - category: Implementation
-    chose: "The child is told its answer arrives whole up to the cap and that a longer one is cut"
-    over: "'About the first N characters arrive directly'"
-    reason: "The old wording read as a soft limit; a child that knows its answer is cut can write within it."
+    chose: "The child is asked for the conclusion first, the facts with files and lines, typically up to about 1500 words, and what it left out"
+    over: "Telling it a character cap"
+    reason: "A cap tells the child where it is cut, not what its master needs; naming what is left out lets the master decide whether to look."

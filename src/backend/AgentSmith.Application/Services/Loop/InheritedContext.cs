@@ -5,8 +5,8 @@ namespace AgentSmith.Application.Services.Loop;
 /// all string-typed and immutable: <see cref="PipelineGoal"/> tells the
 /// child what the run is for; <see cref="PriorContextSlice"/> is the
 /// observation block the master chose to share (decision anchors only,
-/// not raw bus events — those flow via the lazy read_sub_agent_observations
-/// tool); <see cref="OptionalSystemPromptBlock"/> is a free-form addendum
+/// not raw bus events; the child answers in its final message
+/// ); <see cref="OptionalSystemPromptBlock"/> is a free-form addendum
 /// the master may inject if the task needs a specialised stance.
 ///
 /// <para><b>Data only.</b> No cache_control fields. The cache architecture

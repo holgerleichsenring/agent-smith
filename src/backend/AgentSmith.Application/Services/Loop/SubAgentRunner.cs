@@ -81,8 +81,9 @@ public sealed class SubAgentRunner(
             var request = BuildLoopRequest(spec, subAgentId, context);
             var loopResult = await loopRunner.RunAsync(request, ct);
 
-            // p0280: the master pulls the child's final answer back via read_sub_agent_observations.
-            context.AnswerStore.Store(subAgentId, loopResult.Response.Text ?? string.Empty);
+            if (SubAgentAnswer.IsRunaway(loopResult.Response.Text)) // 2026-11-10-14a3a: the one cut there is, logged
+                logger.LogWarning("Sub-agent {SubAgentId} ({Name}) ran past {Ceiling} characters; its answer is cut",
+                    subAgentId, spec.Name, SubAgentAnswer.Ceiling);
             var status = string.IsNullOrWhiteSpace(loopResult.Response.Text) ? SubAgentStatus.Empty : SubAgentStatus.Succeeded;
 
             // Each child's cost rolls up against the shared per-run tracker.
@@ -92,7 +93,7 @@ public sealed class SubAgentRunner(
             var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
             var observationsCount = CountObservations(loopResult.Response);
             var toolCalls = CountToolCalls(loopResult.Response);
-            var answer = SubAgentAnswer.Condensed(loopResult.Response.Text, subAgentId); // 2026-11-09-0620e, 14a3a
+            var answer = SubAgentAnswer.Whole(loopResult.Response.Text); // 2026-11-09-0620e, 14a3a: whole
 
             await PublishCompletedAsync(
                 subAgentId, context, status,

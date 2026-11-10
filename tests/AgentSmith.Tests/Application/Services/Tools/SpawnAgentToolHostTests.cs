@@ -114,7 +114,6 @@ public sealed class SpawnAgentToolHostTests
             pipeline, new Dictionary<string, ISandbox>(), tracker,
             MasterRunId: "run-1",
             ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
-            AnswerStore: new InMemoryChildAnswerStore(),
             Budget: new SubAgentBudget(budget),
             AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" });
         var logger = new RecordingDecisionLogger();

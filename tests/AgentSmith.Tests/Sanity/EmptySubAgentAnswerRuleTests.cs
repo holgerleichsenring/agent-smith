@@ -36,55 +36,25 @@ public sealed class EmptySubAgentAnswerRuleTests
         decisions.Lines.Single().Should().Contain("RepoScout (read the sources) — Empty");
     }
 
-    /// <summary>2026-11-10-14a3a: a cut answer is named before every entry, so a master scanning the result sees it.</summary>
+    /// <summary>2026-11-10-14a3a: an answer comes back whole — a part is never useful; only a runaway is cut, saying so first.</summary>
     [Fact]
-    public async Task SpawnAgents_ACutChild_IsNamedInTheResultSummary()
+    public async Task SpawnAgents_LongAnswer_ComesBackWhole_ARunawayIsMarkedFirst()
     {
-        var context = SubAgentRunnerTests.BuildContext();
-        var host = new SpawnAgentToolHost(
-            SubAgentRunnerTests.BuildRunner(new StubLoopRunner(answer: new string('a', SubAgentAnswer.MaxChars + 10))),
-            new SubAgentBudget(5), new SubAgentNameValidator(), new RecordingDecisionLogger(), context);
+        var whole = await Spawn(new string('a', 20000));
+        var runaway = await Spawn(new string('b', SubAgentAnswer.Ceiling + 10));
 
+        whole.Should().Be(new string('a', 20000));
+        runaway.Should().StartWith("[RUNAWAY — this answer ran to").And.EndWith(new string('b', SubAgentAnswer.Ceiling));
+    }
+
+    private static async Task<string> Spawn(string answer)
+    {
+        var host = new SpawnAgentToolHost(SubAgentRunnerTests.BuildRunner(new StubLoopRunner(answer: answer)),
+            new SubAgentBudget(5), new SubAgentNameValidator(), new RecordingDecisionLogger(), SubAgentRunnerTests.BuildContext());
         var result = (await host.GetTools(null, null).Single().InvokeAsync(
             new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, CancellationToken.None))!;
-
-        var root = JsonDocument.Parse(((JsonElement)result).GetString()!).RootElement;
-        root.EnumerateObject().First().Name.Should().Be("cut");
-        root.GetProperty("cut").GetString().Should().StartWith("Cut, not whole").And.Contain("RepoScout (sa-");
-        root.GetProperty("results")[0].GetProperty("answer").GetString().Should().StartWith(SubAgentAnswer.CutPrefix);
-    }
-
-    [Fact]
-    public async Task ReadSubAgentObservations_BlankAnswer_GetsAFrameworkLine()
-    {
-        var text = await Read(store => store.Store("sa-1", "   "), "sa-1");
-
-        text.Should().Contain("\n[framework] sub-agent sa-1 answered nothing");
-    }
-
-    [Fact]
-    public async Task ReadSubAgentObservations_UnknownIdNullAnswer_IsNotFlagged()
-    {
-        var text = await Read(_ => { }, "sa-unknown");
-
-        text.Should().NotContain("[framework]").And.Contain("no answer recorded for this sub-agent");
-    }
-
-    [Fact]
-    public async Task ReadSubAgentObservations_Answer_IsNotFlagged()
-    {
-        var text = await Read(store => store.Store("sa-1", "two endpoints"), "sa-1");
-
-        text.Should().NotContain("[framework]");
-    }
-
-    private static async Task<string> Read(Action<IChildAnswerStore> seed, string id)
-    {
-        var store = new InMemoryChildAnswerStore();
-        seed(store);
-        var tool = (AIFunction)TestSanity.Wrapper()
-            .Wrap(new ReadSubAgentObservationsToolHost(store).GetTools(null, null), SanityCalls.Pipeline()).Single();
-        return ToolResultBound.TextOf(await tool.InvokeAsync(new AIFunctionArguments { ["sub_agent_id"] = id }, CancellationToken.None))!;
+        return JsonDocument.Parse(((JsonElement)result).GetString()!).RootElement
+            .GetProperty("results")[0].GetProperty("answer").GetString()!;
     }
 
     private sealed class RecordingDecisionLogger : IDecisionLogger

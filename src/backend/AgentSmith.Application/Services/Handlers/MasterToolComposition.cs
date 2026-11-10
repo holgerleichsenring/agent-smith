@@ -17,8 +17,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Decides which tool surface a master gets and whether the sub-agent pair joins it:
 /// the base surface (read-only Review for a scan master, content-reads for a design
 /// turn, read/write for a coding master), the escalation valve and the progress ledger
-/// where they belong, and the spawn / read-observations pair under the fan-out count
-/// that turn gates on. Every function on the master's and the children's surface carries the
+/// where they belong, and spawn_agents under the fan-out count that turn gates on
+/// (2026-11-10-14a3a: answers come back whole, so nothing reads them a second time). Every function on the master's and the children's surface carries the
 /// sanity annotations.
 /// </summary>
 public sealed class MasterToolComposition(
@@ -29,7 +29,6 @@ public sealed class MasterToolComposition(
     ISubAgentRunner subAgentRunner,
     SubAgentNameValidator subAgentNameValidator,
     IDecisionLogger decisionLogger,
-    IChildAnswerStore childAnswerStore,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
     TicketActToolsFactory ticketActs,
@@ -110,11 +109,10 @@ public sealed class MasterToolComposition(
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
             ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
-            AnswerStore: childAnswerStore, Budget: budget, AgentConfig: context.AgentConfig,
+            Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
             ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);
         var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx);
-        var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
-        return sanity.Wrap(master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)), context.Pipeline);
+        return sanity.Wrap(master.Concat(spawn.GetTools(null, null)), context.Pipeline);
     }
 }

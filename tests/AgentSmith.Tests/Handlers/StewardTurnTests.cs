@@ -70,7 +70,7 @@ public sealed class StewardTurnTests
         await Run(loop, TurnContext(PipelinePresets.TicketStewardMaster));
 
         loop.Tools.Should().Contain(["start_next_attempt", "read_series", "edit_series", "verify_series",
-            "spawn_agents", "read_sub_agent_observations", "read_ticket", "ticket_runs", "read_file"]);
+            "spawn_agents", "read_ticket", "ticket_runs", "read_file"]);
         loop.Tools.Should().NotContain(TicketStewardTools.Excluded);
     }
 

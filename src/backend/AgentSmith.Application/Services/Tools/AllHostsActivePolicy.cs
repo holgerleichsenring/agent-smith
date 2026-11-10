@@ -21,13 +21,12 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
         // can resolve it through ToolKit when the construction site provides one.
         // Sites that do not pass a WebToolHost leave web_fetch off the surface.
         typeof(WebToolHost),
-        // p0177: SpawnAgentToolHost + ReadSubAgentObservationsToolHost are
+        // p0177: SpawnAgentToolHost is
         // allowed in the policy; whether a master gets them is decided where its
         // surface is composed (MasterToolComposition): every master whose fan-out
         // count is above zero (max_sub_agents_per_run, or max_sub_agents_per_dialog_turn
-        // for a design turn) gets both, and a child gets neither.
+        // for a design turn) gets it, and a child does not. 2026-11-10-14a3a: answers come back whole.
         typeof(SpawnAgentToolHost),
-        typeof(ReadSubAgentObservationsToolHost),
         // p0191: agent calls get_artifact_credentials on package-manager auth
         // failures. Master + sub-agents both need it (any spec that runs
         // toolchain commands may hit a private feed).
