@@ -70,9 +70,9 @@ public sealed class AgenticToolSurface
     /// p0315b: spec-dialog design-partner surface — content reads + (optional) web_fetch + (optional) recall.
     /// 2026-11-10-fc66: a conversation's questions go into the reply, with the analysis and a recommendation, so the
     /// surface carries no ask_human (a mid-turn ask hid both and blocked the turn), no http_request (any method;
-    /// web_fetch reads docs), no remember (refused where no repository has a code change, which a design turn never
-    /// has), and one way each to search and to list: grep_in_tree takes one file as its root, directory_tree and
-    /// find_files cover listing.
+    /// web_fetch reads docs), and one way each to search and to list: grep_in_tree takes one file as its root,
+    /// directory_tree and find_files cover listing. 2026-11-10-fcd7b: its remember writes to the project and joins
+    /// outside this surface, through DesignWorkToolGate, only for a poster who may start runs.
     /// </summary>
     public IList<AITool> SpecDialog(FilesystemToolHost fs, WebToolHost? web = null, MemoryRecallToolHost? recall = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)

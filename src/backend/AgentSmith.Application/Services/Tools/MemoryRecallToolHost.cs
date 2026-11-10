@@ -22,10 +22,11 @@ namespace AgentSmith.Application.Services.Tools;
 /// 2026-10-25-6c1f: each match is headed with the standing and record the index shows, read per repository; a
 /// disputed match leads with <see cref="DisputedMarker"/> and keeps its body, so the master sees why it misled.
 /// </para>
+/// <para>2026-11-10-fcd7b: the project's own store is read first, as '@project', when the run's project has one.</para>
 /// </summary>
 public sealed class MemoryRecallToolHost(
     IRunRepositories repositories, string repoRoot, MemoryStandingReader standings, PipelineContext pipeline,
-    ILogger? logger = null)
+    ILogger? logger = null, MemorySources? sources = null)
     : IToolHost
 {
     public const string DisputedMarker =
@@ -38,8 +39,8 @@ public sealed class MemoryRecallToolHost(
         return [AIFunctionFactory.Create(Recall, name: "recall")];
     }
 
-    [Description("Recalls stored experiential memories matching the query, from every repository of the " +
-                 "run. Use before re-deriving a known fact. Supports plain text, [[slug]] citations, and " +
+    [Description("Recalls stored experiential memories matching the query, from the project's own store and every " +
+                 "repository of the run. Use before re-deriving a known fact. Supports plain text, [[slug]] citations, and " +
                  "a type:feedback|project|reference facet filter. Returns full memory bodies, each with its track " +
                  "record; a memory the runs contradicted is marked DISPUTED and must not be acted on.")]
     public async Task<string> Recall(
@@ -47,20 +48,24 @@ public sealed class MemoryRecallToolHost(
         string query,
         CancellationToken ct = default)
     {
-        var names = repositories.Names();
+        IReadOnlyList<MemorySource> stores = sources is null
+            ? [.. repositories.Names().Where(n => repositories.FilesOf(n) is not null).Select(n =>
+                new MemorySource(n, n, new FileMemoryStore(repositories.FilesOf(n)!, repoRoot, logger)))]
+            : await sources.OfAsync(pipeline, repositories, repoRoot, logger, ct);
         var matches = new List<(string Repository, MemoryEntry Entry, MemoryStanding Standing)>();
-        foreach (var name in names)
+        foreach (var source in stores)
         {
-            if (repositories.FilesOf(name) is not { } files) continue;
-            var found = await new FileMemoryStore(files, repoRoot, logger).SearchAsync(query, ct);
+            var found = await source.Store.SearchAsync(query, ct);
             if (found.Count == 0) continue;
-            var record = await standings.OfAsync(pipeline, name, ct);
+            var record = source.IsProject
+                ? await standings.OfKeyAsync(source.LedgerKey, source.Label, ct)
+                : await standings.OfAsync(pipeline, source.Label, ct);
             foreach (var entry in found)
-                matches.Add((name, entry, record.GetValueOrDefault(entry.Name) ?? MemoryStanding.None(entry.Name)));
+                matches.Add((source.Label, entry, record.GetValueOrDefault(entry.Name) ?? MemoryStanding.None(entry.Name)));
         }
         if (matches.Count == 0)
             return $"No memories matched '{query}'. The index in your context lists what exists.";
-        return Format(matches, labelled: names.Count > 1);
+        return Format(matches, labelled: stores.Count > 1);
     }
 
     private static string Format(
@@ -70,7 +75,7 @@ public sealed class MemoryRecallToolHost(
         foreach (var (repository, entry, standing) in matches)
         {
             sb.AppendLine($"## {entry.Name} ({MemoryEntryTypes.ToSlug(entry.Type)}, {standing.Label} · {standing.Record})"
-                          + (labelled ? $" — repository {repository}" : string.Empty));
+                          + (labelled ? $" — {Source(repository)}" : string.Empty));
             if (standing.Label == MemoryStandingLabels.Disputed) sb.AppendLine(DisputedMarker);
             sb.AppendLine(entry.Description);
             sb.AppendLine();
@@ -79,4 +84,7 @@ public sealed class MemoryRecallToolHost(
         }
         return sb.ToString().TrimEnd();
     }
+
+    private static string Source(string label) =>
+        label == Contracts.Memory.ProjectMemorySource.Label ? "the project" : $"repository {label}";
 }

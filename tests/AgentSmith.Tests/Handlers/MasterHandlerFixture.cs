@@ -36,8 +36,9 @@ internal static class MasterHandlerFixture
         AgentSmith.Contracts.Events.IEventPublisher? passEvents = null,
         AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
         IDecisionLogger? decisions = null,
-        AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null) =>
-        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents), AgentSmithConfig.Empty(),
+        AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null,
+        AgentSmith.Contracts.Memory.IProjectMemoryRepository? projectMemory = null) =>
+        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents, projectMemory), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
@@ -111,11 +112,14 @@ internal static class MasterHandlerFixture
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
-        IDecisionLogger decisions, AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
+        IDecisionLogger decisions, AgentSmith.Contracts.Events.IEventPublisher? events = null,
+        AgentSmith.Contracts.Memory.IProjectMemoryRepository? projectMemory = null) =>
         new(decisions, Repositories(), events ?? new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
             new AgentSmith.Application.Services.Memory.MemoryCitationResolver(new()),
             AgentSmith.Tests.TestHelpers.MemoryStandings.Reader(),
-            NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
+            NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance,
+            new AgentSmith.Application.Services.Memory.MemorySources(
+                projectMemory ?? new AgentSmith.Application.Services.Memory.NullProjectMemoryRepository(), new()));
 
     private static AgentSmith.Application.Services.Repositories.RunRepositoriesFactory Repositories() =>
         new(new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
@@ -175,6 +179,7 @@ internal static class MasterHandlerFixture
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
             new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification(), Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>()),
+            new AgentSmith.Application.Services.Tools.DesignWorkToolGate(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
             AgentSmith.Tests.TestHelpers.TestSanity.Wrapper(),

@@ -25,10 +25,14 @@ namespace AgentSmith.Application.Services.Memory;
 /// 2026-10-25-9324d: each repository's index is composed with its memories' standing before the aggregate — the
 /// record on every line, holding first, disputed entries left out.
 /// </para>
+/// <para>
+/// 2026-11-10-fcd7b: the project's own memories come first under '@project', quoted with their source, and the
+/// labels count sources — the project plus the repositories.
+/// </para>
 /// </summary>
 public sealed class MemoryIndexReader(
     RunRepositoriesFactory repositoriesFactory, MemoryStandingReader standings, MemoryIndexComposer composer,
-    ILogger<MemoryIndexReader> logger)
+    ILogger<MemoryIndexReader> logger, ProjectMemoryIndex? project = null)
 {
     /// <summary>Reads every repository's index and publishes it as <see cref="ContextKeys.MemoryIndex"/>.</summary>
     public async Task<MemoryIndexRead> RefreshAsync(PipelineContext pipeline, CancellationToken ct)
@@ -37,6 +41,8 @@ public sealed class MemoryIndexReader(
         var repositories = repositoriesFactory.For(pipeline);
         var names = repositories.Names();
         var loaded = new Dictionary<string, string>(StringComparer.Ordinal);
+        var own = project is null ? null : await project.ComposeAsync(pipeline, ct);
+        if (!string.IsNullOrEmpty(own)) loaded[Contracts.Memory.ProjectMemorySource.Label] = own;
         foreach (var name in names)
         {
             var index = await TryReadIndexAsync(repositories.FilesOf(name), name, ct);
@@ -44,7 +50,8 @@ public sealed class MemoryIndexReader(
                 loaded[name] = composer.Compose(index.Trim(), await standings.OfAsync(pipeline, name, ct));
         }
 
-        var read = new MemoryIndexRead(Aggregate(loaded, labelled: names.Count > 1), loaded.Count, names.Count);
+        var sources = names.Count + (string.IsNullOrEmpty(own) ? 0 : 1);
+        var read = new MemoryIndexRead(Aggregate(loaded, labelled: sources > 1), loaded.Count, names.Count);
         pipeline.Set(ContextKeys.MemoryIndex, read.Index);
         return read;
     }
