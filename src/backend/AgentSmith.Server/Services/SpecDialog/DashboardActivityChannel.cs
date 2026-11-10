@@ -22,7 +22,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class DashboardActivityChannel(
     ITurnActivityObserverAccessor observers,
     ILogger<DashboardActivityChannel> logger,
-    IHubContext<JobsHub>? hub = null)
+    IHubContext<JobsHub>? hub = null,
+    DialogActivityRecorder? recorder = null) // 2026-11-10-d854c: each step kept on the turn's run
 {
     private const string ActivityMethod = "SpecDialogActivity";
 
@@ -33,7 +34,7 @@ public sealed class DashboardActivityChannel(
     /// </summary>
     public IDisposable? Observe(ConversationState state, RunningDialogTurn turn) =>
         DialogTarget.IsDashboard(state)
-            ? observers.Observe(new DialogActivityObserver(this, DialogTarget.Of(state), turn))
+            ? observers.Observe(new DialogActivityObserver(this, DialogTarget.Of(state), turn, recorder))
             : null;
 
     /// <summary>

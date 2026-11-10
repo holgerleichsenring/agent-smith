@@ -21,14 +21,17 @@ public sealed class SpecDialogOutcomeFlow(
     SpecDialogNotices notices,
     DashboardOutcomeChannel outcomeChannel,
     SpecDialogChatCard chatCards,
-    ILogger<SpecDialogOutcomeFlow> logger)
+    ILogger<SpecDialogOutcomeFlow> logger,
+    SpecDialogTurnProposalStore? turnProposals = null) // 2026-11-10-d854c
 {
     /// <summary>
     /// <paramref name="stewarded"/>: the ticket steward led the turn. A proposal awaiting before it took over is
     /// cleared, so the series changes through edit_series alone and no stale card can be approved beside it.
+    /// <paramref name="runId"/> keys the turn's own proposal row (2026-11-10-d854c).
     /// </summary>
     public async Task HandleAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken, bool stewarded = false)
+        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken, bool stewarded = false,
+        string? runId = null)
     {
         if (stewarded && await proposals.SupersedeAsync(state, cancellationToken) is not null)
         {
@@ -47,6 +50,7 @@ public sealed class SpecDialogOutcomeFlow(
             await notices.TellAsync(state, replies.ComposeTurnFailed("the proposal could not be stored, so it is not shown"), cancellationToken);
             return;
         }
+        await (turnProposals?.WriteAsync(state, runId, proposal, cancellationToken) ?? Task.CompletedTask);
         if (stored.Replaced is not null) await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
         await outcomeChannel.ProposeAsync(state, proposal, cancellationToken, stored.Id);
         await chatCards.PostAsync(state, proposal, stored.Id, cancellationToken);

@@ -40,7 +40,7 @@ internal static class SpecDialogSessionMapper
         ThreadId = session.ThreadId,
         Transcript = ReadTranscript(session.TranscriptJson),
         Subject = session.Subject,
-        WorkPicture = ReadWorkPicture(session.WorkPictureJson),
+        WorkPicture = ReadWorkPicture(session.WorkPictureJson), RunningRunId = session.RunningRunId, // d854c
         Tracker = session.Tracker,
         TicketKey = session.TicketKey,
         Scope = new ActiveScope

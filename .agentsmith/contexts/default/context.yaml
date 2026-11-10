@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-10-d854c: "TURN RESULT AFTER RELOAD (dialog activity, run events, turn runner, proposal store). Steps are DialogActivity run events read run-wide; the row and the kept turn name the run; each turn's proposal is kept by run id; thrown and cancelled turns keep a Notice with it. -> .agentsmith/specs/done/2026-11-10-d854c-turn-result-after-reload.yaml"
     2026-11-10-d854a: "TURN QUESTIONS LIST (design master tools, review loop, proposal push, skills v5.27.0). state_open_questions lays the operator's questions on the draft with proposal and known spec ids; every push carries the turn's spend, the final one its total and cap hit; the reply keeps the questions. -> .agentsmith/specs/done/2026-11-10-d854a-turn-result-decisions.yaml"
     2026-11-10-548f: "DESIGN TURN BUDGET TIER (work picture, cost cap). An optional effort in the work picture raises the turn's cap, which buys review; higher tier wins; a new xl tier defaults to $40. -> .agentsmith/specs/done/2026-11-10-548f-budget-design-turn-tier.yaml"
     2026-11-10-7da6: "ONE PROPOSAL CARD (dashboard spec-dialog hook). A re-draft replaces the card nobody answered yet; after a reload mid-turn the running draft under review is one card at the end, which the next live push replaces; a card someone answered stays. -> .agentsmith/specs/done/2026-11-10-7da6-dialog-card-one-per-proposal.yaml"
@@ -1437,7 +1438,6 @@ state:
   planned:
     2026-11-10-825f: "RESUMABLE FILING (outcome ticket filer). A filing record keyed by draft ids keeps the series base, claim refresh and tracker markers make each ticket exactly once, and finish resumes a partial filing. requires ccd9. -> .agentsmith/specs/planned/2026-11-10-825f-filing-resumable.yaml"
     2026-11-10-d854b: "REDUCED TURN RESULT VIEW (dashboard, proposal views). One result per proposing turn: summary, activity line, cap banner, questions, one row per spec; live and after reload. requires d854a, d854c, 7da6, ccd9. -> .agentsmith/specs/planned/2026-11-10-d854b-turn-result-view.yaml"
-    2026-11-10-d854c: "TURN RESULT AFTER RELOAD (dialog activity, transcript, proposal store, run steps). Steps are run events, turns carry run ids, proposals are kept per turn, failed turns leave a notice. requires ccd9. -> .agentsmith/specs/planned/2026-11-10-d854c-turn-result-after-reload.yaml"
     2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"
     2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"

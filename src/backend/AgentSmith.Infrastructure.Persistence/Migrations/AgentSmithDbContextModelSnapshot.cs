@@ -2651,6 +2651,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("ReviewingProposalJson")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RunningRunId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("SessionId")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -2793,6 +2797,42 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("SpecDialogTicketText");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTurnProposal", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProposalJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId")
+                        .IsUnique();
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("SpecDialogTurnProposal");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SweepCursor", b =>

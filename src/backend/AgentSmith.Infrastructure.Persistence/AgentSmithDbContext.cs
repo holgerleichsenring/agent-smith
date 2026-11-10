@@ -59,6 +59,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         new DialogFileConfigurations(Database.ProviderName).Apply(modelBuilder); // 3af8 + 283da
         modelBuilder.ApplyConfiguration(new SpecDialogTicketTextConfiguration()); // 8e51c
         modelBuilder.ApplyConfiguration(new SpecDialogThreadConfiguration()); // a turn's thread, replayed by the next
+        modelBuilder.ApplyConfiguration(new SpecDialogTurnProposalConfiguration()); // 2026-11-10-d854c
         new TicketRecordConfigurations().Apply(modelBuilder); // 2026-09-25-b4d9
         modelBuilder.ApplyConfiguration(new ApprovedSeriesConfiguration()); // 2026-09-17-0e79a, 2026-10-06-03c7f
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
@@ -76,8 +77,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         new PromptRecordConfigurations().Apply(modelBuilder); // 2026-11-09-0620a
         // p0388a: AFTER the child loop, so the per-step trail index joins the uniform RunId one.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
-        // Provider-conditional: an entity configuration cannot see the provider name.
-        new ProviderConfigurations(Database.ProviderName).Apply(modelBuilder);
+        new ProviderConfigurations(Database.ProviderName).Apply(modelBuilder); // a configuration cannot see the provider
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

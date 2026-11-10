@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Turns;
 using AgentSmith.Server.Models;
@@ -25,6 +26,9 @@ public sealed class DialogProposalObserver(
             var services = scope.ServiceProvider;
             await services.GetRequiredService<SpecDialogProposalState>()
                 .StoreReviewingAsync(state, proposal, cancellationToken);
+            // 2026-11-10-d854c: and on the turn's own row, so a turn that dies here still leaves this draft.
+            await services.GetRequiredService<SpecDialogTurnProposalStore>().WriteAsync(
+                state, services.GetRequiredService<IRunContextAccessor>().CurrentRunId, proposal, cancellationToken);
             await services.GetRequiredService<DashboardOutcomeChannel>()
                 .ProposeAsync(state, proposal, cancellationToken);
         }

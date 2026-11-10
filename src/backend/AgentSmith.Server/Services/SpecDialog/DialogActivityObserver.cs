@@ -12,18 +12,20 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// channel below it is handed a payload and nothing else — so the pair a page merges by is
 /// minted here or nowhere.
 /// </para>
+/// <para>2026-11-10-d854c: and kept on the turn's run by <paramref name="recorder"/>, so every step outlives the turn.</para>
 /// </summary>
 public sealed class DialogActivityObserver(
-    DashboardActivityChannel channel, string dialogId, RunningDialogTurn turn)
+    DashboardActivityChannel channel, string dialogId, RunningDialogTurn turn, DialogActivityRecorder? recorder = null)
     : ITurnActivityObserver
 {
-    public Task ReportAsync(TurnActivity activity, CancellationToken cancellationToken)
+    public async Task ReportAsync(TurnActivity activity, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(activity);
         var step = new SpecDialogActivityPush(
             dialogId, activity.Kind.ToString().ToLowerInvariant(), activity.Name, activity.Detail,
             turn.Now, turn.Next(), turn.StartedAt);
         turn.Keep(step);
-        return channel.SendAsync(step, cancellationToken);
+        if (recorder is not null) await recorder.RecordAsync(step, cancellationToken);
+        await channel.SendAsync(step, cancellationToken);
     }
 }

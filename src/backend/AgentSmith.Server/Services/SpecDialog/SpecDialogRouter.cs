@@ -89,22 +89,13 @@ public sealed class SpecDialogRouter(
     private async Task RunTurnAsync(
         ConversationState state, string channelId, string threadId, string platform, TurnPoster poster, CancellationToken ct)
     {
-        SpecDialogTurnResult result;
-        try
-        {
-            result = await turnRunner.RunTurnAsync(state, poster, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(ex, "Spec-dialog turn failed for session {SessionId}", state.JobId);
-            await messenger.SendAsync(platform, channelId, threadId, composer.ComposeTurnFailed(ex.Message), ct);
-            return;
-        }
+        // 2026-11-10-d854c: a turn that threw has kept and sent its notice with its run id inside the runner.
+        if (await turnRunner.RunTurnAsync(state, poster, ct) is not { } result) return;
 
         if (await keeper.KeepAsync(state, result, platform, threadId, ct) is { } notice) // 2026-11-04-96a0b
             await messenger.SendAsync(platform, channelId, threadId, notice, ct);
         await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
         // p0315e: a non-answer outcome is stored as the proposal awaiting a decision and shown; nothing waits.
-        await outcomeFlow.HandleAsync(state, result.Outcome, ct, result.Stewarded);
+        await outcomeFlow.HandleAsync(state, result.Outcome, ct, result.Stewarded, result.RunId);
     }
 }

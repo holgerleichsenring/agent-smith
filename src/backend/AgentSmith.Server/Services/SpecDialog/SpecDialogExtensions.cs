@@ -82,17 +82,17 @@ internal static class SpecDialogExtensions
         // 2026-09-15-cb3e: the dialog page's read — scoped for the session manager's unit of work,
         // the catalog transient because it re-reads the configuration per call.
         services.AddTransient<SpecDialogProjectCatalog>();
-        services.AddScoped<SpecDialogViewReader>().AddScoped<SpecDialogHoldings>();
+        services.AddScoped<SpecDialogViewReader>().AddScoped<SpecDialogHoldings>().AddScoped<SpecDialogTurnProposals>(); // d854c
         services.AddScoped<SpecDialogConversationList>();
         // 2026-09-18-7a05: and the delete of one, over the same scoped unit of work that sweeps
         // the session row and its durable answers in one transaction.
         services.AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>();
         // 2026-09-20-3af8: the images an operator attaches — bounded before the body is read,
         // read for their kind, stored against the conversation, and seeded into its next turn.
-        services.AddSingleton<SpecDialogImageBody>();
-        services.AddSingleton<ImageKindFromBytes>();
+        services.AddSingleton<SpecDialogImageBody>().AddSingleton<ImageKindFromBytes>();
         services.AddScoped<SpecDialogConversationResolver>();
-        services.AddScoped<SpecDialogTurnImages>();
+        services.AddScoped<SpecDialogTurnImages>().AddScoped<SpecDialogTurnScope>().AddScoped<SpecDialogTurnEnding>() // d854c
+            .AddScoped<SpecDialogTurnRunLink>().AddScoped<SpecDialogTurnProposalStore>();
         // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
         services.AddScoped<FiledWorkFiling>().AddScoped<FiledWorkBoundTicket>(); // 2026-09-25-c4a6
@@ -114,7 +114,7 @@ internal static class SpecDialogExtensions
         services.AddSingleton<DashboardOutcomeChannel>();
         // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
         services.AddSingleton<DashboardReadingChannel>().AddScoped<TicketReadReports>().AddScoped<TicketDiscussion>();
-        services.AddSingleton<DashboardActivityChannel>();  // 042ee: between reads and answer
+        services.AddSingleton<DashboardActivityChannel>().AddSingleton<DialogActivityRecorder>(); // 042ee; d854c: kept on the run
         return services;
     }
 }

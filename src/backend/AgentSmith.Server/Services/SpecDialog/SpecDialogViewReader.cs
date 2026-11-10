@@ -20,7 +20,8 @@ public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
     SpecDialogProposalState proposals, SpecDialogChatCard cards,
-    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns, SpecDialogHoldings holdings)
+    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns, SpecDialogHoldings holdings,
+    SpecDialogTurnProposals? turnProposals = null) // 2026-11-10-d854c: each turn's own proposal
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -35,9 +36,11 @@ public sealed class SpecDialogViewReader(
         // 2026-10-08-e8b9g: images and sets with whether an approval cites them, and the bytes held.
         var held = await holdings.UploadsAsync(state, cancellationToken);
         var ticket = await holdings.TicketAsync(state, cancellationToken);
+        var session = await holdings.WithAsync(Session(dialogId, state, latest, held.Images, ticket), state, held, cancellationToken);
         return new SpecDialogView(
             dialogId,
-            await holdings.WithAsync(Session(dialogId, state, latest, held.Images, ticket), state, held, cancellationToken),
+            turnProposals is null ? session
+                : await turnProposals.WithAsync(session, state, turns.Liveness(state.JobId).Computing, cancellationToken),
             projects.All(),
             waiting ?? Approval(dialogId, state, latest),
             waiting is not null ? SpecDialogTurnLivenessView.Idle : turns.Liveness(state.JobId));

@@ -51,6 +51,7 @@ export enum EventType {
   SpecReviewRound = 87,
   DefaultDecisionTaken = 88,
   MemoryUseRecorded = 89,
+  DialogActivity = 90,
 }
 
 interface RunEventBase {
@@ -725,6 +726,19 @@ export interface MemoryUseRecordedEvent extends RunEventBase {
   reason?: string | null;
 }
 
+/**
+ * 2026-11-10-d854c: one step a design turn reported, kept on its run. `seq` is its place in the turn, from 1;
+ * `detail` is at most 500 characters.
+ */
+export interface DialogActivityEvent extends RunEventBase {
+  type: EventType.DialogActivity;
+  kind: string;
+  name?: string | null;
+  detail?: string | null;
+  seq: number;
+  turnStartedAt: string;
+}
+
 /** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */
 export interface SpecReviewCut {
   register: string;
@@ -812,7 +826,8 @@ export type RunEvent =
   | SpecCutReviewedEvent
   | SpecReviewRoundEvent
   | DefaultDecisionTakenEvent
-  | MemoryUseRecordedEvent;
+  | MemoryUseRecordedEvent
+  | DialogActivityEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

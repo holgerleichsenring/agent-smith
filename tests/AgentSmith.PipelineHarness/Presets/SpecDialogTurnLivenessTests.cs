@@ -69,7 +69,8 @@ public sealed class SpecDialogTurnLivenessTests
 
         var run = async () => await RunTurnAsync(harness, state);
 
-        await run.Should().ThrowAsync<InvalidOperationException>();
+        // 2026-11-10-d854c: the runner keeps the thrown turn's notice and answers null rather than rethrowing.
+        await run.Should().NotThrowAsync();
         gate.Liveness(state.JobId).Computing.Should().BeFalse();
     }
 
@@ -112,7 +113,8 @@ public sealed class SpecDialogTurnLivenessTests
 
         var run = async () => await RunTurnAsync(harness, state);
 
-        await run.Should().ThrowAsync<InvalidOperationException>();
+        // 2026-11-10-d854c: the runner keeps the thrown turn's notice and answers null rather than rethrowing.
+        await run.Should().NotThrowAsync();
         gate.Liveness(state.JobId).Computing.Should().BeFalse();
     }
 

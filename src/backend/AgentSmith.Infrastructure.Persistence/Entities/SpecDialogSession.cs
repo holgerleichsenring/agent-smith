@@ -59,6 +59,12 @@ public sealed class SpecDialogSession : EntityBase
     /// <inheritdoc cref="PostedProposalId"/>
     public DateTimeOffset? PostedAt { get; set; }
 
+    /// <summary>
+    /// 2026-11-10-d854c: the run id of the turn running now, written as its pipeline grounds the turn. Never cleared —
+    /// after a crash it still names the turn that died, whose steps and last draft are kept on that run.
+    /// </summary>
+    public string? RunningRunId { get; set; }
+
     /// <summary>JSON of what the latest filing attempt created, and its error if it stopped.</summary>
     public string? LatestFilingJson { get; set; }
 

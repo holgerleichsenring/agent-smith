@@ -26,7 +26,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class SpecDialogTurnRunner(
-    IConfigurationLoader configLoader,
+    SpecDialogTurnScope turnScope,
     ServerContext serverContext,
     ExecutePipelineUseCase pipelineUseCase,
     ISourceScopeSandboxFactory sourceSandboxFactory,
@@ -37,13 +37,36 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogTurnGate gate, TicketTextForConversation ticketText, BoundTicketReaders readers,
     DashboardReadingChannel reading,
     DashboardActivityChannel activity, SpecDialogTurnMaterial material, SpecDialogThreadStore threads,
-    ILogger<SpecDialogTurnRunner> logger, SpecDialogProposalContinuity continuity, DesignTurnResourcesFactory turnResources) : ISpecDialogTurnRunner
+    SpecDialogTurnEnding ending, SpecDialogProposalContinuity continuity, SpecDialogTurnRunLink runLink,
+    DesignTurnResourcesFactory turnResources) : ISpecDialogTurnRunner
 {
-    public async Task<SpecDialogTurnResult> RunTurnAsync(
+    /// <summary>2026-11-10-d854c: a turn that throws or is cancelled, before its pipeline starts or inside it, leaves a
+    /// Notice turn with its run id (null when no run started); a thrown turn answers null, a cancelled one rethrows.</summary>
+    public async Task<SpecDialogTurnResult?> RunTurnAsync(
         ConversationState state, TurnPoster poster, CancellationToken cancellationToken)
     {
-        var project = ResolveProject(state.Project);
-        var scopeRepos = ResolveScopeRepos(project, state.Scope);
+        var slot = new SpecDialogReplySlot();
+        try
+        {
+            return await RunAsync(state, poster, slot, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await ending.CancelledAsync(state, slot.RunId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await ending.ThrownAsync(state, ex, slot.RunId);
+            return null;
+        }
+    }
+
+    private async Task<SpecDialogTurnResult> RunAsync(
+        ConversationState state, TurnPoster poster, SpecDialogReplySlot slot, CancellationToken cancellationToken)
+    {
+        var project = turnScope.Project(state.Project);
+        var scopeRepos = turnScope.Repos(project, state.Scope);
         // 2026-09-22-2d11b: every scope names the CONVERSATION, so its inner sandbox outlives
         // the turn and the next turn takes it back rather than spawning and cloning again.
         var templates = await readOnlyScopes.OpenAsync(project, state.JobId, cancellationToken); // + 283dc sites
@@ -51,7 +74,6 @@ public sealed class SpecDialogTurnRunner(
             r => sourceSandboxFactory.Create(project, r, conversationId: state.JobId), templates);
         await using var resources = turnResources.For(project, scopeRepos, sandboxes); // 4778: given back on every exit
 
-        var slot = new SpecDialogReplySlot();
         var seeds = SpecDialogTurnSeeds.Build(
             await continuity.ContinuingAsync(state, cancellationToken), scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
             await material.OfAsync(state.JobId, cancellationToken), await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
@@ -67,20 +89,13 @@ public sealed class SpecDialogTurnRunner(
         // kept for a page arriving mid-turn; the activity scope opens INSIDE the try for a throw.
         using var observing = reading.Observe(state);
         using var publishing = continuity.Observe(state);
+        using var linking = runLink.Observe(state); // 2026-11-10-d854c: the grounding step names the run on the row
         var computing = gate.Begin(state.JobId);
         try
         {
             using var reporting = activity.Observe(state, computing);
             var result = await pipelineUseCase.ExecuteAsync(request, serverContext.ConfigPath, cancellationToken);
-            // CollectSpecDialogReply writes reply + outcome together; a failed
-            // run left both empty and resolves to an answer-shaped failure note.
-            // The stamp rides the outcome because the scopes below are gone by filing time.
-            return slot is { Reply: not null, Outcome: not null }
-                ? SpecDialogTurnResult.On(
-                    state.Platform, slot.Reply, await readOnlyScopes.StampAsync(slot.Outcome, project, templates, cancellationToken), slot.Kind, slot.Stewarded, subject: slot.Subject, thread: slot.Thread, workPicture: slot.WorkPicture)
-                : SpecDialogTurnResult.On(
-                    state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
-                    SpecDialogTurnKind.Failure, workPicture: slot?.WorkPicture); // 548f: a failed turn's picture too
+            return await ending.OfAsync(state, slot, project, templates, result, cancellationToken);
         }
         finally
         {
@@ -89,31 +104,5 @@ public sealed class SpecDialogTurnRunner(
             await pump;
             pendingQuestions.Clear(state.JobId);
         }
-    }
-
-    private ResolvedProject ResolveProject(string projectName)
-    {
-        var config = configLoader.LoadConfig(serverContext.ConfigPath);
-        if (config.Projects.TryGetValue(projectName, out var project)) return project;
-        throw new InvalidOperationException(
-            $"Spec-dialog session is scoped to project '{projectName}', which is not in the config catalog.");
-    }
-
-    // The active scope's repo names filter the project's repo set; an empty scope list means the
-    // whole project (the resolver stored all repos at session start; older rows may carry none).
-    private static IReadOnlyList<RepoConnection> ResolveScopeRepos(
-        ResolvedProject project, ActiveScope? scope)
-    {
-        if (scope is null || scope.Repos.Count == 0) return project.Repos;
-        var wanted = new HashSet<string>(scope.Repos, StringComparer.OrdinalIgnoreCase);
-        var matched = project.Repos.Where(r => wanted.Contains(r.Name)).ToList();
-        return matched.Count > 0 ? matched : project.Repos;
-    }
-
-    private string ComposeFailureReply(ConversationState state, CommandResult result)
-    {
-        logger.LogWarning("Spec-dialog turn for session {SessionId} produced no reply: {Message}",
-            state.JobId, result.Message);
-        return $"This design turn failed before an answer was produced: {result.Message ?? "unknown error"}";
     }
 }

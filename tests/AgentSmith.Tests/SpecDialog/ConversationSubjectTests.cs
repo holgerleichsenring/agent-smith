@@ -59,6 +59,7 @@ public sealed class ConversationSubjectTests : IDisposable
 
     /// <summary>What the master stated through state_work_picture, or null.</summary>
     private WorkPicture? _pictured;
+    private string? _runId; // 2026-11-10-d854c
 
     /// <summary>The stored work picture's JSON as it stood when the reply was sent.</summary>
     private string? _pictureAtReply;
@@ -248,6 +249,19 @@ public sealed class ConversationSubjectTests : IDisposable
     }
 
     [Fact]
+    public async Task TurnKeeper_AgentTurn_CarriesItsRunId() // 2026-11-10-d854c
+    {
+        await OpenAsync();
+        _runId = "2026-11-10T19-36-22-96b7";
+
+        await SendAsync("how does the ledger reader page?");
+
+        var kept = SpecDialogSessionMapper.ReadTranscript((await Row()).TranscriptJson);
+        kept[^1].Role.Should().Be(TranscriptRole.Assistant);
+        kept[^1].RunId.Should().Be(_runId);
+    }
+
+    [Fact]
     public async Task TurnKeeper_LowerEffortLater_KeepsTheHigherTier() // 2026-11-10-548f: the higher tier wins
     {
         await OpenAsync();
@@ -316,7 +330,7 @@ public sealed class ConversationSubjectTests : IDisposable
         turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .Callback((ConversationState state, TurnPoster _, CancellationToken _) => _ranOn.Add(state))
-            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind, subject: _named, workPicture: _pictured));
+            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind, subject: _named, workPicture: _pictured) with { RunId = _runId });
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlowHarness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, null, Mock.Of<IOutcomeSink>(), messenger);
         var outcomeFlow = outcomeFlowHarness.Flow();

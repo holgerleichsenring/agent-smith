@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-d854c
+
+decisions:
+  - category: Architecture
+    chose: "DialogActivityRecorder publishes each step as a DialogActivityEvent on IRunContextAccessor.CurrentRunId from inside DialogActivityObserver; the projector persists it like every run event"
+    over: "A dialog-side step table, or writing rows from the observer"
+    reason: "The run is the record and the event stream is its one DB channel. A step reported before the run has an id is not kept; the observer is set for the dashboard only, as the live push already is, so a Slack or Teams turn keeps no steps."
+  - category: Architecture
+    chose: "DialogActivityReader reads RunEvents by run and Type = DialogActivity, pages by Seq after a cursor and counts with one aggregate; served at /api/runs/{runId}/dialog-activity with the run read permission"
+    over: "Extending TrailReader"
+    reason: "Run-wide, not per step, and TrailReader sits on its 277-line baseline."
+  - category: Implementation
+    chose: "ITurnRunRecorder + ITurnRunRecorderAccessor in Contracts (AsyncLocal accessor in Application), set per turn by SpecDialogTurnRunLink; SessionTurnRunRecorder writes RunningRunId with one ExecuteUpdate in its own scope and never throws"
+    over: "Reading the run id only at turn end"
+    reason: "A turn that dies mid-run must still be findable; GroundSpecDialog reports the id before the master's first call."
+  - category: Implementation
+    chose: "The per-turn table SpecDialogTurnProposal (unique RunId, SessionId index) written by DialogProposalObserver for each draft and by SpecDialogOutcomeFlow after the awaiting store; a write replaces the run's row; the conversation deleter removes them"
+    over: "A JSON list on the session row"
+    reason: "A row per run survives supersede and needs no read-modify-write of the whole session. Migration AddSpecDialogTurnRuns in the three sets also adds RunningRunId. The archive covers the new table by itself; its tests count 58 tables."
+  - category: Implementation
+    chose: "SpecDialogTurnRunner split: SpecDialogTurnScope (project and repos) and SpecDialogTurnEnding (reply, Failure, thrown and cancelled endings); the runner answers null for a thrown turn, whose notice is kept with its run id and sent, and rethrows a cancel after keeping its notice on CancellationToken.None"
+    over: "Keeping the catch in the router"
+    reason: "Only the runner holds the slot and so the run id. 548f did not split the runner, so this spec did. An OperationCanceledException on an uncancelled token is a thrown turn, not a cancel."
+  - category: Implementation
+    chose: "The view attaches each turn's proposal by RunId (SpecDialogTurnProposals) and names RunningRunId on the session, with RunningProposal when no kept turn carries that run"
+    over: "Returning only per-turn proposals"
+    reason: "After a crash the running turn has no kept turn; its last draft must still be returned (done criterion two)."
+  - category: Testing
+    chose: "The runner's thrown, before-pipeline and cancelled endings are pinned in the PipelineHarness (SpecDialogTurnRunTests) through the real composition; the thrown case fails the event store on RunFinished"
+    over: "Unit tests with a mocked pipeline"
+    reason: "ExecutePipelineUseCase is concrete and a step's exception is turned into a Failure result, so only a fault outside the steps throws out of a real run. The harness also proves the row names the run."

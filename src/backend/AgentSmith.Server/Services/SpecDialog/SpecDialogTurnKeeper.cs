@@ -27,7 +27,8 @@ public sealed class SpecDialogTurnKeeper(
         var notice = await arrivals.NoticeAsync(state, result, ct);
         if (notice is not null)
             await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Notice, null, ct);
-        var kept = await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
+        var kept = await sessions.AppendTurnAsync( // 2026-11-10-d854c: the agent turn names the run it came from
+            platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct, runId: result.RunId);
         // A failed turn's thread would replay a turn that never answered; the next one starts fresh from the transcript.
         if (result.Kind == SpecDialogTurnKind.Failure) await threads.DropAsync(state.JobId, ct);
         else await threads.KeepAsync(state, result, kept, ct);

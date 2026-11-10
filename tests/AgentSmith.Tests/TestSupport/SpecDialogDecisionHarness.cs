@@ -36,8 +36,12 @@ internal sealed class SpecDialogDecisionHarness(
 
     public SpecDialogNotices Notices => new(Messenger, Sessions);
 
+    /// <summary>2026-11-10-d854c: each turn's own proposal, keyed by its run id.</summary>
+    public SpecDialogTurnProposalStore TurnProposals =>
+        new(new SpecDialogTurnProposalRepository(context), NullLogger<SpecDialogTurnProposalStore>.Instance);
+
     public SpecDialogOutcomeFlow Flow() => new(Proposals, new SpecDialogOutcomeComposer(), new SpecDialogReplyComposer(),
-        Notices, Channel, Cards, NullLogger<SpecDialogOutcomeFlow>.Instance);
+        Notices, Channel, Cards, NullLogger<SpecDialogOutcomeFlow>.Instance, TurnProposals);
 
     public SpecDialogDecisionPath Decisions() => new(Proposals, Outcomes, Sink, RatifiedMockStamps.Over(Repository),
         new SpecDialogOutcomeComposer(), Notices, Cards);
@@ -53,7 +57,7 @@ internal sealed class SpecDialogDecisionHarness(
         SpecDialogProposalComposer composer, SpecDialogTurnGate turns, SpecDialogTicketTextRepository ticketText,
         ConversationUploads uploads, AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
         new(sessions, projects, pending, Outcomes, Proposals, Cards, composer, turns,
-            new SpecDialogHoldings(ticketText, uploads, mocks));
+            new SpecDialogHoldings(ticketText, uploads, mocks), new SpecDialogTurnProposals(TurnProposals, composer));
 
     public Task<ConversationState> OpenAsync(string platform, string thread, CancellationToken ct = default) =>
         Sessions.OpenAsync(platform, "C1", thread, "U1",

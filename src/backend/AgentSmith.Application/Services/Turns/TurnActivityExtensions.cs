@@ -13,6 +13,7 @@ public static class TurnActivityExtensions
     {
         // One instance per process is right: the observer lives in the async flow, not here.
         services.TryAddSingleton<ITurnProposalObserverAccessor, AsyncLocalTurnProposalObserverAccessor>(); // 2026-11-09-9a98
+        services.TryAddSingleton<ITurnRunRecorderAccessor, AsyncLocalTurnRunRecorderAccessor>(); // 2026-11-10-d854c
         services.TryAddSingleton<ITurnActivityObserverAccessor, AsyncLocalTurnActivityObserverAccessor>();
         services.TryAddSingleton<TurnActivityTools>();
         services.TryAddSingleton<SubAgentActivityFrame>();

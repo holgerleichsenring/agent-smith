@@ -25,13 +25,15 @@ public sealed class SpecDialogConversationDeleter(
     DialogueAnswerRepository answers,
     ReferenceFileRepository files,
     ApprovedSeriesRepository approvals,
-    SpecDialogThreadRepository threads) : ISpecDialogConversationDeleter
+    SpecDialogThreadRepository threads,
+    SpecDialogTurnProposalRepository? turnProposals = null) : ISpecDialogConversationDeleter // 2026-11-10-d854c
 {
     public async Task DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         await answers.DeleteByJobAsync(sessionId, cancellationToken);
         await threads.DeleteBySessionAsync(sessionId, cancellationToken); // what its last turn was sent and answered
+        if (turnProposals is not null) await turnProposals.DeleteBySessionAsync(sessionId, cancellationToken); // d854c: each turn's proposal
         // 2026-09-20-3af8: and the images the operator attached, which are keyed on this same
         // session id and join the unit of work this already opens. 2026-10-01-283da: in both
         // tables, so a legacy row not copied yet goes with its conversation.

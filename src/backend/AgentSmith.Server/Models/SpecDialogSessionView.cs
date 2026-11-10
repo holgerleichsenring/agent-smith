@@ -64,7 +64,14 @@ public sealed record SpecDialogSessionView(
     IReadOnlyList<SpecDialogMockView>? Mocks = null,
     IReadOnlyDictionary<string, int>? RatifiedMocks = null,
     WorkPictureView? WorkPicture = null,
-    SpecDialogProposalPush? Reviewing = null);
+    SpecDialogProposalPush? Reviewing = null)
+{
+    /// <summary>2026-11-10-d854c: the run of the turn last started here — after a crash, the turn that died.</summary>
+    public string? RunningRunId { get; init; }
+
+    /// <summary>2026-11-10-d854c: that run's own proposal when no kept turn carries it — a turn that never ended.</summary>
+    public SpecDialogProposalPush? RunningProposal { get; init; }
+}
 
 /// <summary>2026-10-13-8762r: one mock version, addressed by its spec and number; its screenshot is a route of its own.</summary>
 public sealed record SpecDialogMockView(string SpecId, int Version, string Name, DateTimeOffset At, bool HasShot);

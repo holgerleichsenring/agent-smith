@@ -30,7 +30,7 @@ internal static class RunQueryEndpoints
         app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         // p0388b: the full-pipeline read surface (rail, per-step page, decisions)
         // is its own endpoint class — same READ surface, separate responsibility.
-        app.MapRunStepQueryEndpoints();
+        app.MapRunStepQueryEndpoints().MapDialogActivityEndpoints(); // 2026-11-10-d854c: a design turn's steps
         // p0466: the spec's own read surface — a finished spec is a place to go back to.
         app.MapRunSpecQueryEndpoints();
         // p0423b: the story view's own surface — statistics folded from the trail
