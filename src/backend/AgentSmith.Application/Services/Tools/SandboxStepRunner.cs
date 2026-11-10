@@ -14,6 +14,9 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
     private const int FileTimeoutSeconds = 30;
     private readonly SandboxStepCall _call = new(sandbox);
 
+    /// <summary>2026-11-10-85e2: open now — a source scope that has not materialized is not, and asking it would open it.</summary>
+    internal bool IsOpen => sandbox is not ISourceScopeSandbox { IsMaterialized: false };
+
     public SandboxStepRunner(ISandbox sandbox, int? runCommandTimeoutSeconds = null)
         : this(sandbox, new RunCommandTimeout(runCommandTimeoutSeconds, stepTimeoutCapSeconds: null)) { }
 

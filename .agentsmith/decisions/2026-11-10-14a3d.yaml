@@ -3,13 +3,9 @@ spec: 2026-11-10-14a3d
 
 decisions:
   - category: Architecture
-    chose: "Visual means an upload holding an .html page, a design source, a design system, or a mock already in the conversation"
-    over: "Offering render, compare and the mock tools to every design turn"
-    reason: "A turn on a source upload carried four tools with nothing to point them at. An upload whose file list the turn does not know counts as visual, so the tools are never withheld for want of a listing."
-  - category: Implementation
-    chose: "write_mock and read_mock stay on every design turn, with the mock guidance in their descriptions; only render_reference and compare_reference (and design_read, as before) depend on visual material"
-    over: "Gating the mock tools with render and compare (this spec's first commit)"
-    reason: "Operator correction, 2026-11-10: a person can ask for a mock in any design conversation with nothing to compare against; gating it was a regression of 8762r. A mock already written still counts as visual for render and compare."
+    chose: "render_reference, compare_reference, write_mock and read_mock stay on every design turn; only design_read depends on its material (a design source), as before"
+    over: "Gating the visual and mock tools on an uploaded page, a design source, a design system or a mock (this spec's first commits)"
+    reason: "Operator correction and an independent review, 2026-11-10: a mock can be asked for with nothing to compare against (8762r), and render and compare also take a public URL or a repository's .html, so 'make it look like https://…' with no upload lost the tool. The gate saved two tool descriptions and cost real requests; DesignVisuals is deleted (2026-11-10-85e2)."
   - category: Implementation
     chose: "The grounding reads each repository's memory index, and recall and dispute_memory join a design turn only when one exists"
     over: "Offering them blind, or not at all"

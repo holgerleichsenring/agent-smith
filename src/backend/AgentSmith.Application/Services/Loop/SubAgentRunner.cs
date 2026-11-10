@@ -45,7 +45,9 @@ public sealed class SubAgentRunner(
             spec, index, context, throttle, slots, cancellationToken)).ToArray();
         await Task.WhenAll(tasks);
 
-        return slots.Select(s => s!).ToArray();
+        var all = SubAgentAnswer.WithinCall(slots.Select(s => s!).ToArray(), out var cut); // 2026-11-10-85e2
+        if (cut) logger.LogWarning("A spawn call's answers passed {Ceiling} characters together; the rest is cut", SubAgentAnswer.CallCeiling);
+        return all;
     }
 
     private async Task RunOneAsync(

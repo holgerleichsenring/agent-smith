@@ -236,10 +236,50 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
             },
             [new RepoConnection { Name = "sample-api" }],
             new Dictionary<string, Contracts.Sandbox.ISandbox>(), new SpecDialogReplySlot(),
-            DialogImageSet.None, new SpecDialogTurnFacts(withdrawal, false));
+            DialogImageSet.None, new SpecDialogTurnFacts(withdrawal));
 
         seeds[Contracts.Commands.ContextKeys.SpecDialogWithdrawal].Should().BeSameAs(withdrawal);
         seeds[Contracts.Commands.ContextKeys.DialogueJobId].Should().Be(Session);
+    }
+
+    /// <summary>2026-11-10-14a3d: the withdrawal is offered once the conversation filed something.</summary>
+    [Fact]
+    public async Task TurnMaterial_ConversationFiledATicket_OffersTheWithdrawal()
+    {
+        await SessionAsync(DispatcherDefaults.PlatformDashboard, Ticket("SAMPLE-1", "1"));
+        var withdrawal = Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>();
+
+        var facts = await new SpecDialogTurnMaterial(withdrawal, Scopes()).OfAsync(Session, CancellationToken.None);
+
+        facts.Withdrawal.Should().BeSameAs(withdrawal);
+    }
+
+    [Fact]
+    public async Task TurnMaterial_NothingFiled_OffersNoWithdrawal()
+    {
+        _context.Add(new SpecDialogSession
+        {
+            SessionId = Session, Platform = DispatcherDefaults.PlatformDashboard, ChannelId = Dialog, ThreadId = Dialog,
+            UserId = "person-a", Project = Project, IsOpen = true, LastActivityAt = T,
+        });
+        await _context.SaveChangesAsync();
+
+        var facts = await new SpecDialogTurnMaterial(Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>(), Scopes())
+            .OfAsync(Session, CancellationToken.None);
+
+        facts.Withdrawal.Should().BeNull();
+    }
+
+    /// <summary>A read that fails offers the tool, as before: a hidden way out is worse than a refused one.</summary>
+    [Fact]
+    public async Task TurnMaterial_StoreUnreadable_FailsOpen()
+    {
+        var broken = new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        var withdrawal = Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>();
+
+        var facts = await new SpecDialogTurnMaterial(withdrawal, broken).OfAsync(Session, CancellationToken.None);
+
+        facts.Withdrawal.Should().BeSameAs(withdrawal);
     }
 
     // ---- helpers ----

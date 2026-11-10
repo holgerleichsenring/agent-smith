@@ -48,6 +48,22 @@ public sealed class OutcomeFormatToolTests
         epic.Should().Be("## Proposing an epic", "the spec part of an epic's format was already given");
     }
 
+    /// <summary>2026-11-10-85e2: a fold summarizes what stood above, so the format is returned again after one.</summary>
+    [Fact]
+    public async Task OutcomeFormat_AfterAFold_ReturnsTheFormatAgain()
+    {
+        var folds = new TurnFolds();
+        var tool = new OutcomeFormatToolHost(new References(Catalog), folds).GetTools(null, null).Single();
+
+        await Call(tool, "spec");
+        folds.Fold();
+        var again = await Call(tool, "spec");
+        var third = await Call(tool, "spec");
+
+        again.Should().Be("## Drafting a spec", "the fold may have summarized the first copy away");
+        third.Should().StartWith("The spec format was returned earlier in this turn", "no fold since the second");
+    }
+
     private static async Task<string> Call(AIFunction tool, string kind) =>
         (await tool.InvokeAsync(new AIFunctionArguments { ["kind"] = kind }))!.ToString()!;
 

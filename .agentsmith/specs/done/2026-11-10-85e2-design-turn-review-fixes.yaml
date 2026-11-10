@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-85e2
+goal: "The design-turn series 14a3 holds what it claims: no skill names a deleted tool, only a design turn resolves unprefixed reads, and no rule points at text that may be gone."
+applies_to: "default (skills pin, filesystem routing, memory index, outcome format, spawn result, proposal review)"
+facts:
+  - claim: "Skills v5.25.3 named the deleted read_sub_agent_observations in mad-discussion, ticket-steward and the shared spawn-budget reference."
+    evidence: "observed: 2026-11-10, independent review of PR #807"
+  - claim: "The unprefixed read fallback ran for every master and left the resolved read unrecorded."
+    evidence: "observed: 2026-11-10, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs before this spec"
+  - claim: "The compactor folds the middle of a conversation without telling any tool."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:108-111"
+scope:
+  in: "Skills v5.25.4 and a retired-tool catalog test; the read fallback on design-turn hosts only, over open sources, never a template, recorded; render and compare on every design turn; the design-turn memory index composed with standing; outcome_format re-returned after a fold; a per-call ceiling on spawn answers; uploads counted as readable in the no-answer check."
+  out: "A general check that every tool a skill names is offered somewhere; only the retired tool is listed."
+steps:
+  - id: skills
+    action: "Children return their whole answer in mad-discussion, ticket-steward and spawn-budget; release v5.25.4 and pin it."
+  - id: read
+    action: "FilesystemToolHost resolves unprefixed reads only when the design turn sets it, over open non-template sources, and records the resolved path."
+  - id: visual
+    action: "render_reference and compare_reference stay on every design turn; DesignVisuals goes."
+  - id: memory
+    action: "The design turn's memory index is composed with standing like a run's; its section names no tool it may lack."
+  - id: fold
+    action: "The compactor reports each fold; outcome_format returns a format again when a fold happened since it was given."
+  - id: ceiling
+    action: "A spawn call's answers stay under 200000 characters together, the cut entries marked first and the result says so first."
+  - id: no-answer
+    action: "The proposal review counts the uploads as readable when it decides whether a reviewer could have answered."
+tests:
+  - "EmbeddedCatalog_NoSkillOrReference_NamesARetiredTool"
+  - "ReadFile_UnprefixedPathOverUnopenedSources_OpensNothing"
+  - "ReadFile_UnprefixedPathOnACodingHost_KeepsTheRefusal"
+  - "OutcomeFormat_AfterAFold_ReturnsTheFormatAgain"
+  - "SubAgentAnswer_CallPastItsCeiling_CutsTheLaterAnswersAndMarksThem"
+  - "TurnMaterial_StoreUnreadable_FailsOpen"
+done:
+  - "No embedded skill or reference names read_sub_agent_observations."
+  - "A coding master's read_file refuses an unprefixed path on a multi-repository host."
+  - "Backend and dashboard build and tests green."

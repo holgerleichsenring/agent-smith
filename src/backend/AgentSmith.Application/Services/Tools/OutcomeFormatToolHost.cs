@@ -11,9 +11,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// gets the spec format first, since each of its children is a spec. A catalog that ships no such reference keeps
 /// the formats in the master's own instructions, and the answer says so. 2026-11-10-14a3f: a format is returned once
 /// per turn (one host serves one turn); asked again, the tool says it stands above — conversation 43 carried the
-/// 12000-character epic format twice in one turn.
+/// 12000-character epic format twice in one turn. 2026-11-10-85e2: unless the conversation was folded since — a fold
+/// summarizes what stood above, so the format is returned again.
 /// </summary>
-public sealed class OutcomeFormatToolHost(ISkillReferenceSource references) : IToolHost
+public sealed class OutcomeFormatToolHost(ISkillReferenceSource references, TurnFolds? folds = null) : IToolHost
 {
     public const string Name = "outcome_format";
 
@@ -49,11 +50,13 @@ public sealed class OutcomeFormatToolHost(ISkillReferenceSource references) : IT
             return $"There is no format for '{wanted}'. The kinds are: {string.Join(", ", Formats.Select(f => f.Kind))}.";
         var bodies = format.Slugs.Select(slug => (Slug: slug, Body: references.TryRead(slug))).ToList();
         if (bodies.Any(b => b.Body is null)) return InOwnInstructions;
-        var fresh = bodies.Where(b => _given.Add(b.Slug)).Select(b => b.Body!.TrimEnd()).ToList();
+        var now = folds?.Count ?? 0;
+        var fresh = bodies.Where(b => !_given.TryGetValue(b.Slug, out var at) || at != now).ToList();
+        foreach (var b in fresh) _given[b.Slug] = now;
         return fresh.Count > 0
-            ? string.Join("\n\n", fresh)
+            ? string.Join("\n\n", fresh.Select(b => b.Body!.TrimEnd()))
             : $"The {wanted} format was returned earlier in this turn and stands above; write the block to it.";
     }
 
-    private readonly HashSet<string> _given = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _given = new(StringComparer.Ordinal);
 }

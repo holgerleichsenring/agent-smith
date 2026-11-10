@@ -47,6 +47,22 @@ public sealed class EmptySubAgentAnswerRuleTests
         runaway.Should().StartWith("[RUNAWAY — this answer ran to").And.EndWith(new string('b', SubAgentAnswer.Ceiling));
     }
 
+    /// <summary>2026-11-10-85e2: a call's answers together stay under one ceiling, and the result says so first.</summary>
+    [Fact]
+    public void SubAgentAnswer_CallPastItsCeiling_CutsTheLaterAnswersAndMarksThem()
+    {
+        var big = new string('c', 150000);
+        SubAgentResult Row(int i) => new(i, SubAgentStatus.Succeeded, $"sa-{i}", $"Reader{i}", 1, 0m, DateTimeOffset.UnixEpoch, Answer: big);
+
+        var kept = SubAgentAnswer.WithinCall([Row(0), Row(1)], out var cut);
+
+        cut.Should().BeTrue();
+        kept[0].Answer.Should().Be(big);
+        kept[1].Answer.Should().StartWith(SubAgentAnswer.CallCutPrefix)
+            .And.EndWith(new string('c', SubAgentAnswer.CallCeiling - 150000));
+        SubAgentAnswer.CeilingText.Should().Be(SubAgentAnswer.Ceiling.ToString(), "the description states the ceiling");
+    }
+
     private static async Task<string> Spawn(string answer)
     {
         var host = new SpawnAgentToolHost(SubAgentRunnerTests.BuildRunner(new StubLoopRunner(answer: answer)),

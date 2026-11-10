@@ -70,8 +70,8 @@ internal static class MasterPromptSections
                + "One line per stored memory, each a hint with a track record, never a rule: the record says how "
                + "often work that relied on it was confirmed, strained or contradicted. Holding entries come first. "
                + "Use the recall tool to load a memory's body before re-deriving a known fact"
-               // 2026-11-10-14a3h: a design turn changes no code, so it records no memory.
-               + (IsDesignTurn(pipeline) ? "; dispute_memory says when one led you wrong.\n\n" : "; use remember to record a new one.\n\n")
+               // 2026-11-10-14a3h: a design turn changes no code, so it records no memory; 85e2: and says nothing more.
+               + (IsDesignTurn(pipeline) ? ".\n\n" : "; use remember to record a new one.\n\n")
                + index.Trim() + "\n";
     }
 

@@ -27,7 +27,7 @@ public sealed class TicketActToolsFactory(SeriesVerification verification, ISkil
             if (pipeline.TryGet<bool>(ContextKeys.SpecDialogNameable, out var nameable) && nameable)
                 tools.AddRange(new NameConversationToolHost(slot).GetTools(null, null));
             tools.AddRange(new WorkPictureToolHost(slot).GetTools(null, null)); // 2026-11-05-862ea: every design turn
-            tools.AddRange(new OutcomeFormatToolHost(references).GetTools(null, null));
+            tools.AddRange(new OutcomeFormatToolHost(references, TurnFolds.Of(pipeline)).GetTools(null, null)); // 85e2: folds
         }
         if (pipeline.TryGet<IAttemptStart>(ContextKeys.SpecDialogAttemptStart, out var start) && start is not null)
             tools.AddRange(new StartNextAttemptToolHost(start).GetTools(null, null));

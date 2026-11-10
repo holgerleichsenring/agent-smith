@@ -68,7 +68,6 @@ internal static class SpecDialogTurnSeeds
         if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
         // 2026-09-22-9519: the way back out of a filing, beside the identity it acts under; 14a3d: only once something was filed.
         if (facts.Withdrawal is { } withdrawal) seeds[ContextKeys.SpecDialogWithdrawal] = withdrawal;
-        if (facts.HasMocks) seeds[ContextKeys.SpecDialogHasMocks] = true; // 14a3d: a mock keeps the mock tools offered
         if (state.WorkPicture is { } picture) seeds[ContextKeys.SpecDialogWorkPicture] = picture; // 2026-11-05-862ea
         // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
         // carries it, so an unbound conversation renders exactly the prompt it rendered before.

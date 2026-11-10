@@ -22,7 +22,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class GroundSpecDialogHandler(
     DialogGroundingReader reader,
-    ILogger<GroundSpecDialogHandler> logger)
+    ILogger<GroundSpecDialogHandler> logger,
+    Memory.DesignMemoryIndex? memoryIndex = null) // 2026-11-10-85e2: composed as a run's is
     : ICommandHandler<GroundSpecDialogContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -45,7 +46,9 @@ public sealed class GroundSpecDialogHandler(
         pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.RepoCodingPrinciples, principles);
         if (principles.Count > 0) pipeline.Set(ContextKeys.DomainRules, DesignPrinciplesDigest.Render(principles));
         var memory = grounded.SelectMany(g => g.Memory?.Documents ?? []).ToList(); // 2026-11-10-14a3d
-        if (memory.Count > 0) pipeline.Set(ContextKeys.MemoryIndex, memory.RenderLabelled());
+        if (memory.Count > 0)
+            pipeline.Set(ContextKeys.MemoryIndex, memoryIndex is null
+                ? memory.RenderLabelled() : await memoryIndex.ComposeAsync(pipeline, memory, cancellationToken));
         var design = grounded.SelectMany(g => g.Design.Documents).ToList(); // 2026-10-01-283dg
         if (design.Count > 0) pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.DesignSystem, design);
 

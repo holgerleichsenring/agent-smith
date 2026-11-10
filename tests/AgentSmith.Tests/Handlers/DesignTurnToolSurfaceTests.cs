@@ -36,21 +36,22 @@ public sealed class DesignTurnToolSurfaceTests
             "spawn_agents"]);
     }
 
-    /// <summary>2026-11-10-14a3d: the memory, visual, mock and withdrawal tools come with what they work on.</summary>
+    /// <summary>2026-11-10-14a3d: the memory and withdrawal tools come with what they work on. The turn carries its
+    /// dialogue identity, as every design turn does; the withdrawal port is seeded only once something was filed.</summary>
     [Fact]
     public async Task DesignSurface_SourceUploadNoDesignNoMemoryNoFiling_HasNoVisualMockMemoryOrWithdrawTools()
     {
         var bare = new CapturingLoop();
-        var withStore = new CapturingLoop();
+        var withStoreAndFiling = new CapturingLoop();
         var context = DesignContext();
         context.Pipeline.Set(ContextKeys.MemoryIndex, "- [A fact](a-fact.md) — one line");
+        context.Pipeline.Set(ContextKeys.SpecDialogWithdrawal, Moq.Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>());
 
         await Run(bare, DesignMaster, DesignContext());
-        await Run(withStore, DesignMaster, context);
+        await Run(withStoreAndFiling, DesignMaster, context);
 
-        bare.MasterTools.Select(t => t.Name).Should().NotContain(["recall", "dispute_memory", "render_reference",
-            "compare_reference", "withdraw_filed_ticket"]);
-        withStore.MasterTools.Select(t => t.Name).Should().Contain(["recall", "dispute_memory"]);
+        bare.MasterTools.Select(t => t.Name).Should().NotContain(["recall", "dispute_memory", "withdraw_filed_ticket"]);
+        withStoreAndFiling.MasterTools.Select(t => t.Name).Should().Contain(["recall", "dispute_memory", "withdraw_filed_ticket"]);
     }
 
     [Fact]
@@ -81,6 +82,7 @@ public sealed class DesignTurnToolSurfaceTests
         var context = MasterHandlerFixture.BuildContext(DesignMaster, includeTicket: false);
         context.Pipeline.Set(ContextKeys.RunId, "2026-11-10T1200-design");
         context.Pipeline.Set(ContextKeys.PipelineName, PipelinePresets.SpecDialogName);
+        context.Pipeline.Set(ContextKeys.DialogueJobId, "s-design"); // every design turn carries its dialogue identity
         context.Pipeline.Set<IReadOnlyList<SpecDialogTurn>>(ContextKeys.SpecDialogTranscript,
             [new SpecDialogTurn(SpecDialogTurn.UserRole, "build the checkout frame")]);
         return context;

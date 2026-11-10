@@ -32,7 +32,7 @@ public sealed class RenderReferenceSeedTests
             },
             [new RepoConnection { Name = "sample-api" }],
             new Dictionary<string, ISandbox>(), new SpecDialogReplySlot(),
-            DialogImageSet.None, new AgentSmith.Server.Services.SpecDialog.SpecDialogTurnFacts(Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>(), false), project: project);
+            DialogImageSet.None, new AgentSmith.Server.Services.SpecDialog.SpecDialogTurnFacts(Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>()), project: project);
 
         seeds[ContextKeys.SpecDialogProject].Should().BeSameAs(project);
     }

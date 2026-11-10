@@ -56,7 +56,10 @@ public sealed record MasterLoopHooks(
     Func<bool>? IsLedgerComplete = null,
     Func<string?>? RenderVerdictDemand = null,
     Action<int>? OnVerdictBrake = null,
-    int VerdictOwedAfterIterations = 3);
+    int VerdictOwedAfterIterations = 3,
+    // 2026-11-10-85e2: told each time the compactor folds the middle of the conversation, so a tool that relies on an
+    // earlier result standing above can tell it may be gone.
+    Action? OnFold = null);
 
 /// <summary>
 /// p0341c: raised by the within-pass budget middleware when the running cost crosses the

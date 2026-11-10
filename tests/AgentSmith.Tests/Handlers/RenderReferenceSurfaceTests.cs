@@ -29,7 +29,6 @@ public sealed class RenderReferenceSurfaceTests
         var children = new MasterHandlerFixture.StubSubAgentRunner();
         var context = DesignContext();
         context.Pipeline.Set(ContextKeys.SpecDialogProject, new ResolvedProject { Name = "p" });
-        context.Pipeline.Set(ContextKeys.SpecDialogHasMocks, true); // 2026-11-10-14a3d: something visual to render
 
         await MasterHandlerFixture.Build(loop, new MasterHandlerFixture.StubPromptCatalog(DesignMaster, "body"),
                 subAgents: children, limits: new LoopLimitsConfig(), render: _factory)

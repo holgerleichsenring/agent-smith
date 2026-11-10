@@ -104,7 +104,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ProjectMapCacheKey>();
         services.AddSingleton<SandboxTargets>().AddTransient<SpecSandboxes>().AddTransient<Repositories.RunRepositoriesFactory>(); // f5f7c, a196a
         services.AddSingleton<Tools.AgenticToolSurface>().AddTransient<MasterToolComposition>()
-            .AddTransient<Tools.DesignReadToolHostFactory>().AddTransient<Tools.MasterRecordToolHosts>().AddTransient<Memory.MemoryIndexReader>() // 7f7ab, 8762m
+            .AddTransient<Tools.DesignReadToolHostFactory>().AddTransient<Tools.MasterRecordToolHosts>().AddTransient<Memory.MemoryIndexReader>().AddTransient<Memory.DesignMemoryIndex>() // 7f7ab, 8762m, 85e2
             .AddTransient<Tools.TicketActToolsFactory>().AddTransient<SpecDialog.SeriesVerification>();
         services.AddSingleton<Polling.PipelineResolver>();
         services.AddSingleton<ScannerObservationFactory>();

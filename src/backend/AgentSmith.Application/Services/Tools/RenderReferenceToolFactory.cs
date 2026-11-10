@@ -35,16 +35,13 @@ public sealed class RenderReferenceToolFactory(
     /// <remarks>2026-10-08-e8b9k: a run's view_reference_image joins outside the browser gate.</remarks>
     public IReadOnlyList<AITool> Tools(PipelineContext pipeline, bool isDesignTurn) =>
         [.. Scope(pipeline, isDesignTurn) is { } scope
-            ? [.. Visual(pipeline, isDesignTurn) ? new RenderReferenceToolHost(services, scope).GetTools(null, null) : [],
-               .. Visual(pipeline, isDesignTurn) ? new CompareReferenceToolHost(compare, scope).GetTools(null, null) : [],
+            ? [.. new RenderReferenceToolHost(services, scope).GetTools(null, null),
+               .. new CompareReferenceToolHost(compare, scope).GetTools(null, null),
                .. isDesignTurn && design is not null ? design.For(pipeline) : [],
                .. isDesignTurn && mocks is not null && mockReader is not null
                    ? new MockWriteToolHost(services, scope, mocks, mockReader).GetTools(null, null) : []]
             : Array.Empty<AITool>(),
          .. !isDesignTurn && design is not null ? design.ForRun(pipeline) : []];
-
-    // 2026-11-10-14a3d: a run's browser is config's decision; a design turn renders only with something visual.
-    private static bool Visual(PipelineContext pipeline, bool isDesignTurn) => !isDesignTurn || DesignVisuals.Present(pipeline);
 
     private static RenderReferenceScope? Scope(PipelineContext pipeline, bool isDesignTurn)
     {

@@ -113,14 +113,8 @@ public sealed class FilesystemToolHost : IToolHost
         _logger = logger;
     }
 
-    // p0259b: routing failures are RECOVERABLE tool errors, not run-aborting
-    // exceptions. A throw here propagates through FunctionInvokingChatClient and
-    // kills the entire master mid-run (observed: the agent explored a bare
-    // '.agentsmith' path on a multi-repo project, and the InvalidOperationException
-    // failed the whole api-scan at the master step). Returning an error STRING —
-    // the same contract the read/write guards above use — lets the LLM see the
-    // mistake and retry with a repo prefix. Runner is non-null exactly when Error
-    // is null.
+    // p0259b: a routing failure is a recoverable tool error (an error STRING the model retries with a prefix), never a
+    // throw that kills the master. Runner is non-null exactly when Error is null.
     private (SandboxStepRunner? Runner, string BarePath, string? Error) Route(string? path)
     {
         // p0179h: accept the multi-repo prefix form even in single-sandbox mode.
@@ -158,6 +152,7 @@ public sealed class FilesystemToolHost : IToolHost
     public IReadOnlyList<CodeChange> GetChanges() { lock (_sync) return _changes.ToList(); }
 
     public Specs.SpecRunCommandLog Commands { get; init; } = new(); // p0452/p0469: spec-scoped
+    public bool ResolvesUnprefixedReads { get; init; } // 2026-11-10-85e2: a design turn's host only
 
     /// <summary>p0331: registers a mid-run sandbox (ensure_repo_sandbox escalation)
     /// under its composite key AND its repo-name alias, mirroring the constructor's
@@ -237,8 +232,11 @@ public sealed class FilesystemToolHost : IToolHost
         _logger?.LogInformation("tool_call: ReadFile path={Path} start={Start} count={Count}", path, start_line, line_count);
         if (_guards.CheckRead(path) is { } error) return error;
         var (runner, bare, routeErr) = Route(path);
-        if (routeErr is not null) return await UnprefixedRead.TryAsync(_runners, path, start_line, line_count, with_line_numbers, routeErr, ct);
-        var result = await runner!.ReadAsync(bare, start_line, line_count, with_line_numbers, ct);
+        if (routeErr is not null && !ResolvesUnprefixedReads) return routeErr;
+        var (resolved, result) = routeErr is not null // 85e2: a design turn only, over open sources, recorded like any read
+            ? await UnprefixedRead.TryAsync(_runners, path, start_line, line_count, with_line_numbers, routeErr, ct)
+            : (path, await runner!.ReadAsync(bare, start_line, line_count, with_line_numbers, ct));
+        path = resolved ?? string.Empty;
         // p0279: record only successful reads (the runner returns an "Error…" string on failure).
         if (!string.IsNullOrEmpty(path) && !result.StartsWith("Error", StringComparison.Ordinal))
             lock (_sync) _readPaths.Add(path);

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-85e2
+
+decisions:
+  - category: Implementation
+    chose: "The read fallback is a flag the design turn sets on its host"
+    over: "Keeping it for every master"
+    reason: "A scan master that reads through an unrecorded fallback can dismiss a finding on a read nobody sees; coding, scan and bootstrap keep the refusal they had."
+  - category: Implementation
+    chose: "Only sources already open are tried, never a template; with none holding the path, the refusal lists the sources"
+    over: "Trying every source"
+    reason: "Trying a lazy repository clones it and an upload starts its container; a template says how work is done, not where a path the agent meant lives."
+  - category: Implementation
+    chose: "The compactor reports each fold through a loop hook; outcome_format returns a format again when a fold happened since"
+    over: "Returning the format every time, or once per conversation"
+    reason: "A fold summarizes the middle, so 'it stands above' can point at nothing; counting folds keeps the once-per-turn saving where it is true and nowhere else."
+  - category: Implementation
+    chose: "A per-call ceiling of 200000 characters over all answers, cutting the later answers and saying so first"
+    over: "Only the per-answer ceiling"
+    reason: "Twenty children at the per-answer ceiling would not fit a prompt; the earlier answers stay whole, the cut is named."
+  - category: Implementation
+    chose: "The design turn's memory index goes through the run's standing and composer"
+    over: "The raw MEMORY.md"
+    reason: "A run shows holding entries first, with their record, and leaves disputed ones out; the design turn showed disputed entries a run would hide."

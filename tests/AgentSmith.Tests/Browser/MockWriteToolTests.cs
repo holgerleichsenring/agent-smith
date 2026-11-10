@@ -132,12 +132,8 @@ public sealed class MockWriteToolTests
         });
 
         var factory = _fixture.Factory(_mocks, _mocks);
-        // 2026-11-10-14a3d: a mock can be asked for with nothing to compare against, so the mock tools stay;
-        // only render and compare need something visual.
-        factory.Tools(turn, isDesignTurn: true).Select(t => t.Name).Should()
-            .Contain(["write_mock", "read_mock"]).And.NotContain(["render_reference", "compare_reference"]);
-        turn.Set(ContextKeys.SpecDialogHasMocks, true);
-
+        // 2026-11-10-85e2: a mock or a render of a public URL can be asked for with nothing uploaded, so a design turn
+        // carries all four with no visual material at all.
         factory.Tools(turn, isDesignTurn: true).Select(t => t.Name).Should()
             .Contain(["write_mock", "read_mock", "render_reference", "compare_reference"]);
         factory.Tools(run, isDesignTurn: false).Select(t => t.Name).Should().NotContain("write_mock").And.Contain("render_reference");

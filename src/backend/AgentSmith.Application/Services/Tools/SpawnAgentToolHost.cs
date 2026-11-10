@@ -53,7 +53,7 @@ public sealed class SpawnAgentToolHost : IToolHost
         "because it sees nothing else of your conversation. A child works in your checkouts with the base file and " +
         "command tools — only the read tools in a design conversation — and none of your run's progress, verdict, gate " +
         "or spawn tools. The result lists per child its status, id, tool calls, cost and its whole answer; a child is told " +
-        "what a good answer holds, and only a runaway past 60000 characters is cut, saying so first.")]
+        "what a good answer holds, and only a runaway past " + SubAgentAnswer.CeilingText + " characters is cut, saying so first.")]
     public async Task<string> SpawnAgents(
         [Description("Array of task objects: name, activity, task_description, " +
                      "optional output_hint, inherited_context " +
@@ -106,7 +106,8 @@ public sealed class SpawnAgentToolHost : IToolHost
                 reason = "budget_exhausted",
             });
         }
-        return JsonSerializer.Serialize(new { results = combined, granted });
+        var cut = runResults.Any(r => r.Answer?.StartsWith(SubAgentAnswer.CallCutPrefix, StringComparison.Ordinal) == true); // 85e2
+        return JsonSerializer.Serialize(cut ? new { cut = SubAgentAnswer.CallCutLine, results = combined, granted } : (object)new { results = combined, granted });
     }
 
     private List<SubAgentSpec> ParseTasks(JsonElement tasks, out List<object> rejections)

@@ -81,7 +81,7 @@ public sealed class ProposalReviewLoop(
         }
         // 2026-11-10-18cf: with repositories to read and no reviewer answering, nothing attacked this text. It stays
         // open, so a later round tries again, and it is held with that reason if none does.
-        if (!merged.IsTaken && DerivationLookFactory.ProposalRepositories(session.Turn.Pipeline) is not null)
+        if (!merged.IsTaken && ReviewReferences.Beside(session.Turn.Pipeline, DerivationLookFactory.ProposalRepositories(session.Turn.Pipeline)) is not null /* 85e2 */)
         {
             draft.StoppedBecause = ProposalReviewSummary.NoAnswerWhy;
             draft.Stopped = false;
