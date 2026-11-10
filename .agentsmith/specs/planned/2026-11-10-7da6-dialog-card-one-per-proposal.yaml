@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-7da6
 goal: "The conversation shows one card for the current proposal: live while a turn re-drafts it, and after a reload in the middle of a turn."
+requires: [2026-11-10-ccd9]
 
 applies_to: "dashboard (spec-dialog conversation hook)"
 

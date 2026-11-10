@@ -24,7 +24,7 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Models/TurnPoster.cs:9-10"
 
 scope:
-  in: "Grounding composes project memory before its no-repository return. DesignMemoryIndex and MemoryIndexReader put project entries first, quoted, with their provenance, and label by SOURCE count (project plus repositories). MasterPromptSections stays as it is, except that the IsDesignTurn branch goes: 'use remember' appears whenever remember is on the surface. The index gate becomes 'any source has entries' for recall and dispute_memory. A design turn gets remember only when its poster may start runs (the same MayStartRuns seed 2026-11-10-4778 adds). Its remember has a description of its own and writes to the project store only, with the conversation id, the transcript index and the author as provenance. MemoryCitationResolver resolves '@project/<slug>' to the project key. A bare slug held by the project and a repository is refused, naming both forms. The stale AgenticToolSurface comment is rewritten. The design-partner skill says: when a person states how they want work done beyond this turn, remember it on the project."
+  in: "Grounding composes project memory before its no-repository return. DesignMemoryIndex and MemoryIndexReader put project entries first, quoted, with their provenance, and label by SOURCE count (project plus repositories). In BuildMemoryIndexSection (MasterPromptSections.cs:65-76), the IsDesignTurn branch is replaced by a seeded flag: a design turn says 'use remember' only when MayStartRuns is set, and a coding run always does. MemoryRecallToolHost (:50-59) iterates MemorySources with the project first. The index gate becomes 'any source has entries' for recall and dispute_memory. A design turn gets remember only when its poster may start runs (the same MayStartRuns seed 2026-11-10-4778 adds), returned by 4778's DesignWorkToolGate, so MasterToolComposition gains no line. Its remember has a description of its own and writes to the project store only. Provenance: the conversation id, the transcript index as SourceRef, and as Author the Author of the SpecDialogTurn at that index. MemoryCitationResolver resolves '@project/<slug>' to the project key. A bare slug held by the project and a repository is refused, naming both forms. The stale AgenticToolSurface comment is rewritten. The design-partner skill says: when a person states how they want work done beyond this turn, remember it on the project."
   out: "Coding-run writes and relied_on (fcd7c); the panel (fcd7d). A design turn with no repository in scope fails at SpecDialogTurnSeeds.cs:45 before grounding, today and after this spec. The scope-less grounding path is pinned by a unit test only, and the seed crash is a follow-up named here in prose."
 
 decisions:
@@ -37,7 +37,7 @@ steps:
   - id: ground
     action: "GroundSpecDialogHandler composes project memory before the early return. DesignMemoryIndex and MemoryIndexReader: project first, quoted with provenance, labels by source count."
   - id: tools
-    action: "MasterToolComposition: the gate is any source has entries; the design remember is added only when MayStartRuns is set, with its own description. MemoryCitationResolver handles '@project/<slug>' and the two-form ambiguity text. The IsDesignTurn branch is removed; the AgenticToolSurface comment is rewritten."
+    action: "MasterToolComposition: the gate is any source has entries. DesignWorkToolGate returns the design remember when MayStartRuns is set. MemoryRecallToolHost reads MemorySources. MemoryCitationResolver handles '@project/<slug>' and the two-form ambiguity text. BuildMemoryIndexSection reads the seeded flag instead of IsDesignTurn. The AgenticToolSurface comment is rewritten."
   - id: skill
     action: "design-partner-master: remember lasting statements on the project. Release, bump the pin."
 
@@ -49,7 +49,9 @@ tests:
   - "MemoryCitation_AtProjectSlug_ResolvesToTheProjectKey"
   - "MemoryCitation_BareSlugInProjectAndRepository_IsRefusedNamingBothForms"
   - "MemoryIndex_OneRepositoryPlusProject_LabelledProjectFirstQuoted"
-  - "MemoryIndexSection_RememberOnSurface_SaysUseRemember"
+  - "MemoryIndexSection_DesignTurnWithRunsControl_SaysUseRemember"
+  - "MemoryIndexSection_DesignTurnWithoutRunsControl_NoRemember"
+  - "MemoryRecall_ProjectEntry_IsReturnedFirst"
 
 done:
   - when: "a person with runs.control tells a design turn 'never drop a feature the material records'"

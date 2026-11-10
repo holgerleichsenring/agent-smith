@@ -14,7 +14,7 @@ facts:
     evidence: "agent-smith-skills skills/_masters/coding-agent-master/SKILL.md:298-306; agent-smith-skills references/memory-discipline.md (origin/main, v5.25.4)"
 
 scope:
-  in: "A coding run's remember accepts repository '@project': written to the project store with the run id, the spec id and the master as provenance, with no code-change requirement. Repository memory works as before. relied_on and dispute_memory accept '@project/<slug>' (resolved by fcd7b), and the ledger rows go under the project key. On a composition with no project store (CLI), the remember description does not offer '@project', and a call naming it anyway answers 'Not recorded: this installation keeps no project memory'. The remember and hand_forward descriptions name '@project' where a store exists. references/memory-discipline.md says a lesson that holds beyond this repository goes to '@project', kept in the database and not reviewed in a pull request. CLAUDE.md Experiential Memory names project memory, the reserved label, provenance, and that deleting resets standing."
+  in: "A coding run's remember accepts repository '@project': written to the project store with the run id, the spec id and the master as provenance, with no code-change requirement. Repository memory works as before. relied_on and dispute_memory accept '@project/<slug>' (resolved by fcd7b), and the ledger rows go under the project key. On a composition with no project store (CLI), the remember description does not offer '@project', and a call naming it anyway answers 'Not recorded: this installation keeps no project memory'. The function-level descriptions of remember and hand_forward name '@project' where a store exists. They are built at runtime through AIFunctionFactoryOptions, not in the static [Description] attribute on a parameter (HandForwardToolHost.cs:44). references/memory-discipline.md says a lesson that holds beyond this repository goes to '@project', kept in the database and not reviewed in a pull request. CLAUDE.md Experiential Memory names project memory, the reserved label, provenance, and that deleting resets standing."
   out: "The panel (fcd7d)."
 
 decisions:
@@ -24,7 +24,7 @@ decisions:
 
 steps:
   - id: tools
-    action: "MemoryWriteToolHost '@project' branch and the store-aware description; hand_forward's description."
+    action: "MemoryWriteToolHost '@project' branch; remember and hand_forward built with AIFunctionFactoryOptions whose Description depends on whether a project store exists."
   - id: docs
     action: "references/memory-discipline.md in agent-smith-skills, CLAUDE.md Experiential Memory. Release, bump the pin."
 
