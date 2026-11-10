@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.180.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.180.1...v0.180.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* a design turn is stopped by cost or a person, never by its age (2026-11-10-e706) ([baeff1e](https://github.com/holgerleichsenring/agent-smith/commit/baeff1edef1e090cc5dabd18a34f23c7bcb66c69))
+* a design turn is stopped by cost or a person, never by its age, and every model wait it makes is bounded (2026-11-10-e706) ([de51a53](https://github.com/holgerleichsenring/agent-smith/commit/de51a536463d47b248c45f434344074d7bfda903))
+
 ## [0.180.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.180.0...v0.180.1) (2026-11-10)
 
 
