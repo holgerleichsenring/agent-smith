@@ -1,58 +1,76 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-ccd9
-goal: "A stored proposal stays until a person approves or rejects it or a newer turn supersedes it; approval is a state of the stored proposal, not a 15-minute wait."
+goal: "A stored proposal awaits a decision until a person approves or rejects exactly that proposal or a newer draft supersedes it; nothing waits and nothing expires."
 
-applies_to: "default (Server: spec dialog outcome flow, confirmer, answer admission, button answers)"
+applies_to: "default (Server: spec dialog outcome flow, store, admission, router, view, chat adapters; Dashboard: approval card and composers)"
 
 facts:
-  - claim: "The confirmer asks for approval with a fixed 15-minute ConfirmationTimeout, holds a pending question in process memory and an open-question record for that long, and waits on the dialogue transport."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:32-64"
-  - claim: "On timeout the flow clears the stored proposal and only sends a notice; the comment encodes the old rule that a timed-out approval is over."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:76-81"
-  - claim: "The notice goes out through the platform messenger (the dashboard through DashboardAdapter.SendInfoAsync), not into the transcript, so after a reload nothing says why the proposal is gone."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:96-97; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogMessenger.cs:44; src/backend/AgentSmith.Server/Services/Adapters/DashboardAdapter.cs:37-39"
-  - claim: "A notice that must survive a reload is stored as a transcript turn of kind Notice."
+  - claim: "The confirmer asks with a fixed 15-minute ConfirmationTimeout, holds an in-memory pending question and a Redis open-question record with that TTL, and waits on the dialogue transport inside the router's turn loop."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:32-64; src/backend/AgentSmith.Server/Services/SpecDialog/RedisOpenDialogQuestions.cs:16-17; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:85-114; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:44"
+  - claim: "On timeout the flow clears the stored proposal and sends ComposeTimeout through the messenger only; the comment encodes the old rule."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:76-81; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:54; src/backend/AgentSmith.Server/Services/SpecDialog/ConfirmationResult.cs; src/backend/AgentSmith.Server/Services/Adapters/DashboardAdapter.cs:40-41"
+  - claim: "A typed word decides only while a question is pending, and admission runs before the turn gate."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:36-46; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:57-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerWords.cs:13-24"
+  - claim: "Approve buttons send only the word, never which proposal was seen."
+    evidence: "src/dashboard/src/components/tickets/detail/useTicketComposer.ts:70; src/dashboard/src/hooks/useSpecDialog.ts:124-128"
+  - claim: "Chat buttons reach a wait through the adapter or SpecDialogButtonAnswer, and both depend on the open question; Slack and Teams ask through a call that waits for the click."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:72-73; src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs:88-89; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogButtonAnswer.cs:14-22; src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionManager.cs:45-49; src/backend/AgentSmith.Server/Services/Adapters/TeamsAdapter.cs:37-45"
+  - claim: "The approval card is built from the pending question, with its expiry; the resumer refuses while a question is pending; the dashboard hides an expired approval."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:58-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:40; src/backend/AgentSmith.Server/Models/SpecDialogChannelQuestion.cs:18-24; src/dashboard/src/components/dialog/DialogQuestionCard.tsx:48,83-102; src/dashboard/src/components/tickets/detail/useTicketComposer.ts:97-100"
+  - claim: "The turn's poster decides MayStartRuns for the filing, and a Slack message carries false."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:107; src/backend/AgentSmith.Server/Services/Adapters/SlackMessageDispatcher.cs:45-46"
+  - claim: "Three sites write the stored proposal: the flow, the mid-review observer and the steward's supersede; the store swallows every failed write, and the unbound filing leaves LatestProposalJson in place."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:42,89-94; src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:24-25; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:15-26,104-118; src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:49-83,112"
+  - claim: "A stored Notice turn is how a reload learns what happened."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:91-97"
-  - claim: "A message decides an approval only while a question is pending; afterwards the same 'approve' is a new design turn."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:33-46"
-  - claim: "A Slack or Teams button click no process is waiting for is answered only while its question is open."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogButtonAnswer.cs:14-22"
-  - claim: "Conversations 43 and 44 lost their proposals ($1.82 and $5.72 turns) to the timeout."
-    evidence: "operator report and SpecDialogSessions rows 43/44, 2026-11-10"
+  - claim: "The design turn has no ask_human since 0.180.1; the coding run's ask_human still waits five minutes."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56; src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs:45-48"
+  - claim: "SpecDialogLatestOutcomeStore and SpecDialogViewReader are at 120 and 119 lines."
+    evidence: "wc -l, 2026-11-10"
 
 scope:
-  in: "The outcome flow stores the proposal and returns; nothing waits. The stored proposal records that it awaits a decision. A thread message, a dashboard approve or reject, and a Slack or Teams button click on that proposal are decided against the STORED proposal through the same Interpret rules (approve files, reject clears, any other text is an edit note that re-runs the turn), on any replica. A newer turn's proposal supersedes it. Reject and supersede each store a Notice transcript turn. OutcomeConfirmationTimedOut and ConfirmationTimeout go; the comment at SpecDialogOutcomeFlow.cs:77-78 is rewritten to the new rule. The CLI demo keeps its interactive prompt (Enter on the shown default builds) and stores the proposal the same way, so leaving the prompt loses nothing."
-  out: "Build gating is unchanged: an approved proposal is reviewed before it is built (2026-11-10-8e59)."
+  in: "SPLIT FIRST: SpecDialogLatestOutcomeStore and SpecDialogViewReader, each into a second type, before any change. STATE: at turn end, after the reply is kept, the flow writes the proposal's id and 'awaiting' on the session row and returns; nothing waits. The observer's mid-review write and the start of any turn clear 'awaiting'. DECIDING: the dashboard approve and reject buttons and the chat buttons send that id; a decision with an id decides only when the id is the stored awaiting one; a typed answer word decides only when the stored id belongs to the latest assistant turn and no turn holds the gate, so admission moves behind the gate check. Anything else is an ordinary message that runs an ordinary turn: the stored proposal stays awaiting and is in the master's context, and a new draft supersedes it. FILING ONCE: before AcceptAsync the decision claims the row by compare-and-set (awaiting and id); a retry goes through SpecDialogOutcomeStore's confirmed record. RIGHTS: the decider's MayStartRuns is used. SHAPES AND EDITS: a shape or edit click is routed through SpecDialogRouter as the clicker's message, with the id. NOTICES: reject and every supersede (flow, observer, steward) append a Notice turn. FAILING: SetProposalAsync fails its caller; the filing writes keep their logged drop. REMOVED: ConfirmationTimeout, OutcomeConfirmationTimedOut, ComposeTimeout, the pending approval question, the open-question TTL for approvals, ExpiresAt on approval cards; SpecDialogViewReader builds the approval card from the stored awaiting proposal, so it survives a restart on any replica; the resumer no longer refuses on an approval; Slack and Teams post the card with a post-only call. The comment at SpecDialogOutcomeFlow.cs:77-78 is rewritten."
+  out: "The coding run's ask_human five-minute wait is a named successor. Build gating is unchanged (2026-11-10-8e59)."
 
 decisions:
-  - key: "A STATE, NOT A TASK. A dialog never ends because someone went for coffee; nothing has to be held while a person is away, so nothing has to time out."
-  - key: "ONE DECISION PATH. Message, dashboard button and chat button all decide against the stored proposal, so a click after a restart or on another replica works, and the in-memory pending question stops being the only door."
-  - key: "THE TRANSCRIPT SAYS WHAT HAPPENED. Reject and supersede are stored as Notice turns, so a reload shows why a card is gone."
+  - key: "A STATE, NOT A TASK. Nothing has to be held while a person is away, so nothing has to time out."
+  - key: "BOUND TO THE TEXT SEEN. A decision names the proposal it was made on; a click on an older card, or a word typed while a newer draft is being written, decides nothing."
+  - key: "ONE CLAIM. A compare-and-set on the row means two clicks, two replicas or a retry file once."
+  - key: "THE DECIDER'S RIGHTS. Whoever approves is whoever files; the turn's starter may have had different rights."
+  - key: "AN ORDINARY MESSAGE IS ORDINARY (operator's coordinator, 2026-11-10). No forced revising mode; the master sees the awaiting proposal and revises when asked."
+  - key: "THE STORE FAILS LOUDLY FOR PROPOSALS. A dropped proposal write is a lost proposal; only the post-filing writes keep their logged drop, for the duplicate-ticket reason the store documents."
 
 steps:
+  - id: split
+    action: "Split SpecDialogLatestOutcomeStore and SpecDialogViewReader."
   - id: state
-    action: "SpecDialogLatestOutcomeStore records the stored proposal's question id and that it awaits a decision."
-  - id: flow
-    action: "SpecDialogOutcomeFlow stores and returns; Interpret is reused by an admission branch that decides a message against the stored proposal, and by SpecDialogButtonAnswer when the clicked id is the stored proposal's."
-  - id: notices
-    action: "Reject and supersede append Notice turns; the timeout case and its notice are removed."
-  - id: platforms
-    action: "Dashboard, Slack, Teams and the CLI demo each pass the same decision path; the button card stays clickable without an expiry."
+    action: "Session row gains AwaitingProposalId; the flow, the observer and the turn start write or clear it; SetProposalAsync throws on failure."
+  - id: decide
+    action: "Router admits after the gate check; a decision path with id, compare-and-set claim and the decider's MayStartRuns; shapes and edits route as messages."
+  - id: surfaces
+    action: "Dashboard buttons send the id; the view builds the card from the stored proposal; Slack and Teams post-only; interaction handlers route through the decision path."
+  - id: remove
+    action: "Remove the confirmer's wait, the timeout result and notice, the expiry fields and the TTL use for approvals; Notices on reject and supersede."
   - id: tests
     action: "Pin each path."
 
 tests:
-  - "OutcomeFlow_Proposal_IsStoredAndNothingWaits"
-  - "Admission_ApproveTwoHoursLater_FilesTheStoredProposal"
-  - "Admission_RejectLater_ClearsAndStoresANotice"
-  - "ButtonAnswer_ClickAfterRestart_DecidesTheStoredProposal"
-  - "NewerTurnProposal_SupersedesAndStoresANotice"
-  - "EditNote_AgainstStoredProposal_RerunsTheTurn"
+  - "OutcomeFlow_Proposal_StoresAwaitingAndReturns"
+  - "Decision_ApproveWithStoredIdADayLater_Files"
+  - "Decision_ApproveWithOlderId_DecidesNothing"
+  - "TypedApprove_WhileATurnHoldsTheGate_IsAnOrdinaryMessage"
+  - "Decision_TwoApprovesAtOnce_FileOnce"
+  - "Decision_UsesTheDecidersMayStartRuns"
+  - "SlackButton_AfterRestart_DecidesTheStoredProposal"
+  - "ShapeClick_RoutesAsTheClickersMessage"
+  - "NewDraft_SupersedesWithANotice_AtAllThreeSites"
+  - "SetProposal_DatabaseFails_FailsTheTurn"
+  - "ViewReader_AfterRestart_ShowsTheApprovalCardFromTheStore"
 
 done:
-  - when: "a turn proposes and nobody answers for a day"
-    then: "the proposal is still stored and shown, and 'approve' then files it"
-  - when: "a person rejects or a newer turn supersedes it"
-    then: "the transcript holds a Notice saying so, visible after a reload"
+  - when: "a turn proposes and nobody answers for a day, across a restart"
+    then: "the card is shown from the store and approving it files exactly once"
+  - when: "a newer draft supersedes, or a person rejects"
+    then: "the transcript holds a Notice, and an approve on the old card decides nothing"
   - "No code path clears a stored proposal for lack of an answer."
   - "Build green, full suite and dashboard tests green."

@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-d854b
 goal: "Every proposing design turn shows one reduced result: summary, activity line, cost-cap banner, questions with take or answer, and one row per spec, live and after a reload."
-requires: [2026-11-10-d854a, 2026-11-10-d854c, 2026-11-10-7da6]
+requires: [2026-11-10-d854a, 2026-11-10-d854c, 2026-11-10-7da6, 2026-11-10-ccd9]
 
 applies_to: "default (Dashboard: dialog transcript and surface, ticket conversation; Server: proposal views)"
 
 facts:
   - claim: "The conversation renders a proposal as DialogProposalCard; the ticket page renders it as ProposalBlock with findings and rounds; the side panel carries graph, rounds and uploads."
     evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:10; src/dashboard/src/components/tickets/detail/ProposalBlock.tsx:3-4; src/dashboard/src/components/dialog/DialogProposalPanel.tsx:8-10"
-  - claim: "The ticket page reads TicketConversationProposalView, whose drafts carry id, goal, repos, done and a ratified mock, and no yaml, facts, steps, decisions or spend."
+  - claim: "The ticket page reads TicketConversationProposalView, whose drafts carry id, goal, repos, done and a ratified mock, and no yaml, facts, steps, questions or spend."
     evidence: "src/backend/AgentSmith.Server/Models/TicketConversationProposalView.cs:7-25"
   - claim: "The conversation's draft view carries id, goal, steps, tests, done, requires, yaml and facts, and no repository."
     evidence: "src/backend/AgentSmith.Server/Models/SpecDialogDraftView.cs:13-24"
@@ -18,7 +18,7 @@ facts:
     evidence: "https://claude.ai/artifact/5sBqNLKzQ3GK96mGRvfnYg (2026-11-10)"
 
 scope:
-  in: "A TurnResult component renders on every transcript turn that has its own proposal (d854c), live and after a reload: the reply prose as summary; one collapsed activity line (duration, steps, sub-agents, review rounds, cost) that opens the turn's steps page by page from its run; an amber banner when Spend.capHit; the questions from Decisions with question, proposal and spec ids — 'Take proposal' sends the question and the proposal as the person's reply, 'Answer' puts the question into the composer; the specs in build order, one row each with id, goal, repository and a status pill (reviewed clean, findings, not reviewed), opening to findings, done criteria and links to yaml, facts and rounds; the approve bar on the current proposal only. SpecDialogDraftView gains Repos. ProposalBlock renders TurnResult: TicketConversationProposalView gains Decisions and Spend and its drafts gain Yaml; dispositions and ratified mocks stay ticket-only, passed to TurnResult as optional parts. The side panel keeps graph and uploads; rounds move into the rows."
+  in: "A TurnResult component renders on every transcript turn that has its own proposal (d854c), live and after a reload: the reply prose as summary; one collapsed activity line (duration, steps, sub-agents, review rounds, cost) that opens the turn's steps page by page from its run; an amber banner when Spend.capHit; the questions from Questions with question, proposal and spec ids — 'Take proposal' sends the question and the proposal as the person's reply, 'Answer' puts the question into the composer; the specs in build order, one row each with id, goal, repository and a status pill (reviewed clean, findings, not reviewed), opening to findings, done criteria and links to yaml, facts and rounds; the approve bar on the current awaiting proposal only, sending its proposal id (2026-11-10-ccd9). SpecDialogDraftView gains Repos. ProposalBlock renders TurnResult: TicketConversationProposalView gains Questions and Spend and its drafts gain Yaml; dispositions and ratified mocks stay ticket-only, passed to TurnResult as optional parts. The side panel keeps graph and uploads; rounds move into the rows."
   out: "The banner's 'continue at the next tier' action is the successor named by 2026-11-10-548f."
 
 decisions:
@@ -30,9 +30,9 @@ decisions:
 
 steps:
   - id: views
-    action: "SpecDialogDraftView gains Repos; TicketConversationProposalView gains Decisions and Spend, its drafts Yaml; the dashboard types follow."
+    action: "SpecDialogDraftView gains Repos; TicketConversationProposalView gains Questions and Spend, its drafts Yaml; the dashboard types follow."
   - id: component
-    action: "TurnResult and its rows; the activity line reads the count and pages the steps through the d854c endpoint."
+    action: "TurnResult and its rows; the activity line reads the count and pages the steps run-wide through d854c's dialog-activity endpoint."
   - id: wire
     action: "DialogTranscript renders TurnResult per proposing turn; ProposalBlock renders it with its ticket slots; DialogProposalPanel drops its rounds list."
   - id: answers

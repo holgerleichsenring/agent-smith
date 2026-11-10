@@ -2,48 +2,52 @@
 spec: 2026-11-10-d854a
 goal: "When a design turn drafts, the operator's questions also ride the draft as a structured list (question, proposal, spec ids), with the turn's spend, so a card can show what needs a person."
 
-applies_to: "default (Application: design master tools; Server: proposal composer, push and store; skills: design-partner-master)"
+applies_to: "default (Application: design master tools, proposal review loop; Server: proposal composer, push and store; skills: design-partner-master)"
 
 facts:
   - claim: "Conversation 44's reply is 33,771 characters stored and 1,205 shown, because the shown transcript strips draft blocks; what overloads the page is two cards and 60 findings over 10 specs."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:16; SpecDialogSessions row 44, read 2026-11-10"
   - claim: "The operator's questions exist as prose in the reply and as 'proposed:' lines inside the specs; the push has no field for them."
-    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-46; agent-smith-skills skills/_masters/design-partner-master/SKILL.md:153-156,161-173 (origin/main, v5.25.4)"
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-46; agent-smith-skills skills/_masters/design-partner-master/SKILL.md:48-53,153-156,161-173 (origin/main, v5.25.4)"
   - claim: "An answer turn is never pushed, and Slack and Teams show no proposal card, so the reply is the only surface every question reaches."
     evidence: "src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:15; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-39"
   - claim: "A design master records turn facts through small typed tools that write the reply slot; the ticket steward's surface excludes them by name."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:20-46; src/backend/AgentSmith.Contracts/Models/SpecDialogReplySlot.cs:11-33; src/backend/AgentSmith.Application/Services/Tools/TicketStewardTools.cs:15-19"
-  - claim: "A draft is pushed while its review runs (UnderReview) and again with the final proposal after the review; one composer shapes both, and the stored proposal is the last push."
-    evidence: "src/backend/AgentSmith.Contracts/Turns/ITurnProposalObserver.cs:35; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-42; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:36-48"
+  - claim: "Each mid-review push is built in ProposalReviewLoop.PublishAsync from a non-final summary; the final summary ends the review; the composer copies what the OutcomeProposal carries."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:44,48-58; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:36-48"
   - claim: "The turn's spend and whether its cap is exhausted are on its cost tracker."
     evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:68; src/backend/AgentSmith.Application/Services/CostCapStop.cs:22-40"
 
 scope:
-  in: "A master tool state_open_decisions(decisions): each entry a question, the master's proposal and the spec ids it touches; a later call in the turn replaces the list; an entry with an empty question or proposal is refused with the rule. The slot carries the list onto the OutcomeProposal. The composer keeps each entry's spec ids that name a spec of the final proposal and drops the others. Each push carries Decisions and Spend (usd, capUsd, tier, capHit) read from the turn's tracker when the push is composed: mid-review pushes show the spend so far, the final push after the review shows the turn's total, and the stored proposal keeps the final one. The ticket steward does not get the tool. design-partner-master changes in two passages, text under skill_text."
+  in: "A master tool state_open_questions(questions): each entry a question, the master's proposal and the spec ids it touches; a later call in the turn replaces the list; an entry with an empty question or proposal is refused with the rule. The slot carries the list onto the OutcomeProposal as Questions. The composer keeps each entry's spec ids that name a spec of the final proposal and drops the others. Spend (usd, capUsd, tier, capHit) is set on the OutcomeProposal from the turn's tracker in ProposalReviewLoop.PublishAsync for each mid-review push and on the final review summary for the total; the composer copies it, and the stored proposal keeps the final one. The ticket steward does not get the tool. design-partner-master changes in three passages, text under skill_text, shipped in one skills release with 2026-11-10-548f."
   out: "The card that shows this is 2026-11-10-d854b. Answer turns keep their questions in the reply only, which every surface already shows."
 
 decisions:
   - key: "THE REPLY NEVER LOSES A QUESTION. Answer turns are not pushed and chat platforms have no card, so the questions stay in the reply on every turn; the list only structures the same questions for the card."
-  - key: "ONE WORD: PROPOSAL. The field, the skill text and the button all say proposal, the word the specs already use for 'proposed:'."
+  - key: "QUESTIONS, NOT DECISIONS. A spec already has a decisions: key; the list is named for what it holds, the operator's open questions, each with the master's proposal."
+  - key: "ONE WORD: PROPOSAL. The field, the skill text and the button say proposal, the word the specs already use for 'proposed:'."
   - key: "A TOOL, NOT A YAML KEY. Every outcome kind would need the key and each parser would learn it; a tool beside state_work_picture serves every kind and refuses with a reason."
   - key: "IDS CHECKED AGAINST THE FINAL PROPOSAL. A review revision can renumber or drop specs after the tool was called; the composer sees the set the person will approve."
-  - key: "SPEND AS OF THE PUSH. A push mid-review cannot know the total; the final push and the store carry it."
+  - key: "SPEND WHERE THE PUSH IS BUILT. The review loop builds every push and knows the tracker; the composer only copies."
 
 steps:
   - id: tool
-    action: "OpenDecisionsToolHost writes SpecDialogReplySlot.Decisions; TicketActToolsFactory adds it on every turn with a reply slot; TicketStewardTools.Excluded names it."
-  - id: push
-    action: "OutcomeProposal carries Decisions and Spend; SpecDialogProposalComposer filters spec ids and sets both on every push; OutcomeProposalJson stores them; the dashboard type gains both as optional fields."
+    action: "OpenQuestionsToolHost writes SpecDialogReplySlot.Questions; TicketActToolsFactory adds it on every turn with a reply slot; TicketStewardTools.Excluded names it."
+  - id: spend
+    action: "OutcomeProposal gains Questions and Spend; ProposalReviewLoop.PublishAsync and the final summary set Spend; SpecDialogProposalComposer filters spec ids and copies both; OutcomeProposalJson stores them; the dashboard type gains both as optional fields."
   - id: skill
-    action: "design-partner-master, two passages changed in place; no section is added or moved."
+    action: "design-partner-master, three passages changed in place; no section is added or moved."
   - id: tests
     action: "Pin admission, id filtering, spend timing, store and the steward exclusion."
 
 skill_text:
   tool_description: "Lays the questions only the operator can answer onto this turn's draft, for its card: each entry is the question, your proposal, and the ids of the specs it touches. The card offers to take your proposal or to answer differently; either comes back as the operator's next message. The card shows only on the dashboard and only with a draft, so the same questions stay in your reply. A later call in this turn replaces the list."
+  operating_rule_bullet:
+    old: "open question beside the draft, not a decision. A question to the operator is one fork whose wrong guess costs a re-cut, with your recommendation."
+    new: "open question beside the draft, not a decision. A question to the operator is one fork whose wrong guess costs a re-cut, with your proposal."
   conversation_style_bullet:
     old: "- Your questions go in your reply, after the analysis that raised them, each with your recommendation; the operator answers in the next message. Where your recommendation is good enough to proceed, draft with it and mark it proposed."
-    new: "- Your questions go in your reply, after the analysis that raised them, each with your proposal; the operator answers in the next message. When you draft, `state_open_decisions` puts them on the draft's card as well. Where your proposal is good enough to proceed, draft with it and mark it proposed."
+    new: "- Your questions go in your reply, after the analysis that raised them, each with your proposal; the operator answers in the next message. When you draft, `state_open_questions` puts them on the draft's card as well. Where your proposal is good enough to proceed, draft with it and mark it proposed."
   capability_sentence:
     old: "Dropping or postponing a capability the material requires is not yours to default: say so in the reply as a question, with your recommendation."
     new: "Dropping or postponing a capability the material requires is the operator's call: ask it, with your proposal."
@@ -51,17 +55,17 @@ skill_text:
   checked_against: "situation and goal (the tool says what the card does and why the reply keeps the questions); tools describe themselves (the skill names the tool, the tool text carries the entry shape); capabilities, not prohibitions; no section added or moved, so the prompt order and its cache prefix stay."
 
 tests:
-  - "StateOpenDecisions_EmptyProposal_IsRefusedNamingTheRule"
-  - "StateOpenDecisions_SecondCall_ReplacesTheList"
-  - "ProposalComposer_DecisionCitingADroppedSpec_KeepsOnlyKnownIds"
-  - "ProposalComposer_MidReviewPush_CarriesSpendSoFar"
-  - "ProposalComposer_FinalPush_CarriesTotalSpendAndCapHit"
-  - "OutcomeProposalJson_RoundTripsDecisionsAndSpend"
-  - "TicketStewardTools_ExcludeStateOpenDecisions"
+  - "StateOpenQuestions_EmptyProposal_IsRefusedNamingTheRule"
+  - "StateOpenQuestions_SecondCall_ReplacesTheList"
+  - "ProposalComposer_QuestionCitingADroppedSpec_KeepsOnlyKnownIds"
+  - "ProposalReviewLoop_MidReviewPush_CarriesSpendSoFar"
+  - "ProposalReviewLoop_FinalSummary_CarriesTotalSpendAndCapHit"
+  - "OutcomeProposalJson_RoundTripsQuestionsAndSpend"
+  - "TicketStewardTools_ExcludeStateOpenQuestions"
 
 done:
   - when: "a design turn asks three questions and drafts an epic"
-    then: "the reply holds the three questions, and the final push and the stored proposal carry them as decisions with proposal and known spec ids, plus the turn's total spend and whether the cap was hit"
+    then: "the reply holds the three questions, and the final push and the stored proposal carry them with proposal and known spec ids, plus the turn's total spend and whether the cap was hit"
   - when: "a turn asks questions without drafting"
     then: "the reply holds them and nothing is pushed, as today"
-  - "Build green, full suite and dashboard tests green; skills released and pinned."
+  - "Build green, full suite and dashboard tests green; skills released (one release with 2026-11-10-548f) and pinned."
