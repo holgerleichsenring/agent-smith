@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3c
+
+decisions:
+  - category: Architecture
+    chose: "The duplicate is not a rendering bug: two repositories each hold the same principles file, and the grounding rendered every document"
+    over: "Deduplicating inside RenderLabelled for every master"
+    reason: "The coding master works in one repository at a time and reads its own file; only the design turn sees every repository at once."
+  - category: Implementation
+    chose: "A digest per distinct file: holders, composition and status, Project Specifics, path"
+    over: "Showing the body once"
+    reason: "A draft cites the principles but does not apply them line by line; the Project Specifics are what the project itself decided, and the path lets a draft that decides how code is written read the rest."

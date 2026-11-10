@@ -40,8 +40,10 @@ public sealed class GroundSpecDialogHandler(
 
         Publish(pipeline, ContextKeys.RepoContextYamls, ContextKeys.ProjectContext,
             [.. grounded.SelectMany(g => g.Contexts.Documents)]);
-        Publish(pipeline, ContextKeys.RepoCodingPrinciples, ContextKeys.DomainRules,
-            [.. grounded.SelectMany(g => g.Principles.Documents)]);
+        // 2026-11-10-14a3c: the typed list stays whole; the turn reads each distinct file once, as a digest.
+        var principles = grounded.SelectMany(g => g.Principles.Documents).ToList();
+        pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.RepoCodingPrinciples, principles);
+        if (principles.Count > 0) pipeline.Set(ContextKeys.DomainRules, DesignPrinciplesDigest.Render(principles));
         var design = grounded.SelectMany(g => g.Design.Documents).ToList(); // 2026-10-01-283dg
         if (design.Count > 0) pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.DesignSystem, design);
 

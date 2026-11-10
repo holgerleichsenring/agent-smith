@@ -44,9 +44,10 @@ public sealed class SpecDialogGroundingTests
         var result = await Run(pipeline, repo);
 
         result.IsSuccess.Should().BeTrue();
+        // 2026-11-10-14a3c: the turn reads a digest that names the file; the body stays in the repository.
         DesignPartnerPrompt(pipeline).Should().Contain("## Coding Principles")
-            .And.Contain("One responsibility per file.",
-                "the heading the master renders had nothing under it before this step existed");
+            .And.Contain("## repo-a — `", "the heading the master renders had nothing under it before this step existed")
+            .And.Contain("The full rules are at");
     }
 
     [Fact]
