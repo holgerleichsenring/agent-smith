@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3h
+
+decisions:
+  - category: Architecture
+    chose: "R10: the memory doctrine leaves the design partner; the index arrives as the MemoryIndexSection input, rendered only where the grounding found a store, and recall/dispute_memory describe themselves"
+    over: "A conditional section in the skill, or the doctrine in recall's description"
+    reason: "The skill format has no conditional sections, but its inputs render empty when there is nothing to show. The design turn never loaded the index, so the old doctrine described an index the turn did not have; most of it is about writing memories, which a design turn cannot do."
+  - category: Architecture
+    chose: "R13: the design, mock and design-system guidance moves into design_read's and write_mock's descriptions and the Design system section's header; the skill keeps the upload section"
+    over: "Keeping the sections in the system prompt"
+    reason: "Those tools and that section appear only with their material (14a3d), so the guidance reaches a turn exactly when it applies. Uploads are read on any design turn, so their section stays."
+  - category: Implementation
+    chose: "R11: the WHAT rule leads in the design partner's own preamble; the shared source-precedence keeps its visual-reference paragraph"
+    over: "Editing the shared reference"
+    reason: "source-precedence is read by the coding and derivation masters too, and the coding master builds against visual references; the duplicate the diagnosis named was the design partner's own website section, now gone."
+  - category: Implementation
+    chose: "R15: a child is what one coding pass builds and one reviewer checks"
+    over: "'one coding run builds one spec'"
+    reason: "One run works an epic's slices one after another, each in a pass of its own; 'one run' would state a product fact that is not so. The epic format now says so too."
+  - category: Implementation
+    chose: "R17: decisions take a 'proposed:' prefix; the dashboard renders the draft as written"
+    over: "A status key, or a dashboard rendering"
+    reason: "A bare string is already a valid decisions entry, so the prefix needs no schema change; the proposal pane shows the YAML text, where the prefix is visible, and parsing decisions there is not cheap."
+  - category: Implementation
+    chose: "R7 in project-bootstrap only"
+    over: "project-discovery too"
+    reason: "Discovery lists components and writes no purpose; bootstrap writes the purpose line a work picture inherited."

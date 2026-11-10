@@ -33,7 +33,7 @@ public sealed class DesignReadToolHost(
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode) =>
         [AIFunctionFactory.Create(DesignRead, name: "design_read")];
 
-    [Description("Reads a Figma frame or component from its link and returns a summary for building it: file version, per node its type, name, size, auto-layout, colours as hex, corner radius, text with font, the component an instance is of, style and variable names, then the file's variables per mode — and a PNG render of the node, shown after the result where images can be shown. The link must carry node-id.")]
+    [Description("Reads a Figma frame or component from its link and returns a summary for building it: file version, per node its type, name, size, auto-layout, colours as hex, corner radius, text with font, the component an instance is of, style and variable names, then the file's variables per mode — and a PNG render of the node, shown after the result where images can be shown. The link must carry node-id; a link without one names no frame, so ask for the frame's link. Read the frames the work touches, not the whole file. A failed read says its kind — not_found, forbidden, rate_limited with its wait, unreachable — pass it on as it came.")]
     public async Task<string> DesignRead(
         [Description("The Figma link, e.g. https://www.figma.com/design/<key>/<title>?node-id=1-2")] string url,
         [Description("The design source to read through; needed only when the project has several.")] string? source = null,

@@ -56,6 +56,8 @@ public sealed class ScriptedChatClient : IChatClient
         [.. _callMessages.Select(messages => string.Join("\n", messages.Select(m => m.Text)))];
     /// <summary>The options of the most recent call — which tools, if any, it carried.</summary>
     public ChatOptions? LastOptions { get; private set; }
+    /// <summary>2026-11-10-14a3h: the options of the first call — the tool list a turn opens with.</summary>
+    public ChatOptions? FirstOptions { get; private set; }
     public IReadOnlyList<ScriptedToolCall> ToolCalls => _toolCalls;
 
     public ScriptedChatClient EnqueueText(string text)
@@ -142,6 +144,7 @@ public sealed class ScriptedChatClient : IChatClient
         LastMessages = messages.ToList();
         _callMessages.Add(LastMessages);
         LastOptions = options;
+        FirstOptions ??= options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
         if (SpecReviewScript.Answers(LastMessages))

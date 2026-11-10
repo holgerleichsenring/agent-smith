@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-10-14a3h: "DESIGN PARTNER TEXTS (skills pin v5.25.3, tool descriptions, prompt size test). A decision rests on something read, a child is one coding pass, proposed decisions take a proposed: prefix; memory, design and mock guidance ride what appears with its material. First design turn 45654 to 28544 characters. -> .agentsmith/specs/done/2026-11-10-14a3h-design-partner-texts.yaml"
     2026-11-10-14a3g: "PROPOSAL ATTACK JUDGEMENT (attack review prompt). A design turn's attack reviewer also asks whether one run can build the draft, whether each done line can be answered against the code, and whether the scope keeps every capability the uploads approve; a run's reviewer is unchanged. -> .agentsmith/specs/done/2026-11-10-14a3g-proposal-attack-judgement.yaml"
     2026-11-10-14a3f: "OUTCOME FORMAT ONCE (outcome format tool). A format is returned once per turn; asked again, outcome_format says it stands above, and an epic after a spec returns only the epic part. -> .agentsmith/specs/done/2026-11-10-14a3f-outcome-format-once.yaml"
     2026-11-10-14a3e: "DIALOG FOOTER REPO RULE (design turn prompt). The user-turn section lists the repositories a spec's repos is spelled from and no longer repeats the one-repository rule the skill states. -> .agentsmith/specs/done/2026-11-10-14a3e-dialog-footer-repo-rule.yaml"
@@ -1423,7 +1424,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-10-14a3h: "DESIGN PARTNER TEXTS (skills pin, prompt size test). Defensible, the child unit, proposed: prefix; pinned. -> .agentsmith/specs/planned/2026-11-10-14a3h-design-partner-texts.yaml"
     2026-11-10-e706: "TURN HANG DETECTION (run watchdog, chat client builders). Bound every model wait a design turn makes (Copilot idle wait, Ollama, Gemini), then exempt design turns from the wall-time watchdog; coding runs keep it. requires 18cf. -> .agentsmith/specs/planned/2026-11-10-e706-turn-hang-detection.yaml"
     2026-10-28-8c7c: "MYSQL PROVIDER (Persistence). Measure the SQLite-typed shared set on MySQL 8, then a dedicated set with a live test or drop mysql from the providers. requires ebb0. -> .agentsmith/specs/planned/2026-10-28-8c7c-persistence-mysql-provider.yaml"
     2026-10-26-0a9e: "Drop the unwritten RunRepo.ChangeCount column after cb25f has shipped. requires cb25f. -> .agentsmith/specs/planned/2026-10-26-0a9e-runrepo-changecount-drop.yaml"

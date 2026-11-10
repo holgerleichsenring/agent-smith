@@ -34,7 +34,7 @@ public static class DesignSystemPromptSection
             var address = $"{document.SandboxKey}/{ProjectMetaPaths.DesignSystem}";
             sb.Append($"\n\n## Design system — {document.SandboxKey}\n")
               .Append($"`{address}`: its frontmatter holds the design tokens as exact values — use them ")
-              .Append("as written; the prose after it says how they are meant.\n\n");
+              .Append("as written, and a criterion that names one names it as written; the prose after it says how they are meant.\n\n");
             var (shown, cut) = Fit(document.Content, left);
             sb.Append(shown.TrimEnd());
             if (cut > 0)

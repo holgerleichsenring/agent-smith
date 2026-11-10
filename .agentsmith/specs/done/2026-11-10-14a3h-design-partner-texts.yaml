@@ -9,12 +9,13 @@ steps:
   - id: skills
     action: "design-partner, the design outcome references, project-bootstrap and project-discovery carry the R7-R19 texts, merged with the contract-first and proposed lines of skills #254."
   - id: pin
-    action: "Pin the release carrying #254 and these texts."
+    action: "Pin v5.25.3, the release carrying skills #254 and #256."
   - id: size
     action: "A harness test measures the first design turn's system prompt, user turn and tool list and pins a ceiling."
 tests:
   - "ReferenceTurn_FirstCall_PromptAndToolsStayWithinTheirSize"
   - "EmbeddedSkills_DesignPartner_DefinesTheChildAndTheProposedPrefix"
+  - "EmbeddedSkills_DesignPartnerMaster_LeavesMockAuthoringToItsTool"
 done:
   - "The pinned design partner names a child as what one run builds and one reviewer checks, and writes a proposed decision with a proposed: prefix."
   - "Backend and dashboard build and tests green."

@@ -59,6 +59,9 @@ internal static class MasterPromptSections
 
     // p0380: the plan-time memory INDEX (LoadMemoryIndex). One line per memory;
     // bodies stay on disk and are pulled via recall(). Absent store => empty.
+    private static bool IsDesignTurn(PipelineContext pipeline) =>
+        pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) && name == PipelinePresets.SpecDialogName;
+
     internal static string BuildMemoryIndexSection(PipelineContext pipeline)
     {
         var index = pipeline.TryGet<string>(ContextKeys.MemoryIndex, out var mi) ? mi : null;
@@ -66,8 +69,9 @@ internal static class MasterPromptSections
         return "## Experiential memory index\n"
                + "One line per stored memory, each a hint with a track record, never a rule: the record says how "
                + "often work that relied on it was confirmed, strained or contradicted. Holding entries come first. "
-               + "Use the recall tool to load a memory's body before re-deriving a known fact; use remember to "
-               + "record a new one.\n\n"
+               + "Use the recall tool to load a memory's body before re-deriving a known fact"
+               // 2026-11-10-14a3h: a design turn changes no code, so it records no memory.
+               + (IsDesignTurn(pipeline) ? "; dispute_memory says when one led you wrong.\n\n" : "; use remember to record a new one.\n\n")
                + index.Trim() + "\n";
     }
 

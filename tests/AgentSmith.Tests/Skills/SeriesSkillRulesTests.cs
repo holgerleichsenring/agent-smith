@@ -53,23 +53,18 @@ public sealed class SeriesSkillRulesTests
             Because("the derived set's contract rule"));
 
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_AuthorsMocksWithWriteMock() =>
-        DesignPartner().Should().Contain(
-            "**Authoring a mock.** When the question is how a page should look, write the whole page with "
-            + "`write_mock(spec_id, html)` — CSS and script inline, at most 90000 characters — and the operator sees "
-            + "its desktop screenshot in the conversation as that spec's next version. Say which version you showed "
-            + "and ask what to change. Before revising, `read_mock(spec_id)` returns the newest version's HTML; write "
-            + "the whole page again as the next version, never a fragment.",
-            Because("the mock authoring rule"));
+    public void EmbeddedSkills_DesignPartnerMaster_LeavesMockAuthoringToItsTool() =>
+        // 2026-11-10-14a3h: the mock rule lives in write_mock's description, offered only with visual material.
+        DesignPartner().Should().NotContain("**Authoring a mock.**", Because("the mock rule moved to its tool"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_SaysTheSeriesAndAttemptSize()
     {
         var master = EpicFormat();
 
-        master.Should().Contain(
-            "parent and two or more ordered children (the epic parser states the series cap when a cut exceeds it) —",
-            Because("the epic size wording"));
+        // 2026-11-10-14a3h: the parser states the cap when a cut exceeds it; the format no longer announces it.
+        master.Should().Contain("parent and two or more ordered children — each entry is a complete spec",
+            Because("the epic size wording")).And.NotContain("series cap");
         master.Should().NotContain("between two and eight ordered children", "the series cap is configured, not eight");
     }
 
@@ -102,9 +97,18 @@ public sealed class SeriesSkillRulesTests
     {
         foreach (var removed in new[] { "ask_human", "decide_by_default", "http_request", "list_directory", "grep_in_file" })
             DesignPartner().Should().NotContain($"`{removed}`", Because($"the design turn no longer carries {removed}"));
-        DesignPartner().Should().Contain(
-            "rebuild carries behavior\nthat already exists somewhere", Because("the work-picture kinds are defined"));
-        DesignPartner().Should().Contain("Cut by behavior first, then by repository.", Because("the slice rule"));
+        DesignPartner().Should().Contain("`state_work_picture` says which kind is which", Because("the kinds are the tool's"));
+    }
+
+    /// <summary>2026-11-10-14a3h: the unit of a child is named, and a proposed decision has its syntax.</summary>
+    [Fact]
+    public void EmbeddedSkills_DesignPartner_DefinesTheChildAndTheProposedPrefix()
+    {
+        DesignPartner().Should().Contain("A child is what one coding pass builds and one reviewer can check",
+            Because("the unit of a child")).And.Contain("`proposed: <choice> —", Because("the proposed syntax"))
+            .And.NotContain("those questions all at once", Because("one fork per question"));
+        SpecFormat().Should().Contain("\"proposed: <a choice you make where they leave it open> — <what it rests on>\"",
+            Because("the format shows a proposed decision"));
     }
 
     [Fact]
