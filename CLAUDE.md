@@ -49,6 +49,14 @@ changes over time.
 - **Memory vs decision**: a decision records a CHOICE (`decisions/`); a
   memory records a transferable FACT, held as a hint. Never duplicate one into the
   other.
+- **Project memory** (2026-11-10-fcd7a..c): an installation with a database also
+  keeps memories on the PROJECT (`ProjectMemories`, keyed to the project's config
+  entity), under the reserved label `@project` — no repository name may start with
+  `@`. A design turn whose poster holds runs.control and a coding run (`remember`
+  with repository `@project`) write there; each entry carries its provenance
+  (conversation turn or run and spec, and author). It is cited `@project/slug`,
+  listed first and quoted in every index, and deleting an entry deletes its
+  ledger rows, so a re-created slug starts with no record.
 
 ## Minting a Spec Id
 

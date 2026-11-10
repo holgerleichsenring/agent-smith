@@ -12,7 +12,8 @@ namespace AgentSmith.Application.Services.Tools;
 /// what it renamed, moved, persisted and deviated from. A call replaces the current spec's note (the
 /// last call wins). The record step writes it into the spec's record, the only place it is kept.
 /// 2026-10-25-9324b: and which memories the spec acted on, each checked against its store and published, so a
-/// memory's standing can be traced to the work that used it.
+/// memory's standing can be traced to the work that used it. 2026-11-10-fcd7c: a project memory is relied on as
+/// '@project/slug' where the composition keeps one.
 /// </summary>
 public sealed class HandForwardToolHost(PipelineContext pipeline, string specId, MasterMemoryUse? memory = null) : IToolHost
 {
@@ -25,17 +26,25 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId,
     {
         _ = stage;
         _ = investigatorMode;
-        return [AIFunctionFactory.Create(HandForward, name: Name)];
+        return [AIFunctionFactory.Create(HandForward, new AIFunctionFactoryOptions
+        {
+            Name = Name, Description = memory?.OffersProject == true ? Described + ProjectForm : Described,
+        })];
     }
 
-    [Description("Hands a build note to the next spec of this series; call it once, before your verdict. List " +
-                 "what this spec RENAMED and MOVED (each entry '<old> -> <new>': the old name or path, a space, " +
-                 "the arrow '->', a space, the new one), what it PERSISTED (tables, columns, files, keys a later " +
-                 "spec reads) and where it DEVIATED from the spec text and why. At most 20 entries per list and " +
-                 "300 characters per entry; an empty list is fine. A second call replaces the first. The note is " +
-                 "written into this spec's record and shown to the next spec's master. In RELIED_ON name the stored " +
-                 "memories this spec acted on ('slug', or 'repository/slug' when several repositories store it): a " +
-                 "memory is a hint with a track record, never a rule, and what becomes of this spec becomes its record.")]
+    private const string Described =
+        "Hands a build note to the next spec of this series; call it once, before your verdict. List " +
+        "what this spec RENAMED and MOVED (each entry '<old> -> <new>': the old name or path, a space, " +
+        "the arrow '->', a space, the new one), what it PERSISTED (tables, columns, files, keys a later " +
+        "spec reads) and where it DEVIATED from the spec text and why. At most 20 entries per list and " +
+        "300 characters per entry; an empty list is fine. A second call replaces the first. The note is " +
+        "written into this spec's record and shown to the next spec's master. In RELIED_ON name the stored " +
+        "memories this spec acted on ('slug', or 'repository/slug' when several repositories store it): a " +
+        "memory is a hint with a track record, never a rule, and what becomes of this spec becomes its record.";
+
+    // 2026-11-10-fcd7c: named only where a project store exists, built at runtime rather than in an attribute.
+    private const string ProjectForm = " A memory the project keeps is named '@project/slug'.";
+
     public async Task<string> HandForward(
         [Description("Renamed names, each '<old> -> <new>'.")] string[]? renamed = null,
         [Description("Moved files or members, each '<old> -> <new>'.")] string[]? moved = null,

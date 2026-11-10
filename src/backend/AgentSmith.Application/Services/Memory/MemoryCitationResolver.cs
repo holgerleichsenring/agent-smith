@@ -12,6 +12,8 @@ namespace AgentSmith.Application.Services.Memory;
 /// </summary>
 public sealed class MemoryCitationResolver(MemoryRepositoryKey keys, MemorySources? sources = null)
 {
+    public bool OffersProject => sources?.HasProjectStore == true;
+
     public async Task<MemoryCitationRead> ResolveAsync(
         PipelineContext pipeline, IRunRepositories repositories, string repoRoot, IReadOnlyList<string> entries,
         CancellationToken ct)

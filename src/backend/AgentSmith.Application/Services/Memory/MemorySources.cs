@@ -17,6 +17,9 @@ public sealed record MemorySource(string Label, string LedgerKey, IMemoryStore S
 /// </summary>
 public sealed class MemorySources(IProjectMemoryRepository projects, MemoryRepositoryKey keys)
 {
+    /// <summary>2026-11-10-fcd7c: whether this composition keeps project memory at all (the CLI does not).</summary>
+    public bool HasProjectStore => projects.IsAvailable;
+
     public async Task<IReadOnlyList<MemorySource>> OfAsync(
         PipelineContext pipeline, IRunRepositories repositories, string repoRoot, ILogger? logger, CancellationToken ct)
     {

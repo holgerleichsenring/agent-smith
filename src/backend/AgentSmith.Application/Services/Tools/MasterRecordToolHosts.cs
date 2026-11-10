@@ -35,7 +35,7 @@ public sealed class MasterRecordToolHosts(
         return new MasterRecordTools(
             new LogDecisionToolHost(decisionLogger, repositories),
             new MemoryRecallToolHost(repositories, repoRoot, standings, pipeline, logger, sources),
-            new MemoryWriteToolHost(repositories, repoRoot, logger),
+            new MemoryWriteToolHost(repositories, repoRoot, logger, sources, pipeline),
             spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
             decisionLogger,
             defaults is null ? null : new DefaultDecisionToolHost(defaults),
