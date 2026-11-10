@@ -65,6 +65,55 @@ public sealed class ProjectMemoryCodingRunTests
         host.GetTools(null, null).Single().Description.Should().Contain("'@project'");
     }
 
+    // 2026-11-10-4778 review: a scan or review master's remember has no '@project' target; only a coding master's does.
+    [Fact]
+    public async Task MasterRecordToolHosts_ScanOrReviewMaster_RememberCannotWriteAtProject()
+    {
+        var rows = Rows();
+        var pipeline = Run();
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox> { ["api"] = Moq.Mock.Of<ISandbox>() });
+        var hosts = Handlers.MasterHandlerFixture.RecordHosts(new Handlers.MasterHandlerFixture.NoOpDecisionLogger(), projectMemory: rows);
+
+        var scan = hosts.Create(pipeline, Root).Remember;
+        var coding = hosts.Create(pipeline, Root, codingMaster: true).Remember;
+
+        scan.OffersProject.Should().BeFalse();
+        scan.GetTools(null, null).Single().Description.Should().NotContain("@project");
+        (await scan.Remember("feedback", "x", "d", "b", "@project")).Should().Be(MemoryWriteToolHost.NoProjectStore);
+        rows.Rows.Should().BeEmpty();
+        coding.OffersProject.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CodingRun_RememberAtProject_AuthorNamesThePipelineAndTheTriggeringTicket()
+    {
+        var rows = Rows();
+        var pipeline = Run();
+        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.TicketId, new AgentSmith.Domain.Models.TicketId("A-1"));
+        var host = new MemoryWriteToolHost(Repositories(), Root, null, new MemorySources(rows, new MemoryRepositoryKey()), pipeline);
+
+        await host.Remember("feedback", "contracts first", "Build the contracts project first", "body", "@project");
+
+        rows.Rows.Single().Author.Should().Be("coding master (pipeline fix-bug, ticket A-1)");
+    }
+
+    [Fact]
+    public async Task Recall_AtProjectEntry_QuotesTheBodyAndNamesWhereItCameFrom()
+    {
+        var rows = new ProjectMemoryDesignTurnTests.ProjectRows();
+        rows.Rows.Add(new ProjectMemoryRecord("contracts-first", "feedback", "Contracts first", "Build contracts.\nThen the rest.",
+            ProjectMemorySourceKinds.Conversation, "conv-1", "2", "Ada"));
+        var recall = new MemoryRecallToolHost(Repositories(), Root, TestHelpers.MemoryStandings.Reader(), Run(), null,
+            new MemorySources(rows, new MemoryRepositoryKey()));
+
+        var text = await recall.Recall("contracts");
+
+        text.Should().Contain("> Build contracts.\n> Then the rest.")
+            .And.Contain("(kept on the project from conversation conv-1, turn 2, by Ada)");
+    }
+
     [Fact]
     public async Task CodingRun_NoProjectStore_DescriptionOmitsAtProject_CallIsRefused()
     {

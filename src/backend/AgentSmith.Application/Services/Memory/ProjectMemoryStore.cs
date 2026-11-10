@@ -19,6 +19,9 @@ public sealed class ProjectMemoryStore(IProjectMemoryRepository repository, long
             : string.Join('\n', entries.Select(MemoryIndexUpdater.FormatLine));
     }
 
+    /// <summary>The rows themselves, with where each came from.</summary>
+    public Task<IReadOnlyList<ProjectMemoryRecord>> RecordsAsync(CancellationToken ct) => repository.ListAsync(projectId, ct);
+
     public async Task<IReadOnlyList<MemoryEntry>> ListAsync(CancellationToken ct) =>
         [.. (await repository.ListAsync(projectId, ct)).Select(EntryOf)];
 

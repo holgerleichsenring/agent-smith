@@ -25,7 +25,9 @@ public sealed class MasterRecordToolHosts(
     ILogger<MasterRecordToolHosts> logger,
     MemorySources? sources = null) // 2026-11-10-fcd7b
 {
-    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot)
+    /// <param name="codingMaster">2026-11-10-4778 review: only a coding master's remember may keep a lesson on the
+    /// project ('@project'); a scan or review master's writes only where a code change lands.</param>
+    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot, bool codingMaster = false)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var repositories = runRepositories.For(pipeline);
@@ -35,7 +37,7 @@ public sealed class MasterRecordToolHosts(
         return new MasterRecordTools(
             new LogDecisionToolHost(decisionLogger, repositories),
             new MemoryRecallToolHost(repositories, repoRoot, standings, pipeline, logger, sources),
-            new MemoryWriteToolHost(repositories, repoRoot, logger, sources, pipeline),
+            new MemoryWriteToolHost(repositories, repoRoot, logger, codingMaster ? sources : null, pipeline),
             spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
             decisionLogger,
             defaults is null ? null : new DefaultDecisionToolHost(defaults),

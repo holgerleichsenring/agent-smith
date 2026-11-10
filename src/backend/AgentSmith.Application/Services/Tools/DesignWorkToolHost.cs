@@ -25,13 +25,14 @@ internal sealed class DesignWorkToolHost(
     [Description("Runs a shell command (/bin/sh -c) in your work clone of one repository: a fresh clone of the commit "
         + "your reads show, on the repository's toolchain image, with /work as the repository root. Use it to check a "
         + "claim — git log -p, build, run the tests, start the prototype. The clone has the last 50 commits; pass "
-        + "history: full on the first command for a repository when you need more. Edit files here with the shell to "
+        + "history: full on the first command for a repository when you need more (asked for later, it starts a new "
+        + "full clone and what you changed in the old one is gone). Edit files here with the shell to "
         + "try something; the clone is yours alone, nothing in it is pushed or kept, and it is gone when this turn "
         + "ends. Cite what the read tools show, not what you changed here. Returns exit_code, elapsed_ms, stdout and stderr.")]
     public async Task<string> RunCommand(
         [Description("The shell command.")] string command,
         [Description("The repository, by the name the read tools use.")] string repo,
-        [Description("'full' for the whole history, on the first command for this repository; omit otherwise.")] string? history = null,
+        [Description("'full' for the whole history, best on the first command for this repository; omit otherwise.")] string? history = null,
         [Description("Seconds before the command is stopped; clamped to the operator's step cap.")] int? timeout_seconds = null,
         CancellationToken ct = default)
     {

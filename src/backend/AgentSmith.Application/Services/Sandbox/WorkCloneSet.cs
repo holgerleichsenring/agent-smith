@@ -19,15 +19,22 @@ public sealed class WorkCloneSet(
 
     public int Opened => _clones.Count;
 
-    /// <summary>The repository's clone; <paramref name="fullHistory"/> counts only on the first call.</summary>
+    private readonly HashSet<string> _full = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The repository's clone. Asking for <paramref name="fullHistory"/> on a shallow clone gives it back
+    /// and clones again in full: deepening it would be a credentialed step after the model's commands.</summary>
     public async Task<ISandbox> ForAsync(
         string repository, bool fullHistory, IReadOnlyDictionary<string, ISandbox> heldScopes, CancellationToken ct)
     {
-        if (_clones.TryGetValue(repository, out var held)) return held;
         await _gate.WaitAsync(ct);
         try
         {
-            if (_clones.TryGetValue(repository, out held)) return held;
+            if (_clones.TryGetValue(repository, out var held))
+            {
+                if (!fullHistory || _full.Contains(repository)) return held;
+                _clones.TryRemove(repository, out _);
+                await held.DisposeAsync();
+            }
             var repo = repos.FirstOrDefault(r => string.Equals(r.Name, repository, StringComparison.OrdinalIgnoreCase))
                        ?? throw new InvalidOperationException(
                            $"'{repository}' is not a repository of this turn: [{string.Join(", ", Repositories)}].");
@@ -36,7 +43,9 @@ public sealed class WorkCloneSet(
             var sha = await read.MaterializeAsync(ct);
             if (string.IsNullOrWhiteSpace(sha))
                 throw new InvalidOperationException($"The read scope of '{repo.Name}' reports no commit; nothing is cloned.");
-            return _clones[repo.Name] = await opener.OpenAsync(project, repo, sha, fullHistory, ct);
+            var clone = await opener.OpenAsync(project, repo, sha, fullHistory, ct);
+            if (fullHistory) _full.Add(repo.Name);
+            return _clones[repo.Name] = clone;
         }
         finally
         {
@@ -44,10 +53,19 @@ public sealed class WorkCloneSet(
         }
     }
 
+    /// <summary>Gives back every clone; one that throws stops none of the others, and the first failure is
+    /// rethrown once all were tried.</summary>
     public async ValueTask DisposeAsync()
     {
-        foreach (var clone in _clones.Values) await clone.DisposeAsync();
+        var failures = new List<Exception>();
+        foreach (var clone in _clones.Values)
+        {
+            try { await clone.DisposeAsync(); }
+            catch (Exception ex) { failures.Add(ex); }
+        }
         _clones.Clear();
+        _full.Clear();
         _gate.Dispose();
+        if (failures.Count > 0) throw new AggregateException("Work clones were not all given back.", failures);
     }
 }

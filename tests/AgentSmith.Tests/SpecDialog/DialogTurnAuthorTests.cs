@@ -63,6 +63,28 @@ public sealed class DialogTurnAuthorTests
             .Select(t => t.Author).Should().Equal("Ada", null);
     }
 
+    // 2026-11-10-4778 review: the runner hands the poster to the seeds, and only a poster holding runs.control
+    // seeds MayStartRuns — the key remember and run_command are gated on.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TurnSeeds_Poster_SeedsMayStartRunsOnlyWhenItHoldsRunsControl(bool mayStartRuns)
+    {
+        var state = new ConversationState
+        {
+            JobId = "s-1", Project = "p", ChannelId = "d-1", UserId = "person-a",
+            Platform = "dashboard", TicketId = string.Empty, StartedAt = DateTimeOffset.UnixEpoch,
+        };
+
+        var seeds = SpecDialogTurnSeeds.Build(
+            state, [new RepoConnection { Name = "sample-api" }], new Dictionary<string, ISandbox>(),
+            new SpecDialogReplySlot(), DialogImageSet.None, new SpecDialogTurnFacts(Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>()),
+            poster: new TurnPoster("person-a", mayStartRuns));
+
+        seeds.ContainsKey(ContextKeys.MayStartRuns).Should().Be(mayStartRuns);
+        if (mayStartRuns) seeds[ContextKeys.MayStartRuns].Should().Be(true);
+    }
+
     [Fact]
     public void SpecDialogPrompt_TranscriptLine_CarriesTheAuthor()
     {

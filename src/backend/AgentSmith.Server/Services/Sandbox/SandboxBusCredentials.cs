@@ -31,11 +31,13 @@ public sealed class SandboxBusCredentials
         if (!_isShared) redis.ConnectionRestored += OnRestored;
     }
 
-    public async Task<SandboxBusCredential> IssueAsync(string jobId, string serverUrl)
+    /// <param name="requirePerJob">2026-11-10-4778: refuse rather than hand out the shared credential. The factories
+    /// issue before they create anything, so a refusal leaves no volume, loader or pod behind.</param>
+    public async Task<SandboxBusCredential> IssueAsync(string jobId, string serverUrl, bool requirePerJob = false)
     {
-        if (_isShared) return SandboxBusCredential.Shared(serverUrl);
+        if (_isShared) return SandboxBusCredential.Shared(serverUrl).Require(requirePerJob);
         var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        if (!await TrySetUserAsync(jobId, password)) return SandboxBusCredential.Shared(serverUrl);
+        if (!await TrySetUserAsync(jobId, password)) return SandboxBusCredential.Shared(serverUrl).Require(requirePerJob);
         _live[jobId] = password;
         var url = SandboxBusUrl.Compose(serverUrl, SandboxBusAcl.UserName(jobId), password);
         return new SandboxBusCredential(url, () => DeleteAsync(jobId));

@@ -42,6 +42,18 @@ describe("ProjectMemorySection", () => {
     expect(api.fetchProjectMemories).toHaveBeenCalledWith("sample", expect.anything());
   });
 
+  it("ProjectMemorySection_Body_IsFoldedUntilOpened", async () => {
+    api.fetchProjectMemories.mockResolvedValue([memory("kept", { body: "Build the contracts first.\nThen the rest." })]);
+
+    render(<ProjectMemorySection project="sample" />);
+
+    const body = (await screen.findByTestId("project-memory-body-kept")) as HTMLDetailsElement;
+    expect(body.open).toBe(false);
+    expect(body.textContent).toContain("Build the contracts first.\nThen the rest.");
+    fireEvent.click(screen.getByText("Full text"));
+    expect(body.open).toBe(true);
+  });
+
   it("ProjectMemorySection_Delete_RemovesTheRow", async () => {
     api.fetchProjectMemories.mockResolvedValue([memory("keep"), memory("drop")]);
     api.deleteProjectMemory.mockResolvedValue(true);

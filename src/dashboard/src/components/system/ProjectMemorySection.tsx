@@ -72,6 +72,11 @@ function MemoryRow({ memory, onDelete }: { memory: ProjectMemory; onDelete: () =
         </button>
       </div>
       <div className="mt-1 dsh-body text-stone-700">{memory.description}</div>
+      {/* The text later prompts quote, folded until a person opens it to check what it says. */}
+      <details className="mt-1" data-testid={`project-memory-body-${memory.slug}`}>
+        <summary className="cursor-pointer dsh-label text-stone-500">Full text</summary>
+        <p className="mt-1 whitespace-pre-wrap dsh-body text-stone-700">{memory.body}</p>
+      </details>
       <div className="mt-1 flex flex-wrap gap-x-4 dsh-label text-stone-400">
         <span>{memory.record}</span>
         <span data-testid={`project-memory-source-${memory.slug}`}><Source memory={memory} /></span>

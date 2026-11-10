@@ -13,10 +13,19 @@ public sealed class DesignTurnResources(IReadOnlyDictionary<string, ISandbox> sc
 {
     public WorkCloneSet Clones => clones;
 
+    /// <summary>The clones first — they hold a model's shell — then each scope; one that throws stops none of the
+    /// others, and the first failure is rethrown once all were given back.</summary>
     public async ValueTask DisposeAsync()
     {
-        foreach (var scope in scopes.Values) await scope.DisposeAsync();
-        await clones.DisposeAsync();
+        var failures = new List<Exception>();
+        try { await clones.DisposeAsync(); }
+        catch (Exception ex) { failures.Add(ex); }
+        foreach (var scope in scopes.Values)
+        {
+            try { await scope.DisposeAsync(); }
+            catch (Exception ex) { failures.Add(ex); }
+        }
+        if (failures.Count > 0) throw new AggregateException("A design turn's resources were not all given back.", failures);
     }
 }
 

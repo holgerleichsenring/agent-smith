@@ -92,16 +92,10 @@ public sealed class MemoryWriteToolHost(
         var record = new ProjectMemoryRecord(entry.Name, MemoryEntryTypes.ToSlug(entry.Type), entry.Description,
             entry.Body, ProjectMemorySourceKinds.Run, string.Empty, null, null);
         if (ProjectMemoryLimits.Refusal(record) is { } refusal) return $"Not recorded: {refusal}.";
-        await project.Store.UpsertAsync(entry, ct, Provenance(pipeline));
+        await project.Store.UpsertAsync(entry, ct, RunMemoryProvenance.Of(pipeline));
         return $"Memory '{entry.Name}' kept on the project ({MemoryEntryTypes.ToSlug(entry.Type)}), with this run " +
                "as its source — a hint whose standing the runs that rely on it decide.";
     }
-
-    private static MemoryProvenance Provenance(PipelineContext pipeline) => new(
-        ProjectMemorySourceKinds.Run,
-        pipeline.TryGet<string>(ContextKeys.RunId, out var run) ? run ?? string.Empty : string.Empty,
-        pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var spec) ? spec?.SpecId : null,
-        "coding master");
 
     private async Task<string> NotLandingAsync(string repository, CancellationToken ct)
     {
