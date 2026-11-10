@@ -418,6 +418,25 @@ export interface SpecDialogProposalPush {
   proposalId?: string | null;
   /** 2026-11-10-ccd9: a draft under review — shown, never approvable, never over the awaiting proposal. */
   reviewing?: boolean;
+  /** 2026-11-10-d854a: the operator's open questions, each with the design partner's proposal; absent on an older proposal. */
+  questions?: SpecDialogOpenQuestion[];
+  /** 2026-11-10-d854a: the proposing turn's spend so far, its total on the final proposal; absent on an older one. */
+  spend?: SpecDialogSpend | null;
+}
+
+/** 2026-11-10-d854a: a question only the operator can answer, the design partner's proposal, and the specs it touches. */
+export interface SpecDialogOpenQuestion {
+  question: string;
+  proposal: string;
+  specIds: string[];
+}
+
+/** 2026-11-10-d854a: what a proposing turn spent, its cap, the tier that sized it and whether the cap was hit. */
+export interface SpecDialogSpend {
+  usd: number;
+  capUsd?: number | null;
+  tier?: string | null;
+  capHit: boolean;
 }
 
 /** 2026-11-04-96a0c: one upload's read_file coverage, counted over the files read_file can open. */

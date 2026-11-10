@@ -55,6 +55,7 @@ public sealed class ProposalReviewLoop(
             Findings = sofar.Standing,
             ReviewRounds = sofar.Rounds,
             NotReviewed = sofar.NotReviewed,
+            Spend = SpecDialog.TurnSpend.Of(session.Turn.Pipeline), // 2026-11-10-d854a: the spend so far
         }, ct);
     }
 

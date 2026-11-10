@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
@@ -37,7 +38,8 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
                 + $"gate must set ContextKeys.{nameof(ContextKeys.SpecDialogOutcome)}."));
 
         slot.Reply = answer;
-        slot.Outcome = outcome;
+        // 2026-11-10-d854a: every review path ends here, so the questions and the turn's total spend are set once.
+        slot.Outcome = outcome with { Questions = slot.Questions, Spend = TurnSpend.Of(context.Pipeline) };
         slot.Kind = context.Pipeline.TryGet<SpecDialogTurnKind>(ContextKeys.SpecDialogReplyKind, out var kind)
             ? kind : null;
         slot.Stewarded = context.Pipeline.TryGet<string>(ContextKeys.MasterSkillName, out var master)

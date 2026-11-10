@@ -30,6 +30,7 @@ public sealed class TicketActToolsFactory(
             tools.AddRange(new WorkPictureToolHost(slot, tiers is null ? null // 2026-11-05-862ea; 548f: its effort raises the cap
                 : (tier, ct) => tiers.ApplyTierAsync(pipeline, tier, ct)).GetTools(null, null));
             tools.AddRange(new OutcomeFormatToolHost(references, TurnFolds.Of(pipeline)).GetTools(null, null)); // 85e2: folds
+            tools.AddRange(new OpenQuestionsToolHost(slot).GetTools(null, null)); // 2026-11-10-d854a
         }
         if (pipeline.TryGet<IAttemptStart>(ContextKeys.SpecDialogAttemptStart, out var start) && start is not null)
             tools.AddRange(new StartNextAttemptToolHost(start).GetTools(null, null));

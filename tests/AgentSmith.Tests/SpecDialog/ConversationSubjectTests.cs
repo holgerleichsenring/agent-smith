@@ -248,6 +248,19 @@ public sealed class ConversationSubjectTests : IDisposable
     }
 
     [Fact]
+    public async Task TurnKeeper_LowerEffortLater_KeepsTheHigherTier() // 2026-11-10-548f: the higher tier wins
+    {
+        await OpenAsync();
+        _pictured = Rebuild with { Effort = ComplexityTier.Xl };
+        await SendAsync("rebuild the legacy app from the upload");
+        _pictured = Rebuild with { Effort = ComplexityTier.Small };
+
+        await SendAsync("start with the login page");
+
+        SpecDialogSessionMapper.ReadWorkPicture((await Row()).WorkPictureJson)!.Effort.Should().Be(ComplexityTier.Xl);
+    }
+
+    [Fact]
     public async Task TurnKeeper_FailedTurnWithPicture_StoresIt() // 2026-11-10-548f: a failed turn keeps what it stated
     {
         await OpenAsync();

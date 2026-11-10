@@ -1,4 +1,7 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Scope;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tools;
@@ -6,8 +9,11 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services;
 using AgentSmith.Server.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -73,6 +79,26 @@ public sealed class DesignTurnEffortTests
     public void WorkPictureView_StoredEffort_IsShownLowerCase() =>
         WorkPictureView.Of(new WorkPicture(UndertakingKind.Rebuild, "t", UndertakingSize.Series, ComplexityTier.Large))!
             .Effort.Should().Be("large");
+
+    [Fact]
+    public async Task GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, []);
+        pipeline.Set(ContextKeys.SpecDialogWorkPicture,
+            new WorkPicture(UndertakingKind.Rebuild, "the upload", UndertakingSize.Series, ComplexityTier.Xl));
+        var reader = new DialogGroundingReader(
+            new ScriptedSourceProviderFactory(new Dictionary<string, ScriptedSourceProvider>()),
+            new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
+            new RemoteFileRead(NullLogger<RemoteFileRead>.Instance), NullLogger<DialogGroundingReader>.Instance);
+        var recorder = new ScopeEstimateRecorder(AgentSmithConfig.Empty(), Mock.Of<IEventPublisher>(), NullLogger<ScopeEstimateRecorder>.Instance);
+
+        await new GroundSpecDialogHandler(reader, NullLogger<GroundSpecDialogHandler>.Instance, tiers: recorder)
+            .ExecuteAsync(new GroundSpecDialogContext(pipeline), CancellationToken.None);
+
+        Cap(pipeline).Usd.Should().Be(40m, "the conversation's stored effort sizes the turn before its first call");
+        pipeline.Get<ComplexityTier>(ContextKeys.ComplexityTier).Should().Be(ComplexityTier.Xl);
+    }
 
     private static CostCapValues Cap(PipelineContext pipeline) =>
         pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap) ? cap! : throw new InvalidOperationException("no cap");

@@ -59,4 +59,10 @@ public sealed record SpecDialogProposalPush(
 
     /// <summary>2026-11-10-ccd9: a draft under review, never approvable and never over the awaiting proposal.</summary>
     public bool Reviewing { get; init; }
+
+    /// <summary>2026-11-10-d854a: the operator's open questions, each keeping only spec ids of this proposal.</summary>
+    public IReadOnlyList<OpenQuestion> Questions { get; init; } = [];
+
+    /// <summary>2026-11-10-d854a: the proposing turn's spend so far, its total on the final push; null on an older proposal.</summary>
+    public ProposalSpend? Spend { get; init; }
 }

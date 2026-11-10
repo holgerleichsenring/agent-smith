@@ -15,7 +15,7 @@ public static class TicketStewardTools
     public static readonly IReadOnlySet<string> Excluded = new HashSet<string>(StringComparer.Ordinal)
     {
         "withdraw_filed_ticket", "write_mock", "read_mock", WorkPictureToolHost.Name,
-        OutcomeFormatToolHost.Name,
+        OutcomeFormatToolHost.Name, OpenQuestionsToolHost.Name, // 2026-11-10-d854a: questions ride a design draft
     };
 
     public static IList<AITool> Of(IList<AITool> masterSurface)
