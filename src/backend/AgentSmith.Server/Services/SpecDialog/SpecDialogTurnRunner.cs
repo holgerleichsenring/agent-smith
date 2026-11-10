@@ -80,7 +80,7 @@ public sealed class SpecDialogTurnRunner(
                     state.Platform, slot.Reply, await readOnlyScopes.StampAsync(slot.Outcome, project, templates, cancellationToken), slot.Kind, slot.Stewarded, subject: slot.Subject, thread: slot.Thread, workPicture: slot.WorkPicture)
                 : SpecDialogTurnResult.On(
                     state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
-                    SpecDialogTurnKind.Failure);
+                    SpecDialogTurnKind.Failure, workPicture: slot?.WorkPicture); // 548f: a failed turn's picture too
         }
         finally
         {

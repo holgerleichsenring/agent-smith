@@ -248,7 +248,7 @@ public sealed class ConversationSubjectTests : IDisposable
     }
 
     [Fact]
-    public async Task SpecDialogRouter_FailedTurn_StoresNoWorkPicture()
+    public async Task TurnKeeper_FailedTurnWithPicture_StoresIt() // 2026-11-10-548f: a failed turn keeps what it stated
     {
         await OpenAsync();
         _pictured = Rebuild;
@@ -256,7 +256,7 @@ public sealed class ConversationSubjectTests : IDisposable
 
         await SendAsync("rebuild the legacy app from the upload");
 
-        (await Row()).WorkPictureJson.Should().BeNull();
+        (await Row()).WorkPictureJson.Should().Contain("rebuild");
     }
 
     [Fact]

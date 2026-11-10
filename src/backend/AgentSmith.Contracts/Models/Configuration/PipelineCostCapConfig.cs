@@ -53,6 +53,7 @@ public sealed class PipelineCostCapConfig
             [ComplexityTier.Small] = new() { Usd = 2.0m, Tokens = 400_000 },
             [ComplexityTier.Medium] = new() { Usd = 8.0m, Tokens = 1_500_000 },
             [ComplexityTier.Large] = new() { Usd = 25.0m, Tokens = 5_000_000 },
+            [ComplexityTier.Xl] = new() { Usd = 40.0m, Tokens = 8_000_000 }, // 2026-11-10-548f
         }.AsReadOnly();
 }
 
@@ -70,6 +71,8 @@ public enum ComplexityTier
     Small,
     Medium,
     Large,
+    /// <summary>2026-11-10-548f: a whole product or proof of concept carried into repositories — a design turn's review.</summary>
+    Xl,
 }
 
 /// <summary>

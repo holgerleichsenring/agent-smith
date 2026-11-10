@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -13,15 +14,24 @@ public static class WorkPictureAdmission
     private const string Markup = "`*#|";
 
     /// <summary>The picture as it would be stored, or the rule it broke.</summary>
-    public static (WorkPicture? Picture, string? Refusal) Of(string? kind, string? truth, string? size)
+    /// <param name="effort">2026-11-10-548f: optional; a cost-cap tier other than unknown.</param>
+    public static (WorkPicture? Picture, string? Refusal) Of(string? kind, string? truth, string? size, string? effort = null)
     {
         var line = truth?.Trim() ?? string.Empty;
         if (Parsed<UndertakingKind>(kind) is not { } k)
             return (null, $"The kind '{kind}' is none of: {Names<UndertakingKind>()}.");
         if (Parsed<UndertakingSize>(size) is not { } s)
             return (null, $"The size '{size}' is none of: {Names<UndertakingSize>()}.");
-        return TruthRuleBroken(line) is { } rule ? (null, rule) : (new WorkPicture(k, line, s), null);
+        var e = ComplexityTier.Unknown;
+        if (!string.IsNullOrWhiteSpace(effort)
+            && (Parsed<ComplexityTier>(effort) is not { } tier || tier == ComplexityTier.Unknown))
+            return (null, $"The effort '{effort}' is none of: {Efforts}.");
+        else if (!string.IsNullOrWhiteSpace(effort)) e = Parsed<ComplexityTier>(effort)!.Value;
+        return TruthRuleBroken(line) is { } rule ? (null, rule) : (new WorkPicture(k, line, s, e), null);
     }
+
+    private static string Efforts => string.Join(", ",
+        Enum.GetValues<ComplexityTier>().Where(t => t != ComplexityTier.Unknown).Select(t => t.ToString().ToLowerInvariant()));
 
     private static string? TruthRuleBroken(string line)
     {

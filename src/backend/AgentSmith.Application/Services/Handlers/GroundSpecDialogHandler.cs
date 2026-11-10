@@ -23,7 +23,8 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class GroundSpecDialogHandler(
     DialogGroundingReader reader,
     ILogger<GroundSpecDialogHandler> logger,
-    Memory.DesignMemoryIndex? memoryIndex = null) // 2026-11-10-85e2: composed as a run's is
+    Memory.DesignMemoryIndex? memoryIndex = null, // 2026-11-10-85e2: composed as a run's is
+    Scope.ScopeEstimateRecorder? tiers = null) // 2026-11-10-548f
     : ICommandHandler<GroundSpecDialogContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -31,6 +32,9 @@ public sealed class GroundSpecDialogHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         var pipeline = context.Pipeline;
+        // 2026-11-10-548f: the conversation's stated effort sizes this turn's cap before the master's first call.
+        if (tiers is not null && pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var picture) && picture is not null)
+            await tiers.ApplyTierAsync(pipeline, picture.Effort, cancellationToken);
         var scope = Scope(pipeline);
         if (scope.Count == 0)
         {

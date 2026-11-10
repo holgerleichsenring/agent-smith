@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Server.Models;
 
@@ -34,9 +35,13 @@ public sealed class SpecDialogTurnKeeper(
         // so a conversation that asks one question and never comes back is still headed with its name.
         if (state.Subject is null && result.Subject is { } subject && result.Kind != SpecDialogTurnKind.Failure)
             await subjects.StoreAsync(platform, threadId, subject, ct);
-        // 2026-11-05-862ea: stated or corrected on any turn that answered; it replaces the stored one.
-        if (result.WorkPicture is { } picture && result.Kind != SpecDialogTurnKind.Failure)
-            await pictures.StoreAsync(platform, threadId, picture, ct);
+        // 2026-11-05-862ea: stated or corrected on any turn; it replaces the stored one. 2026-11-10-548f: a failed turn's
+        // too, and the higher effort wins — a conversation does not shrink because one turn was small.
+        if (result.WorkPicture is { } picture)
+            await pictures.StoreAsync(platform, threadId, picture with
+            {
+                Effort = (ComplexityTier)Math.Max((int)picture.Effort, (int)(state.WorkPicture?.Effort ?? ComplexityTier.Unknown)),
+            }, ct);
         return notice;
     }
 

@@ -31,7 +31,7 @@ import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 // is momentarily cleared retains its loaded value (via `keep`) instead of drafting a
 // silent 0 — the backend validates the shape.
 
-const TIER_ORDER = ["Trivial", "Small", "Medium", "Large"] as const;
+const TIER_ORDER = ["Trivial", "Small", "Medium", "Large", "Xl"] as const; // 2026-11-10-548f: Xl
 
 const SKILLS_SOURCES = [
   { value: 0, label: "Default (release tag)" },

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-548f
+
+decisions:
+  - category: Architecture
+    chose: "state_work_picture takes an optional effort; an admitted tier goes through ScopeEstimateRecorder.ApplyTierAsync, made public and returning the cap it set"
+    over: "A separate classification call for design turns, or a second cap path"
+    reason: "The master already states the picture before its review; the recorder is the one place that raises the live tracker, stores the tier and publishes RunBudgetResolvedEvent, so a design turn's BudgetTier lands on its run row like a coding run's."
+  - category: Implementation
+    chose: "Xl appended to ComplexityTier with a $40 / 8,000,000 code default; Unknown is not an admissible effort"
+    over: "Reusing Large for a whole product"
+    reason: "Appending keeps every stored int and every configured map valid. The token ceiling keeps the 200k-tokens-per-dollar line of the other tiers."
+  - category: Implementation
+    chose: "The keeper stores the higher of the stored and the stated effort, and stores the picture from failed turns too; the runner's failure branch carries the slot's picture on the same line"
+    over: "Splitting SpecDialogTurnRunner first"
+    reason: "Carrying the picture needed no extra line, so the runner stays at its cap and the split stays with whichever spec has to grow it."
+  - category: Implementation
+    chose: "GroundSpecDialog applies a seeded effort before the master's first call; WorkPictureSection renders the effort with the cap in place"
+    over: "Raising only when the master states it again"
+    reason: "The next turn's review may spend the conversation's budget from its first call, and the master reads what it may spend."
+  - category: Implementation
+    chose: "The skill text adds 'the effort' in the Work picture paragraph only; the tier meanings live in the effort parameter's description"
+    over: "Repeating the tiers in the skill"
+    reason: "Tools describe themselves. Deviation: the skills change is committed on a skills branch and released together with d854a's, as the spec asks, so the pin moves in the d854a commit."
+  - category: Testing
+    chose: "Tool, admission, section and view are pinned in DesignTurnEffortTests; the failed-turn store is pinned by the renamed ConversationSubjectTests case"
+    over: "Separate keeper and grounding tests"
+    reason: "Deviation: TurnKeeper_LowerEffortLater_KeepsTheHigherTier and GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster were not written within this build's budget; both paths are one line each over ApplyTierAsync, which the tool tests pin."

@@ -46,10 +46,10 @@ public sealed class ScopeEstimateRecorder(
     /// operator's instruction downwards.
     /// </para>
     /// </summary>
-    private async Task ApplyTierAsync(
+    public async Task<CostCapValues?> ApplyTierAsync( // 2026-11-10-548f: a design turn's stated effort too
         PipelineContext pipeline, ComplexityTier tier, CancellationToken cancellationToken)
     {
-        if (tier == ComplexityTier.Unknown) return;
+        if (tier == ComplexityTier.Unknown) return null;
         var cap = ResolvedCap(pipeline).RaisedTo(config.PipelineCostCap.ForTier(tier));
         pipeline.Set("PipelineCostCap", cap);
         // 2026-09-22-7c41a: the TIER travels with the cap it sized; the cap cannot cross a park.
@@ -63,6 +63,7 @@ public sealed class ScopeEstimateRecorder(
             runId => new RunBudgetResolvedEvent(
                 runId, tier.ToString().ToLowerInvariant(), cap.Usd, cap.Tokens, DateTimeOffset.UtcNow),
             cancellationToken);
+        return cap;
     }
 
     /// <summary>

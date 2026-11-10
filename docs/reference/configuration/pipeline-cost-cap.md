@@ -44,6 +44,9 @@ A run's cap is sized to the work. While scoping, the run estimates a complexity 
 | Small | 2 | 400,000 |
 | Medium | 8 | 1,500,000 |
 | Large | 25 | 5,000,000 |
+| Xl | 40 | 8,000,000 |
+
+A design turn has no scope classification; it states its own effort in its work picture, and that tier raises its cap — which is what its review may spend. Xl is meant for carrying a whole product or proof of concept into repositories.
 
 Those are the defaults; they're edited under **Per-tier caps** in the same settings form. A `per_tier` you configure only has to list the tiers you change: a tier left out keeps its default, and the form shows it with that default, marked as such. A tier only ever raises the configured cap, never lowers it, and a run whose tier is unknown keeps the configured cap. The estimate sizes a ceiling and nothing else: whether the work is done is decided by verification.
 

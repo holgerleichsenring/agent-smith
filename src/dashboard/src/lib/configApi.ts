@@ -893,7 +893,7 @@ export interface CostCapValues {
   tokens: number;
 }
 
-/** perTier keys are the ComplexityTier names (Trivial/Small/Medium/Large); perPipeline
+/** perTier keys are the ComplexityTier names (Trivial/Small/Medium/Large/Xl); perPipeline
  *  keys are pipeline names. */
 export interface PipelineCostCapSetting {
   default: CostCapValues;
