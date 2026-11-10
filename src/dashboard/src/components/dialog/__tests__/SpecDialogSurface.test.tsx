@@ -3099,6 +3099,11 @@ describe("SpecDialogSurface", () => {
     reloadedWith({ proposal: proposal() });
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a first cut", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
+    // 2026-11-10-7da6: the person answers the first card, so the second turn's proposal gets a card of its own
+    // instead of replacing an unanswered one.
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "smaller please" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a second cut", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal({ spec: draftSpec("p9002") })));
 

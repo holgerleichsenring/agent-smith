@@ -758,7 +758,21 @@ function turns(view: SpecDialogView): DialogEntry[] {
       ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal } : {}),
     }))
     .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
-  return held;
+  const trailing = trailingCard(view);
+  return trailing
+    ? [...held, { key: `card-${trailing.at}-${held.length}`, kind: "agent", text: "", at: trailing.at, proposal: trailing }]
+    : held;
+}
+
+/** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — the running turn's draft under
+ *  review (ccd9 keeps it beside the awaiting proposal), or a stored proposal whose turn is not in the transcript. */
+export function trailingCard(view: SpecDialogView): SpecDialogProposalPush | null {
+  const session = view.session;
+  if (!session) return null;
+  if (view.turn?.computing && session.reviewing) return session.reviewing;
+  const placed = session.proposalTurn !== null && session.proposalTurn !== undefined
+    && session.proposalTurn < session.transcript.length;
+  return session.proposal && !placed ? session.proposal : null;
 }
 
 /** A pending decision meets the first read issued after it: the decision stored at or after the turn
@@ -783,11 +797,15 @@ function settled(held: DialogEntry[], view: SpecDialogView, issued: number): Dia
 
 /** A proposal follows the reply it came from, so its card goes on that reply — or on a turn of
  *  its own when the reply was nothing but the draft and so added no entry. */
-function withCard(
+export function withCard(
   held: DialogEntry[],
   proposal: SpecDialogProposalPush,
   ownTurn: boolean,
 ): DialogEntry[] {
+  // 2026-11-10-7da6: a card nobody answered yet — no message and no decision after it — takes the newer draft.
+  const answered = held.findLastIndex((entry) => entry.kind === "user" || entry.kind === "decision");
+  const open = held.findLastIndex((entry, index) => index > answered && entry.proposal !== undefined);
+  if (open >= 0) return held.map((entry, index) => (index === open ? { ...entry, proposal } : entry));
   const last = held.at(-1);
   if (!ownTurn && last?.kind === "agent" && !last.proposal) {
     return [...held.slice(0, -1), { ...last, proposal }];
