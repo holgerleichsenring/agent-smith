@@ -49,7 +49,7 @@ A child runs its own tool loop with the master's base surface:
 - It works in the same sandboxes as the master, so its reads and writes land in the same working copy.
 - A child of a scan master is read-only, like its parent. A child of a coding master can read and write.
 - A child never gets `spawn_agents` or `read_sub_agent_observations`, so it cannot spawn grandchildren. It also never gets `update_progress` or `ensure_repo_sandbox`; the ledger and the repository scope stay with the master.
-- A child of a design turn additionally loses `ask_human` and `remember`. A conversation holds one pending question at a time, and the read-only source scope refuses a memory write.
+- A child of a design turn keeps only the reads: `read_file`, `grep_in_tree`, `find_files`, `directory_tree`, `web_fetch`, `recall` and the bound ticket's reads. It never acts on the ticket.
 
 A child has no budget fence and no ledger reminders. Its only bound is its iteration ceiling: `max_sub_agent_loop_iterations` on the agent the run uses (default 100), or `limits.max_dialog_sub_agent_loop_iterations` (default 20) for a child of a design turn.
 

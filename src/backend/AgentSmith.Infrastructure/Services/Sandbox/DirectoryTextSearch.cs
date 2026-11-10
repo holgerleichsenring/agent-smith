@@ -15,7 +15,10 @@ internal static class DirectoryTextSearch
     {
         truncated = false;
         var matches = new List<JsonObject>();
-        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        // 2026-11-10-fc66: a file root searches that file, as the sandbox agent's grep does.
+        var isFile = File.Exists(root);
+        var files = isFile ? [root] : Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories);
+        foreach (var file in files)
         {
             if (matches.Count >= maxMatches) { truncated = true; break; }
             try
@@ -23,7 +26,7 @@ internal static class DirectoryTextSearch
                 var info = new FileInfo(file);
                 if (info.Length > 1_000_000) continue;
                 var lines = File.ReadAllLines(file);
-                var rel = Path.GetRelativePath(root, file);
+                var rel = isFile ? Path.GetFileName(file) : Path.GetRelativePath(root, file);
                 for (var i = 0; i < lines.Length; i++)
                 {
                     if (matches.Count >= maxMatches) { truncated = true; break; }

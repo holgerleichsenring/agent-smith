@@ -17,6 +17,12 @@ public sealed class WorkPictureToolHost(SpecDialogReplySlot slot) : IToolHost
 
     internal const string Stored = "Stored. State it in one line of your reply.";
 
+    /// <summary>2026-11-10-fc66: each kind defined, so a proof of concept carried into a codebase reads as a rebuild.</summary>
+    internal const string KindDescription =
+        "rebuild: the behavior already exists somewhere (an upload, an old system, a proof of concept) and is carried "
+        + "into this form; feature: behavior that exists nowhere yet; fix: existing behavior that is wrong; document: "
+        + "writing documentation as the work.";
+
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? stage, string? investigatorMode)
     {
         _ = stage;
@@ -28,7 +34,7 @@ public sealed class WorkPictureToolHost(SpecDialogReplySlot slot) : IToolHost
         "Record the work picture of this conversation: the kind of undertaking, where its truth lives, and the "
         + "expected size. Call it again to record a correction; the last call replaces the stored picture. It is not a source read.")]
     private string StateWorkPicture(
-        [Description("rebuild, feature, fix or document (writing documentation as the work).")] string kind,
+        [Description(KindDescription)] string kind,
         [Description("One line of plain prose, at most 300 characters: where what is wanted is described (an upload, the ticket, the conversation) and what the repositories already provide.")] string truth,
         [Description("one-spec, series or plan.")] string size)
     {

@@ -75,14 +75,14 @@ public sealed class StewardTurnTests
     }
 
     [Fact]
-    public async Task DesignTurn_SameSeeds_KeepsWithdrawAndDecideByDefault()
+    public async Task DesignTurn_SameSeeds_KeepsWithdrawAndTheTicketActs()
     {
         var loop = new ReplyingLoop("An answer.");
 
         await Run(loop, TurnContext(DesignMaster));
 
-        loop.Tools.Should().Contain("withdraw_filed_ticket").And.Contain(DefaultDecisionToolHost.Name)
-            .And.Contain("start_next_attempt");
+        loop.Tools.Should().Contain("withdraw_filed_ticket").And.Contain("start_next_attempt")
+            .And.NotContain(DefaultDecisionToolHost.Name, "2026-11-10-fc66: a design turn's choices go into its reply");
     }
 
     [Theory]

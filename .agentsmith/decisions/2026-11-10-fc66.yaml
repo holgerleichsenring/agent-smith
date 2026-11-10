@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-fc66
+
+decisions:
+  - category: Architecture
+    chose: "A design turn carries no ask_human: its questions go into the reply, after the analysis, each with a recommendation"
+    over: "Keeping ask_human with a description that discourages it, or requiring choices and a recommendation on the tool"
+    reason: "Operator decision, 2026-11-10, after conversation 43: gpt-5.6 called ask_human mid-turn with a vague question and no choices, the turn blocked, and the person saw none of its analysis. In a conversation the reply already reaches the person and the next message answers; a mid-turn ask only hides the reasoning and stops the turn."
+  - category: Architecture
+    chose: "No decide_by_default on a design turn"
+    over: "Keeping it for choices the person may overrule later"
+    reason: "A design turn's choices are written in its reply and in the drafted spec's decisions, which the person reads before approving anything. A pending default row adds a second place to look and nothing the reply lacks."
+  - category: Implementation
+    chose: "No http_request and no remember on a design turn"
+    over: "Keeping both as before"
+    reason: "http_request sends any method from the sandbox; web_fetch already reads documentation. remember is refused wherever no repository has a code change (MemoryWriteToolHost), and a design turn never has one, so the tool could only fail."
+  - category: Implementation
+    chose: "One way to search and one way to list: grep_in_tree (a directory or one file) and directory_tree plus find_files"
+    over: "Keeping grep_in_file and list_directory beside them"
+    reason: "grep_in_file and grep_in_tree call the same GrepAsync with the path as root, and the sandbox agent already greps a single file. The in-process sandbox refused a file root, so it now searches that file; grep_in_file never worked there either. Fewer overlapping tools leave the model fewer near-identical choices."
+  - category: Implementation
+    chose: "Filter the design surface by name over the shared BootstrapDiscover set"
+    over: "Changing the shared read sets"
+    reason: "The scan and bootstrap-discover surfaces use the same set and keep their tools; only the design turn's surface changes."
+  - category: Implementation
+    chose: "The dialog's pending-question plumbing stays"
+    over: "Deleting the question pump and pending questions with ask_human"
+    reason: "The approval question the outcome confirmer posts after a turn travels the same transport and pending slot; only the tool goes."
+  - category: Implementation
+    chose: "state_work_picture's kind parameter defines each kind; the skill's work-picture paragraph says the same"
+    over: "Listing the four names"
+    reason: "gpt-5.6 chose feature for a proof of concept carried into .NET. With the definitions, behavior that exists in an upload or old system and is carried into this form reads as a rebuild."
+  - category: Implementation
+    chose: "The design partner cuts by behavior first, then by repository, and sizes a spec for one run and one reviewer"
+    over: "Leaving the cut to the merge and branch-state tests alone"
+    reason: "Operator-approved text, 2026-11-10: the tests decide spec versus epic but not how thin a slice is; a scope of ten models and ten endpoints in one spec cannot be built in one run or checked by one reviewer."
+  - category: Implementation
+    chose: "Skills v5.25.2 (#252) pinned in the same spec"
+    over: "A separate pin spec"
+    reason: "The server stops offering the tools the old skill text named; shipping either half alone leaves the skill describing tools the turn does not have, or the turn without the guidance to ask in its reply."

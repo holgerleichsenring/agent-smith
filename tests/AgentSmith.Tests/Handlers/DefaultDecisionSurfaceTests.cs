@@ -15,8 +15,9 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
-/// 2026-10-13-8762o: decide_by_default joins the coding master and the design partner — never a scan master
-/// or a child — and (2026-10-25-9324e) a coding child's remember of a feedback entry publishes no pointer row.
+/// 2026-10-13-8762o: decide_by_default joins the coding master — never a scan master or a child, and
+/// (2026-11-10-fc66) never a design turn, whose choices go into its reply — and (2026-10-25-9324e) a coding
+/// child's remember of a feedback entry publishes no pointer row.
 /// </summary>
 public sealed class DefaultDecisionSurfaceTests
 {
@@ -24,7 +25,7 @@ public sealed class DefaultDecisionSurfaceTests
     private const string CodingMaster = "coding-agent-master";
 
     [Fact]
-    public async Task MasterToolComposition_CodingAndDesignMasters_CarryDecideByDefault()
+    public async Task MasterToolComposition_CodingMasterOnly_CarriesDecideByDefault()
     {
         var coding = new CapturingLoop();
         await Run(coding, CodingMaster, WithRun(MasterHandlerFixture.BuildContext(CodingMaster)));
@@ -34,7 +35,7 @@ public sealed class DefaultDecisionSurfaceTests
         await Run(noRun, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
 
         coding.MasterTools.Select(t => t.Name).Should().Contain(DefaultDecisionToolHost.Name);
-        design.MasterTools.Select(t => t.Name).Should().Contain(DefaultDecisionToolHost.Name);
+        design.MasterTools.Select(t => t.Name).Should().NotContain(DefaultDecisionToolHost.Name);
         noRun.MasterTools.Select(t => t.Name).Should().NotContain(DefaultDecisionToolHost.Name, "no run id, no row to write");
     }
 

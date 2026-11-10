@@ -48,7 +48,7 @@ public sealed class InProcessSandbox(
     private StepResult Grep(Step step, IProgress<StepEvent>? progress)
     {
         var path = ResolvePath(step.Path!);
-        if (!Directory.Exists(path)) return Failure(step, 0, $"directory not found: {path}");
+        if (!Directory.Exists(path) && !File.Exists(path)) return Failure(step, 0, $"path not found: {path}");
         var maxMatches = step.HeadLimit ?? SizeLimits.GrepDefaultHeadLimit;
         try
         {

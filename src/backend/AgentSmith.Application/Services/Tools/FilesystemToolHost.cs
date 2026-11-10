@@ -476,7 +476,7 @@ public sealed class FilesystemToolHost : IToolHost
     [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'. NOT exhaustive: it skips " + GrepScope.Summary + ", and it honours the repository's own ignore rules, so no result here proves a string is absent from the checkout.")]
     public Task<string> GrepInTree(
         [Description("Regular expression pattern to search for.")] string pattern,
-        [Description("Directory to search under, from the repository root (default '.').")] string root = ".",
+        [Description("Directory to search under, or one file to search, from the repository root (default '.').")] string root = ".",
         [Description("Optional glob filter for file names (e.g. '*.cs', '**/*.json').")] string? glob = null,
         [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         [Description("Lines of context before each match (-B). Overridden by 'context' if set.")] int? context_before = null,

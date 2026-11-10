@@ -89,11 +89,22 @@ public sealed class SeriesSkillRulesTests
             + "implementation choice.",
             Because("the coding master's default-choice rule"));
 
+        // 2026-11-10-fc66: a design turn carries neither tool — its questions go in the reply.
         DesignPartner().Should().Contain(
-            "- `decide_by_default` is for a choice a person might overrule but need not make first: it returns at "
-            + "once and the choice waits for a person to ratify it. A choice that needs a person before work "
-            + "continues stays `ask_human`.",
-            Because("the design partner's default-choice rule"));
+            "- Your questions go in your reply, after the analysis that raised\n  them, each with your recommendation; "
+            + "the operator answers in the next\n  message. Where your recommendation is good enough to proceed, draft"
+            + "\n  with it and mark it proposed.",
+            Because("the design partner's question rule"));
+    }
+
+    [Fact]
+    public void EmbeddedSkills_DesignPartner_NamesNoRemovedTool()
+    {
+        foreach (var removed in new[] { "ask_human", "decide_by_default", "http_request", "list_directory", "grep_in_file" })
+            DesignPartner().Should().NotContain($"`{removed}`", Because($"the design turn no longer carries {removed}"));
+        DesignPartner().Should().Contain(
+            "rebuild carries behavior\nthat already exists somewhere", Because("the work-picture kinds are defined"));
+        DesignPartner().Should().Contain("Cut by behavior first, then by repository.", Because("the slice rule"));
     }
 
     [Fact]

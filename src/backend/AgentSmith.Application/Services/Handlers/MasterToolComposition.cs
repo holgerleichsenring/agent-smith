@@ -54,7 +54,7 @@ public sealed class MasterToolComposition(
         // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
         // what this method decides.
         IList<AITool> BaseSurface() => isSpecDialog
-            ? [.. toolSurface.SpecDialog(fs, human, web, records.Recall, records.Remember),
+            ? [.. toolSurface.SpecDialog(fs, web, records.Recall),
                .. withdraw?.GetTools(null, null) ?? [],
                // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
                // gate — only a BOUND design turn carries the port this is built from.
@@ -68,8 +68,8 @@ public sealed class MasterToolComposition(
                     recall: records.Recall, remember: records.Remember);
 
         var master = BaseSurface();
-        // 2026-10-13-8762o: decide_by_default — coding master and design partner, outside BaseSurface: no child.
-        if (!isScanMaster) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
+        // 8762o: decide_by_default — the coding master only, no child; fc66: a design turn's choices go in its reply.
+        if (!isScanMaster && !isSpecDialog) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
         master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 2026-10-25-9324b: every master, no child
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
         // source — the MASTER only, outside BaseSurface: children fanning out over one file would
