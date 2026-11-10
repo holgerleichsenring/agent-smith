@@ -24,8 +24,9 @@ public static class ReviewObjectionQuestion
 
     private static string Reason(IReadOnlyList<StandingObjection> objections)
     {
-        var sb = new StringBuilder("After its review rounds a fresh reviewer that opened the code still refuses "
-            + "to build what follows. Only the author can say whether it is built as reviewed or changed.\n");
+        var sb = new StringBuilder("After its review rounds, what follows has no review that ended clean on its exact "
+            + "text: a reviewer that opened the code still objects, or the last changes were never attacked. Only the "
+            + "author can say whether it is built as it stands or changed.\n");
         foreach (var objection in objections)
         {
             var subject = objection.SpecId is null ? " (the series)" : string.Empty;

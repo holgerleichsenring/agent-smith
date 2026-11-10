@@ -84,15 +84,25 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
-    public async Task SeriesContractRound_ApprovedSetUnchanged_TakesNoRound()
+    public async Task SeriesContractRound_ContractReviewedCleanAndNoMemberReviewed_TakesNoRound()
     {
         var rig = new ReviewLoopRig(Contracted(TwoSpecs()));
 
-        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], CancellationToken.None);
+        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], contractClean: true, CancellationToken.None);
 
-        round.Line.Should().Be("series contract round skipped: no cleared member was reviewed in this attempt (each was reviewed clean in its exact text)");
+        round.Line.Should().Be("series contract round skipped: no cleared member was reviewed in this attempt, and a review ended clean on this exact contract");
         rig.SeriesCalls.Should().BeEmpty();
         rig.Events.Events.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SeriesContractRound_ContractNotReviewedClean_IsAttackedEvenWhenNoMemberWasReviewed()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs()));
+
+        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [], contractClean: false, CancellationToken.None);
+
+        rig.SeriesCalls.Should().ContainSingle("no review ended clean on this contract (2026-11-10-8e59)");
     }
 
     [Fact]
@@ -151,11 +161,11 @@ public sealed class SeriesContractRoundTests
         rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(First));
         using var _ = rig.RunContext.BeginScope(RunId);
 
-        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [Second], CancellationToken.None);
+        await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [Second], contractClean: false, CancellationToken.None);
 
         var round = SeriesEvent(rig);
         round.Cuts.Should().BeEmpty();
-        round.Findings.Should().ContainSingle().Which.Text.Should().Contain($"{First} is the text a person approved");
+        round.Findings.Should().ContainSingle().Which.Text.Should().Contain($"{First} was not reviewed in this attempt");
         rig.Published.Should().BeEmpty("approved text is never re-cut at run time");
     }
 
@@ -180,7 +190,7 @@ public sealed class SeriesContractRoundTests
         tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10_000_000 });
         tracker.SeedPriorSpend(new PriorSpendSnapshot(0, 0, 0, 0, 11m, 0, 0, 0, 0, 0m, string.Empty));
 
-        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [First, Second], CancellationToken.None);
+        var round = await rig.SeriesRound().RunAsync(rig.Run(), reviewed: [First, Second], contractClean: false, CancellationToken.None);
 
         round.Line.Should().StartWith("series contract round not taken: ");
         rig.SeriesCalls.Should().BeEmpty("the share is waived, the run cap is not");

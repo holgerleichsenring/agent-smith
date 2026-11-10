@@ -14,13 +14,19 @@ public sealed record StandingObjection(
 {
     public string MarkerKey => SpecId ?? "series:" + SeriesPrefixHead;
 
-    /// <summary>The objection a spec's review ended on, or null: only a REFUSE standing after the loop spent its
-    /// rounds or ended on a second REFUSE — never a loop the budget cut short or a revision that failed.</summary>
+    public const string UnattackedText =
+        "the text below came from the review's last changes, and no reviewer attacked it in this form";
+
+    /// <summary>The objection a spec's review ended on, or null: any review not cleared after the loop spent its
+    /// rounds — a REFUSE, a cut that still stands, or a final text no round attacked (2026-11-10-8e59) — never a
+    /// loop the budget cut short or a revision that failed.</summary>
     public static StandingObjection? Of(SpecReviewOutcome outcome)
     {
         ArgumentNullException.ThrowIfNull(outcome);
-        return outcome is { StandingVerdict: SpecReviewVerdicts.Refuse, BudgetStop: null, Failure: null }
-            ? new StandingObjection(outcome.Final.SpecId, outcome.StandingFindings)
-            : null;
+        if (outcome is not { StandingVerdict: not null, BudgetStop: null, Failure: null }) return null;
+        IReadOnlyList<SpecReviewFinding> findings = outcome.Unattacked
+            ? [.. outcome.StandingFindings, new SpecReviewFinding(UnattackedText, $"round {outcome.Rounds}")]
+            : outcome.StandingFindings;
+        return new StandingObjection(outcome.Final.SpecId, findings);
     }
 }

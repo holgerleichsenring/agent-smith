@@ -22,14 +22,15 @@ public sealed class SeriesContractRound(
         DerivationLookTerms.AttackReview with { Allowance = Math.Max(DerivationLookTerms.AttackReview.Allowance, cleared + 12) };
 
     /// <param name="reviewed">The specs 8762g's loop reviewed in this attempt.</param>
+    /// <param name="contractClean">2026-11-10-8e59: a review ended clean on exactly this contract.</param>
     public async Task<SeriesContractRoundResult> RunAsync(
-        SpecReviewRun run, IReadOnlyCollection<string> reviewed, CancellationToken ct)
+        SpecReviewRun run, IReadOnlyCollection<string> reviewed, bool contractClean, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(run);
         ArgumentNullException.ThrowIfNull(reviewed);
         var set = run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
         var prefix = SeriesRoundScope.Prefix(set, run.Pipeline);
-        if (SeriesRoundScope.Skip(set, prefix, reviewed) is { } skip) return new($"series contract round skipped: {skip}");
+        if (SeriesRoundScope.Skip(set, prefix, reviewed, contractClean) is { } skip) return new($"series contract round skipped: {skip}");
         var tracker = PipelineCostTracker.GetOrCreate(run.Pipeline);
         if (tracker.IsBudgetExhausted) return new($"series contract round not taken: {CostCapStop.Describe(tracker)}");
         var input = new SeriesContractInput(set.Contract!, SeriesRoundScope.Members(set, prefix), InRun: true, run.QuestionPin)

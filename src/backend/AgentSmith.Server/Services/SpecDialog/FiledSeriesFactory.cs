@@ -36,7 +36,10 @@ public sealed class FiledSeriesFactory(SeriesIdFactory ids, SeriesDraftIds draft
         if (within.Removed.Count > 0)
             logger.LogInformation("Series {Series}: contract entries naming no filed spec removed: {Removed}",
                 series, string.Join("; ", within.Removed));
-        return filed with { Contract = within.Contract };
+        // 2026-11-10-8e59: the contract's clean review follows our rename, and only when no entry was narrowed away.
+        var cleanContract = within.Removed.Count == 0 && within.Contract is { } kept && ReviewedText.Covers(source!.ReviewedClean, contract)
+            ? [ReviewedText.Of(kept)] : Array.Empty<ReviewedText>();
+        return filed with { Contract = within.Contract, ReviewedClean = [.. filed.ReviewedClean, .. cleanContract] };
     }
 
     // 2026-11-10-8e59: filing re-ids a draft, which is our rename and no change of content, so a clean review moves

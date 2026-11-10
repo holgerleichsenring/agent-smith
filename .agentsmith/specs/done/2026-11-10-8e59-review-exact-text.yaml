@@ -22,6 +22,10 @@ facts:
     evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:86"
   - claim: "A design turn falls back to the default spec_review block when the configured one is invalid or unreadable; the settings store refuses an invalid block on save, and the startup validator checks series but not spec_review."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSettingsReader.cs:13-26; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:45; src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:31"
+  - claim: "At 321d6be0c the coding run treated a review no reviewer answered as cleared, cleared a build-with-cuts once its cuts were applied, left a last-round rewrite unattacked, skipped the series contract when no member was reviewed, and hashed yaml that filing and the reader trim differently."
+    evidence: "observed: 2026-11-10, SpecReviewLoop.cs line 30, SpecReviewOutcome.cs line 24, SeriesRoundScope.cs line 26, SeriesFiles.cs line 28, SpecDraftReader.cs line 27 at commit 321d6be0c"
+  - claim: "Re-grounding at spec entry rewrites one citation token inside a fact's evidence scalar, located by its source span, and no other byte."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecFactRegrounding.cs:3-6"
   - claim: "A YAML import stores its documents without checking the series or spec_review block."
     evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigImportPlanner.cs:20-24"
 
@@ -35,11 +39,17 @@ scope:
     the hold, the blind hold and its one-turn exit go, and each draft is marked reviewed or not yet reviewed,
     with the reason as information. An invalid spec_review block is refused at startup validation and on import,
     as on save; at run time the design turn reviews nothing when the block is unreadable or invalid and marks the
-    drafts with that reason, and the ticket plan does the same.
+    drafts with that reason, and the ticket plan does the same. The coding run clears a spec only when a round said
+    build on its current text: no answer is retried and, with rounds spent, stops the spec like the budget; a final
+    text the last round changed, a standing cut or a refuse goes to the author's exhaustion question. The series
+    contract carries its own clean review by hash and is attacked unless it matches. Hashes are of the trimmed yaml.
+    With rounds at 0 each draft says the review is turned off.
   out: >
     The coding run's budget share stays: a spec it does not clear is not built and moves to the next attempt.
     A spec the coding run itself cleared is reviewed again in a later attempt, since that run records no
-    approval entry. A clean review of an epic's series contract is not recorded; the coding run's series round
+    approval entry. A run's series round may land cuts on members after their own rounds; those texts are not
+    attacked again (named, not built here). An objection asked once proceeds on its next run, answered or not
+    (8762h, unchanged). A clean review of an epic's series contract is not recorded; the coding run's series round
     runs as before. 2026-11-10-e706 stays planned.
 
 decisions:
@@ -47,6 +57,8 @@ decisions:
   - key: "CLEAN MEANS BUILD ON THIS TEXT. A build-with-cuts whose cuts were applied produced a text no reviewer attacked, so it is not clean."
   - key: "FILING RENAMES, IT DOES NOT REWRITE. Filing re-ids a draft, which changes its yaml. Its clean entry moves to the filed id and yaml only when the source draft's hash is the one reviewed, because the rename is ours and changes no content."
   - key: "NO HOLD ANYWHERE IN THE CONVERSATION. The guarantee sits in one place, before building. The approve button carries no review state, and the mark tells the person what will happen."
+  - key: "CLEARED MEANS BUILD ON THE BUILT TEXT. Not taken, a cut applied, a rewrite or a standing cut is not clean; the author's answer to the exhaustion question is the one way past it."
+  - key: "GROUNDING IS THE ONE MECHANICAL EXCEPTION. It runs at spec entry, after earlier specs moved the code, so it cannot run before the review; it rewrites only an evidence path and lines, never a claim."
   - key: "VALIDATION REFUSES, THE RUN DOES NOT CLAMP. An invalid block never runs with defaults. What still reaches a run unread reviews nothing in the turn and is caught before building."
 
 steps:
@@ -77,6 +89,18 @@ tests:
   - "ProposalReview_CarriedDraftUnchanged_KeepsItsCleanReview"
   - "FiledSeriesFactory_CleanReview_FollowsTheRenamedDraft"
   - "ProposalReview_InvalidSettings_ReviewsNothingAndMarksTheDrafts"
+  - "ReviewLoop_NoReviewerAnswersInAnyRound_IsStoppedLikeTheBudget"
+  - "ReviewLoop_NoAnswerThenBuild_IsClearedInTheNextRound"
+  - "ReviewLoop_LastRoundRefuseRewritten_IsNotClearedAndAsksTheAuthor"
+  - "ReviewLoop_CutsAppliedAndRevisedTextEvidenceClean_IsAttackedOnceMore"
+  - "ReviewLoop_RoundsSpentOnAnUnattackedText_IsNotClearedAndAsksTheAuthor"
+  - "ReviewSpecs_EveryMemberCleanButNotTheContract_AttacksTheContract"
+  - "ReviewSpecs_EveryMemberAndTheContractClean_SkipsTheReview"
+  - "ReviewedText_Contract_SurvivesTheManifestRoundTrip"
+  - "ReviewedText_CleanReview_SurvivesFilingTheBranchWriteAndTheRunsRead"
+  - "SpecFactRegrounding_TokenAlsoInTheClaim_RewritesOnlyTheEvidence"
+  - "SpecDialogProposalReview_RoundsOff_SaysTheReviewIsTurnedOffAndPromisesNoReview"
+  - "ProposalReview_SeriesRoundSaysBuild_RecordsTheContractReviewedClean"
 
 done:
   - when: "a person approves a proposal whose drafts are not all reviewed"

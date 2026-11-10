@@ -107,6 +107,23 @@ public sealed class SeriesIdentityTests
     }
 
     [Fact]
+    public void ReviewedText_CleanReview_SurvivesFilingTheBranchWriteAndTheRunsRead()
+    {
+        // A proposal draft as a model writes it: trailing newline and blank line (2026-11-10-8e59).
+        var draft = new SpecDraft("x", "g", "spec: x\ngoal: g\n\n", []);
+        var source = new SpecOutcome(draft) { ReviewedClean = [ReviewedText.Of("x", draft.Yaml)] };
+        var filed = ApprovedSetDoubles.SeriesFiling().Under("2026-10-06-0001", [draft], source);
+        var set = new SpecSet("jira-1", [.. filed.Drafts.Select(d => new DerivedSpec(d, "export", string.Empty, []))],
+            SpecAccounting.Empty, [], SpecSource.Approved, Series: filed.Id);
+
+        var written = new SeriesFiles(new SeriesManifest()).Render(set).Single(f => f.Path.EndsWith(".yaml") && f.Path.Contains("planned"));
+        var read = new SpecDraftReader().Read(written.Content);
+
+        ReviewedText.Covers(filed.ReviewedClean, read.SpecId, read.Yaml).Should().BeTrue(
+            "the run reads back what filing wrote, and a clean review must still cover it");
+    }
+
+    [Fact]
     public void SeriesFiles_Series_NamesTheManifest()
     {
         var files = new SeriesFiles(new SeriesManifest());

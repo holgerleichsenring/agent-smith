@@ -31,9 +31,11 @@ public sealed class ReviewSpecsHandler(
         var approved = approvals.Published(context.Pipeline);
         // 2026-10-13-8762u: only what this attempt can build — never a spec its chunk defers.
         var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !ReviewedText.Covers(approved?.ReviewedClean, spec.SpecId, spec.Draft.Yaml)).ToList() ?? [];
-        if (Skip(current, set, tail) is { } skip) return Done($"spec review skipped: {skip}");
+        // 2026-11-10-8e59: the series contract is attacked too, unless a review ended clean on exactly this contract.
+        var contractClean = set?.Contract is not { IsEmpty: false } contract || ReviewedText.Covers(approved?.ReviewedClean, contract);
+        if (Skip(current, set, tail, contractClean) is { } skip) return Done($"spec review skipped: {skip}");
         var run = new SpecReviewRun(context.Pipeline, current, context.AgentConfig, SpecReviewWiderGoal.Of(context.Ticket, set!));
-        return await WalkAsync(run, tail, cancellationToken);
+        return await WalkAsync(run, tail, contractClean, cancellationToken);
     }
 
     private (SpecReviewSettings? Settings, string? Failure) Read()
@@ -51,15 +53,15 @@ public sealed class ReviewSpecsHandler(
         }
     }
 
-    private static string? Skip(SpecReviewSettings current, SpecSet? set, IReadOnlyList<DerivedSpec> tail) =>
+    private static string? Skip(SpecReviewSettings current, SpecSet? set, IReadOnlyList<DerivedSpec> tail, bool contractClean) =>
         current.Review.Rounds == 0 ? "spec_review.rounds is 0"
         : set is null ? "the run has no spec set"
         : set.IsHandedBack ? "the derivation handed the ticket back"
         : set.UnexecutedTail.Count == 0 ? "every spec of the set is built"
-        : tail.Count == 0 ? "a review ended clean on the exact text of every unbuilt spec"
+        : tail.Count == 0 && contractClean ? "a review ended clean on the exact text of every unbuilt spec and the contract"
         : null;
 
-    private async Task<CommandResult> WalkAsync(SpecReviewRun run, IReadOnlyList<DerivedSpec> tail, CancellationToken ct)
+    private async Task<CommandResult> WalkAsync(SpecReviewRun run, IReadOnlyList<DerivedSpec> tail, bool contractClean, CancellationToken ct)
     {
         var lines = new List<string>();
         var reviewed = new List<string>();
@@ -77,7 +79,7 @@ public sealed class ReviewSpecsHandler(
             lines.Add($"stopped before {spec.SpecId}, which is left to the next attempt with every spec after it: {stop}");
             break;
         }
-        var round = await series.RunAsync(run, reviewed, ct);
+        var round = await series.RunAsync(run, reviewed, contractClean, ct);
         if (round.Failure is { } broke) return CommandResult.Fail(broke);
         lines.Add(round.Line);
         if (round.Objection is { } seriesObjection) objections.Add(seriesObjection);
@@ -88,7 +90,7 @@ public sealed class ReviewSpecsHandler(
 
     private static string Describe(SpecReviewOutcome o) => o.StandingVerdict is null
         ? $"{o.Final.SpecId} cleared after {o.Rounds} round(s)"
-        : $"{o.Final.SpecId}: {o.StandingVerdict} standing after {o.Rounds} round(s){(o.IsCleared ? ", built with what applied" : "")}";
+        : $"{o.Final.SpecId}: {o.StandingVerdict} standing after {o.Rounds} round(s){(o.Unattacked ? ", its final text not attacked" : "")}";
 
     private CommandResult Done(string message)
     {

@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>2026-11-10-18cf: every draft of a design turn's proposal is attacked, or it is marked and says why.
 /// 2026-11-10-8e59: only a build on the exact current text is a clean review.</summary>
-public sealed class ProposalReviewHoldTests
+public sealed class ProposalReviewMarkTests
 {
     private const string Step = "Write the orders through the buffered file writer.";
     private const string NewStep = "Write the orders through the streaming file writer.";
@@ -121,14 +121,20 @@ public sealed class ProposalReviewHoldTests
     [Fact]
     public async Task ProposalReview_CutsAppliedAfterTheLastRound_AreNotReviewedClean()
     {
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 1), OnReview = _ => Cuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) };
+        // A build that still quotes a cut: the round's verdict is build, but the cut changes the text afterwards.
+        var rig = new ProposalReviewRig
+        {
+            Settings = Of(rounds: 1),
+            OnReview = _ => new SpecAttackResult(SpecReviewVerdicts.Build, [Cut(SpecRegisterNames.Steps, Step, NewStep)], []),
+        };
         rig.Propose(SpecReply(Yaml(Lone)));
         rig.Replies(_ => SpecReply(Yaml(Lone, step: NewStep)));
 
         await rig.RunAsync();
 
         rig.DraftOf(Lone).Yaml.Should().Contain(NewStep);
-        rig.Outcome.ReviewedClean.Should().BeEmpty("no reviewer attacked the text the cuts produced");
+        rig.Outcome.ReviewRounds.Should().ContainSingle().Which.Verdict.Should().Be(SpecReviewVerdicts.Build);
+        rig.Outcome.ReviewedClean.Should().BeEmpty("the build was on the text before the cut; nobody attacked the text after it");
     }
 
     [Fact]
@@ -148,5 +154,17 @@ public sealed class ProposalReviewHoldTests
 
         rig.Reviewed.Select(i => i.Draft.SpecId).Distinct().Should().Equal(Second);
         rig.Outcome.ReviewedClean.Select(r => r.SpecId).Should().BeEquivalentTo([First, Second]);
+    }
+
+    [Fact]
+    public async Task ProposalReview_SeriesRoundSaysBuild_RecordsTheContractReviewedClean()
+    {
+        var rig = new ProposalReviewRig();
+        rig.Propose(ContractEpic());
+
+        await rig.RunAsync();
+
+        var contract = ((EpicOutcome)rig.Outcome).Contract!;
+        rig.Outcome.ReviewedClean.Should().Contain(ReviewedText.Of(contract));
     }
 }

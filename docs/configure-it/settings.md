@@ -60,7 +60,7 @@ The same block carries `dashboard_url`, your dashboard's address, so the ticket 
 
 ### Spec review
 
-Before the coding master builds a spec whose text isn't the one a person approved, fresh reviewers attack it and their cuts are applied. This group sizes that review:
+Before the coding master builds a spec, fresh reviewers attack it and their cuts are applied, unless a review already ended clean on its exact text. This group sizes that review:
 
 - Rounds per spec, 4 by default. `0` turns the review off.
 - Reviewers per round, 2: fresh reviewers attacking each spec in one round.

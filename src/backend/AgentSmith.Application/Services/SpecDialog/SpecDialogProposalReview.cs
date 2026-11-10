@@ -77,21 +77,16 @@ public sealed class SpecDialogProposalReview(
         {
             logger.LogWarning(ex, "The evidence of this design turn's proposal could not be checked");
         }
-        // 2026-11-10-18cf: with review rounds off this one call is the review; when it fails, nothing was checked.
-        // An epic's parent is never reviewed, so only what waits for review — its children — is marked.
-        if (await ModelFindingsAsync(pipeline, drafts, agent, costTracker, ct) is not { } model)
-        {
-            pipeline.Set(ContextKeys.SpecDialogOutcome, ProposalReviewSummary.MarkedNotReviewed(proposal, waiting, findings, ReviewCallFailedWhy));
-            return;
-        }
-        findings.AddRange(model);
-        if (findings.Count == 0) return;
-        logger.LogInformation(
-            "The review of this design turn's proposal reported {Count} finding(s)", findings.Count);
+        findings.AddRange(await ModelFindingsAsync(pipeline, drafts, agent, costTracker, ct) ?? []);
+        // 2026-11-10-8e59: with rounds off nothing attacks a draft, here or before it is built; each draft says so.
+        // An epic's parent is never reviewed, so only its children are marked.
+        findings.AddRange(waiting.Select(d => new ProposalFinding(d.SpecId, ReviewOffProblem, ReviewOffWhy)));
+        logger.LogInformation("Review rounds are off; the proposal carries {Count} finding(s)", findings.Count);
         pipeline.Set(ContextKeys.SpecDialogOutcome, proposal with { Findings = findings });
     }
 
-    public const string ReviewCallFailedWhy = "the review call failed";
+    public const string ReviewOffProblem = "review is turned off (spec_review.rounds: 0)";
+    public const string ReviewOffWhy = "nothing reviews this spec before it is built";
 
     /// <summary>The whole-set review's findings, or null when its call failed.</summary>
     private async Task<IReadOnlyList<ProposalFinding>?> ModelFindingsAsync(

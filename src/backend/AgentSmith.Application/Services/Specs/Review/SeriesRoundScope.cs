@@ -19,11 +19,13 @@ internal static class SeriesRoundScope
         return [.. set.UnexecutedTail.TakeWhile(spec => spec.SpecId != stop)];
     }
 
-    public static string? Skip(SpecSet set, IReadOnlyList<DerivedSpec> prefix, IReadOnlyCollection<string> reviewed) =>
+    public static string? Skip(
+        SpecSet set, IReadOnlyList<DerivedSpec> prefix, IReadOnlyCollection<string> reviewed, bool contractClean) =>
         set.Contract is null || set.Contract.IsEmpty ? "the set has no series contract"
         : set.UnexecutedTail.Count < 2 ? "the set has a single unexecuted member"
         : prefix.Count == 0 ? "no member is cleared before the stop"
-        : !prefix.Any(spec => reviewed.Contains(spec.SpecId)) ? "no cleared member was reviewed in this attempt (each was reviewed clean in its exact text)"
+        : contractClean && !prefix.Any(spec => reviewed.Contains(spec.SpecId))
+            ? "no cleared member was reviewed in this attempt, and a review ended clean on this exact contract"
         : null;
 
     /// <summary>Every member of the set, each marked executed, cleared or not cleared.</summary>
@@ -49,7 +51,7 @@ internal static class SeriesRoundScope
             else if (!prefix.Any(spec => spec.SpecId == cut.SpecId))
                 dropped.Add(new(claim, "the member is at or past this attempt's stop; its text is not cleared"));
             else if (!reviewed.Contains(cut.SpecId!))
-                findings.Add(new($"{cut.SpecId} is the text a person approved, so this cut is not applied at run time: "
+                findings.Add(new($"{cut.SpecId} was not reviewed in this attempt, so this cut is not applied at run time: "
                     + $"{cut.Register} \"{cut.Quote}\" -> {(cut.Replacement is null ? "removed" : $"\"{cut.Replacement}\"")}", cut.Evidence));
             else applied.Add(cut);
         }

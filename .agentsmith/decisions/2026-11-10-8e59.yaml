@@ -34,3 +34,31 @@ decisions:
     chose: "The spec was checked against the code by the implementer, not by a fresh subagent"
     over: "A fresh adversarial reviewer"
     reason: "The implementing agent was a worker fork that may not spawn subagents."
+  - category: Architecture
+    chose: "The coding run clears a spec only when a round said build on its current text. An unanswered round is retried, and once the rounds are spent the spec is stopped like a budget stop. A changed final text, a standing cut or a refuse goes to the exhaustion question"
+    over: "Clearing on a stop rule that accepted build-with-cuts once applied, and on a round no reviewer answered"
+    reason: "An independent review of 321d6be0c found the build-time gate let unattacked text through: an outage counted as cleared, applied cuts counted as clean, and a last-round rewrite was built. The rule: the master builds only text a review ended clean on in exactly that form. A person's explicit answer to the exhaustion question is the one exception."
+  - category: Architecture
+    chose: "The series contract gets its own clean-review record, hashed from its JSON, and the run attacks the contract unless that record matches, even when every member is clean"
+    over: "Reviewing the contract only alongside members reviewed in the same attempt"
+    reason: "A contract whose design-turn series round was skipped or refused was never attacked at build time: an empty tail skipped the step, and the series round skipped itself when no member was reviewed. JSON is what the manifest's yaml round trip reproduces, and a test pins that."
+  - category: Implementation
+    chose: "Hash the trimmed yaml"
+    over: "Hashing the bytes as they stand"
+    reason: "Filing writes TrimEnd plus a newline and the reader trims, so a model's trailing newline made the run's text hash differently from the reviewed one. Trimming is the form both sides agree on."
+  - category: Implementation
+    chose: "Re-grounding stays after the review, as the one recorded mechanical exception"
+    over: "Moving it before the review"
+    reason: "It runs as each spec is entered, against code that the specs before it changed in the same run, so it cannot run earlier. SpecFactRegrounding rewrites only a citation token inside a fact's evidence scalar, located by its source span, so a path and its lines change and a claim never does. A test pins this."
+  - category: Implementation
+    chose: "With rounds at 0, every draft gets the finding 'review is turned off (spec_review.rounds: 0)' and is not listed as not reviewed"
+    over: "The not-reviewed mark, which promises a review before building"
+    reason: "With rounds at 0 the coding run skips its review as well. The operator's choice stands and is stated truthfully. The finding needs no new dashboard field."
+  - category: Scope
+    chose: "The approval record keeps only the current filing's clean reviews"
+    over: "Merging in the previous record's entries"
+    reason: "A clean review belongs to the filing that reviewed it. Carrying old entries forward added nothing the hash did not already decide, and it obscured which review the run relied on."
+  - category: Scope
+    chose: "Named, not changed: series-round cuts landing on members, and an asked objection that proceeds unanswered"
+    over: "Changing either here"
+    reason: "The run's series round may apply cuts to members after their own rounds, and those texts are not attacked again. 8762h proceeds on the next run after asking, whether or not anyone answered. Both are outside the findings this round fixes, and both are reported for the operator to decide."

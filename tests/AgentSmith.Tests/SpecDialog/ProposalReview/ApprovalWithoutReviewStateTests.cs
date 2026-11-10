@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 /// 2026-11-10-8e59: an approval never depends on review state. A proposal with specs not reviewed yet is approved
 /// like any other, and its recorded decision stands; what is not reviewed is reviewed before it is built.
 /// </summary>
-public sealed class UnreviewedApprovalTests : IDisposable
+public sealed class ApprovalWithoutReviewStateTests : IDisposable
 {
     private const string Platform = "slack";
     private const string Thread = "th-8762i";
@@ -27,7 +27,7 @@ public sealed class UnreviewedApprovalTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AgentSmithDbContext _context;
 
-    public UnreviewedApprovalTests()
+    public ApprovalWithoutReviewStateTests()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();

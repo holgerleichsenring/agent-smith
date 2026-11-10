@@ -20,6 +20,10 @@ public sealed record SpecReviewOutcome(
 {
     public const string NotTaken = "not taken";
 
-    /// <summary>True when the spec may be built in this attempt.</summary>
-    public bool IsCleared => BudgetStop is null && Failure is null;
+    /// <summary>2026-11-10-8e59: the final text is not the one the last taken round attacked.</summary>
+    public bool Unattacked { get; init; }
+
+    /// <summary>True when the spec may be built in this attempt. 2026-11-10-8e59: only when a round said build on
+    /// its current text; anything else is built only after the author answers the review objection.</summary>
+    public bool IsCleared => StandingVerdict is null && BudgetStop is null && Failure is null;
 }

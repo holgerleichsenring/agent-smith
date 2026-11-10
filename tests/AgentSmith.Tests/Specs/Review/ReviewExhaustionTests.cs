@@ -107,11 +107,11 @@ public sealed class ReviewExhaustionTests
             .Should().ContainSingle("a later prefix is a new objection");
 
     [Fact]
-    public void Exhaustion_ResiduesOnly_NeverAsks() =>
+    public void Exhaustion_ResiduesOnly_IsAsked() =>
         StandingObjection.Of(Outcome(SpecReviewVerdicts.BuildWithCuts) with
         {
             Residues = [new SpecReviewResidue(SpecRegisterNames.Goal, "one dated file")],
-        }).Should().BeNull();
+        }).Should().NotBeNull("a cut still standing is no clean review; only the author may build it (2026-11-10-8e59)");
 
     [Fact]
     public void Exhaustion_BudgetStoppedSpec_IsNotAsked()
