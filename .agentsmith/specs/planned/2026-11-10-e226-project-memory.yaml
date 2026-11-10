@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-e226
+goal: "What a person tells a design turn that holds beyond it becomes a project memory in the database, recalled by later design turns and coding runs of the project, with a repository memory's standing."
+
+applies_to: "default (Application: memory store, recall, citations, remember; Persistence: project memory table; Server: project memory endpoints); dashboard (project detail panel)"
+
+facts:
+  - claim: "remember writes into a repository's .agentsmith/memory/ and refuses a repository with no code change this run, because only a landing commit carries it."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:55-56,64-71"
+  - claim: "A design turn gets recall only when its grounding found a repository memory index, never remember, and dispute_memory under the same gate."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:54-56,72; src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:48-51"
+  - claim: "The memory store is file-backed over a sandbox file reader; recall, the index and citations iterate the run's repositories and open one store each."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:14-41; src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:52-59; src/backend/AgentSmith.Application/Services/Memory/MemoryCitationResolver.cs:24-30"
+  - claim: "Standing is computed from the memory ledger, keyed by a repository key string and slug, and kept apart from the run."
+    evidence: "src/backend/AgentSmith.Contracts/Memory/IMemoryEvidenceStore.cs:8-21; src/backend/AgentSmith.Application/Services/Memory/MemoryStandingReader.cs:19-22; src/backend/AgentSmith.Application/Services/Memory/MemoryRepositoryKey.cs:15-20"
+  - claim: "A design turn's memory index is composed per repository with standing, holding first, disputed left out."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/DesignMemoryIndex.cs:11-22"
+  - claim: "The project detail panel shows agent, repos, tracker and resolved settings and carries the init action."
+    evidence: "src/dashboard/src/components/system/ProjectDetailPanel.tsx:42-45,66"
+
+scope:
+  in: "A ProjectMemories table (project, slug, type, description, body, created, updated, conversation it came from) on both providers. The memory store is an interface: the file store per repository and a project store over the table. Recall, the index, citations and the standing reader take a list of named memory sources, the project's first under the name 'project' and keyed 'project:<name>'. A design turn gets remember (writing to the project), recall and dispute_memory always. A coding run reads project memory beside its repositories' and keeps writing repository memory. The dashboard project panel lists each project memory with its standing and record, and a person can delete one."
+  out: "Editing a memory's text in the dashboard: a person tells the design turn and it updates by slug. Moving repository memories into the database: they stay in git where they are code facts. Principles evolving from project memory: holding feedback entries proposed into principles.md Project Specifics at the next init refresh, a successor named in prose and not minted here."
+
+decisions:
+  - key: "PROJECT, NOT REPOSITORY. 'Never drop a feature' is about how this person works, not about one repository's code. A repository store was rejected: it needs a landing commit the design turn never makes, and it would pick one repository arbitrarily in a multi-repo project."
+  - key: "DATABASE, NOT A MEMORY REPOSITORY IN GIT. The operator's call. A turn writes it at once, with no PR and no branch, and the dashboard reads it where projects live."
+  - key: "ONE INTERFACE, TWO STORES. Extract IMemoryStore (list, search, upsert, index) from MemoryStore and add a database-backed implementation. A virtual file reader over the table was rejected: it would fake paths to reuse code that only needs entries."
+  - key: "THE MASTER DECIDES WHAT IS LASTING. remember stays a tool, with its description naming when a person's statement holds beyond the turn. An end-of-turn extraction pass was rejected: it is a second model call guessing at what the first already understood."
+  - key: "SAME STANDING, OWN KEY. Evidence rows key on 'project:<name>' in the existing ledger, so relied_on from a coding spec and dispute_memory move a project memory as they move a repository one. No status field, no ratification."
+  - key: "KEYED BY PROJECT NAME. The rows and the ledger key on the project's config name, as a design conversation does. A renamed project leaves its memories behind, the same as its conversations. A separate project id was rejected: there is no project entity apart from the config catalog."
+  - key: "DELETE, NOT EDIT, IN THE DASHBOARD. A wrong memory must be removable without a conversation. Rewording one is a statement to the turn, which keeps one author for the text."
+
+steps:
+  - id: table
+    action: "ProjectMemory entity, configuration and migrations for SQL Server and Postgres; repository with list, upsert by slug, delete. A composition with no database (CLI) gets an empty project store, as it gets NullMemoryEvidenceStore."
+  - id: store
+    action: "IMemoryStore extracted from MemoryStore; ProjectMemoryStore over the repository; MemorySources lists the project store first, then the run's repositories. MemoryRecallToolHost, MemoryCitationResolver, MemoryIndexReader, DesignMemoryIndex and MemoryStandingReader iterate sources."
+  - id: tools
+    action: "Design turn: remember writes to the project store; recall and dispute_memory join unconditionally. MemoryWriteToolHost on a coding run is unchanged."
+  - id: dashboard
+    action: "GET/DELETE project memory endpoints (standing included) under the project's permission bindings (2026-10-15-4a4db): reading needs sight of the project, deleting needs edit on it; a Memory section in ProjectDetailPanel listing type, description, standing and record, with delete."
+  - id: skill
+    action: "design-partner-master: when the person states how they want work done beyond this turn, remember it on the project."
+  - id: tests
+    action: "Pin store, sources order, design-turn tools, standing key, endpoints and the panel."
+
+tests:
+  - "ProjectMemoryStore_UpsertBySlug_ReplacesTheEntry"
+  - "MemoryRecall_ProjectAndRepositoryEntries_ProjectLabelledFirst"
+  - "MemoryCitationResolver_ProjectSlug_CitesProjectKey"
+  - "DesignTurn_Remember_WritesToTheProjectWithoutACodeChange"
+  - "CodingRun_MemoryIndex_IncludesProjectMemory"
+  - "ProjectMemoryEndpoints_Delete_RemovesTheEntry"
+  - "ProjectDetailPanel_ListsMemoriesWithStanding"
+
+done:
+  - when: "a person tells a design turn 'never drop a feature the material records'"
+    then: "a project memory exists, the next design turn's index shows it, and a coding run of the project recalls it"
+  - when: "a coding spec names that memory in relied_on and the spec is done"
+    then: "its standing in the dashboard shows the confirmation"
+  - "A person deletes a memory in the project panel and no later turn sees it."
+  - "Build green, full suite green, dashboard tests green."
