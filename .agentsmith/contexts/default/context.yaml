@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-10-14a3b: "READ FILE PATH RESOLUTION (filesystem tool routing). read_file on a multi-source host tries an unprefixed path in every source: one holder answers with its name first, several are named, none keeps the refusal. -> .agentsmith/specs/done/2026-11-10-14a3b-read-file-path-resolution.yaml"
     2026-11-10-14a3a: "CHILD ANSWER CUT FIRST (sub-agent answer, spawn result, child situation). A cut answer leads with its notice and the call for the rest, the spawn result names cut children in its first line, and a child is told the cap it writes within. -> .agentsmith/specs/done/2026-11-10-14a3a-child-answer-cut-first.yaml"
     2026-11-10-864f: "REVIEW READS UPLOADS (derivation look factory, evidence probe, spec review). Reviewers and both evidence checks read the uploads read-only under reference:<name>, a held upload without counting as the turn's reading, a run's carried copy rooted at its path. -> .agentsmith/specs/done/2026-11-10-864f-review-reads-uploads.yaml"
     2026-11-10-fc66: "DESIGN TURN TOOL SURFACE (spec-dialog tool surface, children, work picture, skills pin v5.25.2). No ask_human, decide_by_default, http_request, remember, list_directory or grep_in_file; questions go in the reply; grep_in_tree takes one file; work-picture kinds defined; slices by behavior. -> .agentsmith/specs/done/2026-11-10-fc66-design-turn-tool-surface.yaml"
@@ -1417,7 +1418,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-10-14a3b: "READ FILE PATH RESOLUTION (filesystem tool routing). An unprefixed path one source holds is read; several holders are named. -> .agentsmith/specs/planned/2026-11-10-14a3b-read-file-path-resolution.yaml"
     2026-11-10-14a3c: "DESIGN PRINCIPLES DIGEST (design turn grounding). Each distinct principles file once: status, Project Specifics, path. -> .agentsmith/specs/planned/2026-11-10-14a3c-design-principles-digest.yaml"
     2026-11-10-14a3d: "DESIGN SURFACE MATERIAL (design turn tools, grounding). Visual, mock, memory and withdrawal tools only with their material. -> .agentsmith/specs/planned/2026-11-10-14a3d-design-surface-material.yaml"
     2026-11-10-14a3e: "DIALOG FOOTER REPO RULE (design turn prompt). The footer drops the repository rule the system prompt states. -> .agentsmith/specs/planned/2026-11-10-14a3e-dialog-footer-repo-rule.yaml"

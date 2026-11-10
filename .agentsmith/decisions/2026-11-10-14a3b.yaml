@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3b
+
+decisions:
+  - category: Implementation
+    chose: "Only read_file resolves an unprefixed path; the other tools keep the refusal"
+    over: "Resolving in every tool"
+    reason: "A read is safe to try in every source; a write or a command must never land in a source the agent did not name, and a search over several sources already has grep_in_tree's own root."
+  - category: Implementation
+    chose: "A hit names its source first and asks for the prefix next time"
+    over: "Answering silently"
+    reason: "The next call then carries the prefix, so the probe runs once, not on every read."
+  - category: Implementation
+    chose: "Aliases of one sandbox count once"
+    over: "Counting every key"
+    reason: "A sandbox is keyed by its composite key and its repository name; counting both would report one file as held by two sources."

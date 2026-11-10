@@ -237,7 +237,7 @@ public sealed class FilesystemToolHost : IToolHost
         _logger?.LogInformation("tool_call: ReadFile path={Path} start={Start} count={Count}", path, start_line, line_count);
         if (_guards.CheckRead(path) is { } error) return error;
         var (runner, bare, routeErr) = Route(path);
-        if (routeErr is not null) return routeErr;
+        if (routeErr is not null) return await UnprefixedRead.TryAsync(_runners, path, start_line, line_count, with_line_numbers, routeErr, ct);
         var result = await runner!.ReadAsync(bare, start_line, line_count, with_line_numbers, ct);
         // p0279: record only successful reads (the runner returns an "Error…" string on failure).
         if (!string.IsNullOrEmpty(path) && !result.StartsWith("Error", StringComparison.Ordinal))
