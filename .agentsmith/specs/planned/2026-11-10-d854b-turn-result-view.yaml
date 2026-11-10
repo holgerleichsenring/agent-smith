@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-d854b
+goal: "A finished design turn shows as one reduced result: summary, one activity line, a cost-cap banner, the decisions that need a person, and one row per spec that opens to its details."
+requires: [2026-11-10-d854a, 2026-11-10-d854c]
+
+applies_to: "default (Dashboard: dialog transcript, proposal card, ticket conversation)"
+
+facts:
+  - claim: "The conversation renders a proposal as DialogProposalCard; the ticket page renders it as ProposalBlock with the findings and rounds lists; the side panel carries graph, rounds and uploads."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:10; src/dashboard/src/components/tickets/detail/ProposalBlock.tsx:3-4; src/dashboard/src/components/dialog/DialogProposalPanel.tsx:8-10"
+  - claim: "A finished turn's steps stay listed under a disclosure with their count and duration."
+    evidence: "src/dashboard/src/components/dialog/DialogWorking.tsx:23-43,90"
+  - claim: "Live conversation 44 showed 60 findings over 10 specs, 7 specs not reviewed, and the cap stop only as a finding text."
+    evidence: "SpecDialogSessions row 44 LatestProposalJson, read 2026-11-10"
+  - claim: "The operator approved the layout in a mock."
+    evidence: "https://claude.ai/artifact/5sBqNLKzQ3GK96mGRvfnYg (2026-11-10)"
+
+scope:
+  in: "A TurnResult component replaces DialogProposalCard on a turn with a proposal, and ProposalBlock reuses it: the reply prose as summary; one collapsed line with duration, steps, sub-agents, review rounds and cost (the step list behind it); an amber banner when Spend.capHit; 'Needs you' with each decision's question, proposal, spec ids and two buttons — Take proposal sends 'Decision N: take the proposal.', Answer puts 'Decision N: ' in the composer; the specs in build order, one row each with id, goal, repo and a status pill (reviewed clean, findings, not reviewed), opening to its findings, done criteria and links to YAML, facts and rounds; the existing approve action as a bar. The side panel keeps graph and uploads; its rounds list moves into the rows."
+  out: "The cost-cap banner's 'continue at the next tier' action is the successor named by 2026-11-10-548f. The one-card rule is 2026-11-10-7da6."
+
+decisions:
+  - key: "ONE COMPONENT FOR BOTH PAGES. The conversation and the ticket page show the same proposal; two renderings drift."
+  - key: "DETAIL ON DEMAND. Findings, rounds and YAML stay reachable per spec; nothing is removed, only folded."
+  - key: "FOLD, NEVER DROP. Every part a live turn showed is reachable from the reduced view after a reload: the steps from the turn's run (d854c), findings, rounds and full specs from the stored proposal."
+  - key: "PILL FROM EXISTING DATA. Status comes from Findings and NotReviewed already on the push; no new server field."
+
+steps:
+  - id: component
+    action: "TurnResult and its rows, built from SpecDialogProposalPush with Decisions and Spend (d854a); the summary is the agent entry's text."
+  - id: wire
+    action: "DialogTranscript and ProposalBlock render TurnResult; DialogProposalPanel drops its rounds list."
+  - id: answers
+    action: "Take proposal sends through the existing composer send; Answer prefills the composer."
+  - id: tests
+    action: "vitest for each part."
+
+tests:
+  - "TurnResult shows one row per spec in build order with the right pill"
+  - "TurnResult folds the steps into one line with duration, steps and cost"
+  - "TurnResult shows the cap banner only when Spend.capHit"
+  - "Take proposal sends 'Decision 2: take the proposal.'"
+  - "A row opens to its findings, done criteria and links"
+
+done:
+  - when: "conversation 44's stored proposal is rendered"
+    then: "the page shows the summary, one activity line, the cap banner, the decisions and ten closed rows, without scrolling past a findings list"
+  - when: "the page is reloaded after the turn ended"
+    then: "the same view renders, and its activity line, each row's findings and rounds, and each spec's full yaml are each one click away"
+  - "Build green, dashboard tests green."

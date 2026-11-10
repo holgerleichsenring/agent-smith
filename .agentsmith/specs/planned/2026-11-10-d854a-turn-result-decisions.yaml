@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-d854a
+goal: "A design turn records its open owner decisions as a structured list (question, proposal, spec ids), and its proposal carries them with the turn's spend, so a page can show what needs a person."
+
+applies_to: "default (Application: design master tools; Server: proposal composer and push; skills: design-partner-master)"
+
+facts:
+  - claim: "Live conversation 44's reply is 33,771 characters stored but 1,205 shown: the shown transcript strips draft blocks. The overload is not the prose; it is two cards and 60 findings over 10 specs."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:16; SpecDialogSessions row 44, read 2026-11-10"
+  - claim: "Open owner decisions exist only as prose in the reply and as 'proposed:' lines inside the specs; the proposal push has no field for them."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-46; agent-smith-skills skills/_masters/design-partner-master/SKILL.md:153,161-166 (origin/main, v5.25.4)"
+  - claim: "A design master already records turn facts through small typed tools that write the reply slot (state_work_picture), refusing with the rule broken."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:33-46; src/backend/AgentSmith.Contracts/Models/SpecDialogReplySlot.cs:11-33; src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:29"
+  - claim: "The proposal push is composed in one place and already carries findings, review rounds and the not-reviewed ids."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs; src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:37-46"
+  - claim: "The turn's spend and ceiling are on its tracker, and a cap stop is stated by CostCapStop."
+    evidence: "src/backend/AgentSmith.Application/Services/CostCapStop.cs:22-40"
+
+scope:
+  in: "A master tool state_open_decisions(decisions) beside state_work_picture: each decision is a question, the master's proposal and the spec ids it affects, numbered in order; the last admitted call of a turn wins, a refusal names the rule (empty question, unknown spec id, over 12 entries). The slot carries the list; the proposal push and the stored proposal carry it as Decisions, plus Spend (usd, cap usd, tier, capHit). design-partner-master says the reply is a short summary of the cut and why, the specs live in the draft block, and each open owner decision goes through state_open_decisions with its proposal, the same proposal written as 'proposed:' in the spec. A person's reply 'Decision N: take the proposal' is read by the master like any answer."
+  out: "The page that shows this is 2026-11-10-d854b. A decision list without a proposal (an answer turn) stays prose for now."
+
+decisions:
+  - key: "A TOOL, NOT A YAML KEY. Every outcome kind would need the key and the parsers would each learn it; a tool beside state_work_picture serves spec, epic and tickets alike and refuses with a reason."
+  - key: "THE PROSE IS THE SUMMARY. The shown reply is already short once the draft is stripped (1,205 chars live); a separate summary field would be a second copy."
+  - key: "ANSWERS ARE PLAIN REPLIES. A decision changes the next draft, which is reviewed again; nothing builds on the answer, so 8e59's text-hash binding is not needed."
+
+steps:
+  - id: tool
+    action: "OpenDecisionsToolHost writes SpecDialogReplySlot.Decisions; TicketActToolsFactory adds it on every turn with a reply slot; spec ids are checked against the turn's draft when one exists."
+  - id: push
+    action: "SpecDialogProposalComposer puts Decisions and Spend on the push and the stored proposal; the dashboard type gains both as optional fields."
+  - id: skill
+    action: "design-partner-master (agent-smith-skills, origin/main v5.25.4): three passages change in place, nothing moves, no section is added; the exact text is under skill_text below."
+
+skill_text:
+  tool_description: "Record the decisions only the operator can make: each a question, your recommendation, and the ids of the specs it touches. The page shows them first, each with a button that takes your recommendation; the answer arrives as the next message. A later call in the same turn replaces the list."
+  conversation_style_bullet:
+    old: "- Your questions go in your reply, after the analysis that raised them, each with your recommendation; the operator answers in the next message. Where your recommendation is good enough to proceed, draft with it and mark it proposed."
+    new: "- A decision only the operator can make goes to `state_open_decisions` with your recommendation and the specs it touches; the operator answers in the next message. Where your recommendation is good enough to proceed, draft with it and mark it proposed."
+  converging_sentence:
+    old: "The reply carries the work picture, what the uploads and the code show (name the files), the contradictions between them, the choices you made and marked proposed, and the questions only the operator can answer."
+    new: "The reply is what the operator reads first: the work picture, the cut and why, what the uploads and the code show (name the files) and the contradictions between them. The choices you made stand in the specs marked proposed; the questions only the operator can answer go to `state_open_decisions`."
+  capability_sentence:
+    old: "Dropping or postponing a capability the material requires is not yours to default: say so in the reply as a question, with your recommendation."
+    new: "Dropping or postponing a capability the material requires is not yours to default: record it as an open decision, with your recommendation."
+  checked_against: "situation and goal, not procedure (the tool says what the page does with the list, not when to call it); tools describe themselves (the bullet names the tool, the tool text carries the detail); capabilities, not prohibitions; no new section, so the prompt order and its cache prefix stay; each sentence replaces one of the same length or shorter."
+  - id: tests
+    action: "Pin admission, slot, push and store."
+
+tests:
+  - "StateOpenDecisions_UnknownSpecId_IsRefusedNamingTheIds"
+  - "StateOpenDecisions_SecondCall_ReplacesTheList"
+  - "ProposalComposer_TurnWithDecisions_PushCarriesThemAndTheSpend"
+  - "ProposalComposer_CapHit_SpendSaysSo"
+  - "StoredProposal_RoundTripsDecisions"
+
+done:
+  - when: "a design turn records three decisions and proposes an epic"
+    then: "the push and the stored proposal carry the three, each with question, proposal and spec ids, plus the turn's spend and cap"
+  - "Build green, full suite and dashboard tests green; skills released and pinned."

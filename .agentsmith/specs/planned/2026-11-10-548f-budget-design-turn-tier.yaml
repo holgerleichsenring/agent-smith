@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-548f
+goal: "A design turn states its effort tier in its work picture before it spends, and its cost ceiling is raised to that tier's cap; a new xl tier defaults to $40."
+
+applies_to: "default (Application: work picture tool, scope estimate recorder; Contracts: cost cap config; Dashboard: settings form, dialog heading)"
+
+facts:
+  - claim: "Tier caps are code defaults per ComplexityTier, Trivial $1 up to Large $25 with 200k tokens per dollar, and a tier only ever raises the resolved cap."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:49-56,65-73,91"
+  - claim: "A coding run's tier comes from the scope classification and is applied by ScopeEstimateRecorder, which raises the live tracker's cap, stores the tier in the context and publishes RunBudgetResolvedEvent (the run row's BudgetTier)."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:27-66; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunClassificationProjection.cs:24"
+  - claim: "A design turn runs no scope classification: the spec-dialog preset is LoadCatalog, LoadCachedCodeMap, GroundSpecDialog, AgenticMaster, CollectSpecDialogReply, so its cap stays the resolved default."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:20-27; src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:303"
+  - claim: "Live conversation 44 (run 2026-11-10T19-36-22-96b7) has BudgetTier NULL and stopped at '$5.00 / 1,500,000 tokens' with 7 of 10 specs unreviewed."
+    evidence: "Runs and SpecDialogSessions rows of that run, read 2026-11-10; src/backend/AgentSmith.Application/Services/CostCapStop.cs:29"
+  - claim: "Every design turn's master already records a work picture (kind, truth, size) through state_work_picture; the stored picture is seeded into the next turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:33-46; src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:29; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:71"
+  - claim: "The settings form renders a fixed tier list, and the capabilities endpoint sends the code defaults per tier."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:34,376-381; src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:38"
+
+scope:
+  in: "ComplexityTier gains Xl (appended, so stored values keep their numbers) with code default $40 / 8,000,000 tokens. state_work_picture gains an effort argument (trivial|small|medium|large|xl); the admitted tier is applied through ScopeEstimateRecorder.ApplyAsync at once, and the tool's answer names the raised cap. A stored picture's effort is applied at the start of the next turn, in GroundSpecDialog. The picture view and the settings tier list show xl."
+  out: "Continuing a turn that still hits the cap at the next tier is a named successor: a dashboard action on the cost-cap banner of the reduced result view (2026-11-10-d854b) that re-runs the review at the next tier. The coding run's scope classifier keeps its four tiers; teaching it xl is not asked for."
+
+decisions:
+  - key: "THE MASTER SAYS IT, NO EXTRA CALL. The work picture is already stated before the first big spend, by the model that read the material. A separate classification call would cost a round trip and know less."
+  - key: "EFFORT BESIDE SIZE, NOT DERIVED FROM IT. size (one-spec, series, plan) is the cut; effort is the spend. A one-spec rewrite of a large module and a ten-spec epic of small slices differ; one field cannot carry both."
+  - key: "RAISE ONLY. The tier raises the resolved cap through RaisedTo, as for coding runs, so an operator's per-pipeline override is never lowered by a guess."
+  - key: "XL $40. The operator named it for planning a PoC-to-product epic; tokens follow the 200k-per-dollar line of the existing tiers."
+
+steps:
+  - id: tier
+    action: "Append Xl to ComplexityTier; TierDefaults gains Xl $40 / 8,000,000; RunBudgetResolvedEvent and the run row carry 'xl'."
+  - id: picture
+    action: "WorkPicture gains Effort (ComplexityTier, Unknown when a stored picture predates it); WorkPictureAdmission parses it from the closed set; WorkPictureView shows it."
+  - id: apply
+    action: "WorkPictureToolHost receives the pipeline and ScopeEstimateRecorder from TicketActToolsFactory and applies the admitted effort; GroundSpecDialogHandler applies a seeded picture's effort before the master runs."
+  - id: skill
+    action: "design-partner-master's Work picture paragraph says the effort sizes the turn's cost ceiling and what each tier means for a design turn (xl: a whole product or PoC carried into repositories), in place."
+  - id: dashboard
+    action: "SettingsForm TIER_ORDER gains Xl; the conversation heading shows the effort and the raised cap beside the picture."
+  - id: tests
+    action: "Pin the raise, the override, the seeded tier and the settings list."
+
+tests:
+  - "StateWorkPicture_EffortXl_RaisesTheTurnCapToTheXlTier"
+  - "StateWorkPicture_EffortBelowAPerPipelineOverride_KeepsTheOverride"
+  - "WorkPictureAdmission_UnknownEffort_IsRefusedNamingTheSet"
+  - "GroundSpecDialog_SeededPictureWithEffort_AppliesTheTierBeforeTheMaster"
+  - "WorkPicture_StoredWithoutEffort_ReadsAsUnknownAndLeavesTheCap"
+  - "SettingsForm lists Xl with its $40 default (vitest)"
+
+done:
+  - when: "a design turn states effort xl"
+    then: "its cost tracker's cap is $40 / 8,000,000 unless the resolved cap is higher, and the run row's BudgetTier is 'xl'"
+  - when: "the next turn of that conversation starts"
+    then: "its cap is raised to the stored tier before the master's first call"
+  - "Config Studio shows and saves an Xl tier cap."
+  - "Build green, full suite and dashboard tests green."
