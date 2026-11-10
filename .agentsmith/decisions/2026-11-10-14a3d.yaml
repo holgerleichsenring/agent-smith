@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3d
+
+decisions:
+  - category: Architecture
+    chose: "render_reference, compare_reference, write_mock and read_mock stay on every design turn; only design_read depends on its material (a design source), as before"
+    over: "Gating the visual and mock tools on an uploaded page, a design source, a design system or a mock (this spec's first commits)"
+    reason: "Operator correction and an independent review, 2026-11-10: a mock can be asked for with nothing to compare against (8762r), and render and compare also take a public URL or a repository's .html, so 'make it look like https://…' with no upload lost the tool. The gate saved two tool descriptions and cost real requests; DesignVisuals is deleted (2026-11-10-85e2)."
+  - category: Implementation
+    chose: "The grounding reads each repository's memory index, and recall and dispute_memory join a design turn only when one exists"
+    over: "Offering them blind, or not at all"
+    reason: "The design turn never loaded the index, so recall was offered with nothing to recall against. Reading MEMORY.md remotely is one more file beside the principles."
+  - category: Implementation
+    chose: "withdraw_filed_ticket is seeded only when the conversation's latest outcome holds a filing; a failed read offers it"
+    over: "Seeding it on every turn"
+    reason: "The tool can only refuse in a conversation that filed nothing; a read that fails keeps the old behaviour rather than hiding a way out."

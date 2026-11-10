@@ -53,23 +53,18 @@ public sealed class SeriesSkillRulesTests
             Because("the derived set's contract rule"));
 
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_AuthorsMocksWithWriteMock() =>
-        DesignPartner().Should().Contain(
-            "**Authoring a mock.** When the question is how a page should look, write the whole page with "
-            + "`write_mock(spec_id, html)` — CSS and script inline, at most 90000 characters — and the operator sees "
-            + "its desktop screenshot in the conversation as that spec's next version. Say which version you showed "
-            + "and ask what to change. Before revising, `read_mock(spec_id)` returns the newest version's HTML; write "
-            + "the whole page again as the next version, never a fragment.",
-            Because("the mock authoring rule"));
+    public void EmbeddedSkills_DesignPartnerMaster_LeavesMockAuthoringToItsTool() =>
+        // 2026-11-10-14a3h: the mock rule lives in write_mock's description, offered only with visual material.
+        DesignPartner().Should().NotContain("**Authoring a mock.**", Because("the mock rule moved to its tool"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_SaysTheSeriesAndAttemptSize()
     {
         var master = EpicFormat();
 
-        master.Should().Contain(
-            "parent and two or more ordered children (the epic parser states the series cap when a cut exceeds it) —",
-            Because("the epic size wording"));
+        // 2026-11-10-14a3h: the parser states the cap when a cut exceeds it; the format no longer announces it.
+        master.Should().Contain("parent and two or more ordered children — each entry is a complete spec",
+            Because("the epic size wording")).And.NotContain("series cap");
         master.Should().NotContain("between two and eight ordered children", "the series cap is configured, not eight");
     }
 
@@ -89,11 +84,31 @@ public sealed class SeriesSkillRulesTests
             + "implementation choice.",
             Because("the coding master's default-choice rule"));
 
+        // 2026-11-10-fc66: a design turn carries neither tool — its questions go in the reply.
         DesignPartner().Should().Contain(
-            "- `decide_by_default` is for a choice a person might overrule but need not make first: it returns at "
-            + "once and the choice waits for a person to ratify it. A choice that needs a person before work "
-            + "continues stays `ask_human`.",
-            Because("the design partner's default-choice rule"));
+            "- Your questions go in your reply, after the analysis that raised\n  them, each with your recommendation; "
+            + "the operator answers in the next\n  message. Where your recommendation is good enough to proceed, draft"
+            + "\n  with it and mark it proposed.",
+            Because("the design partner's question rule"));
+    }
+
+    [Fact]
+    public void EmbeddedSkills_DesignPartner_NamesNoRemovedTool()
+    {
+        foreach (var removed in new[] { "ask_human", "decide_by_default", "http_request", "list_directory", "grep_in_file" })
+            DesignPartner().Should().NotContain($"`{removed}`", Because($"the design turn no longer carries {removed}"));
+        DesignPartner().Should().Contain("`state_work_picture` says which kind is which", Because("the kinds are the tool's"));
+    }
+
+    /// <summary>2026-11-10-14a3h: the unit of a child is named, and a proposed decision has its syntax.</summary>
+    [Fact]
+    public void EmbeddedSkills_DesignPartner_DefinesTheChildAndTheProposedPrefix()
+    {
+        DesignPartner().Should().Contain("A child is what one coding pass builds and one reviewer can check",
+            Because("the unit of a child")).And.Contain("`proposed: <choice> —", Because("the proposed syntax"))
+            .And.NotContain("those questions all at once", Because("one fork per question"));
+        SpecFormat().Should().Contain("\"proposed: <a choice you make where they leave it open> — <what it rests on>\"",
+            Because("the format shows a proposed decision"));
     }
 
     [Fact]

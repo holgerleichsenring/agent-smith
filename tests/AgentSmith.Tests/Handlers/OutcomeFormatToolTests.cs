@@ -33,6 +33,24 @@ public sealed class OutcomeFormatToolTests
         answer.Should().Be("## Drafting a spec\n\n## Proposing an epic", "each child of an epic is a spec");
     }
 
+    /// <summary>2026-11-10-14a3f: one host serves one turn, and a format it returned stands above.</summary>
+    [Fact]
+    public async Task OutcomeFormat_SameKindTwiceInATurn_ReturnsItOnce()
+    {
+        var tool = new OutcomeFormatToolHost(new References(Catalog)).GetTools(null, null).Single();
+
+        var first = await Call(tool, "spec");
+        var again = await Call(tool, "spec");
+        var epic = await Call(tool, "epic");
+
+        first.Should().Be("## Drafting a spec");
+        again.Should().StartWith("The spec format was returned earlier in this turn");
+        epic.Should().Be("## Proposing an epic", "the spec part of an epic's format was already given");
+    }
+
+    private static async Task<string> Call(AIFunction tool, string kind) =>
+        (await tool.InvokeAsync(new AIFunctionArguments { ["kind"] = kind }))!.ToString()!;
+
     [Fact]
     public async Task OutcomeFormat_Document_ReturnsWritingDocuments()
     {

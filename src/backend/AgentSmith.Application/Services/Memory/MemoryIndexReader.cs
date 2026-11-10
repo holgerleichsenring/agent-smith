@@ -61,7 +61,7 @@ public sealed class MemoryIndexReader(
 
     // With more than one repository every index carries its repository's name, even when it is
     // the only one present — the name is what remember and recall are told to pass.
-    private static string Aggregate(IReadOnlyDictionary<string, string> perRepository, bool labelled)
+    internal static string Aggregate(IReadOnlyDictionary<string, string> perRepository, bool labelled)
     {
         if (perRepository.Count == 0) return string.Empty;
         if (!labelled) return perRepository.Values.First();

@@ -80,7 +80,7 @@ public sealed class DesignReadSeedTests
             },
             [new RepoConnection { Name = "sample-api" }],
             new Dictionary<string, Contracts.Sandbox.ISandbox>(), new SpecDialogReplySlot(),
-            DialogImageSet.None, Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>(),
+            DialogImageSet.None, new AgentSmith.Server.Services.SpecDialog.SpecDialogTurnFacts(Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>()),
             designSources: hasSource ? [Figma] : []);
 
         seeds.ContainsKey(ContextKeys.SpecDialogDesignSources).Should().Be(hasSource);

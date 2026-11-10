@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3h
+goal: "The design partner's texts say what a defensible choice rests on, what one child is and how a proposed decision is written, carry only what the turn uses, and are pinned."
+applies_to: "default (embedded skills pin, prompt size test)"
+facts:
+  - claim: "An independent diagnosis of conversation 43 traced the draft's faults to an undefined 'defend', the repository as the only stated unit, 'proposed' without syntax, and sections the turn could not use."
+    evidence: "observed: 2026-11-10, diagnosis of prompt record 9922e007"
+steps:
+  - id: skills
+    action: "design-partner, the design outcome references, project-bootstrap and project-discovery carry the R7-R19 texts, merged with the contract-first and proposed lines of skills #254."
+  - id: pin
+    action: "Pin v5.25.3, the release carrying skills #254 and #256."
+  - id: size
+    action: "A harness test measures the first design turn's system prompt, user turn and tool list and pins a ceiling."
+tests:
+  - "ReferenceTurn_FirstCall_PromptAndToolsStayWithinTheirSize"
+  - "EmbeddedSkills_DesignPartner_DefinesTheChildAndTheProposedPrefix"
+  - "EmbeddedSkills_DesignPartnerMaster_LeavesMockAuthoringToItsTool"
+done:
+  - "The pinned design partner names a child as what one run builds and one reviewer checks, and writes a proposed decision with a proposed: prefix."
+  - "Backend and dashboard build and tests green."

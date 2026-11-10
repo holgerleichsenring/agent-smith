@@ -67,26 +67,26 @@ public sealed class AgenticToolSurface
             .ToList();
 
     /// <summary>
-    /// p0315b: spec-dialog design-partner surface — content reads (read_file,
-    /// grep_in_*, find_files, list_directory, directory_tree) + ask_human +
-    /// (optional) web_fetch (research public docs while drafting). No write, no
-    /// run_command, no log_decision (a conversation records no run decisions).
-    /// 2026-09-22-46ef: find_files is BACK — it was filtered out by name while the source
-    /// scope refused every Run step, and the scope now serves the processes the server
-    /// builds. What the surface may ASK for is unchanged: no write_file, no run_command.
+    /// p0315b: spec-dialog design-partner surface — content reads + (optional) web_fetch + (optional) recall.
+    /// 2026-11-10-fc66: a conversation's questions go into the reply, with the analysis and a recommendation, so the
+    /// surface carries no ask_human (a mid-turn ask hid both and blocked the turn), no http_request (any method;
+    /// web_fetch reads docs), no remember (refused where no repository has a code change, which a design turn never
+    /// has), and one way each to search and to list: grep_in_tree takes one file as its root, directory_tree and
+    /// find_files cover listing.
     /// </summary>
-    public IList<AITool> SpecDialog(
-        FilesystemToolHost fs, IToolHost human, WebToolHost? web = null,
-        MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>
+    public IList<AITool> SpecDialog(FilesystemToolHost fs, WebToolHost? web = null, MemoryRecallToolHost? recall = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
-            .Append(fs.HttpRequestTool()) // p0353: reach external endpoints while drafting; still no run/write
-            .Concat(human.GetTools(phase: null, investigatorMode: null))
+            .Where(tool => SpecDialogReads.Contains(tool.Name))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
-            // p0380: recall for grounding + remember as a memory-only proposal.
             .Concat(recall?.GetTools(phase: null, investigatorMode: null) ?? [])
-            .Concat(remember?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
+
+    /// <summary>The filesystem reads a design turn keeps.</summary>
+    public static readonly IReadOnlySet<string> SpecDialogReads = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "read_file", "grep_in_tree", "find_files", "directory_tree",
+    };
 
     /// <summary>
     /// Bootstrap surface: fs read/write/list/grep + log_decision + (optional)

@@ -106,6 +106,40 @@ public sealed class SandboxEvidenceProbeTests
         api.Ran.Should().BeEmpty();
     }
 
+    /// <summary>2026-11-10-864f: a fact citing the upload resolves in the upload, not left unchecked.</summary>
+    [Fact]
+    public async Task SandboxEvidenceProbe_ReferenceCitation_ResolvesInTheUpload()
+    {
+        var upload = Tree(("y.md", "1\n2\n3\n"));
+        var probe = new SandboxEvidenceProbe(
+            new Dictionary<string, ISandbox> { ["api"] = Tree(("src/a.cs", "1\n")) }, TurnActivityRecorder.Silent(),
+            new Dictionary<string, ISandbox> { ["reference:x"] = upload });
+        var check = new EvidenceCheck(new EvidenceReferences());
+
+        var holds = await check.CheckAsync("reference:x/y.md:3", EvidencePolicy.Product, probe, CancellationToken.None);
+        var past = await check.CheckAsync("reference:x/y.md:4", EvidencePolicy.Product, probe, CancellationToken.None);
+        var unknown = await probe.ProbeAsync("reference", "z/y.md", CancellationToken.None);
+
+        holds.Should().BeEmpty();
+        past.Should().ContainSingle().Which.Reason.Should().Contain("past the end");
+        unknown.Should().BeOfType<EvidenceProbeResult.NotChecked>("an upload the turn does not hold is not checked");
+    }
+
+    [Fact]
+    public async Task SandboxEvidenceProbe_ReferenceCitationWithASpace_Resolves()
+    {
+        var upload = Tree(("requirements 1/spec-doc/product-requirements.md", string.Concat(Enumerable.Repeat("x\n", 12))));
+        var probe = new SandboxEvidenceProbe(new Dictionary<string, ISandbox>(), TurnActivityRecorder.Silent(),
+            new Dictionary<string, ISandbox> { ["reference:requirements-1"] = upload });
+
+        var problems = await new EvidenceCheck(new EvidenceReferences()).CheckAsync(
+            "reference:requirements-1/requirements 1/spec-doc/product-requirements.md:3-11",
+            EvidencePolicy.Product, probe, CancellationToken.None);
+
+        problems.Should().BeEmpty();
+        upload.Ran.Should().ContainSingle().Which.Path.Should().Be("/work/requirements 1/spec-doc/product-requirements.md");
+    }
+
     private static EvidenceTreeSandbox Tree(params (string Path, string Content)[] files) =>
         new(files.ToDictionary(f => f.Path, f => f.Content, StringComparer.Ordinal));
 

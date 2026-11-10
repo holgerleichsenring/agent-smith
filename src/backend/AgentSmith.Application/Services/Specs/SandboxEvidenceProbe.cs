@@ -14,22 +14,31 @@ namespace AgentSmith.Application.Services.Specs;
 /// repository named in a form no tool addresses), a bare path several repositories could hold, a
 /// read that could not run. A missed check costs less than a false finding.
 /// </para>
+/// <para>
+/// 2026-11-10-864f: the one qualifier read is <c>reference</c>: <c>reference:&lt;name&gt;/&lt;path&gt;</c> is the upload
+/// the design partner read under that address, served by <see cref="Review.ReviewReferences"/>.
+/// </para>
 /// </summary>
 public sealed class SandboxEvidenceProbe : IEvidenceProbe
 {
+    private const string ReferenceQualifier = "reference";
     private readonly IReadOnlyDictionary<string, ISandbox> _repositories;
+    private readonly IReadOnlyDictionary<string, ISandbox> _references;
     private readonly SandboxEvidenceRead _reads;
 
     public SandboxEvidenceProbe(
-        IReadOnlyDictionary<string, ISandbox> repositories, ITurnActivityObserverAccessor activity)
+        IReadOnlyDictionary<string, ISandbox> repositories, ITurnActivityObserverAccessor activity,
+        IReadOnlyDictionary<string, ISandbox>? references = null)
     {
         ArgumentNullException.ThrowIfNull(repositories);
         _repositories = repositories;
+        _references = references ?? new Dictionary<string, ISandbox>(StringComparer.Ordinal);
         _reads = new SandboxEvidenceRead(activity);
     }
 
     public async Task<EvidenceProbeResult> ProbeAsync(string? qualifier, string path, CancellationToken ct)
     {
+        if (qualifier == ReferenceQualifier) return await ReferenceAsync(path, ct);
         if (qualifier is not null || _repositories.Count == 0 || string.IsNullOrEmpty(path))
             return new EvidenceProbeResult.NotChecked();
         var (key, matched) = RepoPathRouter.MatchLongestKey(_repositories, path);
@@ -47,6 +56,15 @@ public sealed class SandboxEvidenceProbe : IEvidenceProbe
             return await _reads.ReadAsync(name, only, path, ct);
         }
         return await BareAsync(path, ct);
+    }
+
+    private async Task<EvidenceProbeResult> ReferenceAsync(string path, CancellationToken ct)
+    {
+        var slash = path.IndexOf('/');
+        var address = ReferenceScopeName.Prefix + (slash < 0 ? path : path[..slash]);
+        return slash > 0 && _references.GetValueOrDefault(address) is { } upload
+            ? await _reads.ReadAsync(address, upload, path[(slash + 1)..], ct)
+            : new EvidenceProbeResult.NotChecked();
     }
 
     /// <summary>A bare path on a multi-repository turn stands only where exactly one holds it.</summary>

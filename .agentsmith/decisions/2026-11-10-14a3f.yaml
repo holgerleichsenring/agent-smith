@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3f
+
+decisions:
+  - category: Implementation
+    chose: "Once per turn, not once per conversation"
+    over: "Once per conversation, as the diagnosis proposed"
+    reason: "A later turn starts from the folded history, and folding can drop a format returned turns ago; within one turn it stands above. One host already serves one turn, so the memory of what was given needs no store."
+  - category: Implementation
+    chose: "The re-fetch before every re-draft goes"
+    over: "Keeping it for schema-fix redrafts"
+    reason: "The skill asked for a fresh copy before each re-draft so a drifted block would be rewritten to the format; the format is still above, and a schema fix needs the validation error, which the redraft prompt carries."

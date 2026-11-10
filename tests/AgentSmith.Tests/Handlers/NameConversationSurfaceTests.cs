@@ -107,7 +107,7 @@ public sealed class NameConversationSurfaceTests
             },
             [new RepoConnection { Name = "sample-api" }],
             new Dictionary<string, Contracts.Sandbox.ISandbox>(), new SpecDialogReplySlot(),
-            DialogImageSet.None, Mock.Of<IFiledTicketWithdrawal>());
+            DialogImageSet.None, new AgentSmith.Server.Services.SpecDialog.SpecDialogTurnFacts(Mock.Of<IFiledTicketWithdrawal>()));
 
     private static PipelineContext Transcript()
     {

@@ -68,7 +68,6 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<SubAgentNameValidator>();
         // p0280: in-memory child-answer store, scoped per run (one pipeline-execution
         // scope == one run) — the functional child->master detail channel.
-        services.AddScoped<Contracts.Services.IChildAnswerStore, InMemoryChildAnswerStore>();
         services.AddScoped(sp =>
         {
             var limits = sp.GetRequiredService<Contracts.Models.Configuration.LoopLimitsConfig>();

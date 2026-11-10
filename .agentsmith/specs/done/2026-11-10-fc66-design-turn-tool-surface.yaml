@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-fc66
+goal: "A design turn is offered only the tools a conversation uses: its questions go into the reply with the analysis, never into a mid-turn ask that hides both."
+
+applies_to: "default (Application tool surfaces, spec-dialog children, embedded skills pin)"
+
+facts:
+  - claim: "Live conversation 43 on 0.180.0 with gpt-5.6: after four sub-agents and the PRD, the master called ask_human with a vague question and no choices; the turn blocked and the person saw none of its analysis."
+    evidence: "dated observation 2026-11-10, prod run 2026-11-10T11-22-43-0ee5, prompt record 9922e007 (26 tools)"
+  - claim: "The design master's surface is AgenticToolSurface.SpecDialog plus decide_by_default, dispute, design_read, the reference tools, the ticket acts and the spawn pair."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:78-89; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:55-73"
+  - claim: "remember is refused when no repository has a code change, which a design turn never has."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:36,70-72"
+  - claim: "grep_in_file and grep_in_tree call the same runner.GrepAsync with the path as root; the sandbox agent greps a single file when the root is a file."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:470-494; src/backend/AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs:281-289"
+  - claim: "The in-process sandbox refuses a file root for grep (Directory.Exists only), so grep_in_file never worked there either."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:48-51"
+  - claim: "state_work_picture's kind parameter listed the four kinds without defining them, and gpt-5.6 chose feature for a proof of concept carried into .NET."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:31; dated observation 2026-11-10, prompt record 9922e007 position 5"
+  - claim: "The pending-question plumbing of the dialog also carries the approval question the confirmer posts after a turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:25; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogPendingQuestions.cs:18-21"
+
+scope:
+  in: "The design master and its children lose ask_human, decide_by_default, http_request, remember, list_directory and grep_in_file; grep_in_tree's root names a directory or one file on every backend; the steward's exclusion list and the child read set follow; the design-partner skill describes questions in the reply, cuts by behavior first, and defines the work-picture kinds as state_work_picture's kind parameter does; the embedded catalog is pinned to the release carrying it."
+  out: "The coding, scan and bootstrap surfaces, unchanged. The dialog's pending-question plumbing, which the approval question still uses. The memory tools' own design."
+
+steps:
+  - id: surface
+    action: "AgenticToolSurface.SpecDialog returns read_file, grep_in_tree, find_files, directory_tree, web_fetch and recall; MasterToolComposition adds decide_by_default to coding masters only."
+  - id: children
+    action: "SpecDialogChildTools.ReadTools drops grep_in_file and list_directory; its comment says what a child leaves out of a surface that no longer asks."
+  - id: grep-file
+    action: "In-process grep accepts a file root; grep_in_tree's root description names a directory or one file."
+  - id: steward
+    action: "TicketStewardTools no longer excludes decide_by_default, which the design surface no longer carries."
+  - id: skill
+    action: "design-partner names the remaining read tools and says questions belong in the reply after the analysis, each with a recommendation, drafting with it where it is good enough to proceed."
+  - id: kinds
+    action: "state_work_picture's kind parameter defines rebuild, feature, fix and document; the skill's work-picture paragraph says the same."
+  - id: slices
+    action: "design-partner cuts by behavior first, then by repository, sizes each spec for one run and one reviewer, and asks for countable done criteria."
+  - id: pin
+    action: "Embedded catalog pinned to v5.25.2 (skills #252), the release carrying the skill change."
+
+tests:
+  - "SpecDialogSurface_OffersOnlyConversationTools"
+  - "CodingSurface_KeepsAskHumanDecideByDefaultAndTheFullReadSet"
+  - "SpecDialogChildTools_KeepsOnlyTheReadSet"
+  - "InProcessSandbox_GrepOnAFileRoot_SearchesThatFile"
+  - "EmbeddedSkills_DesignPartner_NamesNoRemovedTool"
+  - "StateWorkPicture_KindDescription_DefinesAllFourKinds"
+
+done:
+  - when: "a design turn starts"
+    then: "its master is offered no ask_human, decide_by_default, http_request, remember, list_directory or grep_in_file"
+  - when: "a coding master starts"
+    then: "its surface is the one it had before"
+  - "Backend and dashboard build and tests green."

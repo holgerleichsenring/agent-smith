@@ -19,6 +19,19 @@ public sealed class SpecAttackPromptTests
         SpecAttackPrompt.For(Input(), Look()).Should().Contain(PluginBrief).And.Contain(Yaml.TrimEnd());
     }
 
+    /// <summary>2026-11-10-14a3g: a design turn's reviewer judges the cut; a run's reviewer is asked as before.</summary>
+    [Fact]
+    public void SpecAttackPrompt_ProposalScope_AsksTheThreeJudgementQuestions()
+    {
+        var proposal = SpecAttackPrompt.For(Input() with { Proposal = true }, Look());
+        var run = SpecAttackPrompt.For(Input(), Look());
+
+        proposal.Should().Contain("can ONE coding run build this spec")
+            .And.Contain("Can each done line be answered yes or no")
+            .And.Contain("every capability the uploaded material lists as approved");
+        run.Should().NotContain(SpecAttackPrompt.ProposalJudgement);
+    }
+
     [Fact]
     public void SpecAttackPrompt_ShowsEvidenceProblemsAndPriorResidues()
     {

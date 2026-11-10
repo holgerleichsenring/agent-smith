@@ -47,7 +47,9 @@ public sealed class DialogGroundingReader(
         var principles = await ReadPrinciplesAsync(provider, repo.Name, contexts.Documents, cancellationToken);
         var design = await files.SingleAsync( // 2026-10-01-283dg
             provider, repo.Name, ProjectMetaPaths.DesignSystem, cancellationToken);
-        return new DialogGrounding(repo.Name, true, null, contexts, principles, design);
+        // 2026-11-10-14a3d: the memory index, so a turn offers the memory tools only over a store that exists.
+        var memory = await files.SingleAsync(provider, repo.Name, ProjectMetaPaths.MemoryIndex, cancellationToken);
+        return new DialogGrounding(repo.Name, true, null, contexts, principles, design, memory);
     }
 
     private async Task<RemoteFileSet> ReadContextsAsync(

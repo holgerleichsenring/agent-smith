@@ -29,18 +29,21 @@ public sealed class ProposalEvidenceReview(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(proposal);
         var drafts = Checked(proposal);
-        return drafts.Count == 0 || DerivationLookFactory.ProposalRepositories(pipeline) is not { } repositories
+        var repositories = DerivationLookFactory.ProposalRepositories(pipeline);
+        var references = Specs.Review.ReviewReferences.For(pipeline); // 2026-11-10-864f: citations of an upload resolve
+        return drafts.Count == 0 || (repositories is null && references.Count == 0)
             ? []
-            : await FindingsAsync(drafts, repositories, ct);
+            : await FindingsAsync(drafts, repositories ?? new Dictionary<string, ISandbox>(StringComparer.Ordinal), ct, references);
     }
 
     /// <summary>The cited files of <paramref name="drafts"/> read in <paramref name="repositories"/> — the caller
     /// has decided that every one of them describes what those repositories hold.</summary>
     public async Task<IReadOnlyList<ProposalFinding>> FindingsAsync(
-        IReadOnlyList<SpecDraft> drafts, IReadOnlyDictionary<string, ISandbox> repositories, CancellationToken ct)
+        IReadOnlyList<SpecDraft> drafts, IReadOnlyDictionary<string, ISandbox> repositories, CancellationToken ct,
+        IReadOnlyDictionary<string, ISandbox>? references = null)
     {
         ArgumentNullException.ThrowIfNull(drafts);
-        var probe = new SandboxEvidenceProbe(repositories, activity);
+        var probe = new SandboxEvidenceProbe(repositories, activity, references);
         var findings = new List<ProposalFinding>();
         foreach (var draft in drafts)
             foreach (var fact in draft.Facts)

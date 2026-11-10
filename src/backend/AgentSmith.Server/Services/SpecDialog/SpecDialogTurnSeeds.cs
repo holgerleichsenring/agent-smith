@@ -38,7 +38,7 @@ internal static class SpecDialogTurnSeeds
     internal static Dictionary<string, object> Build(
         ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
-        IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null,
+        SpecDialogTurnFacts facts, SeededTicket? ticket = null,
         BoundTicket? bound = null, IReadOnlyList<DesignSource>? designSources = null,
         ResolvedProject? project = null, DialogThread? thread = null)
     {
@@ -52,9 +52,6 @@ internal static class SpecDialogTurnSeeds
             // that seeded nothing is indistinguishable from one whose images were dropped.
             [ContextKeys.SpecDialogImages] = images,
             [ContextKeys.DialogueJobId] = state.JobId,
-            // 2026-09-22-9519: the way back out of a filing, seeded beside the identity it acts
-            // under — the master builds the tool from the two together.
-            [ContextKeys.SpecDialogWithdrawal] = withdrawal,
             [ContextKeys.Sandboxes] = (IReadOnlyDictionary<string, ISandbox>)sandboxes,
             // A template is addressed by its own name, like every other entry: the master
             // reads the address list off this map, so an entry missing here is reachable
@@ -69,6 +66,8 @@ internal static class SpecDialogTurnSeeds
         // 2026-09-17-042ed: only an edit turn carries one, and the prompt renders its findings.
         if (state.Revising is { } revising) seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
         if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
+        // 2026-09-22-9519: the way back out of a filing, beside the identity it acts under; 14a3d: only once something was filed.
+        if (facts.Withdrawal is { } withdrawal) seeds[ContextKeys.SpecDialogWithdrawal] = withdrawal;
         if (state.WorkPicture is { } picture) seeds[ContextKeys.SpecDialogWorkPicture] = picture; // 2026-11-05-862ea
         // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
         // carries it, so an unbound conversation renders exactly the prompt it rendered before.

@@ -9,19 +9,19 @@ using Moq;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-10-12-f5f7a: the design dialog is told, before it proposes, that a spec names exactly one
-/// of the repositories in scope and that work in two is proposed as an epic.
+/// 2026-10-12-f5f7a: the design dialog is told which repositories are in scope. 2026-11-10-14a3e: the rule that a spec
+/// names one of them is the skill's; repeated here in capitals it read as "one child per repository".
 /// </summary>
 public sealed class DialogScopeRepositoriesSectionTests
 {
     [Fact]
-    public void Render_TwoRepositories_StatesOnePerSpecAndTheEpicSplit()
+    public void SpecDialogFooter_NamesTheScope_WithoutTheRepositoryRule()
     {
         var rendered = DialogScopeRepositoriesSection.Render(With("BackgroundWorker", "Server", "template:base"));
 
-        rendered.Should().Contain("## Repositories in scope").And.Contain("EXACTLY ONE")
-            .And.Contain("proposed as an epic whose children each name one repository")
+        rendered.Should().Contain("## Repositories in scope")
             .And.Contain("- BackgroundWorker").And.Contain("- Server").And.NotContain("template:base");
+        rendered.Should().NotContain("EXACTLY ONE").And.NotContain("epic");
     }
 
     [Fact]
@@ -38,19 +38,7 @@ public sealed class DialogScopeRepositoriesSectionTests
         pipeline.Set<IReadOnlyList<SpecDialogTurn>>(
             ContextKeys.SpecDialogTranscript, [new SpecDialogTurn("user", "move the retry policy")]);
 
-        new SpecDialogPromptFactory().Build(pipeline, 0, 0)
-            .Should().Contain("proposed as an epic whose children each name one repository");
-    }
-
-    // 2026-11-05-862ea: a repository may carry several children, so a shared definition is cut ahead of its users.
-    [Fact]
-    public void DialogScopeRepositoriesSection_TwoRepositories_AllowsSeveralSpecsPerRepository()
-    {
-        var rendered = DialogScopeRepositoriesSection.Render(With("BackgroundWorker", "Server"));
-
-        rendered.Should().Contain("a repository may carry several children")
-            .And.Contain("a definition used across repositories can be its own child ahead of those that use it")
-            .And.NotContain("depends on the other second");
+        new SpecDialogPromptFactory().Build(pipeline, 0, 0).Should().Contain("## Repositories in scope");
     }
 
     private static PipelineContext With(params string[] keys)

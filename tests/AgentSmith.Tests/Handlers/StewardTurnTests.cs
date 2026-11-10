@@ -70,19 +70,19 @@ public sealed class StewardTurnTests
         await Run(loop, TurnContext(PipelinePresets.TicketStewardMaster));
 
         loop.Tools.Should().Contain(["start_next_attempt", "read_series", "edit_series", "verify_series",
-            "spawn_agents", "read_sub_agent_observations", "read_ticket", "ticket_runs", "read_file"]);
+            "spawn_agents", "read_ticket", "ticket_runs", "read_file"]);
         loop.Tools.Should().NotContain(TicketStewardTools.Excluded);
     }
 
     [Fact]
-    public async Task DesignTurn_SameSeeds_KeepsWithdrawAndDecideByDefault()
+    public async Task DesignTurn_SameSeeds_KeepsWithdrawAndTheTicketActs()
     {
         var loop = new ReplyingLoop("An answer.");
 
         await Run(loop, TurnContext(DesignMaster));
 
-        loop.Tools.Should().Contain("withdraw_filed_ticket").And.Contain(DefaultDecisionToolHost.Name)
-            .And.Contain("start_next_attempt");
+        loop.Tools.Should().Contain("withdraw_filed_ticket").And.Contain("start_next_attempt")
+            .And.NotContain(DefaultDecisionToolHost.Name, "2026-11-10-fc66: a design turn's choices go into its reply");
     }
 
     [Theory]
@@ -95,7 +95,7 @@ public sealed class StewardTurnTests
         await Run(new SurfaceCapturingLoop(spawn: true), TurnContext(master), children);
 
         var childTools = children.SeenContexts.Single().ChildTools.Select(t => t.Name).ToList();
-        childTools.Should().Contain(["read_file", "read_ticket", "ticket_runs", "recall"]);
+        childTools.Should().Contain(["read_file", "read_ticket", "ticket_runs"]); // 14a3d: recall only over a store
         childTools.Should().OnlyContain(name => SpecDialogChildTools.ReadTools.Contains(name));
         childTools.Should().NotContain(["withdraw_filed_ticket", "start_next_attempt", "edit_series", "verify_series",
             "ask_human", "remember", "http_request"]);

@@ -9,6 +9,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// proposes names exactly one of them — the same rule <see cref="DialogDraftRepos"/> checks, said
 /// first so a binary ahead of the skills release asks too. A scope of one or none renders nothing:
 /// there is nothing to choose, and the one repository is filled in.
+/// 2026-11-10-14a3e: the rule itself is the skill's; repeated here in capitals it read as "one child per
+/// repository". The section lists the names a spec's `repos` is spelled from.
 /// </summary>
 public static class DialogScopeRepositoriesSection
 {
@@ -20,11 +22,7 @@ public static class DialogScopeRepositoriesSection
         var sb = new StringBuilder();
         sb.AppendLine();
         sb.AppendLine("## Repositories in scope");
-        sb.AppendLine(
-            "A spec you propose names in `repos` EXACTLY ONE of these repositories — the one whose code it "
-            + "changes, spelled as listed. Work that changes several of them is proposed as an epic whose children "
-            + "each name one repository, and a repository may carry several children — a definition used across "
-            + "repositories can be its own child ahead of those that use it.");
+        sb.AppendLine("A spec's `repos` names one of these, spelled as listed:");
         foreach (var name in scope) sb.AppendLine($"- {name}");
         return sb.ToString();
     }

@@ -27,7 +27,8 @@ public sealed class SpecRoundEvidence(
 
         var repositories = SpecReviewRepositories.OnePerRepository(pipeline)
             ?? new Dictionary<string, Contracts.Sandbox.ISandbox>(StringComparer.Ordinal);
-        var probe = new CountingEvidenceProbe(new SandboxEvidenceProbe(repositories, activity));
+        // 2026-11-10-864f: reference:<name>/<path> resolves in the upload, held or carried.
+        var probe = new CountingEvidenceProbe(new SandboxEvidenceProbe(repositories, activity, ReviewReferences.For(pipeline)));
         var problems = new List<SpecEvidenceProblem>();
         var minted = 0;
         foreach (var fact in draft.Facts)

@@ -9,9 +9,12 @@ namespace AgentSmith.Application.Services.Tools;
 /// 2026-11-05-862eb: outcome_format — the design master reads the format of the block it is about to draft from the
 /// catalog's references, so the formats ride the turn that proposes rather than every turn's system prompt. An epic
 /// gets the spec format first, since each of its children is a spec. A catalog that ships no such reference keeps
-/// the formats in the master's own instructions, and the answer says so.
+/// the formats in the master's own instructions, and the answer says so. 2026-11-10-14a3f: a format is returned once
+/// per turn (one host serves one turn); asked again, the tool says it stands above — conversation 43 carried the
+/// 12000-character epic format twice in one turn. 2026-11-10-85e2: unless the conversation was folded since — a fold
+/// summarizes what stood above, so the format is returned again.
 /// </summary>
-public sealed class OutcomeFormatToolHost(ISkillReferenceSource references) : IToolHost
+public sealed class OutcomeFormatToolHost(ISkillReferenceSource references, TurnFolds? folds = null) : IToolHost
 {
     public const string Name = "outcome_format";
 
@@ -36,8 +39,8 @@ public sealed class OutcomeFormatToolHost(ISkillReferenceSource references) : IT
     }
 
     [Description(
-        "Return the format of an outcome block before you draft or re-draft it — after a validation error, a "
-        + "review's cuts or an operator's edit note too. It is not a source read.")]
+        "Return the format of an outcome block before you draft it. A format returned once stands in this turn, so a "
+        + "re-draft writes to the one above. It is not a source read.")]
     private string OutcomeFormat(
         [Description("spec, bug, epic, tickets, comment or document.")] string kind)
     {
@@ -45,9 +48,15 @@ public sealed class OutcomeFormatToolHost(ISkillReferenceSource references) : IT
         var format = Formats.FirstOrDefault(f => string.Equals(f.Kind, wanted, StringComparison.OrdinalIgnoreCase));
         if (format.Slugs is null)
             return $"There is no format for '{wanted}'. The kinds are: {string.Join(", ", Formats.Select(f => f.Kind))}.";
-        var bodies = format.Slugs.Select(references.TryRead).ToList();
-        return bodies.Any(body => body is null)
-            ? InOwnInstructions
-            : string.Join("\n\n", bodies.Select(body => body!.TrimEnd()));
+        var bodies = format.Slugs.Select(slug => (Slug: slug, Body: references.TryRead(slug))).ToList();
+        if (bodies.Any(b => b.Body is null)) return InOwnInstructions;
+        var now = folds?.Count ?? 0;
+        var fresh = bodies.Where(b => !_given.TryGetValue(b.Slug, out var at) || at != now).ToList();
+        foreach (var b in fresh) _given[b.Slug] = now;
+        return fresh.Count > 0
+            ? string.Join("\n\n", fresh.Select(b => b.Body!.TrimEnd()))
+            : $"The {wanted} format was returned earlier in this turn and stands above; write the block to it.";
     }
+
+    private readonly Dictionary<string, int> _given = new(StringComparer.Ordinal);
 }

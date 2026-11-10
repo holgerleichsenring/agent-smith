@@ -109,8 +109,8 @@ internal static class SpecDialogExtensions
             sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<Tickets.TicketProjects>(),
             sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
             sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
-        // 2026-09-15-6d9c: the proposal pane — what a turn would file, and what filing created.
-        services.AddTransient<SpecDialogProposalComposer>();
+        // 2026-09-15-6d9c: the proposal pane — what a turn would file, and what filing created. 14a3d: what a turn may offer.
+        services.AddTransient<SpecDialogProposalComposer>().AddTransient<SpecDialogTurnMaterial>();
         services.AddSingleton<DashboardOutcomeChannel>();
         // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
         services.AddSingleton<DashboardReadingChannel>().AddScoped<TicketReadReports>().AddScoped<TicketDiscussion>();

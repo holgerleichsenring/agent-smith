@@ -63,7 +63,7 @@ public sealed class DerivationLookFactory(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
-            sandboxes, files, ecosystems, logger, borrowed, terms, activity: turnActivity,
+            Review.ReviewReferences.Beside(pipeline, sandboxes)!, files, ecosystems, logger, borrowed, terms, activity: turnActivity,
             stages: stages, borrowsTemplates: borrowed is not null);
     }
 
@@ -79,13 +79,9 @@ public sealed class DerivationLookFactory(
     }
 
     /// <summary>
-    /// 2026-09-17-042ed: the look a design turn's proposal is reviewed with — the turn's own
-    /// repository sandboxes, read off <see cref="ContextKeys.Sandboxes"/> directly, because a
-    /// design turn starts no coordinator and so carries no discoveries for
-    /// <see cref="SandboxTargets"/> to resolve. The dialog's map holds its templates too; a key
-    /// under <see cref="TemplateScopeName.Prefix"/> is the only mark one carries there, so those
-    /// are dropped — and 2026-10-01-283dc an uploaded website under <see cref="ReferenceScopeName.Prefix"/> too. No audit: every entry is a read-only source scope that runs no command.
-    /// Null when the turn has no repository, and the review is the text-against-text one.
+    /// 2026-09-17-042ed: the look a design turn's proposal is reviewed with — the turn's own repository sandboxes,
+    /// read off <see cref="ContextKeys.Sandboxes"/> directly (a design turn has no discoveries), templates dropped.
+    /// 2026-11-10-864f: its uploads join read-only under their address. No audit. Null when it holds neither.
     /// </summary>
     public DerivationLook? ForProposalReview(PipelineContext pipeline) => ForProposal(pipeline, DerivationLookTerms.ProposalReview);
 
@@ -100,8 +96,8 @@ public sealed class DerivationLookFactory(
         ForProposal(pipeline, DerivationLookTerms.AttackReviewFor(draft));
 
     private DerivationLook? ForProposal(PipelineContext pipeline, DerivationLookTerms terms) =>
-        ProposalRepositories(pipeline) is { } repositories
-            ? new DerivationLook(repositories, files, ecosystems, logger, templates: null,
+        Review.ReviewReferences.Beside(pipeline, ProposalRepositories(pipeline)) is { } readable
+            ? new DerivationLook(readable, files, ecosystems, logger, templates: null,
                 terms, audits: false, activity: turnActivity)
             : null;
 

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-14a3a
+goal: "A child's answer reaches its master whole, the child is told what a good answer holds, and only a runaway past a high ceiling is cut, saying so first."
+applies_to: "default (sub-agent answer, spawn result, child situation)"
+facts:
+  - claim: "Conversation 43's PoC-Analyst answer was cut at 12000 characters with the notice as its last line; the master never read the rest."
+    evidence: "observed: 2026-11-10, prod run 2026-11-10T11-22-43-0ee5, prompt position 8"
+  - claim: "The answer was cut at 12000 characters with the notice appended after the kept text."
+    evidence: "observed: 2026-11-10, src/backend/AgentSmith.Application/Services/Loop/SubAgentAnswer.cs before this spec"
+  - claim: "read_sub_agent_observations and its answer store existed only to return a cut answer whole."
+    evidence: "observed: 2026-11-10, ReadSubAgentObservationsToolHost and IChildAnswerStore before this spec"
+steps:
+  - id: whole
+    action: "spawn_agents returns every child's whole answer; a runaway past 60000 characters is cut, says so first and is logged."
+  - id: situation
+    action: "The child's situation asks for the conclusion first, the facts with their files, typically up to about 1500 words, and a line on what it left out."
+  - id: delete
+    action: "Delete read_sub_agent_observations, the child answer store and its sanity case; nothing else used them."
+tests:
+  - "SpawnAgents_LongAnswer_ComesBackWhole_ARunawayIsMarkedFirst"
+  - "SubAgentSituation_TellsTheChildWhatAGoodAnswerHolds"
+  - "SubAgentRunner_ChildFinalAnswer_IsTheResultsAnswer"
+done:
+  - "A 20000-character answer reaches the master whole; a runaway's entry starts with the cut."
+  - "No master or child is offered read_sub_agent_observations."
+  - "Backend and dashboard build and tests green."

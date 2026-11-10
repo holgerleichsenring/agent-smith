@@ -221,7 +221,7 @@ public sealed class AgenticMasterHandlerTests
             .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
-        tools.Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
+        tools.Should().Contain("spawn_agents").And.NotContain("read_sub_agent_observations");
         tools.Should().Contain("read_file");
         tools.Should().NotContain("write_file", "a scan master + its children stay read-only");
         tools.Should().NotContain("run_command");
@@ -237,7 +237,7 @@ public sealed class AgenticMasterHandlerTests
             .ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
-        tools.Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
+        tools.Should().Contain("spawn_agents").And.NotContain("read_sub_agent_observations");
         tools.Should().Contain("write_file").And.Contain("run_command", "coding children can write + run");
     }
 

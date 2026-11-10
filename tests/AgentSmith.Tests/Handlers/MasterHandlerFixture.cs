@@ -166,7 +166,6 @@ internal static class MasterHandlerFixture
             subAgents ?? new StubSubAgentRunner(),
             new SubAgentNameValidator(),
             new NoOpDecisionLogger(),
-            new InMemoryChildAnswerStore(),
             // 2026-10-01-7f7ab: a project with no figma source never reaches the client.
             new AgentSmith.Application.Services.Tools.DesignReadToolHostFactory(
                 figma ?? Mock.Of<AgentSmith.Contracts.Providers.IFigmaClient>(MockBehavior.Strict),

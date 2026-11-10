@@ -68,6 +68,10 @@ public sealed class ReferenceSetSandbox(
             ex => $"The upload '{address}' could not be opened: {ex.Message}", NotRepeated, ReportAsync, cancellationToken));
     }
 
+    /// <summary>2026-11-10-864f: a reviewer's read — served like the turn's, not counted as what the turn opened.</summary>
+    internal async Task<StepResult> RunUnrecordedAsync(Step step, CancellationToken ct) => Refusal(step) ?? await _steps.RunAsync(
+        step, null, OpenAsync, ex => $"The upload '{address}' could not be opened: {ex.Message}", NotRepeated, ReportAsync, ct);
+
     // 2026-11-09-9631c: an upload draws no line for its first open, only when it has to reopen.
     private Task ReportAsync(SourceScopeProgress state, CancellationToken ct) =>
         observers?.Current?.ReportAsync(address, state, ct) ?? Task.CompletedTask;

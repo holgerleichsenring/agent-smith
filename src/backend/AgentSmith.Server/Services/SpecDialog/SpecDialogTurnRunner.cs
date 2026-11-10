@@ -36,7 +36,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogPendingQuestions pendingQuestions,
     SpecDialogTurnGate gate, TicketTextForConversation ticketText, BoundTicketReaders readers,
     DashboardReadingChannel reading,
-    DashboardActivityChannel activity, AgentSmith.Contracts.Dialogue.IFiledTicketWithdrawal withdrawal, SpecDialogThreadStore threads,
+    DashboardActivityChannel activity, SpecDialogTurnMaterial material, SpecDialogThreadStore threads,
     ILogger<SpecDialogTurnRunner> logger, SpecDialogProposalContinuity continuity) : ISpecDialogTurnRunner
 {
     public async Task<SpecDialogTurnResult> RunTurnAsync(
@@ -53,7 +53,7 @@ public sealed class SpecDialogTurnRunner(
         var slot = new SpecDialogReplySlot();
         var seeds = SpecDialogTurnSeeds.Build(
             await continuity.ContinuingAsync(state, cancellationToken), scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
-            withdrawal, await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
+            await material.OfAsync(state.JobId, cancellationToken), await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
             await readers.ForAsync(state.JobId, project, poster, cancellationToken), project.DesignSources, project, await threads.LoadAsync(state, project.Agent, cancellationToken));
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,

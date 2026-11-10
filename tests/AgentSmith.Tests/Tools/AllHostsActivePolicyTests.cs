@@ -21,7 +21,6 @@ public sealed class AllHostsActivePolicyTests
             typeof(HumanToolHost),
             typeof(WebToolHost),
             typeof(SpawnAgentToolHost),
-            typeof(ReadSubAgentObservationsToolHost),
             typeof(GetArtifactCredentialsToolHost),
             typeof(WriteContextYamlToolHost),
         });
@@ -34,7 +33,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts("invoice-processor-not-yet-registered");
 
-        allowed.Should().HaveCount(8);
+        allowed.Should().HaveCount(7);
     }
 
     [Fact]
@@ -44,7 +43,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts(IToolKit.WildcardPipelineName);
 
-        allowed.Should().HaveCount(8);
+        allowed.Should().HaveCount(7);
     }
 
     [Fact]

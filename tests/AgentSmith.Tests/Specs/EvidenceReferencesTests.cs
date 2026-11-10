@@ -20,6 +20,22 @@ public sealed class EvidenceReferencesTests
         reading.References[2].LineText.Should().BeNull();
     }
 
+    /// <summary>2026-11-10-864f: an uploaded folder named "requirements 1" is the common case, not an edge case.</summary>
+    [Fact]
+    public void EvidenceReferences_PathWithASpace_IsOneCitationUpToItsLines()
+    {
+        var reading = _reader.Read(
+            "reference:requirements-1/requirements 1/spec-doc/product-requirements.md:3-11; "
+            + "repo-a/My Folder/src/a.cs:4 and src/b.cs:2, as the docs/Read Me says");
+
+        reading.References.Select(r => (r.Qualifier, r.Path)).Should().Equal(
+            ("reference", "requirements-1/requirements 1/spec-doc/product-requirements.md"),
+            ((string?)null, "repo-a/My Folder/src/a.cs"),
+            ((string?)null, "src/b.cs"),
+            ((string?)null, "docs/Read"));
+        reading.References[0].Lines.Should().Equal(new EvidenceLineRange(3, 11));
+    }
+
     [Fact]
     public void EvidenceReferences_ContinuationAfterComma_BindsToThePreviousPath()
     {

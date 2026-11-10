@@ -32,6 +32,18 @@ public sealed class WorkPictureSurfaceTests
             "the last admitted call of a turn wins");
     }
 
+    [Fact]
+    public void StateWorkPicture_KindDescription_DefinesAllFourKinds()
+    {
+        var schema = new WorkPictureToolHost(new SpecDialogReplySlot()).GetTools(null, null).Single().JsonSchema.ToString();
+
+        schema.Should().Contain("rebuild: the behavior already exists somewhere")
+            .And.Contain("proof of concept")
+            .And.Contain("feature: behavior that exists nowhere yet")
+            .And.Contain("fix: existing behavior that is wrong")
+            .And.Contain("document: writing documentation as the work");
+    }
+
     [Theory]
     [InlineData("migration", "repo-a", "series", "The kind 'migration' is none of: rebuild, feature, fix, document.")]
     [InlineData("1", "repo-a", "series", "The kind '1' is none of")]

@@ -146,17 +146,14 @@ public sealed class SubAgentRunnerTests
     }
 
     [Fact]
-    public async Task SubAgentRunner_StoresChildFinalAnswer_InStore()
+    public async Task SubAgentRunner_ChildFinalAnswer_IsTheResultsAnswer()
     {
         var stub = new StubLoopRunner();           // returns answer text "ok"
         var sut = BuildRunner(stub);
-        var store = new InMemoryChildAnswerStore();
-        var ctx = BuildContext() with { AnswerStore = store };
 
-        var results = await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+        var results = await sut.RunAsync(new[] { Spec("RepoScout") }, BuildContext(), CancellationToken.None);
 
-        store.TryGet(results[0].SubAgentId, out var answer).Should().BeTrue();
-        answer.Should().Be("ok");
+        results[0].Answer.Should().Be("ok", "2026-11-10-14a3a: the answer comes back whole in the result");
     }
 
     // Regression: the child's AgentConfig was looked up from the pipeline
@@ -257,7 +254,6 @@ public sealed class SubAgentRunnerTests
             tracker,
             MasterRunId: "run-test",
             ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
-            AnswerStore: new InMemoryChildAnswerStore(),
             Budget: new SubAgentBudget(maxPerRun: 100),
             AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" });
     }

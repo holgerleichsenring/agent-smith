@@ -45,7 +45,7 @@ public sealed class DesignReferenceRulesTests
             "the rule has to say WHEN the document comes, or it waits behind a discussion");
         master.Should().NotContain("{{ref:writing-documents}}",
             "outcome_format('document') serves the reference on the turn that drafts one");
-        master.Should().Contain("(`spec`, `bug`, `epic`, `tickets`, `comment` or `document`) and write the",
+        master.Should().Contain("(`spec`, `bug`, `epic`, `tickets`, `comment` or `document`)",
             "the master asks outcome_format for the document's format like any other kind's");
 
         var reference = PackagedMaster.ReadEntry("references/writing-documents.md");
@@ -108,10 +108,9 @@ public sealed class DesignReferenceRulesTests
         var partner = DesignPartner();
         var coding = CodingAgent();
 
-        partner.Should().Contain("## Reading a design",
-            Because("design_read is on the design partner's surface when a Figma source exists"));
-        partner.Should().Contain("`design_read` is the way to a design: a",
-            "a Figma page fetched any other way returns the application shell");
+        // 2026-11-10-14a3h: design_read's guidance rides its own description, offered only with a Figma source.
+        partner.Should().NotContain("## Reading a design",
+            Because("the section left the system prompt for the tool that appears with its material"));
         PackagedMaster.Reference("design-outcome-spec").Should().Contain("  `version` design_read reported",
             "a ticket derived from a design cites the version the run compares against");
 
@@ -134,14 +133,16 @@ public sealed class DesignReferenceRulesTests
         var coding = CodingAgent();
         var precedence = PackagedMaster.ReadEntry("references/source-precedence.md");
 
-        partner.Should().Contain("## Reading a website, a mock or a design system",
-            Because("uploads, mocks and DESIGN.md reach the design partner as exact values"));
+        // 2026-11-10-14a3h: uploads keep their section; mock and design-system guidance ride their tools and sections.
+        partner.Should().Contain("## Uploaded material",
+            Because("an upload reaches the design partner as an address it reads like a repository"));
         PackagedMaster.Reference("design-outcome-spec").Should().Contain(
             "the `DESIGN.md` token — never \"looks like the reference\". A run compares",
             "criteria carry the values, because the comparison reports and never decides");
-        partner.Should().Contain(
-            "inherit — while the look of a visual reference is part of that WHAT.",
-            "the precedence preamble must not read a visual reference's look as mere form");
+        partner.Should().Contain("What the material records is the WHAT",
+            "the WHAT rule leads the precedence for this master");
+        precedence.Should().Contain("**look is part of the WHAT**",
+            "the visual-reference paragraph keeps one home, the shared order");
 
         coding.Should().Contain(
             "A **visual reference** is requirement data the same way, and each form gives",

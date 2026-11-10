@@ -39,7 +39,7 @@ public sealed class SanitySurfaceTests
             .ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         loop.MasterTools.Should().NotBeEmpty().And.OnlyContain(t => t is SanityAnnotatedTool);
-        loop.MasterTools.Select(t => t.Name).Should().Contain(["spawn_agents", "read_sub_agent_observations", "write_file"]);
+        loop.MasterTools.Select(t => t.Name).Should().Contain(["spawn_agents", "write_file"]);
         children.SeenContexts.Single().ChildTools.Should().NotBeEmpty().And.OnlyContain(t => t is SanityAnnotatedTool);
     }
 

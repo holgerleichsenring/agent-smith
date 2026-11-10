@@ -89,10 +89,10 @@ public sealed class SourceScopeToolOperandTests
         var host = new FilesystemToolHost(new RecordingSandbox());
 
         var names = new AgenticToolSurface()
-            .SpecDialog(host, NoTools()).Select(tool => tool.Name).ToList();
+            .SpecDialog(host).Select(tool => tool.Name).ToList();
 
         names.Should().Contain("find_files");
-        names.Should().Contain("http_request");
+        names.Should().NotContain("http_request", "2026-11-10-fc66: web_fetch reads docs; any-method HTTP is not a conversation's");
         names.Should().NotContain("run_command", "the surface does not widen what it may ask for");
         names.Should().NotContain("write_file");
     }
@@ -170,14 +170,6 @@ public sealed class SourceScopeToolOperandTests
             revision: null, hold: null,
             new SourceScopeOpener(new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), factory.Object, specBuilder, runContext.Object),
             new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance);
-    }
-
-    private static IToolHost NoTools()
-    {
-        var host = new Mock<IToolHost>();
-        host.Setup(h => h.GetTools(It.IsAny<Application.Models.SkillExecutionPhase?>(), It.IsAny<string?>()))
-            .Returns(Array.Empty<AIFunction>());
-        return host.Object;
     }
 
     private static StepResult Result(int exitCode, string output, string? error = null) => new(

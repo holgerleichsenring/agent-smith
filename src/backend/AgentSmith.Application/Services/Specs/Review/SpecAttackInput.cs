@@ -36,4 +36,7 @@ public sealed record SpecAttackInput(
     /// a sandbox key, stored evidence names the repository. A key missing here is stored as itself.</summary>
     public IReadOnlyDictionary<string, string> RepositoryNames { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>2026-11-10-14a3g: a design turn's draft, not yet filed — its reviewer also judges the cut.</summary>
+    public bool Proposal { get; init; }
 }

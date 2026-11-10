@@ -36,37 +36,41 @@ public sealed class EmptySubAgentAnswerRuleTests
         decisions.Lines.Single().Should().Contain("RepoScout (read the sources) — Empty");
     }
 
+    /// <summary>2026-11-10-14a3a: an answer comes back whole — a part is never useful; only a runaway is cut, saying so first.</summary>
     [Fact]
-    public async Task ReadSubAgentObservations_BlankAnswer_GetsAFrameworkLine()
+    public async Task SpawnAgents_LongAnswer_ComesBackWhole_ARunawayIsMarkedFirst()
     {
-        var text = await Read(store => store.Store("sa-1", "   "), "sa-1");
+        var whole = await Spawn(new string('a', 20000));
+        var runaway = await Spawn(new string('b', SubAgentAnswer.Ceiling + 10));
 
-        text.Should().Contain("\n[framework] sub-agent sa-1 answered nothing");
+        whole.Should().Be(new string('a', 20000));
+        runaway.Should().StartWith("[RUNAWAY — this answer ran to").And.EndWith(new string('b', SubAgentAnswer.Ceiling));
     }
 
+    /// <summary>2026-11-10-85e2: a call's answers together stay under one ceiling, and the result says so first.</summary>
     [Fact]
-    public async Task ReadSubAgentObservations_UnknownIdNullAnswer_IsNotFlagged()
+    public void SubAgentAnswer_CallPastItsCeiling_CutsTheLaterAnswersAndMarksThem()
     {
-        var text = await Read(_ => { }, "sa-unknown");
+        var big = new string('c', 150000);
+        SubAgentResult Row(int i) => new(i, SubAgentStatus.Succeeded, $"sa-{i}", $"Reader{i}", 1, 0m, DateTimeOffset.UnixEpoch, Answer: big);
 
-        text.Should().NotContain("[framework]").And.Contain("no answer recorded for this sub-agent");
+        var kept = SubAgentAnswer.WithinCall([Row(0), Row(1)], out var cut);
+
+        cut.Should().BeTrue();
+        kept[0].Answer.Should().Be(big);
+        kept[1].Answer.Should().StartWith(SubAgentAnswer.CallCutPrefix)
+            .And.EndWith(new string('c', SubAgentAnswer.CallCeiling - 150000));
+        SubAgentAnswer.CeilingText.Should().Be(SubAgentAnswer.Ceiling.ToString(), "the description states the ceiling");
     }
 
-    [Fact]
-    public async Task ReadSubAgentObservations_Answer_IsNotFlagged()
+    private static async Task<string> Spawn(string answer)
     {
-        var text = await Read(store => store.Store("sa-1", "two endpoints"), "sa-1");
-
-        text.Should().NotContain("[framework]");
-    }
-
-    private static async Task<string> Read(Action<IChildAnswerStore> seed, string id)
-    {
-        var store = new InMemoryChildAnswerStore();
-        seed(store);
-        var tool = (AIFunction)TestSanity.Wrapper()
-            .Wrap(new ReadSubAgentObservationsToolHost(store).GetTools(null, null), SanityCalls.Pipeline()).Single();
-        return ToolResultBound.TextOf(await tool.InvokeAsync(new AIFunctionArguments { ["sub_agent_id"] = id }, CancellationToken.None))!;
+        var host = new SpawnAgentToolHost(SubAgentRunnerTests.BuildRunner(new StubLoopRunner(answer: answer)),
+            new SubAgentBudget(5), new SubAgentNameValidator(), new RecordingDecisionLogger(), SubAgentRunnerTests.BuildContext());
+        var result = (await host.GetTools(null, null).Single().InvokeAsync(
+            new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, CancellationToken.None))!;
+        return JsonDocument.Parse(((JsonElement)result).GetString()!).RootElement
+            .GetProperty("results")[0].GetProperty("answer").GetString()!;
     }
 
     private sealed class RecordingDecisionLogger : IDecisionLogger

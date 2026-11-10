@@ -57,7 +57,7 @@ public sealed class DialogTurnAuthorTests
 
         var seeds = SpecDialogTurnSeeds.Build(
             state, [new RepoConnection { Name = "sample-api" }], new Dictionary<string, ISandbox>(),
-            new SpecDialogReplySlot(), DialogImageSet.None, Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>());
+            new SpecDialogReplySlot(), DialogImageSet.None, new SpecDialogTurnFacts(Mock.Of<Contracts.Dialogue.IFiledTicketWithdrawal>()));
 
         ((IReadOnlyList<SpecDialogTurn>)seeds[ContextKeys.SpecDialogTranscript])
             .Select(t => t.Author).Should().Equal("Ada", null);

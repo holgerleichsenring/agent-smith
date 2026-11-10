@@ -235,7 +235,7 @@ public sealed class AgenticMasterHandler(
             sandboxes, defaultKey, context.Repository.LocalPath,
             runCommandTimeoutSeconds: runCommandTimeout, stepTimeoutCapSeconds: stepTimeoutCap,
             keyToRepo: keyToRepo, logger: logger)
-        { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline) };
+        { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline), ResolvesUnprefixedReads = isSpecDialog }; // 85e2
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
         var records = recordHosts.Create(context.Pipeline, context.Repository.LocalPath);
         // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
@@ -383,7 +383,7 @@ public sealed class AgenticMasterHandler(
             Tools: masterTools,
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
-            MasterLoopHooks: masterHooks);
+            MasterLoopHooks: masterHooks ?? (isSpecDialog ? new MasterLoopHooks(OnFold: Tools.TurnFolds.Of(context.Pipeline).Fold) : null)); // 85e2: real folds counted
         // The observation-schema and the dialog surfaces' own ceilings, budgets and reduction.
         request = isScanMaster ? ScanSurfaceLimits.Apply(request, context.AgentConfig, context.Pipeline)
             : isSpecDialog ? DialogSurfaceLimits.Apply(request, context) : request;

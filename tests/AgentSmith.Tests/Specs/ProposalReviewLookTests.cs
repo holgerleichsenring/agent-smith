@@ -32,18 +32,40 @@ public sealed class ProposalReviewLookTests
         look.Terms.EvidencePrefix.Should().Be("P");
     }
 
-    /// <summary>2026-10-01-283dc: an uploaded website is no repository a proposal assumes either.</summary>
+    /// <summary>2026-11-10-864f: the turn's uploads join the look under the address the specs cite them by, so a
+    /// reviewer can check a fact that rests on the material (2026-10-01-283dc had left them out).</summary>
     [Fact]
-    public void DerivationLookFactory_ProposalReview_ExcludesReferenceAddresses()
+    public async Task DerivationLookFactory_ProposalReview_ListsAndReadsTheUploads()
     {
+        var upload = new RecordingScope();
         var pipeline = Turn(new RecordingScope(), new RecordingScope());
         var sandboxes = new Dictionary<string, ISandbox>(pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes))
         {
-            ["reference:site"] = new RecordingScope(),
+            ["reference:site"] = upload,
         };
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)sandboxes);
+        var look = Factory().ForProposalReview(pipeline)!;
+        var search = new RepositorySearchTool(look, NullLogger.Instance);
 
-        Factory().ForProposalReview(pipeline)!.Repositories.Should().Equal([Repo]);
+        var answer = await search.SearchRepository("reference:site", "Notification", "spec-doc");
+
+        look.Repositories.Should().BeEquivalentTo([Repo, "reference:site"]);
+        upload.Ran.Should().ContainSingle().Which.Kind.Should().Be(StepKind.Grep);
+        upload.Ran.Single().Path.Should().Be("/work/spec-doc");
+        answer.Should().NotContain("could not be opened");
+    }
+
+    [Fact]
+    public async Task ReviewReferenceView_ServesReadsOnly()
+    {
+        var upload = new RecordingScope();
+        var view = ReviewReferenceView.Over("reference:site", upload);
+
+        var refused = await view.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "rm -rf ."), null, CancellationToken.None);
+
+        refused.ExitCode.Should().NotBe(0);
+        upload.Ran.Should().BeEmpty("a review never runs a command on uploaded material");
     }
 
     [Fact]

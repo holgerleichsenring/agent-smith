@@ -14,7 +14,8 @@ public sealed class ShapeRuleMasterRulesTests
     {
         var format = PackagedMaster.Reference("design-outcome-spec");
 
-        format.Should().Contain("A shape rule is a step, never a done criterion.");
+        format.Should().Contain("is a step, never a done line, also when the operator wrote it", // 2026-11-10-14a3h: one sentence
+            "a shape rule stays out of done");
     }
 
     [Fact]

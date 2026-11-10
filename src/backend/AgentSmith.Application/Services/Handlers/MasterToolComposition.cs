@@ -17,8 +17,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Decides which tool surface a master gets and whether the sub-agent pair joins it:
 /// the base surface (read-only Review for a scan master, content-reads for a design
 /// turn, read/write for a coding master), the escalation valve and the progress ledger
-/// where they belong, and the spawn / read-observations pair under the fan-out count
-/// that turn gates on. Every function on the master's and the children's surface carries the
+/// where they belong, and spawn_agents under the fan-out count that turn gates on
+/// (2026-11-10-14a3a: answers come back whole, so nothing reads them a second time). Every function on the master's and the children's surface carries the
 /// sanity annotations.
 /// </summary>
 public sealed class MasterToolComposition(
@@ -29,7 +29,6 @@ public sealed class MasterToolComposition(
     ISubAgentRunner subAgentRunner,
     SubAgentNameValidator subAgentNameValidator,
     IDecisionLogger decisionLogger,
-    IChildAnswerStore childAnswerStore,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
     TicketActToolsFactory ticketActs,
@@ -50,11 +49,11 @@ public sealed class MasterToolComposition(
     {
         Loop.Sanity.RefusedWriteLog.OpenFresh(context.Pipeline); // 2026-10-17-a196a: this step's refusals only
         // p0380: recall (read) + remember (memory-only proposal) join EVERY master surface, including Review/scan.
-        // 2026-09-22-9519: the withdrawal joins the design surface HERE rather than inside
-        // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
-        // what this method decides.
+        // 2026-09-22-9519: the withdrawal joins the design surface here, built only where a dialogue identity exists.
+        // 2026-11-10-14a3d: a design turn's memory tools only over a store its grounding found.
+        var memory = !isSpecDialog || context.Pipeline.TryGet<string>(ContextKeys.MemoryIndex, out var index) && !string.IsNullOrWhiteSpace(index);
         IList<AITool> BaseSurface() => isSpecDialog
-            ? [.. toolSurface.SpecDialog(fs, human, web, records.Recall, records.Remember),
+            ? [.. toolSurface.SpecDialog(fs, web, memory ? records.Recall : null),
                .. withdraw?.GetTools(null, null) ?? [],
                // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
                // gate — only a BOUND design turn carries the port this is built from.
@@ -68,9 +67,9 @@ public sealed class MasterToolComposition(
                     recall: records.Recall, remember: records.Remember);
 
         var master = BaseSurface();
-        // 2026-10-13-8762o: decide_by_default — coding master and design partner, outside BaseSurface: no child.
-        if (!isScanMaster) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
-        master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 2026-10-25-9324b: every master, no child
+        // 8762o: decide_by_default — the coding master only, no child; fc66: a design turn's choices go in its reply.
+        if (!isScanMaster && !isSpecDialog) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
+        if (memory) master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 9324b: every master, no child
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
         // source — the MASTER only, outside BaseSurface: children fanning out over one file would
         // multiply calls against one rate limit, so no child surface derived from it carries it.
@@ -110,11 +109,10 @@ public sealed class MasterToolComposition(
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
             ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
-            AnswerStore: childAnswerStore, Budget: budget, AgentConfig: context.AgentConfig,
+            Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
             ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);
         var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx);
-        var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
-        return sanity.Wrap(master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)), context.Pipeline);
+        return sanity.Wrap(master.Concat(spawn.GetTools(null, null)), context.Pipeline);
     }
 }

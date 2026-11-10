@@ -24,7 +24,7 @@ public sealed partial class MockWriteToolHost(
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? stage, string? investigatorMode) =>
         [AIFunctionFactory.Create(WriteMock, name: "write_mock"), AIFunctionFactory.Create(ReadMock, name: "read_mock")];
 
-    [Description("Stores a whole HTML page as the next version of a spec's mock, renders it in the browser and shows desktop (1440x900) and mobile (390x844) screenshots; the operator sees the desktop one in the conversation. Write the whole page every time — CSS and script inline — never a fragment or a diff.")]
+    [Description("Stores a whole HTML page as the next version of a spec's mock, renders it in the browser and shows desktop (1440x900) and mobile (390x844) screenshots; the operator sees the desktop one in the conversation. Write the whole page every time — CSS and script inline — never a fragment or a diff. Use it when the question is how a page should look; say which version you showed and ask what to change.")]
     public async Task<string> WriteMock(
         [Description("The spec the mock belongs to — the id the proposal names for it.")] string spec_id,
         [Description("The whole page, at most 90000 characters.")] string html,

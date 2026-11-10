@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-14a3e
+
+decisions:
+  - category: Implementation
+    chose: "The section keeps the list of names and drops the rule"
+    over: "Deleting the section"
+    reason: "The names are how a spec's repos is spelled; the rule is the skill's. Said a second time in capitals, last in the prompt, the repository read as the unit of a child."

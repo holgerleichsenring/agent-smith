@@ -31,7 +31,7 @@ public sealed class SpecDialogSubAgentTests
 
         await RunDesignTurnAsync(loop);
 
-        MasterTools(loop).Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
+        MasterTools(loop).Should().Contain("spawn_agents").And.NotContain("read_sub_agent_observations");
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class SpecDialogSubAgentTests
         await RunDesignTurnAsync(loop, children);
 
         var childTools = ChildTools(children);
-        childTools.Should().Contain("recall", "reading memory is a read");
+        childTools.Should().NotContain("recall", "2026-11-10-14a3d: the turn found no memory store");
         childTools.Should().NotContain(
             "remember", "the read-only scope refuses that write by throwing, and a child dies on errors");
     }
