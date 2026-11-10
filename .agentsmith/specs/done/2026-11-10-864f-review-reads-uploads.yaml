@@ -17,8 +17,8 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:66-70; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceReadLog.cs:26-30"
 
 scope:
-  in: "Review looks (proposal review, attack review, and the run's look holders) and both evidence checks read uploads through a view that serves the four reads only. A design turn's held upload is read without counting as what the turn opened; a run's carried copy is addressed as reference:<name>/<path>, rooted at the copy."
-  out: "Citations with a space in their path, which the evidence reader splits into tokens. The reviewer prompt's wording, which lists the look's names as it does today."
+  in: "Review looks (proposal review, attack review, and the run's look holders) and both evidence checks read uploads through a view that serves the four reads only. A design turn's held upload is read without counting as what the turn opened; a run's carried copy is addressed as reference:<name>/<path>, rooted at the copy. A cited path holding a space is read as one citation up to its line suffix."
+  out: "The reviewer prompt's wording, which lists the look's names as it does today."
 
 steps:
   - id: view
@@ -27,6 +27,8 @@ steps:
     action: "ReviewReferences.For collects the views by address; Beside joins them to a look's repositories."
   - id: look
     action: "DerivationLookFactory's proposal and on-terms looks read the uploads beside the repositories."
+  - id: spaces
+    action: "EvidenceReferences joins a path word whose last segment has no extension, line suffix or closing punctuation with the next word when that word holds a '/'."
   - id: probe
     action: "SandboxEvidenceProbe routes the reference qualifier to the upload; ProposalEvidenceReview and SpecRoundEvidence hand it the uploads."
 
@@ -35,6 +37,8 @@ tests:
   - "ReviewReferenceView_ServesReadsOnly"
   - "SandboxEvidenceProbe_ReferenceCitation_ResolvesInTheUpload"
   - "ReviewReferences_CarriedSet_ResolvesACitationAtItsCopy"
+  - "EvidenceReferences_PathWithASpace_IsOneCitationUpToItsLines"
+  - "SandboxEvidenceProbe_ReferenceCitationWithASpace_Resolves"
 
 done:
   - when: "a design turn holding an upload reviews its proposal"

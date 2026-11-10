@@ -48,9 +48,29 @@ public sealed class EvidenceReferences
     }
 
     private static IEnumerable<string> Tokens(string segment) =>
-        segment.Split((char[])[' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
+        Joined(segment.Split((char[])[' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries))
             .Select(t => t.TrimStart('(', '`', '"').TrimEnd(',', ';', '.', ')', '`', '"'))
             .Where(t => t.Length > 0);
+
+    // 2026-11-10-864f: a folder name with a space ("requirements 1/spec-doc/x.md:3") splits into words. A path word
+    // whose last segment has no extension, no line suffix and no closing punctuation continues into the next word when
+    // that word holds a '/' — so "src/Api src/Web.cs" written without a comma is the one shape that would join.
+    private static IEnumerable<string> Joined(IReadOnlyList<string> words)
+    {
+        for (var i = 0; i < words.Count; i++)
+        {
+            var word = words[i];
+            while (i + 1 < words.Count && Continues(word) && words[i + 1].Contains('/')
+                   && words[i + 1][0] is not ('(' or '`' or '"' or ':'))
+                word = $"{word} {words[++i]}";
+            yield return word;
+        }
+    }
+
+    private static bool Continues(string word) =>
+        word.Contains('/') && !word.Contains("://", StringComparison.Ordinal)
+        && word[^1] is not (',' or ';' or '.' or ')' or '`' or '"' or '/')
+        && word[(word.LastIndexOf('/') + 1)..] is { Length: > 0 } last && !last.Contains('.') && !last.Contains(':');
 
     private static EvidenceReference? Reference(string token, EvidenceReference? previous)
     {

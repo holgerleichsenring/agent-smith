@@ -22,3 +22,7 @@ decisions:
     chose: "Unknown upload names stay not checked"
     over: "Reporting a citation of an upload the turn does not hold as missing"
     reason: "A missed check costs less than a false finding; the probe's existing rule."
+  - category: Implementation
+    chose: "A path word continues into the next word only when its last segment has no extension, no line suffix and no closing punctuation, and the next word holds a '/'"
+    over: "Splitting citations at commas and semicolons only, or quoting paths"
+    reason: "The live upload sits under 'requirements 1/', so a path with a space is the common case. Evidence values mix prose and several citations; splitting at commas alone would turn prose words into path tails. A folder word followed by the rest of its path is the one shape the rule joins; two citations separated by a bare space where the first names a folder without extension is the only false join, and the record separates citations with ', ' or '; '."

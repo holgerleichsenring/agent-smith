@@ -125,6 +125,21 @@ public sealed class SandboxEvidenceProbeTests
         unknown.Should().BeOfType<EvidenceProbeResult.NotChecked>("an upload the turn does not hold is not checked");
     }
 
+    [Fact]
+    public async Task SandboxEvidenceProbe_ReferenceCitationWithASpace_Resolves()
+    {
+        var upload = Tree(("requirements 1/spec-doc/product-requirements.md", string.Concat(Enumerable.Repeat("x\n", 12))));
+        var probe = new SandboxEvidenceProbe(new Dictionary<string, ISandbox>(), TurnActivityRecorder.Silent(),
+            new Dictionary<string, ISandbox> { ["reference:requirements-1"] = upload });
+
+        var problems = await new EvidenceCheck(new EvidenceReferences()).CheckAsync(
+            "reference:requirements-1/requirements 1/spec-doc/product-requirements.md:3-11",
+            EvidencePolicy.Product, probe, CancellationToken.None);
+
+        problems.Should().BeEmpty();
+        upload.Ran.Should().ContainSingle().Which.Path.Should().Be("/work/requirements 1/spec-doc/product-requirements.md");
+    }
+
     private static EvidenceTreeSandbox Tree(params (string Path, string Content)[] files) =>
         new(files.ToDictionary(f => f.Path, f => f.Content, StringComparer.Ordinal));
 
