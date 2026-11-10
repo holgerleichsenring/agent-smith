@@ -59,7 +59,13 @@ public sealed record MasterLoopHooks(
     int VerdictOwedAfterIterations = 3,
     // 2026-11-10-85e2: told each time the compactor folds the middle of the conversation, so a tool that relies on an
     // earlier result standing above can tell it may be gone.
-    Action? OnFold = null);
+    Action? OnFold = null)
+{
+    /// <summary>2026-11-10-85e2: whether these hooks give the governor anything to do. A design turn's hooks carry only
+    /// <see cref="OnFold"/>, for its compactor, and its loop stays ungoverned as before.</summary>
+    public bool Governs => IsBudgetExhausted is not null || RecordIterationUsage is not null
+        || RenderReminder is not null || IsLedgerComplete is not null;
+}
 
 /// <summary>
 /// p0341c: raised by the within-pass budget middleware when the running cost crosses the

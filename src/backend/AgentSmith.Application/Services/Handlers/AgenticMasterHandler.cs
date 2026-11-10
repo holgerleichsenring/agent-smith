@@ -383,7 +383,7 @@ public sealed class AgenticMasterHandler(
             Tools: masterTools,
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
-            MasterLoopHooks: masterHooks);
+            MasterLoopHooks: masterHooks ?? (isSpecDialog ? new MasterLoopHooks(OnFold: Tools.TurnFolds.Of(context.Pipeline).Fold) : null)); // 85e2: real folds counted
         // The observation-schema and the dialog surfaces' own ceilings, budgets and reduction.
         request = isScanMaster ? ScanSurfaceLimits.Apply(request, context.AgentConfig, context.Pipeline)
             : isSpecDialog ? DialogSurfaceLimits.Apply(request, context) : request;

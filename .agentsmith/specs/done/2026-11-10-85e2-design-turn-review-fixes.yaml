@@ -22,7 +22,7 @@ steps:
   - id: memory
     action: "The design turn's memory index is composed with standing like a run's; its section names no tool it may lack."
   - id: fold
-    action: "The compactor reports each fold; outcome_format returns a format again when a fold happened since it was given."
+    action: "The compactor reports each fold through hooks a design turn now receives (carrying only OnFold, so its loop stays ungoverned); outcome_format returns a format again when a fold happened since it was given."
   - id: ceiling
     action: "A spawn call's answers stay under 200000 characters together, the cut entries marked first and the result says so first."
   - id: no-answer
@@ -31,7 +31,7 @@ tests:
   - "EmbeddedCatalog_NoSkillOrReference_NamesARetiredTool"
   - "ReadFile_UnprefixedPathOverUnopenedSources_OpensNothing"
   - "ReadFile_UnprefixedPathOnACodingHost_KeepsTheRefusal"
-  - "OutcomeFormat_AfterAFold_ReturnsTheFormatAgain"
+  - "DesignTurn_RealFoldInTheCompactor_MakesOutcomeFormatReturnTheFormatAgain"
   - "SubAgentAnswer_CallPastItsCeiling_CutsTheLaterAnswersAndMarksThem"
   - "TurnMaterial_StoreUnreadable_FailsOpen"
 done:

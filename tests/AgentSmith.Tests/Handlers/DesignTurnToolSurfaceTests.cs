@@ -93,12 +93,68 @@ public sealed class DesignTurnToolSurfaceTests
                 maxSubAgents: 4, subAgents: new MasterHandlerFixture.StubSubAgentRunner(), limits: new LoopLimitsConfig())
             .ExecuteAsync(context, CancellationToken.None);
 
+    /// <summary>2026-11-10-85e2: a design turn's loop request carries hooks whose OnFold feeds the turn's fold count, so
+    /// a real fold in the compactor makes outcome_format return a format again; the loop stays ungoverned.</summary>
+    [Fact]
+    public async Task DesignTurn_RealFoldInTheCompactor_MakesOutcomeFormatReturnTheFormatAgain()
+    {
+        var loop = new CapturingLoop();
+        var context = DesignContext();
+        await Run(loop, DesignMaster, context);
+        var hooks = loop.Hooks!;
+        var references = new Moq.Mock<Contracts.Services.ISkillReferenceSource>();
+        references.Setup(r => r.TryRead("design-outcome-spec")).Returns("## Drafting a spec\n");
+        var format = new OutcomeFormatToolHost(references.Object, TurnFolds.Of(context.Pipeline)).GetTools(null, null).Single();
+        var compactor = new AgentSmith.Infrastructure.Services.Providers.Agent.CompactingChatClient(
+            new AnswerClient(), new CompactionConfig
+            {
+                IsEnabled = true, MaxContextTokens = 800, MaxContextTokensTriggerRatio = 1.0, KeepRecentIterations = 3,
+            }, hooks, (_, _) => Task.FromResult("SUMMARY"));
+
+        var first = (await format.InvokeAsync(new AIFunctionArguments { ["kind"] = "spec" }))!.ToString();
+        await compactor.GetResponseAsync(Conversation(rounds: 12));
+        var again = (await format.InvokeAsync(new AIFunctionArguments { ["kind"] = "spec" }))!.ToString();
+
+        hooks.Governs.Should().BeFalse("a design turn's loop gets no governor, as before");
+        first.Should().Be("## Drafting a spec");
+        again.Should().Be("## Drafting a spec", "the compactor folded the turn, so the first copy may be gone");
+    }
+
+    private static List<ChatMessage> Conversation(int rounds)
+    {
+        var list = new List<ChatMessage> { new(ChatRole.System, "SYSTEM"), new(ChatRole.User, "prompt") };
+        for (var i = 0; i < rounds; i++)
+        {
+            list.Add(new ChatMessage(ChatRole.Assistant, $"turn-{i}|" + new string('x', 200)));
+            list.Add(new ChatMessage(ChatRole.User, $"result-{i}|" + new string('y', 200)));
+        }
+        return list;
+    }
+
+    private sealed class AnswerClient : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
+    }
+
     private sealed class CapturingLoop : IAgenticLoopRunner
     {
         public IReadOnlyList<AIFunction> MasterTools { get; private set; } = [];
 
+        public Contracts.Providers.MasterLoopHooks? Hooks { get; private set; }
+
         public Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
         {
+            Hooks ??= request.MasterLoopHooks;
             if (MasterTools.Count == 0) MasterTools = [.. request.Tools!.OfType<AIFunction>()];
             return Task.FromResult(new AgenticLoopResult(
                 new ChatResponse(new ChatMessage(ChatRole.Assistant, "An answer with no outcome block."))
