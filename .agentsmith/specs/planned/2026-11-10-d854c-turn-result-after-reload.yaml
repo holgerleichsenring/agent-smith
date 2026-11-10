@@ -1,47 +1,60 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-10-d854c
-goal: "Everything a live design turn showed stays reachable after it ends and the page reloads: its activity steps, review rounds, findings and full specs, so a person can continue from the same state."
+goal: "Everything a design turn showed stays reachable through the API after it ends: its steps, its own proposal with findings and rounds, and a failed turn's notice, each found by the turn's run id."
+requires: [2026-11-10-ccd9]
 
-applies_to: "default (Server: dialog activity, transcript turn; Dashboard: dialog view)"
+applies_to: "default (Server: dialog activity, transcript turn, turn keeper, proposal store, run step queries; Contracts: event types)"
 
 facts:
-  - claim: "A turn's activity steps live only in memory while the turn runs, at most the last 50, and are served to a page arriving during the turn; nothing keeps them afterwards."
+  - claim: "A turn's activity steps live only in memory while the turn runs, at most the last 50; nothing keeps them afterwards."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RunningDialogTurn.cs:23-31; src/backend/AgentSmith.Server/Services/SpecDialog/DialogActivityObserver.cs:20-28"
-  - claim: "A transcript turn carries role, text, time, kind, decision and author, and no run id, so a reloaded page cannot find the run a reply came from."
-    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:12; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:75"
-  - claim: "The design turn's run keeps its events and prompt records: run 2026-11-10T19-36-22-96b7 has 447 RunEvents (212 LLM calls, 4 sub-agents) and 92+ prompt records, but none of its 1,225 activity steps as such."
-    evidence: "RunEvents and PromptRecords rows of that run, read 2026-11-10"
-  - claim: "The stored proposal already keeps findings, review rounds, the not-reviewed ids and every spec's full yaml."
-    evidence: "SpecDialogSessions.LatestProposalJson of conversation 44 (keys kind, parent, children, findings, reviewRounds, notReviewed, uploads), read 2026-11-10"
+  - claim: "A transcript turn carries no run id, and a conversation stores one proposal, the latest, so a superseded proposal is unreadable."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:12; src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:39"
+  - claim: "The run id is minted when the pipeline starts and is available to event writers through IRunContextAccessor.CurrentRunId."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:50-52; src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:19"
+  - claim: "A turn that throws sends a notice through the messenger and stores no transcript turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:89-97"
+  - claim: "Run events are typed by the EventType enum and mirrored for the dashboard in hub-events.ts; a run's events are served paged per step through /api/runs/{runId}/steps/{stepIndex}/events, with no type filter."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:3; src/dashboard/src/types/hub-events.ts; src/backend/AgentSmith.Server/Extensions/RunStepQueryEndpoints.cs:6-23"
+  - claim: "Conversation 44's run kept 447 events (212 LLM calls, 4 sub-agents) but none of its 1,225 activity steps."
+    evidence: "RunEvents rows of run 2026-11-10T19-36-22-96b7, read 2026-11-10"
 
 scope:
-  in: "Each activity step a design turn reports is also recorded as a RunEvent of its turn's run (type DialogActivity, payload kind, name, detail). The agent transcript turn records its RunId. The reloaded page's activity line reads the turn's duration, step count, sub-agents and cost from that run, and opens the full step list from its DialogActivity events; the run view lists them with the other events. Findings, rounds and specs come from the stored proposal as today."
-  out: "Proposals superseded within a conversation stay replaced by the latest one, as today. The missing proposal card after a reload is diagnosed separately (2026-11-10-7da6)."
+  in: "Each activity step is also a RunEvent of type DialogActivity on the turn's run (CurrentRunId), its detail bounded to 500 characters. GroundSpecDialog puts the run id on the reply slot, and the keeper stamps it on the agent transcript turn. Every proposal is stored per turn, keyed by run id, beside the latest one the card acts on. A turn that fails, throws or is cancelled keeps a transcript turn of kind Notice carrying its run id and what happened. The step events endpoint gains a type filter, and a run aggregate serves the DialogActivity count, so a reloaded page reads the count at once and the steps page by page. The new event type joins the hub-event mirror."
+  out: "The rendering of the activity line and of each turn's result is 2026-11-10-d854b."
 
 decisions:
-  - key: "THE RUN IS THE RECORD. A turn is a run; its events already reach the run view and survive a restart. A dialog-side step table would be a second log of the same thing."
-  - key: "EVERY STEP, NOT THE LAST 50. The live bound serves a page arriving mid-turn; the record serves a person continuing later, who may need the 30th file read."
-  - key: "FOLDED, NOT DROPPED. The result view shows one line; the steps are one click away, from the run."
+  - key: "THE RUN IS THE RECORD. A turn is a run; its events reach the run view and survive a restart. A dialog-side step table would be a second log of the same thing."
+  - key: "EVERY STEP, PAGED. The live bound of 50 serves a page arriving mid-turn; the record serves a person continuing later. Paging through the existing bounded endpoint keeps a response O(visible)."
+  - key: "PER-TURN PROPOSALS. A superseded proposal stays readable on the turn that made it; the latest remains the one a decision acts on (2026-11-10-ccd9)."
+  - key: "FAILURE IS A TURN TOO. A thrown or cancelled turn spent money and may have read for minutes; its notice and run id stay in the transcript."
 
 steps:
-  - id: record
-    action: "DialogActivityObserver also appends the step as a DialogActivity RunEvent through the run's event store, beside the push."
+  - id: event
+    action: "EventType gains DialogActivity; DialogActivityObserver appends it through the run event store with CurrentRunId; hub-events.ts mirrors it."
   - id: link
-    action: "TranscriptTurn gains RunId (nullable for stored turns); the turn keeper stamps it on the agent turn; the view model carries it."
-  - id: read
-    action: "An endpoint (or the run events read the run view uses) returns a turn's DialogActivity steps by run id; the result view's activity line uses it after a reload."
+    action: "TranscriptTurn gains RunId (null for stored turns); GroundSpecDialogHandler writes it to the reply slot; SpecDialogTurnKeeper stamps it; the router's failure and cancellation paths append a Notice turn with it."
+  - id: proposals
+    action: "A per-turn proposal table keyed by run id (all three migration sets, one name); the outcome flow writes it beside LatestProposalJson; the view returns each turn's proposal with its transcript turn."
+  - id: query
+    action: "/api/runs/{runId}/steps/{stepIndex}/events takes an optional type filter; the /api/runs/{runId}/steps response gains the run's DialogActivity count, read by an aggregate query."
   - id: tests
-    action: "Pin record, link and the reload read."
+    action: "Pin event, link, failure notice, per-turn store and the paged query."
 
 tests:
-  - "DialogActivityObserver_Step_IsRecordedOnTheTurnsRun"
+  - "DialogActivityObserver_Step_IsRecordedOnTheTurnsRunWithBoundedDetail"
   - "TurnKeeper_AgentTurn_CarriesItsRunId"
-  - "StoredTurnWithoutRunId_ReadsAsNullAndShowsNoActivityLine"
-  - "After a reload, the activity line of a finished turn opens all its steps (vitest)"
+  - "Router_ThrownTurn_AppendsANoticeTurnWithItsRunId"
+  - "Router_CancelledTurn_AppendsANoticeTurnWithItsRunId"
+  - "ProposalStore_TwoProposingTurns_BothReadableByRunId"
+  - "RunStepEvents_TypeFilterDialogActivity_PagesAllSteps"
+  - "RunSteps_DialogActivityCount_MatchesTheEvents"
 
 done:
-  - when: "a design turn reports 1,225 steps, ends, and the page is reloaded"
-    then: "the turn's activity line shows 1,225 steps, its duration and cost, and opens every step in order"
-  - when: "the same page is reloaded after a server restart"
-    then: "the steps, review rounds, findings and full specs are all still reachable"
-  - "Build green, full suite and dashboard tests green."
+  - when: "a design turn reports 1,225 steps, ends, and the server restarts"
+    then: "the API returns the turn's run id on its transcript turn, the count 1,225, every step in order through the paged endpoint, and the turn's own proposal with findings, rounds and full specs"
+  - when: "a later turn supersedes the proposal"
+    then: "the earlier turn's proposal is still returned on that turn"
+  - when: "a turn throws"
+    then: "the transcript holds a Notice turn with its run id"
+  - "Build green, full suite green."

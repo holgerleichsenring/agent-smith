@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-ccd9
+goal: "A stored proposal stays until a person approves or rejects it or a newer turn supersedes it; approval is a state of the stored proposal, not a 15-minute wait."
+
+applies_to: "default (Server: spec dialog outcome flow, confirmer, answer admission, button answers)"
+
+facts:
+  - claim: "The confirmer asks for approval with a fixed 15-minute ConfirmationTimeout, holds a pending question in process memory and an open-question record for that long, and waits on the dialogue transport."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:32-64"
+  - claim: "On timeout the flow clears the stored proposal and only sends a notice; the comment encodes the old rule that a timed-out approval is over."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:76-81"
+  - claim: "The notice goes out through the platform messenger (the dashboard through DashboardAdapter.SendInfoAsync), not into the transcript, so after a reload nothing says why the proposal is gone."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:96-97; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogMessenger.cs:44; src/backend/AgentSmith.Server/Services/Adapters/DashboardAdapter.cs:37-39"
+  - claim: "A notice that must survive a reload is stored as a transcript turn of kind Notice."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:91-97"
+  - claim: "A message decides an approval only while a question is pending; afterwards the same 'approve' is a new design turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:33-46"
+  - claim: "A Slack or Teams button click no process is waiting for is answered only while its question is open."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogButtonAnswer.cs:14-22"
+  - claim: "Conversations 43 and 44 lost their proposals ($1.82 and $5.72 turns) to the timeout."
+    evidence: "operator report and SpecDialogSessions rows 43/44, 2026-11-10"
+
+scope:
+  in: "The outcome flow stores the proposal and returns; nothing waits. The stored proposal records that it awaits a decision. A thread message, a dashboard approve or reject, and a Slack or Teams button click on that proposal are decided against the STORED proposal through the same Interpret rules (approve files, reject clears, any other text is an edit note that re-runs the turn), on any replica. A newer turn's proposal supersedes it. Reject and supersede each store a Notice transcript turn. OutcomeConfirmationTimedOut and ConfirmationTimeout go; the comment at SpecDialogOutcomeFlow.cs:77-78 is rewritten to the new rule. The CLI demo keeps its interactive prompt (Enter on the shown default builds) and stores the proposal the same way, so leaving the prompt loses nothing."
+  out: "Build gating is unchanged: an approved proposal is reviewed before it is built (2026-11-10-8e59)."
+
+decisions:
+  - key: "A STATE, NOT A TASK. A dialog never ends because someone went for coffee; nothing has to be held while a person is away, so nothing has to time out."
+  - key: "ONE DECISION PATH. Message, dashboard button and chat button all decide against the stored proposal, so a click after a restart or on another replica works, and the in-memory pending question stops being the only door."
+  - key: "THE TRANSCRIPT SAYS WHAT HAPPENED. Reject and supersede are stored as Notice turns, so a reload shows why a card is gone."
+
+steps:
+  - id: state
+    action: "SpecDialogLatestOutcomeStore records the stored proposal's question id and that it awaits a decision."
+  - id: flow
+    action: "SpecDialogOutcomeFlow stores and returns; Interpret is reused by an admission branch that decides a message against the stored proposal, and by SpecDialogButtonAnswer when the clicked id is the stored proposal's."
+  - id: notices
+    action: "Reject and supersede append Notice turns; the timeout case and its notice are removed."
+  - id: platforms
+    action: "Dashboard, Slack, Teams and the CLI demo each pass the same decision path; the button card stays clickable without an expiry."
+  - id: tests
+    action: "Pin each path."
+
+tests:
+  - "OutcomeFlow_Proposal_IsStoredAndNothingWaits"
+  - "Admission_ApproveTwoHoursLater_FilesTheStoredProposal"
+  - "Admission_RejectLater_ClearsAndStoresANotice"
+  - "ButtonAnswer_ClickAfterRestart_DecidesTheStoredProposal"
+  - "NewerTurnProposal_SupersedesAndStoresANotice"
+  - "EditNote_AgainstStoredProposal_RerunsTheTurn"
+
+done:
+  - when: "a turn proposes and nobody answers for a day"
+    then: "the proposal is still stored and shown, and 'approve' then files it"
+  - when: "a person rejects or a newer turn supersedes it"
+    then: "the transcript holds a Notice saying so, visible after a reload"
+  - "No code path clears a stored proposal for lack of an answer."
+  - "Build green, full suite and dashboard tests green."
