@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { DialogProposalPanel } from "../DialogProposalPanel";
-import { DialogProposalCard } from "../DialogProposalCard";
+import { TurnResult } from "../TurnResult";
+import { turnProposalOf } from "../turnProposal";
 import { DialogQuestionCard } from "../DialogQuestionCard";
 import type { SpecDialogGraphTicket, SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
@@ -51,8 +52,8 @@ describe("A proposed list of tickets", () => {
     expect(finding.compareDocumentPosition(screen.getByTestId("dialog-graph-tickets")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("DialogProposalCard_TicketsKind_StripListsTicketKeysAndTitlesUnderNTickets", () => {
-    render(<DialogProposalCard proposal={list} onInspect={vi.fn()} />);
+  it("TurnResult_TicketsKind_StripListsTicketKeysAndTitles", () => {
+    render(<TurnResult proposal={turnProposalOf(list)} />);
 
     expect(screen.getByText("3 tickets")).toBeInTheDocument();
     const strip = screen.getByTestId("dialog-card-tickets");

@@ -66,6 +66,8 @@ export interface DialogEntry {
   /** 2026-09-17-c7aed: the proposal this agent turn produced, shown as a card on it. Live every
    *  proposing turn keeps its own; after a reload only the latest is known. */
   proposal?: SpecDialogProposalPush;
+  /** 2026-11-10-d854c: the run an agent turn came from, read from the view; its steps are paged from it. */
+  runId?: string;
   /** Set on a decision entry. */
   decision?: SpecDialogDecision;
   /** Set on a decision the page showed before any read confirmed the server stored it. */
@@ -755,7 +757,10 @@ function turns(view: SpecDialogView): DialogEntry[] {
       text: turn.text,
       at: turn.at,
       ...(turn.decision ? { decision: turn.decision } : {}),
-      ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal } : {}),
+      ...(turn.runId ? { runId: turn.runId } : {}),
+      // 2026-11-10-d854b: every proposing turn keeps its own proposal (d854c); the awaiting one carries its id.
+      ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal }
+        : turn.proposal ? { proposal: turn.proposal } : {}),
     }))
     .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
   const trailing = trailingCard(view);
@@ -772,7 +777,9 @@ export function trailingCard(view: SpecDialogView): SpecDialogProposalPush | nul
   if (view.turn?.computing && session.reviewing) return session.reviewing;
   const placed = session.proposalTurn !== null && session.proposalTurn !== undefined
     && session.proposalTurn < session.transcript.length;
-  return session.proposal && !placed ? session.proposal : null;
+  if (session.proposal && !placed) return session.proposal;
+  // 2026-11-10-d854b: a turn that died after a draft has no kept turn; its last draft is still its result.
+  return !view.turn?.computing && session.runningProposal ? session.runningProposal : null;
 }
 
 /** A pending decision meets the first read issued after it: the decision stored at or after the turn

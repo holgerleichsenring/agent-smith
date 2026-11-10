@@ -2582,7 +2582,7 @@ describe("SpecDialogSurface", () => {
     })));
 
     const live = await screen.findByTestId("dialog-turn-card");
-    const card = within(live).getByTestId("dialog-card");
+    const card = within(live).getByTestId("turn-result");
     expect(card).toHaveAttribute("data-kind", "epic");
     expect(card).toHaveTextContent("goal of p9000");
     expect(card).toHaveTextContent("p9000a");
@@ -2604,8 +2604,8 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
 
     const reloaded = await screen.findByTestId("dialog-turn-card");
-    expect(within(reloaded).getByTestId("dialog-card")).toHaveTextContent("goal of p9001");
-    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("dialog-card")).toBeNull();
+    expect(within(reloaded).getByTestId("turn-result")).toHaveTextContent("goal of p9001");
+    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("turn-result")).toBeNull();
   });
 
   it("SpecDialog_TheCard_MovesThePaneToTheProposal", async () => {
@@ -3042,7 +3042,7 @@ describe("SpecDialogSurface", () => {
     }));
 
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent("draft it");
-    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("dialog-card")).toHaveAttribute("data-kind", "epic");
+    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("turn-result")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
     expect(screen.getByTestId("dialog-approval-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
@@ -3073,7 +3073,7 @@ describe("SpecDialogSurface", () => {
     }));
 
     await screen.findByTestId("dialog-turn-user");
-    expect(screen.getAllByTestId("dialog-card")).toHaveLength(1);
+    expect(screen.getAllByTestId("turn-result")).toHaveLength(1);
   });
 
   // Found by review: the draft-only flag outlived the conversation it was set in, so a card on
@@ -3089,7 +3089,7 @@ describe("SpecDialogSurface", () => {
     await screen.findByTestId("dialog-turn-agent");
     act(() => proposals.emit(proposal()));
 
-    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("dialog-card")).toBeInTheDocument();
+    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("turn-result")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-turn-card")).toBeNull();
   });
 

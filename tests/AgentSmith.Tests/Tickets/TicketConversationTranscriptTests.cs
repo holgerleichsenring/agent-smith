@@ -74,7 +74,9 @@ public sealed class TicketConversationTranscriptTests : IDisposable
             .Select(e => (e.Role, e.Author, e.Group)).Should().Equal(
                 (TicketConversationRoles.Person, null, null), (TicketConversationRoles.Agent, null, null));
         view.Proposal!.Drafts.Should().ContainSingle().Which.Should().BeEquivalentTo(
-            new TicketConversationDraftView("2026-10-13-1a2b", "Export in a second.", ["api"], ["It exports in a second."]));
+            new TicketConversationDraftView("2026-10-13-1a2b", "Export in a second.", ["api"], ["It exports in a second."]),
+            options => options.Excluding(d => d.Yaml)); // 2026-11-10-d854b: the yaml rides along, pinned below
+        view.Proposal!.Drafts[0].Yaml.Should().NotBeNullOrEmpty();
         (view.SessionId, view.OpenDialogId).Should().Be(("s-1", "d-1"));
     }
 

@@ -33,6 +33,15 @@ public sealed class DialogActivityReader(IServiceScopeFactory scopeFactory, Even
         // The cursor is the ROW's, so a payload that cannot be read still advances the walk.
         return new DialogActivityPage(count,
             [.. slice.Select(row => envelopes.DeserializeRaw(row.Type, row.PayloadJson)).OfType<DialogActivityEvent>()],
-            slice.Count > 0 ? slice[^1].Seq : null, hasMore);
+            slice.Count > 0 ? slice[^1].Seq : null, hasMore)
+        {
+            // 2026-11-10-d854b: the span and the sub-agent calls for the turn's one-line summary, by trail position.
+            FirstAt = await steps.OrderBy(e => e.Seq).Select(e => (DateTimeOffset?)e.Timestamp).FirstOrDefaultAsync(ct),
+            LastAt = await steps.OrderByDescending(e => e.Seq).Select(e => (DateTimeOffset?)e.Timestamp).FirstOrDefaultAsync(ct),
+            SubAgentCalls = await steps.CountAsync(e => e.PayloadJson!.Contains(SpawnStep), ct),
+        };
     }
+
+    /// <summary>A step of the tool that spawns sub-agents, as the trail row's payload spells it.</summary>
+    private const string SpawnStep = "\"Name\":\"spawn_agents\"";
 }

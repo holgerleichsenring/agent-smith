@@ -414,7 +414,8 @@ describe("Ticket conversation tab", () => {
     world.questions["d-open"] = approvalQuestion("d-open");
     await open();
     expect(screen.getByTestId("ticket-effect")).toHaveTextContent("Approving continues this ticket's series. The next attempt starts now.");
-    expect(screen.getByTestId("ticket-proposal")).toHaveTextContent("Import consumer cap 30 s · portal-worker");
+    // 2026-11-10-d854b: the draft is a row of the turn result now — its goal, then its repository.
+    expect(screen.getByTestId("ticket-proposal")).toHaveTextContent(/Import consumer cap 30 s\s*portal-worker/);
     fireEvent.click(screen.getByTestId("ticket-approve"));
     await settle();
     await settle();

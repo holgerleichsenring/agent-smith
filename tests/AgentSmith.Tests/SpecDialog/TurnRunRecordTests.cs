@@ -93,6 +93,25 @@ public sealed class TurnRunRecordTests : IDisposable
     }
 
     [Fact]
+    public async Task DialogActivityReader_TheTurnsSpan_IsItsFirstAndLastStepWithItsSubAgentCalls() // 2026-11-10-d854b
+    {
+        var start = DateTimeOffset.UnixEpoch;
+        RunEvent[] trail =
+        [
+            Step(1, start), Step(2, start.AddMinutes(3)) with { Name = "spawn_agents" }, Step(3, start.AddMinutes(20)),
+        ];
+        await using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            for (var seq = 0; seq < trail.Length; seq++) ctx.RunEvents.Add(RunTrailRowMapper.Map("run-1", seq, trail[seq]));
+            await ctx.SaveChangesAsync();
+        }
+
+        var page = await new DialogActivityReader(_scopes, new EventEnvelopeSerializer()).ReadAsync("run-1", null, 1, default);
+
+        (page.FirstAt, page.LastAt, page.SubAgentCalls).Should().Be((start, start.AddMinutes(20), 1));
+    }
+
+    [Fact]
     public async Task GroundSpecDialog_ReportsTheRunIdThroughTheTurnRunRecorder()
     {
         var accessor = new AsyncLocalTurnRunRecorderAccessor();

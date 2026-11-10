@@ -8,6 +8,7 @@
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import type {
   FiledWork,
+  SpecDialogActivityPage,
   SpecDialogConversationPage,
   SpecDialogImage,
   SpecDialogReferenceUpload,
@@ -314,4 +315,21 @@ export interface TicketConversationRead {
   sessionId: string | null;
   /** Null when the conversation exists but is closed. */
   openDialogId: string | null;
+}
+
+/**
+ * 2026-11-10-d854c: one page of a design turn's steps, read from its run after the turn ended — run-wide, after
+ * `afterSeq`, with how many the run kept in all.
+ */
+export async function fetchDialogActivity(
+  runId: string,
+  afterSeq?: number | null,
+  limit?: number,
+  signal?: AbortSignal,
+): Promise<SpecDialogActivityPage> {
+  const query = new URLSearchParams();
+  if (afterSeq !== null && afterSeq !== undefined) query.set("afterSeq", String(afterSeq));
+  if (limit !== undefined) query.set("limit", String(limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJson<SpecDialogActivityPage>(`/api/runs/${encodeURIComponent(runId)}/dialog-activity${suffix}`, signal);
 }

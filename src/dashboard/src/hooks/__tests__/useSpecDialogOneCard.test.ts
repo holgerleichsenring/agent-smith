@@ -61,4 +61,12 @@ describe("one card per proposal", () => {
   it("useSpecDialog_StoredProposalWithItsTurn_NoTrailingCard", () => {
     expect(trailingCard(view({ computing: false, proposal: draft("p1"), proposalTurn: 1, turns: 2 }))).toBeNull();
   });
+
+  // 2026-11-10-d854b: a turn that died after a draft has no kept turn; its last draft is still its result.
+  it("useSpecDialog_CrashedTurnsDraft_IsTheTrailingResult", () => {
+    const read = view({ computing: false, proposalTurn: null, turns: 2 });
+    (read.session as unknown as { runningProposal: SpecDialogProposalPush }).runningProposal = draft("p9");
+    expect(trailingCard(read)).toEqual(draft("p9"));
+    expect(trailingCard({ ...read, turn: { computing: true } as SpecDialogView["turn"] })).toBeNull();
+  });
 });

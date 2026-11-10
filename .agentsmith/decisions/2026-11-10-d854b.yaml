@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-d854b
+
+decisions:
+  - category: Architecture
+    chose: "TurnResult renders one shape, TurnProposal (kind, drafts in build order, findings, rounds, not reviewed, questions, spend); the conversation's push is read into it once by turnProposalOf, the ticket view maps its drafts field for field"
+    over: "TurnResult accepting the push and the ticket view as two shapes"
+    reason: "The ticket view grew Questions, Spend and draft Yaml as the spec asks, so both are a list of drafts; the one adapter is a field copy, not a second rendering."
+  - category: Implementation
+    chose: "An epic's parent has no row: rows are the drafts after the parent; the bug, comment and ticket-list kinds keep their own short blocks inside TurnResult"
+    over: "A row for the parent"
+    reason: "The parent is never built and the mock lists the ten children only; the reply prose is the summary that names the epic."
+  - category: Implementation
+    chose: "The approve bar is the existing DialogQuestionCard, passed into the TurnResult whose proposal carries the approval question's id (the awaiting proposal id); it stands below the conversation only while no shown turn carries it"
+    over: "A second approve control inside TurnResult"
+    reason: "ccd9's card already sends the proposal id and carries the ticket effect and shapes; moving it keeps one decision path."
+  - category: Implementation
+    chose: "After a reload each transcript turn takes its own proposal from d854c's per-turn store and the awaiting one keeps its id; a crashed turn's runningProposal is the trailing result when no turn computes"
+    over: "Only the latest proposal after a reload"
+    reason: "Fold, never drop: every proposing turn renders its own result."
+  - category: Implementation
+    chose: "The activity line reads d854c's endpoint: count, and — added here to DialogActivityPage — the first and last step times and the spawn_agents step count; it shows 'sub-agent calls', pages 200 steps at a time"
+    over: "Fetching every step to count sub-agents"
+    reason: "Deviation: the spec names 'sub-agents'; a spawn_agents step can start several, and the run keeps no per-agent count on the step, so the line counts calls. Duration and calls come from aggregate queries, not from a page."
+  - category: Implementation
+    chose: "The cap banner states the cap and how many specs are not reviewed, without the 'continue at the next tier' button"
+    over: "The mock's Continue review button"
+    reason: "Out of scope by the spec; the successor named by 548f adds it."
+  - category: Implementation
+    chose: "New rules under :is(.mock-dialog, .mock-tickets) for the turn's boxes, rows, pill and banner, drawn from the shell's tokens (--run-wash for the banner, --ok-wash and --bad-wash for the pills)"
+    over: "Reusing .ecard and .ec-mark"
+    reason: "Those are joined only into .mock-dialog; the ticket page renders the same component under .mock-tickets. The font shorthand sits on button selectors only, as the dialog's guard requires."
+  - category: Testing
+    chose: "TurnResult.test.tsx on a fixture epic of ten specs, three questions, a capped review and 1,225 steps; ProposalBlockReview and the surface tests follow the new rows and test ids; DialogProposalCard is removed"
+    over: "Keeping the old card beside the result"
+    reason: "The spec replaces the card 7da6 settled; the tests that counted cards count results."

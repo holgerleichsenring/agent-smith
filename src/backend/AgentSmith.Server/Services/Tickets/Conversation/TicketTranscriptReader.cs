@@ -53,10 +53,14 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
         TicketGraphOutcome => new("tickets", []),
         TicketCommentOutcome comment => new("comment", []) { Comment = comment.Comment }, // 2026-10-28-7a69c
         _ => new("bug", []),
-    }) with { Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed };
+    }) with
+    {
+        Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
+        Questions = proposal.Questions, Spend = proposal.Spend, // 2026-11-10-d854b
+    };
 
     private static TicketConversationDraftView Draft(SpecDraft draft, IReadOnlyDictionary<string, int> ratified) =>
-        new(draft.SpecId, draft.Goal, draft.Repos, draft.Done, ratified.TryGetValue(draft.SpecId, out var v) ? v : null);
+        new(draft.SpecId, draft.Goal, draft.Repos, draft.Done, ratified.TryGetValue(draft.SpecId, out var v) ? v : null, draft.Yaml);
 
     private T Read<T>(SpecDialogSession session, Func<T> read, T fallback)
     {

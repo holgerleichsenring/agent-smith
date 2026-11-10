@@ -97,6 +97,6 @@ public sealed class SpecDialogProposalComposer(
         [.. draft.Steps.Select(step => step.Action)],
         draft.Tests, draft.Done, draft.Requires, draft.Yaml)
     {
-        Facts = draft.Facts, Assumptions = draft.Assumptions, // 2026-10-02-3f06c
+        Facts = draft.Facts, Assumptions = draft.Assumptions, Repos = draft.Repos, // 2026-10-02-3f06c; d854b: repos
     };
 }
