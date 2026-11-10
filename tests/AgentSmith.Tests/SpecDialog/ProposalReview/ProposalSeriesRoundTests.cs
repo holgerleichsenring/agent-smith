@@ -48,23 +48,15 @@ public sealed class ProposalSeriesRoundTests
     }
 
     [Fact]
-    public async Task ProposalReview_RunCapSpent_ListsContractInNotReviewed()
+    public async Task ProposalReview_PastTheWallTimeCeiling_SeriesContractStillReviewed()
     {
         var rig = Contracted(CutOnSecond());
-        var tracker = PipelineCostTracker.GetOrCreate(rig.Pipeline);
-        tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10 });
-        tracker.Track(new ChatResponse(new ChatMessage(ChatRole.Assistant, "x"))
-        {
-            Usage = new UsageDetails { InputTokenCount = 1_000, OutputTokenCount = 10 },
-        });
+        rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-5000));
 
         await rig.RunAsync();
 
-        rig.SeriesReviewed.Should().BeEmpty();
-        rig.Outcome.NotReviewed.Should().Contain(ProposalReviewTokens.Series);
-        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Parent && f.Problem == ProposalSeriesRound.Problem
-            && f.Why.Contains("not reviewed yet"));
-        rig.Outcome.ReviewRounds.Should().NotContain(r => r.SpecId == ProposalReviewTokens.Series);
+        rig.SeriesReviewed.Should().ContainSingle("a design turn's review has no wall-time rule (2026-11-10-18cf)");
+        rig.Outcome.ReviewRounds.Should().Contain(r => r.SpecId == ProposalReviewTokens.Series);
     }
 
     [Fact]

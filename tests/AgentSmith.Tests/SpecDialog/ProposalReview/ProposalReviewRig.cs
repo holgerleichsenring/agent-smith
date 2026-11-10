@@ -10,6 +10,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Turns;
 using AgentSmith.Domain.Models;
@@ -126,6 +127,16 @@ internal sealed class ProposalReviewRig
                 new Dictionary<object, object?> { ["name"] = "OrderExported", ["kind"] = "event", ["number"] = 87, ["owner"] = First },
             },
         });
+
+    /// <summary>2026-11-10-18cf: the turn holds a repository, so a reviewer could have read it.</summary>
+    public ProposalReviewRig WithRepository()
+    {
+        Pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)new Dictionary<string, ISandbox>
+        {
+            ["shop"] = new EvidenceTreeSandbox(new Dictionary<string, string>()),
+        });
+        return this;
+    }
 
     /// <summary>The proposal the gate admitted from <paramref name="reply"/>, published as the turn's outcome.</summary>
     public OutcomeProposal Propose(string reply)

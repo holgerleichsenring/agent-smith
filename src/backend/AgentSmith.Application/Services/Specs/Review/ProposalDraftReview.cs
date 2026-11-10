@@ -16,9 +16,14 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
     public bool Stopped { get; set; }
     public bool NotReviewed { get; set; }
 
-    /// <summary>2026-11-10-18cf: what stopped this draft's review before it finished — the run cap or the
-    /// wall-time ceiling — or null.</summary>
+    /// <summary>2026-11-10-18cf: why this draft's review has not finished — the run's cost cap, or no reviewer
+    /// answered — or null.</summary>
     public string? StoppedBecause { get; set; }
+
+    /// <summary>2026-11-10-18cf: the text the last taken round attacked.</summary>
+    public string? AttackedYaml { get; set; }
+
+    public bool AttackedCurrentText => string.Equals(AttackedYaml, Draft.Yaml, StringComparison.Ordinal);
 
     /// <summary>2026-11-09-9631b: the turn this draft came in on was already to review it because its reviewers
     /// could not read. 2026-11-10-18cf: only that wait counts — a draft left waiting by the budget or a cancel was

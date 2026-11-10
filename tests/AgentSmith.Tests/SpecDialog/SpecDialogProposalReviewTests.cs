@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
@@ -120,7 +121,7 @@ public sealed class SpecDialogProposalReviewTests
     // letting it escape destroys a reply the turn already has — the operator is answered with a
     // failure notice instead of the proposal the review was only advising on.
     [Fact]
-    public async Task Flow_ReviewTimedOutOnAnUncancelledToken_DoesNotBlockTheProposal()
+    public async Task Flow_ReviewTimedOutOnAnUncancelledToken_HoldsTheProposalAsNotReviewed()
     {
         var reviewer = new RecordingReviewer(_ => throw new TaskCanceledException("A task was canceled."));
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
@@ -129,7 +130,7 @@ public sealed class SpecDialogProposalReviewTests
             .ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         await review.Should().NotThrowAsync("the run was never cancelled — only the model call gave up");
-        Outcome(pipeline).Should().BeOfType<SpecOutcome>().Which.Findings.Should().BeEmpty();
+        HeldAsNotReviewed(Outcome(pipeline), "p9999");
     }
 
     [Fact]
@@ -169,7 +170,7 @@ public sealed class SpecDialogProposalReviewTests
     }
 
     [Fact]
-    public async Task Flow_ReviewFailed_DoesNotBlockTheProposal()
+    public async Task Flow_ReviewFailed_HoldsTheProposalAsNotReviewed()
     {
         var reviewer = new RecordingReviewer(_ => throw new InvalidOperationException("model unreachable"));
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
@@ -178,7 +179,7 @@ public sealed class SpecDialogProposalReviewTests
             .ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         await review.Should().NotThrowAsync("a review that could not be taken is not evidence of a fault");
-        Outcome(pipeline).Should().BeOfType<SpecOutcome>().Which.Findings.Should().BeEmpty();
+        HeldAsNotReviewed(Outcome(pipeline), "p9999");
     }
 
     // 2026-10-02-3f06c: the evidence check and the model review are two halves of one review; the
@@ -204,10 +205,18 @@ public sealed class SpecDialogProposalReviewTests
 
         await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
-        var finding = Outcome(pipeline).Findings.Should().ContainSingle().Subject;
-        finding.Problem.Should().Be(ProposalEvidenceReview.Problem);
+        HeldAsNotReviewed(Outcome(pipeline), "p9999");
+        var finding = Outcome(pipeline).Findings.Should().ContainSingle(f => f.Problem == ProposalEvidenceReview.Problem).Subject;
         finding.Quote.Should().Be("the handler exists");
         finding.Evidence.Should().BeNull("it rests on the check's own read, not on a minted look");
+    }
+
+    // 2026-11-10-18cf: with rounds off the one model call is the review; when it fails nothing was checked.
+    private static void HeldAsNotReviewed(OutcomeProposal outcome, string specId)
+    {
+        outcome.NotReviewed.Should().Equal(specId);
+        outcome.Findings.Should().Contain(f => f.SpecId == specId && f.Problem == ProposalReviewSummary.NotReviewedYet
+            && f.Why == ProposalReviewSummary.NotReviewedWhy(SpecDialogProposalReview.ReviewCallFailedWhy));
     }
 
     private static SpecDraft CitingAMissingFile(string specId) =>

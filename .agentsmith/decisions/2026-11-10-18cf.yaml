@@ -15,9 +15,25 @@ decisions:
     over: "Dropping it in both places in this spec"
     reason: "A spec the coding run's review does not clear is not built. It moves to the next attempt, so it is never handed out unreviewed. The case is weaker there, and it is a separate change."
   - category: Scope
-    chose: "The run watchdog stays untouched"
-    over: "Exempting design turns from max_run_wall_time_seconds"
-    reason: "Each design turn is its own pipeline run, and PipelineRunWatchdog cancels it at the ceiling. That cancel is the one way time can still end a design turn's review. It ends the whole turn, and the proposal then reads as not reviewed (2026-11-09-9a98). Exempting design turns is the operator's call and is reported, not done here."
+    chose: "The run watchdog is left to its own spec, 2026-11-10-e706"
+    over: "Exempting design turns from max_run_wall_time_seconds here"
+    reason: "Each design turn is its own pipeline run, and PipelineRunWatchdog cancels it at the ceiling. That cancel ends the whole turn, and the proposal then reads as not reviewed with the under-review reason. Whether design turns may be exempted depends on whether something else detects a hung turn, and that is e706's question."
+  - category: Architecture
+    chose: "A draft counts as reviewed only when a taken answer attacked its current text. Every other draft is listed not reviewed with a reason: the cost cap, no reviewer answered, a revision after the final round, or still under review when published"
+    over: "Treating a stopped draft as reviewed whatever stopped it"
+    reason: "An independent review of PR #805 found older paths that let a draft through unattacked. In one, both reviewers failed, so the result was neither taken nor blind and the draft stopped with no hold. In another, a draft was rewritten after a last-round refuse and stayed open, but the summary listed only flagged drafts. A cancelled turn left its drafts with no reason. The operator's rule is that a draft is either attacked or held with a visible reason."
+  - category: Implementation
+    chose: "A draft with no taken answer stays open, so the next round tries again. It counts as unanswered only when the turn holds a repository"
+    over: "Holding it at once, or marking it in the panel"
+    reason: "A timeout or a 429 is often transient, and rounds remain to retry. A turn with no repository has nothing to read. 9631b already decided that such a turn does not hold the proposal, and the attack reviewer returns null there too. The repository check tells the two apart without changing the reviewer's contract."
+  - category: Implementation
+    chose: "Round findings over a text that a later rewrite replaced are not shown on an open draft"
+    over: "Showing the last round's findings regardless"
+    reason: "Those findings judged the replaced text. The card would show them over the rewrite. Stopped drafts keep them as before."
+  - category: Architecture
+    chose: "Unreadable or invalid spec_review settings review with the defaults; with rounds off, a failed whole-set call holds every draft"
+    over: "Holding every proposal while the settings are broken"
+    reason: "A broken block must never give a proposal less than a full review. Holding instead would block every proposal until the block is fixed. Rounds set to 0 is the operator's own choice of one plain review, and when that call fails, nothing was checked."
   - category: Implementation
     chose: "The gate writes its stop reason on the draft, and the finding is worded from it"
     over: "One fixed sentence"

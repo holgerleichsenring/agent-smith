@@ -15,24 +15,45 @@ namespace AgentSmith.Application.Services.Specs.Review;
 internal static class ProposalReviewSummary
 {
     public const string NotReviewedYet = "not reviewed yet";
-    /// <summary>2026-11-10-18cf: the finding names what stopped the review, never a share a design turn no
+    /// <summary>2026-11-10-18cf: the finding names why the review did not finish, never a share a design turn no
     /// longer has.</summary>
-    public static string NotReviewedWhy(string? stoppedBecause) =>
-        $"this spec's review did not finish: {stoppedBecause ?? "the turn ended first"}; it cannot be approved until a later turn reviews it";
+    public static string NotReviewedWhy(string reason) =>
+        $"this spec's review did not finish: {reason}; it cannot be approved until a later turn reviews it";
+
+    /// <summary>2026-11-10-18cf: <paramref name="proposal"/> with every one of <paramref name="drafts"/> held as not
+    /// reviewed for <paramref name="reason"/>, beside <paramref name="findings"/>.</summary>
+    public static OutcomeProposal Held(
+        OutcomeProposal proposal, IReadOnlyList<SpecDraft> drafts, IReadOnlyList<ProposalFinding> findings, string reason) =>
+        proposal with
+        {
+            NotReviewed = drafts.Count == 0 ? null : [.. drafts.Select(d => d.SpecId)],
+            Findings = [.. findings, .. drafts.Select(d => new ProposalFinding(d.SpecId, NotReviewedYet, NotReviewedWhy(reason)))],
+        };
+
+    public const string NoAnswerWhy = "no reviewer answered (each call failed, timed out or could not be read)";
+    public const string LastRevisionWhy = "its last revision came after the final round, so nobody attacked that text";
+    public const string UnderReviewWhy = "it was still under review when this was published, and a turn that ends here leaves it unreviewed";
 
     public const string UnreadWhy =
         "the reviewers could not read what this spec names, so nobody checked it; it cannot be approved until a later turn tries again";
     public const string UnreadAgainWhy =
         "the reviewers could not read what this spec names on this turn either, so nobody checked it; it can be approved knowing that, and a run reviews it before it builds";
 
-    public static ProposalReviewOutcome Of(ProposalReviewSession session, IReadOnlyList<SpecEvidenceProblem> parentProblems)
+    /// <summary>
+    /// The review as it stands. A draft still open is not reviewed — its current text was never attacked — and
+    /// says why: what stopped it, or <paramref name="final"/> ? its last revision came too late : still under review.
+    /// </summary>
+    public static ProposalReviewOutcome Of(
+        ProposalReviewSession session, IReadOnlyList<SpecEvidenceProblem> parentProblems, bool final)
     {
         var order = ProposalSpecSet.Drafts(session.Proposal).Select(d => d.SpecId).ToList();
         var drafts = session.Drafts.OrderBy(d => order.IndexOf(d.SpecId)).ToList();
-        var waiting = drafts.Where(d => d.NotReviewed).Select(d => d.SpecId).ToList();
+        var unfinished = drafts.Where(d => (d.NotReviewed || !d.Stopped) && !d.Unread).ToList();
+        var waiting = drafts.Where(d => d.NotReviewed || !d.Stopped).Select(d => d.SpecId).ToList();
         var standing = Problems(ParentId(session.Proposal), parentProblems)
             .Concat(drafts.SelectMany(d => Problems(d.SpecId, d.Evidence.Problems).Concat(Uncleared(d))))
-            .Concat(drafts.Where(d => d.NotReviewed && !d.Unread).Select(d => new ProposalFinding(d.SpecId, NotReviewedYet, NotReviewedWhy(d.StoppedBecause))))
+            .Concat(unfinished.Select(d => new ProposalFinding(d.SpecId, NotReviewedYet,
+                NotReviewedWhy(d.StoppedBecause ?? (final ? LastRevisionWhy : UnderReviewWhy)))))
             .Concat(drafts.Where(d => d.Unread).Select(d => new ProposalFinding(
                 d.SpecId, NotReviewedYet, d.NotReviewed ? UnreadWhy : UnreadAgainWhy)))
             .ToList();
@@ -43,8 +64,9 @@ internal static class ProposalReviewSummary
     private static IEnumerable<ProposalFinding> Problems(string? specId, IReadOnlyList<SpecEvidenceProblem> problems) =>
         specId is null ? [] : problems.Select(p => new ProposalFinding(specId, ProposalEvidenceReview.Problem, p.Problem, p.Claim));
 
+    // 2026-11-10-18cf: a draft still open after a rewrite shows no findings about the text it replaced.
     private static IEnumerable<ProposalFinding> Uncleared(ProposalDraftReview draft) =>
-        draft.Rounds is [.., var last] && !Clears(last)
+        draft.Rounds is [.., var last] && !Clears(last) && (draft.Stopped || draft.AttackedCurrentText)
             ? last.Findings.Select(f => new ProposalFinding(draft.SpecId, last.Verdict, f.Text, null, f.Evidence))
             : [];
 

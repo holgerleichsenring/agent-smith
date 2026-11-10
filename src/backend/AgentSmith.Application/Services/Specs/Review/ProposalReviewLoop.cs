@@ -41,7 +41,7 @@ public sealed class ProposalReviewLoop(
             await PublishAsync(session, parentProblems, ct);
             if (!goesOn) break;
         }
-        return await series.AddAsync(session, ProposalReviewSummary.Of(session, parentProblems), ct);
+        return await series.AddAsync(session, ProposalReviewSummary.Of(session, parentProblems, final: true), ct);
     }
 
     // 2026-11-09-9a98: what a person may read so far: this round's cuts, and what is still open.
@@ -49,12 +49,12 @@ public sealed class ProposalReviewLoop(
         ProposalReviewSession session, IReadOnlyList<SpecEvidenceProblem> parentProblems, CancellationToken ct)
     {
         if (proposals?.Current is null) return;
-        var sofar = ProposalReviewSummary.Of(session, parentProblems);
+        var sofar = ProposalReviewSummary.Of(session, parentProblems, final: false);
         await proposals.PublishUnderReviewAsync(sofar.Proposal with
         {
             Findings = sofar.Standing,
             ReviewRounds = sofar.Rounds,
-            NotReviewed = [.. session.Drafts.Where(d => d.NotReviewed || !d.Stopped).Select(d => d.SpecId)],
+            NotReviewed = sofar.NotReviewed,
         }, ct);
     }
 
@@ -70,7 +70,7 @@ public sealed class ProposalReviewLoop(
         return goesOn;
     }
 
-    /// <summary>True when the draft goes into the re-prompt; otherwise it stops here.</summary>
+    /// <summary>True when the draft goes into the re-prompt; otherwise it stops here, or stays open when no reviewer answered.</summary>
     private static bool Judge(ProposalReviewSession session, ProposalDraftReview draft, IReadOnlyList<SpecAttackResult?> answers)
     {
         var merged = SpecReviewMerge.Merge(answers);
@@ -79,8 +79,18 @@ public sealed class ProposalReviewLoop(
             draft.MarkUnread();
             return false;
         }
+        // 2026-11-10-18cf: with repositories to read and no reviewer answering, nothing attacked this text. It stays
+        // open, so a later round tries again, and it is held with that reason if none does.
+        if (!merged.IsTaken && DerivationLookFactory.ProposalRepositories(session.Turn.Pipeline) is not null)
+        {
+            draft.StoppedBecause = ProposalReviewSummary.NoAnswerWhy;
+            draft.Stopped = false;
+            return false;
+        }
         if (merged.IsTaken)
         {
+            draft.StoppedBecause = null;
+            draft.AttackedYaml = draft.Draft.Yaml;
             draft.Merged = merged;
             draft.Verdicts = [.. answers.Select(answer => answer is { Blind: false } ? answer.Verdict : null)];
         }
