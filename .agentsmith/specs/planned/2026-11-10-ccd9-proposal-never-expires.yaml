@@ -2,28 +2,32 @@
 spec: 2026-11-10-ccd9
 goal: "A stored proposal awaits a decision until a person approves or rejects the exact card they saw or a newer proposal replaces it; nothing waits, nothing expires, and one approval wins."
 
-applies_to: "default (Server: spec dialog outcome flow, stores, admission, router, view, chat adapters; Persistence: session row; Dashboard: approval card and composers)"
+applies_to: "default (Server: spec dialog outcome flow, stores, admission, router, view, ticket views, chat adapters; Persistence: session row; Dashboard: approval card and composers)"
 
 facts:
   - claim: "The confirmer asks with a fixed 15-minute ConfirmationTimeout, holds an in-memory pending question and a Redis open-question record with that TTL, and waits inside the router's turn loop, which re-runs the turn on an edit note."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:32-64; src/backend/AgentSmith.Server/Services/SpecDialog/RedisOpenDialogQuestions.cs:16-17; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:85-114; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogEditReload.cs:7-10"
   - claim: "On timeout the flow clears the stored proposal and sends ComposeTimeout through the messenger only; the comment encodes the old rule."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:76-81; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:54; src/backend/AgentSmith.Server/Services/SpecDialog/ConfirmationResult.cs; src/backend/AgentSmith.Server/Services/Adapters/DashboardAdapter.cs:40-41"
-  - claim: "No id identifies the proposal a decision was made on: the flow pushes and stores the proposal before confirming, and approve buttons send only the word."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-44; src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-29; src/dashboard/src/components/tickets/detail/useTicketComposer.ts:70; src/dashboard/src/hooks/useSpecDialog.ts:124-128"
-  - claim: "The mid-review observer writes the same stored-proposal slot the flow writes, marking it UnderReview; the steward's supersede clears that slot."
+  - claim: "The flow pushes the proposal before it stores it, and no id identifies the proposal a decision was made on; approve buttons send only the word."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38-44; src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:22-29; src/dashboard/src/components/tickets/detail/useTicketComposer.ts:66-71; src/dashboard/src/hooks/useSpecDialog.ts:124-128"
+  - claim: "The approval card renders whatever proposal the page holds, in the conversation and on the ticket page; the ticket preview and transcript reader read LatestProposalJson."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:436-440; src/dashboard/src/components/tickets/detail/TicketComposer.tsx:76-79; src/backend/AgentSmith.Server/Services/Tickets/TicketApprovalPreview.cs:22; src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:41"
+  - claim: "The mid-review observer writes the same slot the flow writes, marking it UnderReview; the steward's supersede clears that slot."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:24-25; src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:45; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:42,89-94"
+  - claim: "The store swallows every failed write."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:104-118"
   - claim: "ConfirmedOutcomeJson already means 'approved and not fully filed yet'."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:23,31-37"
   - claim: "Admission stores a message with a tentative decision before the turn gate and takes it back when nothing was waiting."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:36-54; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:57-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerWords.cs:13-24"
-  - claim: "Chat buttons reach a wait through the adapter or SpecDialogButtonAnswer, both depending on the open question; Slack and Teams ask through a call that waits for the click."
-    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:72-73; src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs:88-89; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogButtonAnswer.cs:14-22; src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionManager.cs:45-49; src/backend/AgentSmith.Server/Services/Adapters/TeamsAdapter.cs:37-45"
+  - claim: "Chat buttons reach a wait through the adapter or SpecDialogButtonAnswer, then the run-answer binding; Slack and Teams ask through a call that waits for the click."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:72-81; src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs:88-89; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogButtonAnswer.cs:14-22; src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionManager.cs:45-49; src/backend/AgentSmith.Server/Services/Adapters/TeamsAdapter.cs:37-45"
   - claim: "The approval card is built from the pending question with its expiry; the resumer refuses while a question is pending; the dashboard hides an expired approval."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:58-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:40; src/backend/AgentSmith.Server/Models/SpecDialogChannelQuestion.cs:18-24; src/dashboard/src/components/dialog/DialogQuestionCard.tsx:48,83-102; src/dashboard/src/components/tickets/detail/useTicketComposer.ts:97-100"
-  - claim: "The turn's poster decides MayStartRuns for the filing; a Slack message carries false. A bound ticket's approval continues the ticket instead of filing."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:107; src/backend/AgentSmith.Server/Services/Adapters/SlackMessageDispatcher.cs:45-46; src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:44-48"
-  - claim: "Today a filing that fails or creates only some tickets reports it in a Filing notice; nothing resumes it."
+  - claim: "The turn's poster decides MayStartRuns for the filing; a Slack message carries false. A bound ticket's approval continues the ticket instead of filing, and an acted-on proposal is cleared after filing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:107; src/backend/AgentSmith.Server/Services/Adapters/SlackMessageDispatcher.cs:45-46; src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:44-48,111-112"
+  - claim: "Today a filing that fails or creates only some tickets is reported in a Filing notice; nothing resumes it."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:53-83"
   - claim: "The design turn has no ask_human since 0.180.1; the coding run's ask_human still waits five minutes."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56; src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs:45-48"
@@ -32,57 +36,68 @@ facts:
 
 scope:
   in: |
-    SPLIT FIRST, only what the steps edit: SpecDialogLatestOutcomeStore, SpecDialogViewReader, DashboardDialogDispatcher.
-    COLUMNS: the session row gains ProposalId, ProposalState (awaiting | filing), ReviewingProposalJson and PostedProposalId. Migration AddSpecDialogProposalState, one name in the SQLite, SqlServer and Postgresql sets. The proposal id is also written inside the proposal JSON.
-    SLOTS: the mid-review observer writes only ReviewingProposalJson and never touches the awaiting proposal. At turn end the flow writes the final proposal into the awaiting slot (LatestProposalJson) with a freshly minted id and ProposalState awaiting, clears the reviewing column, and appends a Notice when it replaces an earlier awaiting proposal. The flow and the steward's supersede write only the awaiting slot and never touch a claimed one.
-    CLAIM (a new SpecDialogProposalClaim, registered on the existing line 85 of RelationalPersistenceExtensions): one compare-and-set, WHERE ProposalId = x AND ProposalState = awaiting, that moves the proposal into ConfirmedOutcomeJson, sets ProposalState filing and frees the awaiting slot for the next turn. Approve and a continuation act on a bound ticket (TicketFilingOutcomeSink.cs:44-48) both go through it, so a second approve on the same id fails the compare-and-set. Reject is the same compare-and-set clearing the slot; a failure fails the caller.
-    DECIDING (a new SpecDialogDecisionPath, called by the router, the dashboard dispatcher and the Slack and Teams interaction handlers): every decision carries the id of the card the person saw. Buttons carry it. On the dashboard the client sends a typed approve or reject word with the id of the latest card it shows. In Slack and Teams a typed word binds to PostedProposalId, written only after the post-only call that posted that card succeeded. A decision whose id is not the awaiting id, or whose JSON id differs from the column (a rolling deploy), appends a Notice ('replaced; the current proposal is below') and runs no turn. A message without a decision word is an ordinary message that runs an ordinary turn. The tentative decision reuses the existing append-with-decision and ClearDecisionAsync.
+    SPLIT FIRST, only what the steps edit: SpecDialogLatestOutcomeStore, SpecDialogViewReader, DashboardDialogDispatcher, SlackInteractionHandler.
+    COLUMNS: the session row gains AwaitingProposalJson, ProposalId, ProposalState (awaiting | filing), ReviewingProposalJson, PostedProposalId and PostedAt. Migration AddSpecDialogProposalState, one name in the SQLite, SqlServer and Postgresql sets, only adds columns. Old-build replicas keep reading and writing LatestProposalJson and never touch the new columns.
+    LAZY BACKFILL: a reader that finds a stored proposal with no id (a row from before the deploy) mints one through a compare-and-set and treats it as awaiting, or as reviewing when the stored proposal is UnderReview.
+    SLOTS: the mid-review observer writes only ReviewingProposalJson. At turn end the flow writes the final proposal into AwaitingProposalJson with a freshly minted ProposalId and state awaiting BEFORE any push or post (today the push at :38 precedes the store at :42), clears the reviewing column, and appends a Notice when it replaces an earlier awaiting proposal. If that write fails the turn reports ComposeTurnFailed and shows no card. The awaiting write, the claim and reject throw on failure instead of the store's logged drop.
+    PUSH AND VIEW: the push and the view carry ProposalId and a reviewing flag; the view returns the awaiting proposal and the reviewing proposal separately. The approval card (DialogQuestionCard from SpecDialogSurface.tsx:438 and TicketComposer.tsx:78) renders ONLY the awaiting proposal and sends its id; a typed word sends the same id. The ticket page (TicketApprovalPreview.cs:22, TicketTranscriptReader.cs:41) reads the awaiting proposal and carries ProposalId, and the queued decision in useTicketComposer.ts:69-70 carries the id that was shown, not that of a card loaded later.
+    CLAIM (a new SpecDialogProposalClaim, registered on the existing line 85 of RelationalPersistenceExtensions): one compare-and-set WHERE ProposalId = x AND ProposalState = awaiting AND AwaitingProposalJson IS NOT NULL, moving the proposal into ConfirmedOutcomeJson, setting state filing and freeing the awaiting slot. Approve and a bound ticket's continuation act (TicketFilingOutcomeSink.cs:44-48) both go through it, so a second approve on the same id fails. Reject and the steward's supersede are each one compare-and-set WHERE ProposalState = awaiting that clears JSON, id and state together.
+    DECIDING (a new SpecDialogDecisionPath, called by the router, the dashboard dispatcher and the Slack and Teams interaction handlers): every decision carries the id of the card the person saw. A typed word decides only while that card is the latest agent entry on its surface; otherwise it is an ordinary message. In Slack and Teams a typed word binds to PostedProposalId and only when its platform timestamp is later than PostedAt (Slack ts, Teams activity time), both written only after the post-only call succeeded. A decision whose id is not the awaiting id appends a Notice ('replaced; the current proposal is below') and runs no turn; on Slack and Teams every such Notice reposts the awaiting card and writes PostedProposalId and PostedAt. A click carrying an old random QuestionId first tries the run-answer binding (SlackInteractionHandler.cs:72-81), and only then gets that Notice. Shape and edit buttons route as the clicker's message, with the id. A message without a decision word is an ordinary message that runs an ordinary turn. The tentative decision reuses the existing append-with-decision and ClearDecisionAsync.
     RIGHTS: the decider's MayStartRuns; a Slack or Teams interaction carries false, the same as a Slack message.
-    VIEW: the approval card is built from the row, offered only for awaiting, so it survives a restart on any replica.
-    BACKFILL: an open row whose stored proposal is UnderReview moves into ReviewingProposalJson; any other open row with a stored proposal becomes awaiting with a minted id written into its JSON. A click on an old chat card with the old random QuestionId gets the replaced Notice and a reposted card.
-    AFTER A CLAIM: filing runs exactly as today. A failed or partial filing behaves as it does today: it is reported in the Filing notice and nothing resumes it.
+    VIEW AFTER RESTART: the card is built from the row, offered only for awaiting, on any replica.
+    AFTER A CLAIM: filing runs as today, with one change: the clear at TicketFilingOutcomeSink.cs:111-112 is deleted, because the claim already freed the slot. A failed or partial filing is reported in the Filing notice as today and nothing resumes it.
     REMOVED: ConfirmationTimeout, OutcomeConfirmationTimedOut, ComposeTimeout, the pending approval question, the approval TTL, ExpiresAt on approval cards, the resumer's refusal on an approval, and the router's edit re-run loop (OutcomeFlowEditRequested, SpecDialogEditReload in that role). Slack and Teams post the card with a post-only call. The comment at SpecDialogOutcomeFlow.cs:77-78 is rewritten.
   out: "Crash-safe, exactly-once, resumable filing is a pre-existing gap, unchanged here; it is the successor 2026-11-10-825f (filing-resumable). The coding run's ask_human five-minute wait is a named successor. Build gating is unchanged (2026-11-10-8e59)."
 
 decisions:
   - key: "FOUR INVARIANTS, NO MORE: a proposal never expires, no decision against unseen text, no double approve across replicas, no proposal lost. Exactly-once filing after the approval was never guaranteed and is not made worse here; it is its own spec."
-  - key: "TWO SLOTS. A draft under review lives in its own column, so it can never be approved and never displaces the awaiting proposal."
-  - key: "THE CLAIM EMPTIES THE SLOT. Moving the approved proposal into ConfirmedOutcomeJson lets the next turn propose at once, and the compare-and-set on id and state makes a second approve fail on any replica."
-  - key: "THE SURFACE NAMES THE CARD. The dashboard client knows the card shown; a chat thread knows its last posted card through PostedProposalId, written only once the post succeeded."
+  - key: "TWO SLOTS, NEW COLUMNS. A draft under review lives in its own column and the awaiting proposal in a new one that old-build replicas never touch, so a rolling deploy cannot mix them."
+  - key: "STORE BEFORE SHOW. The awaiting write precedes any push or post and fails the turn when it fails, so nobody sees a card that was never stored."
+  - key: "THE CLAIM EMPTIES THE SLOT. Moving the approved proposal into ConfirmedOutcomeJson lets the next turn propose at once; the post-filing clear goes, since it could only wipe a newer proposal."
+  - key: "THE SURFACE NAMES THE CARD. The card shows only the awaiting proposal and sends its id; a chat thread binds a typed word to the last card it posted, by id and time."
+  - key: "LAZY BACKFILL. A reader mints a missing id by compare-and-set; the migration stays additive."
   - key: "AN ORDINARY MESSAGE IS ORDINARY (operator's coordinator, 2026-11-10). No forced revising and no edit re-run loop."
   - key: "CHAT INTERACTIONS START NO RUNS. A Slack or Teams click carries no permission, as a Slack message does not."
 
 steps:
   - id: split
-    action: "Split SpecDialogLatestOutcomeStore, SpecDialogViewReader and DashboardDialogDispatcher."
+    action: "Split SpecDialogLatestOutcomeStore, SpecDialogViewReader, DashboardDialogDispatcher and SlackInteractionHandler."
   - id: state
-    action: "Migration AddSpecDialogProposalState with the backfill; SpecDialogProposalClaim with the compare-and-set; the observer writes the reviewing column; the flow mints the id and writes awaiting with the replaced Notice."
+    action: "Migration AddSpecDialogProposalState (columns only); lazy backfill reader; SpecDialogProposalClaim with the claim, reject and supersede compare-and-sets; the observer writes the reviewing column; the flow writes awaiting before any push and fails the turn when it cannot."
   - id: decide
-    action: "SpecDialogDecisionPath: id and JSON-id comparison, replaced Notice, claim, filing with the decider's MayStartRuns; router, dispatcher and interaction handlers call it; the dashboard sends the latest card id with a typed word; chat binds a typed word to PostedProposalId."
+    action: "SpecDialogDecisionPath: id comparison, latest-entry check, replaced Notice with repost on chat, claim, filing with the decider's MayStartRuns; router, dispatcher and interaction handlers call it; shape buttons route as messages; the old-QuestionId route tries the run-answer binding first."
   - id: surfaces
-    action: "Push and view carry the id; the view builds the card from the row; Slack and Teams post-only, then write PostedProposalId."
+    action: "Push and view carry ProposalId and the reviewing flag; the card renders and sends only the awaiting proposal; ticket preview, transcript reader and the queued decision carry the shown id; Slack and Teams post-only, then write PostedProposalId and PostedAt."
+  - id: sink
+    action: "Delete the clear at TicketFilingOutcomeSink.cs:111-112."
   - id: remove
     action: "Remove the wait, the timeout, the expiry fields, the approval TTL and the edit re-run loop."
   - id: tests
     action: "Pin each path."
 
 tests:
-  - "OutcomeFlow_FinalProposal_IsAwaitingWithAFreshIdAndNothingWaits"
+  - "OutcomeFlow_FinalProposal_IsStoredAwaitingBeforeThePush"
+  - "OutcomeFlow_AwaitingWriteFails_TurnFailedAndNoCard"
   - "Observer_MidReviewDraft_WritesOnlyTheReviewingColumn"
+  - "Card_WhileNextTurnReviews_ShowsAndSendsTheAwaitingProposal"
+  - "TicketComposer_QueuedDecision_CarriesTheShownId"
   - "Decision_ApproveWithStoredIdADayLater_ClaimsAndFiles"
   - "Decision_TwoApprovesOnTwoReplicas_OneClaimWins"
   - "Decision_ContinuationActApprovedTwice_SecondClaimFails"
   - "Decision_OlderId_AppendsReplacedNoticeAndRunsNoTurn"
-  - "Decision_JsonIdDiffersFromColumn_IsRefused"
+  - "Steward_Supersede_ThenClickOnOldId_GetsNotice"
   - "Claim_MovesTheProposalToConfirmedAndFreesTheSlot"
-  - "Steward_Supersede_LeavesAClaimedProposalAlone"
-  - "DashboardTypedApprove_CarriesTheLatestCardId"
-  - "SlackTypedApprove_BindsToPostedProposalId"
+  - "Claim_AwaitingJsonNull_Fails"
+  - "Sink_AfterFiling_DoesNotClearANewerProposal"
+  - "TypedWord_CardNotLatestEntry_IsAnOrdinaryMessage"
+  - "SlackTypedApprove_BindsToPostedProposalIdOnlyAfterPostedAt"
   - "SlackPostFails_PostedProposalIdUnchanged"
-  - "Reject_ClaimFails_FailsTheCaller"
+  - "SlackMismatchNotice_RepostsTheAwaitingCard"
+  - "SlackShapeButton_RoutesAsTheClickersMessageWithTheId"
+  - "OldRandomQuestionId_TriesRunAnswerFirstThenNotice"
+  - "Reject_SingleCompareAndSet_FailsTheCallerOnError"
   - "SlackInteraction_DecidesWithMayStartRunsFalse"
-  - "OldRandomQuestionId_GetsNoticeAndRepostedCard"
-  - "Migration_BackfillsReviewingAndAwaiting"
+  - "LazyBackfill_RowWithoutId_MintsOneByCompareAndSet"
   - "ViewReader_AfterRestart_ShowsTheCardFromTheRow"
 
 done:
@@ -93,5 +108,5 @@ done:
   - when: "a person approves a card that a newer proposal replaced"
     then: "a Notice says so and nothing is claimed or run"
   - "No code path clears a stored proposal for lack of an answer."
-  - "A failed or partial filing after a claim behaves as it does today."
+  - "A failed or partial filing after a claim behaves as it does today, except that it no longer clears the awaiting slot."
   - "Build green, full suite and dashboard tests green."
