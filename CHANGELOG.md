@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.180.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.180.0...v0.180.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* a child's answer reaches its master whole (2026-11-10-14a3a) ([b1ad046](https://github.com/holgerleichsenring/agent-smith/commit/b1ad046928ffe14f217870ecf2a3537a6b7a653d))
+* a cited path with a space is one citation up to its line suffix (2026-11-10-864f) ([e0d441a](https://github.com/holgerleichsenring/agent-smith/commit/e0d441a2c113d14b48dd988276006ee454a07c74))
+* a cut child answer says so first, and the spawn result names it (2026-11-10-14a3a) ([0079ce1](https://github.com/holgerleichsenring/agent-smith/commit/0079ce1fb99b2fd461c9ff960b8d40eeeea19c0c))
+* a design turn is offered only the tools a conversation uses, and asks in its reply (2026-11-10-fc66) ([9c55141](https://github.com/holgerleichsenring/agent-smith/commit/9c551418f4bf148afa090b2c297de50c668be75c))
+* a design turn reads each principles file once, as a digest (2026-11-10-14a3c) ([5317d3f](https://github.com/holgerleichsenring/agent-smith/commit/5317d3fe69954db8078346c8293bb5e2a544dc1f))
+* a design turn's attack reviewer also judges the cut (2026-11-10-14a3g) ([02dd31b](https://github.com/holgerleichsenring/agent-smith/commit/02dd31b59b4757ed86adf01bdbbcfe882d3292c8))
+* a design turn's real folds reach outcome_format (2026-11-10-85e2) ([89fe178](https://github.com/holgerleichsenring/agent-smith/commit/89fe17820c487bde3aba3ac39986342679d762b8))
+* a design turn's visual, mock, memory and withdrawal tools come with their material (2026-11-10-14a3d) ([71cd233](https://github.com/holgerleichsenring/agent-smith/commit/71cd2336b83744fd2c60f1173026f9e5d70e73ed))
+* a proposal's reviewers and evidence check read the uploads the design partner read (2026-11-10-864f) ([87c5d0a](https://github.com/holgerleichsenring/agent-smith/commit/87c5d0a51a74dd89642a6c868460838ef441ca0f))
+* outcome_format returns a kind's format once per turn (2026-11-10-14a3f) ([e4d2d83](https://github.com/holgerleichsenring/agent-smith/commit/e4d2d833fffadf1133a29419c34f28a2a3ee9fbc))
+* read_file reads an unprefixed path the one source holding it (2026-11-10-14a3b) ([fd050d4](https://github.com/holgerleichsenring/agent-smith/commit/fd050d4cef52477ba1c1d0dcd82041932cc8ee73))
+* the design partner names its unit and the source of a decision, and carries only what it uses (2026-11-10-14a3h) ([f00579b](https://github.com/holgerleichsenring/agent-smith/commit/f00579b99a8508f975d5a830943212d3cefbce35))
+* the design turn asks in its reply, reads what it needs and is reviewed against its material (fc66, 864f, 14a3a-h) ([10bce19](https://github.com/holgerleichsenring/agent-smith/commit/10bce193b89359bebac16a519b122b1a5bd37e58))
+* the design turn's footer lists the repositories without repeating the rule (2026-11-10-14a3e) ([576c8f6](https://github.com/holgerleichsenring/agent-smith/commit/576c8f6d1f77b1072175d0290756e60bcd291a3b))
+* the design-turn series holds what it claims (2026-11-10-85e2) ([3a661b9](https://github.com/holgerleichsenring/agent-smith/commit/3a661b9fbcf72501c6bb9332bf9d8a476a94cf5c))
+* the mock tools stay on every design turn (2026-11-10-14a3d) ([eda60c8](https://github.com/holgerleichsenring/agent-smith/commit/eda60c8dee5f048f9f9d6e7e9428114a65bee7ae))
+
 ## [0.180.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.179.0...v0.180.0) (2026-11-10)
 
 
