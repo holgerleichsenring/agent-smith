@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public sealed class SeriesContractRound(
     ISeriesContractReviewer reviewer, DerivationLookFactory looks, ISpecCutReviser reviser, SpecCutResidues residues,
-    SpecReviewRevision revision, SpecReviewRoundPublisher rounds)
+    SpecReviewRevision revision, SpecReviewRoundPublisher rounds, SpecReviewLoop loop)
 {
     /// <summary>The run look: cleared members plus 12 looks, never below 8762e's 24.</summary>
     public static DerivationLookTerms Terms(int cleared) =>
@@ -72,8 +72,17 @@ public sealed class SeriesContractRound(
         var objection = landing.Verdict == SpecReviewVerdicts.Refuse
             ? new StandingObjection(null, landing.Findings, prefix[0].SpecId)
             : null;
+        // 2026-11-10-8e59: a member this round's cuts changed is no longer cleared; its new text is attacked now, in
+        // rounds of its own the budget may still stop, and what that leaves uncleared is handled like any spec.
+        var reattacked = new List<SpecReviewOutcome>();
+        foreach (var draft in changed)
+            reattacked.Add(await loop.RunAsync(run, run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Specs.First(s => s.SpecId == draft.SpecId),
+                first: false, ct));
         return new($"series contract round over {prefix.Count} cleared member(s): {landing.Verdict}"
             + (changed.Count > 0 ? $", revised {string.Join(", ", changed.Select(d => d.SpecId))}" : string.Empty)
-            + (standing.Count > 0 ? $", {standing.Count} residue(s) standing" : string.Empty), objection);
+            + (standing.Count > 0 ? $", {standing.Count} residue(s) standing" : string.Empty), objection)
+        {
+            Reattacked = reattacked,
+        };
     }
 }

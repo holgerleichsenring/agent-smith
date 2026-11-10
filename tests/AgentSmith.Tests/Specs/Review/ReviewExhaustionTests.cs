@@ -28,15 +28,22 @@ public sealed class ReviewExhaustionTests
         Decide([Objection(First)]).Should().ContainSingle().Which.SpecId.Should().Be(First);
 
     [Fact]
-    public void Exhaustion_UnansweredObjectionCommentForThisSpec_Proceeds() =>
-        Decide([Objection(First)], OurObjection(First)).Should().BeEmpty();
+    public void Exhaustion_UnansweredObjectionCommentForThisSpec_IsAskedAgain() =>
+        Decide([Objection(First)], OurObjection(First)).Should().ContainSingle("silence is never consent (2026-11-10-8e59)");
+
+    [Fact]
+    public void Exhaustion_AuthorAnsweredBuildAsReviewed_Proceeds() =>
+        Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(a) build it as it stands"))
+            .Should().BeEmpty("an explicit build answer is the author's call");
 
     [Fact]
     public void Exhaustion_ObjectionCommentStoredHtmlEscaped_StillReadsAsAsked()
     {
         var ours = OurObjection(First);
 
-        Decide([Objection(First)], ours with { Body = System.Net.WebUtility.HtmlEncode(ours.Body) }).Should().BeEmpty("a tracker that escapes the comment must not ask again");
+        Decide([Objection(First)], ours with { Body = System.Net.WebUtility.HtmlEncode(ours.Body) },
+                new TicketComment("author", Asked.AddHours(1), "(a)"))
+            .Should().BeEmpty("a tracker that escapes our comment must still anchor the author's answer");
     }
 
     [Fact]
@@ -47,9 +54,9 @@ public sealed class ReviewExhaustionTests
     }
 
     [Fact]
-    public void Exhaustion_ObjectionCommentAnswered_Proceeds() =>
-        Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "build it"))
-            .Should().BeEmpty("an asked objection proceeds; the answer is the next derivation's input");
+    public void Exhaustion_ObjectionAnsweredWithoutTheBuildReading_IsAskedAgain() =>
+        Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(b) change it"))
+            .Should().ContainSingle("only the build reading lets an unreviewed text through");
 
     [Fact]
     public void Exhaustion_ReadingQuestionPin_StillAsksTheObjection()
@@ -61,21 +68,32 @@ public sealed class ReviewExhaustionTests
     }
 
     [Fact]
-    public async Task Exhaustion_LaterAttemptWithoutPin_UnansweredObjection_DoesNotParkAgain()
+    public async Task Exhaustion_LaterAttemptUnansweredObjection_ReviewsAgainAndAsksAgain()
     {
         var rig = Thread(new ReviewLoopRig().Answers(Refuse()), OurObjection(First));
 
         var result = await rig.ExecuteAsync(Settings());
 
-        result.InsertNext.Should().BeNull();
-        rig.Pipeline.Has(ContextKeys.SpecSequenceStop).Should().BeFalse();
-        rig.Set.Handback.Should().BeNull();
-        result.Message.Should().Contain($"{First}: its objection was asked before, built as reviewed");
+        rig.Inputs.Should().Contain(i => i.Draft.SpecId == First, "the spec is attacked again from fresh rounds");
+        result.InsertNext.Should().NotBeNull("silence never builds the spec; the objection is asked again");
+        result.Message.Should().NotContain("build as reviewed");
     }
 
     [Fact]
-    public void Exhaustion_ObjectionOnAnotherSpec_AsksOnce() =>
-        Decide([Objection(First), Objection(Second)], OurObjection(First))
+    public async Task Exhaustion_LaterAttemptAnsweredBuild_IsBuilt()
+    {
+        var rig = Thread(new ReviewLoopRig().Answers(Refuse()), OurObjection(First),
+            new TicketComment("author", Asked.AddHours(1), "(a) build the spec as reviewed"));
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        result.InsertNext.Should().BeNull();
+        result.Message.Should().Contain($"{First}: the author answered build as reviewed");
+    }
+
+    [Fact]
+    public void Exhaustion_BuildAnswerOnAnotherSpec_AsksOnlyTheOther() =>
+        Decide([Objection(First), Objection(Second)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(a)"))
             .Should().ContainSingle().Which.SpecId.Should().Be(Second);
 
     [Fact]

@@ -42,15 +42,14 @@ public sealed class InlineHandbackAskTests
     }
 
     [Fact]
-    public async Task ReviewObjection_EmptyAnswer_TakesDefault()
+    public async Task ReviewObjection_EmptyAnswer_BuildsNothing()
     {
         var pipeline = Pipeline(Objection);
 
         var result = await Ask(Answering(string.Empty)).HandleAsync(pipeline, Objection, default);
 
-        result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().Contain("the default stands").And.Contain(ReviewObjectionQuestion.BuildAsReviewed);
-        pipeline.Has(ContextKeys.SpecHandback).Should().BeFalse();
+        result.IsSuccess.Should().BeFalse("silence never builds an unreviewed spec (2026-11-10-8e59)");
+        result.Message.Should().Contain("not built unreviewed");
     }
 
     [Fact]
@@ -120,8 +119,7 @@ public sealed class InlineHandbackAskTests
 
         var result = await Ask(gate).HandleAsync(Again(pipeline, Objection), Objection, default);
 
-        result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().Contain(ReviewObjectionQuestion.BuildAsReviewed);
+        result.Message.Should().Contain("not built unreviewed", "it was asked, and nobody chose to build it");
         gate.Verify(g => g.AskAsync(It.IsAny<PipelineContext>(), It.IsAny<DialogQuestion>(),
             It.IsAny<CancellationToken>()), Times.Exactly(2));
     }

@@ -58,7 +58,11 @@ decisions:
     chose: "The approval record keeps only the current filing's clean reviews"
     over: "Merging in the previous record's entries"
     reason: "A clean review belongs to the filing that reviewed it. Carrying old entries forward added nothing the hash did not already decide, and it obscured which review the run relied on."
-  - category: Scope
-    chose: "Named, not changed: series-round cuts landing on members, and an asked objection that proceeds unanswered"
-    over: "Changing either here"
-    reason: "The run's series round may apply cuts to members after their own rounds, and those texts are not attacked again. 8762h proceeds on the next run after asking, whether or not anyone answered. Both are outside the findings this round fixes, and both are reported for the operator to decide."
+  - category: Architecture
+    chose: "An exhaustion question lets a spec through only on a person's explicit build answer, '(a)' or its words, after our question on the ticket or a pull request. Silence sends the spec to fresh rounds, and the question is asked again if the objection still stands"
+    over: "8762h's 'asked once, proceeds answered or not', with the unanswered pin telling the derivation to keep the spec"
+    reason: "Silence is not consent. The goal is that nothing unattacked is built except by a person's call. The review-objection pin and its prompt section are removed, and an inline run with no answer fails without building. The question text says what silence does."
+  - category: Architecture
+    chose: "A member that a series-round cut changed is attacked again on its new text, in this run, through the same loop with the budget share; what that leaves uncleared is handled like any spec (stop or objection)"
+    over: "Building the series-cut text as cleared"
+    reason: "A series cut changes a member after its own rounds, so the text that would be built was never attacked."

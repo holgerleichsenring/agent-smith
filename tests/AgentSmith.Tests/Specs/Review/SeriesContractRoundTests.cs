@@ -45,6 +45,35 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
+    public async Task ReviewSpecs_SeriesCutChangesAMember_AttacksItsNewTextBeforeBuilding()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs())).Revisions(Edit);
+        rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(Second));
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        rig.Inputs.Where(i => i.Draft.SpecId == Second).Select(i => i.Draft.Yaml)
+            .Should().HaveCount(2).And.Contain(yaml => yaml.Contains(NewStep), "the series cut's text is attacked too (2026-11-10-8e59)");
+        result.Message.Should().Contain($"{Second} cleared after 1 round(s)", "its new text was reviewed clean");
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_SeriesCutChangesAMemberAndTheShareIsSpent_ItIsNotBuiltThisAttempt()
+    {
+        var rig = new ReviewLoopRig(Contracted(TwoSpecs())).Revisions(Edit);
+        rig.OnSeriesReview = _ =>
+        {
+            rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-1000));
+            return Series(SpecReviewVerdicts.BuildWithCuts, SeriesCut(Second));
+        };
+
+        await rig.ExecuteAsync(Settings(wallSeconds: 1000));
+
+        rig.Pipeline.Get<SpecSequenceStop>(ContextKeys.SpecSequenceStop).BeforeSpecId.Should().Be(Second,
+            "a member the series cut changed is not cleared until its new text is attacked");
+    }
+
+    [Fact]
     public async Task SeriesContractRound_ShareSpent_ReviewsOnlyTheClearedPrefix()
     {
         var rig = ShareSpentAfterTheFirst(Contracted(ReviewExhaustionTests.ThreeSpecs()));
@@ -220,15 +249,16 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
-    public async Task ReviewSpecs_SeriesObjectionAlreadyAsked_ProceedsOnThePrefixMarker()
+    public async Task ReviewSpecs_SeriesObjectionAnsweredBuild_ProceedsOnThePrefixMarker()
     {
-        var rig = Thread(new ReviewLoopRig(Contracted(TwoSpecs())), SeriesAsked(First));
+        var rig = Thread(new ReviewLoopRig(Contracted(TwoSpecs())), SeriesAsked(First),
+            new AgentSmith.Domain.Entities.TicketComment("author", DateTimeOffset.UtcNow.AddYears(1), "(a)"));
         rig.OnSeriesReview = _ => Series(SpecReviewVerdicts.Refuse, findings: Finding);
 
         var result = await rig.ExecuteAsync(Settings());
 
         result.InsertNext.Should().BeNull();
-        result.Message.Should().Contain($"series:{First}: its objection was asked before, built as reviewed");
+        result.Message.Should().Contain($"series:{First}: the author answered build as reviewed");
     }
 
     [Fact]

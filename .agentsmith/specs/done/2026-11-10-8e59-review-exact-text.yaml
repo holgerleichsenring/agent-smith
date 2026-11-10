@@ -43,13 +43,13 @@ scope:
     build on its current text: no answer is retried and, with rounds spent, stops the spec like the budget; a final
     text the last round changed, a standing cut or a refuse goes to the author's exhaustion question. The series
     contract carries its own clean review by hash and is attacked unless it matches. Hashes are of the trimmed yaml.
-    With rounds at 0 each draft says the review is turned off.
+    With rounds at 0 each draft says the review is turned off. An exhaustion question proceeds only on a person's
+    explicit build answer; silence sends the spec to fresh rounds and asks again. A member a series-round cut
+    changed is attacked again on its new text in this run, or is not cleared.
   out: >
     The coding run's budget share stays: a spec it does not clear is not built and moves to the next attempt.
     A spec the coding run itself cleared is reviewed again in a later attempt, since that run records no
-    approval entry. A run's series round may land cuts on members after their own rounds; those texts are not
-    attacked again (named, not built here). An objection asked once proceeds on its next run, answered or not
-    (8762h, unchanged). A clean review of an epic's series contract is not recorded; the coding run's series round
+    approval entry. A clean review of an epic's series contract is not recorded; the coding run's series round
     runs as before. 2026-11-10-e706 stays planned.
 
 decisions:
@@ -100,6 +100,17 @@ tests:
   - "ReviewedText_CleanReview_SurvivesFilingTheBranchWriteAndTheRunsRead"
   - "SpecFactRegrounding_TokenAlsoInTheClaim_RewritesOnlyTheEvidence"
   - "SpecDialogProposalReview_RoundsOff_SaysTheReviewIsTurnedOffAndPromisesNoReview"
+  - "Exhaustion_UnansweredObjectionCommentForThisSpec_IsAskedAgain"
+  - "Exhaustion_AuthorAnsweredBuildAsReviewed_Proceeds"
+  - "Exhaustion_ObjectionAnsweredWithoutTheBuildReading_IsAskedAgain"
+  - "Exhaustion_LaterAttemptUnansweredObjection_ReviewsAgainAndAsksAgain"
+  - "Exhaustion_LaterAttemptAnsweredBuild_IsBuilt"
+  - "Exhaustion_BuildAnswerOnAnotherSpec_AsksOnlyTheOther"
+  - "Pin_ReviewObjectionUnanswered_PinsNothing"
+  - "Question_ReviewObjection_SaysWhatSilenceDoes"
+  - "ReviewObjection_EmptyAnswer_BuildsNothing"
+  - "ReviewSpecs_SeriesCutChangesAMember_AttacksItsNewTextBeforeBuilding"
+  - "ReviewSpecs_SeriesCutChangesAMemberAndTheShareIsSpent_ItIsNotBuiltThisAttempt"
   - "ProposalReview_SeriesRoundSaysBuild_RecordsTheContractReviewedClean"
 
 done:

@@ -148,7 +148,7 @@ internal sealed class ReviewLoopRig
     public SeriesContractRound SeriesRound() => new(
         SeriesReviewer.Object, DerivationTestLooks.Factory(), Reviser.Object, new SpecCutResidues(),
         new SpecReviewRevision(Publisher.Object),
-        new SpecReviewRoundPublisher(Events, RunContext, NullLogger<SpecReviewRoundPublisher>.Instance));
+        new SpecReviewRoundPublisher(Events, RunContext, NullLogger<SpecReviewRoundPublisher>.Instance), Loop());
 
     public async Task<CommandResult> ExecuteAsync(SpecReviewSettings settings, AgentSmith.Domain.Entities.Ticket? ticket = null)
     {
