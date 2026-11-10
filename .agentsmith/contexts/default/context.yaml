@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-10-14a3f: "OUTCOME FORMAT ONCE (outcome format tool). A format is returned once per turn; asked again, outcome_format says it stands above, and an epic after a spec returns only the epic part. -> .agentsmith/specs/done/2026-11-10-14a3f-outcome-format-once.yaml"
     2026-11-10-14a3e: "DIALOG FOOTER REPO RULE (design turn prompt). The user-turn section lists the repositories a spec's repos is spelled from and no longer repeats the one-repository rule the skill states. -> .agentsmith/specs/done/2026-11-10-14a3e-dialog-footer-repo-rule.yaml"
     2026-11-10-14a3d: "DESIGN SURFACE MATERIAL (design turn tools, grounding, turn seeds). render/compare and the mock tools come with a page upload, a design source, a design system or a mock; recall and dispute_memory with a memory index the grounding found; withdraw_filed_ticket once something was filed. -> .agentsmith/specs/done/2026-11-10-14a3d-design-surface-material.yaml"
     2026-11-10-14a3c: "DESIGN PRINCIPLES DIGEST (design turn grounding). A design turn reads each distinct principles file once: the repositories holding it, composition and status, Project Specifics, and the path for the rest; the coding master still reads them whole. -> .agentsmith/specs/done/2026-11-10-14a3c-design-principles-digest.yaml"
@@ -1421,7 +1422,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-10-14a3f: "OUTCOME FORMAT ONCE (outcome format tool). A kind's format once per turn; a repeat points at it. -> .agentsmith/specs/planned/2026-11-10-14a3f-outcome-format-once.yaml"
     2026-11-10-14a3g: "PROPOSAL ATTACK JUDGEMENT (attack review prompt). One run, checkable done lines, approved capabilities kept. -> .agentsmith/specs/planned/2026-11-10-14a3g-proposal-attack-judgement.yaml"
     2026-11-10-14a3h: "DESIGN PARTNER TEXTS (skills pin, prompt size test). Defensible, the child unit, proposed: prefix; pinned. -> .agentsmith/specs/planned/2026-11-10-14a3h-design-partner-texts.yaml"
     2026-11-10-e706: "TURN HANG DETECTION (run watchdog, chat client builders). Bound every model wait a design turn makes (Copilot idle wait, Ollama, Gemini), then exempt design turns from the wall-time watchdog; coding runs keep it. requires 18cf. -> .agentsmith/specs/planned/2026-11-10-e706-turn-hang-detection.yaml"
