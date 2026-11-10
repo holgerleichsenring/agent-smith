@@ -58,9 +58,16 @@ internal static class SeriesRoundScope
         var verdict = result.Verdict == SpecReviewVerdicts.Refuse && findings.Count > 0 ? SpecReviewVerdicts.Refuse
             : applied.Count > 0 ? SpecReviewVerdicts.BuildWithCuts
             : SpecReviewVerdicts.Build;
-        return new SeriesRoundSplit(new SpecAttackResult(verdict, applied, findings), dropped);
+        return new SeriesRoundSplit(new SpecAttackResult(verdict, applied, findings), dropped)
+        {
+            Unapplied = result.Cuts.Count - applied.Count,
+        };
     }
 }
 
 /// <summary>2026-10-13-8762k: a run round's answer as it may land — the cuts to apply — and the cuts it dropped.</summary>
-internal sealed record SeriesRoundSplit(SpecAttackResult Landing, IReadOnlyList<SpecEvidenceProblem> Dropped);
+internal sealed record SeriesRoundSplit(SpecAttackResult Landing, IReadOnlyList<SpecEvidenceProblem> Dropped)
+{
+    /// <summary>2026-11-10-8e59: the cuts that could not land — dropped or turned into findings.</summary>
+    public int Unapplied { get; init; }
+}

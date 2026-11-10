@@ -54,6 +54,28 @@ public sealed class ReviewExhaustionTests
     }
 
     [Fact]
+    public void Exhaustion_BuildAnswerOnAnEarlierText_DoesNotCoverTheReCut()
+    {
+        var asked = OurObjectionOn(First, "spec: x\ngoal: before the re-cut");
+        var now = Objection(First) with { TextHash = ReviewedText.Hash("spec: x\ngoal: after the re-cut") };
+
+        Decide([now], asked, new TicketComment("author", Asked.AddHours(1), "(a)"))
+            .Should().ContainSingle("the answer was about the text the question showed, not this one (2026-11-10-8e59)");
+    }
+
+    [Theory]
+    [InlineData("(a)", true)]
+    [InlineData("a", true)]
+    [InlineData("(a) build it as it stands\nthanks", true)]
+    [InlineData("Build the spec as reviewed.", true)]
+    [InlineData("don't build the spec as reviewed", false)]
+    [InlineData("I would not take (a) here", false)]
+    [InlineData("(b)", false)]
+    [InlineData("", false)]
+    public void ChoosesBuild_OnlyTheFirstLineKeywordCounts(string body, bool builds) =>
+        ReviewObjectionComment.ChoosesBuild(body).Should().Be(builds);
+
+    [Fact]
     public void Exhaustion_ObjectionAnsweredWithoutTheBuildReading_IsAskedAgain() =>
         Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "(b) change it"))
             .Should().ContainSingle("only the build reading lets an unreviewed text through");
@@ -82,13 +104,14 @@ public sealed class ReviewExhaustionTests
     [Fact]
     public async Task Exhaustion_LaterAttemptAnsweredBuild_IsBuilt()
     {
-        var rig = Thread(new ReviewLoopRig().Answers(Refuse()), OurObjection(First),
+        var spec = new ReviewLoopRig().Set.Specs[0];
+        var rig = Thread(new ReviewLoopRig().Answers(Refuse()), OurObjectionOn(First, spec.Draft.Yaml),
             new TicketComment("author", Asked.AddHours(1), "(a) build the spec as reviewed"));
 
         var result = await rig.ExecuteAsync(Settings());
 
         result.InsertNext.Should().BeNull();
-        result.Message.Should().Contain($"{First}: the author answered build as reviewed");
+        result.Message.Should().Contain("the author answered build as reviewed");
     }
 
     [Fact]
@@ -224,6 +247,10 @@ public sealed class ReviewExhaustionTests
     internal static StandingObjection Objection(string specId) => new(specId, [Finding]);
 
     internal static TicketComment OurObjection(string specId) => Ours(ReviewObjectionQuestion.For([Objection(specId)]));
+
+    // 2026-11-10-8e59: the question as a run posts it — bound to the hash of the text it is about.
+    internal static TicketComment OurObjectionOn(string specId, string yaml) =>
+        Ours(ReviewObjectionQuestion.For([Objection(specId) with { TextHash = ReviewedText.Hash(yaml) }]));
 
     internal static TicketComment Ours(SpecHandback handback) =>
         new("agent-smith", Asked, SpecHandbackComment.Build(handback, null, string.Empty));

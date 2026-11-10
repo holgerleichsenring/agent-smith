@@ -42,14 +42,25 @@ public sealed class InlineHandbackAskTests
     }
 
     [Fact]
-    public async Task ReviewObjection_EmptyAnswer_BuildsNothing()
+    public async Task ReviewObjection_TimedOutWithNobodyThere_BuildsNothing()
+    {
+        var pipeline = Pipeline(Objection);
+
+        var result = await Ask(Answering(string.Empty, by: "system")).HandleAsync(pipeline, Objection, default);
+
+        result.IsSuccess.Should().BeFalse("silence never builds an unreviewed spec (2026-11-10-8e59)");
+        result.Message.Should().Contain("not built unreviewed");
+    }
+
+    [Fact]
+    public async Task ReviewObjection_EnterOnTheShownDefault_Builds()
     {
         var pipeline = Pipeline(Objection);
 
         var result = await Ask(Answering(string.Empty)).HandleAsync(pipeline, Objection, default);
 
-        result.IsSuccess.Should().BeFalse("silence never builds an unreviewed spec (2026-11-10-8e59)");
-        result.Message.Should().Contain("not built unreviewed");
+        result.IsSuccess.Should().BeTrue("a person pressing Enter on the shown default has chosen it");
+        result.Message.Should().Contain(ReviewObjectionQuestion.BuildAsReviewed);
     }
 
     [Fact]
@@ -113,7 +124,7 @@ public sealed class InlineHandbackAskTests
     [Fact]
     public async Task ReviewObjectionAfterReDerive_IsStillAsked()
     {
-        var gate = Answering(string.Empty);
+        var gate = Answering(string.Empty, by: "system");
         var pipeline = Pipeline(DerivationQuestion);
         await Ask(gate).HandleAsync(pipeline, DerivationQuestion, default);
 

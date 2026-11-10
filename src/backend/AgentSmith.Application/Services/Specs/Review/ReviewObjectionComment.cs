@@ -33,7 +33,8 @@ public static class ReviewObjectionComment
         return $"## Agent Smith — {Marker}\n\n"
             + handback.Reason + "\n\n" + readings
             + "\n\nReply with the reading you mean, or edit the ticket, and move it back to a trigger status. "
-            + $"Only a reply choosing {SpecHandbackComment.ReadingLabel(0)} builds the spec as it stands. "
+            + $"Only a reply whose first line is {SpecHandbackComment.ReadingLabel(0)} builds the spec as it stands, "
+            + "and only the text this question is about. "
             + "If nobody answers, nothing is built unreviewed: the next run reviews the spec again from fresh rounds, "
             + "and asks again if the objection still stands.";
     }
@@ -47,13 +48,21 @@ public static class ReviewObjectionComment
         // An answer counts only after we asked about exactly this objection.
         return IsAsked(comments, markerKey)
             && OwnTicketComment.ForeignAfter(comments, MarkerFor(markerKey), OwnTicketComment.PrNotes(pipeline))
-            .Any(answer => Says(answer.Body, SpecHandbackComment.ReadingLabel(0), ReviewObjectionQuestion.BuildAsReviewed)
-                && !Says(answer.Body, SpecHandbackComment.ReadingLabel(1), ReviewObjectionQuestion.ChangeAsAsked));
+            .Any(answer => ChoosesBuild(answer.Body));
     }
 
-    private static bool Says(string? body, string label, string words) =>
-        body is not null && (body.Contains(label, StringComparison.OrdinalIgnoreCase)
-            || body.Contains(words, StringComparison.OrdinalIgnoreCase));
+    /// <summary>2026-11-10-8e59: the reply's first non-empty line IS the build reading — "(a)", "a" or its words at the
+    /// start — so "don't build the spec as reviewed" or a passing mention of "(a)" is never consent.</summary>
+    public static bool ChoosesBuild(string? body)
+    {
+        var first = (body ?? string.Empty).Replace("\r\n", "\n").Split('\n')
+            .Select(line => line.Trim()).FirstOrDefault(line => line.Length > 0);
+        if (first is null) return false;
+        var keyword = first.TrimEnd('.', '!', ' ').ToLowerInvariant();
+        var label = SpecHandbackComment.ReadingLabel(0);
+        return keyword == "a" || keyword == label || keyword.StartsWith(label + " ", StringComparison.Ordinal)
+            || keyword.StartsWith("build the spec as reviewed", StringComparison.Ordinal);
+    }
 
     /// <summary>True when a comment of ours names the objection with <paramref name="markerKey"/>.</summary>
     public static bool IsAsked(IReadOnlyList<TicketComment>? comments, string markerKey) =>

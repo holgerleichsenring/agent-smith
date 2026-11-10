@@ -32,7 +32,7 @@ public sealed class SeriesContractRound(
         var prefix = SeriesRoundScope.Prefix(set, run.Pipeline);
         if (SeriesRoundScope.Skip(set, prefix, reviewed, contractClean) is { } skip) return new($"series contract round skipped: {skip}");
         var tracker = PipelineCostTracker.GetOrCreate(run.Pipeline);
-        if (tracker.IsBudgetExhausted) return new($"series contract round not taken: {CostCapStop.Describe(tracker)}");
+        if (tracker.IsBudgetExhausted) return NotTaken(prefix, CostCapStop.Describe(tracker), contractClean);
         var input = new SeriesContractInput(set.Contract!, SeriesRoundScope.Members(set, prefix), InRun: true, run.QuestionPin)
         {
             RepositoryNames = SpecReviewRepositories.Names(run.Pipeline),
@@ -40,10 +40,18 @@ public sealed class SeriesContractRound(
         SeriesContractReview review;
         await using (var look = looks.OnTerms(run.Pipeline, Terms(prefix.Count)))
             review = await reviewer.ReviewAsync(input, look, run.Agent, tracker, ct);
-        if (review.Result is not { } result) return new($"series contract round not taken: {review.NotTaken}");
+        if (review.Result is not { } result) return NotTaken(prefix, review.NotTaken ?? "no answer", contractClean);
         var split = SeriesRoundScope.Split(result, set, prefix, reviewed);
         return await LandAsync(run, prefix, split, [.. review.Dropped, .. split.Dropped], ct);
     }
+
+    // 2026-11-10-8e59: a contract no review ended clean on is uncleared, like a spec: the attempt stops before the
+    // prefix, so nothing it governs is built on it. A contract already reviewed clean only loses this round's member check.
+    private static SeriesContractRoundResult NotTaken(IReadOnlyList<DerivedSpec> prefix, string why, bool contractClean) =>
+        new($"series contract round not taken: {why}")
+        {
+            Uncleared = contractClean ? null : new SpecSequenceStop(prefix[0].SpecId, $"the series contract was not reviewed: {why}", Park: false),
+        };
 
     private async Task<SeriesContractRoundResult> LandAsync(
         SpecReviewRun run, IReadOnlyList<DerivedSpec> prefix, SeriesRoundSplit split,
@@ -69,8 +77,16 @@ public sealed class SeriesContractRound(
             number = run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Current.Number;
         }
         await rounds.PublishAsync(new SpecReviewRound(null, SpecReviewScopes.Series, 1, problems, standing, number), [landing], ct);
-        var objection = landing.Verdict == SpecReviewVerdicts.Refuse
-            ? new StandingObjection(null, landing.Findings, prefix[0].SpecId)
+        // 2026-11-10-8e59: the same bar as a spec — a refuse, a cut that could not land, or a cut wording still standing
+        // leaves the contract not reviewed clean, so the author is asked.
+        var objection = landing.Verdict == SpecReviewVerdicts.Refuse || split.Unapplied > 0 || standing.Count > 0
+            ? new StandingObjection(null, [.. landing.Findings,
+                .. problems.Select(p => new SpecReviewFinding($"{p.Claim}: {p.Problem}", "series round")),
+                .. standing.Select(r => new SpecReviewFinding($"cut wording still stands in {r.Register}: \"{r.Quote}\"", "series round"))],
+                prefix[0].SpecId)
+            {
+                TextHash = Contracts.Specs.ReviewedText.Hash(run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Contract!),
+            }
             : null;
         // 2026-11-10-8e59: a member this round's cuts changed is no longer cleared; its new text is attacked now, in
         // rounds of its own the budget may still stop, and what that leaves uncleared is handled like any spec.

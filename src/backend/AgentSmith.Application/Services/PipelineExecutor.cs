@@ -169,7 +169,7 @@ public sealed class PipelineExecutor(
         }
 
         logger.LogInformation("Pipeline completed successfully");
-        return CommandResult.Ok("Pipeline completed successfully");
+        return CommandResult.Ok(PipelineCompletedLine.For(context));
     }
 
     // p0327: snapshot of the cursor node → tail, as plain records.

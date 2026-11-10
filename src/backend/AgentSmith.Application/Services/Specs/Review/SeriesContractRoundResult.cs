@@ -8,4 +8,7 @@ public sealed record SeriesContractRoundResult(string Line, StandingObjection? O
 {
     /// <summary>2026-11-10-8e59: the members whose text this round changed, each attacked again on its new text.</summary>
     public IReadOnlyList<SpecReviewOutcome> Reattacked { get; init; } = [];
+
+    /// <summary>2026-11-10-8e59: the contract was not reviewed clean; the attempt stops here, with the reason.</summary>
+    public Contracts.Specs.SpecSequenceStop? Uncleared { get; init; }
 }

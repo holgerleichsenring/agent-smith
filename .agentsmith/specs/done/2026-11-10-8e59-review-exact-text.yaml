@@ -45,7 +45,10 @@ scope:
     contract carries its own clean review by hash and is attacked unless it matches. Hashes are of the trimmed yaml.
     With rounds at 0 each draft says the review is turned off. An exhaustion question proceeds only on a person's
     explicit build answer; silence sends the spec to fresh rounds and asks again. A member a series-round cut
-    changed is attacked again on its new text in this run, or is not cleared.
+    changed is attacked again on its new text in this run, or is not cleared, and the stop lands at the first uncleared
+    member. A contract round not taken on an unreviewed contract stops the attempt; a series cut that could not land
+    is an objection. A build answer is the first line's keyword and binds to the hash of the asked text. Enter on
+    the shown default is a person's choice; a timeout is not. The run's result line names a review stop.
   out: >
     The coding run's budget share stays: a spec it does not clear is not built and moves to the next attempt.
     A spec the coding run itself cleared is reviewed again in a later attempt, since that run records no
@@ -108,9 +111,17 @@ tests:
   - "Exhaustion_BuildAnswerOnAnotherSpec_AsksOnlyTheOther"
   - "Pin_ReviewObjectionUnanswered_PinsNothing"
   - "Question_ReviewObjection_SaysWhatSilenceDoes"
-  - "ReviewObjection_EmptyAnswer_BuildsNothing"
   - "ReviewSpecs_SeriesCutChangesAMember_AttacksItsNewTextBeforeBuilding"
   - "ReviewSpecs_SeriesCutChangesAMemberAndTheShareIsSpent_ItIsNotBuiltThisAttempt"
+  - "ReviewSpecs_TwoMembersChangedAndTheShareSpent_StopsAtTheFirst"
+  - "ReviewSpecs_ContractRoundNotTaken_StopsBeforeThePrefixWithTheReason"
+  - "ReviewSpecs_SeriesCutThatCannotLand_RaisesAnObjection"
+  - "Exhaustion_BuildAnswerOnAnEarlierText_DoesNotCoverTheReCut"
+  - "ChoosesBuild_OnlyTheFirstLineKeywordCounts"
+  - "ReviewObjection_TimedOutWithNobodyThere_BuildsNothing"
+  - "ReviewObjection_EnterOnTheShownDefault_Builds"
+  - "Demo_ReviewObjection_EnterOnTheShownDefault_CommitsTheFix"
+  - "For_ReviewStoppedTheAttempt_NamesTheSpecAndTheReason"
   - "ProposalReview_SeriesRoundSaysBuild_RecordsTheContractReviewedClean"
 
 done:

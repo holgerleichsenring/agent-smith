@@ -45,8 +45,11 @@ public sealed class InlineHandbackAsk(
             string.Equals(r, outcome.Answer.Answer.Trim(), StringComparison.OrdinalIgnoreCase));
         if (chosen is not null && chosen != handback.TakenReading)
             return CommandResult.Fail($"The author chose \"{chosen}\" — put the change in the ticket text and run again");
-        // 2026-11-10-8e59: the gate answers "system" when nobody typed anything; silence builds nothing unreviewed.
-        if (chosen is null || outcome.Answer.AnsweredBy == "system")
+        // 2026-11-10-8e59: a timeout answers "system" — nobody was there, and silence builds nothing unreviewed. A person
+        // pressing Enter on the shown default (the recommended reading) has chosen it.
+        var timedOut = outcome.Answer.AnsweredBy == "system";
+        if (!timedOut && string.IsNullOrWhiteSpace(outcome.Answer.Answer)) chosen = handback.TakenReading;
+        if (chosen is null || timedOut)
             return CommandResult.Fail("Nobody chose a reading for the review objection, so the spec is not built "
                 + "unreviewed; run again to review it from fresh rounds, or answer the objection");
         logger.LogInformation("Review objection on an inline run: the author chose {Reading}", handback.TakenReading);

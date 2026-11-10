@@ -73,43 +73,25 @@ public sealed class ReviewSpecsHandler(
             var outcome = spent is null ? await loop.RunAsync(run, spec, first, ct) : null;
             if (outcome?.Failure is { } failure) return CommandResult.Fail(failure);
             if (outcome is not null) reviewed.Add(spec.SpecId);
-            if ((spent ?? Take(run, outcome!, lines, objections)) is not { } stop) continue;
-            if (spent is not null) Stop(run, spec.SpecId, spent, lines);
+            if ((spent ?? ReviewStepOutcomes.Take(run.Pipeline, outcome!, lines, objections)) is not { } stop) continue;
+            if (spent is not null) ReviewStepOutcomes.Stop(run.Pipeline, spec.SpecId, spent, lines);
             break;
         }
         var round = await series.RunAsync(run, reviewed, contractClean, ct);
         if (round.Failure is { } broke) return CommandResult.Fail(broke);
         lines.Add(round.Line);
         if (round.Objection is { } seriesObjection) objections.Add(seriesObjection);
+        if (round.Uncleared is { } held) ReviewStepOutcomes.Stop(run.Pipeline, held.BeforeSpecId, held.Reason, lines);
         // 2026-11-10-8e59: a member the series round changed was attacked again; what that left is taken like any spec.
         foreach (var again in round.Reattacked)
         {
             if (again.Failure is { } failed) return CommandResult.Fail(failed);
-            Take(run, again, lines, objections);
+            ReviewStepOutcomes.Take(run.Pipeline, again, lines, objections);
         }
         var ask = exhaustion.Decide(objections, run.Pipeline);
         lines.AddRange(objections.Except(ask).Select(o => $"{o.MarkerKey}: the author answered build as reviewed"));
         return await park.ApplyAsync(run.Pipeline, ask, Done(string.Join("; ", lines)), ct);
     }
-
-    /// <summary>One spec's outcome on the step line, its objection, and its budget stop (returned, already set).</summary>
-    private static string? Take(SpecReviewRun run, SpecReviewOutcome outcome, List<string> lines, List<StandingObjection> objections)
-    {
-        lines.Add(Describe(outcome));
-        if (StandingObjection.Of(outcome) is { } objection) objections.Add(objection);
-        if (outcome.BudgetStop is { } stop) Stop(run, outcome.Final.SpecId, stop, lines);
-        return outcome.BudgetStop;
-    }
-
-    private static void Stop(SpecReviewRun run, string specId, string why, List<string> lines)
-    {
-        run.Pipeline.Set(ContextKeys.SpecSequenceStop, new SpecSequenceStop(specId, why, Park: false));
-        lines.Add($"stopped before {specId}, which is left to the next attempt with every spec after it: {why}");
-    }
-
-    private static string Describe(SpecReviewOutcome o) => o.StandingVerdict is null
-        ? $"{o.Final.SpecId} cleared after {o.Rounds} round(s)"
-        : $"{o.Final.SpecId}: {o.StandingVerdict} standing after {o.Rounds} round(s){(o.Unattacked ? ", its final text not attacked" : "")}";
 
     private CommandResult Done(string message)
     {

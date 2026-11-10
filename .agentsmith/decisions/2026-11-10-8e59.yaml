@@ -66,3 +66,23 @@ decisions:
     chose: "A member that a series-round cut changed is attacked again on its new text, in this run, through the same loop with the budget share; what that leaves uncleared is handled like any spec (stop or objection)"
     over: "Building the series-cut text as cleared"
     reason: "A series cut changes a member after its own rounds, so the text that would be built was never attacked."
+  - category: Implementation
+    chose: "The review stop lands at the first uncleared spec; a later one never moves it back"
+    over: "The last stop set wins"
+    reason: "A third review found that with the share spent, the series round's re-attacks overwrote the stop each time, so earlier changed members sat before it and were built unattacked."
+  - category: Architecture
+    chose: "A series round that is not taken on a contract with no clean review stops the attempt before the prefix, with the reason. A series cut that could not land, a cut wording still standing, or a refuse is an objection"
+    over: "Returning a line only, or objecting only on a refuse"
+    reason: "Both let a contract that no review ended clean on through to building. This applies the same bar as for specs."
+  - category: Architecture
+    chose: "A build answer binds to the hash of the text it was asked about, carried in the question's marker, and counts only when its first non-empty line is the keyword"
+    over: "Any later answer per spec id, matched as a substring"
+    reason: "An answer must not outlive its text, and 'don't build the spec as reviewed' must not read as consent. The rework keyword-comment pattern lives in the Server webhook and matches a substring, so it does not fit here. The first-line rule is local and stricter."
+  - category: Implementation
+    chose: "On an inline run, Enter on the shown default builds; a timeout with nobody there builds nothing"
+    over: "Treating Enter like silence"
+    reason: "The terminal shows build as the recommended reading. A person pressing Enter has chosen it. Only the gate's own 'system' answer means nobody was there."
+  - category: Implementation
+    chose: "A pipeline that runs to its end with a review stop says so in its result line"
+    over: "'Pipeline completed successfully' alone"
+    reason: "The result line becomes the run's summary, which the operator reads. An attempt stopped because no reviewer answered must say why."
