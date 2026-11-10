@@ -59,8 +59,10 @@ internal static class MasterPromptSections
 
     // p0380: the plan-time memory INDEX (LoadMemoryIndex). One line per memory;
     // bodies stay on disk and are pulled via recall(). Absent store => empty.
-    private static bool IsDesignTurn(PipelineContext pipeline) =>
-        pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) && name == PipelinePresets.SpecDialogName;
+    // 2026-11-10-fcd7b: a design turn has remember only when its poster may start runs (the seeded flag).
+    private static bool HasRemember(PipelineContext pipeline) =>
+        !(pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) && name == PipelinePresets.SpecDialogName)
+        || pipeline.TryGet<bool>(ContextKeys.MayStartRuns, out var may) && may;
 
     internal static string BuildMemoryIndexSection(PipelineContext pipeline)
     {
@@ -70,8 +72,7 @@ internal static class MasterPromptSections
                + "One line per stored memory, each a hint with a track record, never a rule: the record says how "
                + "often work that relied on it was confirmed, strained or contradicted. Holding entries come first. "
                + "Use the recall tool to load a memory's body before re-deriving a known fact"
-               // 2026-11-10-14a3h: a design turn changes no code, so it records no memory; 85e2: and says nothing more.
-               + (IsDesignTurn(pipeline) ? ".\n\n" : "; use remember to record a new one.\n\n")
+               + (HasRemember(pipeline) ? "; use remember to record a new one.\n\n" : ".\n\n")
                + index.Trim() + "\n";
     }
 

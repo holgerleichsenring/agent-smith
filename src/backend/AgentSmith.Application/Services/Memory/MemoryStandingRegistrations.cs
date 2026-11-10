@@ -14,7 +14,10 @@ public static class MemoryStandingRegistrations
     public static IServiceCollection AddMemoryStanding(this IServiceCollection services)
     {
         services.TryAddSingleton<IMemoryEvidenceStore, NullMemoryEvidenceStore>(); // 2026-10-25-9324a
+        services.TryAddSingleton<IProjectMemoryRepository, NullProjectMemoryRepository>(); // 2026-11-10-fcd7a
         services.TryAddSingleton<MemoryRepositoryKey>();
+        services.TryAddSingleton<MemorySources>(); // 2026-11-10-fcd7a
+        services.TryAddTransient<ProjectMemoryIndex>(); // 2026-11-10-fcd7b
         services.TryAddSingleton<MemoryCitationResolver>(); // 2026-10-25-9324b
         services.TryAddTransient<MemoryOutcomeRecorder>();
         services.TryAddSingleton<MemoryStandingCalculator>(); // 2026-10-25-9324d

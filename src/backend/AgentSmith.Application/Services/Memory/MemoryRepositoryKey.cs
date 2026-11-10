@@ -20,6 +20,9 @@ public sealed class MemoryRepositoryKey
         return RepoKey.Of(url ?? repository);
     }
 
+    /// <summary>2026-11-10-fcd7a: the ledger key of a project's own store.</summary>
+    public string OfProject(long projectId) => Contracts.Memory.ProjectMemorySource.LedgerKey(projectId);
+
     private static string? UrlIn(IReadOnlyList<RepoConnection>? repos, string repository) =>
         repos?.FirstOrDefault(r => string.Equals(r.Name, repository, StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(r.Url))?.Url;

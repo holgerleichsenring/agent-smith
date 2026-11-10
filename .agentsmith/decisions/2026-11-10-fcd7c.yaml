@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-fcd7c
+
+decisions:
+  - category: Security
+    chose: "A coding run writes project memory with the same remember tool, repository '@project', with no extra gate"
+    over: "Restricting project writes to the design turn"
+    reason: "The operator's call: coding runs learn by implementing. A coding run is already started by someone holding runs.control, the right the design turn's remember is gated on."
+  - category: Implementation
+    chose: "'@project' needs no landing commit; its provenance is the run id, the current spec id and 'coding master'"
+    over: "The repository rule that only a repository with a code change takes a memory"
+    reason: "The landing rule exists because a repository memory travels in a commit; a project memory travels in the database."
+  - category: Implementation
+    chose: "remember's and hand_forward's function descriptions are built at runtime through AIFunctionFactoryOptions and name '@project' only when the composition keeps a project store (MemorySources.HasProjectStore)"
+    over: "A static [Description] that always names it"
+    reason: "The CLI has no database; a tool that advertises a target it refuses misleads the master. A call naming '@project' anyway is answered 'Not recorded: this installation keeps no project memory.'"
+  - category: Implementation
+    chose: "dispute_memory keeps its text; '@project' reaches it through its repository argument and the shared citation resolver"
+    over: "A store-aware description for dispute_memory too"
+    reason: "The spec names remember and hand_forward; a dispute names the store the index labels, which already reads '@project'."
+  - category: Process
+    chose: "The memory-discipline reference changes in the same skills release as fcd7b and 4778, pinned in 4778's commit"
+    over: "A release for this spec alone"
+    reason: "One skills PR for the three specs, as the operator asked."

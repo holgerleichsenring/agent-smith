@@ -13,10 +13,13 @@ public sealed class MemoryStandingReader(
     IMemoryEvidenceStore store, MemoryRepositoryKey keys, MemoryStandingCalculator calculator,
     ILogger<MemoryStandingReader> logger)
 {
-    public async Task<IReadOnlyDictionary<string, MemoryStanding>> OfAsync(
-        PipelineContext pipeline, string repository, CancellationToken ct)
+    public Task<IReadOnlyDictionary<string, MemoryStanding>> OfAsync(
+        PipelineContext pipeline, string repository, CancellationToken ct) =>
+        OfKeyAsync(keys.Of(pipeline, repository), repository, ct);
+
+    /// <summary>2026-11-10-fcd7a: the standing of every memory under a ledger key — a project's store has no repository.</summary>
+    public async Task<IReadOnlyDictionary<string, MemoryStanding>> OfKeyAsync(string key, string repository, CancellationToken ct)
     {
-        var key = keys.Of(pipeline, repository);
         try
         {
             return calculator.Of(await store.OfRepositoryAsync(key, ct), DateTimeOffset.UtcNow);

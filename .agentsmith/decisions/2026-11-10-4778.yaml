@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-4778
+
+decisions:
+  - category: Security
+    chose: "A fresh work clone per repository and turn whose only credentialed step is the clone, before any model command; a detached checkout of the held scope's sha without a credential; the clone disposed when the turn ends"
+    over: "Resetting a held tree between turns"
+    reason: "A model-touched container keeps .git/config helpers, hooks, ~/.gitconfig, a git on PATH and background processes; any later credentialed step there would run under them. Here none follows the model, and nothing survives the turn."
+  - category: Security
+    chose: "The same rights as a coding run, project secrets included, offered only when the poster holds runs.control, the runtime spawns containers, and the bus is per-job"
+    over: "Withholding secrets from design turns"
+    reason: "The operator's call: a coding run already reads uploads and holds secrets and a shell, so the exposure is shared and is fixed for both by the planned masking (23a2b), network policy (23a2d) and git-step hardening."
+  - category: Implementation
+    chose: "The bus check is twofold: DesignWorkToolGate reads ISandboxBusIsolation (the Server registers it over SANDBOX_BUS_CREDENTIAL), and the spawn refuses an issued shared credential through SandboxBusCredential.Require, honoured by the Docker and Kubernetes factories"
+    over: "A registered Application default that reports shared"
+    reason: "PipelineHandlersExtensions sits at its baselined length; the gate's optional collaborator being absent means shared, which is the same answer the default would give the CLI."
+  - category: Implementation
+    chose: "Build sizing by building the work clone's spec under the code preset's name"
+    over: "A new explicit argument to ISandboxResourceResolver"
+    reason: "The resolver's interface has many implementations and callers; the code preset is exactly the build-sizing case, and the project override still wins first. A deviation from the spec text, recorded here."
+  - category: Implementation
+    chose: "The root-first discovered context's image, found by its normalised workdir, through the chain with project overrides first"
+    over: "One sandbox per image, as a coding run gets"
+    reason: "Only the master runs, one command at a time; a second stack in the same repository installs what it needs."
+  - category: Implementation
+    chose: "DesignTurnResources holds the turn's scopes and its WorkCloneSet and disposes both; the runner's finally calls it, and the clone set reaches the pipeline through the turn seeds"
+    over: "Another loop in SpecDialogTurnRunner"
+    reason: "The runner is at the 120-line cap; it stays at 120."
+  - category: Implementation
+    chose: "Only run_command; the shell edits. Children keep their read allowlist"
+    over: "write_file and edit beside it"
+    reason: "Two writing paths would duplicate each other; builds run one at a time on the master, the operator's call."
+  - category: Security
+    chose: "The per-job bus requirement is checked where the credential is issued, SandboxBusCredentials.IssueAsync(jobId, url, requirePerJob), which both factories call before they create anything; pinned by a Redis that refuses ACL SETUSER and by factory-level tests for Docker (no volume, no container) and Kubernetes (no pod)"
+    over: "Require on the issued credential after the Docker volumes and the loader exist, tested on Require alone"
+    reason: "Review finding: a refusal after the volumes were created leaked them. The earlier claim that the factories need a live daemon was wrong; both build over mocked clients, as DockerSandboxFactoryTests already did."
+  - category: Security
+    chose: "Only a coding master's remember gets the project store; MasterRecordToolHosts.Create(…, codingMaster) passes the sources only then, and a '@project' memory names the coding master, the pipeline and the triggering ticket as its author"
+    over: "Every master's remember offering '@project'"
+    reason: "Review finding: a scan or review master read-only by design could keep a lesson on the project with no code-change check, and the provenance did not say which pipeline or trigger wrote it."
+  - category: Implementation
+    chose: "history: full asked after a shallow clone disposes that clone and clones again in full; the tool description says the old clone's changes are gone"
+    over: "Ignoring history after the first call, or deepening the shallow clone in place"
+    reason: "Deepening is a credentialed fetch inside a model-touched container, which the spec rules out; a fresh clone keeps the clone the only credentialed step."
+  - category: Implementation
+    chose: "The clone's progress goes through the turn's scope observer under the name '<repo> work clone' with the existing opening / ready / failed states"
+    over: "A new 'cloning' state through the event contracts and the dashboard mirror"
+    reason: "The spec's 'cloning <repo>' then 'ready' is met by the existing reading line without widening the hub contract; the dashboard shows '<repo> work clone: opening', then ': ready'."
+  - category: Security
+    chose: "GIT_LFS_SKIP_SMUDGE=1 in the clone step's env"
+    over: "Letting the smudge filter fetch LFS objects during the clone"
+    reason: "The spec leaves LFS objects out; the smudge filter would be a second credentialed download inside the clone step."
+  - category: Implementation
+    chose: "Disposal is exception-safe: DesignTurnResources gives back the work clones first, then each scope, each in its own try/catch, and WorkCloneSet does the same per clone; the runner holds the resources with await using, so an exception before the try (the seed reads) gives them back too"
+    over: "Sequential awaits where the first throwing scope left the clones running"
+    reason: "Review finding: the clones hold a model's shell and the project's secrets, so they go first and nothing stops them going."
+  - category: Process
+    chose: "'WorkClone_DisposedAtTurnEnd_NextTurnClonesFresh' is covered by construction: a WorkCloneSet is built per turn by DesignTurnResourcesFactory and DesignTurnResources_Dispose_DisposesScopesAndWorkClones pins that disposal empties it; no test spans two turns"
+    over: "A two-turn harness test"
+    reason: "A deviation from the spec's test list, recorded here. The runner's finally is pinned separately (SpecDialogTurnResourcesTests: model failure and cancellation)."
+  - category: Process
+    chose: "ProposalEvidence_AfterMasterRun_ReadsTheHeldScope is now written (DesignWorkCloneReviewTests), with WorkClone_Spawn_UsesResolvedImageBuildSizingProjectSecrets and ReferenceSet_Spawn_HasNoPackageCaches"
+    over: "Leaving the spec's listed tests unwritten"
+    reason: "Review finding: three tests the spec named did not exist."
+  - category: Process
+    chose: "One skills release (v5.26.0, PR #259) for fcd7b, fcd7c and 4778, pinned here; design-partner-master bumped to 2.3.0"
+    over: "A release per spec"
+    reason: "The operator asked for one skills PR."
+  - category: Process
+    chose: "After review, design-partner-master 2.4.1 (skills PR #263, release v5.27.1) names remember conditionally, like run_command; the pin stays at v5.26.0 for now"
+    over: "Pinning v5.27.1 here"
+    reason: "v5.27.1 also carries v5.27.0 (skills #261), whose design-partner text uses a state_open_questions tool no agent-smith branch implements yet; SeriesSkillRulesTests blocks it. The pin moves when that backend lands."

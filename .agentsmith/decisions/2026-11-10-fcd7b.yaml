@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-fcd7b
+
+decisions:
+  - category: Architecture
+    chose: "The master decides what is lasting and calls remember; it writes to the project store only"
+    over: "An end-of-turn extraction pass"
+    reason: "A second model call would guess at what the first already understood."
+  - category: Security
+    chose: "remember joins a design turn only through DesignWorkToolGate, when the seeded MayStartRuns flag says the poster holds runs.control"
+    over: "remember for every dialog.write holder"
+    reason: "A project memory reaches every later coding prompt, so writing one is as consequential as starting a run. A dialog.write holder can still talk; their statements are not stored."
+  - category: Implementation
+    chose: "fcd7b introduces DesignWorkToolGate and the MayStartRuns seed (ContextKeys.Design.cs); 2026-11-10-4778 extends the gate with the work tools"
+    over: "Waiting for 4778 to add them, as the spec text assumed"
+    reason: "The build order puts fcd7b first. The gate is folded into MasterToolComposition's existing ticketActs line, so the composition grows by one constructor parameter only (118 lines)."
+  - category: Implementation
+    chose: "Project entries are composed in ProjectMemoryIndex, used by DesignMemoryIndex and MemoryIndexReader: first, under '@project', each line carrying its source and quoted with '> '"
+    over: "Rendering them in MasterPromptSections"
+    reason: "The section is at its length limit and keeps its position for caching; the composers already build ContextKeys.MemoryIndex."
+  - category: Implementation
+    chose: "Provenance of a design remember: the conversation (DialogueJobId), the index of the latest user turn in the seeded transcript as SourceRef, and that turn's Author"
+    over: "A new seed carrying the message index"
+    reason: "The transcript the turn already carries holds both, so nothing new crosses the server boundary."
+  - category: Implementation
+    chose: "Recall and the citation resolver take MemorySources as an optional collaborator; '@project/slug' resolves to the project's ledger key, and a bare slug the project shares with a repository is named back with both forms"
+    over: "A second recall tool for the project"
+    reason: "One tool over every source keeps the surface small; the label tells the master where an entry came from."
+  - category: Process
+    chose: "The design-partner skill change ships in one skills release with fcd7c and 4778, and the pin is bumped in 4778's commit"
+    over: "A release per spec"
+    reason: "The operator asked for one skills PR covering the three specs."

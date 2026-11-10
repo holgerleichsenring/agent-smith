@@ -237,7 +237,7 @@ public sealed class AgenticMasterHandler(
             keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline), ResolvesUnprefixedReads = isSpecDialog }; // 85e2
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
-        var records = recordHosts.Create(context.Pipeline, context.Repository.LocalPath);
+        var records = recordHosts.Create(context.Pipeline, context.Repository.LocalPath, codingMaster: !isScanMaster && !isSpecDialog);
         // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
         // live — questions publish on job:{id}:out and the thread's answers come
         // back on job:{id}:in. Absent (run jobs today) → the tool reports itself

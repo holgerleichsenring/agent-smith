@@ -28,6 +28,34 @@ public sealed class DockerSandboxFactoryTests
             DefaultSandboxOptions(), Mock.Of<IWireProtocolWatcher>(), SandboxBusDoubles.Credentials(),
             NullLoggerFactory.Instance);
 
+    // 2026-11-10-4778: a spawn that needs its own bus credential and is issued the shared one creates nothing.
+    [Fact]
+    public async Task DockerSandboxFactory_RequiresPerJobBus_SharedCredential_FailsClosedBeforeAnyVolume()
+    {
+        var docker = BuildDockerMock(out var calls);
+        var factory = BuildFactory(docker, new DockerSandboxOptions());
+
+        var act = () => factory.CreateAsync(RootSpec with { RequiresPerJobBus = true }, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*shared one*");
+        calls.VolumesCreated.Should().BeEmpty("the refusal comes before Docker creates anything");
+        calls.ContainersCreated.Should().BeEmpty();
+    }
+
+    // 2026-11-10-4778: a sandbox a model's shell runs in mounts no host-wide package cache, even where caches are on.
+    [Fact]
+    public async Task DockerSandboxFactory_NoPackageCaches_EnsuresAndBindsNone()
+    {
+        var docker = BuildDockerMock(out var calls);
+        var factory = BuildFactory(docker, new DockerSandboxOptions { PackageCacheEnabled = true });
+
+        await using var sandbox = await factory.CreateAsync(RootSpec with { NoPackageCaches = true }, CancellationToken.None);
+
+        calls.VolumesCreated.Should().NotContain(n => n.StartsWith("agentsmith-pkgcache-"));
+        calls.ToolchainBinds.Should().NotContain(b => b.StartsWith("agentsmith-pkgcache-"));
+        calls.ToolchainEnv.Should().NotContain(e => e.StartsWith("NUGET_"));
+    }
+
     [Fact]
     public async Task CreateAsync_CreatesTwoVolumes_RunsLoaderToCompletion_StartsToolchain()
     {

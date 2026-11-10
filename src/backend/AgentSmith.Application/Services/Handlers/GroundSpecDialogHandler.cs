@@ -33,7 +33,10 @@ public sealed class GroundSpecDialogHandler(
         var pipeline = context.Pipeline;
         var scope = Scope(pipeline);
         if (scope.Count == 0)
+        {
+            await PublishMemoryAsync(pipeline, [], cancellationToken); // 2026-11-10-fcd7b: the project's own still counts
             return CommandResult.Ok("No repository in the turn's scope — nothing to ground on");
+        }
 
         var grounded = new List<DialogGrounding>(scope.Count);
         foreach (var repo in scope)
@@ -45,16 +48,21 @@ public sealed class GroundSpecDialogHandler(
         var principles = grounded.SelectMany(g => g.Principles.Documents).ToList();
         pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.RepoCodingPrinciples, principles);
         if (principles.Count > 0) pipeline.Set(ContextKeys.DomainRules, DesignPrinciplesDigest.Render(principles));
-        var memory = grounded.SelectMany(g => g.Memory?.Documents ?? []).ToList(); // 2026-11-10-14a3d
-        if (memory.Count > 0)
-            pipeline.Set(ContextKeys.MemoryIndex, memoryIndex is null
-                ? memory.RenderLabelled() : await memoryIndex.ComposeAsync(pipeline, memory, cancellationToken));
+        await PublishMemoryAsync(pipeline, [.. grounded.SelectMany(g => g.Memory?.Documents ?? [])], cancellationToken); // 14a3d
         var design = grounded.SelectMany(g => g.Design.Documents).ToList(); // 2026-10-01-283dg
         if (design.Count > 0) pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.DesignSystem, design);
 
         var report = DialogGroundingReport.Compose(grounded);
         logger.LogInformation("Spec-dialog grounding: {Report}", report);
         return CommandResult.Ok(report);
+    }
+
+    // 2026-11-10-fcd7b: the index — the project's own memories first — is published whenever any source has one.
+    private async Task PublishMemoryAsync(PipelineContext pipeline, IReadOnlyList<ContextDocument> memory, CancellationToken ct)
+    {
+        var index = memoryIndex is not null ? await memoryIndex.ComposeAsync(pipeline, memory, ct)
+            : memory.Count > 0 ? memory.RenderLabelled() : null;
+        if (!string.IsNullOrWhiteSpace(index)) pipeline.Set(ContextKeys.MemoryIndex, index);
     }
 
     /// <summary>

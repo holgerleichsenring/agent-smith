@@ -12,6 +12,12 @@ public sealed class SandboxBusCredential(string url, Func<Task>? release) : IAsy
 
     public static SandboxBusCredential Shared(string serverUrl) => new(serverUrl, null);
 
+    /// <summary>2026-11-10-4778: refuses a shared credential for a spawn that requires its own.</summary>
+    public SandboxBusCredential Require(bool perJob) => !perJob || IsPerJob ? this
+        : throw new InvalidOperationException(
+            "This sandbox needs its own bus credential, and the bus issued the shared one (Redis refused ACL SETUSER), " +
+            "so it is not started: a shell in it could reach other jobs' channels.");
+
     public async ValueTask DisposeAsync()
     {
         if (release is not null) await release();

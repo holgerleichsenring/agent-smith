@@ -28,15 +28,16 @@ public sealed class DockerSandboxFactory(
         var slug = jobId[..12];
         var profile = spec.SecurityContext ?? SandboxSecurityContext.Unconfined;
         var network = await ResolveNetworkAsync(cancellationToken);
+        // c5a7e; 4778: issued before anything is created, so a refused shared credential leaks no volume or loader.
+        var bus = await busCredentials.IssueAsync(jobId, options.RedisUrl, spec.RequiresPerJobBus);
 
         var volumes = await sandboxVolumes.CreateAsync(slug, profile, cancellationToken);
         // p0407: the package caches are host state that outlives this sandbox, so they
         // are ensured (not created per run) and never handed to the per-job cleanup.
-        var caches = await packageCaches.EnsureAsync(profile, cancellationToken);
+        var caches = spec.NoPackageCaches ? [] : await packageCaches.EnsureAsync(profile, cancellationToken); // 4778
         await images.EnsurePresentAsync(spec.AgentImage, isCarrier: true, cancellationToken);
         await sandboxVolumes.GiveOwnershipAsync(slug, volumes, caches, spec.AgentImage, profile, cancellationToken);
         await RunLoaderAsync(slug, volumes.Shared, spec.AgentImage, profile, network, cancellationToken);
-        var bus = await busCredentials.IssueAsync(jobId, options.RedisUrl); // 2026-10-25-c5a7e
         var toolchainId = await StartToolchainAsync(
             slug, volumes, jobId, spec, network, caches, bus.Url, cancellationToken);
 

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-fcd7b
+goal: "A design turn remembers what a person says that holds beyond the turn as project memory, and every run of the project sees project memory first and quoted in its memory index."
+requires: [2026-11-10-fcd7a]
+
+applies_to: "default (Application: grounding, tool composition, memory index, citations, prompt section; skills: design-partner-master)"
+
+facts:
+  - claim: "A design turn gets recall and dispute_memory only when its grounding found a repository memory index, and never remember."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:54-56,72"
+  - claim: "The design surface's comment says it carries no remember, because a design turn never has a code change."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:71-75"
+  - claim: "Grounding returns early when the turn has no repository in scope, before it composes any memory index."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:34-36,48-51"
+  - claim: "A design turn with no repository in scope fails before grounding, because the seeds index the first scope repository."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:45"
+  - claim: "The memory index section adds 'use remember' unless the pipeline is a design turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterPromptSections.cs:65-76"
+  - claim: "The index aggregates per repository and labels entries when there is more than one repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryIndexReader.cs:47,64; src/backend/AgentSmith.Application/Services/Memory/DesignMemoryIndex.cs:18-21"
+  - claim: "A citation is split at its last '/', and a bare slug held by several repositories is named back as a problem, never guessed."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryCitationResolver.cs:30,36-41,52-58"
+  - claim: "The turn's poster carries whether it holds runs.control."
+    evidence: "src/backend/AgentSmith.Server/Models/TurnPoster.cs:9-10"
+
+scope:
+  in: "Grounding composes project memory before its no-repository return. DesignMemoryIndex and MemoryIndexReader put project entries first, quoted, with their provenance, and label by SOURCE count (project plus repositories). In BuildMemoryIndexSection (MasterPromptSections.cs:65-76), the IsDesignTurn branch is replaced by a seeded flag: a design turn says 'use remember' only when MayStartRuns is set, and a coding run always does. MemoryRecallToolHost (:50-59) iterates MemorySources with the project first. The index gate becomes 'any source has entries' for recall and dispute_memory. A design turn gets remember only when its poster may start runs (the same MayStartRuns seed 2026-11-10-4778 adds), returned by 4778's DesignWorkToolGate, so MasterToolComposition gains no line. Its remember has a description of its own and writes to the project store only. Provenance: the conversation id, the transcript index as SourceRef, and as Author the Author of the SpecDialogTurn at that index. MemoryCitationResolver resolves '@project/<slug>' to the project key. A bare slug held by the project and a repository is refused, naming both forms. The stale AgenticToolSurface comment is rewritten. The design-partner skill says: when a person states how they want work done beyond this turn, remember it on the project."
+  out: "Coding-run writes and relied_on (fcd7c); the panel (fcd7d). A design turn with no repository in scope fails at SpecDialogTurnSeeds.cs:45 before grounding, today and after this spec. The scope-less grounding path is pinned by a unit test only, and the seed crash is a follow-up named here in prose."
+
+decisions:
+  - key: "THE MASTER DECIDES WHAT IS LASTING. An end-of-turn extraction pass was rejected: a second model call guessing at what the first already understood."
+  - key: "remember NEEDS THE RIGHT TO START RUNS. A project memory reaches every later coding prompt, so writing one is as consequential as starting a run. It is gated the way 4778 gates the shell, on the poster's runs.control. A dialog.write holder can still talk; their statements are not stored."
+  - key: "UNREVIEWED WRITES REACH CODING PROMPTS. Accepted, because a person sees provenance, newest first, in the panel and can delete, and because entries render as quoted data with their source, never as instructions. A review gate per memory was rejected: it is the ratification the memory model refuses."
+  - key: "RENDERED WHERE THE INDEX IS COMPOSED. Project-first and quoting live in DesignMemoryIndex and MemoryIndexReader; MasterPromptSections (117 lines) only loses a branch. The section keeps its position (caching)."
+
+steps:
+  - id: ground
+    action: "GroundSpecDialogHandler composes project memory before the early return. DesignMemoryIndex and MemoryIndexReader: project first, quoted with provenance, labels by source count."
+  - id: tools
+    action: "MasterToolComposition: the gate is any source has entries. DesignWorkToolGate returns the design remember when MayStartRuns is set. MemoryRecallToolHost reads MemorySources. MemoryCitationResolver handles '@project/<slug>' and the two-form ambiguity text. BuildMemoryIndexSection reads the seeded flag instead of IsDesignTurn. The AgenticToolSurface comment is rewritten."
+  - id: skill
+    action: "design-partner-master: remember lasting statements on the project. Release, bump the pin."
+
+tests:
+  - "GroundSpecDialog_NoRepositoryInScope_StillComposesProjectMemory (unit)"
+  - "DesignTurn_OnlyProjectMemory_RecallAndDisputeJoin"
+  - "DesignTurn_PosterWithoutRunsControl_HasNoRemember"
+  - "DesignTurn_Remember_WritesToTheProjectWithConversationIndexAndAuthor"
+  - "MemoryCitation_AtProjectSlug_ResolvesToTheProjectKey"
+  - "MemoryCitation_BareSlugInProjectAndRepository_IsRefusedNamingBothForms"
+  - "MemoryIndex_OneRepositoryPlusProject_LabelledProjectFirstQuoted"
+  - "MemoryIndexSection_DesignTurnWithRunsControl_SaysUseRemember"
+  - "MemoryIndexSection_DesignTurnWithoutRunsControl_NoRemember"
+  - "MemoryRecall_ProjectEntry_IsReturnedFirst"
+
+done:
+  - when: "a person with runs.control tells a design turn 'never drop a feature the material records'"
+    then: "a project memory exists with that conversation and turn as provenance, and the next turn's index shows it first, quoted"
+  - "Skill released, pin bumped; build green, full suite green."

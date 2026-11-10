@@ -16,6 +16,7 @@ internal static class SandboxBusCredentialRegistrations
         services.AddSingleton(SandboxBusCredentialModeReader.Read(
             Environment.GetEnvironmentVariable(SandboxBusCredentialModeReader.Variable)));
         services.AddSingleton<SandboxBusCredentials>();
+        services.AddSingleton<AgentSmith.Contracts.Sandbox.ISandboxBusIsolation, SandboxBusIsolation>(); // 2026-11-10-4778
         services.AddSingleton<IStartupProbe, SandboxBusCredentialProbe>();
     }
 }

@@ -21,7 +21,7 @@ public sealed class MemoryRecallStandingTests
 
     private async Task<MemoryRecallToolHost> HostAsync(params MemoryEvidenceFact[] facts)
     {
-        var store = new MemoryStore(_reader, Root);
+        var store = new FileMemoryStore(_reader, Root);
         await store.UpsertAsync(new MemoryEntry("retry-caps", "Retries are capped at three", MemoryEntryType.Feedback,
             "Cap retries at three; the gateway drops a fourth."), CancellationToken.None);
         await store.UpsertAsync(new MemoryEntry("retry-backoff", "Retries back off exponentially", MemoryEntryType.Project,
@@ -59,7 +59,7 @@ public sealed class MemoryRecallStandingTests
     [Fact]
     public async Task Recall_NoLedger_ReadsUnconfirmed()
     {
-        await new MemoryStore(_reader, Root).UpsertAsync(new MemoryEntry("old", "Written before 9324e", MemoryEntryType.Feedback,
+        await new FileMemoryStore(_reader, Root).UpsertAsync(new MemoryEntry("old", "Written before 9324e", MemoryEntryType.Feedback,
             "Old body.", "proposed"), CancellationToken.None);
         var host = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new PipelineContext());
 

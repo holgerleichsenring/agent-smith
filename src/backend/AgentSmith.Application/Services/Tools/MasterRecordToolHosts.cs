@@ -22,9 +22,12 @@ public sealed class MasterRecordToolHosts(
     IEventPublisher events,
     MemoryCitationResolver citations,
     MemoryStandingReader standings,
-    ILogger<MasterRecordToolHosts> logger)
+    ILogger<MasterRecordToolHosts> logger,
+    MemorySources? sources = null) // 2026-11-10-fcd7b
 {
-    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot)
+    /// <param name="codingMaster">2026-11-10-4778 review: only a coding master's remember may keep a lesson on the
+    /// project ('@project'); a scan or review master's writes only where a code change lands.</param>
+    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot, bool codingMaster = false)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var repositories = runRepositories.For(pipeline);
@@ -33,12 +36,13 @@ public sealed class MasterRecordToolHosts(
         var memory = new MasterMemoryUse(pipeline, repositories, repoRoot, citations, MemoryUse(pipeline, spec?.SpecId));
         return new MasterRecordTools(
             new LogDecisionToolHost(decisionLogger, repositories),
-            new MemoryRecallToolHost(repositories, repoRoot, standings, pipeline, logger),
-            new MemoryWriteToolHost(repositories, repoRoot, logger),
+            new MemoryRecallToolHost(repositories, repoRoot, standings, pipeline, logger, sources),
+            new MemoryWriteToolHost(repositories, repoRoot, logger, codingMaster ? sources : null, pipeline),
             spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
             decisionLogger,
             defaults is null ? null : new DefaultDecisionToolHost(defaults),
-            memory.CanRecord ? new MemoryDisputeToolHost(memory) : null);
+            memory.CanRecord ? new MemoryDisputeToolHost(memory) : null,
+            sources is null ? null : new ProjectMemoryWriteToolHost(sources, pipeline));
     }
 
     private MemoryUseRecorder? MemoryUse(PipelineContext pipeline, string? specId)
@@ -61,7 +65,8 @@ public sealed class MasterRecordToolHosts(
 /// <summary>
 /// 2026-10-13-8762m: what <see cref="MasterRecordToolHosts"/> builds for one master start. HandForward is
 /// null unless the master executes a spec; Decisions is the logger the open loop records its stop with;
-/// DefaultDecision and Dispute are null where the pipeline holds no run id.
+/// DefaultDecision and Dispute are null where the pipeline holds no run id. 2026-11-10-fcd7b: ProjectRemember is the
+/// design turn's remember, which <see cref="DesignWorkToolGate"/> offers only to a poster who may start runs.
 /// </summary>
 public sealed record MasterRecordTools(
     LogDecisionToolHost Log,
@@ -70,4 +75,5 @@ public sealed record MasterRecordTools(
     HandForwardToolHost? HandForward,
     IDecisionLogger Decisions,
     DefaultDecisionToolHost? DefaultDecision,
-    MemoryDisputeToolHost? Dispute = null);
+    MemoryDisputeToolHost? Dispute = null,
+    ProjectMemoryWriteToolHost? ProjectRemember = null);

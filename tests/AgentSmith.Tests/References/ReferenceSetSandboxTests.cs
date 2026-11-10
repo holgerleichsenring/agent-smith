@@ -130,6 +130,18 @@ public sealed class ReferenceSetSandboxTests
         _fixture.Specs.Single().Secrets.Should().Be(ResolvedSandboxSecrets.Empty);
     }
 
+    // 2026-11-10-4778: an upload's container runs a model's shell, so it mounts no host-wide package cache.
+    [Fact]
+    public async Task ReferenceSet_Spawn_HasNoPackageCaches()
+    {
+        _fixture.Set.Add(Text("app/app.py", "print(1)"));
+        await using var scope = _fixture.Open(Holds.None());
+
+        await scope.MaterializeAsync(CancellationToken.None);
+
+        _fixture.Specs.Single().NoPackageCaches.Should().BeTrue();
+    }
+
     [Fact]
     public async Task ReferenceSetSandbox_SecondTurn_TakesTheHeldSandboxBackWithoutRewriting()
     {

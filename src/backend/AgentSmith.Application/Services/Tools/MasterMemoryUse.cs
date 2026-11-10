@@ -16,6 +16,9 @@ public sealed class MasterMemoryUse(
 {
     public bool CanRecord => recorder is not null;
 
+    /// <summary>2026-11-10-fcd7c: whether entries may name the project's own store.</summary>
+    public bool OffersProject => resolver.OffersProject;
+
     public Task<MemoryCitationRead> ResolveAsync(IReadOnlyList<string> entries, CancellationToken ct) =>
         resolver.ResolveAsync(pipeline, repositories, repoRoot, entries, ct);
 

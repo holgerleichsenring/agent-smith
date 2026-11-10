@@ -24,7 +24,7 @@ internal sealed class ReferenceCommandToolHost(
     [Description("Runs a shell command (/bin/sh -c) in the disposable container that holds a COPY of one upload — "
         + "the reference:<name> address — with the working directory /work, where the upload lies under /work/<name>/. "
         + "Use it to find out what the material is and to see it work: list, inspect, install, start, request. "
-        + "Nothing run here changes what was uploaded, and repositories stay read-only. python3 with pip is on the "
+        + "Nothing run here changes what was uploaded or any repository. python3 with pip is on the "
         + "PATH from a read-only mount: install packages into a venv (python3 -m venv /tmp/venv). Anything else the "
         + "command installs itself (curl a pinned release; apt only where the image runs as root). A browser upload "
         + "carries no file mode, so run a script as `sh script.sh`. Start a server detached (nohup … >/tmp/x.log 2>&1 &) "

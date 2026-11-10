@@ -7,28 +7,36 @@ namespace AgentSmith.Application.Services.Memory;
 /// <summary>
 /// 2026-10-25-9324b: turns a master's memory entries — <c>slug</c> or <c>repository/slug</c> — into citations,
 /// each checked against that repository's store. A bare slug names the one repository holding it; held by
-/// none, or by several, the entry is named back as a problem, never guessed.
+/// none, or by several, the entry is named back as a problem, never guessed. 2026-11-10-fcd7b: the project's own
+/// store answers to '@project/slug', and a bare slug it shares with a repository is named back with both forms.
 /// </summary>
-public sealed class MemoryCitationResolver(MemoryRepositoryKey keys)
+public sealed class MemoryCitationResolver(MemoryRepositoryKey keys, MemorySources? sources = null)
 {
+    public bool OffersProject => sources?.HasProjectStore == true;
+
     public async Task<MemoryCitationRead> ResolveAsync(
         PipelineContext pipeline, IRunRepositories repositories, string repoRoot, IReadOnlyList<string> entries,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(repositories);
         var held = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
+        var project = sources is null ? null : await sources.ProjectAsync(pipeline, ct);
+        if (project is not null)
+            held[project.Label] = (await project.Store.ListAsync(ct)).Select(e => e.Name).ToHashSet(StringComparer.Ordinal);
+        var names = project is null ? repositories.Names() : [project.Label, .. repositories.Names()];
         var citations = new List<MemoryCitation>();
         var problems = new List<string>();
         foreach (var entry in entries)
         {
             var (named, slug) = Split(entry);
-            var candidates = repositories.Names()
+            var candidates = names
                 .Where(n => named is null || string.Equals(n, named, StringComparison.OrdinalIgnoreCase)).ToList();
             var holders = new List<string>();
             foreach (var name in candidates)
                 if ((await SlugsAsync(repositories, repoRoot, name, held, ct)).Contains(slug)) holders.Add(name);
-            if (holders.Count == 1) citations.Add(new MemoryCitation(holders[0], keys.Of(pipeline, holders[0]), slug));
-            else problems.Add(Problem(entry, named, candidates.Count, holders, repositories.Names()));
+            if (holders.Count == 1)
+                citations.Add(new MemoryCitation(holders[0], holders[0] == project?.Label ? project.LedgerKey : keys.Of(pipeline, holders[0]), slug));
+            else problems.Add(Problem(entry, named, candidates.Count, holders, names));
         }
         return new MemoryCitationRead([.. citations.DistinctBy(c => (c.Repository, c.Slug))], problems);
     }
@@ -45,7 +53,7 @@ public sealed class MemoryCitationResolver(MemoryRepositoryKey keys)
         CancellationToken ct)
     {
         if (held.TryGetValue(name, out var slugs)) return slugs;
-        var entries = repositories.FilesOf(name) is { } files ? await new MemoryStore(files, repoRoot).ListAsync(ct) : [];
+        var entries = repositories.FilesOf(name) is { } files ? await new FileMemoryStore(files, repoRoot).ListAsync(ct) : [];
         return held[name] = entries.Select(e => e.Name).ToHashSet(StringComparer.Ordinal);
     }
 
@@ -55,5 +63,6 @@ public sealed class MemoryCitationResolver(MemoryRepositoryKey keys)
             ? $"'{entry}' names no repository of this run [{string.Join(", ", names)}]"
             : holders.Count == 0
                 ? $"'{entry}' is no stored memory — the index lists what exists"
-                : $"'{entry}' is stored in [{string.Join(", ", holders)}] — name it as 'repository/slug'";
+                : $"'{entry}' is stored in [{string.Join(", ", holders)}] — name it as "
+                  + (holders.Contains(ProjectMemorySource.Label) ? "'@project/slug' or 'repository/slug'" : "'repository/slug'");
 }

@@ -34,7 +34,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogResumer>();
         services.AddScoped<SpecDialogAnswerAdmission>();
         services.AddScoped<SpecDialogCommandHandler>();
-        services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>();
+        services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>().AddSingleton<DesignTurnResourcesFactory>(); // 4778
         // 2026-09-13-ed5a: the declared templates the epic analysis may read, and the
         // provenance it stamps on the outcome for a filer that runs after they are gone.
         services.AddTransient<SpecDialogReadOnlyScopes>();

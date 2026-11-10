@@ -9,6 +9,7 @@ DELETE	/api/config/projects/{id}	config.write	-
 DELETE	/api/config/repos/{id}	config.write	-
 DELETE	/api/config/secrets/{id}	secrets.write	-
 DELETE	/api/config/trackers/{id}	config.write	-
+DELETE	/api/projects/{name}/memories/{slug}	runs.control	route:name
 DELETE	/api/runs	runs.delete	across
 DELETE	/api/runs/{runId}	runs.delete	run
 DELETE	/api/runs/{runId}/judgements	runs.control	run
@@ -50,6 +51,7 @@ GET	/api/openapi.json	anonymous	-
 GET	/api/projects	runs.read	across
 GET	/api/projects/{name}/bootstrap	runs.read	route:name
 GET	/api/projects/{name}/init	runs.read	route:name
+GET	/api/projects/{name}/memories	runs.read	route:name
 GET	/api/pull-requests	runs.read	across
 GET	/api/runs	runs.read	across
 GET	/api/runs/expectations/metrics	runs.read	across
