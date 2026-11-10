@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-fcd7d
+
+decisions:
+  - category: Security
+    chose: "GET /api/projects/{name}/memories under runs.read on the project, DELETE /api/projects/{name}/memories/{slug} under runs.control on it"
+    over: "config.read and config.write"
+    reason: "Those are global and cannot be bound per project. The section still sits in the system config view, which only a config.read holder reaches; the per-project rights govern the API, so a later member-facing place can reuse it."
+  - category: UX
+    chose: "Newest first, list and delete only; a run source links to its run, a conversation source names the conversation and turn"
+    over: "Editing the text in the panel, and a link to the conversation"
+    reason: "Unreviewed writes reach prompts, so the newest need checking first; a person who wants the text changed tells a turn, so the text keeps one author. The stored source is the conversation's session id, and the dashboard addresses a conversation by its dialog id, so a link would be a guess."
+  - category: Implementation
+    chose: "A hand-written client type in projectMemoryApi.ts, like projectBootstrapApi.ts"
+    over: "Regenerated OpenAPI types"
+    reason: "The neighbouring project endpoints are consumed the same way; the generated types are gitignored and nothing reads them for these routes."
+  - category: Implementation
+    chose: "The endpoints are mapped from ProjectBootstrapEndpoints' chain, and ProjectMemorySection is its own component mounted after the resolved settings"
+    over: "A line in ServerEndpointExtensions, and rows inside ProjectDetailPanel"
+    reason: "Keeps both existing files from growing; the section carries its own tests."

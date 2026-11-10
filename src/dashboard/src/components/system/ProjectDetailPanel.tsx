@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProvenanceBadge } from "./ProvenanceBadge";
 import { ProjectInitAction } from "./ProjectInitAction";
+import { ProjectMemorySection } from "./ProjectMemorySection";
 import { ProjectRepos } from "./ProjectRepos";
 import type {
   ConfigAgent,
@@ -43,6 +44,7 @@ export function ProjectDetailPanel({ project, repos, trackers, agents }: Props) 
         <ReposSection project={project.name} repos={projectRepos} />
         <TrackerSection name={project.trackerName} tracker={tracker} trigger={project.trigger} />
         <ResolvedSection resolved={project.resolved} />
+        <ProjectMemorySection project={project.name} />
       </Card>
     </div>
   );
