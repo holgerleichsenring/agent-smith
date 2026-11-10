@@ -9,34 +9,38 @@ facts:
     evidence: "src/dashboard/src/hooks/useSpecDialog.ts:469-475,766-776"
   - claim: "A read attaches session.proposal only to the transcript entry at session.proposalTurn."
     evidence: "src/dashboard/src/hooks/useSpecDialog.ts:730-741"
-  - claim: "The server's proposalTurn is the last assistant turn whose text carries a draft, or null. In the middle of a turn the reply is not in the transcript yet, so it is null in a fresh conversation (no card at all), or it points at an earlier turn."
+  - claim: "The server's proposalTurn is the last assistant turn whose text carries a draft, or null. Mid-turn the reply is not in the transcript yet, so it is null in a fresh conversation (no card at all) or points at an earlier turn."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:73,89; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:25-32"
-  - claim: "A live card already gives way to a stored one of the same draft through withoutCard."
+  - claim: "A stored proposal keeps underReview while the turn computes; the client type carries it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:66-67; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalContinuity.cs:25-29; src/dashboard/src/types/spec-dialog.ts:408"
+  - claim: "When a read stores the same draft a live push already showed, the stored card gives way to the live one through withoutCard."
     evidence: "src/dashboard/src/hooks/useSpecDialog.ts:271-276"
 
 scope:
-  in: "withCard replaces the card of the previous proposal when no user entry came after it, instead of appending a second one. turns() appends a card-only agent entry at the end when the session holds a proposal and no transcript entry exists at proposalTurn, or when the turn is computing and the last user entry comes after proposalTurn. That entry gives way to a live card through the same withCard and withoutCard rules."
-  out: "The server's proposalTurn and the proposal pane are unchanged."
+  in: "withCard replaces the card of the previous proposal when no answer came after it, instead of appending a second card. An answer is a user entry or a decision entry. turns() appends a card-only agent entry at the end when (computing && session.proposal.underReview), or when no transcript entry exists at proposalTurn. In the first case it does NOT also attach the proposal at proposalTurn. That trailing entry gives way to a live card through the same withCard and withoutCard rules."
+  out: "The server's proposalTurn and the proposal pane are unchanged. Keeping every turn's proposal and its review after a reload is 2026-11-10-d854c, on spec/2026-11-10-548f."
 
 decisions:
-  - key: "ONE CARD PER PROPOSAL SINCE THE LAST USER ENTRY. A card a person already answered stays where it was answered; a re-draft before anyone answered replaces it. Dropping every earlier card was rejected: the conversation would lose what a person replied to."
-  - key: "FIX IN THE CLIENT. The server says where a stored draft's turn is, which is correct. The gap is the client's mid-turn view. Making the server synthesise a transcript index for a reply it does not hold yet was rejected."
+  - key: "ONE CARD PER PROPOSAL SINCE THE LAST ANSWER. A card a person already answered, by a message or a decision, stays where it was answered; a re-draft before anyone answered replaces it. Dropping every earlier card was rejected: the conversation would lose what a person replied to."
+  - key: "underReview MARKS THE RUNNING TURN'S PROPOSAL. While the turn computes, the stored proposal under review belongs to that turn, not to the earlier turn proposalTurn points at, so it goes to the end and nowhere else."
+  - key: "FIX IN THE CLIENT. The server says where a stored draft's turn is, which is correct. Making it synthesise a transcript index for a reply it does not hold yet was rejected."
 
 steps:
   - id: hook
-    action: "withCard: when an entry after the last user entry carries a card, replace that card with the new proposal. turns(): the card-only trailing entry described in scope."
+    action: "withCard: when an entry after the last user or decision entry carries a card, replace that card. turns(): the trailing card-only entry under the two conditions, without the attach at proposalTurn in the computing case."
   - id: tests
     action: "vitest in src/dashboard/src/hooks/__tests__."
 
 tests:
   - "useSpecDialog_SeveralDraftsInOneLiveTurn_ShowOneCard"
-  - "useSpecDialog_ReloadMidTurnWithProposal_ShowsOneCard"
+  - "useSpecDialog_ReloadMidTurnFreshConversation_ShowsOneCardAtTheEnd"
+  - "useSpecDialog_ReloadMidTurnWithEarlierDraftTurn_CardAtTheEndOnly"
   - "useSpecDialog_ReloadMidTurnThenLivePush_StillOneCard"
-  - "useSpecDialog_AnsweredCardStays_NewTurnAddsItsOwn"
+  - "useSpecDialog_CardAnsweredByDecision_StaysAndNewTurnAddsItsOwn"
 
 done:
   - when: "a turn's review re-drafts the proposal three times"
     then: "the conversation shows one card, holding the newest draft"
   - when: "the page reloads while a turn with a proposal is running"
-    then: "the conversation shows one card, and the next live push replaces it"
+    then: "the conversation shows one card at the end, and the next live push replaces it"
   - "pnpm test and pnpm build green."
