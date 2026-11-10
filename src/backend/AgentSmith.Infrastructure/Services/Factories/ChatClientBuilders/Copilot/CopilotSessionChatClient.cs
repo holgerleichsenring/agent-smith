@@ -27,12 +27,16 @@ public sealed class CopilotSessionChatClient : IChatClient
     private readonly CopilotPendingCalls _pending = new();
     private readonly CopilotTurnDriver _driver;
 
+    /// <param name="quietBound">2026-11-10-e706: how long one turn may go without a session event —
+    /// the agent's network timeout; the default is the one the other providers fall back to.</param>
     public CopilotSessionChatClient(
-        ICopilotRuntime runtime, CopilotSessionRequest template, ILogger<CopilotSessionChatClient> logger)
+        ICopilotRuntime runtime, CopilotSessionRequest template, ILogger<CopilotSessionChatClient> logger,
+        TimeSpan? quietBound = null)
     {
         _template = template;
         _lease = new CopilotSessionLease(runtime, template, logger);
-        _driver = new CopilotTurnDriver(_pending);
+        _driver = new CopilotTurnDriver(
+            _pending, quietBound ?? TimeSpan.FromSeconds(OpenAiChatClientBuilder.DefaultNetworkTimeoutSeconds));
     }
 
     public async Task<ChatResponse> GetResponseAsync(

@@ -13,7 +13,7 @@ facts:
   - claim: "A lost sandbox under a read is noticed beside the agent's heartbeat, so a sandbox tool call does not hang a turn."
     evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxStepWatch.cs:1-12"
   - claim: "OpenAI and Azure calls are bounded by NetworkTimeoutSeconds (300 by default), Claude calls by a 10-minute HttpClient timeout, and external-worker calls by NetworkTimeoutSeconds."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:35; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:93; src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerCliOptionsFactory.cs:24"
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:34-36; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:93; src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerCliOptionsFactory.cs:24"
   - claim: "A Copilot turn that is not answering pending tool calls waits for the session to go idle with only the run's token, so a session that never goes idle waits until the run is cancelled."
     evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotTurnDriver.cs:47"
   - claim: "Ollama and Gemini clients are built with their libraries' own HTTP settings; no timeout is set by agent-smith."
@@ -39,13 +39,17 @@ steps:
     action: "Pin the bounded waits and the exemption."
 
 tests:
-  - "CopilotTurnDriver_SessionNeverIdle_FailsAfterTheNetworkTimeout"
+  - "CopilotSessionChatClientTests.SessionNeverIdle_FailsAfterTheNetworkTimeout"
+  - "CopilotSessionChatClientTests.AnsweredTurnNeverResumes_FailsAfterTheNetworkTimeout"
+  - "NetworkTimeoutChatClientTests.GetResponseAsync_ProviderNeverAnswers_FailsAfterTheBound"
+  - "NetworkTimeoutChatClientTests.OllamaBuilder_Build_BoundsTheClientByTheAgentsNetworkTimeout"
+  - "RunCancellationRegistryTests.RunCancellationRegistry_Register_SnapshotCarriesTheKind"
   - "PipelineRunWatchdog_DesignTurnOlderThanTheCeiling_IsNotCancelled"
   - "PipelineRunWatchdog_CodingRunOlderThanTheCeiling_IsStillCancelled"
 
 done:
   - when: "a design turn's model call never returns, on any provider"
-    then: "the call fails within NetworkTimeoutSeconds and the turn ends with that error"
+    then: "the call fails within NetworkTimeoutSeconds (a Claude call within its fixed 10 minutes) and the turn ends with that error"
   - when: "a design turn runs longer than max_run_wall_time_seconds while making progress"
     then: "it is not cancelled"
   - "A coding run is still cancelled at the ceiling."

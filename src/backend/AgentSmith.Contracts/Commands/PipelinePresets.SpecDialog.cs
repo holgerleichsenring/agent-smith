@@ -24,4 +24,11 @@ public static partial class PipelinePresets
         CommandNames.AgenticMaster,         // loads design-partner-master
         CommandNames.CollectSpecDialogReply,
     ];
+
+    /// <summary>2026-11-10-e706: the kind a run of this preset registers as. A spec-dialog run is one
+    /// design turn, which the wall-time watchdog leaves to its cost cap and to a person.</summary>
+    public static Services.RegisteredRunKind RunKindOf(string pipelineName) =>
+        string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
+            ? Services.RegisteredRunKind.DesignTurn
+            : Services.RegisteredRunKind.Pipeline;
 }

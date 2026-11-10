@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Services;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Commands;
@@ -177,5 +178,14 @@ public class PipelinePresetsTests
         PipelinePresets.ApiSecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
         PipelinePresets.MadDiscussion.Should().NotContain(CommandNames.RunVerifyPhase);
         PipelinePresets.InitProject.Should().NotContain(CommandNames.RunVerifyPhase);
+    }
+
+    [Theory]
+    [InlineData("spec-dialog", RegisteredRunKind.DesignTurn)]
+    [InlineData("code", RegisteredRunKind.Pipeline)]
+    [InlineData("spec-derive", RegisteredRunKind.Pipeline)]
+    public void RunKindOf_Preset_NamesTheKindTheWatchdogReads(string name, RegisteredRunKind expected)
+    {
+        PipelinePresets.RunKindOf(name).Should().Be(expected);
     }
 }

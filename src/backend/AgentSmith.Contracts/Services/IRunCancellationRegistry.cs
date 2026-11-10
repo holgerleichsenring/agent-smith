@@ -12,8 +12,10 @@ public interface IRunCancellationRegistry
     /// <summary>
     /// Registers a fresh CancellationTokenSource linked to <paramref name="parent"/>.
     /// Returns the linked token the caller threads down to the executor.
+    /// 2026-11-10-e706: <paramref name="kind"/> is recorded with the entry for the watchdog.
     /// </summary>
-    CancellationToken Register(string runId, CancellationToken parent);
+    CancellationToken Register(
+        string runId, CancellationToken parent, RegisteredRunKind kind = RegisteredRunKind.Pipeline);
 
     /// <summary>Returns true if a registration existed and was signalled.</summary>
     bool TryCancel(string runId);
@@ -60,4 +62,5 @@ public interface IRunCancellationRegistry
 }
 
 /// <summary>One row in <see cref="IRunCancellationRegistry.Snapshot"/>.</summary>
-public sealed record RunCancellationEntry(string RunId, DateTimeOffset RegisteredAt);
+public sealed record RunCancellationEntry(
+    string RunId, DateTimeOffset RegisteredAt, RegisteredRunKind Kind = RegisteredRunKind.Pipeline);

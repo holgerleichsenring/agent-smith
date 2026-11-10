@@ -20,6 +20,9 @@ public sealed class OllamaChatClientBuilder : IChatClientBuilder
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
         var endpoint = assignment.EffectiveEndpoint(agent) ?? DefaultEndpoint;
-        return new OllamaApiClient(new Uri(endpoint), assignment.Model);
+        // 2026-11-10-e706: bounded by the agent's network timeout like every other provider.
+        return new NetworkTimeoutChatClient(
+            new OllamaApiClient(new Uri(endpoint), assignment.Model),
+            OpenAiChatClientBuilder.ResolveNetworkTimeout(agent));
     }
 }

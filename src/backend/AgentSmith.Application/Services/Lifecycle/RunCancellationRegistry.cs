@@ -15,9 +15,10 @@ public sealed class RunCancellationRegistry(
 {
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
 
-    public CancellationToken Register(string runId, CancellationToken parent)
+    public CancellationToken Register(
+        string runId, CancellationToken parent, RegisteredRunKind kind = RegisteredRunKind.Pipeline)
     {
-        var entry = new Entry(CancellationTokenSource.CreateLinkedTokenSource(parent), DateTimeOffset.UtcNow);
+        var entry = new Entry(CancellationTokenSource.CreateLinkedTokenSource(parent), DateTimeOffset.UtcNow, kind);
         if (_entries.TryAdd(runId, entry)) return entry.Source.Token;
         entry.Source.Dispose();
         logger.LogWarning("RunCancellationRegistry: runId {RunId} already registered; reusing existing token", runId);
@@ -86,12 +87,13 @@ public sealed class RunCancellationRegistry(
     }
 
     public IReadOnlyCollection<RunCancellationEntry> Snapshot() =>
-        _entries.Select(kv => new RunCancellationEntry(kv.Key, kv.Value.RegisteredAt)).ToArray();
+        _entries.Select(kv => new RunCancellationEntry(kv.Key, kv.Value.RegisteredAt, kv.Value.Kind)).ToArray();
 
-    private sealed class Entry(CancellationTokenSource source, DateTimeOffset registeredAt)
+    private sealed class Entry(CancellationTokenSource source, DateTimeOffset registeredAt, RegisteredRunKind kind)
     {
         public CancellationTokenSource Source { get; } = source;
         public DateTimeOffset RegisteredAt { get; } = registeredAt;
+        public RegisteredRunKind Kind { get; } = kind;
         // p0201: mutated exactly once via Interlocked.CompareExchange so the
         // first cancel reason wins. Field-shape (not property) so it's a
         // legal target for Interlocked.

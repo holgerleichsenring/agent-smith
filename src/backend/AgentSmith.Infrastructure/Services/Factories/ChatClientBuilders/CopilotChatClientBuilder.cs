@@ -44,7 +44,8 @@ public sealed class CopilotChatClientBuilder(
             Tools: []);
 
         return new CopilotSessionChatClient(
-            runtime, template, loggerFactory.CreateLogger<CopilotSessionChatClient>());
+            runtime, template, loggerFactory.CreateLogger<CopilotSessionChatClient>(),
+            OpenAiChatClientBuilder.ResolveNetworkTimeout(agent)); // 2026-11-10-e706
     }
 
     /// <summary>

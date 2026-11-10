@@ -10,7 +10,7 @@ They save the same way the catalogs do: one **Save changes**, a row in the chang
 
 ### Orchestrator
 
-`MaxRunWallTimeSeconds`, the ceiling on how long one run may take before it gets cancelled. It defaults to 1800, so a run that is still going after thirty minutes is stopped. Raise it for a codebase where a legitimate run genuinely takes longer, and lower it if you would rather find out early.
+`MaxRunWallTimeSeconds`, the ceiling on how long one run may take before it gets cancelled. It defaults to 1800, so a run that is still going after thirty minutes is stopped. Raise it for a codebase where a legitimate run genuinely takes longer, and lower it if you would rather find out early. A design turn in a conversation is not stopped by it: only its cost cap or a person ends one, and every model call it makes is bounded by the agent's network timeout instead.
 
 ### Sandbox
 

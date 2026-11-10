@@ -48,6 +48,9 @@ public sealed class PipelineRunWatchdog(
         foreach (var entry in registry.Snapshot())
         {
             ct.ThrowIfCancellationRequested();
+            // 2026-11-10-e706: a design turn is stopped by its cost cap or a person, never by its
+            // age; every model wait it makes is bounded by the agent's network timeout instead.
+            if (entry.Kind == RegisteredRunKind.DesignTurn) continue;
             if (now - entry.RegisteredAt < threshold) continue;
             await CancelOverdueAsync(entry, now - entry.RegisteredAt, ceilingSeconds, ct);
         }

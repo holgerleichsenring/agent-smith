@@ -40,6 +40,9 @@ public sealed class ChatClientCallScopeRuleTests
         // already-scoped messages on a transient network drop; the outer call's
         // BeginCallScope flows via AsyncLocal through the retry + backoff.
         "TransientRetryChatClient.cs",
+        // 2026-11-10-e706: pass-through decorator built into the Ollama and Gemini clients; it bounds
+        // the caller's already-scoped call by the network timeout and delegates it unchanged.
+        "NetworkTimeoutChatClient.cs",
         // 2026-08-27-3eb1: pass-through decorators around an already-scoped call — one
         // re-throws a provider context-length refusal with the role and window named, the
         // other appends a finalize instruction and switches ToolMode off. Both delegate
