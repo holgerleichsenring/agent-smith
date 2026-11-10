@@ -59,7 +59,11 @@ public sealed class HandForwardSurfaceTests
         var scan = new CapturingLoop();
         await Run(scan, "security-master", WithRun(MasterHandlerFixture.BuildContext("security-master")), schema: "observation");
         var design = new CapturingLoop();
-        await Run(design, DesignMaster, WithRun(DesignContext()), limits: new LoopLimitsConfig());
+        var designWithStore = WithRun(DesignContext());
+        designWithStore.Pipeline.Set(ContextKeys.MemoryIndex, "- [A fact](a-fact.md) — one line");
+        await Run(design, DesignMaster, designWithStore, limits: new LoopLimitsConfig());
+        var designNoStore = new CapturingLoop();
+        await Run(designNoStore, DesignMaster, WithRun(DesignContext()), limits: new LoopLimitsConfig());
         var noRun = new CapturingLoop();
         await Run(noRun, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
 
@@ -67,6 +71,7 @@ public sealed class HandForwardSurfaceTests
         coding.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
         scan.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
         design.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
+        designNoStore.MasterTools.Should().NotContain(MemoryDisputeToolHost.Name, "2026-11-10-14a3d: no store, nothing to dispute");
         children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(MemoryDisputeToolHost.Name);
         noRun.MasterTools.Should().NotContain(MemoryDisputeToolHost.Name);
     }

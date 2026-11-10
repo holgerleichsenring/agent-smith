@@ -50,11 +50,11 @@ public sealed class MasterToolComposition(
     {
         Loop.Sanity.RefusedWriteLog.OpenFresh(context.Pipeline); // 2026-10-17-a196a: this step's refusals only
         // p0380: recall (read) + remember (memory-only proposal) join EVERY master surface, including Review/scan.
-        // 2026-09-22-9519: the withdrawal joins the design surface HERE rather than inside
-        // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
-        // what this method decides.
+        // 2026-09-22-9519: the withdrawal joins the design surface here, built only where a dialogue identity exists.
+        // 2026-11-10-14a3d: a design turn's memory tools only over a store its grounding found.
+        var memory = !isSpecDialog || context.Pipeline.TryGet<string>(ContextKeys.MemoryIndex, out var index) && !string.IsNullOrWhiteSpace(index);
         IList<AITool> BaseSurface() => isSpecDialog
-            ? [.. toolSurface.SpecDialog(fs, web, records.Recall),
+            ? [.. toolSurface.SpecDialog(fs, web, memory ? records.Recall : null),
                .. withdraw?.GetTools(null, null) ?? [],
                // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
                // gate — only a BOUND design turn carries the port this is built from.
@@ -70,7 +70,7 @@ public sealed class MasterToolComposition(
         var master = BaseSurface();
         // 8762o: decide_by_default — the coding master only, no child; fc66: a design turn's choices go in its reply.
         if (!isScanMaster && !isSpecDialog) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
-        master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 2026-10-25-9324b: every master, no child
+        if (memory) master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 9324b: every master, no child
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
         // source — the MASTER only, outside BaseSurface: children fanning out over one file would
         // multiply calls against one rate limit, so no child surface derived from it carries it.

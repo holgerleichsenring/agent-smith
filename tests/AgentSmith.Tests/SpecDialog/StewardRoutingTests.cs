@@ -91,7 +91,7 @@ public sealed class StewardRoutingTests
         };
         return SpecDialogTurnSeeds.Build(
             state, [new RepoConnection { Name = "sample-api" }], new Dictionary<string, ISandbox>(),
-            new SpecDialogReplySlot(), DialogImageSet.None, Mock.Of<IFiledTicketWithdrawal>(), bound: bound);
+            new SpecDialogReplySlot(), DialogImageSet.None, new SpecDialogTurnFacts(Mock.Of<IFiledTicketWithdrawal>(), false), bound: bound);
     }
 
     private static BoundTicket? Bound(bool worked) => new(

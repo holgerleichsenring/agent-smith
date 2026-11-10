@@ -44,6 +44,8 @@ public sealed class GroundSpecDialogHandler(
         var principles = grounded.SelectMany(g => g.Principles.Documents).ToList();
         pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.RepoCodingPrinciples, principles);
         if (principles.Count > 0) pipeline.Set(ContextKeys.DomainRules, DesignPrinciplesDigest.Render(principles));
+        var memory = grounded.SelectMany(g => g.Memory?.Documents ?? []).ToList(); // 2026-11-10-14a3d
+        if (memory.Count > 0) pipeline.Set(ContextKeys.MemoryIndex, memory.RenderLabelled());
         var design = grounded.SelectMany(g => g.Design.Documents).ToList(); // 2026-10-01-283dg
         if (design.Count > 0) pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.DesignSystem, design);
 

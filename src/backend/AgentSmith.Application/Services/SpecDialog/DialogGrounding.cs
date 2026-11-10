@@ -31,7 +31,8 @@ public sealed record DialogGrounding(
     string? Unreachable,
     RemoteFileSet Contexts,
     RemoteFileSet Principles,
-    RemoteFileSet Design)
+    RemoteFileSet Design,
+    RemoteFileSet? Memory = null)
 {
     public static DialogGrounding NotLocated(string repo) =>
         new(repo, false, null, RemoteFileSet.Empty, RemoteFileSet.Empty, RemoteFileSet.Empty);

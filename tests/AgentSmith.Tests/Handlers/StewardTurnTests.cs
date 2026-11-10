@@ -95,7 +95,7 @@ public sealed class StewardTurnTests
         await Run(new SurfaceCapturingLoop(spawn: true), TurnContext(master), children);
 
         var childTools = children.SeenContexts.Single().ChildTools.Select(t => t.Name).ToList();
-        childTools.Should().Contain(["read_file", "read_ticket", "ticket_runs", "recall"]);
+        childTools.Should().Contain(["read_file", "read_ticket", "ticket_runs"]); // 14a3d: recall only over a store
         childTools.Should().OnlyContain(name => SpecDialogChildTools.ReadTools.Contains(name));
         childTools.Should().NotContain(["withdraw_filed_ticket", "start_next_attempt", "edit_series", "verify_series",
             "ask_human", "remember", "http_request"]);

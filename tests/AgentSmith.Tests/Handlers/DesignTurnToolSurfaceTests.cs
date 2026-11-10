@@ -32,8 +32,25 @@ public sealed class DesignTurnToolSurfaceTests
 
         var names = loop.MasterTools.Select(t => t.Name).ToList();
         names.Should().NotContain(Removed);
-        names.Should().Contain(["read_file", "grep_in_tree", "find_files", "directory_tree", "recall",
+        names.Should().Contain(["read_file", "grep_in_tree", "find_files", "directory_tree",
             "spawn_agents", "read_sub_agent_observations"]);
+    }
+
+    /// <summary>2026-11-10-14a3d: the memory, visual, mock and withdrawal tools come with what they work on.</summary>
+    [Fact]
+    public async Task DesignSurface_SourceUploadNoDesignNoMemoryNoFiling_HasNoVisualMockMemoryOrWithdrawTools()
+    {
+        var bare = new CapturingLoop();
+        var withStore = new CapturingLoop();
+        var context = DesignContext();
+        context.Pipeline.Set(ContextKeys.MemoryIndex, "- [A fact](a-fact.md) — one line");
+
+        await Run(bare, DesignMaster, DesignContext());
+        await Run(withStore, DesignMaster, context);
+
+        bare.MasterTools.Select(t => t.Name).Should().NotContain(["recall", "dispute_memory", "render_reference",
+            "compare_reference", "write_mock", "read_mock", "withdraw_filed_ticket"]);
+        withStore.MasterTools.Select(t => t.Name).Should().Contain(["recall", "dispute_memory"]);
     }
 
     [Fact]

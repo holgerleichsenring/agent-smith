@@ -236,7 +236,7 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
             },
             [new RepoConnection { Name = "sample-api" }],
             new Dictionary<string, Contracts.Sandbox.ISandbox>(), new SpecDialogReplySlot(),
-            DialogImageSet.None, withdrawal);
+            DialogImageSet.None, new SpecDialogTurnFacts(withdrawal, false));
 
         seeds[Contracts.Commands.ContextKeys.SpecDialogWithdrawal].Should().BeSameAs(withdrawal);
         seeds[Contracts.Commands.ContextKeys.DialogueJobId].Should().Be(Session);
