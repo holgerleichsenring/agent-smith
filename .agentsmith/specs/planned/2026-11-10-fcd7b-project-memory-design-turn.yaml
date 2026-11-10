@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-fcd7b
+goal: "A design turn remembers what a person says that holds beyond the turn as project memory, and every run of the project sees project memory as quoted data in its existing memory section."
+requires: [2026-11-10-fcd7a]
+
+applies_to: "default (Application: grounding, tool composition, recall, citations, memory index, prompt section; skills: design-partner-master)"
+
+facts:
+  - claim: "A design turn gets recall and dispute_memory only when its grounding found a repository memory index, and never remember."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:54-56,72"
+  - claim: "Grounding returns early when the turn has no repository in scope, before it composes any memory index."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:34-36,48-51"
+  - claim: "The memory index is one prompt section, built from ContextKeys.MemoryIndex."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterPromptSections.cs:65-72"
+  - claim: "A bare slug held by several sources is named back as a problem, never guessed."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryCitationResolver.cs:30,51-57"
+  - claim: "The record step rewrites the carrier repository's MEMORY.md labels from the ledger."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryIndexLabelWriter.cs:9-21"
+
+scope:
+  in: "Grounding composes project memory before its no-repository return, so a scope-less turn still sees it. The index gate becomes 'any source has entries'. A design turn's remember writes to the project store only, with the conversation and message as provenance. recall and dispute_memory join when any source has entries; remember is always present. Recall, citations and the index iterate MemorySources. A bare slug held by the project and a repository is refused with 'name it @project/<slug> or <repository>/<slug>'. Project entries render INSIDE the existing memory index section, first, as quoted data with their provenance; no new section and no moved section (caching). MemoryIndexLabelWriter skips the project source. The recall and remember descriptions name '@project/<slug>'. The design-partner skill says: when a person states how they want work done beyond this turn, remember it on the project."
+  out: "Coding-run writes and relied_on (fcd7c); the panel (fcd7d)."
+
+decisions:
+  - key: "THE MASTER DECIDES WHAT IS LASTING. An end-of-turn extraction pass was rejected: a second model call guessing at what the first already understood."
+  - key: "UNREVIEWED WRITES REACH CODING PROMPTS. A sentence in a conversation becomes text in later runs with no review. This is accepted because a person can see it (provenance, newest first in the panel) and delete it, and it renders as quoted data with its source, never as an instruction. A review gate per memory was rejected: it is the ratification the memory model refuses."
+  - key: "IN PLACE, NOT A NEW SECTION. Prompt caching: the content of the existing section changes; its position does not."
+
+steps:
+  - id: ground
+    action: "GroundSpecDialogHandler composes project memory before the early return; DesignMemoryIndex and MemoryIndexReader include the project source first."
+  - id: tools
+    action: "MasterToolComposition: the gate is any source has entries; the design surface's remember goes to the project store. Recall and the citation resolver read MemorySources; the ambiguity text names both forms."
+  - id: render
+    action: "Inside BuildMemoryIndexSection: project lines first, quoted, each with its provenance."
+  - id: skill
+    action: "design-partner-master: remember lasting statements on the project. Release, bump the pin."
+
+tests:
+  - "GroundSpecDialog_NoRepository_StillComposesProjectMemory"
+  - "DesignTurn_OnlyProjectMemory_RecallAndDisputeJoin"
+  - "DesignTurn_Remember_WritesToTheProjectWithProvenance"
+  - "MemoryCitation_BareSlugInProjectAndRepository_IsRefusedNamingBothForms"
+  - "MemoryIndexSection_ProjectEntries_FirstQuotedWithProvenance_SamePosition"
+  - "MemoryIndexLabelWriter_SkipsTheProjectSource"
+
+done:
+  - when: "a person tells a design turn 'never drop a feature the material records'"
+    then: "a project memory exists with that conversation as provenance, and the next turn's index shows it quoted"
+  - "Skill released, pin bumped; build green, full suite green."

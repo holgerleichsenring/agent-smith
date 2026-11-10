@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-fcd7a
+goal: "Project memories live in a ProjectMemories table tied to the project's config entity, behind one memory-store interface with the repository file store, and a forced config import no longer wipes them."
+
+applies_to: "default (Persistence: entity, three migration sets, config import; Application: memory store interface, sources, keys)"
+
+facts:
+  - claim: "A project is a ConfigEntity row with a long surrogate Id; its config id cannot be renamed in the dashboard."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ConfigEntity.cs:11-13; src/dashboard/src/components/config/EntityForm.tsx:60-67"
+  - claim: "A forced config import removes every config entity and inserts the file's entities as new rows, so their Ids change."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/ConfigImportRepository.cs:17-31,36-41"
+  - claim: "Migrations live in three sets: SQLite in Persistence, SqlServer and Postgresql."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261109220503_AddPromptRecords.cs; src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261109220505_AddPromptRecords.cs; src/backend/AgentSmith.Infrastructure.Persistence.Postgresql/Migrations/20261109220507_AddPromptRecords.cs"
+  - claim: "The memory store is file-backed over a sandbox file reader; recall, the index and citations open one store per repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:14-41; src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:52-59; src/backend/AgentSmith.Application/Services/Memory/MemoryCitationResolver.cs:24-30"
+  - claim: "The ledger keys rows by a repository key string and slug, which the standing reader derives from a repository name."
+    evidence: "src/backend/AgentSmith.Contracts/Memory/IMemoryEvidenceStore.cs:8-21; src/backend/AgentSmith.Application/Services/Memory/MemoryStandingReader.cs:16-22; src/backend/AgentSmith.Application/Services/Memory/MemoryRepositoryKey.cs:15-20"
+
+scope:
+  in: "ProjectMemories: ProjectId (FK ConfigEntities.Id, cascade), Slug (unique with ProjectId), Type, Description, Body (capped at 4000 characters, refused above), created and updated, and provenance (SourceKind conversation|run, SourceId, MessageId). Migration AddProjectMemories in all three sets. A repository: list newest first, upsert by slug (a unique-key collision from a concurrent writer is retried once as an update), delete together with the slug's ledger rows. IMemoryStore (list, search, upsert, index) is extracted, with FileMemoryStore and ProjectMemoryStore. MemorySources lists the project source first under the reserved label '@project', then the run's repositories. MemoryRepositoryKey.OfProject(id) returns 'project-memory:<id>', and MemoryStandingReader gets a key-based overload. Config validation refuses a repository name starting with '@'. A forced import updates config entities by natural key (EntityType + EntityId) and deletes only those missing from the file, so surviving projects keep their Ids. With no database (CLI), there is an empty project store that says so on write."
+  out: "No tool or prompt reads the project source yet (2026-11-10-fcd7b, fcd7c); no endpoint (fcd7d)."
+
+decisions:
+  - key: "FOREIGN KEY TO THE CONFIG ENTITY, CASCADE. The operator's call. A deleted project takes its memories with it. Keying by name was rejected."
+  - key: "A FORCED IMPORT UPDATES, IT DOES NOT RE-INSERT. Clearing and re-inserting gives every entity a new Id, and the cascade would wipe every project's memories. Updating by natural key keeps Ids, versions and history for entities the file still holds."
+  - key: "ONE INTERFACE, TWO STORES. A virtual file reader over the table was rejected: it would fake paths for code that only needs entries."
+  - key: "A RESERVED LABEL, NOT THE WORD 'project'. The entry type 'project' already exists. '@project' cannot collide once validation refuses '@' in repository names, a rule that does not exist today. The ledger key gets its own method."
+  - key: "A DELETED SLUG STARTS OVER. Deleting an entry removes its ledger rows, so a re-created slug inherits nothing from a memory removed as wrong."
+  - key: "BOUNDED BODIES. Entries reach later prompts unreviewed, so a body is capped and refused above the cap rather than cut."
+
+steps:
+  - id: table
+    action: "Entity, configuration, repository, and the AddProjectMemories migrations in the three sets."
+  - id: import
+    action: "ConfigImportRepository force path: upsert by (EntityType, EntityId), delete only the rows the file lacks, and keep the version bump."
+  - id: store
+    action: "IMemoryStore, FileMemoryStore (the former MemoryStore), ProjectMemoryStore, MemorySources, OfProject, the key-based standing overload, the repository-name rule, and the CLI empty store."
+
+tests:
+  - "ProjectMemoryRepository_UpsertBySlug_ReplacesAndKeepsProvenance"
+  - "ProjectMemoryRepository_ConcurrentUpsertSameSlug_OneRowNewestWins"
+  - "ProjectMemoryRepository_BodyOverCap_IsRefused"
+  - "ProjectMemoryRepository_Delete_RemovesLedgerRows"
+  - "ProjectMemory_ConfigEntityDeleted_Cascades"
+  - "ConfigImport_Force_KeepsIdsOfSurvivingEntities_AndProjectMemories"
+  - "ConfigImport_Force_DeletesEntitiesMissingFromTheFile"
+  - "MemorySources_ProjectFirst_UnderAtProject"
+  - "ConfigValidation_RepositoryNameStartingWithAt_IsRefused"
+
+done:
+  - "A forced import of an unchanged file leaves every project's memories in place."
+  - "Migrations apply on SQLite, SQL Server and Postgres; build green, full suite green."

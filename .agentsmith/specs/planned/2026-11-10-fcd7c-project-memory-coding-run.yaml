@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-fcd7c
+goal: "A coding run writes what it learns beyond one repository to project memory through '@project', and its relied_on and disputes move a project memory's standing."
+requires: [2026-11-10-fcd7b]
+
+applies_to: "default (Application: remember, hand_forward, dispute; skills: coding-agent-master; CLAUDE.md)"
+
+facts:
+  - claim: "remember writes into a repository's .agentsmith/memory/ and refuses a repository with no code change this run."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:55-56,64-71"
+  - claim: "hand_forward's relied_on names memories as 'slug' or 'repository/slug' and resolves them through the citation resolver."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/HandForwardToolHost.cs:44,53-54"
+  - claim: "The coding skill tells a coding run to remember operator corrections (feedback) and confirmed approaches (project), and to name relied_on and disputes."
+    evidence: "agent-smith-skills skills/_masters/coding-agent-master/SKILL.md:300-306 (origin/main, v5.25.4)"
+
+scope:
+  in: "A coding run's remember accepts repository '@project': written to the project store with the run and spec as provenance, with no code-change requirement. Repository memory works as before. relied_on and dispute_memory accept '@project/<slug>', and the ledger rows go under the project key. On a composition with no database, remember('@project') answers 'Not recorded: this installation keeps no project memory', visibly. The remember and hand_forward descriptions name '@project'. The coding-agent-master skill adds: a lesson that holds beyond this repository goes to '@project'. CLAUDE.md Experiential Memory names project memory, the reserved label, provenance, and that deleting resets standing."
+  out: "The panel (fcd7d)."
+
+decisions:
+  - key: "SAME RIGHTS AS THE DESIGN TURN. The operator's call: coding runs learn by implementing."
+  - key: "NO LANDING REQUIRED FOR '@project'. The landing rule exists because a repository memory travels in a commit; a project memory travels in the database, so the rule does not apply to it."
+
+steps:
+  - id: tools
+    action: "MemoryWriteToolHost '@project' branch; MemoryCitationResolver resolves '@project/<slug>' to the project key; the descriptions change."
+  - id: docs
+    action: "coding-agent-master skill text, CLAUDE.md Experiential Memory. Release, bump the pin."
+
+tests:
+  - "CodingRun_RememberAtProject_WritesWithoutACodeChange_WithRunProvenance"
+  - "CodingRun_RememberAtProject_NoDatabase_ReturnsVisibleRefusal"
+  - "HandForward_ReliedOnAtProjectSlug_RecordsUnderTheProjectKey"
+  - "DisputeMemory_AtProjectSlug_StrainsTheProjectEntry"
+
+done:
+  - when: "a coding spec names '@project/<slug>' in relied_on and the spec is done"
+    then: "the project entry's standing counts the confirmation"
+  - "Skill released, pin bumped; build green, full suite green."

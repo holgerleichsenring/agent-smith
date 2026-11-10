@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-fcd7d
+goal: "A person sees a project's memories, newest first, with standing, record and provenance in the project panel, and can delete one."
+requires: [2026-11-10-fcd7a]
+
+applies_to: "dashboard (project detail panel); default (Server: project memory endpoints)"
+
+facts:
+  - claim: "The project detail panel shows agent, repos, tracker and resolved settings and carries the init action."
+    evidence: "src/dashboard/src/components/system/ProjectDetailPanel.tsx:42-45,66"
+  - claim: "Only runs.*, projects.init and dialog.write are bindable per project; config.read and config.write are global."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:78-82"
+
+scope:
+  in: "GET /api/projects/{name}/memories (needs runs.read on the project) returns entries newest first, with standing, record and provenance. DELETE /api/projects/{name}/memories/{slug} needs runs.control on the project. ProjectMemorySection, its own component with its own tests, is mounted in ProjectDetailPanel: it lists type, description, standing, record and provenance (a link to the conversation or run), with delete."
+  out: "Editing text: a person tells a turn, so the text keeps one author."
+
+decisions:
+  - key: "PROJECT-BINDABLE RIGHTS. config.read and config.write cannot be bound per project. Reading uses runs.read and deleting uses runs.control, the rights of a project's member who sees and starts its runs."
+  - key: "NEWEST FIRST. Unreviewed writes reach prompts, so the newest are the ones a person most needs to check."
+
+steps:
+  - id: api
+    action: "Endpoints with project-scoped authorization, and their regenerated OpenAPI types."
+  - id: panel
+    action: "ProjectMemorySection.tsx plus tests; mount it in ProjectDetailPanel."
+
+tests:
+  - "ProjectMemoryEndpoints_Get_NeedsRunsReadOnTheProject"
+  - "ProjectMemoryEndpoints_Delete_NeedsRunsControlOnTheProject"
+  - "ProjectMemorySection_ListsNewestFirstWithStandingAndProvenance"
+  - "ProjectMemorySection_Delete_RemovesTheRow"
+
+done:
+  - "A person with runs.control on the project deletes a memory, and no later turn or run sees it."
+  - "Build green, full suite green, dashboard tests and build green."
