@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using FluentAssertions;
 using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 
@@ -39,16 +40,38 @@ public sealed class ProposalReviewBlindTests
     }
 
     [Fact]
-    public async Task ProposalReviewLoop_BlindAgainOnTheTurnThatWaited_LiftsTheHoldAndKeepsTheFinding()
+    public async Task ProposalReviewLoop_BlindAgainOnTheTurnThatWaitedUnread_LiftsTheHoldAndKeepsTheFinding()
     {
         var rig = new ProposalReviewRig { OnReview = input => input.Draft.SpecId == Second ? Blind() : Build() };
         var earlier = rig.Propose(Epic());
-        rig.Pipeline.Set(ContextKeys.SpecDialogRevisedProposal, earlier with { NotReviewed = [Second] });
+        rig.Pipeline.Set(ContextKeys.SpecDialogRevisedProposal, earlier with
+        {
+            NotReviewed = [Second],
+            Findings = [new ProposalFinding(Second, ProposalReviewSummary.NotReviewedYet, ProposalReviewSummary.UnreadWhy)],
+        });
 
         await rig.RunAsync();
 
         rig.Outcome.NotReviewed.Should().BeNull("a repository that can never be read must not hold the approval for good");
         rig.Outcome.Findings.Should().Contain(f => f.SpecId == Second && f.Why == ProposalReviewSummary.UnreadAgainWhy);
+    }
+
+    [Fact]
+    public async Task ProposalReviewLoop_BlindOnTheTurnAfterABudgetStop_StillHolds()
+    {
+        var rig = new ProposalReviewRig { OnReview = input => input.Draft.SpecId == Second ? Blind() : Build() };
+        var earlier = rig.Propose(Epic());
+        rig.Pipeline.Set(ContextKeys.SpecDialogRevisedProposal, earlier with
+        {
+            NotReviewed = [Second],
+            Findings = [new ProposalFinding(Second, ProposalReviewSummary.NotReviewedYet,
+                ProposalReviewSummary.NotReviewedWhy("the run's cost cap is reached"))],
+        });
+
+        await rig.RunAsync();
+
+        rig.Outcome.NotReviewed.Should().Equal([Second], "waiting on the budget is not a try at reading; the blind exit needs one");
+        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Second && f.Why == ProposalReviewSummary.UnreadWhy);
     }
 
     [Fact]

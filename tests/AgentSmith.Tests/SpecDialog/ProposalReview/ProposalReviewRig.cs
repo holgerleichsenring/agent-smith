@@ -53,7 +53,6 @@ internal sealed class ProposalReviewRig
     public List<int> ThreadLengths { get; } = [];
     public int WholeSetCalls { get; private set; }
     public int MaxInFlight { get; private set; }
-    public TimeProvider Clock { get; set; } = TimeProvider.System;
     public bool RealEvidence { get; init; }
 
     /// <summary>When above 0, every reviewer call waits until this many are in flight at once.</summary>
@@ -184,7 +183,7 @@ internal sealed class ProposalReviewRig
         return new ProposalReviewLoop(
             new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
             revision, new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(),
-                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Clock, Proposals);
+                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Proposals);
     }
 
     private ISeriesContractReviewer SeriesReviewer()

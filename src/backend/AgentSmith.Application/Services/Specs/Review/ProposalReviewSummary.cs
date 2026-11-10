@@ -15,8 +15,10 @@ namespace AgentSmith.Application.Services.Specs.Review;
 internal static class ProposalReviewSummary
 {
     public const string NotReviewedYet = "not reviewed yet";
-    public const string NotReviewedWhy =
-        "the review's share of this turn ran out before this spec was reviewed; it cannot be approved until a later turn reviews it";
+    /// <summary>2026-11-10-18cf: the finding names what stopped the review, never a share a design turn no
+    /// longer has.</summary>
+    public static string NotReviewedWhy(string? stoppedBecause) =>
+        $"this spec's review did not finish: {stoppedBecause ?? "the turn ended first"}; it cannot be approved until a later turn reviews it";
 
     public const string UnreadWhy =
         "the reviewers could not read what this spec names, so nobody checked it; it cannot be approved until a later turn tries again";
@@ -30,7 +32,7 @@ internal static class ProposalReviewSummary
         var waiting = drafts.Where(d => d.NotReviewed).Select(d => d.SpecId).ToList();
         var standing = Problems(ParentId(session.Proposal), parentProblems)
             .Concat(drafts.SelectMany(d => Problems(d.SpecId, d.Evidence.Problems).Concat(Uncleared(d))))
-            .Concat(drafts.Where(d => d.NotReviewed && !d.Unread).Select(d => new ProposalFinding(d.SpecId, NotReviewedYet, NotReviewedWhy)))
+            .Concat(drafts.Where(d => d.NotReviewed && !d.Unread).Select(d => new ProposalFinding(d.SpecId, NotReviewedYet, NotReviewedWhy(d.StoppedBecause))))
             .Concat(drafts.Where(d => d.Unread).Select(d => new ProposalFinding(
                 d.SpecId, NotReviewedYet, d.NotReviewed ? UnreadWhy : UnreadAgainWhy)))
             .ToList();

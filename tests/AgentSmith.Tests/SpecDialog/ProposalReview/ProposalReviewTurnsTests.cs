@@ -16,8 +16,8 @@ using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
-/// 2026-10-13-8762i: the review share bounds a design turn, the first open draft is reviewed whatever the share,
-/// and a later turn carries over what an earlier one cleared — so a large epic is reviewed across turns.
+/// 2026-10-13-8762i: a later turn carries over what an earlier one cleared. 2026-11-10-18cf: no share bounds a design
+/// turn's review — every draft gets its round; only the run's cost cap stops it, and says so.
 /// </summary>
 public sealed class ProposalReviewTurnsTests
 {
@@ -25,21 +25,23 @@ public sealed class ProposalReviewTurnsTests
     private const string NewStep = "Write the orders through the streaming file writer.";
 
     [Fact]
-    public async Task ProposalReview_ShareSpentBeforeReview_FirstOpenDraftStillReviewed()
+    public async Task ProposalReview_SevenDraftsWithTheShareLongSpent_EveryDraftGetsARound()
     {
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 4, wall: 1000) };
-        rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-500));
-        rig.Propose(Epic());
+        var ids = Enumerable.Range(1, 7).Select(i => $"2026-10-14-9000{(char)('a' + i)}").ToList();
+        var rig = new ProposalReviewRig { Settings = Of(rounds: 4, share: 40, wall: 1800) };
+        rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-1017));
+        rig.Propose(EpicReply(Yaml(Parent, "The export is rebuilt in seven slices."), ids.Select(id => Yaml(id))));
 
         await rig.RunAsync();
 
-        rig.Reviewed.Select(i => i.Draft.SpecId).Distinct().Should().Equal(First);
-        rig.Outcome.NotReviewed.Should().Equal(Second);
-        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Second && f.Problem == "not reviewed yet");
+        rig.Reviewed.Select(i => i.Draft.SpecId).Distinct().Should().BeEquivalentTo(ids,
+            "1017 s of 1800 s is past the 40 % share, which a design turn no longer has");
+        rig.Outcome.NotReviewed.Should().BeNull();
+        rig.Outcome.ReviewRounds.Select(r => r.SpecId).Should().BeEquivalentTo(ids);
     }
 
     [Fact]
-    public async Task ProposalReview_TimeShareSpent_NoFurtherRound()
+    public async Task ProposalReview_TimeShareSpentAfterRoundOne_FurtherRoundsStillRun()
     {
         var rig = new ProposalReviewRig { Settings = Of(rounds: 4, wall: 1000) };
         rig.Propose(Epic());
@@ -49,9 +51,9 @@ public sealed class ProposalReviewTurnsTests
 
         await rig.RunAsync();
 
-        rig.Reviewed.Count(i => i.Draft.SpecId == Second).Should().Be(2, "one round, then the share was spent");
-        rig.Outcome.NotReviewed.Should().Equal(Second);
-        rig.Reviewed.Count(i => i.Draft.SpecId == First).Should().Be(4, "the floor draft is reviewed to its stop");
+        rig.Reviewed.Count(i => i.Draft.SpecId == Second).Should().Be(4, "two rounds of two reviewers, the share notwithstanding");
+        rig.Reviewed.Count(i => i.Draft.SpecId == First).Should().Be(4);
+        rig.Outcome.NotReviewed.Should().BeNull();
     }
 
     [Fact]
@@ -76,23 +78,23 @@ public sealed class ProposalReviewTurnsTests
         rig.DraftOf(First).Yaml.Should().Contain(NewStep, "the last valid proposal is kept");
         rig.Outcome.NotReviewed.Should().Equal(First, Second);
         rig.Reviewed.Should().HaveCount(4, "no round starts once the run cap is spent");
+        rig.Outcome.Findings.Where(f => f.Problem == ProposalReviewSummary.NotReviewedYet)
+            .Should().OnlyContain(f => f.Why.Contains("cost cap") && !f.Why.Contains("share"));
     }
 
     [Fact]
-    public async Task ProposalReview_FloorDraft_StopsAsNotReviewedBeforeTheWallClockCeiling()
+    public async Task ProposalReview_PastTheWallTimeCeiling_RoundsStillRunToTheirStop()
     {
-        var clock = new SettableClock();
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 4, wall: 1800), Clock = clock };
-        rig.Pipeline.Set(ContextKeys.RunStartedAt, clock.GetUtcNow().AddSeconds(-1500));
+        var rig = new ProposalReviewRig { Settings = Of(rounds: 4, wall: 1800) };
+        rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-3000));
         rig.Propose(SpecReply(Yaml(Lone)));
-        rig.OnReview = _ => RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep));
-        rig.OnReprompt = () => clock.Now = clock.Now.AddSeconds(200);
+        rig.OnReview = input => input.Round == 1 ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) : Build();
         rig.Replies(_ => SpecReply(Yaml(Lone, step: NewStep)));
 
         await rig.RunAsync();
 
-        rig.Outcome.ReviewRounds.Should().ContainSingle("a second round of 200 s would pass the 1800 s ceiling");
-        rig.Outcome.NotReviewed.Should().Equal(Lone);
+        rig.Outcome.ReviewRounds.Should().HaveCount(2, "time says nothing about a review; only the cost cap stops it");
+        rig.Outcome.NotReviewed.Should().BeNull();
     }
 
     [Fact]

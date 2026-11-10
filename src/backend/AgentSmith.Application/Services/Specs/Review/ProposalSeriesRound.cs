@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 
 /// <summary>
 /// 2026-10-13-8762k: a design turn's series round — FINDINGS ONLY. After the per-spec rounds of an epic with a
-/// contract, inside the turn's review share, one fresh reviewer over the parent's attack look (the parent
+/// contract, unless the run's cost cap is spent (2026-11-10-18cf: no share and no wall-time rule in a design turn), one fresh reviewer over the parent's attack look (the parent
 /// aggregates the set); nothing is re-prompted. Each admitted cut becomes a <see cref="Problem"/> finding on its
 /// member, the verdict and every set-wide finding one under the parent, and ONE round is recorded under
 /// <see cref="ProposalReviewTokens.Series"/> — never the parent's id, which keys the parent's own rounds. A round
@@ -22,7 +22,7 @@ public sealed class ProposalSeriesRound(
     {
         if (outcome.Proposal is not EpicOutcome { Contract: { IsEmpty: false } contract } epic) return outcome;
         var turn = session.Turn;
-        var spent = SpecReviewBudget.Exhausted(turn.Pipeline, session.Settings) ?? SpecReviewBudget.Spent(turn.Pipeline, session.Settings);
+        var spent = session.CostCapReached();
         var review = spent is not null ? SeriesContractReview.Failed(spent) : await ReviewAsync(turn, epic, contract, ct);
         var parent = epic.Parent.SpecId;
         if (review.Result is not { } result)

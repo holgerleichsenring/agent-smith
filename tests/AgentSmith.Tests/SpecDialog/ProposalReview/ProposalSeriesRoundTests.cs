@@ -1,8 +1,11 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
@@ -33,10 +36,27 @@ public sealed class ProposalSeriesRoundTests
     }
 
     [Fact]
-    public async Task ProposalReview_ShareSpent_ListsContractInNotReviewed()
+    public async Task ProposalReview_ShareSpent_SeriesContractStillReviewed()
     {
         var rig = Contracted(CutOnSecond());
         rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-1000));
+
+        await rig.RunAsync();
+
+        rig.SeriesReviewed.Should().ContainSingle("a design turn's review has no share (2026-11-10-18cf)");
+        rig.Outcome.ReviewRounds.Should().Contain(r => r.SpecId == ProposalReviewTokens.Series);
+    }
+
+    [Fact]
+    public async Task ProposalReview_RunCapSpent_ListsContractInNotReviewed()
+    {
+        var rig = Contracted(CutOnSecond());
+        var tracker = PipelineCostTracker.GetOrCreate(rig.Pipeline);
+        tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10 });
+        tracker.Track(new ChatResponse(new ChatMessage(ChatRole.Assistant, "x"))
+        {
+            Usage = new UsageDetails { InputTokenCount = 1_000, OutputTokenCount = 10 },
+        });
 
         await rig.RunAsync();
 

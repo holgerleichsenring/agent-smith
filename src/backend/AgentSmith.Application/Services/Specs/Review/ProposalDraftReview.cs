@@ -16,8 +16,14 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
     public bool Stopped { get; set; }
     public bool NotReviewed { get; set; }
 
-    /// <summary>2026-11-09-9631b: the turn this draft came in on was already to review it.</summary>
-    public bool WasWaiting { get; set; }
+    /// <summary>2026-11-10-18cf: what stopped this draft's review before it finished — the run cap or the
+    /// wall-time ceiling — or null.</summary>
+    public string? StoppedBecause { get; set; }
+
+    /// <summary>2026-11-09-9631b: the turn this draft came in on was already to review it because its reviewers
+    /// could not read. 2026-11-10-18cf: only that wait counts — a draft left waiting by the budget or a cancel was
+    /// never read, and is owed its first try.</summary>
+    public bool WaitedUnread { get; set; }
 
     /// <summary>2026-11-09-9631b: this turn's reviewers could not read what it names.</summary>
     public bool Unread { get; private set; }
@@ -31,7 +37,7 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
     {
         Unread = true;
         Stopped = true;
-        NotReviewed = !WasWaiting;
+        NotReviewed = !WaitedUnread;
     }
 
     /// <summary>Records this round with the residues it left, the merged answer taken from <see cref="Merged"/>.</summary>
