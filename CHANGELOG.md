@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.180.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.179.0...v0.180.0) (2026-11-10)
+
+
+### Features
+
+* a spec is built only after a review ended clean on its exact text; approval never waits on review state (2026-11-10-8e59) ([321d6be](https://github.com/holgerleichsenring/agent-smith/commit/321d6be0c901ada19efcf5eab6cd318ce1b53337))
+* specs are built only after a review ended clean on their exact text (2026-11-10-18cf, 8e59; e706 planned) ([baef0c8](https://github.com/holgerleichsenring/agent-smith/commit/baef0c8b66c1188a6375563cbba51360942bc0af))
+
+
+### Bug Fixes
+
+* a person's build answer builds the exact text it was asked about, before any fresh rounds (2026-11-10-8e59) ([7de36d1](https://github.com/holgerleichsenring/agent-smith/commit/7de36d17ebbd2d4f92bfb40d0eb319097952f1a4))
+* a proposal draft no reviewer attacked is held with its reason (2026-11-10-18cf) ([442af6e](https://github.com/holgerleichsenring/agent-smith/commit/442af6e2b604ca7575b83a5077d09afb2c354a7a))
+* a review stop lands at the first uncleared spec, an unreviewed contract stops the attempt, and a build answer binds to its text (2026-11-10-8e59) ([937bdf5](https://github.com/holgerleichsenring/agent-smith/commit/937bdf53ea13a341c9ece45a03d4ace60fae5595))
+* every draft of a design turn's proposal is reviewed to its stop; only the cost cap or a cancel ends it (2026-11-10-18cf) ([8985dde](https://github.com/holgerleichsenring/agent-smith/commit/8985dde2684579e090fe0cd4c07c03cdf71f92fa))
+* silence never builds an unreviewed spec, and a series cut's text is attacked before building (2026-11-10-8e59) ([b528478](https://github.com/holgerleichsenring/agent-smith/commit/b52847891c9627a059c0a108e898cd2277689419))
+* the build-time gate clears a spec only on a build of its exact text, contract included (2026-11-10-8e59) ([e3657f9](https://github.com/holgerleichsenring/agent-smith/commit/e3657f92e56fd0c9d95f9b871c2f5655fae23adf))
+
 ## [0.179.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.178.0...v0.179.0) (2026-11-10)
 
 
