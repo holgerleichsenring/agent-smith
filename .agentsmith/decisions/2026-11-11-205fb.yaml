@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fb
+
+decisions:
+  - category: Implementation
+    chose: "One question rule in the design skill: draft now with a proposal for every fork and lay the forks on state_open_questions; four passages rewritten in place, answer kept for questions, a bound ticket's first judgement and work that cannot yet be cut"
+    over: "Keeping 'ask it and draft once it is answered' for a fork that changes the cut"
+    reason: "A wrong proposal costs a sentence, a held draft costs a turn (conv 43 asked mid-turn and drafted nothing). state_open_questions only shows on a card with a draft, so the mechanism already assumes draft plus questions."
+  - category: Implementation
+    chose: "The skills edit also turned the upload-held-back line into a named question on state_open_questions"
+    over: "Leaving it"
+    reason: "It was a fifth ask-then-draft sentence the review had not listed; leaving it would break the ONE RULE invariant."
+  - category: Testing
+    chose: "SkillText_DesignPartner_HasNoAskThenDraftRule pins the absence of both old sentences and the presence of the new one in the pinned catalog"
+    over: "Absence only"
+    reason: "Absence alone passes on an empty file; the presence line proves the rule moved rather than vanished."

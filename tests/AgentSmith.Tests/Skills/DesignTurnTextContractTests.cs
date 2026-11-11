@@ -22,4 +22,18 @@ public sealed class DesignTurnTextContractTests
         spec.Should().NotContain("Repositories, constraints and exclusions are PROSE",
             "a format that calls the repository prose contradicts the server's check");
     }
+
+    [Fact]
+    public void SkillText_DesignPartner_HasNoAskThenDraftRule()
+    {
+        var master = PackagedMaster.Read("design-partner-master");
+        var epic = PackagedMaster.Reference("design-outcome-epic");
+
+        master.Should().NotContain("draft once it is answered",
+            "a draft held back for a question costs a turn; the fork goes on state_open_questions instead");
+        epic.Should().NotContain("ask, rather than propose",
+            "an unsettled done list is a proposal on the card, not a reason to hold the child back");
+        master.Should().Contain("lay the forks on `state_open_questions`",
+            "the one rule says where the forks go");
+    }
 }
