@@ -51,7 +51,7 @@ public sealed class SpecDialogProposalComposer(
 
     /// <summary>2026-11-10-d854a: a revision may renumber or drop specs after the questions were stated, so each keeps
     /// only the ids of a spec the person will approve.</summary>
-    private static IReadOnlyList<OpenQuestion> KnownIds(OutcomeProposal proposal)
+    internal static IReadOnlyList<OpenQuestion> KnownIds(OutcomeProposal proposal)
     {
         var known = ProposalSpecSet.Drafts(proposal).Select(d => d.SpecId).ToHashSet(StringComparer.Ordinal);
         return [.. proposal.Questions.Select(q => q with { SpecIds = [.. q.SpecIds.Where(known.Contains)] })];

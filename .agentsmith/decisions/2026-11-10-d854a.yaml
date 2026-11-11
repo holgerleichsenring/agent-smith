@@ -26,3 +26,7 @@ decisions:
     chose: "Three tests the 548f and ccd9 builds left out are added here: RevisionFindingsTests (a revision turn's prompt carries its awaiting proposal's findings, through continuity, seeds and the revision section), TurnKeeper_LowerEffortLater_KeepsTheHigherTier, GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster"
     over: "Leaving them for a later spec"
     reason: "The edit-loop test that pinned the first was deleted in ccd9; the other two were named as not written in 548f's decisions."
+  - category: Implementation
+    chose: "Correction: the pin record above moved the csproj from v5.26.0, not v5.25.4 — the commit changed SkillsCatalogVersion from v5.26.0 and deleted both the v5.25.4 and v5.26.0 tarballs; only docs/reference/skills/airgap.md still named v5.25.4. The review moves the pin on to v5.27.1 (the design partner names remember only when it is offered)"
+    over: "Leaving the record as written"
+    reason: "The record should say what the tree held."

@@ -71,16 +71,17 @@ public sealed class SlackInteractionHandler(
         var dialogAnswer = new DialogAnswer(questionId, answer, Comment: null, DateTimeOffset.UtcNow, userId);
         var thread = ThreadOf(payload);
         var slack = DispatcherDefaults.PlatformSlack;
-        if (adapter.TryCompleteTypedQuestion(questionId, dialogAnswer)
-            || await dialogClicks.TryCurrentAsync(slack, channelId, thread, dialogAnswer, ct)
-            || await answers.TryAnswerAsync(new ChatThread(slack, channelId, thread, userId), questionId, answer, null, ct)
-            || await dialogClicks.TryStaleAsync(slack, channelId, thread, dialogAnswer, ct))
-        {
-            await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
-            logger.LogInformation("Question '{QuestionId}' answered with '{Answer}' by {User}", questionId, answer, userId);
-            return;
-        }
-        logger.LogWarning("Answer for {QuestionId} in {ChannelId} matches no open run", questionId, channelId);
+        // A conversation's card is marked answered only when a decision was taken on it.
+        var click = adapter.TryCompleteTypedQuestion(questionId, dialogAnswer) ? SpecDialogRouted.Decided
+            : await dialogClicks.TryCurrentAsync(slack, channelId, thread, dialogAnswer, ct);
+        if (click == SpecDialogRouted.No
+            && await answers.TryAnswerAsync(new ChatThread(slack, channelId, thread, userId), questionId, answer, null, ct))
+            click = SpecDialogRouted.Decided;
+        if (click == SpecDialogRouted.No) click = await dialogClicks.TryStaleAsync(slack, channelId, thread, dialogAnswer, ct);
+        if (click == SpecDialogRouted.Decided) await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
+        if (click == SpecDialogRouted.No)
+            logger.LogWarning("Answer for {QuestionId} in {ChannelId} matches no open run", questionId, channelId);
+        else logger.LogInformation("Question '{QuestionId}' clicked '{Answer}' by {User}: {Click}", questionId, answer, userId, click);
     }
 
     // A question posted inside a thread carries the thread's ts; one posted at the top has none.

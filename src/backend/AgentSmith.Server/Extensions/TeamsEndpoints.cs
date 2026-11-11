@@ -108,7 +108,7 @@ internal static class TeamsEndpoints
                 await scope.ServiceProvider
                     .GetRequiredService<SlackMessageDispatcher>()
                     .DispatchAsync(text, fromId, conversationId, CancellationToken.None,
-                        conversationId, AgentSmith.Server.Services.DispatcherDefaults.PlatformTeams);
+                        conversationId, AgentSmith.Server.Services.DispatcherDefaults.PlatformTeams, TeamsActivityTime.Of(json));
             }
             catch (Exception ex)
             {

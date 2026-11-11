@@ -46,6 +46,23 @@ public sealed class DesignTurnEffortTests
         Cap(pipeline).Usd.Should().Be(60m, "a tier only ever raises the resolved cap");
     }
 
+    // 2026-11-10-548f review (L8): a later, smaller correction in the same turn keeps the turn's own higher effort.
+    [Fact]
+    public async Task StateWorkPicture_LowerEffortLaterInTheTurn_KeepsTheTurnsHigherTier()
+    {
+        var slot = new SpecDialogReplySlot();
+        var tool = new WorkPictureToolHost(slot).GetTools(null, null).Single();
+        AIFunctionArguments Stated(string effort) => new()
+        {
+            ["kind"] = "rebuild", ["truth"] = "the upload describes it", ["size"] = "series", ["effort"] = effort,
+        };
+
+        await tool.InvokeAsync(Stated("xl"));
+        await tool.InvokeAsync(Stated("medium"));
+
+        slot.WorkPicture!.Effort.Should().Be(ComplexityTier.Xl);
+    }
+
     [Fact]
     public async Task StateWorkPicture_NoEffort_LeavesTheCap()
     {

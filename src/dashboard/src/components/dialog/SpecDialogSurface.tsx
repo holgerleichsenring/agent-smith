@@ -14,6 +14,7 @@ import {
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
+import { approvalProposal } from "@/components/dialog/approvalProposal";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -329,13 +330,16 @@ export function SpecDialogSurface() {
   );
   // 2026-11-10-d854b: the approve bar sits on the turn whose proposal it decides — the approval question's id is the
   // awaiting proposal's id — and stands below the conversation only while no shown turn carries that proposal.
-  const approvalCard = dialog.question ? (
+  // 2026-11-10-ccd9 review: an approval card renders and sends only the awaiting proposal whose id it carries.
+  const awaitingCard = approvalProposal(dialog.question, dialog.awaitingProposal);
+  const approvalCard = dialog.question && (dialog.question.kind !== "approval" || awaitingCard) ? (
     <DialogQuestionCard
       question={dialog.question}
-      proposal={dialog.awaitingProposal}
+      proposal={awaitingCard}
       ticketEffect={ticketEffect}
       inTicket={bound !== null}
-      onAnswer={(answer, decision) => void dialog.send(answer, project, decision, undefined, dialog.question?.questionId)}
+      onAnswer={(answer, decision) =>
+        void dialog.send(answer, project, decision, undefined, awaitingCard?.proposalId ?? dialog.question?.questionId)}
     />
   ) : null;
   const approvalId = dialog.question?.kind === "approval" ? dialog.question.questionId : null;

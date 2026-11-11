@@ -2,7 +2,9 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
@@ -45,7 +47,7 @@ public sealed class ProposalDecisionTests : IDisposable
     {
         var (state, id) = await ProposedAsync();
 
-        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().BeTrue();
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Decided);
 
         Filed().Should().Be(1, "the card the person saw is filed, however long it waited");
     }
@@ -81,7 +83,7 @@ public sealed class ProposalDecisionTests : IDisposable
         var (state, older) = await ProposedAsync();
         await Harness().Flow().HandleAsync(state, Spec("p2"), default);
 
-        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, older, false, default)).Should().BeTrue();
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, older, false, default)).Should().Be(SpecDialogDecided.Replaced);
 
         Filed().Should().Be(0);
         (await TranscriptAsync()).Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text.Contains("replaced"));
@@ -112,6 +114,25 @@ public sealed class ProposalDecisionTests : IDisposable
         row.ProposalState.Should().Be(SpecDialogProposalClaim.Filing);
     }
 
+    // L1: every write lands on the thread's newest open row — the one every read answers from — never on all of them.
+    [Fact]
+    public async Task Store_TwoOpenRowsOnTheThread_WritesOnlyTheNewest()
+    {
+        var (state, id) = await ProposedAsync();
+        _context.Add(new SpecDialogSession
+        {
+            SessionId = "s-newer", Platform = Platform, ChannelId = "C1", ThreadId = Thread, UserId = "U1", Project = "sample", IsOpen = true,
+        });
+        await _context.SaveChangesAsync();
+
+        await Harness().Flow().HandleAsync(state, Spec("p2"), default);
+        (await new SpecDialogProposalClaim(_context).ClaimAsync(Platform, Thread, id, default)).Should().BeNull();
+
+        var rows = await Context().Set<SpecDialogSession>().Where(s => s.ThreadId == Thread).OrderBy(s => s.Id).ToListAsync();
+        (rows[0].ProposalId, rows[0].ProposalState).Should().Be((id, SpecDialogProposalClaim.Awaiting), "the older row is left as it was");
+        rows[1].ProposalId.Should().NotBeNull().And.NotBe(id);
+    }
+
     [Fact]
     public async Task Claim_AwaitingJsonNull_Fails()
     {
@@ -125,11 +146,58 @@ public sealed class ProposalDecisionTests : IDisposable
     public async Task Sink_AfterFiling_DoesNotClearANewerProposal()
     {
         var (state, id) = await ProposedAsync();
+        // The next turn proposes while the approved one is being filed.
+        _sink.Setup(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(async () => { await Harness().Flow().HandleAsync(state, Spec("p2"), default); return OutcomeAcceptance.Acted; });
+
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Decided);
+
+        Filed().Should().Be(1, "the decision path called the sink");
+        var held = await Harness().Outcomes.ReadAsync(Platform, Thread, default);
+        ((SpecOutcome)held.Proposal!).Draft.SpecId.Should().Be("p2", "a finished filing never touches the awaiting slot, which the claim freed");
+    }
+
+    // H1: an approval the sink refuses after the claim filed nothing, so the proposal is decidable again.
+    [Fact]
+    public async Task Approve_SinkRefuses_ProposalAwaitsAgainUnderItsId()
+    {
+        var (state, id) = await ProposedAsync();
+        _sink.Setup(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OutcomeAcceptance.Refused);
+
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
+
+        var row = await RowAsync();
+        (row.ProposalId, row.ProposalState, row.ConfirmedOutcomeJson).Should().Be((id, SpecDialogProposalClaim.Awaiting, (string?)null));
+        row.AwaitingProposalJson.Should().NotBeNull("the refused approval kept the card the person saw");
+    }
+
+    [Fact]
+    public async Task Release_NewerProposalStoredWhileFiling_KeepsTheNewer()
+    {
+        var (state, id) = await ProposedAsync();
         await new SpecDialogProposalClaim(_context).ClaimAsync(Platform, Thread, id, default);
         await Harness().Flow().HandleAsync(state, Spec("p2"), default);
 
-        (await Harness().Outcomes.ReadAsync(Platform, Thread, default)).Proposal.Should().NotBeNull(
-            "a finished filing never touches the awaiting slot, which the claim already freed");
+        (await Harness().Proposals.ReleaseAsync(state, id, default)).Should().BeFalse("a newer proposal took the slot");
+
+        var held = await Harness().Outcomes.ReadAsync(Platform, Thread, default);
+        ((SpecOutcome)held.Proposal!).Draft.SpecId.Should().Be("p2");
+    }
+
+    // H1: refused by the conversation's shape alone, so nothing is claimed in the first place.
+    [Fact]
+    public async Task Approve_CommentInAnUnboundConversation_RefusedBeforeTheClaim()
+    {
+        var state = await Harness().OpenAsync(Platform, Thread);
+        await Harness().Flow().HandleAsync(state, new TicketCommentOutcome("a comment"), default);
+        var id = (await Harness().Outcomes.ReadAsync(Platform, Thread, default)).ProposalId!;
+
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
+
+        Filed().Should().Be(0);
+        (await RowAsync()).ProposalState.Should().Be(SpecDialogProposalClaim.Awaiting);
+        (await TranscriptAsync()).Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text == SpecDialogApprovalRefusal.UnboundComment);
     }
 
     [Fact]
@@ -163,7 +231,7 @@ public sealed class ProposalDecisionTests : IDisposable
         await Harness().Proposals.PostedAsync(state, id, DateTimeOffset.UtcNow.AddMinutes(-1), default);
         var current = (await Harness().Sessions.GetOpenByThreadAsync(Platform, Thread, default))!;
 
-        (await Harness().Decisions().DecideAsync(current, SpecDialogDecision.Approved, null, false, default)).Should().BeTrue();
+        (await Harness().Decisions().DecideAsync(current, SpecDialogDecision.Approved, null, false, default)).Should().Be(SpecDialogDecided.Decided);
 
         Filed().Should().Be(1, "a typed word in the thread names the card that thread was last shown");
     }
@@ -177,8 +245,8 @@ public sealed class ProposalDecisionTests : IDisposable
             SpecDialogTurnKind.Answer, null, default);
         var current = (await Harness().Sessions.GetOpenByThreadAsync(Platform, Thread, default))!;
 
-        (await Harness().Decisions().DecideAsync(current, SpecDialogDecision.Approved, null, false, default)).Should().BeFalse(
-            "after a later agent reply a typed 'yes' answers that reply, not the card");
+        (await Harness().Decisions().DecideAsync(current, SpecDialogDecision.Approved, null, false, default)).Should().Be(
+            SpecDialogDecided.No, "after a later agent reply a typed 'yes' answers that reply, not the card");
         Filed().Should().Be(0);
     }
 
@@ -202,6 +270,111 @@ public sealed class ProposalDecisionTests : IDisposable
         var held = await Harness().Outcomes.ReadAsync(Platform, Thread, default);
         held.ProposalId.Should().NotBeNullOrEmpty();
         held.Proposal.Should().NotBeNull();
+    }
+
+    // M3: a typed word binds by the platform's own time — one Slack took before the card was posted names nothing.
+    [Fact]
+    public async Task SlackTypedApprove_SentBeforePostedAt_IsAnOrdinaryMessage()
+    {
+        var (state, id) = await ProposedAsync();
+        var postedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await Harness().Proposals.PostedAsync(state, id, postedAt, default);
+        var current = (await Harness().Sessions.GetOpenByThreadAsync(Platform, Thread, default))!;
+        var decisions = Harness().Decisions();
+
+        (await decisions.DecideAsync(current, SpecDialogDecision.Approved, null, false, default, postedAt.AddSeconds(-2)))
+            .Should().Be(SpecDialogDecided.No, "the word was written before the card reached the thread");
+        (await decisions.DecideAsync(current, SpecDialogDecision.Approved, null, false, default, postedAt.AddSeconds(2)))
+            .Should().Be(SpecDialogDecided.Decided);
+        Filed().Should().Be(1);
+    }
+
+    // L6: a proposal that asks the person something is decided by its buttons; a bare typed word is a message.
+    [Fact]
+    public async Task TypedWord_ProposalWithOpenQuestions_IsAnOrdinaryMessage()
+    {
+        var state = await Harness().OpenAsync(Platform, Thread);
+        await Harness().Flow().HandleAsync(state, Spec("p1") with { Questions = [new OpenQuestion("Which store?", "Redis", ["p1"])] }, default);
+        var id = (await Harness().Outcomes.ReadAsync(Platform, Thread, default)).ProposalId!;
+        await Harness().Proposals.PostedAsync(state, id, DateTimeOffset.UtcNow.AddMinutes(-1), default);
+        var current = (await Harness().Sessions.GetOpenByThreadAsync(Platform, Thread, default))!;
+
+        (await Harness().Decisions().DecideAsync(current, SpecDialogDecision.Approved, null, false, default))
+            .Should().Be(SpecDialogDecided.No);
+        (await Harness().Decisions().DecideAsync(current, SpecDialogDecision.Approved, id, false, default))
+            .Should().Be(SpecDialogDecided.Decided, "the button names the card and decides it");
+    }
+
+    [Fact]
+    public async Task Reject_SingleCompareAndSet_FailsTheCallerOnError()
+    {
+        var (state, id) = await ProposedAsync();
+        await _context.Database.ExecuteSqlRawAsync(
+            "CREATE TRIGGER no_write BEFORE UPDATE ON SpecDialogSessions BEGIN SELECT RAISE(ABORT, 'store unavailable'); END;");
+
+        var reject = () => Harness().Decisions().DecideAsync(state, SpecDialogDecision.Rejected, id, false, default);
+
+        await reject.Should().ThrowAsync<SqliteException>("a reject that did not land must not be reported as done");
+        await _context.Database.ExecuteSqlRawAsync("DROP TRIGGER no_write;");
+        (await TranscriptAsync()).Should().NotContain(t => t.Kind == SpecDialogTurnKind.Notice);
+        (await RowAsync()).ProposalId.Should().Be(id, "the card still awaits");
+    }
+
+    [Fact]
+    public async Task OutcomeFlow_FinalProposal_IsStoredAwaitingBeforeThePush()
+    {
+        var hub = new RecordingDialogHub();
+        string? storedAtPush = null;
+        hub.OnPush = (method, _) =>
+        {
+            if (method == "SpecDialogProposal") storedAtPush ??= Context().Set<SpecDialogSession>().Single(s => s.IsOpen).AwaitingProposalJson;
+        };
+        var channel = new DashboardOutcomeChannel(new SpecDialogProposalComposer(new AgentSmith.Application.Services.SpecDialog.EpicChildOrderer(),
+            new AgentSmith.Application.Services.SpecDialog.BugTicketRenderer()), Microsoft.Extensions.Logging.Abstractions.NullLogger<DashboardOutcomeChannel>.Instance, hub);
+        var harness = new SpecDialogDecisionHarness(_context, channel, _sink.Object);
+        var state = await harness.OpenAsync(DispatcherDefaults.PlatformDashboard, "d-push");
+
+        await harness.Flow().HandleAsync(state, Spec("p1"), default);
+
+        storedAtPush.Should().NotBeNull("the page is never pushed a card the row does not hold");
+    }
+
+    [Fact]
+    public async Task SlackMismatchNotice_RepostsTheAwaitingCard()
+    {
+        var posted = new List<string>();
+        var slack = new Mock<IChatThreadAdapter>();
+        slack.SetupGet(a => a.Platform).Returns(Platform);
+        slack.Setup(a => a.PostQuestionAsync(It.IsAny<ChatThread>(), It.IsAny<AgentSmith.Contracts.Dialogue.DialogQuestion>(), It.IsAny<CancellationToken>()))
+            .Callback((ChatThread _, AgentSmith.Contracts.Dialogue.DialogQuestion q, CancellationToken _) => posted.Add(q.QuestionId))
+            .Returns(Task.CompletedTask);
+        var harness = new SpecDialogDecisionHarness(_context, sink: _sink.Object, threads: [slack.Object]);
+        var state = await harness.OpenAsync(Platform, Thread);
+        await harness.Flow().HandleAsync(state, Spec("p1"), default);
+        var older = (await harness.Outcomes.ReadAsync(Platform, Thread, default)).ProposalId!;
+        await harness.Flow().HandleAsync(state, Spec("p2"), default);
+        var current = (await harness.Outcomes.ReadAsync(Platform, Thread, default)).ProposalId!;
+
+        (await harness.Decisions().DecideAsync(state, SpecDialogDecision.Approved, older, false, default)).Should().Be(SpecDialogDecided.Replaced);
+
+        posted.Should().Equal(older, current, current);
+        (await RowAsync()).PostedProposalId.Should().Be(current, "a typed word in the thread now names the card it was shown again");
+        Filed().Should().Be(0);
+    }
+
+    // L2: a row from before the deploy is given its id by the decision path too, not only by the page's read.
+    [Fact]
+    public async Task Decision_RowWithoutId_IsBackfilledFirst()
+    {
+        var state = await Harness().OpenAsync(Platform, Thread);
+        await _context.Set<SpecDialogSession>().ExecuteUpdateAsync(s =>
+            s.SetProperty(r => r.LatestProposalJson, OutcomeProposalJson.Write(Spec("p1"))));
+
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, "an-older-card", false, default))
+            .Should().Be(SpecDialogDecided.Replaced);
+
+        (await RowAsync()).ProposalId.Should().NotBeNull();
+        (await TranscriptAsync()).Should().Contain(t => t.Text.Contains("the current proposal is"), "the replaced notice names the backfilled card as current");
     }
 
     private SpecDialogDecisionHarness Harness() => new(_context, sink: _sink.Object);

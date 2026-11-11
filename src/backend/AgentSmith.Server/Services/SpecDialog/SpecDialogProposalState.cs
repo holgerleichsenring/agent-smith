@@ -37,6 +37,14 @@ public sealed class SpecDialogProposalState(
         return OutcomeProposalJson.Read(json);
     }
 
+    /// <summary>A claimed proposal whose approval was refused goes back to awaiting, unless a newer one took the slot.</summary>
+    public async Task<bool> ReleaseAsync(ConversationState state, string id, CancellationToken ct)
+    {
+        if (!await claim.ReleaseAsync(state.Platform, state.ThreadId!, id, ct)) return false;
+        await NudgeAsync(state, ct);
+        return true;
+    }
+
     public async Task<bool> RejectAsync(ConversationState state, string id, CancellationToken ct)
     {
         if (!await claim.RejectAsync(state.Platform, state.ThreadId!, id, ct)) return false;
@@ -70,7 +78,7 @@ public sealed class SpecDialogProposalState(
     public Task BackfillAsync(string platform, string threadId, CancellationToken ct) =>
         claim.BackfillAsync(platform, threadId, UnderReview, ct);
 
-    private static bool UnderReview(string json)
+    internal static bool UnderReview(string json)
     {
         try { return OutcomeProposalJson.Read(json).UnderReview; }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or NotSupportedException) { return false; }

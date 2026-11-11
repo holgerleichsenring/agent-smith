@@ -28,5 +28,9 @@ decisions:
     reason: "After a crash the running turn has no kept turn; its last draft must still be returned (done criterion two)."
   - category: Testing
     chose: "The runner's thrown, before-pipeline and cancelled endings are pinned in the PipelineHarness (SpecDialogTurnRunTests) through the real composition; the thrown case fails the event store on RunFinished"
+  - category: Implementation
+    chose: "Review fix, superseding 'a Slack or Teams turn keeps no steps' above: DashboardActivityChannel observes every platform's turn while a recorder is registered; a chat turn's observer keeps each step on its run and sends nothing to a dialog group"
+    over: "Recording only through the dashboard observer"
+    reason: "The recorder needs only the run id, which every design turn has; a chat conversation's turn is its run as much as a page's is."
     over: "Unit tests with a mocked pipeline"
     reason: "ExecutePipelineUseCase is concrete and a step's exception is turned into a Failure result, so only a fault outside the steps throws out of a real run. The harness also proves the row names the run."

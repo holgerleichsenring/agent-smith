@@ -586,12 +586,12 @@ public sealed partial class SpecDialogOutcomeTests
         private readonly List<OutcomeProposal> _accepted = [];
         public IReadOnlyList<OutcomeProposal> Accepted => _accepted;
 
-        public Task AcceptAsync(
+        public Task<OutcomeAcceptance> AcceptAsync(
             ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
             CancellationToken cancellationToken)
         {
             lock (_accepted) _accepted.Add(proposal);
-            return Task.CompletedTask;
+            return Task.FromResult(OutcomeAcceptance.Acted);
         }
     }
 

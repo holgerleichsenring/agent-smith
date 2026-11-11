@@ -87,9 +87,9 @@ public sealed class TeamsInteractionHandler(
         var dialogAnswer = new DialogAnswer(questionId, answer, comment, DateTimeOffset.UtcNow, userId);
         var teams = DispatcherDefaults.PlatformTeams;
         if (adapter.TryCompleteTypedQuestion(questionId, dialogAnswer)
-            || await dialogClicks.TryCurrentAsync(teams, conversationId, conversationId, dialogAnswer, ct)
+            || await dialogClicks.TryCurrentAsync(teams, conversationId, conversationId, dialogAnswer, ct) != SpecDialogRouted.No
             || await answers.TryAnswerAsync(new ChatThread(teams, conversationId, conversationId, userId), questionId, answer, comment, ct)
-            || await dialogClicks.TryStaleAsync(teams, conversationId, conversationId, dialogAnswer, ct))
+            || await dialogClicks.TryStaleAsync(teams, conversationId, conversationId, dialogAnswer, ct) != SpecDialogRouted.No)
         {
             logger.LogInformation("Teams question '{QuestionId}' answered with '{Answer}' by {User}", questionId, answer, userId);
             return;

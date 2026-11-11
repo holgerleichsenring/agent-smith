@@ -840,11 +840,15 @@ function sameDraft(a: SpecDialogProposalPush, b: SpecDialogProposalPush): boolea
 }
 
 /** 2026-11-10-ccd9: the open approval card's id when the latest agent entry is that card's own turn — what a
- *  typed approve or reject names. After a later agent reply, a typed word is an ordinary message. */
+ *  typed approve or reject names. After a later agent reply, a typed word is an ordinary message. Review fixes: the
+ *  latest entry must carry THAT proposal, not merely one, and a proposal with open questions is decided by its
+ *  buttons — a bare typed word beside it is an ordinary message. */
 export function typedCard(question: SpecDialogQuestionPush | null, entries: DialogEntry[]): string | undefined {
   if (question?.kind !== "approval") return undefined;
   const lastAgent = [...entries].reverse().find((entry) => entry.kind === "agent");
-  return lastAgent?.proposal ? question.questionId : undefined;
+  const shown = lastAgent?.proposal;
+  if (shown?.proposalId !== question.questionId) return undefined;
+  return (shown.questions?.length ?? 0) > 0 ? undefined : question.questionId;
 }
 
 /** A filing older than the proposal filed an earlier one, and the proposal outranks it —

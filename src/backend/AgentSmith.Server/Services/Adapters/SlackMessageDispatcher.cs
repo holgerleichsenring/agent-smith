@@ -32,7 +32,8 @@ public sealed class SlackMessageDispatcher(
         string channelId,
         CancellationToken cancellationToken,
         string? threadId = null,
-        string platform = DispatcherDefaults.PlatformSlack)
+        string platform = DispatcherDefaults.PlatformSlack,
+        DateTimeOffset? sentAt = null) // 2026-11-10-ccd9 review: the platform's own time, what a typed decision binds by
     {
         try
         {
@@ -43,7 +44,7 @@ public sealed class SlackMessageDispatcher(
             // Spec-dialog branch (p0315a). 2026-09-17-042eg: false — a chat message carries
             // no permission, so approving here files the work and never moves a ticket.
             if (await specDialogRouter.TryRouteAsync(
-                    text, userId, channelId, threadId, platform, false, cancellationToken))
+                    text, userId, channelId, threadId, platform, false, cancellationToken, sentAt: sentAt))
                 return;
 
             var intent = await intentEngine.ParseAsync(text, userId, channelId, platform, cancellationToken);

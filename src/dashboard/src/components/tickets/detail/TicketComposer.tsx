@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { DialogComposer } from "@/components/dialog/DialogComposer";
 import { DialogQuestionCard } from "@/components/dialog/DialogQuestionCard";
 import { DialogWorking } from "@/components/dialog/DialogWorking";
+import { approvalProposal } from "@/components/dialog/approvalProposal";
 import { approvalEffectLabel } from "@/lib/tickets/approvalEffect";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import type { TicketApprovalPreview, TicketAttempt, TicketConversation } from "@/types/tickets";
@@ -41,6 +42,8 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
   const waiting = engaged ? approval !== null : conversation.proposal !== null && conversation.openDialogId !== null;
   const label = waiting && preview.data ? approvalEffectLabel(preview.data) : null;
   const other = engaged && dialog.question && !approval ? dialog.question : null;
+  // 2026-11-10-ccd9 review: an approval card shows and sends only the awaiting proposal whose id it carries.
+  const otherProposal = approvalProposal(other, dialog.awaitingProposal);
 
   return (
     <div className="composer" data-testid="ticket-composer">
@@ -73,10 +76,11 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
           <DialogWorking readings={dialog.readings} activity={dialog.activity} since={dialog.workingSince} />
         </div>
       )}
-      {other && (
+      {other && (other.kind !== "approval" || otherProposal) && (
         <div className="cp-body mock-dialog">
-          <DialogQuestionCard question={other} proposal={dialog.awaitingProposal}
-            onAnswer={(answer, decision) => void dialog.send(answer, project, decision, undefined, other.questionId)} />
+          <DialogQuestionCard question={other} proposal={otherProposal}
+            onAnswer={(answer, decision) =>
+              void dialog.send(answer, project, decision, undefined, otherProposal?.proposalId ?? other.questionId)} />
         </div>
       )}
       <div className="cp-actions">

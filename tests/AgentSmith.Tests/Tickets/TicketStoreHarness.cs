@@ -65,7 +65,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton(Sources.Object); // 2026-10-15-114fa: the close act's pull-request hosts
         services.AddSingleton<TrackerIdentity>().AddTransient<AgentSmith.Application.Services.Tickets.TicketClosure>(); // 2026-10-15-114fc: the check asks it
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
-        services.AddScoped<SpecDialogSessionRepository>();
+        services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogProposalClaim>(); // ccd9 review: the reader backfills
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
         services.AddSingleton<ITicketLandingStore, LandedTicketRepository>(); // 2026-10-14-dbcei: the rows read landings

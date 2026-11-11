@@ -52,7 +52,12 @@ public sealed class WorkPictureToolHost(
     {
         var (picture, refusal) = WorkPictureAdmission.Of(kind, truth, size, effort);
         if (picture is null) return $"Not stored: {refusal} State it again.";
-        slot.WorkPicture = picture;
+        // 2026-11-10-548f review: a correction later in the turn replaces the picture, never the turn's own higher
+        // effort — its cap already rose to it, and the keeper stores the higher of this and the stored tier.
+        slot.WorkPicture = picture with
+        {
+            Effort = (ComplexityTier)Math.Max((int)picture.Effort, (int)(slot.WorkPicture?.Effort ?? ComplexityTier.Unknown)),
+        };
         if (picture.Effort == ComplexityTier.Unknown || raise is null) return Stored;
         var cap = await raise(picture.Effort, cancellationToken);
         return cap is null ? Stored : $"{Stored} The turn's cost cap is now ${cap.Usd:0.##} / {cap.Tokens:N0} tokens.";

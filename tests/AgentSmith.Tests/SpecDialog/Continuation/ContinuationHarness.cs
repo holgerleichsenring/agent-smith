@@ -55,7 +55,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddSingleton(Config).AddSingleton<ITicketProviderFactory>(Tracker).AddSingleton(Activity.Object);
         services.AddSingleton<ISpecApprovalStore>(Approvals).AddSingleton<ISpecSetPointerStore>(Pointers);
         services.AddSingleton<TrackerIdentity>().AddTransient<TicketClosure>().AddTransient<FiledWorkTrackerProjects>();
-        services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogTicketTextRepository>();
+        services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogTicketTextRepository>().AddScoped<SpecDialogProposalClaim>();
         services.AddScoped<ActiveRunRepository>().AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddSingleton(TimeProvider.System).AddSingleton(Holds());
         services.AddScoped(_ => ApprovedSetDoubles.Recorder(Approvals, References)); // 2026-10-14-dbcel: with the uploads
@@ -162,8 +162,27 @@ internal sealed class ContinuationHarness : IDisposable
     public async Task<string?> OpenProposalJsonAsync()
     {
         await using var ctx = new AgentSmithDbContext(Options());
-        return (await ctx.Set<SpecDialogSession>().SingleAsync(s => s.SessionId == SessionId)).LatestProposalJson;
+        return SpecDialogAwaitingRow.Json(await ctx.Set<SpecDialogSession>().SingleAsync(s => s.SessionId == SessionId));
     }
+
+    /// <summary>2026-11-10-ccd9 review: an approve or reject decided as a person decides it — through the decision
+    /// path, on the id of the card the page showed (a fixture row from before the deploy is backfilled first).</summary>
+    public Task<SpecDialogDecided> DecideAsync(SpecDialogDecision decision, bool mayStartRuns = false) => InScopeAsync(async sp =>
+    {
+        var sessions = sp.GetRequiredService<SpecDialogSessionRepository>();
+        var proposals = new SpecDialogProposalState(
+            sp.GetRequiredService<SpecDialogProposalClaim>(), sessions, sp.GetRequiredService<BoundSessionNudge>());
+        await proposals.BackfillAsync(State().Platform, Thread, default);
+        var id = (await proposals.ReadAsync(State(), default)).AwaitingId;
+        var (messenger, composer) = (sp.GetRequiredService<SpecDialogMessenger>(), sp.GetRequiredService<SpecDialogOutcomeComposer>());
+        var cards = new SpecDialogChatCard(new AgentSmith.Server.Services.Adapters.ChatThreadAdapters([],
+            NullLogger<AgentSmith.Server.Services.Adapters.ChatThreadAdapters>.Instance), messenger, composer, proposals,
+            NullLogger<SpecDialogChatCard>.Instance);
+        var path = new SpecDialogDecisionPath(proposals, sp.GetRequiredService<SpecDialogLatestOutcomeStore>(),
+            sp.GetRequiredService<TicketFilingOutcomeSink>(), RatifiedMockStamps.Over(sessions), composer,
+            new SpecDialogNotices(messenger, sp.GetRequiredService<SpecDialogSessionManager>()), cards);
+        return await path.DecideAsync(State(), decision, id, mayStartRuns, default);
+    });
 
     public async Task<T> InScopeAsync<T>(Func<IServiceProvider, Task<T>> act)
     {

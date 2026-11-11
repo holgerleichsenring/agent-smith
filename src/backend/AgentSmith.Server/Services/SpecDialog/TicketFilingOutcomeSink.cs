@@ -19,6 +19,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// <para>2026-10-14-dbcel: a list of tickets goes to <see cref="TicketGraphFiler"/> — and is refused in a ticket's own
 /// conversation, which continues that ticket. Once a ticket exists the rest runs on CancellationToken.None.</para>
+/// <para>2026-11-10-ccd9 review: it says whether it acted, so a refused approval goes back to awaiting.</para>
 /// </summary>
 public sealed class TicketFilingOutcomeSink(
     SpecDialogOutcomeStore outcomeStore,
@@ -32,21 +33,17 @@ public sealed class TicketFilingOutcomeSink(
     SpecDialogLatestOutcomeStore latestOutcome,
     ILogger<TicketFilingOutcomeSink> logger) : IOutcomeSink
 {
-    public async Task AcceptAsync(
+    public async Task<OutcomeAcceptance> AcceptAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
         CancellationToken cancellationToken)
     {
-        if (state.TicketKey is null && proposal is TicketCommentOutcome) // 2026-10-28-7a69c
+        if (SpecDialogApprovalRefusal.Of(state, proposal) is { } refusal)
         {
-            await RefuseAsync(state, UnboundComment, cancellationToken);
-            return;
+            await RefuseAsync(state, refusal, cancellationToken);
+            return OutcomeAcceptance.Refused;
         }
-        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketGraphOutcome or TicketCommentOutcome)
-        {
-            await (proposal is TicketGraphOutcome
-                ? RefuseAsync(state, BoundList(state), cancellationToken) : ContinueAsync(state, proposal, mayStartRuns, cancellationToken));
-            return;
-        }
+        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketCommentOutcome)
+            return await ContinueAsync(state, proposal, mayStartRuns, cancellationToken);
         await outcomeStore.SetConfirmedAsync(
             state.Platform, state.ThreadId!, proposal, cancellationToken);
 
@@ -80,13 +77,8 @@ public sealed class TicketFilingOutcomeSink(
         await messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, ct);
         await sessions.AppendTurnAsync(
             state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Filing, null, ct);
+        return OutcomeAcceptance.Acted;
     }
-
-    private const string UnboundComment = "A comment is posted on the ticket a conversation belongs to, and this one "
-        + "belongs to none. Open Work it out on the ticket to comment on it.";
-
-    private static string BoundList(ConversationState state) => $"This conversation belongs to {state.TicketKey}; approving "
-        + "here continues that ticket. File a list of tickets from Work it out without a ticket, or make this one ticket's series.";
 
     private async Task RefuseAsync(ConversationState state, string notice, CancellationToken cancellationToken)
     {
@@ -96,7 +88,7 @@ public sealed class TicketFilingOutcomeSink(
             state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Notice, null, cancellationToken);
     }
 
-    private async Task ContinueAsync(
+    private async Task<OutcomeAcceptance> ContinueAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken cancellationToken)
     {
         var outcome = await continuation.ApplyAsync(state, proposal, mayStartRuns, cancellationToken);
@@ -113,5 +105,7 @@ public sealed class TicketFilingOutcomeSink(
         await sessions.AppendTurnAsync(
             state.Platform, state.ThreadId!, TranscriptRole.Assistant, outcome.Notice,
             SpecDialogTurnKind.Filing, null, cancellationToken);
+        // A refused continuation recorded nothing, so the decision path gives the proposal back to awaiting.
+        return outcome.Acted ? OutcomeAcceptance.Acted : OutcomeAcceptance.Refused;
     }
 }

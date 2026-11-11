@@ -7,6 +7,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.SpecDialog.Continuation;
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Tests.TestSupport;
@@ -114,11 +115,13 @@ public sealed class TicketContinuationActTests : IDisposable
         await _h.BindAsync(proposal);
         _h.Tracker.ReadFails = new HttpRequestException("the tracker is down");
 
-        await _h.AcceptAsync(proposal);
+        // 2026-11-10-ccd9 review: through the decision path, whose claim empties the awaiting slot before the act runs.
+        (await _h.DecideAsync(SpecDialogDecision.Approved)).Should().Be(SpecDialogDecided.Refused);
 
         (await _h.RecordAsync()).Should().BeNull();
         (await _h.OpenProposalJsonAsync()).Should().NotBeNull("the person approves again once the tracker answers");
         (await TranscriptAsync()).Should().Contain("the tracker is down").And.Contain("Nothing was recorded");
+        (await _h.DecideAsync(SpecDialogDecision.Approved)).Should().NotBe(SpecDialogDecided.Replaced, "the released card is the awaiting one");
     }
 
     [Fact]

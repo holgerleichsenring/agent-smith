@@ -26,3 +26,11 @@ decisions:
     chose: "Tool, admission, section and view are pinned in DesignTurnEffortTests; the failed-turn store is pinned by the renamed ConversationSubjectTests case"
     over: "Separate keeper and grounding tests"
     reason: "Deviation: TurnKeeper_LowerEffortLater_KeepsTheHigherTier and GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster were not written within this build's budget; both paths are one line each over ApplyTierAsync, which the tool tests pin."
+  - category: Implementation
+    chose: "Correction: the 'not written' deviation above is stale — TurnKeeper_LowerEffortLater_KeepsTheHigherTier (ConversationSubjectTests) and GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster (DesignTurnEffortTests) were added in the d854a commit"
+    over: "Rewriting the earlier entry"
+    reason: "Decisions are a log; the correction names where the tests live."
+  - category: Implementation
+    chose: "Review fix: a later state_work_picture call in the same turn keeps the turn's own higher effort on the slot, so the keeper's max covers the turn's earlier statements as well as the stored tier; config/agentsmith.example.yml and docs/configure-it/settings.md name all five tiers ($1/$2/$8/$25/$40)"
+    over: "The last call's effort replacing a higher one stated earlier in the turn"
+    reason: "The cap already rose to the higher tier and never falls; the stored picture said otherwise."

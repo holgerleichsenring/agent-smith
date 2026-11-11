@@ -67,6 +67,33 @@ public sealed class TurnRunRecordTests : IDisposable
         (step.Kind, step.Name, step.Seq).Should().Be(("tool", "read_file", 1));
     }
 
+    // d854c review: a chat platform's turn keeps its steps on its run too; nothing is sent to a dialog group.
+    [Fact]
+    public async Task DashboardActivityChannel_SlackTurn_RecordsEachStepOnItsRun()
+    {
+        var published = new List<RunEvent>();
+        var publisher = new Mock<IEventPublisher>();
+        publisher.Setup(p => p.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))
+            .Callback((RunEvent e, CancellationToken _) => published.Add(e)).Returns(Task.CompletedTask);
+        var runs = new AsyncLocalRunContextAccessor();
+        var observers = new AsyncLocalTurnActivityObserverAccessor();
+        var hub = new RecordingDialogHub();
+        var channel = new DashboardActivityChannel(observers, NullLogger<DashboardActivityChannel>.Instance, hub,
+            new DialogActivityRecorder(publisher.Object, runs, NullLogger<DialogActivityRecorder>.Instance));
+        var slack = new ConversationState
+        {
+            JobId = "s-slack", Platform = "slack", ChannelId = "C1", ThreadId = "1700.01", UserId = "U1", Project = "p", TicketId = "",
+            StartedAt = DateTimeOffset.UnixEpoch,
+        };
+
+        using (runs.BeginScope("run-chat"))
+        using (channel.Observe(slack, new RunningDialogTurn(TimeProvider.System)))
+            await observers.Current!.ReportAsync(new TurnActivity(TurnActivityKind.Tool, "read_file", null), default);
+
+        published.Should().ContainSingle().Which.Should().BeOfType<DialogActivityEvent>().Which.RunId.Should().Be("run-chat");
+        hub.Pushes.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task DialogActivityReader_StepsAcrossPipelineSteps_PagesAllInOrderWithTheirCount()
     {
