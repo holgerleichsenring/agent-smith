@@ -42,4 +42,7 @@ public sealed record SpecAttackInput(
 
     /// <summary>2026-11-11-2bdfa: the other children of the epic this draft belongs to; empty for a lone spec.</summary>
     public IReadOnlyList<SpecAttackSibling> Siblings { get; init; } = [];
+
+    /// <summary>2026-11-11-2bdfd: the design turn's current open questions, each with its proposal; empty outside one.</summary>
+    public IReadOnlyList<OpenQuestion> OpenQuestions { get; init; } = [];
 }

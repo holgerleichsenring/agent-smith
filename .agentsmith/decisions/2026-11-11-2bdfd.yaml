@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-2bdfd
+
+decisions:
+  - category: Architecture
+    chose: "The questions section is its own class, SpecAttackQuestionsSection, rendered by SpecAttackPrompt right after SpecAttackSiblingsSection"
+    over: "Rendering the questions inside the class 2bdfa added for the tail, as the spec's scope says"
+    reason: "2bdfa named that class SpecAttackSiblingsSection; a questions list inside it would make the name lie. The spec placed it there only because SpecAttackPrompt sat at the 120-line cap; 2bdfa moved the judgement out, so the prompt has room for one more interpolation and the order (siblings, questions, the spec) is the spec's."
+  - category: Implementation
+    chose: "ProposalOpenQuestions.Of(pipeline) reads the SpecDialogReplySlot's Questions on every attack input, empty when the pipeline holds no slot"
+    over: "Snapshotting the questions once at the start of the review"
+    reason: "state_open_questions replaces the slot's list on every call, a re-prompt's included, so reading per round is what lets a revision's questions reach the next round. 2bdfc reuses the same reader for its snapshot."
+  - category: Implementation
+    chose: "The nudge's operator-decisions sentence is appended to the whole-outcome line on every nudge"
+    over: "Only when the turn already has questions"
+    reason: "ASKED, NOT GUESSED applies most when the turn has no questions yet: a reviewer may name the first one."
+  - category: Testing
+    chose: "The rig seeds a SpecDialogReplySlot into its pipeline and offers Asks(reply, questions), which sets slot.Questions before returning the scripted reply, as the tool would"
+    over: "Mocking the tool host"
+    reason: "The review reads only the slot; writing it as the tool does keeps the rig the product's composition."

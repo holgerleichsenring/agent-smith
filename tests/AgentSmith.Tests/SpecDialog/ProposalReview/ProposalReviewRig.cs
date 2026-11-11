@@ -42,6 +42,22 @@ internal sealed class ProposalReviewRig
     private int _inFlight;
 
     public PipelineContext Pipeline { get; } = new();
+
+    /// <summary>2026-11-11-2bdfd: the turn's reply slot, seeded as the pipeline seeds it; a scripted reply writes its
+    /// Questions as state_open_questions would (<see cref="Asks"/>).</summary>
+    public SpecDialogReplySlot Slot { get; } = new();
+
+    public ProposalReviewRig() => Pipeline.Set(ContextKeys.SpecDialogReplySlot, Slot);
+
+    /// <summary>A scripted reply that first states <paramref name="questions"/>, as the tool replaces the list.</summary>
+    public Func<string, string> Asks(Func<string, string> reply, params OpenQuestion[] questions) => nudge =>
+    {
+        Slot.Questions = questions;
+        return reply(nudge);
+    };
+
+    public static OpenQuestion Question(string question, string proposal, params string[] specIds) =>
+        new(question, proposal, specIds);
     public SpecReviewSettings Settings { get; set; } = Of(rounds: 4);
     public Func<SpecAttackInput, SpecAttackResult?> OnReview { get; set; } = _ => Build();
     public Func<SeriesContractInput, SeriesContractReview> OnSeriesReview { get; set; } =

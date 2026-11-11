@@ -67,8 +67,7 @@ public sealed class ProposalReviewLoop(
         var answers = await panel.ReviewAsync(
             session.Turn, [.. open.Select(draft => Input(session, draft))], session.Settings.Review, ct);
         var toFix = open.Where((draft, i) => Judge(session, draft, answers[i])).ToList();
-        var goesOn = toFix.Count == 0 || await revision.ApplyAsync(session, toFix, ct);
-        return goesOn;
+        return toFix.Count == 0 || await revision.ApplyAsync(session, toFix, ct);
     }
 
     /// <summary>True when the draft goes into the re-prompt; otherwise it stops here, or stays open when no reviewer answered.</summary>
@@ -108,6 +107,7 @@ public sealed class ProposalReviewLoop(
         {
             RepositoryNames = SpecReviewRepositories.Names(session.Turn.Pipeline), Proposal = true, // 14a3g
             Siblings = ProposalAttackSiblings.Of(session, draft.Draft), // 2026-11-11-2bdfa
+            OpenQuestions = ProposalOpenQuestions.Of(session.Turn.Pipeline), // 2026-11-11-2bdfd: read each round
         };
 
     private static IReadOnlyList<SpecDraft> Reviewed(OutcomeProposal proposal) => proposal switch

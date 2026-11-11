@@ -17,6 +17,11 @@ public static class ProposalCutsNudge
         "This is the last round: move each fact listed under evidence problems out of facts and into assumptions, written as its claim.";
     public const string ReProposeWhole = "Re-propose the whole outcome, in the same shape, with every draft in it.";
 
+    /// <summary>2026-11-11-2bdfd: a decision only the operator can make is asked, not guessed.</summary>
+    public const string OperatorDecisions =
+        "A finding only the operator can decide goes onto state_open_questions with your proposal — state the whole "
+        + "list again, because each call replaces it — and the draft then follows that proposal.";
+
     public static string For(IReadOnlyList<ProposalNudgeItem> items, IReadOnlyList<SpecDraft> reverted, bool lastRound)
     {
         ArgumentNullException.ThrowIfNull(items);
@@ -27,7 +32,7 @@ public static class ProposalCutsNudge
             sb.AppendLine().AppendLine($"## {draft.SpecId} was reverted")
                 .AppendLine("Your last change to it went beyond what its review allowed, so it stands as:")
                 .AppendLine("```yaml").AppendLine(draft.Yaml.TrimEnd()).AppendLine("```");
-        return sb.AppendLine().Append(ReProposeWhole).ToString();
+        return sb.AppendLine().Append(ReProposeWhole).Append(' ').Append(OperatorDecisions).ToString();
     }
 
     private static void Item(StringBuilder sb, ProposalNudgeItem item, bool lastRound)

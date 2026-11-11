@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-2bdfd
+goal: "A design turn's reviewers judge each draft with the operator's open questions taken as proposed, and a decision only the operator can make returns as an open question, not a rewrite."
+
+applies_to: "default (spec review: SpecAttackInput, SpecAttackPrompt, ProposalReviewLoop, ProposalCutsNudge)"
+
+invariants:
+  - "QUESTIONS SHOWN. Every proposal attack prompt lists the turn's current open questions (the reply slot's), each with its proposal; a turn with none, the coding-run review and the series round get no such section."
+  - "JUDGED AS PROPOSED. The section tells the reviewer to judge the draft as if each proposal is taken; a finding that only restates a listed question is not a finding; a decision the material leaves to the owner and no listed question covers is a finding that names the question for the operator."
+  - "ASKED, NOT GUESSED. The nudge tells the design partner that a finding only the operator can decide goes onto state_open_questions with its proposal, the whole list stated again because a call replaces it, and that the draft then follows its proposal."
+
+facts:
+  - claim: "state_open_questions replaces the list on every call."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/OpenQuestionsToolHost.cs:30,40"
+  - claim: "A proposal attack input carries no open questions."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackInput.cs:22-41"
+  - claim: "The re-prompt nudge says nothing about open questions."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalCutsNudge.cs:13-33"
+  - claim: "Replaying the 8 children of conversation 46 against gpt-5.6 with the material inlined and the siblings shown: every reviewer still refused, chiefly because the material requires owner confirmation of open policies before an implementation spec is approved; with the three open questions shown, reviewers named the missing owner decisions as operator questions."
+    evidence: "observed: scratchpad A/B over conversation 46 (16 calls per arm), 2026-11-11"
+
+scope:
+  in: "SpecAttackInput.OpenQuestions (init, default empty) filled where 2bdfa fills the siblings, from the turn pipeline's SpecDialogReplySlot read each round; a '## Questions the operator still answers' section rendered right after the siblings section and before '## The spec', in the class 2bdfa adds for that tail (SpecAttackPrompt.cs is at the 120-line cap); one sentence appended to ProposalCutsNudge's whole-outcome line."
+  out: "No change to the tool, the card or the decision path. No stop rule change: the existing rounds and cost cap bound the review."
+
+steps:
+  - id: input
+    action: "Add OpenQuestions to SpecAttackInput and fill it per round from the slot (read each round, so questions stated by a revision reach the next round)."
+  - id: prompt
+    action: "Render the section and its rule; keep the prompt's other sections in order."
+  - id: nudge
+    action: "Add the open-questions sentence to the nudge."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "ProposalReview_OpenQuestions_ShownToEveryReviewerWithProposals"
+  - "ProposalReview_QuestionsStatedByRevision_ReachNextRound"
+  - "ProposalReview_NoQuestions_NoSection"
+  - "ProposalCutsNudge_TellsOperatorDecisionsGoToOpenQuestions"
+
+done:
+  - "A proposal reviewer's prompt lists the slot's open questions with proposals, and a revision's new questions reach the next round's prompt (tests above)."
+  - "Build green, full suite green."
