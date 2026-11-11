@@ -21,12 +21,15 @@ public sealed class SlackThreadAdapter(
         api.PostAsync("chat.postMessage",
             new { channel = thread.ChannelId, text, thread_ts = thread.ThreadId }, cancellationToken);
 
-    public Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken) =>
-        api.PostAsync("chat.postMessage", new
+    public async Task<PostedMessage> PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
+    {
+        var ts = SlackApiClient.ExtractTimestamp(await api.PostAsync("chat.postMessage", new
         {
             channel = thread.ChannelId,
             text = $":thought_balloon: *Question:* {question.Text}",
             blocks = questionBlocks.Build(question),
             thread_ts = thread.ThreadId,
-        }, cancellationToken);
+        }, cancellationToken));
+        return new PostedMessage(ts, SlackTimestamp.ToTime(ts)); // 2026-11-11-205fh: Slack's own clock
+    }
 }

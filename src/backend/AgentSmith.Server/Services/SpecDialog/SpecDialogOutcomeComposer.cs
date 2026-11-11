@@ -60,6 +60,10 @@ public sealed class SpecDialogOutcomeComposer
         ? "That proposal was replaced; the current proposal is " + m.Wording("posted below.", "below.")
         : "That proposal is no longer open; nothing was filed.");
 
+    /// <summary>2026-11-11-205fh: a typed decision on a thread whose card post failed — the card follows.</summary>
+    public ComposedReply ComposeUnshown() => new(m =>
+        "This thread was never shown the current proposal, so nothing was decided; it is " + m.Wording("posted below.", "below."));
+
     public ComposedReply ComposeFiled(OutcomeProposal proposal, FilingReport report) =>
         new(m => $"Filed {Summarize(proposal)}:\n{FormatTickets(report.Filed, m)}{FormatNotes(report.Notes)}");
 

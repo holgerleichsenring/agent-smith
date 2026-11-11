@@ -83,8 +83,9 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
         return id is not null && await ClearAsync(newest.Where(s => s.ProposalId == id && s.ProposalState == Awaiting), ct) == 1 ? id : null;
     }
 
-    /// <summary>The awaiting proposal a chat thread was shown, written once its post succeeded.</summary>
-    public async Task<int> SetPostedAsync(string platform, string threadId, string id, DateTimeOffset at, CancellationToken ct) =>
+    /// <summary>The awaiting proposal a chat thread was shown, written once its post succeeded, with the platform's time
+    /// (null where it gives none); 2026-11-11-205fh: a failed post writes no id, so the thread binds no card.</summary>
+    public async Task<int> SetPostedAsync(string platform, string threadId, string? id, DateTimeOffset? at, CancellationToken ct) =>
         await (await NewestAsync(platform, threadId, ct)).ExecuteUpdateAsync(s => s
             .SetProperty(r => r.PostedProposalId, id).SetProperty(r => r.PostedAt, at), ct);
 

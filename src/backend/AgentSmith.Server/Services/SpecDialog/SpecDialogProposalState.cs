@@ -70,7 +70,7 @@ public sealed class SpecDialogProposalState(
         await outcomes.ReadAsync(state.Platform, state.ThreadId!, ct) is { ProposalId: { } id, Proposal: { } proposal }
             ? (id, proposal) : null;
 
-    public Task PostedAsync(ConversationState state, string id, DateTimeOffset at, CancellationToken ct) =>
+    public Task PostedAsync(ConversationState state, string? id, DateTimeOffset? at, CancellationToken ct) =>
         claim.SetPostedAsync(state.Platform, state.ThreadId!, id, at, ct);
 
     /// <summary>Gives a row from before the deploy its id; a stored draft under review stays one. An unreadable

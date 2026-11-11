@@ -23,12 +23,13 @@ public sealed class TeamsThreadAdapter(
     public Task PostAsync(ChatThread thread, string text, CancellationToken cancellationToken) =>
         SendAsync(thread, new JsonObject { ["type"] = "message", ["text"] = text }, cancellationToken);
 
-    public Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken) =>
-        SendAsync(thread,
+    // 2026-11-11-205fh: the Bot Framework answers a send with an id and no time, so a Teams card binds no typed word.
+    public async Task<PostedMessage> PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken) =>
+        new(await SendAsync(thread,
             TeamsApiClient.WrapCardInActivity(cards.BuildQuestionCard(question), $"Question: {question.Text}"),
-            cancellationToken);
+            cancellationToken), null);
 
-    private Task SendAsync(ChatThread thread, JsonObject activity, CancellationToken cancellationToken)
+    private Task<string?> SendAsync(ChatThread thread, JsonObject activity, CancellationToken cancellationToken)
     {
         if (thread.ReplyEndpoint is { Length: > 0 } endpoint) serviceUrls.Register(thread.ChannelId, endpoint);
         return api.SendActivityAsync(thread.ChannelId, activity, cancellationToken);

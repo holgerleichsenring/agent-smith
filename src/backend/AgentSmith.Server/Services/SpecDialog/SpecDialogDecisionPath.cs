@@ -42,6 +42,13 @@ public sealed class SpecDialogDecisionPath(
         await proposals.BackfillAsync(state.Platform, state.ThreadId!, ct);
         var row = await proposals.ReadAsync(state, ct);
         var id = proposalId ?? await TypedInChatAsync(state, row.PostedId, row.PostedAt, sentAt, ct);
+        // 2026-11-11-205fh: SEEN OR SAID — a typed word on a thread never shown the awaiting card gets the card posted.
+        if (id is null && proposalId is null && !DialogTarget.IsDashboard(state) && row.AwaitingId is not null
+            && row.PostedId != row.AwaitingId)
+        {
+            await ReplacedAsync(state, ct, unshown: true);
+            return SpecDialogDecided.Replaced;
+        }
         if (id is null) return SpecDialogDecided.No;
         if (id == row.AwaitingId && await ApplyAsync(state, decision, id, mayStartRuns, ct) is { } done) return done;
         await ReplacedAsync(state, ct);
@@ -53,13 +60,16 @@ public sealed class SpecDialogDecisionPath(
     {
         if (DialogTarget.IsDashboard(state) || postedId is null || postedAt is not { } at) return null;
         if (sentAt is { } sent && sent <= at) return null;
-        if (LastAgentEntryAt(state) is { } last && last > at) return null;
+        if (AgentSpokeAfterTheCard(state)) return null;
         return await proposals.AwaitingAsync(state, outcomes, ct) is { Proposal.Questions.Count: > 0 } ? null : postedId;
     }
 
-    // The agent's own replies count; a framework Notice (a filing, a refusal, a replacement) does not.
-    private static DateTimeOffset? LastAgentEntryAt(ConversationState state) =>
-        state.Transcript.LastOrDefault(t => t.Role == TranscriptRole.Assistant && t.Kind != SpecDialogTurnKind.Notice)?.At;
+    // The agent's own replies count; a framework Notice (a filing, a refusal, a replacement) does not. 2026-11-11-205fh: by
+    // transcript order after the turn that carried the card, never by comparing the server's clock with the platform's.
+    // A transcript with no turn carrying a draft has nothing to anchor the card to, so any reply of the agent counts.
+    private static bool AgentSpokeAfterTheCard(ConversationState state) =>
+        state.Transcript.Skip(SpecDialogShownTranscript.CardTurn(state.Transcript) is { } card ? card + 1 : 0)
+            .Any(t => t.Role == TranscriptRole.Assistant && t.Kind != SpecDialogTurnKind.Notice);
 
     /// <summary>Null when the compare-and-set found the card gone.</summary>
     private async Task<SpecDialogDecided?> ApplyAsync(
@@ -85,10 +95,10 @@ public sealed class SpecDialogDecisionPath(
         return SpecDialogDecided.Refused;
     }
 
-    private async Task ReplacedAsync(ConversationState state, CancellationToken ct)
+    private async Task ReplacedAsync(ConversationState state, CancellationToken ct, bool unshown = false)
     {
         var current = await proposals.AwaitingAsync(state, outcomes, ct);
-        await notices.TellAsync(state, composer.ComposeReplaced(current is not null), ct);
+        await notices.TellAsync(state, unshown ? composer.ComposeUnshown() : composer.ComposeReplaced(current is not null), ct);
         if (current is { } awaiting) await chatCards.PostAsync(state, awaiting.Proposal, awaiting.Id, ct);
     }
 }

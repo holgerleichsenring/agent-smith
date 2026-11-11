@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fh
+
+decisions:
+  - category: Implementation
+    chose: "IChatThreadAdapter.PostQuestionAsync returns PostedMessage(Id, At?): Slack reads the ts chat.postMessage returns, Teams returns the activity id with no time; SpecDialogChatCard stores that time as PostedAt"
+    over: "Stamping the server's UtcNow after the post"
+    reason: "ONE CLOCK OR NONE: the inbound word carries Slack's ts, so the card's time must be Slack's too; a server a few seconds ahead turned every typed approve into a model turn."
+  - category: Implementation
+    chose: "Teams decides by buttons only: a null PostedAt binds no typed word"
+    over: "Reading the activity back for its time, or treating Teams message ids as epoch milliseconds"
+    reason: "The Bot Framework send response carries no time; an id that looks like a time is undocumented, and a read-back is a second call per card for a convenience."
+  - category: Implementation
+    chose: "The 'a later agent reply makes the card stale' rule reads transcript order after the turn that carried the card"
+    over: "Comparing that reply's server time with PostedAt"
+    reason: "Deviation the spec did not name: with PostedAt on the platform's clock the old comparison mixed two clocks and refused a Slack typed approve whenever the server ran ahead — exactly the done scenario. A transcript with no turn carrying a draft has nothing to anchor to, so there any agent reply makes the card stale."
+  - category: Implementation
+    chose: "A failed or unposted card writes no posted id; a typed decision word on a chat thread whose awaiting card is not the posted one reposts the card with a notice ('never shown') and returns Replaced, which 205fe's outcome undecides and the router answers without a model turn"
+    over: "Letting the word fall through to a model turn"
+    reason: "SEEN OR SAID: the person meant to decide; a model turn on 'approve' costs money and decides nothing."
+  - category: Implementation
+    chose: "SlackTimestamp.ToTime reads a ts for both the inbound event and the posted card"
+    over: "Two parsers"
+    reason: "One reading of one clock on both sides of the binding."
+  - category: Testing
+    chose: "RecordingThreadAdapter reports a posted time (now by default, settable, or null) and can fail; the Slack mocks return Slack's time"
+    over: "Keeping the void post"
+    reason: "The adapter contract now carries the platform's answer."

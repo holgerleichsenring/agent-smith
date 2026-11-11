@@ -19,5 +19,10 @@ public interface IChatThreadAdapter
 
     Task PostAsync(ChatThread thread, string text, CancellationToken cancellationToken);
 
-    Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken);
+    /// <summary>2026-11-11-205fh: what the platform says it posted — its id, and its own time when it returns one (Slack's
+    /// ts); Teams returns no time, so a card there is decided by its buttons.</summary>
+    Task<PostedMessage> PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken);
 }
+
+/// <summary>2026-11-11-205fh: a posted message as the platform reported it; <paramref name="At"/> is the platform's own time.</summary>
+public sealed record PostedMessage(string? Id, DateTimeOffset? At);

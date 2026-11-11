@@ -347,7 +347,7 @@ public sealed class ProposalDecisionTests : IDisposable
         slack.SetupGet(a => a.Platform).Returns(Platform);
         slack.Setup(a => a.PostQuestionAsync(It.IsAny<ChatThread>(), It.IsAny<AgentSmith.Contracts.Dialogue.DialogQuestion>(), It.IsAny<CancellationToken>()))
             .Callback((ChatThread _, AgentSmith.Contracts.Dialogue.DialogQuestion q, CancellationToken _) => posted.Add(q.QuestionId))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new PostedMessage("ts-1", DateTimeOffset.UtcNow)); // 205fh: Slack's own time
         var harness = new SpecDialogDecisionHarness(_context, sink: _sink.Object, threads: [slack.Object]);
         var state = await harness.OpenAsync(Platform, Thread);
         await harness.Flow().HandleAsync(state, Spec("p1"), default);

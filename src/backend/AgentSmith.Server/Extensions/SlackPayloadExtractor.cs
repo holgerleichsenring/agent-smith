@@ -32,9 +32,7 @@ internal static class SlackPayloadExtractor
     /// <summary>2026-11-10-ccd9 review: the event's own ts — seconds since the epoch with a microsecond fraction — as the
     /// moment Slack took the message; null when it is missing or unreadable.</summary>
     internal static DateTimeOffset? ExtractEventSentAt(JsonNode json) =>
-        decimal.TryParse(json["event"]?["ts"]?.GetValue<string>(), System.Globalization.NumberStyles.AllowDecimalPoint,
-            System.Globalization.CultureInfo.InvariantCulture, out var seconds)
-            ? DateTimeOffset.UnixEpoch.AddTicks((long)(seconds * TimeSpan.TicksPerSecond)) : null;
+        Services.Adapters.SlackTimestamp.ToTime(json["event"]?["ts"]?.GetValue<string>());
 
     internal static (string channelId, string? questionId, string answer) ExtractInteractionFields(JsonNode json)
     {
