@@ -70,6 +70,6 @@ public sealed class ReferencePromptSectionTests
     {
         var upload = _fixture.Factory(Holds.None()).Create(
             ReferenceSandboxFixture.Project, ReferenceSandboxFixture.Conversation, "reference:app", "set-1", coverage: coverage);
-        return ReferencePromptSection.Build(["reference:app"], new Dictionary<string, ISandbox> { ["reference:app"] = upload });
+        return ReferencePromptSection.ThisTurn(new Dictionary<string, ISandbox> { ["reference:app"] = upload });
     }
 }
