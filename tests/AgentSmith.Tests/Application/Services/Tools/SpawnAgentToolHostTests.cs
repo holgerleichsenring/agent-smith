@@ -23,7 +23,7 @@ public sealed class SpawnAgentToolHostTests
         var method = typeof(SpawnAgentToolHost).GetMethod(nameof(SpawnAgentToolHost.SpawnAgents))!;
         var texts = method.GetParameters()
             .Select(p => p.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? "")
-            .Append(method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()!.Description);
+            .Append(SpawnAgentsDescription.Run).Append(SpawnAgentsDescription.Design(4, 20)); // 205fj: composed per surface
 
         texts.Should().NotContain(t => t.Contains("tool_profile"));
     }
@@ -99,8 +99,38 @@ public sealed class SpawnAgentToolHostTests
             .Which.Repo.Should().BeNull("a host with no sandbox has no repository to write into");
     }
 
+    // 2026-11-11-205fj: the design surface states the fan-out it is gated by, from configuration, in its own words.
+    [Theory]
+    [InlineData(4, 20)]
+    [InlineData(2, 20)]
+    public void SpawnAgents_DesignSurface_StatesConfiguredCountAndRounds(int children, int rounds)
+    {
+        var limits = new LoopLimitsConfig { MaxSubAgentsPerDialogTurn = children, MaxDialogSubAgentLoopIterations = rounds };
+        var (host, _) = BuildHost(new CountingLoopRunner(), limits.MaxSubAgentsPerDialogTurn, limits.MaxDialogSubAgentLoopIterations);
+
+        var description = host.GetTools(null, null).Single().Description;
+
+        description.Should().Contain($"up to {children} children in all, each for up to {rounds} tool rounds")
+            .And.NotContain("progress").And.NotContain("verdict").And.NotContain("gate");
+    }
+
+    [Fact]
+    public void SpawnAgents_CodingSurface_DescriptionUnchanged()
+    {
+        var (host, _) = BuildHost(new CountingLoopRunner());
+
+        host.GetTools(null, null).Single().Description.Should().Be(
+            "Runs sub-agents in parallel, each in a fresh context, and returns when all have finished. Each task needs a "
+            + "descriptive name (a role, not 'agent1' or 'worker' — generic names are refused), a one-line activity, the "
+            + "task description, and the inherited context: the goal and the slice of what you know that the child needs, "
+            + "because it sees nothing else of your conversation. A child works in your checkouts with the base file and "
+            + "command tools — only the read tools in a design conversation — and none of your run's progress, verdict, gate "
+            + "or spawn tools. The result lists per child its status, id, tool calls, cost and its whole answer; a child is told "
+            + "what a good answer holds, and only a runaway past 60000 characters is cut, saying so first.");
+    }
+
     private static (SpawnAgentToolHost host, RecordingDecisionLogger logger) BuildHost(
-        IAgenticLoopRunner loopRunner, int budget = 100)
+        IAgenticLoopRunner loopRunner, int budget = 100, int? childCeiling = null)
     {
         var publisher = new RecordingEventPublisher();
         var limits = new LoopLimitsConfig { MaxConcurrentSubAgents = 4 };
@@ -115,7 +145,8 @@ public sealed class SpawnAgentToolHostTests
             MasterRunId: "run-1",
             ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
             Budget: new SubAgentBudget(budget),
-            AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" });
+            AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" },
+            ChildIterationCeiling: childCeiling);
         var logger = new RecordingDecisionLogger();
         return (
             new SpawnAgentToolHost(
