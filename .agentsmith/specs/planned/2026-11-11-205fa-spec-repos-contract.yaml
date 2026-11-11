@@ -36,9 +36,11 @@ decisions:
 
 steps:
   - id: skills
-    action: "Edit design-outcome-spec.md and design-outcome-epic.md as in scope.in, on a skills branch off origin/main."
-  - id: pin-test
-    action: "A server test renders outcome_format(spec) and outcome_format(epic) from the embedded skills and asserts each contains `repos:`."
+    action: "Edit design-outcome-spec.md and design-outcome-epic.md as in scope.in, on a skills branch off origin/main; merge and release with the series."
+  - id: pin
+    action: "Bump the server's skills pin to that release."
+  - id: server-test
+    action: "Then a server test renders outcome_format(spec) and outcome_format(epic) from the pinned skills and asserts each contains `repos:`."
 
 tests:
   - "OutcomeFormat_SpecAndEpic_ShowTheReposKey"

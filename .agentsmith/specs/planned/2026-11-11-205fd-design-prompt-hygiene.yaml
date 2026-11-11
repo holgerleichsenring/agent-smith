@@ -1,14 +1,13 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-11-205fd
-goal: "The design master's prompt says what it can do once and truly: role matches the work clone, fan-out limits are stated, per-turn upload lines leave the system prompt, dead text goes."
+goal: "The design master's texts say what it can do once and truly: the role matches the work clone, dead and duplicated sentences go, scripted procedure becomes a situation."
 
-applies_to: "default (skills: design-partner-master SKILL.md; Application: ReferencePromptSection, AgenticMasterHandler, SpawnAgentToolHost, SpecAttackPrompt)"
+applies_to: "default (skills: design-partner-master SKILL.md; Application: ReferencePromptSection, ReferenceCoverageText, AgenticMasterHandler comment, SpecAttackPrompt)"
 
 repos_touched: [agent-smith-skills, agent-smith]
 
 invariants:
   - "TRUE CAPABILITIES. No sentence names a tool the surface lacks or denies one it has; the role line and the Orientation paragraph agree that run_command runs in a throwaway work clone."
-  - "STABLE SYSTEM PROMPT. The design turn's system prompt is byte-identical across turns of one conversation unless the skill, the scope or the upload address list changes; per-turn coverage and notes travel in the user prompt."
   - "TOOLS DESCRIBE THEMSELVES. A fact a tool's description states is not restated in the skill; the skill keeps only what ties tools to the job."
   - "SECTION ORDER KEPT. Passages are rewritten in place; no section moves (prompt caching)."
 
@@ -19,50 +18,38 @@ facts:
     evidence: "SKILL.md:78-89"
   - claim: "The remember paragraph restates the remember tool's description almost verbatim."
     evidence: "SKILL.md:94-98; src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:25-28"
-  - claim: "The design master does not cite spawn-budget; the per-turn cap is 4 children of 20 rounds each."
-    evidence: "agent-smith-skills v5.27.1 (spawn-budget cited by six masters, not design-partner); src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:56,68"
-  - claim: "spawn_agents' description uses coding-run vocabulary ('none of your run's progress, verdict, gate or spawn tools') and states no count."
-    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:49-56"
-  - claim: "Coverage lines (and notes) under each upload address are appended to masterBody, the system prompt, and change as turns open files."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:312,381; src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:25-26; ReferenceCoverageText.cs:14-27"
   - claim: "The upload section names a 'grep' tool (the tool is grep_in_tree), says 'a write comes back refused' though no write tool exists, and repeats the file-mode line run_in_reference states."
-    evidence: "ReferencePromptSection.cs:29-31; src/backend/AgentSmith.Application/Services/Tools/ReferenceCommandToolHost.cs:30"
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:29-31; src/backend/AgentSmith.Application/Services/Tools/ReferenceCommandToolHost.cs:30"
+  - claim: "The coverage line also names 'grep'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferenceCoverageText.cs:21"
   - claim: "The handler comment says spec-dialog turns run no commands, stale since 4778."
-    evidence: "AgenticMasterHandler.cs:300-303"
-  - claim: "The reviewer brief tells a look-only reviewer to extract archives."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:17-24"
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:300-303"
+  - claim: "The reviewer brief tells the reviewer to extract archives; no reviewer has a shell — its tools are search, read, an optional dependency audit and an optional declared verify stage."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:17-24; src/backend/AgentSmith.Application/Services/Specs/DerivationTools.cs:17-36"
   - claim: "Upload discovery is scripted step by step."
     evidence: "SKILL.md:131-153"
 
 scope:
-  in: "Role line: you change no repository and file nothing; what you try, you try in throwaway clones and upload containers. Orientation keeps 'cite what they show' and the history: full fact. The remember paragraph goes (the tool says it). The spawn tool on a design surface states its per-turn count and rounds from LoopLimitsConfig and that children read only; coding-run vocabulary leaves the design variant. Coverage and note lines move to the user prompt beside the work picture; the address list stays in the system prompt. ReferencePromptSection names grep_in_tree and drops the write and file-mode sentences. SKILL.md:131-153 becomes the situation: a note is what earlier turns learned; without one you know nothing until you look; what you learn is lost unless note_reference keeps it. SpecAttackPrompt appends after the verbatim Brief: 'You read; you cannot extract or run.' when the reviewer has no shell. The stale comment is corrected."
-  out: "The design-outcome run-time lore (design-outcome-spec.md:55-64) stays: the reviewer re-check sentence is load-bearing and trimming the rest is cosmetic. The bound-ticket section stays."
+  in: "Role line: you change no repository and file nothing; what you try, you try in throwaway clones and upload containers. Orientation keeps 'cite what they show' and the history: full fact. The remember paragraph goes (the tool says it). ReferencePromptSection and ReferenceCoverageText name grep_in_tree; the write and file-mode sentences go. SKILL.md:131-153 becomes the situation: a note is what earlier turns learned; without one you know nothing until you look; what you learn is lost unless note_reference keeps it. SpecAttackPrompt appends after the verbatim Brief, for every reviewer: 'You read the files; you cannot run a shell or extract archives.' The stale comment is corrected."
+  out: "Where coverage and notes are placed (2026-11-11-205fi). The spawn_agents description (2026-11-11-205fj). design-outcome-spec.md:55-64 stays: the re-check sentence is load-bearing. The bound-ticket section stays."
 
 decisions:
-  - "Coverage moves, the address list stays: the list changes only on upload, the coverage changes every turn that opens a file."
-  - "proposed: the spawn description is composed per surface from LoopLimitsConfig values rather than a second static attribute, so the numbers cannot drift from configuration."
+  - "The reviewer line is unconditional: no reviewer surface carries a shell, so a condition would guard a case that does not exist."
 
 steps:
   - id: skill
     action: "Rewrite SKILL.md:20-22, :78-89, :94-98, :131-153 in place."
-  - id: reference
-    action: "ReferencePromptSection.Build without coverage/note; a ReferencePromptSection.Coverage rendered into the design turn's user prompt; fix the tool name and dead sentences."
-  - id: spawn
-    action: "SpawnAgentToolHost gives the design surface its own description with the count and rounds."
-  - id: reviewer
-    action: "SpecAttackPrompt adds the read-only line for a look-only reviewer."
+  - id: server-texts
+    action: "Fix ReferencePromptSection, ReferenceCoverageText, the AgenticMasterHandler comment and SpecAttackPrompt."
   - id: tests
-    action: "Pin the stable system prompt across two turns with a changed coverage, and each text change."
+    action: "Pin each text change."
 
 tests:
-  - "DesignTurn_SecondTurnOpensFiles_SystemPromptUnchanged"
-  - "DesignTurn_Coverage_RendersInUserPrompt"
-  - "SpawnAgents_DesignSurface_StatesCountAndRounds"
   - "ReferencePromptSection_NamesGrepInTree_NoWriteSentence"
-  - "SpecAttackPrompt_LookOnlyReviewer_SaysItCannotExtract"
+  - "ReferenceCoverageText_NamesGrepInTree"
+  - "SpecAttackPrompt_Brief_IsFollowedByTheReadOnlyLine"
 
 done:
-  - "Two consecutive design turns of one conversation, the second after opening files of an upload, have equal system prompts."
-  - "The design spawn_agents description names 4 children and 20 rounds at default configuration."
   - "No design-partner skill text says what runs, runs only in an upload's container."
+  - "No design-turn prompt text names a tool called 'grep' or says a write comes back refused."
   - "Build green, full suite green; skills released and pinned with the series."

@@ -2,42 +2,51 @@
 spec: 2026-11-11-205ff
 goal: "Every per-turn proposal a conversation stored stays in its view after later turns, including one from a turn whose replica died before writing a transcript turn."
 
-applies_to: "default (Server: SpecDialogTurnProposals, SpecDialogTurnProposalStore; Dashboard: TurnResult)"
+applies_to: "default (Server: SpecDialogTurnProposals, SpecDialogTurnProposalStore, SpecDialogSessionView; Dashboard: TurnResult, generated openapi types)"
 
 repos_touched: [agent-smith]
 
 invariants:
-  - "NO ORPHAN ROW. Every row in the per-turn proposal store of a conversation is rendered in its view: on the transcript turn carrying its run id, or as an interrupted turn of its own at its stored time."
-  - "RUNNING IS ONE MORE CASE. The running run's draft is the interrupted-turn case while no turn carries it; RunningRunId being overwritten by the next turn loses nothing."
+  - "NO ORPHAN ROW. Every row in the per-turn proposal store of a conversation is rendered in its view: on the transcript turn carrying its run id, as RunningProposal, or as an interrupted turn."
+  - "LIVENESS FROM THE ROW, NOT THE PROCESS. Whether an orphan's run is live is read from the run's stored status (Runs row), never from the in-process SpecDialogTurnGate, which another replica cannot see. Only a live run's row is RunningProposal; every other orphan is an interrupted turn."
 
 facts:
   - claim: "RunningRunId is written once per turn and overwritten by the next turn's grounding; nothing records the earlier one."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SessionTurnRunRecorder.cs:19-27"
   - claim: "The view attaches a stored proposal to the turn carrying its run id, and otherwise only to the current RunningRunId."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnProposals.cs:17-27"
-  - claim: "A replica that dies mid-turn writes no Notice turn, so no transcript turn carries its run id."
-    evidence: "inferred from 2026-11-10-d854c: Notice/Failure turns are written by the live process"
+  - claim: "A per-turn write that fails is logged and swallowed."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnProposalStore.cs:22-29"
+  - claim: "A run's status is persisted on its Runs row."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs (Status)"
+
+assumptions:
+  - "A replica that dies mid-turn writes no Notice turn, so no transcript turn carries its run id (inferred from 2026-11-10-d854c: Notice and Failure turns are written by the live process)."
 
 scope:
-  in: "SpecDialogTurnProposals renders every stored row no transcript turn carries, ordered by its stored time, marked interrupted (or under review while that run computes). The store's read returns each row's time. TurnResult shows an interrupted turn with its draft and the line 'this turn stopped before it finished'."
-  out: "Resuming the interrupted turn itself."
+  in: "SpecDialogSessionView gains InterruptedTurns: a separate list of {runId, at, proposal} ordered by the stored row's time, not a transcript kind (the transcript stays what was said). The openapi type and the generated dashboard type follow. SpecDialogTurnProposals reads the orphans' run statuses in one query: a live one is RunningProposal, the rest are InterruptedTurns. The store's read returns each row's time. TurnResult renders an interrupted turn with its draft and the line 'this turn stopped before it finished', at its time between the transcript entries."
+  out: "Resuming the interrupted turn. A per-turn write that fails (SpecDialogTurnProposalStore.cs:22-29) still loses that turn's row; making the write durable is not this spec."
 
 decisions:
   - "Render orphans rather than keep a run-id history column: the store already holds every row; the defect is only that the view filters them."
+  - "A separate list, not a transcript kind: a transcript turn is what someone said, and an interrupted turn said nothing."
 
 steps:
   - id: view
-    action: "SpecDialogTurnProposals: orphan rows become interrupted entries; RunningProposal is the one whose run is live."
+    action: "SpecDialogTurnProposals: orphan rows split by stored run status into RunningProposal and InterruptedTurns."
+  - id: contract
+    action: "SpecDialogSessionView.InterruptedTurns; openapi and the dashboard type regenerate."
   - id: dashboard
-    action: "TurnResult renders an interrupted entry."
+    action: "TurnResult renders an interrupted entry in time order."
   - id: tests
-    action: "Pin the crash-then-next-turn case."
+    action: "Pin the crash-then-next-turn case and the other-replica liveness case."
 
 tests:
   - "TurnProposals_CrashedTurnThenNextTurn_BothDraftsInTheView"
+  - "TurnProposals_OrphanOfALiveRunOnAnotherReplica_IsRunningNotInterrupted"
   - "TurnResult renders an interrupted turn with its draft (vitest)"
 
 done:
   - when: "turn A's replica dies after storing its draft and turn B then runs to completion"
-    then: "GET the conversation returns A's draft as an interrupted turn and B's on its turn"
+    then: "GET the conversation returns A's draft in InterruptedTurns and B's on its turn"
   - "Build green, full suite and dashboard tests green."

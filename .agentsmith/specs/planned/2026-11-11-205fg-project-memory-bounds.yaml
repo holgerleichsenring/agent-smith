@@ -1,32 +1,29 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-11-205fg
-goal: "A project memory reaches later prompts only as quoted data: its description is one line, its slug and author are bounded, and the concurrent upsert is proven on a real second connection."
+goal: "A project memory reaches later prompts only as quoted data: its description and author are one line, slug and author are bounded, and the concurrent upsert is proven on separate connections."
 
-applies_to: "default (Contracts: ProjectMemoryLimits; Application: MemoryRecallToolHost, ProjectMemoryWriteToolHost, MemoryWriteToolHost; Persistence: ProjectMemoryRepository)"
+applies_to: "default (Contracts: ProjectMemoryLimits; Application: MemoryRecallToolHost, ProjectMemoryIndex, ProjectMemoryWriteToolHost, MemoryWriteToolHost; Persistence: ProjectMemoryRepository)"
 
 repos_touched: [agent-smith]
 
 invariants:
-  - "ONE-LINE DESCRIPTION. A stored project-memory description holds no line break; the write refuses one rather than rewriting the person's text."
-  - "QUOTED IN EVERY RENDERING. Recall renders a project entry's description quoted like its body; index and recall agree."
-  - "BOUNDED KEY. Slug and author are refused above the column bound (191) before the write, with a tool answer, never a database exception."
+  - "ONE CHECK. Every bound on a stored project memory is in ProjectMemoryLimits.Refusal: description and author hold no line break, slug and author fit 191, description 200, body 4000. The writes refuse rather than rewrite the person's text."
+  - "QUOTED IN EVERY RENDERING. Recall renders a project entry's description quoted like its body; the author is rendered only after the one-line check, quoted in the provenance line of recall and in the index source."
 
 facts:
   - claim: "Recall prints entry.Description raw between the heading and the quoted body."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:84-91"
-  - claim: "The design-turn write trims the description but keeps inner newlines."
-    evidence: "src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:41-44"
-  - claim: "The coding-run write passes the description into a project record the same way."
-    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:92"
-  - claim: "The index quotes every line."
-    evidence: "src/backend/AgentSmith.Application/Services/Memory/ProjectMemoryIndex.cs:22-24"
+  - claim: "Recall's provenance line and the index's source interpolate the author raw."
+    evidence: "MemoryRecallToolHost.cs:101-108; src/backend/AgentSmith.Application/Services/Memory/ProjectMemoryIndex.cs:34-40"
+  - claim: "The design-turn write trims the description but keeps inner newlines; the coding-run write passes it the same way."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:41-44; src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:92"
   - claim: "Limits refuse only description and body; slug and author columns are 191."
     evidence: "src/backend/AgentSmith.Contracts/Memory/ProjectMemoryRecord.cs:43-58; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ProjectMemoryConfiguration.cs:22,29"
   - claim: "The concurrent-upsert test runs four writers on one SQLite connection."
     evidence: "tests/AgentSmith.Tests/Persistence/ProjectMemoryRepositoryTests.cs:58-66"
 
 scope:
-  in: "ProjectMemoryLimits refuses a description with a line break and a slug or author over 191. Recall quotes the project entry's description. The concurrent test opens separate connections (file-backed SQLite, one context per writer) so the unique-violation retry runs."
+  in: "ProjectMemoryLimits.Refusal checks line breaks in description and author and the 191 bound on slug and author. Recall quotes a kept entry's description; provenance and index source render the author in quotes. The concurrency test is deterministic: two contexts on separate connections to one file-backed SQLite both read 'no row' before either saves, the second save hits the unique index and takes the retry; the test asserts one row, the newest value, and that the retry ran."
   out: "Repo-file memories (they pass git review)."
 
 decisions:
@@ -34,19 +31,20 @@ decisions:
 
 steps:
   - id: limits
-    action: "ProjectMemoryLimits: newline, slug and author bounds."
-  - id: recall
-    action: "MemoryRecallToolHost quotes a kept entry's description."
+    action: "ProjectMemoryLimits.Refusal: line breaks, slug and author bounds."
+  - id: render
+    action: "Quote the description in recall and the author in provenance and index source."
   - id: tests
-    action: "Pin each refusal, the quoted recall, and a multi-connection upsert that exercises the retry."
+    action: "Pin each refusal, each quoted rendering, and the deterministic two-context upsert."
 
 tests:
   - "ProjectMemoryLimits_DescriptionWithNewline_IsRefused"
+  - "ProjectMemoryLimits_AuthorWithNewline_IsRefused"
   - "ProjectMemoryLimits_SlugOver191_IsRefused"
-  - "Recall_ProjectEntry_QuotesTheDescription"
-  - "ProjectMemoryRepository_ConcurrentUpsertSeparateConnections_OneRowRetryTaken"
+  - "Recall_ProjectEntry_QuotesDescriptionAndAuthor"
+  - "ProjectMemoryRepository_TwoContextsBothSeeNoRow_OneRowNewestWinsRetryTaken"
 
 done:
   - "remember with a description containing '\\n## ' answers 'Not recorded' naming the line break."
-  - "Recall of a project entry prints no line of its description unquoted."
+  - "Recall of a project entry prints no line of its description or author unquoted."
   - "Build green, full suite green."

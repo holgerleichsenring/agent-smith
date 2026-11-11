@@ -8,7 +8,7 @@ repos_touched: [agent-smith-skills]
 
 invariants:
   - "ONE RULE. No sentence in the design master's text tells it to hold a draft back until a question is answered."
-  - "DRAFT CARRIES QUESTIONS. Every fork the operator must decide is on the draft's card through state_open_questions, with the master's proposal, so approving without answering is never possible (ccd9 already refuses a bare word on a proposal with open questions)."
+  - "DRAFT CARRIES QUESTIONS. Every fork the operator must decide is on the draft's card through state_open_questions, with the master's proposal; a bare typed word does not approve a proposal that carries open questions (see facts)."
   - "ANSWER IS FOR QUESTIONS. A request for work ends in a draft once one is defensible; plain answer stays the outcome for a question, a bound ticket's first judgement and work that cannot yet be cut."
 
 facts:
@@ -24,9 +24,13 @@ facts:
     evidence: "agent-smith-skills v5.27.1 references/design-outcome-epic.md:44-46"
   - claim: "state_open_questions shows its questions on a card only together with a draft."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/OpenQuestionsToolHost.cs:29"
+  - claim: "A bare typed word does not decide a proposal with open questions: client-side on the dashboard, server-side for chat."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:846-852 (typedCard); src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:57"
+  - claim: "Converging says dropping or postponing a capability the material requires is the operator's call: ask it, with your proposal."
+    evidence: "SKILL.md:183-184"
 
 scope:
-  in: "SKILL.md:175-177 becomes: draft now with your proposal for every fork and lay the forks on state_open_questions; a redirect costs the operator one sentence, a turn without a draft costs a turn. SKILL.md:200-202 names answer as the outcome for a question, not for a request for work. The epic line 44-46 becomes: a slice whose done is not settled carries your proposed done lines, marked in the reply and on state_open_questions."
+  in: "SKILL.md:175-177 becomes: draft now with your proposal for every fork and lay the forks on state_open_questions; a redirect costs the operator one sentence, a turn without a draft costs a turn. SKILL.md:200-202 names answer as the outcome for a question, not for a request for work. The epic line 44-46 becomes: a slice whose done is not settled carries your proposed done lines, marked in the reply and on state_open_questions. SKILL.md:183-184 becomes: dropping or postponing a capability the material requires is the operator's call — draft with your proposal and put it on state_open_questions."
   out: "No server change. The bound-ticket first reply (SKILL.md:255-273) keeps its answer-first shape."
 
 decisions:
@@ -34,7 +38,7 @@ decisions:
 
 steps:
   - id: skill
-    action: "Rewrite the three passages in place, keeping section order (prompt caching)."
+    action: "Rewrite the four passages in place, keeping section order (prompt caching)."
 
 tests:
   - "SkillText_DesignPartner_HasNoAskThenDraftRule (server test over the embedded skill: no 'draft once it is answered', no 'ask, rather than propose')"

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fi
+goal: "An upload's per-turn coverage and note travel in the design turn's user prompt, so its system prompt stays the same from turn to turn while uploads are read."
+
+# Series letter appended in the same drafting session as a..h, before anything left the branch.
+
+applies_to: "default (Application: ReferencePromptSection, AgenticMasterHandler, the design turn's user prompt; skills: design-partner-master SKILL.md:124-125)"
+
+repos_touched: [agent-smith, agent-smith-skills]
+
+invariants:
+  - "SYSTEM PROMPT CHANGES ONLY ON EVENTS. Across the turns of one conversation the design turn's system prompt changes only when the skill, the scope, the upload address list or the project memory index changes. Opening files and replacing a note change only the user prompt."
+  - "THE MEMORY INDEX IS NAMED, NOT MOVED. The project memory index (SKILL.md:99) is a system part that changes when a memory is written; it stays in the system prompt because a write is an event, not a per-turn change. The claim is about coverage and notes, nothing more."
+  - "NOTHING LOST. Every line the coverage and note render today is still in the turn's prompt, under the same address."
+
+facts:
+  - claim: "Coverage and note lines under each upload address are appended to masterBody, the system prompt."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:312,381; src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:25-26"
+  - claim: "Coverage changes as turns open files."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferenceCoverageText.cs:14-27"
+  - claim: "The skill says each upload is listed with its note under it."
+    evidence: "agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md:124-125"
+  - claim: "The project memory index renders into the system prompt through {MemoryIndexSection}."
+    evidence: "SKILL.md:7,99"
+
+scope:
+  in: "ReferencePromptSection.Build renders the address list only; a separate render of coverage and note per address goes into the design turn's user prompt beside the work picture. SKILL.md:124-125 says the list stands above and each upload's note and coverage stand with the turn."
+  out: "Moving the memory index. Coding-run prompts (their upload section is per run)."
+
+decisions:
+  - "Coverage and note move, the address list stays: the list changes only on upload; coverage and notes change on reads."
+
+steps:
+  - id: split
+    action: "Split ReferencePromptSection into the list and a per-turn coverage/note render; wire the latter into the design turn's user prompt."
+  - id: skill
+    action: "Rewrite SKILL.md:124-125 in place."
+  - id: tests
+    action: "Pin the stable system prompt and the moved lines."
+
+tests:
+  - "DesignTurn_SecondTurnOpensFilesAndReplacesNote_SystemPromptUnchanged"
+  - "DesignTurn_CoverageAndNote_RenderInUserPromptUnderTheirAddress"
+
+done:
+  - "Two consecutive design turns of one conversation, the second after opening upload files and replacing its note with no memory written, have equal system prompts."
+  - "The second turn's user prompt carries the coverage and note lines the system prompt carried before."
+  - "Build green, full suite green; skills released and pinned with the series."

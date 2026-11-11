@@ -2,13 +2,13 @@
 spec: 2026-11-11-205fe
 goal: "A stored decision says what happened: a refused or replaced approval is not kept as approved, and a filing's confirmed JSON belongs to its own proposal id, so another filing never clears it."
 
-applies_to: "default (Server: SpecDialogRouter, SpecDialogAnswerAdmission, SpecDialogDecisionPath, SpecDialogOutcomeStore; Persistence: SpecDialogProposalClaim, SpecDialogSession)"
+applies_to: "default (Server: SpecDialogRouter, a decision-result handler, SpecDialogDecisionPath, SpecDialogOutcomeStore, TicketFilingOutcomeSink; Persistence: SpecDialogProposalClaim, a confirmed-slot repository, SpecDialogSession)"
 
 repos_touched: [agent-smith]
 
 invariants:
-  - "DECISION = OUTCOME. A transcript turn carries Decision=Approved/Rejected only when that decision was applied (Decided). Refused, Replaced and No leave no decision on the turn."
-  - "OWN SLOT. The confirmed JSON a filing reads, clears or releases is the one its claim wrote, identified by the claimed proposal id; a clear or release naming another id changes nothing."
+  - "DECISION = OUTCOME, ALSO ACROSS A CRASH. A transcript turn keeps Decision=Approved/Rejected only once that decision was applied (Decided). Refused, Replaced and No take it back. A crash between AdmitAsync's decided append and DecideAsync leaves a decided turn whose proposal is still awaiting; the view and the ticket page read a decision as applied only when the proposal it names is no longer awaiting."
+  - "OWN SLOT. The confirmed JSON is written once, by the claim, with its proposal id; clear and release act only WHERE ConfirmedProposalId = their id, in one statement."
   - "RELEASE NEVER EMPTIES. A release that would leave the awaiting slot without JSON changes nothing and returns false."
 
 facts:
@@ -18,41 +18,44 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:78-80,82-85,89-94"
   - claim: "DecideAsync returns Refused (shape refusal or sink refusal after release) or Replaced without touching the stored decision."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:38-49,65-86"
-  - claim: "The dashboard treats any later user or decision entry as answering the open card, so a re-draft after it gets a new card; the stored turn's Decision decides whether it renders as a decision entry."
-    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:807-820 (withCard)"
-  - claim: "ClaimAsync writes ConfirmedOutcomeJson unconditionally; ReleaseAsync copies ConfirmedOutcomeJson back into the awaiting slot."
+  - claim: "ClaimAsync writes ConfirmedOutcomeJson; ReleaseAsync copies ConfirmedOutcomeJson back into the awaiting slot."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogProposalClaim.cs:59-70,74-80"
-  - claim: "ClearConfirmedAsync clears ConfirmedOutcomeJson of the open session regardless of which proposal it holds."
+  - claim: "The sink writes ConfirmedOutcomeJson again after the claim, unconditionally, so a slow filing A overwrites B's JSON."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-48"
+  - claim: "ClearConfirmedAsync loads the open session and nulls ConfirmedOutcomeJson whatever proposal it holds."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:33-39"
-
-assumptions:
-  - "Two filings can overlap on one conversation only across replicas or across a turn proposed while a slow filing runs; the window is narrow but multi-replica is a requirement."
+  - claim: "SpecDialogRouter is at 120 lines and SpecDialogProposalClaim at 119."
+    evidence: "wc -l on origin/main 5b813b120"
 
 scope:
-  in: "The router undecides the stored turn on every DecideAsync result other than Decided (click path included). The session gains ConfirmedProposalId, written with ConfirmedOutcomeJson by ClaimAsync; ClearConfirmed and Release take the id and match on it; Release also requires ConfirmedOutcomeJson not null. Additive nullable column in all three migration sets."
-  out: "Exactly-once and resumable filing (2026-11-10-825f)."
+  in: "A decision-result handler (out of the router) takes back the stored decision on every result but Decided, on the click and the typed path. The session gains ConfirmedProposalId. A confirmed-slot repository (out of SpecDialogProposalClaim) holds the slot's compare-and-sets: the claim writes JSON and id together; ClearConfirmed(id) and Release(id) are single ExecuteUpdate statements WHERE ConfirmedProposalId = id, Release also requiring the JSON. The sink's SetConfirmedAsync call after the claim is deleted (the claim already wrote it). Additive nullable column in all three migration sets."
+  out: "There is still one confirmed slot: B's claim replaces A's durable copy while A files, so a crash of A's filing loses what A was filing — exactly-once and resumable filing is 2026-11-10-825f. During a rolling deploy an old-build claim writes no ConfirmedProposalId; such a slot is cleared or released by nobody new and waits for 825f's resume or a later claim."
 
 decisions:
-  - "Undecide after the fact, not decide-later at admission: the transcript must hold the person's message even when the server dies mid-decision; the decision field is what changes."
+  - "Undecide after the fact, not decide-later at admission: the transcript must hold the person's message even when the server dies mid-decision; the decision field is what changes, and the view reads it against the proposal's state."
+  - "Delete the sink's second write rather than make it a CAS: the claim is the one writer, and two writers of one slot is the defect."
   - "proposed: a column, not an id embedded in the JSON — the compare-and-set needs it in the WHERE clause on all three providers."
 
 steps:
+  - id: split
+    action: "Move the decision-result handling out of SpecDialogRouter and the confirmed-slot statements out of SpecDialogProposalClaim into their own types (both files are at the cap)."
   - id: undecide
-    action: "SpecDialogRouter calls admission.UndecideAsync for Refused, Replaced and No on both decision paths."
+    action: "The decision-result handler undecides on Refused, Replaced and No."
   - id: column
-    action: "SpecDialogSession.ConfirmedProposalId; three migrations; ClaimAsync sets it; ClearConfirmedAsync(id) and ReleaseAsync(id) match it."
+    action: "SpecDialogSession.ConfirmedProposalId; three migrations; claim, clear and release by id; delete TicketFilingOutcomeSink.cs:47-48."
   - id: tests
     action: "Pin both invariants, the two-filing chain on real SQLite."
 
 tests:
   - "Decision_ClickOnReplacedCard_StoredTurnHasNoDecision"
   - "Decision_SinkRefusesAfterClaim_StoredTurnHasNoDecision"
-  - "Claim_SecondFilingCompletes_FirstFilingsConfirmedJsonUntouched"
+  - "Claim_FirstFilingCompletesAfterSecondClaim_SecondFilingsConfirmedJsonUntouched"
   - "Release_ConfirmedJsonCleared_ChangesNothing"
+  - "Sink_AfterClaim_DoesNotWriteConfirmedJson"
 
 done:
   - when: "a person clicks Approve on a card a newer proposal replaced"
-    then: "the transcript's last user turn carries no decision, and the ticket page and conversation view show no 'approved' entry for it"
+    then: "the transcript's last user turn carries no decision"
   - when: "proposal A is filing, B is claimed, and A's filing completes"
     then: "B's ConfirmedOutcomeJson is unchanged, and B's refused filing returns B to awaiting with its JSON"
-  - "Build green, full suite and dashboard tests green."
+  - "Build green, full suite green."
