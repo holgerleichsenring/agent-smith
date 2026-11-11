@@ -31,7 +31,7 @@ public sealed class RunLivenessRepository(IUnitOfWork unitOfWork)
         TimeSpan staleAfter, DateTimeOffset now, CancellationToken ct)
     {
         var running = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt == null && !r.CancelRequested && r.Status == "running")
+            .Where(r => r.FinishedAt == null && !r.CancelRequested && r.Status == RunStatuses.Running)
             .ToListAsync(ct);
         return running.Where(r => now - LastSignOfLife(r) > staleAfter).ToList();
     }
@@ -64,6 +64,16 @@ public sealed class RunLivenessRepository(IUnitOfWork unitOfWork)
             .ToListAsync(ct);
         return unparked.Where(r => now - LastSignOfLife(r) <= freshFor).Select(r => r.Id).ToList();
     }
+
+    /// <summary>
+    /// 2026-11-11-205ff: which of <paramref name="runIds"/> are still driven by their row — running, queued or parked.
+    /// Read from the row, never from a process, so every replica answers alike; a row the reaper marked is not live.
+    /// </summary>
+    public async Task<IReadOnlySet<string>> LiveAsync(IReadOnlyCollection<string> runIds, CancellationToken ct) =>
+        runIds.Count == 0 ? new HashSet<string>() : (await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => runIds.Contains(r.Id) && r.FinishedAt == null
+                && (r.Status == RunStatuses.Running || r.Status == RunStatuses.Queued || r.Status == RunStatuses.WaitingForInput))
+            .Select(r => r.Id).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
 
     private static DateTimeOffset LastSignOfLife(Run run) =>
         run.HeartbeatAt is { } beat && beat > run.StartedAt ? beat : run.StartedAt;

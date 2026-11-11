@@ -43,17 +43,13 @@ public sealed class SpawnAgentToolHost : IToolHost
     {
         _ = phase;
         _ = investigatorMode;
-        return [AIFunctionFactory.Create(SpawnAgents, name: "spawn_agents")];
+        // 2026-11-11-205fj: a design turn's context carries its child ceiling; its budget is the turn's own count.
+        var description = _context.ChildIterationCeiling is { } rounds
+            ? SpawnAgentsDescription.Design(_budget.MaxPerRun, rounds)
+            : SpawnAgentsDescription.Run;
+        return [AIFunctionFactory.Create(SpawnAgents, name: "spawn_agents", description: description)];
     }
 
-    [Description(
-        "Runs sub-agents in parallel, each in a fresh context, and returns when all have finished. Each task needs a " +
-        "descriptive name (a role, not 'agent1' or 'worker' — generic names are refused), a one-line activity, the " +
-        "task description, and the inherited context: the goal and the slice of what you know that the child needs, " +
-        "because it sees nothing else of your conversation. A child works in your checkouts with the base file and " +
-        "command tools — only the read tools in a design conversation — and none of your run's progress, verdict, gate " +
-        "or spawn tools. The result lists per child its status, id, tool calls, cost and its whole answer; a child is told " +
-        "what a good answer holds, and only a runaway past " + SubAgentAnswer.CeilingText + " characters is cut, saying so first.")]
     public async Task<string> SpawnAgents(
         [Description("Array of task objects: name, activity, task_description, " +
                      "optional output_hint, inherited_context " +

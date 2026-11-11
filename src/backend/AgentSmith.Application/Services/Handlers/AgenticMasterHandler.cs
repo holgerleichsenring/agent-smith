@@ -299,8 +299,8 @@ public sealed class AgenticMasterHandler(
 
         // p0356: the probed toolchain inventory enters the CODING master's system
         // prompt as a capability statement — per-run stable, so the automatic
-        // prompt-cache anchoring is unaffected. Scan masters review read-only and
-        // spec-dialog turns run no commands; neither is probed.
+        // prompt-cache anchoring is unaffected. Scan masters review read-only and a
+        // spec-dialog turn runs commands only in a throwaway work clone; neither is probed.
         if (!isScanMaster && !isSpecDialog)
         {
             var toolchainSection = await toolchainProbe.ProbeAsync(
@@ -309,7 +309,7 @@ public sealed class AgenticMasterHandler(
         }
         // 2026-09-13-ed5a: over the ADDRESSES, so the spec dialog — which seeds its
         // templates into the sandbox map this list is read from — gets the same section.
-        masterBody += templates.Section(allAddresses) + ReferencePromptSection.Build(allAddresses, sandboxes) // + 283dc, 075dd
+        masterBody += templates.Section(allAddresses) + ReferencePromptSection.Build(allAddresses) // + 283dc; 205fi: notes per turn
             + DesignSystemPromptSection.Render(context.Pipeline) // 2026-10-01-283dg
             + ReferencePromptSection.Carried(context.Pipeline, allAddresses.Count > 1); // 2026-10-01-283df
 

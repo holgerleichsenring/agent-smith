@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fj
+goal: "spawn_agents describes itself per surface: a design turn reads how many children it may start and how many rounds each gets, from configuration, without coding-run vocabulary."
+
+# Series letter appended in the same drafting session as a..h, before anything left the branch.
+
+applies_to: "default (Application: SpawnAgentToolHost and the design surface that builds it)"
+
+repos_touched: [agent-smith]
+
+invariants:
+  - "NUMBERS FROM CONFIGURATION. The design surface's description renders MaxSubAgentsPerDialogTurn and MaxDialogSubAgentLoopIterations as configured; no number is a literal in the text."
+  - "ONE VOCABULARY PER SURFACE. The design variant names no progress, verdict or gate tools; the coding variant's text is unchanged."
+
+facts:
+  - claim: "The description is one static attribute for every surface, names coding-run tools and states no count."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:49-56"
+  - claim: "A design turn may start 4 children, each up to 20 tool rounds, by default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:56,68"
+  - claim: "The design master does not cite spawn-budget."
+    evidence: "observed: agent-smith-skills v5.27.1 spawn-budget is cited by six masters, not design-partner-master, 2026-11-11"
+
+scope:
+  in: "SpawnAgentToolHost builds its description per surface (AIFunctionFactory with a description string): the design variant says children read only, names the per-turn count and rounds from LoopLimitsConfig, and keeps the whole-answer sentence."
+  out: "Citing spawn-budget from the design skill (its run-wide 20 does not apply to a turn)."
+
+decisions:
+  - "Composed from configuration rather than a second static attribute, so the numbers cannot drift from what the gate enforces."
+
+steps:
+  - id: describe
+    action: "SpawnAgentToolHost takes the surface and LoopLimitsConfig and composes the description."
+  - id: tests
+    action: "Pin both variants."
+
+tests:
+  - "SpawnAgents_DesignSurface_StatesConfiguredCountAndRounds"
+  - "SpawnAgents_CodingSurface_DescriptionUnchanged"
+
+done:
+  - "At default configuration the design spawn_agents description names 4 children and 20 rounds and none of 'progress', 'verdict', 'gate'."
+  - "With MaxSubAgentsPerDialogTurn set to 2 the description names 2."
+  - "Build green, full suite green."

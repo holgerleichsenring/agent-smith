@@ -23,13 +23,14 @@ public sealed class WorkPictureSurfaceTests
     {
         var slot = new SpecDialogReplySlot();
 
-        var answer = await Invoke(slot, kind, "the handover upload; repo-a is scaffolding", size);
+        var answer = await Invoke(slot, kind, "the handover upload; repo-a is scaffolding", size, effort: "large");
         var corrected = await Invoke(slot, "feature", "repo-a", "one-spec");
 
         answer.Should().Be(WorkPictureToolHost.Stored);
         corrected.Should().Be("Stored. State it in one line of your reply.");
-        slot.WorkPicture.Should().Be(new WorkPicture(UndertakingKind.Feature, "repo-a", UndertakingSize.OneSpec),
-            "the last admitted call of a turn wins");
+        slot.WorkPicture.Should().Be(
+            new WorkPicture(UndertakingKind.Feature, "repo-a", UndertakingSize.OneSpec, ComplexityTier.Large),
+            "the last admitted call of a turn wins, keeping the turn's higher effort (548f)");
     }
 
     [Fact]
@@ -83,9 +84,10 @@ public sealed class WorkPictureSurfaceTests
             .NotContain(WorkPictureToolHost.Name).And.Contain(NameConversationToolHost.Name);
     }
 
-    private static async Task<string> Invoke(SpecDialogReplySlot slot, string kind, string truth, string size) =>
+    private static async Task<string> Invoke(
+        SpecDialogReplySlot slot, string kind, string truth, string size, string? effort = null) =>
         (await new WorkPictureToolHost(slot).GetTools(null, null).Single().InvokeAsync(
-            new AIFunctionArguments { ["kind"] = kind, ["truth"] = truth, ["size"] = size }))!.ToString()!;
+            new AIFunctionArguments { ["kind"] = kind, ["truth"] = truth, ["size"] = size, ["effort"] = effort }))!.ToString()!;
 
     private static AgenticMasterContext Context() => new(
         "design-partner-master", new Repository(new BranchName("main"), "/tmp"), string.Empty,

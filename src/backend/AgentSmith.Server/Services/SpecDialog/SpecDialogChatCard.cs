@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// 2026-11-10-ccd9: the approval card a chat thread is shown — posted once, never waited on. Its question id
 /// IS the proposal id, so a click names the card it was made on; the thread's posted id and time are written
 /// only after the post succeeded, which is what a typed answer in that thread binds to.
+/// 2026-11-11-205fh: the time is the platform's own (Slack's ts), never the server's; a post that failed clears the binding.
 /// </summary>
 public sealed class SpecDialogChatCard(
     ChatThreadAdapters threads, SpecDialogMessenger messenger, SpecDialogOutcomeComposer composer,
@@ -30,16 +32,17 @@ public sealed class SpecDialogChatCard(
             await messenger.AskQuestionAsync(state.Platform, state.ChannelId, state.ThreadId!, question, ct);
             return;
         }
+        PostedMessage? posted;
         try
         {
-            if (!await threads.TryPostQuestionAsync(new ChatThread(state.Platform, state.ChannelId, state.ThreadId, state.UserId), question, ct))
-                return;
+            posted = await threads.TryPostQuestionAsync(new ChatThread(state.Platform, state.ChannelId, state.ThreadId, state.UserId), question, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "The approval card of {SessionId} was not posted — typed answers keep the earlier card", state.JobId);
-            return;
+            logger.LogWarning(ex, "The approval card of {SessionId} was not posted — the thread binds no card until it is", state.JobId);
+            posted = null;
         }
-        await proposals.PostedAsync(state, id, DateTimeOffset.UtcNow, ct);
+        // 2026-11-11-205fh: the platform's own time, or none (Teams); a failed post leaves the thread bound to no card.
+        await proposals.PostedAsync(state, posted is null ? null : id, posted?.At, ct);
     }
 }

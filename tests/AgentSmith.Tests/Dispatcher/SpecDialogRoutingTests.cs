@@ -164,7 +164,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2), "the note is a message, and a message runs a turn");
         _outcomeSink.Verify(s2 => s2.AcceptAsync(
-                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()),
             Times.Never, "nothing is filed without an approve");
         (await _harness.Outcomes.ReadAsync(Platform, "th-edit", CancellationToken.None)).ProposalId
             .Should().NotBeNull("an answer turn leaves the proposal awaiting");
@@ -185,7 +185,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
             Times.Once, "a decision runs no turn");
         _outcomeSink.Verify(s2 => s2.AcceptAsync(
-                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true, It.IsAny<CancellationToken>()),
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true, It.IsAny<CancellationToken>(), It.IsAny<string?>()),
             Times.Once, "the decider's own right to start runs goes with the filing");
     }
 
@@ -200,7 +200,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
         await _router.TryRouteAsync("approve", "U1", Channel, "th-old", Platform, true, CancellationToken.None, proposalId: "gone");
 
         _outcomeSink.Verify(s2 => s2.AcceptAsync(
-                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()),
             Times.Never);
         var state = await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None);
         state!.Transcript.Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text.Contains("replaced"));

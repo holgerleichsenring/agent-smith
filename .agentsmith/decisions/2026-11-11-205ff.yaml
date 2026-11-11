@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205ff
+
+decisions:
+  - category: Architecture
+    chose: "SpecDialogTurnProposals splits every stored row no kept turn carries by its run row: a live run (running, queued or parked, unfinished) is RunningProposal — the one named RunningRunId first, else the latest — and every other is an InterruptedTurns entry"
+    over: "Deciding from the in-process SpecDialogTurnGate, or keeping a run-id history column"
+    reason: "Another replica cannot see the gate; the run row is what every replica reads alike. The store already holds every row, so the defect was only the view's filter."
+  - category: Implementation
+    chose: "RunLivenessRepository.LiveAsync reads the statuses of the orphans' runs in one query; RunStatuses gains the Running constant the liveness reads now share"
+    over: "A new repository, or a literal 'running'"
+    reason: "Liveness of a run row is that repository's subject; the constant was spelled as a literal in several places."
+  - category: Implementation
+    chose: "The store's read returns each row's last write time (SpecDialogTurnProposalRead) and the view orders interrupted turns by it"
+    over: "Ordering by run id"
+    reason: "A run id says nothing about when the turn happened; the row's own time places it between the transcript entries."
+  - category: Implementation
+    chose: "InterruptedTurns is a separate list on SpecDialogSessionView with its own record, mirrored by hand in src/dashboard/src/types/spec-dialog.ts; the page inserts each at its time as an agent entry flagged interrupted, whose TurnResult summary says the turn stopped before it finished"
+    over: "A transcript kind"
+    reason: "A transcript turn is what someone said; an interrupted turn said nothing. The dashboard's session types are hand-kept (the openapi output is generated at build and not committed)."
+  - category: Testing
+    chose: "The crash case sets the run row to failed directly, as the reaper would; the other-replica case keeps it running with computing false"
+    over: "Driving the reaper"
+    reason: "Until the reaper marks a dead run its row still reads as live, which the spec states; the test pins the rule, not the reaper's timing."
+  - category: Implementation
+    chose: "Review fix: a capacity refusal ends a design turn failed, not queued — PipelinePresets.WaitsForCapacity is false for a derivation and for a preset that needs host context; LiveAsync keeps counting queued and parked rows as live"
+    over: "Dropping queued from LiveAsync for this view"
+    reason: "'queued' promises a relaunch, and nothing relaunches a person-started design turn, so its row stayed queued forever and hid its draft as running. Fixing the status at its source keeps ONE liveness rule: a row is live while something drives it."
+  - category: Implementation
+    chose: "Review fix: orphans are classified by their run row alone — the newest live one (the conversation's running run first) is RunningProposal, every other one is listed with Running = live, and the dashboard says 'still running' or 'stopped before it finished'"
+    over: "Listing every live orphan but one as interrupted"
+    reason: "The turn gate is per process, so two replicas can each run a turn of one conversation; the page said the other replica's live turn had stopped."

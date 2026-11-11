@@ -27,7 +27,7 @@ public sealed class SpecDialogRouter(
     SpecDialogCommandHandler commandHandler,
     ISpecDialogTurnRunner turnRunner,
     SpecDialogOutcomeFlow outcomeFlow,
-    SpecDialogDecisionPath decisions,
+    SpecDialogDecisionOutcome decisions, // 2026-11-11-205fe: undecides what it did not decide
     SpecDialogTurnGate turnGate,
     SpecDialogAnswerAdmission admission,
     SpecDialogTurnKeeper keeper,
@@ -72,12 +72,12 @@ public sealed class SpecDialogRouter(
         if (threadId is null) return SpecDialogRouted.No;
         // Stored first, whatever happens next: a live question takes it as the answer, a busy gate
         // still keeps it in the transcript.
-        var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct, author);
+        var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct, author, proposalId);
         if (admitted is null) return SpecDialogRouted.No;
         if (admitted.Answered) return SpecDialogRouted.Handled;
         var state = admitted.State;
         if (admitted.Decision is { } named && proposalId is not null)
-            return Of(await decisions.DecideAsync(state, named, proposalId, poster.MayStartRuns, ct));
+            return SpecDialogDecisionOutcome.Routed(await decisions.DecideAsync(state, named, proposalId, poster.MayStartRuns, ct));
 
         if (!turnGate.TryEnter(state.JobId))
         {
@@ -90,7 +90,7 @@ public sealed class SpecDialogRouter(
             if (admitted.Decision is { } decision
                 && await decisions.DecideAsync(state, decision, null, poster.MayStartRuns, ct, sentAt) is var typed
                 && typed != SpecDialogDecided.No)
-                return Of(typed);
+                return SpecDialogDecisionOutcome.Routed(typed);
             if (admitted.Decision is not null) state = await admission.UndecideAsync(state, ct);
             await RunTurnAsync(state, channelId, threadId, platform, poster, ct);
         }
@@ -102,9 +102,6 @@ public sealed class SpecDialogRouter(
         await keeper.FoldAsync(state, ct);
         return SpecDialogRouted.Handled;
     }
-
-    private static SpecDialogRouted Of(SpecDialogDecided decided) =>
-        decided == SpecDialogDecided.Decided ? SpecDialogRouted.Decided : SpecDialogRouted.Handled;
 
     private async Task RunTurnAsync(
         ConversationState state, string channelId, string threadId, string platform, TurnPoster poster, CancellationToken ct)

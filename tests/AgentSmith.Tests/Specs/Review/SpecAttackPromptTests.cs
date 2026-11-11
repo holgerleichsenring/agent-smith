@@ -19,6 +19,14 @@ public sealed class SpecAttackPromptTests
         SpecAttackPrompt.For(Input(), Look()).Should().Contain(PluginBrief).And.Contain(Yaml.TrimEnd());
     }
 
+    /// <summary>2026-11-11-205fd: every reviewer is told, right after the brief, that it reads and cannot run.</summary>
+    [Fact]
+    public void SpecAttackPrompt_Brief_IsFollowedByTheReadOnlyLine()
+    {
+        SpecAttackPrompt.For(Input(), Look()).Should().Contain(PluginBrief + " " + SpecAttackPrompt.ReadOnlyLine);
+        SpecAttackPrompt.For(Input() with { Proposal = true }, Look()).Should().Contain(SpecAttackPrompt.ReadOnlyLine);
+    }
+
     /// <summary>2026-11-10-14a3g: a design turn's reviewer judges the cut; a run's reviewer is asked as before.</summary>
     [Fact]
     public void SpecAttackPrompt_ProposalScope_AsksTheThreeJudgementQuestions()
@@ -69,7 +77,7 @@ public sealed class SpecAttackPromptTests
     {
         var prompt = SpecAttackPrompt.For(AttackReviewFixtures.Input(), null);
 
-        prompt.Should().Contain(SpecAttackPrompt.Brief + "\n\n" + SpecAttackPrompt.DecidabilityLens);
+        prompt.Should().Contain(SpecAttackPrompt.Brief + " " + SpecAttackPrompt.ReadOnlyLine + "\n\n" + SpecAttackPrompt.DecidabilityLens);
         SpecAttackPrompt.DecidabilityLens.Should().Contain("can the agent make it true by working")
             .And.Contain("can it see that it is true");
     }

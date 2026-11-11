@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fa
+
+decisions:
+  - category: Implementation
+    chose: "The formats take the server's top-level repos key; SpecReposRule and DialogDraftRepos stay as they are"
+    over: "Teaching the server to read repositories from scope prose"
+    reason: "Every derivation and run already reads repos, and the schema declares it; the format was the one text that disagreed."
+  - category: Implementation
+    chose: "The skills pin moves to v5.28.0 in this spec's commit, which carries the whole series' skills half; the pinned-text tests that quoted v5.27.1 wording (epic done rule, question rule, work picture, upload coverage) move to the new wording here"
+    over: "One pin bump per spec"
+    reason: "One release carries a, b, c, d and i; the suite has to be green at this commit, so the wording tests follow the pin that changed them. Spec b and i add their own tests in their commits."
+  - category: Testing
+    chose: "OutcomeFormat_SpecAndEpic_ShowTheReposKey reads the pinned references through PackagedMaster"
+    over: "Calling the outcome_format tool host"
+    reason: "outcome_format serves the same reference by slug; the packaged read is what every pinned-text test uses."

@@ -55,14 +55,63 @@ public sealed class ProjectMemoryRepositoryTests : IDisposable
             .Should().Be((ProjectMemorySourceKinds.Conversation, "conv-7", "3", "Holger"));
     }
 
+    /// <summary>2026-11-11-205fg: two writers on separate connections both read "no row" before either saves; the second
+    /// save hits the unique index and takes the retry, so one row stands with the newest value.</summary>
     [Fact]
-    public async Task ProjectMemoryRepository_ConcurrentUpsertSameSlug_OneRowNewestWins()
+    public async Task ProjectMemoryRepository_TwoContextsBothSeeNoRow_OneRowNewestWinsRetryTaken()
     {
-        var id = AddProject("sample");
-        await Task.WhenAll(Enumerable.Range(0, 4).Select(i => Repo.UpsertAsync(id, Record("x", $"v{i}"), default)));
-        await Repo.UpsertAsync(id, Record("x", "last"), default);
+        ServerStateStore? disk = null;
+        var armed = true;
+        disk = new ServerStateStore(onDisk: true, unitOfWork: db =>
+        {
+            db.SavingChanges += (_, _) =>
+            {
+                if (!armed) return;
+                armed = false;
+                // The other writer: it read no row too, and saves first on a connection of its own.
+                using var other = disk!.Context();
+                other.Set<ProjectMemory>().Add(new ProjectMemory
+                {
+                    ProjectId = ProjectOf(other), Slug = "x", Type = "feedback", Description = "other", Body = "b",
+                    SourceKind = ProjectMemorySourceKinds.Run, SourceId = "run-1",
+                });
+                other.SaveChanges();
+            };
+            return db;
+        });
+        using (disk)
+        {
+            long id;
+            using (var db = disk.Context())
+            {
+                db.ConfigEntities.Add(new ConfigEntity { EntityType = UnmovedTicketRepository.ProjectDocType, EntityId = "sample", Doc = "{}", Version = 1 });
+                armed = false;
+                db.SaveChanges();
+                id = db.ConfigEntities.Single().Id;
+            }
+            armed = true;
+            var unique = new CountingUnique();
 
-        (await Repo.ListAsync(id, default)).Should().ContainSingle().Which.Description.Should().Be("last");
+            await new ProjectMemoryRepository(disk.ScopeFactory, unique).UpsertAsync(id, Record("x", "newest"), default);
+
+            unique.Violations.Should().Be(1, "the second save hit the unique index and the retry ran");
+            (await new ProjectMemoryRepository(disk.ScopeFactory, unique).ListAsync(id, default))
+                .Should().ContainSingle().Which.Description.Should().Be("newest");
+        }
+    }
+
+    private static long ProjectOf(AgentSmith.Infrastructure.Persistence.AgentSmithDbContext db) => db.ConfigEntities.Single().Id;
+
+    private sealed class CountingUnique : AgentSmith.Infrastructure.Persistence.Contracts.IUniqueViolationTranslator
+    {
+        public int Violations { get; private set; }
+
+        public bool IsUniqueViolation(Exception exception)
+        {
+            var hit = new SqliteUniqueViolationTranslator().IsUniqueViolation(exception);
+            if (hit) Violations++;
+            return hit;
+        }
     }
 
     [Fact]

@@ -40,9 +40,14 @@ public sealed class ProjectMemoryWriteToolHost(MemorySources sources, PipelineCo
         if (await sources.ProjectAsync(pipeline, ct) is not { } project)
             return "Not recorded: this project has no store for memories here.";
         var entry = new MemoryEntry(slug, description.Trim(), entryType, body.Trim());
-        var record = new ProjectMemoryRecord(slug, type, entry.Description, entry.Body, string.Empty, string.Empty, null, null);
-        if (ProjectMemoryLimits.Refusal(record) is { } refusal) return $"Not recorded: {refusal}.";
-        await project.Store.UpsertAsync(entry, ct, Provenance());
+        try
+        {
+            await project.Store.UpsertAsync(entry, ct, Provenance());
+        }
+        catch (ProjectMemoryRefusedException refused) // 2026-11-11-205fg: the store's one check, with the author set
+        {
+            return $"Not recorded: {refused.Reason}.";
+        }
         return $"Memory '{slug}' kept on the project ({MemoryEntryTypes.ToSlug(entryType)}), with this conversation " +
                "as its source.";
     }

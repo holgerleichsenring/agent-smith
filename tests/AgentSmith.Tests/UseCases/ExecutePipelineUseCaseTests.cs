@@ -264,9 +264,11 @@ public class ExecutePipelineUseCaseTests
     }
 
     // 2026-10-26-bdd0b: a queued derivation would come back through the ticket claim, which writes the tracker,
-    // so a capacity rejection ends it failed; the person derives again.
-    [Fact]
-    public async Task SpecDerive_CapacityRejected_EndsFailedNotQueued()
+    // so a capacity rejection ends it failed; the person derives again. 205ff review: nothing relaunches a design turn.
+    [Theory]
+    [InlineData(PipelinePresets.SpecDeriveName)]
+    [InlineData(PipelinePresets.SpecDialogName)]
+    public async Task PersonStartedRun_CapacityRejected_EndsFailedNotQueued(string pipeline)
     {
         var config = new AgentSmithConfig
         {
@@ -283,7 +285,7 @@ public class ExecutePipelineUseCaseTests
             .ThrowsAsync(new CapacityExhaustedException("agentsmith", "requests.cpu", "exceeded quota: compute"));
 
         var act = () => _sut.ExecuteAsync(
-            new PipelineRequest("todo-list", PipelinePresets.SpecDeriveName, new TicketId("7")), "config.yml", CancellationToken.None);
+            new PipelineRequest("todo-list", pipeline, new TicketId("7")), "config.yml", CancellationToken.None);
 
         await act.Should().ThrowAsync<CapacityExhaustedException>();
         _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single().Status.Should().Be("failed");

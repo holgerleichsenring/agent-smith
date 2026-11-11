@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fh
+goal: "A typed decision in Slack is bound by Slack's own time of the posted card, Teams decides by buttons only, and a card that failed to post is posted again instead of decisions becoming turns."
+
+applies_to: "default (Server: IChatThreadAdapter, SlackThreadAdapter, TeamsThreadAdapter, ChatThreadAdapters, SpecDialogChatCard, SpecDialogDecisionPath)"
+
+requires: [2026-11-11-205fe]
+
+repos_touched: [agent-smith]
+
+invariants:
+  - "ONE CLOCK OR NONE. PostedAt is the platform's own time of the posted card or null. A null PostedAt means no typed binding: the card's buttons decide. The server clock is never compared with a platform clock."
+  - "TEAMS BINDS BY BUTTONS. Teams returns no time for a sent activity, so a typed word in Teams never decides a card."
+  - "SEEN OR SAID. A typed decision word in Slack while a proposal awaits either decides the card the thread was shown or gets that card (re)posted with a line saying so; it never becomes an ordinary model turn because a post failed."
+
+facts:
+  - claim: "PostedAt is the server's UtcNow after the post; the typed path compares it with the platform's sentAt."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogChatCard.cs:43; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:51-58"
+  - claim: "A failed post is logged and swallowed; PostedAt stays at the older card, and a later agent reply makes every typed word undecided."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogChatCard.cs:33-42; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:56"
+  - claim: "The adapters' PostQuestionAsync returns no platform id or time."
+    evidence: "src/backend/AgentSmith.Server/Contracts/IChatThreadAdapter.cs:22; src/backend/AgentSmith.Server/Services/Adapters/SlackThreadAdapter.cs:24-31; src/backend/AgentSmith.Server/Services/Adapters/TeamsThreadAdapter.cs:26-29; src/backend/AgentSmith.Server/Services/Adapters/ChatThreadAdapters.cs:30-35"
+
+assumptions:
+  - "Slack chat.postMessage returns the posted message's ts."
+
+scope:
+  in: "PostQuestionAsync returns PostedMessage(id, At?) — Slack sets At from ts, Teams leaves it null. SpecDialogChatCard stores that At as PostedAt. A failed post clears PostedProposalId; a typed decision word in Slack with an awaiting proposal not shown reposts the card with a notice and returns Replaced (the undecide of 205fe takes the word's decision back)."
+  out: "Dashboard binding (by card id, unchanged). Two orders remain: a failed clear of PostedProposalId after a failed post leaves the earlier binding, and a replica dying between the post and SetPostedAsync leaves a shown card unbound, so the next typed word posts a duplicate card. Both end in a card the buttons decide."
+
+decisions:
+  - "Teams by buttons only, settled now: the Bot Framework send response carries an id but no time, and reading the activity back is a second call per card for a convenience."
+  - "proposed: the repost answers the typed word instead of running a model turn — the person meant to decide, and a model turn on 'approve' costs money and decides nothing."
+
+steps:
+  - id: adapters
+    action: "IChatThreadAdapter.PostQuestionAsync returns PostedMessage(id, At?); Slack reads ts; Teams returns At null."
+  - id: card
+    action: "SpecDialogChatCard stores the platform time; a failed post clears PostedProposalId."
+  - id: path
+    action: "DecisionPath: null PostedAt → no typed binding; Slack typed decision with an awaiting proposal not shown → repost + notice, returns Replaced."
+  - id: tests
+    action: "Pin the clock, Teams, and the repost."
+
+tests:
+  - "TypedApprove_ServerClockAheadOfSlack_StillDecides"
+  - "TypedApprove_Teams_DecidesNothing"
+  - "TypedApprove_CardPostFailed_RepostsTheCardAndRunsNoTurn"
+
+done:
+  - when: "the server clock runs 10 s ahead of Slack and a person types 'approve' after the card"
+    then: "the proposal is decided"
+  - when: "a person types 'approve' in Teams below the card"
+    then: "nothing is decided and the card's buttons still decide"
+  - when: "the Slack card post failed and a person types 'approve'"
+    then: "the card is posted again with a notice and no model turn runs"
+  - "Build green, full suite green."

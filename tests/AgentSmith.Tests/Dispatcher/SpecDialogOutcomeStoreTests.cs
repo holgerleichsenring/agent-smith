@@ -62,7 +62,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var spec = new SpecOutcome(new SpecDraft(
             "p9999", "Widget endpoint", "spec: p9999\ngoal: \"Widget endpoint\"", []));
 
-        await sink.AcceptAsync(state, spec, false, CancellationToken.None);
+        await sink.AcceptAsync(state, spec, false, CancellationToken.None, await ClaimedAsync("th-1", spec));
 
         provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}a: Widget endpoint$");
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
@@ -86,7 +86,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var state = await OpenSessionAsync("th-2");
         var bug = new BugOutcome(new BugTicketDraft("Fix the null deref", "AppendTurnAsync NREs.", null));
 
-        await sink.AcceptAsync(state, bug, false, CancellationToken.None);
+        await sink.AcceptAsync(state, bug, false, CancellationToken.None, await ClaimedAsync("th-2", bug));
 
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-2", CancellationToken.None);
         session!.ConfirmedOutcomeJson.Should().NotBeNull(
@@ -118,7 +118,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             Templates = [new TemplateProvenance("template:default", "reference-server", "a1b2c3d", true)],
         };
 
-        await sink.AcceptAsync(state, epic, false, CancellationToken.None);
+        await sink.AcceptAsync(state, epic, false, CancellationToken.None, await ClaimedAsync("th-3", epic));
 
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-3", CancellationToken.None);
         var restored = OutcomeProposalJson.Read(session!.ConfirmedOutcomeJson!);
@@ -127,15 +127,24 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task SetConfirmedAsync_NoOpenSession_FailsLoudly()
+    public async Task Sink_AfterClaim_DoesNotWriteConfirmedJson()
     {
-        var store = new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance);
-        var act = () => store.SetConfirmedAsync(
-            Platform, "th-none", new SpecOutcome(new SpecDraft("p1", "g", "spec: p1", [])),
-            CancellationToken.None);
+        var sink = BuildSink(new RecordingProvider { FailWith = "tracker down" });
+        var state = await OpenSessionAsync("th-4");
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*th-none*");
+        await sink.AcceptAsync(state, new BugOutcome(new BugTicketDraft("Fix it", "It breaks.", null)), false, CancellationToken.None);
+
+        var session = await _repository.GetOpenByThreadAsync(Platform, "th-4", CancellationToken.None);
+        session!.ConfirmedOutcomeJson.Should().BeNull("the claim is the one writer of the confirmed slot (205fe)");
+    }
+
+    // 2026-11-11-205fe: the claim is the one writer of the confirmed slot; the sink clears only its own proposal's.
+    private async Task<string> ClaimedAsync(string threadId, OutcomeProposal proposal)
+    {
+        var claim = new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim(_context);
+        var (id, _) = await claim.SetAwaitingAsync(Platform, threadId, OutcomeProposalJson.Write(proposal), CancellationToken.None);
+        (await claim.ClaimAsync(Platform, threadId, id, CancellationToken.None)).Should().NotBeNull();
+        return id;
     }
 
     private TicketFilingOutcomeSink BuildSink(RecordingProvider provider)
@@ -157,7 +166,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
-            new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
+            new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot(new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim(_context)),
             filer, new AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig().Filer(), TestSupport.Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

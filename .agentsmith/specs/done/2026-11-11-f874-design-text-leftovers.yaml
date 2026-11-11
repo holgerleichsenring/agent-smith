@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-f874
+goal: "The design master's format and bound-ticket section drop run-time lore and a scripted first reply, keeping only facts that carry an invariant."
+
+applies_to: "default (skills: references/design-outcome-spec.md, skills/_masters/design-partner-master/SKILL.md; server: the skills pin)"
+
+repos_touched: [agent-smith-skills, agent-smith]
+
+# Follows 2026-11-11-205fd: Fable prompt-review items 7 and 8 that skills v5.28.0 left in place.
+
+invariants:
+  - "FORMAT ON DRAFTING. references/design-outcome-spec.md tells the drafter what the re-check does to its facts and assumptions; how a run later corrects a spec is not drafting knowledge."
+  - "SITUATION NOT SCRIPT. The bound-ticket section states what the person wants to know and what each approvable outcome does; it does not order the replies."
+  - "KEPT FACTS. Approving a spec or epic writes the specification below the person's text in the ticket description, records it on the ticket branch and may start the work; approving a comment posts it and starts nothing; a bug files its own fix-bug ticket. These are effects of approval the model cannot see from its tools."
+  - "ORDER. No section moves (prompt caching)."
+
+steps:
+  - id: format
+    repo: agent-smith-skills
+    do: "references/design-outcome-spec.md (v5.28.0:63-67) keeps 'A claim of either kind that the code contradicts stops the spec before it spends a token.' and drops 'the run never rewrites the spec, so the correction is made where the specifications live (on the ticket branch, under .agentsmith/), and a spec that already ran is never edited.'"
+  - id: bound
+    repo: agent-smith-skills
+    do: "skills/_masters/design-partner-master/SKILL.md, 'A conversation bound to a ticket' (v5.28.0:239-257): replace 'Your first reply is an answer ... Then it ends in one of two ways, in that reply or once the gaps it names are settled' with the situation (what the person wants to know) and the two approvable outcomes with their effects (KEPT FACTS)."
+  - id: release
+    repo: agent-smith-skills
+    do: "A fix PR, then release-please to v5.28.1."
+  - id: pin
+    repo: agent-smith
+    do: "The server pins v5.28.1 in the 205f series PR."
+
+definition_of_done:
+  - "v5.28.1 is tagged, the two passages read as above, and validate-skills.sh is green."
+  - "A grep of v5.28.1 for 'never rewrites the spec' and 'Your first reply is an' finds nothing."
+  - "The server pins v5.28.1 and its suite is green."
+
+out:
+  - "Any other skills text; the 205f series owns it."

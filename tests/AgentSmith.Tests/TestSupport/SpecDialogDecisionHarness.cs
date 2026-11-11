@@ -22,8 +22,8 @@ internal sealed class SpecDialogDecisionHarness(
     public SpecDialogSessionRepository Repository { get; } = new(context);
     public SpecDialogSessionManager Sessions => new(Repository, BoundSessionNudges.Quiet(Repository),
         AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
-    public SpecDialogProposalState Proposals =>
-        new(new SpecDialogProposalClaim(context), Repository, BoundSessionNudges.Quiet(Repository));
+    public SpecDialogProposalState Proposals => new(new SpecDialogProposalClaim(context), Repository,
+        BoundSessionNudges.Quiet(Repository), new SpecDialogConfirmedSlot(new SpecDialogProposalClaim(context)));
     public SpecDialogMessenger Messenger { get; } = messenger ?? new([], NullLogger<SpecDialogMessenger>.Instance);
     public DashboardOutcomeChannel Channel { get; } = channel ?? new(
         new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), NullLogger<DashboardOutcomeChannel>.Instance);
@@ -49,7 +49,7 @@ internal sealed class SpecDialogDecisionHarness(
     public SpecDialogRouter Router(
         SpecDialogCommandHandler commands, ISpecDialogTurnRunner turns, SpecDialogTurnGate gate,
         SpecDialogAnswerAdmission admission, SpecDialogTurnKeeper keeper, SpecDialogSessionManager? sessions = null) =>
-        new(new SpecCommandParser(), commands, turns, Flow(), Decisions(), gate, admission, keeper,
+        new(new SpecCommandParser(), commands, turns, Flow(), new SpecDialogDecisionOutcome(Decisions(), admission), gate, admission, keeper,
             new SpecDialogReplyComposer(), Messenger, NullLogger<SpecDialogRouter>.Instance);
 
     public SpecDialogViewReader View(
@@ -57,7 +57,7 @@ internal sealed class SpecDialogDecisionHarness(
         SpecDialogProposalComposer composer, SpecDialogTurnGate turns, SpecDialogTicketTextRepository ticketText,
         ConversationUploads uploads, AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
         new(sessions, projects, pending, Outcomes, Proposals, Cards, composer, turns,
-            new SpecDialogHoldings(ticketText, uploads, mocks), new SpecDialogTurnProposals(TurnProposals, composer));
+            new SpecDialogHoldings(ticketText, uploads, mocks), new SpecDialogTurnProposals(TurnProposals, composer, new RunLivenessRepository(context)));
 
     public Task<ConversationState> OpenAsync(string platform, string thread, CancellationToken ct = default) =>
         Sessions.OpenAsync(platform, "C1", thread, "U1",

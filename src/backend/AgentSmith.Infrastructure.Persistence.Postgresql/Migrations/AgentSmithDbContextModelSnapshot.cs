@@ -2686,6 +2686,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<string>("ConfirmedOutcomeJson")
                         .HasColumnType("text");
 
+                    b.Property<string>("ConfirmedProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

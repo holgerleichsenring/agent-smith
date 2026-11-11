@@ -22,9 +22,17 @@ internal sealed class RecordingThreadAdapter(string platform, string? replyEndpo
         return Task.CompletedTask;
     }
 
-    public Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
+    /// <summary>2026-11-11-205fh: the time the platform reports for a posted card — Slack's ts by default (now), null
+    /// for a platform that gives none.</summary>
+    public Func<DateTimeOffset?> PostedAt { get; set; } = () => DateTimeOffset.UtcNow;
+
+    /// <summary>2026-11-11-205fh: a post that throws, as a platform outage does.</summary>
+    public bool Fails { get; set; }
+
+    public Task<PostedMessage> PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
     {
+        if (Fails) throw new HttpRequestException("the platform is down");
         lock (Questions) Questions.Add((thread, question));
-        return Task.CompletedTask;
+        return Task.FromResult(new PostedMessage($"m-{Questions.Count}", PostedAt()));
     }
 }

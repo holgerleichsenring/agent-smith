@@ -162,6 +162,17 @@ export interface SpecDialogSession {
   runningRunId?: string | null;
   /** 2026-11-10-d854c: that run's own proposal when no kept turn carries it. */
   runningProposal?: SpecDialogProposalPush | null;
+  /** 2026-11-11-205ff: turns that stopped before they finished, each with its last draft, oldest first; null with none. */
+  interruptedTurns?: SpecDialogInterruptedTurn[] | null;
+}
+
+/** 2026-11-11-205ff: a turn whose run stopped before it finished — not something anyone said, so not a transcript turn. */
+export interface SpecDialogInterruptedTurn {
+  runId: string;
+  at: string;
+  proposal: SpecDialogProposalPush;
+  /** Review fix: its run row is still live — another replica's turn; otherwise it stopped before it finished. */
+  running?: boolean;
 }
 
 /** 2026-11-05-862ea: the work picture the design partner stated — kind and size as camelCase strings. */

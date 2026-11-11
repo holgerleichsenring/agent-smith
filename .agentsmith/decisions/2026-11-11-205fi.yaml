@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fi
+
+decisions:
+  - category: Architecture
+    chose: "ReferencePromptSection.Build takes the address list only and renders into the system prompt; ReferencePromptSection.ThisTurn renders each upload's coverage and note from the turn's sandbox map into the design turn's user prompt, after the work picture"
+    over: "Keeping coverage and notes in the system prompt, or moving the whole upload section"
+    reason: "The address list changes only on upload; coverage and notes change whenever a turn opens files or replaces a note, which made the stable system prefix differ on every such turn. Dropping the sandboxes parameter from Build makes the invariant structural: the system section cannot read per-turn state."
+  - category: Implementation
+    chose: "ThisTurn lists the uploads in ordinal address order under '## Uploads at this turn'"
+    over: "The order of the sandbox dictionary"
+    reason: "A stable order keeps the user prompt byte-equal when nothing changed; the skill (v5.28.0) says each note and coverage stand with this turn's prompt."
+  - category: Implementation
+    chose: "The project memory index and the scope repositories' MEMORY.md stay in the system prompt"
+    over: "Moving them too"
+    reason: "Both change on events (a write, a moved main), not per turn; the spec's claim covers coverage and notes only."
+  - category: Testing
+    chose: "The system-side proof is over ReferencePromptSection.Build and the user-side over SpecDialogPromptFactory; the harness coverage test, which reads the whole prompt seen, still passes unchanged"
+    over: "A two-turn AgenticMasterHandler test comparing system prompts"
+    reason: "Build no longer receives any per-turn input, so equality across turns follows from its signature; the factory test proves the lines arrive under their address."

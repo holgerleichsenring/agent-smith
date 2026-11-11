@@ -18,12 +18,14 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// <para>2026-11-10-ccd9 review: it says whether it acted. A refused approval filed and changed nothing, so the
 /// decision path gives the claimed proposal back to the awaiting slot.</para>
+/// <para>2026-11-11-205fe: <c>proposalId</c> is the claimed proposal's id, so a full filing clears only its own
+/// confirmed slot; null where no claim preceded the call.</para>
 /// </summary>
 public interface IOutcomeSink
 {
     Task<OutcomeAcceptance> AcceptAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken, string? proposalId = null);
 }
 
 /// <summary>What an approval did. <see cref="Acted"/> is the default, so a sink that says nothing has acted.</summary>

@@ -39,6 +39,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             {DialogImageNote.Render(imagesExisting, imagesCarried)}
             {ConversationNameNote.Render(pipeline)}
             {WorkPictureSection.Render(pipeline)}
+            {Handlers.ReferencePromptSection.ThisTurn(Uploads(pipeline))}
             {TurnContract(transcript)}
             """;
     }
@@ -70,6 +71,10 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
               + "are appended — you propose it exactly as you would any other, the operator "
               + "approves, and reporting the continuation as done is as false as the rest."
             : string.Empty;
+
+    // 2026-11-11-205fi: the turn's sandbox map, where each upload's sandbox carries its coverage and note.
+    private static IReadOnlyDictionary<string, Contracts.Sandbox.ISandbox>? Uploads(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, Contracts.Sandbox.ISandbox>>(ContextKeys.Sandboxes, out var map) ? map : null;
 
     // p0315e: one nudge covers every typed terminal outcome — a spec draft
     // (```yaml) and a bug/epic payload (```outcome) fail the same gate.

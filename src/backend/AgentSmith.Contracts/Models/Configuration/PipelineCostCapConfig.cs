@@ -98,4 +98,16 @@ public sealed class CostCapValues
             ? this
             : new CostCapValues { Usd = Math.Max(Usd, other.Usd), Tokens = Math.Max(Tokens, other.Tokens) };
     }
+
+    /// <summary>
+    /// 2026-11-11-205fc: this cap shrunk to <paramref name="ceiling"/> wherever that is smaller, per dimension — the
+    /// operator's per-pipeline override bounding what a design turn's stated effort raised.
+    /// </summary>
+    public CostCapValues LoweredTo(CostCapValues ceiling)
+    {
+        ArgumentNullException.ThrowIfNull(ceiling);
+        return ceiling.Usd >= Usd && ceiling.Tokens >= Tokens
+            ? this
+            : new CostCapValues { Usd = Math.Min(Usd, ceiling.Usd), Tokens = Math.Min(Tokens, ceiling.Tokens) };
+    }
 }

@@ -20,8 +20,9 @@ public sealed class UploadCoverageSkillRulesTests
     {
         var master = PackagedMaster.Read("design-partner-master");
 
-        master.Should().Contain("Under each address the prompt says how many of the files", Because("pointing at the coverage line"));
-        master.Should().Contain("read: an answer or a proposal built on part of an upload names that", Because("naming the part read"));
-        master.Should().Contain("the system keeps the list of files opened, so the", Because("the note without a file inventory"));
+        // 2026-11-11-205fi: the note and the coverage line stand with the turn's prompt, the address stays above.
+        master.Should().Contain("much of it earlier turns opened, stand with this turn's prompt", Because("pointing at the coverage line"));
+        master.Should().Contain("upload names that part.", Because("naming the part read"));
+        master.Should().Contain("unless\n`note_reference` keeps it", Because("the note keeps what a turn learned"));
     }
 }

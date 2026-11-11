@@ -66,7 +66,7 @@ public sealed class DesignTurnEffortTests
     [Fact]
     public async Task StateWorkPicture_NoEffort_LeavesTheCap()
     {
-        var (pipeline, answer) = await StateAsync(new PipelineCostCapConfig(), null);
+        var (pipeline, answer) = await StateAsync(new PipelineCostCapConfig(), null, size: "one-spec");
 
         pipeline.TryGet<CostCapValues>("PipelineCostCap", out _).Should().BeFalse();
         answer.Should().NotContain("cost cap");
@@ -108,9 +108,10 @@ public sealed class DesignTurnEffortTests
             new ScriptedSourceProviderFactory(new Dictionary<string, ScriptedSourceProvider>()),
             new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
             new RemoteFileRead(NullLogger<RemoteFileRead>.Instance), NullLogger<DialogGroundingReader>.Instance);
-        var recorder = new ScopeEstimateRecorder(AgentSmithConfig.Empty(), Mock.Of<IEventPublisher>(), NullLogger<ScopeEstimateRecorder>.Instance);
+        var config = AgentSmithConfig.Empty();
+        var recorder = new ScopeEstimateRecorder(config, Mock.Of<IEventPublisher>(), NullLogger<ScopeEstimateRecorder>.Instance);
 
-        await new GroundSpecDialogHandler(reader, NullLogger<GroundSpecDialogHandler>.Instance, tiers: recorder)
+        await new GroundSpecDialogHandler(reader, NullLogger<GroundSpecDialogHandler>.Instance, efforts: new DesignEffortCap(config, recorder))
             .ExecuteAsync(new GroundSpecDialogContext(pipeline), CancellationToken.None);
 
         Cap(pipeline).Usd.Should().Be(40m, "the conversation's stored effort sizes the turn before its first call");
@@ -121,7 +122,7 @@ public sealed class DesignTurnEffortTests
         pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap) ? cap! : throw new InvalidOperationException("no cap");
 
     private static async Task<(PipelineContext Pipeline, string Answer)> StateAsync(
-        PipelineCostCapConfig caps, string? effort, CostCapValues? resolved = null)
+        PipelineCostCapConfig caps, string? effort, CostCapValues? resolved = null, string size = "series")
     {
         var pipeline = new PipelineContext();
         if (resolved is not null) pipeline.Set("PipelineCostCap", resolved);
@@ -133,7 +134,7 @@ public sealed class DesignTurnEffortTests
             .GetTools(null, null).Single();
         var args = new AIFunctionArguments
         {
-            ["kind"] = "rebuild", ["truth"] = "the upload describes it", ["size"] = "series",
+            ["kind"] = "rebuild", ["truth"] = "the upload describes it", ["size"] = size,
         };
         if (effort is not null) args["effort"] = effort;
         var answer = (await tool.InvokeAsync(args))?.ToString() ?? string.Empty;

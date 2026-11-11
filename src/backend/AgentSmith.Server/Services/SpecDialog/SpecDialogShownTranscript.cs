@@ -15,7 +15,12 @@ internal static class SpecDialogShownTranscript
             turn.Role.ToString().ToLowerInvariant(),
             turn.Role == TranscriptRole.Assistant ? SpecDialogDraftBlocks.Strip(turn.Text) : turn.Text,
             turn.At,
-            turn.Decision?.ToString().ToLowerInvariant()) { RunId = turn.RunId })]; // 2026-11-10-d854c
+            Applied(turn)?.ToString().ToLowerInvariant()) { RunId = turn.RunId })]; // 2026-11-10-d854c
+
+    /// <summary>2026-11-11-205fe review: a decision that names a proposal shows only once the decision path marked it
+    /// applied; a row from before 205fe names none and shows as stored.</summary>
+    private static SpecDialogDecision? Applied(TranscriptTurn turn) =>
+        turn.DecisionProposalId is null || turn.DecisionApplied == true ? turn.Decision : null;
 
     /// <summary>
     /// The last assistant turn that carried a draft. No index travels with the proposal: live,

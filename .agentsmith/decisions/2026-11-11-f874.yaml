@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-f874
+
+decisions:
+  - category: Implementation
+    chose: "The server pins skills v5.28.1 (PR #267): the spec format drops the run-time correction lore and keeps 'stops the spec before it spends a token'; the bound-ticket section states what the person wants to know and the effects of each approvable outcome, without ordering the replies"
+    over: "Leaving the leftovers for a later release"
+    reason: "Fable prompt-review items 7 and 8 that v5.28.0 left in place; the pin rides the 205f series PR."
+  - category: Testing
+    chose: "TicketCommentSkillRulesTests pins the new situation sentence instead of the removed 'Your first reply is an answer'; SkillText_DesignPartner_HasNoRunLoreAndNoScriptedFirstReply pins both absences and the kept re-check sentence"
+    over: "Deleting the old assertion"
+    reason: "The judging-first rule still holds as a situation; the test should prove it moved, not that it vanished."
+  - category: Implementation
+    chose: "No server code changes"
+    over: "Touching the server's own design-turn texts"
+    reason: "out: any other skills text; the 205f series owns it."
+  - category: Implementation
+    chose: "Review fix: skills v5.28.2 (PR #269) drops 'a bound ticket's first judgement' from the answer outcome; the server pins v5.28.2 and the removal test also proves this clause is gone"
+    over: "Leaving the outcome list naming the judgement as an answer"
+    reason: "After f874 the bound-ticket section says the judgement lands as a proposal; the model read both statements, which strained 205fb's one rule and 205fd's 'say it once and truly'."

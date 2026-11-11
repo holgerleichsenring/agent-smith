@@ -588,7 +588,7 @@ public sealed partial class SpecDialogOutcomeTests
 
         public Task<OutcomeAcceptance> AcceptAsync(
             ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken, string? proposalId = null)
         {
             lock (_accepted) _accepted.Add(proposal);
             return Task.FromResult(OutcomeAcceptance.Acted);
@@ -722,11 +722,11 @@ public sealed partial class SpecDialogOutcomeTests
             return Task.CompletedTask;
         }
 
-        public Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
+        public Task<PostedMessage> PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
         {
             lock (_questions) _questions.Add(question);
             _firstQuestion.TrySetResult(question);
-            return Task.CompletedTask;
+            return Task.FromResult(new PostedMessage("ts-1", DateTimeOffset.UtcNow)); // 205fh: the platform's own time
         }
 
         public Task UpdateQuestionAnsweredAsync(string channelId, string messageId, string questionText,

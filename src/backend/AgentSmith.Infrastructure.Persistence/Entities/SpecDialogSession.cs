@@ -31,6 +31,9 @@ public sealed class SpecDialogSession : EntityBase
     /// </summary>
     public string? ConfirmedOutcomeJson { get; set; }
 
+    /// <summary>2026-11-11-205fe: the proposal the confirmed JSON belongs to; clear and release match on it.</summary>
+    public string? ConfirmedProposalId { get; set; }
+
     /// <summary>
     /// JSON of the proposal under discussion — the latest one a turn put to the person, kept
     /// until a later one supersedes it or the person rejects it. What a reloaded page shows

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fa
+goal: "The design turn's spec and epic formats name the repository in a top-level `repos` key, as the server checks it, so a multi-repo draft is not refused for a key the format never showed."
+
+applies_to: "default (skills: references/design-outcome-spec.md, design-outcome-epic.md; server: DialogScopeRepositoriesSection unchanged in meaning)"
+
+repos_touched: [agent-smith-skills, agent-smith]
+
+invariants:
+  - "ONE SHAPE. Every text the design master reads names the repository the same way: top-level `repos: [<one name>]` on a spec and on every epic child. No text says repositories are prose."
+  - "THE CHECK IS UNCHANGED. SpecReposRule and DialogDraftRepos keep their rule (one in-scope repository per spec, filled when the scope has one); only the texts move to it."
+
+facts:
+  - claim: "The spec format says repositories are prose inside scope.in/out and its template has no repos key."
+    evidence: "agent-smith-skills v5.27.1 references/design-outcome-spec.md:6-30,41-44"
+  - claim: "The epic template's children carry no repos key."
+    evidence: "agent-smith-skills v5.27.1 references/design-outcome-epic.md:8-30"
+  - claim: "The server prompt says a spec's `repos` names one of the listed repositories."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DialogScopeRepositoriesSection.cs:24-26"
+  - claim: "The server reads top-level `repos` from a lone spec and from each epic child and refuses an ambiguous or missing one in a scope of several."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DialogDraftRepos.cs:22-50; src/backend/AgentSmith.Application/Services/Specs/SpecReposRule.cs:57-75"
+  - claim: "A refused terminal outcome is re-prompted once."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:41-44"
+  - claim: "The spec schema lists repos as a top-level property."
+    evidence: ".agentsmith/spec.schema.json (properties: repos)"
+
+assumptions:
+  - "The local skills checkout is on a stale branch (feat/design-partner-asks-at-the-threshold); the skills branch is cut from origin/main at v5.27.1."
+
+scope:
+  in: "The spec template gains `repos: [\"<one repository, spelled as the prompt lists it>\"]`; each epic child in the template carries it; the sentence 'Repositories, constraints and exclusions are PROSE inside in / out' keeps constraints and exclusions only. One rule line in the spec format says: in a scope of one repository it may be left out."
+  out: "No change to SpecReposRule, DialogDraftRepos or the re-prompt count."
+
+decisions:
+  - "The server's key wins: it is what every derivation and run reads, and the schema already declares it."
+
+steps:
+  - id: skills
+    action: "Edit design-outcome-spec.md and design-outcome-epic.md as in scope.in, on a skills branch off origin/main; merge and release with the series."
+  - id: pin
+    action: "Bump the server's skills pin to that release."
+  - id: server-test
+    action: "Then a server test renders outcome_format(spec) and outcome_format(epic) from the pinned skills and asserts each contains `repos:`."
+
+tests:
+  - "OutcomeFormat_SpecAndEpic_ShowTheReposKey"
+
+done:
+  - "outcome_format for spec and for epic each show a `repos:` key in the template."
+  - "No design-partner skill text says repositories are prose inside scope."
+  - "Build green, full suite green; skills released and pinned (one release for the 205f series)."

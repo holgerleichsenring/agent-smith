@@ -25,7 +25,7 @@ public sealed class GroundSpecDialogHandler(
     DialogGroundingReader reader,
     ILogger<GroundSpecDialogHandler> logger,
     Memory.DesignMemoryIndex? memoryIndex = null, // 2026-11-10-85e2: composed as a run's is
-    Scope.ScopeEstimateRecorder? tiers = null, // 2026-11-10-548f
+    Scope.DesignEffortCap? efforts = null, // 2026-11-10-548f; 205fc: bounded by an override
     ITurnRunRecorderAccessor? runs = null) // 2026-11-10-d854c
     : ICommandHandler<GroundSpecDialogContext>
 {
@@ -36,8 +36,8 @@ public sealed class GroundSpecDialogHandler(
         var pipeline = context.Pipeline;
         await LinkRunAsync(pipeline, cancellationToken);
         // 2026-11-10-548f: the conversation's stated effort sizes this turn's cap before the master's first call.
-        if (tiers is not null && pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var picture) && picture is not null)
-            await tiers.ApplyTierAsync(pipeline, picture.Effort, cancellationToken);
+        if (efforts is not null && pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var picture) && picture is not null)
+            await efforts.ApplyAsync(pipeline, picture.Effort, cancellationToken);
         var scope = Scope(pipeline);
         if (scope.Count == 0)
         {

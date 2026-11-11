@@ -86,10 +86,11 @@ public sealed class SeriesSkillRulesTests
 
         // 2026-11-10-fc66: a design turn carries neither tool — its questions go in the reply.
         // 2026-11-10-d854a: each with a proposal, and state_open_questions lays them on the draft's card as well.
+        // 2026-11-11-205fb: the draft is built on those proposals, never held back for them.
         DesignPartner().Should().Contain(
             "- Your questions go in your reply, after the analysis that raised\n  them, each with your proposal; "
             + "the operator answers in the next\n  message. When you draft, `state_open_questions` puts them on the"
-            + "\n  draft's card as well. Where your proposal is good enough to proceed,\n  draft with it and mark it proposed.",
+            + "\n  draft's card as well, and the draft is built on your proposals,\n  marked proposed.",
             Because("the design partner's question rule"));
     }
 
@@ -98,7 +99,7 @@ public sealed class SeriesSkillRulesTests
     {
         foreach (var removed in new[] { "ask_human", "decide_by_default", "http_request", "list_directory", "grep_in_file" })
             DesignPartner().Should().NotContain($"`{removed}`", Because($"the design turn no longer carries {removed}"));
-        DesignPartner().Should().Contain("`state_work_picture` says which kind is which", Because("the kinds are the tool's"));
+        DesignPartner().Should().Contain("`state_work_picture`: the kind of undertaking", Because("the kinds are the tool's"));
     }
 
     /// <summary>2026-11-10-14a3h: the unit of a child is named, and a proposed decision has its syntax.</summary>

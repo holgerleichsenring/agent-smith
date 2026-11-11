@@ -55,7 +55,7 @@ public sealed class SpecDialogChatClickTests : IDisposable
 
         await ClickAsync(id, "approve");
 
-        _sink.Verify(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false, It.IsAny<CancellationToken>()),
+        _sink.Verify(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false, It.IsAny<CancellationToken>(), It.IsAny<string?>()),
             Times.Once, "a chat click carries no runs.control");
         Updated().Should().Be(1, "a decided card gives its buttons up");
     }

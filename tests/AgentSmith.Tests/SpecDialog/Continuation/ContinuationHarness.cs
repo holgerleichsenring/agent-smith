@@ -65,7 +65,7 @@ internal sealed class ContinuationHarness : IDisposable
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(), ApprovedSetDoubles.SetFiler(Approvals, sources: Sources, pointers: Pointers),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance));
         services.AddScoped<BoundSessionNudge>().AddScoped<SpecDialogSessionManager>();
-        services.AddScoped<SpecDialogOutcomeStore>().AddScoped<SpecDialogLatestOutcomeStore>();
+        services.AddScoped<SpecDialogConfirmedSlot>().AddScoped<SpecDialogLatestOutcomeStore>(); // 205fe
         services.AddSingleton(new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance));
         services.AddTransient<SpecDialogOutcomeComposer>().AddTransient<SpecDialogProposalComposer>();
         services.AddSingleton(sp => new DashboardOutcomeChannel(
@@ -171,7 +171,8 @@ internal sealed class ContinuationHarness : IDisposable
     {
         var sessions = sp.GetRequiredService<SpecDialogSessionRepository>();
         var proposals = new SpecDialogProposalState(
-            sp.GetRequiredService<SpecDialogProposalClaim>(), sessions, sp.GetRequiredService<BoundSessionNudge>());
+            sp.GetRequiredService<SpecDialogProposalClaim>(), sessions, sp.GetRequiredService<BoundSessionNudge>(),
+            sp.GetRequiredService<SpecDialogConfirmedSlot>());
         await proposals.BackfillAsync(State().Platform, Thread, default);
         var id = (await proposals.ReadAsync(State(), default)).AwaitingId;
         var (messenger, composer) = (sp.GetRequiredService<SpecDialogMessenger>(), sp.GetRequiredService<SpecDialogOutcomeComposer>());

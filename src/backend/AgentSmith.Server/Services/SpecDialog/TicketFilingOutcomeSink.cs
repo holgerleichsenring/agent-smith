@@ -7,9 +7,9 @@ namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
 /// p0315c: the real IOutcomeSink — files the confirmed outcome as tracker
-/// ticket(s). Durable-first: the proposal is persisted on the session BEFORE
+/// ticket(s). Durable-first: the claim persisted the proposal on the session BEFORE
 /// filing so a tracker failure (or a crash) keeps the confirmed outcome
-/// available for a retry; a fully successful filing clears it. The thread and
+/// available for a retry; a fully successful filing clears its own (205fe). The thread and
 /// the durable dialogue trail both get the ticket references — or the honest
 /// failure report naming exactly what WAS created.
 /// <para>
@@ -22,7 +22,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <para>2026-11-10-ccd9 review: it says whether it acted, so a refused approval goes back to awaiting.</para>
 /// </summary>
 public sealed class TicketFilingOutcomeSink(
-    SpecDialogOutcomeStore outcomeStore,
+    AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot confirmed,
     OutcomeTicketFiler filer,
     TicketGraphFiler graphs,
     TicketContinuationAct continuation,
@@ -35,7 +35,7 @@ public sealed class TicketFilingOutcomeSink(
 {
     public async Task<OutcomeAcceptance> AcceptAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? proposalId = null)
     {
         if (SpecDialogApprovalRefusal.Of(state, proposal) is { } refusal)
         {
@@ -43,10 +43,8 @@ public sealed class TicketFilingOutcomeSink(
             return OutcomeAcceptance.Refused;
         }
         if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketCommentOutcome)
-            return await ContinueAsync(state, proposal, mayStartRuns, cancellationToken);
-        await outcomeStore.SetConfirmedAsync(
-            state.Platform, state.ThreadId!, proposal, cancellationToken);
-
+            return await ContinueAsync(state, proposal, mayStartRuns, proposalId, cancellationToken);
+        // 2026-11-11-205fe: the claim wrote the confirmed slot with its id; a second writer here was the defect.
         var report = proposal is TicketGraphOutcome graph
             ? await graphs.FileAsync(state, graph, mayStartRuns, cancellationToken)
             : await filer.FileAsync(state, proposal, mayStartRuns, cancellationToken);
@@ -54,7 +52,7 @@ public sealed class TicketFilingOutcomeSink(
         var ct = report.Filed.Count > 0 ? CancellationToken.None : cancellationToken;
         if (report.Succeeded)
         {
-            await outcomeStore.ClearConfirmedAsync(state.Platform, state.ThreadId!, ct);
+            await confirmed.ClearAsync(state.Platform, state.ThreadId!, proposalId, ct);
             logger.LogInformation(
                 "Filed {Count} ticket(s) for spec-dialog session {SessionId}: {Refs}",
                 report.Filed.Count, state.JobId,
@@ -89,9 +87,12 @@ public sealed class TicketFilingOutcomeSink(
     }
 
     private async Task<OutcomeAcceptance> ContinueAsync(
-        ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken cancellationToken)
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns, string? proposalId,
+        CancellationToken cancellationToken)
     {
         var outcome = await continuation.ApplyAsync(state, proposal, mayStartRuns, cancellationToken);
+        // 205fe review: an acted continuation clears its own confirmed slot, as a filing does; a refused one keeps it.
+        if (outcome.Acted) await confirmed.ClearAsync(state.Platform, state.ThreadId!, proposalId, CancellationToken.None);
         logger.LogInformation(
             "Approval in ticket conversation {SessionId}: {Notice}", state.JobId, outcome.Notice);
         if (outcome is { Filing: { } report, Filed: { } filed })

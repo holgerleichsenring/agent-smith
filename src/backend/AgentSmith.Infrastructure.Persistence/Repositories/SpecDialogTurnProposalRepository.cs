@@ -26,11 +26,15 @@ public sealed class SpecDialogTurnProposalRepository(IUnitOfWork unitOfWork)
         }
     }
 
-    /// <summary>The conversation's turn proposals by run id.</summary>
-    public async Task<IReadOnlyDictionary<string, string>> ReadBySessionAsync(string sessionId, CancellationToken ct) =>
-        await unitOfWork.Set<SpecDialogTurnProposal>().AsNoTracking()
+    /// <summary>The conversation's turn proposals by run id, each with the time it was last written (2026-11-11-205ff).</summary>
+    public async Task<IReadOnlyList<(string RunId, string Json, DateTimeOffset At)>> ReadBySessionAsync(
+        string sessionId, CancellationToken ct) =>
+        (await unitOfWork.Set<SpecDialogTurnProposal>().AsNoTracking()
             .Where(p => p.SessionId == sessionId)
-            .ToDictionaryAsync(p => p.RunId, p => p.ProposalJson, StringComparer.Ordinal, ct);
+            .Select(p => new { p.RunId, p.ProposalJson, p.UpdatedAt, p.CreatedAt })
+            .ToListAsync(ct))
+        .Select(p => (p.RunId, p.ProposalJson, p.UpdatedAt > p.CreatedAt ? p.UpdatedAt : p.CreatedAt))
+        .ToList();
 
     public Task<int> DeleteBySessionAsync(string sessionId, CancellationToken ct) =>
         unitOfWork.Set<SpecDialogTurnProposal>().Where(p => p.SessionId == sessionId).ExecuteDeleteAsync(ct);

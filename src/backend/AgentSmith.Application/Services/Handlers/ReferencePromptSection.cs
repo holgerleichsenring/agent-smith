@@ -15,28 +15,40 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class ReferencePromptSection
 {
-    /// <param name="sandboxes">2026-10-02-075dd: the turn's map, where each upload's sandbox carries its note.</param>
-    internal static string Build(IReadOnlyList<string> addresses, IReadOnlyDictionary<string, ISandbox>? sandboxes = null)
+    /// <summary>2026-11-11-205fi: the address list only, in the system prompt — it changes when an upload does.</summary>
+    internal static string Build(IReadOnlyList<string> addresses)
     {
         var references = addresses?
             .Where(a => a.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))
             .ToList();
         if (references is null || references.Count == 0) return string.Empty;
-        var bullets = string.Join("\n", references.Select(n => $"- `{n}`"
-            + ReferenceCoverageText.Under(SetOf(sandboxes, n)?.Coverage) + ReferenceNoteText.Under(SetOf(sandboxes, n)?.Note)));
+        var bullets = string.Join("\n", references.Select(n => $"- `{n}`"));
         return "\n\n## Material the operator uploaded\n"
             + "These addresses are what the operator uploaded to this conversation, every file at "
             + "its own path — a website, an application's source, documents; find out which before "
-            + "you rely on it. Read them with read_file, grep and directory_tree; a write comes back "
-            + "refused. A browser upload carries no file mode, so a script is not executable.\n"
+            + "you rely on it. Read them with read_file, grep_in_tree and directory_tree.\n" // 2026-11-11-205fd
             + bullets + "\n\n"
             + "A stylesheet states exact values — colours, sizes, spacing, fonts. When the operator "
             + "asks for something to look like it, read the value there rather than estimating "
             + "it from a screenshot.\n";
     }
 
-    private static ReferenceSetSandbox? SetOf(IReadOnlyDictionary<string, ISandbox>? sandboxes, string address) =>
-        sandboxes?.GetValueOrDefault(address) as ReferenceSetSandbox;
+    /// <summary>
+    /// 2026-11-11-205fi: each upload's coverage and note, in the design turn's user prompt — both change when a turn
+    /// opens files or replaces a note, so in the system prompt they broke its cache on every such turn. Empty when the
+    /// turn carries no upload.
+    /// </summary>
+    internal static string ThisTurn(IReadOnlyDictionary<string, ISandbox>? sandboxes)
+    {
+        var sets = (sandboxes ?? new Dictionary<string, ISandbox>())
+            .Where(kv => kv.Key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))
+            .Select(kv => (Address: kv.Key, Set: kv.Value as ReferenceSetSandbox))
+            .OrderBy(s => s.Address, StringComparer.Ordinal)
+            .ToList();
+        if (sets.Count == 0) return string.Empty;
+        return "## Uploads at this turn\n" + string.Join("\n", sets.Select(s => $"- `{s.Address}`"
+            + ReferenceCoverageText.Under(s.Set?.Coverage) + ReferenceNoteText.Under(s.Set?.Note)));
+    }
 
     /// <summary>
     /// 2026-10-01-283df: the uploaded sets a RUN carries — each by name, id and directory inside the

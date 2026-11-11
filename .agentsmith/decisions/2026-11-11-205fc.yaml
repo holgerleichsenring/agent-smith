@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fc
+
+decisions:
+  - category: Architecture
+    chose: "DesignEffortCap raises the resolved cap to the tier and lowers it to the per-pipeline override (itself raised to the resolved cap), then hands tier and cap to ScopeEstimateRecorder.ApplyCapAsync; ApplyTierAsync keeps p0413a's raise-only rule for coding runs"
+    over: "A ceiling parameter on ApplyTierAsync"
+    reason: "Two rules with two invariants get two names; the recorder was at its line cap and only gained the split of tier from cap."
+  - category: Implementation
+    chose: "CostCapValues.LoweredTo, per dimension, mirroring RaisedTo"
+    over: "Clamping inline in DesignEffortCap"
+    reason: "The cap type already owns how two caps combine; a per-dimension min next to the per-dimension max keeps both in one place."
+  - category: Implementation
+    chose: "The work picture tool passes the slot's effective (highest) tier to the raise"
+    over: "Passing the tier stated in this call"
+    reason: "ONE TIER: the context key, RunBudgetResolvedEvent and TurnSpend now carry the tier that sized the cap, never a lower one stated later."
+  - category: Implementation
+    chose: "WorkPictureSection renders 'This turn's cost cap' from the run's PipelineCostCap on every turn, in invariant culture, with no fallback to the configured default"
+    over: "Rendering the configured default when the context holds no cap"
+    reason: "Deviation from scope.in: the section is a static renderer without configuration, and every run sets PipelineCostCap before its first step (ExecutePipelineUseCase), so the fallback would never fire. Invariant culture because the prompt is English and N0 followed the host's culture."
+  - category: Implementation
+    chose: "Admission refuses a series or plan without effort after the kind, size, effort and truth checks"
+    over: "Checking it first"
+    reason: "A picture with several faults names the most basic one first, as before; the effort rule is the last that can fail."
+  - category: Testing
+    chose: "Tests that stated a series without effort now pass one (surface, harness, effort tests); the surface test expects the kept higher effort"
+    over: "Exempting tests from the rule"
+    reason: "The rule is the product's; the tests were written before it."
+  - category: Implementation
+    chose: "Review fix: state_work_picture takes the max of the stated effort, the turn's slot and the conversation's STORED picture; TicketActToolsFactory passes the stored tier in"
+    over: "Max against the per-turn slot only"
+    reason: "The slot is fresh per turn, so xl in turn one then small in turn two published 'small' beside a $40 cap while the keeper stored xl. The stored picture is seeded into the pipeline before the turn, so it is the floor across turns."

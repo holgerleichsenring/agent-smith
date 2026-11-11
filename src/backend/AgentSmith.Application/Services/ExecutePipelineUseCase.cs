@@ -170,7 +170,8 @@ public sealed class ExecutePipelineUseCase(
             cancellationRegistry.Unregister(runId);
             return CommandResult.Fail(reason);
         }
-        catch (CapacityExhaustedException capEx) when (!PipelinePresets.LeavesTicketAlone(request.PipelineName)) // bdd0b: a derivation ends failed
+        // bdd0b: a derivation ends failed; 205ff review: so does a design turn — 'queued' promises a relaunch nothing makes
+        catch (CapacityExhaustedException capEx) when (PipelinePresets.WaitsForCapacity(request.PipelineName))
         {
             // p0269a: the sandbox did not fit right now (a k8s ResourceQuota rejected
             // the pod after the pre-flight admission passed — a TOCTOU race between two

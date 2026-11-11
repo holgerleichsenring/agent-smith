@@ -35,6 +35,8 @@ public sealed class ProjectMemoryDesignTurnTests
             Task.FromResult<IReadOnlyList<ProjectMemoryRecord>>([.. Rows]);
         public Task UpsertAsync(long projectId, ProjectMemoryRecord record, CancellationToken ct)
         {
+            // 2026-11-11-205fg: the store's one check, as the real repository runs it.
+            if (ProjectMemoryLimits.Refusal(record) is { } refusal) throw new ProjectMemoryRefusedException(refusal);
             Rows.RemoveAll(r => r.Slug == record.Slug);
             Rows.Insert(0, record);
             return Task.CompletedTask;
@@ -79,7 +81,7 @@ public sealed class ProjectMemoryDesignTurnTests
         await handler.ExecuteAsync(new GroundSpecDialogContext(pipeline), CancellationToken.None);
 
         pipeline.Get<string>(ContextKeys.MemoryIndex).Should().StartWith("> - [never-drop-features]")
-            .And.Contain("conversation conv-1, turn 2, by Holger");
+            .And.Contain("conversation conv-1, turn 2, by \"Holger\"");
     }
 
     [Fact]
