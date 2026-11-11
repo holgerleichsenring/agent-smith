@@ -39,4 +39,7 @@ public sealed record SpecAttackInput(
 
     /// <summary>2026-11-10-14a3g: a design turn's draft, not yet filed — its reviewer also judges the cut.</summary>
     public bool Proposal { get; init; }
+
+    /// <summary>2026-11-11-2bdfa: the other children of the epic this draft belongs to; empty for a lone spec.</summary>
+    public IReadOnlyList<SpecAttackSibling> Siblings { get; init; } = [];
 }

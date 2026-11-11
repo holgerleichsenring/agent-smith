@@ -37,7 +37,58 @@ public sealed class SpecAttackPromptTests
         proposal.Should().Contain("can ONE coding run build this spec")
             .And.Contain("Can each done line be answered yes or no")
             .And.Contain("every capability the uploaded material lists as approved");
-        run.Should().NotContain(SpecAttackPrompt.ProposalJudgement);
+        run.Should().NotContain(SpecAttackJudgement.Lone).And.NotContain(SpecAttackJudgement.Epic);
+    }
+
+    /// <summary>2026-11-11-2bdfa: an epic child is asked for a capability no spec of the epic takes.</summary>
+    [Fact]
+    public void SpecAttackPrompt_ProposalJudgement_AsksForCapabilityNoSpecOfTheEpicTakes()
+    {
+        var input = Input() with
+        {
+            Proposal = true,
+            Siblings = [new SpecAttackSibling("2026-11-11-0001b", "The import reads the file.", ["shop"], "The importer.", null)],
+        };
+
+        var prompt = SpecAttackPrompt.For(input, Look());
+
+        prompt.Should().Contain(SpecAttackJudgement.Epic)
+            .And.Contain("together with the other specs of this epic listed below")
+            .And.Contain("name any that no spec of this epic takes")
+            .And.NotContain("dropped or postponed?");
+    }
+
+    [Fact]
+    public void SpecAttackPrompt_LoneSpec_KeepsTodaysJudgement()
+    {
+        var prompt = SpecAttackPrompt.For(Input() with { Proposal = true }, Look());
+
+        prompt.Should().Contain(SpecAttackJudgement.Lone).And.Contain("name any that is dropped or postponed?")
+            .And.NotContain(SpecAttackSiblingsSection.Heading);
+    }
+
+    [Fact]
+    public void SpecAttackSiblingsSection_Render_ListsEachSiblingAndSitsBeforeTheSpec()
+    {
+        var siblings = new[]
+        {
+            new SpecAttackSibling("2026-11-11-0001b", "The import reads the file.", ["shop", "erp"], "The importer.", "The UI."),
+        };
+
+        var prompt = SpecAttackPrompt.For(Input() with { Proposal = true, Siblings = siblings }, Look());
+
+        SpecAttackSiblingsSection.Render([]).Should().BeEmpty();
+        prompt.Should().Contain("- 2026-11-11-0001b: The import reads the file.").And.Contain("repos: shop, erp")
+            .And.Contain("scope in: The importer.").And.Contain("scope out: The UI.");
+        prompt.IndexOf(SpecAttackSiblingsSection.Heading, StringComparison.Ordinal).Should()
+            .BeLessThan(prompt.IndexOf("## The spec", StringComparison.Ordinal))
+            .And.BeGreaterThan(prompt.IndexOf("## What the evidence check found", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SpecAttackJudgement_For_IsEmptyOutsideADesignTurn()
+    {
+        SpecAttackJudgement.For(Input()).Should().BeEmpty();
     }
 
     [Fact]

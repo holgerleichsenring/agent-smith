@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-2bdfa
+
+decisions:
+  - category: Architecture
+    chose: "The two judgement texts moved into a new SpecAttackJudgement (Lone, Epic, For(input)); SpecAttackPrompt.ProposalJudgement is gone"
+    over: "Keeping the constant in SpecAttackPrompt and adding the epic variant beside it, as the spec's two new classes implied"
+    reason: "SpecAttackPrompt sat at the 120-line cap and the epic variant needs a second constant and a choice; moving the judgement out is one responsibility (what a design turn's reviewer is asked beyond its citations) and leaves the prompt room for the tail sections. A third new class beyond the two the spec named; the wording is the spec's."
+  - category: Implementation
+    chose: "Siblings are read in ProposalAttackSiblings.Of from session.Proposal on every Input call, scope.in and scope.out parsed from the yaml, goal and repos from the parsed SpecDraft"
+    over: "Snapshotting the siblings once per turn, or adding scope to SpecDraft"
+    reason: "CURRENT SET: the round's proposal is the one a revision just merged. SpecDraft is a contract shared with filing (the spec's own decision). A yaml that does not parse shows its goal and repos without scope."
+  - category: Implementation
+    chose: "The epic wording is chosen by Siblings being non-empty, so an epic of one child keeps the lone wording"
+    over: "Choosing by the proposal kind"
+    reason: "The epic question names 'the other specs of this epic listed below'; with none listed it would point at nothing."
+  - category: Implementation
+    chose: "The siblings section carries one rule line: a capability one of them takes is not dropped or postponed by this spec"
+    over: "The list alone"
+    reason: "PLACED IS NOT DROPPED is stated where the reviewer reads the list, not only in the judgement before the answer shape."
