@@ -1,11 +1,13 @@
+using System.Globalization;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// 2026-11-05-862ea: the work picture in a design turn's prompt. 2026-11-09-0620k: only what the server knows — whether a
-/// picture is stored and its values. When to state one, what it holds and how it sets the reading are the skill's.
+/// picture is stored and its values, and (205fc) the turn's cost cap. When to state one, what it holds and how it sets the reading are the skill's.
 /// </summary>
 public static class WorkPictureSection
 {
@@ -14,8 +16,12 @@ public static class WorkPictureSection
     public static string Render(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
+        // 2026-11-11-205fc: the cap this turn starts with, on every turn, so the effort is sized against a number.
+        var cap = pipeline.TryGet<CostCapValues>("PipelineCostCap", out var c) && c is not null
+            ? string.Create(CultureInfo.InvariantCulture, $"\nThis turn's cost cap: ${c.Usd:0.##} / {c.Tokens:N0} tokens.")
+            : string.Empty;
         if (!pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var picture) || picture is null)
-            return NoneStored;
+            return NoneStored + cap;
         var lines = new List<string>
         {
             "## Work picture",
@@ -23,11 +29,8 @@ public static class WorkPictureSection
             $"- truth: {picture.Truth}",
             $"- size: {WorkPictureText.Dashed(picture.Size.ToString())}",
         };
-        // 2026-11-10-548f: the stated effort and the cap it sized for this turn, in place.
-        if (picture.Effort != Contracts.Models.Configuration.ComplexityTier.Unknown)
-            lines.Add($"- effort: {picture.Effort.ToString().ToLowerInvariant()}"
-                + (pipeline.TryGet<Contracts.Models.Configuration.CostCapValues>("PipelineCostCap", out var cap) && cap is not null
-                    ? $" (cost cap ${cap.Usd:0.##} / {cap.Tokens:N0} tokens)" : string.Empty));
-        return string.Join("\n", lines);
+        if (picture.Effort != ComplexityTier.Unknown) // 2026-11-10-548f
+            lines.Add($"- effort: {picture.Effort.ToString().ToLowerInvariant()}");
+        return string.Join("\n", lines) + cap;
     }
 }

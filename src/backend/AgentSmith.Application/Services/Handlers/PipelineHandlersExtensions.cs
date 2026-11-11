@@ -48,7 +48,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Scope.RepoScopeClassifier>().AddTransient<Scope.RemoteContextInventoryBuilder>();
         services.AddTransient<Scope.ApprovedRepoScope>(); // 2026-09-17-0e79a: the approval names the repos
         // p0413: size + shape become run state here; a refusal ends the run before any sandbox.
-        services.AddTransient<Scope.ScopeEstimateRecorder>().AddTransient<Scope.ScopeRefusalRecorder>()
+        services.AddTransient<Scope.ScopeEstimateRecorder>().AddTransient<Scope.DesignEffortCap>().AddTransient<Scope.ScopeRefusalRecorder>()
             .AddTransient<Scope.ScopeNamedContextsRecorder>(); // 2026-09-08-1830: what the call NAMED
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)

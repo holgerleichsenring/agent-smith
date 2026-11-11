@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// child surface carries them. A turn seeded with none of their ports gets none of them.
 /// </summary>
 public sealed class TicketActToolsFactory(
-    SeriesVerification verification, ISkillReferenceSource references, Scope.ScopeEstimateRecorder? tiers = null)
+    SeriesVerification verification, ISkillReferenceSource references, Scope.DesignEffortCap? efforts = null)
 {
     public IReadOnlyList<AITool> Tools(AgenticMasterContext context)
     {
@@ -27,8 +27,8 @@ public sealed class TicketActToolsFactory(
         {
             if (pipeline.TryGet<bool>(ContextKeys.SpecDialogNameable, out var nameable) && nameable)
                 tools.AddRange(new NameConversationToolHost(slot).GetTools(null, null));
-            tools.AddRange(new WorkPictureToolHost(slot, tiers is null ? null // 2026-11-05-862ea; 548f: its effort raises the cap
-                : (tier, ct) => tiers.ApplyTierAsync(pipeline, tier, ct)).GetTools(null, null));
+            tools.AddRange(new WorkPictureToolHost(slot, efforts is null ? null // 862ea; 548f, 205fc: its effort sizes the cap
+                : (tier, ct) => efforts.ApplyAsync(pipeline, tier, ct)).GetTools(null, null));
             tools.AddRange(new OutcomeFormatToolHost(references, TurnFolds.Of(pipeline)).GetTools(null, null)); // 85e2: folds
             tools.AddRange(new OpenQuestionsToolHost(slot).GetTools(null, null)); // 2026-11-10-d854a
         }

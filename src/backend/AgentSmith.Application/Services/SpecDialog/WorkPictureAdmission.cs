@@ -27,7 +27,11 @@ public static class WorkPictureAdmission
             && (Parsed<ComplexityTier>(effort) is not { } tier || tier == ComplexityTier.Unknown))
             return (null, $"The effort '{effort}' is none of: {Efforts}.");
         else if (!string.IsNullOrWhiteSpace(effort)) e = Parsed<ComplexityTier>(effort)!.Value;
-        return TruthRuleBroken(line) is { } rule ? (null, rule) : (new WorkPicture(k, line, s, e), null);
+        if (TruthRuleBroken(line) is { } rule) return (null, rule);
+        // 2026-11-11-205fc: a series or a plan is reviewed draft by draft, so it says what its review may spend.
+        return s != UndertakingSize.OneSpec && e == ComplexityTier.Unknown
+            ? (null, $"A {WorkPictureText.Dashed(s.ToString())} names its effort, one of: {Efforts}.")
+            : (new WorkPicture(k, line, s, e), null);
     }
 
     private static string Efforts => string.Join(", ",

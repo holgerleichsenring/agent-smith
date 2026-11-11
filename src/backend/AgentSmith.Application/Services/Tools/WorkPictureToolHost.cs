@@ -27,11 +27,14 @@ public sealed class WorkPictureToolHost(
         + "into this form; feature: behavior that exists nowhere yet; fix: existing behavior that is wrong; document: "
         + "writing documentation as the work.";
 
-    /// <summary>2026-11-10-548f: what each tier means for a design turn, and what stating it does.</summary>
+    /// <summary>2026-11-10-548f: what each tier means for a design turn; 2026-11-11-205fc: the rule and one observation.</summary>
     internal const string EffortDescription =
-        "Optional. size is how the work is cut; effort is how much the review of this turn's drafts may spend. trivial "
-        + "or small: one small spec; medium: one spec of real work; large: a series; xl: a whole product or proof of "
-        + "concept carried into repositories. The turn's cost cap rises to this tier's cap and never falls.";
+        "Required when size is series or plan. size is how the work is cut; effort is how much the review of this "
+        + "turn's drafts may spend. trivial or small: one small spec; medium: one spec of real work; large: a series; "
+        + "xl: a whole product or proof of concept carried into repositories. The turn's cost cap rises to this tier's "
+        + "cap and never falls; a tier at or below the current cap changes nothing, and a cap the operator set for this "
+        + "pipeline is the ceiling. Observed once: at the $5 default a ten-spec series had 3 of its drafts reviewed "
+        + "(run 2026-11-10T19-36-22-96b7).";
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? stage, string? investigatorMode)
     {
@@ -54,12 +57,11 @@ public sealed class WorkPictureToolHost(
         if (picture is null) return $"Not stored: {refusal} State it again.";
         // 2026-11-10-548f review: a correction later in the turn replaces the picture, never the turn's own higher
         // effort — its cap already rose to it, and the keeper stores the higher of this and the stored tier.
-        slot.WorkPicture = picture with
-        {
-            Effort = (ComplexityTier)Math.Max((int)picture.Effort, (int)(slot.WorkPicture?.Effort ?? ComplexityTier.Unknown)),
-        };
+        var effective = (ComplexityTier)Math.Max((int)picture.Effort, (int)(slot.WorkPicture?.Effort ?? ComplexityTier.Unknown));
+        slot.WorkPicture = picture with { Effort = effective };
+        // 2026-11-11-205fc: the raise gets the tier the slot keeps, so the published tier never falls below the cap.
         if (picture.Effort == ComplexityTier.Unknown || raise is null) return Stored;
-        var cap = await raise(picture.Effort, cancellationToken);
+        var cap = await raise(effective, cancellationToken);
         return cap is null ? Stored : $"{Stored} The turn's cost cap is now ${cap.Usd:0.##} / {cap.Tokens:N0} tokens.";
     }
 }

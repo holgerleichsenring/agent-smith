@@ -33,7 +33,7 @@ public sealed partial class SpecDialogWorkPictureTests
         var state = await OpenAsync(harness);
         await UploadAsync(harness, state.JobId);
         harness.ChatClient
-            .EnqueueToolCall("state_work_picture", """{"kind": "rebuild", "truth": "the uploaded app; the repository provides the host", "size": "series"}""")
+            .EnqueueToolCall("state_work_picture", """{"kind": "rebuild", "truth": "the uploaded app; the repository provides the host", "size": "series", "effort": "large"}""")
             .EnqueueText("Rebuild, series: the uploaded app is the truth.");
 
         var first = await TurnAsync(harness, state);
@@ -44,7 +44,8 @@ public sealed partial class SpecDialogWorkPictureTests
 
         first.Kind.Should().NotBe(SpecDialogTurnKind.Failure);
         first.WorkPicture.Should().Be(new WorkPicture(
-            UndertakingKind.Rebuild, "the uploaded app; the repository provides the host", UndertakingSize.Series));
+            UndertakingKind.Rebuild, "the uploaded app; the repository provides the host", UndertakingSize.Series,
+            AgentSmith.Contracts.Models.Configuration.ComplexityTier.Large));
         firstPrompt.Should().Contain("No work picture is stored yet").And.NotContain("before the repositories");
         harness.ChatClient.PromptsSeen.Last().Should().Contain("## Work picture").And.Contain("- kind: rebuild")
             .And.NotContain("No work picture is stored yet");

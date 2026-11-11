@@ -34,23 +34,20 @@ public sealed class ScopeEstimateRecorder(
     }
 
     /// <summary>
-    /// p0341c: map the estimated tier to this run's effective PipelineCostCap and apply it
-    /// in place. The scope-classifier call ALSO created the PipelineCostTracker (it tracks
-    /// its own call), so the tier cap must be applied on the live tracker AND published for
-    /// any tracker created later. Unknown tier => leave the resolved cap untouched
-    /// (fail-safe); the decision is recorded as a run artifact, never silent.
-    /// <para>
-    /// p0413a: the tier RAISES the cap the run resolved from configuration, never replaces
-    /// it. ForTier knows only the static default, so replacing would silently discard a
-    /// per-pipeline override — and an estimate, which is a guess, would overrule the
-    /// operator's instruction downwards.
-    /// </para>
+    /// p0341c: map the estimated tier to this run's PipelineCostCap, applied on the live tracker and published.
+    /// Unknown tier => the resolved cap stays (fail-safe). p0413a: the tier RAISES the cap configuration resolved,
+    /// never replaces it — an estimate is a guess and must not overrule a per-pipeline override downwards.
     /// </summary>
-    public async Task<CostCapValues?> ApplyTierAsync( // 2026-11-10-548f: a design turn's stated effort too
-        PipelineContext pipeline, ComplexityTier tier, CancellationToken cancellationToken)
+    public Task<CostCapValues?> ApplyTierAsync(
+        PipelineContext pipeline, ComplexityTier tier, CancellationToken cancellationToken) =>
+        tier == ComplexityTier.Unknown
+            ? Task.FromResult<CostCapValues?>(null)
+            : ApplyCapAsync(pipeline, tier, ResolvedCap(pipeline).RaisedTo(config.PipelineCostCap.ForTier(tier)), cancellationToken);
+
+    /// <summary>2026-11-11-205fc: a tier and the cap it sized, applied and published — DesignEffortCap bounds its own.</summary>
+    public async Task<CostCapValues?> ApplyCapAsync(
+        PipelineContext pipeline, ComplexityTier tier, CostCapValues cap, CancellationToken cancellationToken)
     {
-        if (tier == ComplexityTier.Unknown) return null;
-        var cap = ResolvedCap(pipeline).RaisedTo(config.PipelineCostCap.ForTier(tier));
         pipeline.Set("PipelineCostCap", cap);
         // 2026-09-22-7c41a: the TIER travels with the cap it sized; the cap cannot cross a park.
         pipeline.Set(ContextKeys.ComplexityTier, tier);
@@ -86,9 +83,8 @@ public sealed class ScopeEstimateRecorder(
             cancellationToken);
     }
 
-    // The cap this run already resolved (ExecutePipelineUseCase wrote the per-pipeline
-    // override or the static default there); the static default when the run has none.
-    private CostCapValues ResolvedCap(PipelineContext pipeline) =>
+    // The cap this run already resolved (the per-pipeline override or the static default); the default when none.
+    internal CostCapValues ResolvedCap(PipelineContext pipeline) =>
         pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap) && cap is not null
             ? cap
             : config.PipelineCostCap.Default;
