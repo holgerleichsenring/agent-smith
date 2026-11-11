@@ -341,7 +341,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
-            new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
+            new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot(new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim(_context)),
             filer, new AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig().Filer(), TestSupport.Continuations.Unused(filer), _sessions, messenger, composer, channel, latest,
             NullLogger<TicketFilingOutcomeSink>.Instance);
     }

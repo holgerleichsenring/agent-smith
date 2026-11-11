@@ -11,7 +11,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// conversation is nudged after each change, as a saved turn nudges it.
 /// </summary>
 public sealed class SpecDialogProposalState(
-    SpecDialogProposalClaim claim, SpecDialogSessionRepository sessions, BoundSessionNudge bound)
+    SpecDialogProposalClaim claim, SpecDialogSessionRepository sessions, BoundSessionNudge bound, SpecDialogConfirmedSlot confirmed)
 {
     /// <summary>Stores the turn's final proposal as awaiting under a fresh id; returns it with the id it replaced.</summary>
     public async Task<(string Id, string? Replaced)> StoreAwaitingAsync(
@@ -40,7 +40,7 @@ public sealed class SpecDialogProposalState(
     /// <summary>A claimed proposal whose approval was refused goes back to awaiting, unless a newer one took the slot.</summary>
     public async Task<bool> ReleaseAsync(ConversationState state, string id, CancellationToken ct)
     {
-        if (!await claim.ReleaseAsync(state.Platform, state.ThreadId!, id, ct)) return false;
+        if (!await confirmed.ReleaseAsync(state.Platform, state.ThreadId!, id, ct)) return false; // 2026-11-11-205fe
         await NudgeAsync(state, ct);
         return true;
     }

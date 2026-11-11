@@ -10,12 +10,16 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 internal static class SpecDialogShownTranscript
 {
-    internal static IReadOnlyList<SpecDialogTurnView> Turns(IReadOnlyList<TranscriptTurn> transcript) =>
+    /// <param name="awaitingId">2026-11-11-205fe: the proposal still awaiting; a decision naming it was never applied.</param>
+    internal static IReadOnlyList<SpecDialogTurnView> Turns(IReadOnlyList<TranscriptTurn> transcript, string? awaitingId = null) =>
         [.. transcript.Select(turn => new SpecDialogTurnView(
             turn.Role.ToString().ToLowerInvariant(),
             turn.Role == TranscriptRole.Assistant ? SpecDialogDraftBlocks.Strip(turn.Text) : turn.Text,
             turn.At,
-            turn.Decision?.ToString().ToLowerInvariant()) { RunId = turn.RunId })]; // 2026-11-10-d854c
+            Applied(turn, awaitingId)?.ToString().ToLowerInvariant()) { RunId = turn.RunId })]; // 2026-11-10-d854c
+
+    private static SpecDialogDecision? Applied(TranscriptTurn turn, string? awaitingId) =>
+        turn.DecisionProposalId is { } named && named == awaitingId ? null : turn.Decision;
 
     /// <summary>
     /// The last assistant turn that carried a draft. No index travels with the proposal: live,

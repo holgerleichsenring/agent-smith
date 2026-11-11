@@ -19,7 +19,7 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
     private IQueryable<SpecDialogSession> Open(string platform, string threadId) =>
         unitOfWork.Set<SpecDialogSession>().Where(s => s.Platform == platform && s.ThreadId == threadId && s.IsOpen);
 
-    private async Task<IQueryable<SpecDialogSession>> NewestAsync(string platform, string threadId, CancellationToken ct)
+    internal async Task<IQueryable<SpecDialogSession>> NewestAsync(string platform, string threadId, CancellationToken ct)
     {
         var id = await Open(platform, threadId).OrderByDescending(s => s.Id).Select(s => (long?)s.Id).FirstOrDefaultAsync(ct);
         return unitOfWork.Set<SpecDialogSession>().Where(s => id != null && s.Id == id);
@@ -55,8 +55,9 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
     public async Task<int> SetReviewingAsync(string platform, string threadId, string json, CancellationToken ct) =>
         await (await NewestAsync(platform, threadId, ct)).ExecuteUpdateAsync(s => s.SetProperty(r => r.ReviewingProposalJson, json), ct);
 
-    /// <summary>Claims proposal <paramref name="id"/>: moves it into ConfirmedOutcomeJson, frees the awaiting
-    /// slot and returns its JSON — or null when it is no longer the awaiting proposal.</summary>
+    /// <summary>Claims proposal <paramref name="id"/>: moves it into ConfirmedOutcomeJson under its id (205fe), frees the
+    /// awaiting slot and returns its JSON — or null when it is no longer the awaiting proposal. Release and clear of the
+    /// confirmed slot are <see cref="SpecDialogConfirmedSlot"/>'s.</summary>
     public async Task<string?> ClaimAsync(string platform, string threadId, string id, CancellationToken ct)
     {
         var target = (await NewestAsync(platform, threadId, ct))
@@ -64,21 +65,11 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
         var json = await target.Select(s => s.AwaitingProposalJson).FirstOrDefaultAsync(ct);
         if (json is null) return null;
         var rows = await target.ExecuteUpdateAsync(s => s
-            .SetProperty(r => r.ConfirmedOutcomeJson, r => r.AwaitingProposalJson)
+            .SetProperty(r => r.ConfirmedOutcomeJson, r => r.AwaitingProposalJson).SetProperty(r => r.ConfirmedProposalId, id)
             .SetProperty(r => r.AwaitingProposalJson, (string?)null).SetProperty(r => r.LatestProposalJson, (string?)null)
             .SetProperty(r => r.ProposalState, Filing), ct);
         return rows == 1 ? json : null;
     }
-
-    /// <summary>Gives a claimed proposal that was refused back to the awaiting slot — only while it is still the one
-    /// filing and no newer proposal took the slot. False when either changed.</summary>
-    public async Task<bool> ReleaseAsync(string platform, string threadId, string id, CancellationToken ct) =>
-        await (await NewestAsync(platform, threadId, ct))
-            .Where(s => s.ProposalId == id && s.ProposalState == Filing && s.AwaitingProposalJson == null)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(r => r.AwaitingProposalJson, r => r.ConfirmedOutcomeJson)
-                .SetProperty(r => r.LatestProposalJson, r => r.ConfirmedOutcomeJson)
-                .SetProperty(r => r.ConfirmedOutcomeJson, (string?)null).SetProperty(r => r.ProposalState, Awaiting), ct) == 1;
 
     /// <summary>Rejects proposal <paramref name="id"/>; false when it is no longer awaiting.</summary>
     public async Task<bool> RejectAsync(string platform, string threadId, string id, CancellationToken ct) =>

@@ -2699,6 +2699,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<string>("ConfirmedOutcomeJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ConfirmedProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 

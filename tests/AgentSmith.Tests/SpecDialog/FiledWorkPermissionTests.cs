@@ -95,7 +95,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
 
         _sink.Verify(s => s.AcceptAsync(
             It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true,
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
         // 2026-10-14-da5ed: and the turn itself runs as its poster, with the poster's right.
         _turnRunner.Verify(r => r.RunTurnAsync(
             It.IsAny<ConversationState>(), new TurnPoster("U1", true), It.IsAny<CancellationToken>()), Times.Once);
@@ -108,7 +108,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
 
         _sink.Verify(s => s.AcceptAsync(
             It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false,
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
     }
 
     /// <summary>
@@ -132,7 +132,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
 
         _sink.Verify(s => s.AcceptAsync(
             It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false,
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
     }
 
     /// <summary>
@@ -152,7 +152,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
         _turnRunner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
             Times.Once, "the decision runs no turn of its own");
         _sink.Verify(s => s.AcceptAsync(
-            It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true, It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true, It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
     }
 
     private async Task<string?> IdAsync(string platform, string thread) =>

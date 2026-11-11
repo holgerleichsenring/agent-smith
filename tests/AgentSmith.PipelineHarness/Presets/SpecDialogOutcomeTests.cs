@@ -588,7 +588,7 @@ public sealed partial class SpecDialogOutcomeTests
 
         public Task<OutcomeAcceptance> AcceptAsync(
             ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken, string? proposalId = null)
         {
             lock (_accepted) _accepted.Add(proposal);
             return Task.FromResult(OutcomeAcceptance.Acted);

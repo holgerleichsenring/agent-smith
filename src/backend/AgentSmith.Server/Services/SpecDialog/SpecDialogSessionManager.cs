@@ -8,9 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Opens, continues, closes and forks spec-dialog sessions keyed by chat thread; a resume
-/// is <see cref="SpecDialogResumer"/>. State lives in the relational system-of-record (NOT the
-/// volatile Redis conversation cache) so transcripts survive a Redis flush.
+/// Opens, continues, closes and forks spec-dialog sessions keyed by chat thread; a resume is <see cref="SpecDialogResumer"/>.
+/// State lives in the relational system-of-record (not the Redis cache) so transcripts survive a Redis flush.
 /// </summary>
 public sealed class SpecDialogSessionManager(
     SpecDialogSessionRepository repository, BoundSessionNudge bound,
@@ -67,12 +66,13 @@ public sealed class SpecDialogSessionManager(
     /// </summary>
     public async Task<ConversationState?> AppendTurnAsync(
         string platform, string threadId, TranscriptRole role, string text,
-        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct, string? author = null, string? runId = null)
+        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct, string? author = null, string? runId = null,
+        string? decisionProposalId = null) // 2026-11-11-205fe: the proposal a decision names
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
 
-        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, Author: author, RunId: runId); // d854c
+        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, Author: author, RunId: runId, DecisionProposalId: decision is null ? null : decisionProposalId);
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;
@@ -95,7 +95,7 @@ public sealed class SpecDialogSessionManager(
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).ToList();
         var index = transcript.LastIndexOf(turn);
         if (index < 0) return SpecDialogSessionMapper.ToState(session);
-        transcript[index] = turn with { Decision = null };
+        transcript[index] = turn with { Decision = null, DecisionProposalId = null };
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript(transcript);
         await bound.SaveAsync(session, ct);
 

@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-11-205fe: "APPROVAL DECISION TRUTH (spec dialog decisions, confirmed slot, three migrations). A refused, replaced or empty decision keeps no stored approval; a decided turn names its proposal, read as not applied while it awaits; the claim alone writes the confirmed slot with its id, clear and release act only on their own. -> .agentsmith/specs/done/2026-11-11-205fe-approval-decision-truth.yaml"
     2026-11-11-205fi: "DESIGN COVERAGE PLACEMENT (ReferencePromptSection, SpecDialogPromptFactory, skill v5.28.0). The system prompt lists upload addresses only; each upload's coverage and note render per turn in the user prompt, so opening files or replacing a note no longer changes the cached system prefix. -> .agentsmith/specs/done/2026-11-11-205fi-design-coverage-placement.yaml"
     2026-11-11-205fd: "DESIGN PROMPT HYGIENE (design skill v5.28.0, upload section, coverage line, attack prompt). The role line matches the work clone, remember and orientation stop restating tools, the upload texts name grep_in_tree with no write sentence, and every reviewer reads that it cannot run a shell. -> .agentsmith/specs/done/2026-11-11-205fd-design-prompt-hygiene.yaml"
     2026-11-11-205fc: "DESIGN BUDGET TRUTH (work picture, DesignEffortCap, ScopeEstimateRecorder). Every design prompt names the turn's cost cap; series and plan pictures need an effort; effort never lowers the resolved cap nor crosses a per-pipeline override, in the turn and at turn start; the highest stated tier is published. -> .agentsmith/specs/done/2026-11-11-205fc-design-budget-truth.yaml"
@@ -1442,7 +1443,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-11-205fe: "APPROVAL DECISION TRUTH (spec dialog). Refused/replaced decisions not stored as approved; confirmed JSON keyed to its proposal id. -> .agentsmith/specs/planned/2026-11-11-205fe-approval-decision-truth.yaml"
     2026-11-11-205ff: "INTERRUPTED TURN DRAFT (spec dialog view). Every stored per-turn proposal stays in the view, an orphan as an interrupted turn. -> .agentsmith/specs/planned/2026-11-11-205ff-dialog-interrupted-turn-draft.yaml"
     2026-11-11-205fg: "PROJECT MEMORY BOUNDS (memory). One-line quoted descriptions, bounded slug/author, real concurrent upsert test. -> .agentsmith/specs/planned/2026-11-11-205fg-project-memory-bounds.yaml"
     2026-11-11-205fh: "CHAT CARD BINDING (Slack/Teams). Slack typed decisions bound by Slack time, Teams by buttons only, a failed card post is reposted. requires 205fe. -> .agentsmith/specs/planned/2026-11-11-205fh-chat-card-binding.yaml"

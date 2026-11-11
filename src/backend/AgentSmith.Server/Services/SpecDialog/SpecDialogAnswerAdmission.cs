@@ -25,20 +25,25 @@ public sealed record SpecDialogAdmitted(ConversationState State, bool Answered, 
 public sealed class SpecDialogAnswerAdmission(
     SpecDialogSessionManager sessions,
     SpecDialogPendingQuestions pendingQuestions,
-    IDialogueTransport dialogueTransport)
+    IDialogueTransport dialogueTransport,
+    SpecDialogProposalState? proposals = null) // 2026-11-11-205fe
 {
     /// <summary>The stored message and whether it answered; null when the thread has no open session.
-    /// The author is the poster's display name, recorded on the stored turn.</summary>
+    /// The author is the poster's display name, recorded on the stored turn. 2026-11-11-205fe: a decided turn names the
+    /// proposal it decides — the card it was sent from, else the one awaiting — so a crash before the decision path
+    /// ran leaves a decision the view reads as not applied while that proposal still awaits.</summary>
     public async Task<SpecDialogAdmitted?> AdmitAsync(
         string text, string userId, string platform, string threadId, CancellationToken ct,
-        string? author = null)
+        string? author = null, string? proposalId = null)
     {
         var open = await sessions.GetOpenByThreadAsync(platform, threadId, ct);
         if (open is null) return null;
         var asked = pendingQuestions.TryPeek(open.JobId, out var peeked) ? peeked : null;
         var decision = asked is null ? SpecDialogAnswerWords.DecisionIn(text) : SpecDialogAnswerWords.DecisionOn(asked.Question, text);
+        var named = decision is null ? null
+            : proposalId ?? (proposals is null ? null : (await proposals.ReadAsync(open, ct)).AwaitingId);
         var state = await sessions.AppendTurnAsync(
-            platform, threadId, TranscriptRole.User, text, null, decision, ct, author);
+            platform, threadId, TranscriptRole.User, text, null, decision, ct, author, decisionProposalId: named);
         if (state is null) return null;
         if (asked is null) return new(state, Answered: false, decision);
         if (!pendingQuestions.TryTake(state.JobId, asked))

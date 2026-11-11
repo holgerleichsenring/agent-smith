@@ -79,7 +79,7 @@ public sealed class SpecDialogDecisionPath(
         }
         if (await proposals.ClaimAsync(state, id, ct) is not { } claimed) return null;
         // Only a person's ratification names a mock: stamped from the transcript as it stands now.
-        if (await sink.AcceptAsync(state, await ratifiedMocks.StampAsync(state, claimed, ct), mayStartRuns, ct) == OutcomeAcceptance.Acted)
+        if (await sink.AcceptAsync(state, await ratifiedMocks.StampAsync(state, claimed, ct), mayStartRuns, ct, id) == OutcomeAcceptance.Acted)
             return SpecDialogDecided.Decided;
         await proposals.ReleaseAsync(state, id, ct);
         return SpecDialogDecided.Refused;

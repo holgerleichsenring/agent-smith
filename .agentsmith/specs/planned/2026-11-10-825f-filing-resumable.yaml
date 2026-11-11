@@ -11,9 +11,9 @@ facts:
   - claim: "The filed series maps each filed id back to the proposal's own draft id (Sources), which is the stable key a record can use."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:33"
   - claim: "A filing that fails part-way is only reported in a Filing notice; nothing records which tickets exist, and a person approving again would file all of them again."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-80"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-78"
   - claim: "A continuation act on a bound ticket is not recorded either, so a crash after it leaves no trace of having acted."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:45-46,91-111"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:45-46,89-109"
   - claim: "OutcomeTicketFiler is at its 120-line cap."
     evidence: "observed: 2026-11-10, wc -l src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs"
 

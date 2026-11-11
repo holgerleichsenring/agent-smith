@@ -2604,6 +2604,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("ConfirmedOutcomeJson")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ConfirmedProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 

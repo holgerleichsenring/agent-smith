@@ -30,6 +30,7 @@ public sealed class SpecDialogSessionConfiguration : IEntityTypeConfiguration<Sp
         builder.Property(s => s.ProposalId).HasMaxLength(PersistenceLimits.ProposalId); // 2026-11-10-ccd9
         builder.Property(s => s.ProposalState).HasMaxLength(PersistenceLimits.ProposalId);
         builder.Property(s => s.PostedProposalId).HasMaxLength(PersistenceLimits.ProposalId);
+        builder.Property(s => s.ConfirmedProposalId).HasMaxLength(PersistenceLimits.ProposalId); // 2026-11-11-205fe
         builder.Property(s => s.RunningRunId).HasMaxLength(PersistenceLimits.IndexedString); // 2026-11-10-d854c
         // 2026-09-25-8e51b: the ticket a conversation belongs to. The UNIQUE index over the pair
         // lives on the context, not here — it has to be filtered on SQL Server, which treats two

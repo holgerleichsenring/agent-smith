@@ -40,7 +40,8 @@ public sealed class BoundSessionNudgeTests : IDisposable
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SpecDialogSessionManager>().AddScoped<BoundSessionNudge>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
-        services.AddScoped<SpecDialogProposalClaim>().AddScoped<SpecDialogProposalState>(); // 2026-11-10-ccd9
+        services.AddScoped<SpecDialogProposalClaim>().AddScoped<SpecDialogProposalState>() // 2026-11-10-ccd9
+            .AddScoped<SpecDialogConfirmedSlot>(); // 2026-11-11-205fe
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
 

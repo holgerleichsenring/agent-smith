@@ -147,7 +147,7 @@ public sealed class ProposalDecisionTests : IDisposable
     {
         var (state, id) = await ProposedAsync();
         // The next turn proposes while the approved one is being filed.
-        _sink.Setup(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+        _sink.Setup(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
             .Returns(async () => { await Harness().Flow().HandleAsync(state, Spec("p2"), default); return OutcomeAcceptance.Acted; });
 
         (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Decided);
@@ -162,7 +162,7 @@ public sealed class ProposalDecisionTests : IDisposable
     public async Task Approve_SinkRefuses_ProposalAwaitsAgainUnderItsId()
     {
         var (state, id) = await ProposedAsync();
-        _sink.Setup(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+        _sink.Setup(s => s.AcceptAsync(It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
             .ReturnsAsync(OutcomeAcceptance.Refused);
 
         (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
