@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.181.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.180.2...v0.181.0) (2026-11-11)
+
+
+### Features
+
+* a coding run keeps project-wide lessons on the project and cites them as @project/slug (2026-11-10-fcd7c) ([a797b08](https://github.com/holgerleichsenring/agent-smith/commit/a797b08ab882ab85d67baccc5eef2455881e4510))
+* a design turn lays its open questions on the draft and every push carries the turn's spend (2026-11-10-d854a) ([811e782](https://github.com/holgerleichsenring/agent-smith/commit/811e782fa37fc39758deb4c3dd50ae5490634382))
+* a design turn remembers lasting statements on the project, and every index shows them first (2026-11-10-fcd7b) ([5adbcd3](https://github.com/holgerleichsenring/agent-smith/commit/5adbcd37599741416564e2ca0d82050eb9fe1a0e))
+* a design turn states its effort and its review budget rises to that tier, with a new xl tier (2026-11-10-548f) ([00377d1](https://github.com/holgerleichsenring/agent-smith/commit/00377d1a2d44b44bdedc86aa23d727cccbaecb4e))
+* a design turn's master runs commands in a fresh work clone of the commit its reads show (2026-11-10-4778) ([8a4aeb8](https://github.com/holgerleichsenring/agent-smith/commit/8a4aeb8df733dfd6dc26498caad5689a78603321))
+* a design turn's steps, its own proposal and a thrown turn's notice stay readable by run id after it ends (2026-11-10-d854c) ([87a8076](https://github.com/holgerleichsenring/agent-smith/commit/87a8076f63429a95c563b516bc0d11ff688cc276))
+* a project's memories in its panel, newest first, with delete (2026-11-10-fcd7d) ([703f451](https://github.com/holgerleichsenring/agent-smith/commit/703f451edcfd447989a88c00a67d2088131d36a9))
+* a stored proposal awaits a decision on the exact card seen, never expires, and one claim wins (2026-11-10-ccd9) ([306f269](https://github.com/holgerleichsenring/agent-smith/commit/306f269fdf3c0e120ec11d5dde39e1a34ab8518f))
+* every proposing design turn shows one reduced result, live and after a reload (2026-11-10-d854b) ([c23c9cd](https://github.com/holgerleichsenring/agent-smith/commit/c23c9cda5ce6776821c8f8f0bfc5f86f6ede261b))
+* project memories in their own store, tied to the project's config entity (2026-11-10-fcd7a) ([a135a96](https://github.com/holgerleichsenring/agent-smith/commit/a135a961a7b41afc04eda550beb56cfbe98429f3))
+* project memory and design-turn execution (2026-11-10-fcd7a..d, 4778) ([b0d315e](https://github.com/holgerleichsenring/agent-smith/commit/b0d315e0ac0b901a800a99053f93c65c3c6ece93))
+* proposals never expire, budget tier and reduced turn result view (2026-11-10-ccd9, 7da6, 548f, d854a-c) ([5b813b1](https://github.com/holgerleichsenring/agent-smith/commit/5b813b120c9e388358f49460f693144a55cdd8f8))
+* the conversation shows one card per proposal, live and after a reload mid-turn (2026-11-10-7da6) ([d4bf378](https://github.com/holgerleichsenring/agent-smith/commit/d4bf3785eaf4de3f6e742c5de86af074f29a055e))
+
+
+### Bug Fixes
+
+* a design turn's effort stays inside the operator's cap and the prompt names it (2026-11-11-205fc) ([d082dab](https://github.com/holgerleichsenring/agent-smith/commit/d082dab6e9e72b1cd2817879a74d60c17144074e))
+* a project memory reaches later prompts only as quoted data (2026-11-11-205fg) ([0579a45](https://github.com/holgerleichsenring/agent-smith/commit/0579a45dff274da499fe1e45cda859d4e27ab23f))
+* a stored decision says what it did, and a filing clears only its own slot (2026-11-11-205fe) ([cadfa33](https://github.com/holgerleichsenring/agent-smith/commit/cadfa33087d74a243cc20ef72e29f0509fe67ac9))
+* a turn that stopped mid-review keeps its draft in the conversation (2026-11-11-205ff) ([ab365c2](https://github.com/holgerleichsenring/agent-smith/commit/ab365c22899cb29c173c5b7d8cca3bb7ad2adb25))
+* a typed chat decision binds by the platform's own clock, or not at all (2026-11-11-205fh) ([2161daf](https://github.com/holgerleichsenring/agent-smith/commit/2161daf171dde9a09f5b8499bb406e13a4d80de8))
+* an upload's coverage and note travel in the design turn's own prompt (2026-11-11-205fi) ([97dfd6f](https://github.com/holgerleichsenring/agent-smith/commit/97dfd6f54e210ec6776eb4a4d7ad933c70998791))
+* design turn prompt and proposal state after the Fable reviews (2026-11-11-205f) ([c753991](https://github.com/holgerleichsenring/agent-smith/commit/c7539912773f7cbe509ed62ac18aa568631ed041))
+* review findings on interrupted and live turn drafts (2026-11-11-205ff) ([c1919d4](https://github.com/holgerleichsenring/agent-smith/commit/c1919d46686cab87c27457ec8b38343f0b99159e))
+* review findings on project memory and design-turn execution (2026-11-10-4778) ([d0e6f69](https://github.com/holgerleichsenring/agent-smith/commit/d0e6f69d949bbe624756f878b7c5e41b8ef17f52))
+* review findings on proposal decisions, reload and budget tier (2026-11-10-ccd9) ([a4ed1ea](https://github.com/holgerleichsenring/agent-smith/commit/a4ed1ea1742cb8020f0891cc97e1d0cd8d137a16))
+* review findings on stored decisions and the continuation slot (2026-11-11-205fe) ([d243994](https://github.com/holgerleichsenring/agent-smith/commit/d243994821cbe4b7152e0f2f725ab6cfd7a3e0cb))
+* review findings on the bound-ticket judgement outcome (2026-11-11-f874) ([a5ed321](https://github.com/holgerleichsenring/agent-smith/commit/a5ed321975ea3cd46313184d15da904d31d3009b))
+* review findings on the design effort tier across turns (2026-11-11-205fc) ([76d16d6](https://github.com/holgerleichsenring/agent-smith/commit/76d16d61f4448ea259875aadfe6f43c4e27769b1))
+* spawn_agents tells a design turn how far its fan-out goes (2026-11-11-205fj) ([f673375](https://github.com/holgerleichsenring/agent-smith/commit/f67337527cdf9804382f8ca298a345e97c78d33c))
+* the design format and bound-ticket section keep only facts with an invariant (2026-11-11-f874) ([0ebdab3](https://github.com/holgerleichsenring/agent-smith/commit/0ebdab36eb9dae3fd31c7041672b48dcbe17ce36))
+* the design formats show the repos key the server checks (2026-11-11-205fa) ([5bd4965](https://github.com/holgerleichsenring/agent-smith/commit/5bd49651a354cecf6bf7cbd9c968dfb91de099a1))
+* the design turn drafts with its proposals instead of holding back (2026-11-11-205fb) ([8cdf844](https://github.com/holgerleichsenring/agent-smith/commit/8cdf844374cf5754d9c010d8150b8dc9746c6895))
+* the design turn's texts say what it can do, once and truly (2026-11-11-205fd) ([976a6cf](https://github.com/holgerleichsenring/agent-smith/commit/976a6cf7e0ea77f36c0a1f2acc6e9f1d9600bf87))
+
 ## [0.180.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.180.1...v0.180.2) (2026-11-10)
 
 
