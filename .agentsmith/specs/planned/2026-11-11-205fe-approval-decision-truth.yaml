@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fe
+goal: "A stored decision says what happened: a refused or replaced approval is not kept as approved, and a filing's confirmed JSON belongs to its own proposal id, so another filing never clears it."
+
+applies_to: "default (Server: SpecDialogRouter, SpecDialogAnswerAdmission, SpecDialogDecisionPath, SpecDialogOutcomeStore; Persistence: SpecDialogProposalClaim, SpecDialogSession)"
+
+repos_touched: [agent-smith]
+
+invariants:
+  - "DECISION = OUTCOME. A transcript turn carries Decision=Approved/Rejected only when that decision was applied (Decided). Refused, Replaced and No leave no decision on the turn."
+  - "OWN SLOT. The confirmed JSON a filing reads, clears or releases is the one its claim wrote, identified by the claimed proposal id; a clear or release naming another id changes nothing."
+  - "RELEASE NEVER EMPTIES. A release that would leave the awaiting slot without JSON changes nothing and returns false."
+
+facts:
+  - claim: "Admission stores the user turn with its decision before any gate."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:38-43"
+  - claim: "A click returns straight from DecideAsync; UndecideAsync runs only on a busy gate or a typed No."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:78-80,82-85,89-94"
+  - claim: "DecideAsync returns Refused (shape refusal or sink refusal after release) or Replaced without touching the stored decision."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:38-49,65-86"
+  - claim: "The dashboard treats any later user or decision entry as answering the open card, so a re-draft after it gets a new card; the stored turn's Decision decides whether it renders as a decision entry."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:807-820 (withCard)"
+  - claim: "ClaimAsync writes ConfirmedOutcomeJson unconditionally; ReleaseAsync copies ConfirmedOutcomeJson back into the awaiting slot."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogProposalClaim.cs:59-70,74-80"
+  - claim: "ClearConfirmedAsync clears ConfirmedOutcomeJson of the open session regardless of which proposal it holds."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:33-39"
+
+assumptions:
+  - "Two filings can overlap on one conversation only across replicas or across a turn proposed while a slow filing runs; the window is narrow but multi-replica is a requirement."
+
+scope:
+  in: "The router undecides the stored turn on every DecideAsync result other than Decided (click path included). The session gains ConfirmedProposalId, written with ConfirmedOutcomeJson by ClaimAsync; ClearConfirmed and Release take the id and match on it; Release also requires ConfirmedOutcomeJson not null. Additive nullable column in all three migration sets."
+  out: "Exactly-once and resumable filing (2026-11-10-825f)."
+
+decisions:
+  - "Undecide after the fact, not decide-later at admission: the transcript must hold the person's message even when the server dies mid-decision; the decision field is what changes."
+  - "proposed: a column, not an id embedded in the JSON — the compare-and-set needs it in the WHERE clause on all three providers."
+
+steps:
+  - id: undecide
+    action: "SpecDialogRouter calls admission.UndecideAsync for Refused, Replaced and No on both decision paths."
+  - id: column
+    action: "SpecDialogSession.ConfirmedProposalId; three migrations; ClaimAsync sets it; ClearConfirmedAsync(id) and ReleaseAsync(id) match it."
+  - id: tests
+    action: "Pin both invariants, the two-filing chain on real SQLite."
+
+tests:
+  - "Decision_ClickOnReplacedCard_StoredTurnHasNoDecision"
+  - "Decision_SinkRefusesAfterClaim_StoredTurnHasNoDecision"
+  - "Claim_SecondFilingCompletes_FirstFilingsConfirmedJsonUntouched"
+  - "Release_ConfirmedJsonCleared_ChangesNothing"
+
+done:
+  - when: "a person clicks Approve on a card a newer proposal replaced"
+    then: "the transcript's last user turn carries no decision, and the ticket page and conversation view show no 'approved' entry for it"
+  - when: "proposal A is filing, B is claimed, and A's filing completes"
+    then: "B's ConfirmedOutcomeJson is unchanged, and B's refused filing returns B to awaiting with its JSON"
+  - "Build green, full suite and dashboard tests green."

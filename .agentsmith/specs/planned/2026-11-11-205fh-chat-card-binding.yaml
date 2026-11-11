@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fh
+goal: "A typed decision in Slack or Teams is bound by the platform's own time of the posted card, and a card that failed to post is posted again instead of silently turning decisions into turns."
+
+applies_to: "default (Server: IChatThreadAdapter, SlackThreadAdapter, TeamsThreadAdapter, ChatThreadAdapters, SpecDialogChatCard, SpecDialogDecisionPath)"
+
+repos_touched: [agent-smith]
+
+invariants:
+  - "ONE CLOCK. PostedAt and the inbound message's sentAt come from the same platform clock; the server clock is never compared with a platform clock."
+  - "SEEN OR SAID. A typed decision word while a proposal awaits either decides the card the thread was shown or gets that card (re)posted with a line saying so; it never becomes an ordinary model turn because a post failed."
+
+facts:
+  - claim: "PostedAt is the server's UtcNow after the post; the typed path compares it with the platform's sentAt."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogChatCard.cs:43; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:51-58"
+  - claim: "A failed post is logged and swallowed; PostedAt stays at the older card, and a later agent reply makes every typed word undecided."
+    evidence: "SpecDialogChatCard.cs:33-42; SpecDialogDecisionPath.cs:56"
+  - claim: "The adapters' PostQuestionAsync returns no platform id or time."
+    evidence: "src/backend/AgentSmith.Server/Contracts/IChatThreadAdapter.cs:22; src/backend/AgentSmith.Server/Services/Adapters/SlackThreadAdapter.cs:24-31; src/backend/AgentSmith.Server/Services/Adapters/TeamsThreadAdapter.cs:26-29; src/backend/AgentSmith.Server/Services/Adapters/ChatThreadAdapters.cs:30-35"
+
+assumptions:
+  - "Slack chat.postMessage returns the message ts; the Bot Framework send returns the activity id but no timestamp — the build verifies Teams and, if it gives no time, binds Teams by reading the activity back or by the inbound replyToId; which one is decided in the build and logged."
+
+scope:
+  in: "PostQuestionAsync returns the posted message's platform time (and id). SpecDialogChatCard stores that time as PostedAt. On a failed post the awaiting proposal is marked not shown; a typed decision word then reposts the card and tells the thread to decide on it."
+  out: "Dashboard binding (by card id, unchanged)."
+
+decisions:
+  - "proposed: the repost answers the typed word instead of running a model turn — the person meant to decide, and a model turn on 'approve' costs money and decides nothing."
+
+steps:
+  - id: adapters
+    action: "IChatThreadAdapter.PostQuestionAsync returns PostedMessage(id, at); Slack reads ts; Teams per the assumption."
+  - id: card
+    action: "SpecDialogChatCard stores the platform time; a failed post clears PostedProposalId."
+  - id: path
+    action: "DecisionPath: typed decision with an awaiting proposal not shown → repost + notice, returns Replaced."
+  - id: tests
+    action: "Pin the clock and the repost."
+
+tests:
+  - "TypedApprove_ServerClockAheadOfSlack_StillDecides"
+  - "TypedApprove_CardPostFailed_RepostsTheCardAndRunsNoTurn"
+
+done:
+  - when: "the server clock runs 10 s ahead of Slack and a person types 'approve' after the card"
+    then: "the proposal is decided"
+  - when: "the card post failed and a person types 'approve'"
+    then: "the card is posted again with a notice and no model turn runs"
+  - "Build green, full suite green."

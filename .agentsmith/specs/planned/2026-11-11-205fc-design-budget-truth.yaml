@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-205fc
+goal: "A design turn sees its cost cap every turn, must state effort for a series or plan, never raises the cap above a per-pipeline override, and reports the tier that sized the cap."
+
+applies_to: "default (Application: WorkPictureSection, WorkPictureAdmission, WorkPictureToolHost, ScopeEstimateRecorder; skills: design-partner-master Work picture paragraph)"
+
+repos_touched: [agent-smith, agent-smith-skills]
+
+invariants:
+  - "OVERRIDE IS A CEILING FOR EFFORT. A model-stated effort raises the cap at most to min(tier cap, PerPipeline override) when the pipeline has an override; a coding run's scope estimate keeps its p0413a rule (raises above the resolved cap) unchanged."
+  - "ONE TIER, EVERYWHERE. The tier in the context key, in RunBudgetResolvedEvent and in TurnSpend is the tier that sized the live cap — the higher of stated and stored — never a lower one stated later."
+  - "THE MODEL SEES WHAT IT SIZES. Every design-turn prompt names the cap the turn starts with, whether or not an effort is stored."
+  - "NO INVENTED COSTS. The tool text gives only measured facts about what a review costs, cited in decisions."
+
+facts:
+  - claim: "WorkPictureSection renders the cap only when a stored effort exists; with no picture it renders one line."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureSection.cs:12-18,26-30"
+  - claim: "effort is optional and its text says the cap 'rises to this tier's cap', which a trivial/small tier below the $5 default never does."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:31-34,50; src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:49-56 and RaisedTo"
+  - claim: "ApplyTierAsync raises the resolved cap (which already includes a per-pipeline override) to the tier cap, so an override below the tier is exceeded."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:49-67,91-94; PipelineCostCapConfig.cs:17"
+  - claim: "548f decided the raise is never above a configured override; its test covers only an override above the tier."
+    evidence: ".agentsmith/specs/done/2026-11-10-548f-budget-design-turn-tier.yaml decisions[1]; tests StateWorkPicture_EffortBelowAPerPipelineOverride_KeepsTheOverride"
+  - claim: "The tool host keeps the higher effort on the slot but passes the STATED effort to the raise, which sets the ComplexityTier context key and publishes it; TurnSpend reads that key."
+    evidence: "WorkPictureToolHost.cs:57-62; ScopeEstimateRecorder.cs:53-65; src/backend/AgentSmith.Application/Services/SpecDialog/TurnSpend.cs:19-22"
+  - claim: "Size is admitted from UndertakingSize; effort is admitted separately."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureAdmission.cs:23-24"
+  - claim: "Conv 44 reviewed 3 of 10 specs at the $5 default cap."
+    evidence: "observed 2026-11-10, run 2026-11-10T19-36-22-96b7 (548f facts)"
+
+scope:
+  in: "WorkPictureSection always renders the turn's starting cap (from PipelineCostCap, else the configured default) and, when stored, the effort. WorkPictureAdmission refuses a series or plan picture without an effort, naming the tiers. EffortDescription says the cap only rises, a tier below the current cap changes nothing, and names the one measured point (a $5 cap reviewed 3 of a 10-spec series). ScopeEstimateRecorder gets an effort path that clamps to the per-pipeline override when one is configured. WorkPictureToolHost passes the effective (higher) tier."
+  out: "Per-review cost estimates beyond the measured point. A money fence for the master itself. The 'continue at next tier' button."
+
+decisions:
+  - "proposed: a separate ApplyEffortAsync rather than a flag on ApplyTierAsync — the coding-run rule and the design-turn rule differ by invariant, so they get two names."
+  - "proposed: required only for series and plan; a one-spec turn at the default cap was enough in every observed run."
+
+steps:
+  - id: section
+    action: "WorkPictureSection renders 'cost cap $X / N tokens' on every design turn."
+  - id: admission
+    action: "WorkPictureAdmission refuses series/plan without effort."
+  - id: clamp
+    action: "ScopeEstimateRecorder.ApplyEffortAsync: RaisedTo, then clamp to PerPipeline[pipeline] when present; TicketActToolsFactory wires it."
+  - id: tier
+    action: "WorkPictureToolHost passes the slot's effective effort to the raise."
+  - id: texts
+    action: "EffortDescription and the skill's Work picture paragraph state the facts in scope.in, in place."
+
+tests:
+  - "StateWorkPicture_EffortXlUnderTenDollarOverride_CapStaysTen"
+  - "StateWorkPicture_LowerEffortLater_PublishesTheHigherTier"
+  - "WorkPictureAdmission_SeriesWithoutEffort_IsRefusedNamingTheTiers"
+  - "WorkPictureSection_NoPicture_RendersTheStartingCap"
+  - "ScopeEstimate_CodingRunLargeOverOverride_StillRaises (p0413a unchanged)"
+
+done:
+  - when: "spec-dialog has a $10 per-pipeline override and a turn states effort xl"
+    then: "the turn's cap is $10 and the run row's BudgetTier is 'xl'"
+  - "A first design turn's prompt names its cost cap."
+  - "state_work_picture with size series and no effort answers 'Not stored' naming the tiers."
+  - "Build green, full suite green; skills released and pinned with the series."
