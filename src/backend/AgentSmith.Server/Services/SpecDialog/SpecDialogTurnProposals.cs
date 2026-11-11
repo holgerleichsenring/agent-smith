@@ -7,10 +7,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <summary>
 /// 2026-11-10-d854c: each kept turn of a conversation's view gets its own proposal, read by the turn's run id, so a
 /// later proposal never hides an earlier one. A mark under review stays only while a turn computes.
-/// <para>2026-11-11-205ff: NO ORPHAN ROW. A stored proposal no kept turn carries is either the live turn's — read from
-/// its run row, which every replica sees alike — and shown as <see cref="SpecDialogSessionView.RunningProposal"/>, or a
-/// turn that stopped before it finished, listed in <see cref="SpecDialogSessionView.InterruptedTurns"/>. Until the
-/// liveness reaper marks a dead run's row, that row still reads as live.</para>
+/// <para>2026-11-11-205ff: NO ORPHAN ROW. A stored proposal no kept turn carries is classified by its run row alone,
+/// which every replica sees alike: the newest live one (this conversation's running run first) is
+/// <see cref="SpecDialogSessionView.RunningProposal"/>; every other one is listed in
+/// <see cref="SpecDialogSessionView.InterruptedTurns"/>, marked running while its row is live — another replica's turn —
+/// and as stopped once it is not. Until the liveness reaper marks a dead run's row, that row still reads as live.</para>
 /// </summary>
 public sealed class SpecDialogTurnProposals(
     SpecDialogTurnProposalStore store, SpecDialogProposalComposer composer, RunLivenessRepository runs)
@@ -32,7 +33,7 @@ public sealed class SpecDialogTurnProposals(
             .OrderBy(row => row.Key == state.RunningRunId ? 1 : 0).ThenBy(row => row.Value.At).LastOrDefault();
         var interrupted = orphans.Where(row => row.Key != running.Key)
             .Select(row => Push(state, row.Value.Proposal, row.Value.At, computing) is { } push
-                ? new SpecDialogInterruptedTurnView(row.Key, row.Value.At, push) : null)
+                ? new SpecDialogInterruptedTurnView(row.Key, row.Value.At, push, Running: live.Contains(row.Key)) : null)
             .OfType<SpecDialogInterruptedTurnView>().ToList();
         return session with
         {

@@ -71,8 +71,9 @@ export interface DialogEntry {
   runId?: string;
   /** Set on a decision entry. */
   decision?: SpecDialogDecision;
-  /** 2026-11-11-205ff: set on a turn that stopped before it finished; it carries its last draft and said nothing. */
-  interrupted?: boolean;
+  /** 2026-11-11-205ff: set on a turn no kept turn carries; it carries its last draft and said nothing. "running" while
+   *  its run is still live elsewhere, "stopped" once it is not. */
+  interrupted?: "running" | "stopped";
   /** Set on a decision the page showed before any read confirmed the server stored it. */
   pending?: PendingDecision;
   /** 2026-09-20-3af8: set on an image entry — what the operator attached, by its address. */
@@ -779,7 +780,7 @@ export function withInterrupted(held: DialogEntry[], interrupted: SpecDialogInte
   return interrupted.reduce((entries, turn) => {
     const entry: DialogEntry = {
       key: `interrupted-${turn.runId}`, kind: "agent", text: "", at: turn.at, proposal: turn.proposal,
-      runId: turn.runId, interrupted: true,
+      runId: turn.runId, interrupted: turn.running ? "running" : "stopped",
     };
     const after = entries.findIndex((existing) => Date.parse(existing.at) > Date.parse(turn.at));
     return after < 0 ? [...entries, entry] : [...entries.slice(0, after), entry, ...entries.slice(after)];

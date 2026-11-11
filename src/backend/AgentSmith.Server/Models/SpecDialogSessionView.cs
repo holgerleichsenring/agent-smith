@@ -72,13 +72,17 @@ public sealed record SpecDialogSessionView(
     /// <summary>2026-11-10-d854c: that run's own proposal when no kept turn carries it — a turn that never ended.</summary>
     public SpecDialogProposalPush? RunningProposal { get; init; }
 
-    /// <summary>2026-11-11-205ff: turns that stopped before they finished, each with its last draft, oldest first; null
-    /// with none. Not transcript turns — an interrupted turn said nothing.</summary>
+    /// <summary>2026-11-11-205ff: turns no kept turn carries beside <see cref="RunningProposal"/>, each with its last
+    /// draft, oldest first; null with none. Each is still running (a live run row) or stopped before it finished. Not
+    /// transcript turns — such a turn said nothing yet.</summary>
     public IReadOnlyList<SpecDialogInterruptedTurnView>? InterruptedTurns { get; init; }
 }
 
-/// <summary>2026-11-11-205ff: a turn whose run stopped before it finished — its run, when its draft was kept, the draft.</summary>
-public sealed record SpecDialogInterruptedTurnView(string RunId, DateTimeOffset At, SpecDialogProposalPush Proposal);
+/// <summary>2026-11-11-205ff: a turn no kept turn carries — its run, when its draft was kept, the draft. Review fix:
+/// <paramref name="Running"/> when its run row is still live (another replica's turn); otherwise it stopped before it
+/// finished.</summary>
+public sealed record SpecDialogInterruptedTurnView(
+    string RunId, DateTimeOffset At, SpecDialogProposalPush Proposal, bool Running = false);
 
 /// <summary>2026-10-13-8762r: one mock version, addressed by its spec and number; its screenshot is a route of its own.</summary>
 public sealed record SpecDialogMockView(string SpecId, int Version, string Name, DateTimeOffset At, bool HasShot);

@@ -74,6 +74,24 @@ public sealed class InterruptedTurnDraftTests : IDisposable
         read.InterruptedTurns.Should().BeNull();
     }
 
+    [Fact]
+    public async Task TurnProposals_TwoLiveOrphansAndADeadOne_OnlyTheDeadOneReadsAsStopped()
+    {
+        var harness = new SpecDialogDecisionHarness(_context);
+        var state = await harness.OpenAsync("dashboard", Dialog);
+        await harness.TurnProposals.WriteAsync(state, "run-z", Bug("dead draft"), default);
+        await RunAsync("run-z", RunStatuses.Failed);
+        await harness.TurnProposals.WriteAsync(state, "run-x", Bug("older live draft"), default);
+        await RunAsync("run-x", RunStatuses.Running);
+        await harness.TurnProposals.WriteAsync(state, "run-y", Bug("newest live draft"), default);
+        await RunAsync("run-y", RunStatuses.Running);
+
+        var read = await ReadAsync(harness);
+
+        read.RunningProposal!.Bug!.Title.Should().Be("newest live draft");
+        read.InterruptedTurns!.Select(t => (t.RunId, t.Running)).Should().Equal(("run-z", false), ("run-x", true));
+    }
+
     private async Task<SpecDialogSessionView> ReadAsync(SpecDialogDecisionHarness harness)
     {
         var current = (await harness.Sessions.GetOpenByThreadAsync("dashboard", Dialog, default))!;

@@ -171,6 +171,8 @@ export interface SpecDialogInterruptedTurn {
   runId: string;
   at: string;
   proposal: SpecDialogProposalPush;
+  /** Review fix: its run row is still live — another replica's turn; otherwise it stopped before it finished. */
+  running?: boolean;
 }
 
 /** 2026-11-05-862ea: the work picture the design partner stated — kind and size as camelCase strings. */

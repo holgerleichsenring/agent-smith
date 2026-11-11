@@ -134,6 +134,16 @@ describe("TurnResult", () => {
     expect(within(results[0]).getByTestId("dialog-turn-interrupted")).toHaveTextContent("stopped before it finished");
   });
 
+  // 205ff review: a turn whose run is still live on another replica says so instead of "stopped".
+  it("TurnResult renders another replica's live turn as still running", () => {
+    const placed = withInterrupted([{ key: "u", kind: "user", text: "go", at: "2026-11-10T18:00:00Z" }],
+      [{ runId: "run-a", at: "2026-11-10T18:30:00Z", proposal: { ...epic, proposalId: null }, running: true }]);
+    render(<DialogTranscript entries={placed} onInspect={vi.fn()} />);
+
+    expect(screen.getByTestId("dialog-turn-running")).toHaveTextContent("still running");
+    expect(screen.queryByTestId("dialog-turn-interrupted")).toBeNull();
+  });
+
   it("Two proposing turns each render their own TurnResult; only the latest has the approve bar", () => {
     const first: SpecDialogProposalPush = { ...epic, proposalId: null, children: [draft(1)], questions: [] };
     const entries: DialogEntry[] = [
