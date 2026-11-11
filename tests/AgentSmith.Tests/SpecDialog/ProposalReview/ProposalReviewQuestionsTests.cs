@@ -36,16 +36,18 @@ public sealed class ProposalReviewQuestionsTests
     [Fact]
     public async Task ProposalReview_QuestionsStatedByRevision_ReachNextRound()
     {
+        // 2026-11-11-2bdfe: a NEW question ends the review, so the revision restates the question with a new proposal.
         var rig = new ProposalReviewRig { Settings = Of(rounds: 2) };
+        rig.Slot.Questions = [Question("Who owns the file?", "Accounting.")];
         rig.Propose(SpecReply(Yaml(Lone)));
         rig.OnReview = input => input.Round == 1 ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) : Build();
-        rig.Replies(rig.Asks(_ => SpecReply(Yaml(Lone, step: NewStep)), Question("Who owns the file?", "Accounting.")));
+        rig.Replies(rig.Asks(_ => SpecReply(Yaml(Lone, step: NewStep)), Question("Who owns the file?", "Finance.")));
 
         await rig.RunAsync();
 
-        rig.Reviewed.Where(i => i.Round == 1).Should().OnlyContain(i => i.OpenQuestions.Count == 0);
+        rig.Reviewed.Where(i => i.Round == 1).Should().OnlyContain(i => i.OpenQuestions.Single().Proposal == "Accounting.");
         rig.Reviewed.Where(i => i.Round == 2).Should().NotBeEmpty()
-            .And.OnlyContain(i => i.OpenQuestions.Single().Question == "Who owns the file?");
+            .And.OnlyContain(i => i.OpenQuestions.Single().Proposal == "Finance.");
     }
 
     [Fact]

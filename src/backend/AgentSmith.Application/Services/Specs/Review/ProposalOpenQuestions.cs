@@ -19,6 +19,15 @@ internal static class ProposalOpenQuestions
             : [];
     }
 
+    /// <summary>2026-11-11-2bdfe: true when the slot now holds a question <paramref name="before"/> did not — same
+    /// question text, trimmed and compared ordinally, is the same question.</summary>
+    public static bool AddsTo(PipelineContext pipeline, IReadOnlyList<OpenQuestion> before)
+    {
+        ArgumentNullException.ThrowIfNull(before);
+        var known = before.Select(q => q.Question.Trim()).ToHashSet(StringComparer.Ordinal);
+        return Of(pipeline).Any(q => !known.Contains(q.Question.Trim()));
+    }
+
     /// <summary>Puts <paramref name="questions"/> back on the turn's slot; nothing without a slot.</summary>
     public static void Restore(PipelineContext pipeline, IReadOnlyList<OpenQuestion> questions)
     {

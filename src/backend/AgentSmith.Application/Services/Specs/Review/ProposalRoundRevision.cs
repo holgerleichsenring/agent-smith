@@ -45,6 +45,15 @@ public sealed class ProposalRoundRevision(
         MasterOutcomes.PublishOutcome(session.Turn.Pipeline, merged.Merged, reply!.Result);
         await RecutAsync(session, merged, ct);
         foreach (var draft in applying.Where(session.Drafts.Contains)) await SettleAsync(session, draft, ct);
+        return !WaitsOnAnswers(session, asked);
+    }
+
+    // 2026-11-11-2bdfe: a revision that lays new questions on the operator ends the review; what is open waits on the answers.
+    private static bool WaitsOnAnswers(ProposalReviewSession session, IReadOnlyList<OpenQuestion> asked)
+    {
+        if (!ProposalOpenQuestions.AddsTo(session.Turn.Pipeline, asked)) return false;
+        var why = ProposalReviewSummary.WaitingOnAnswersWhy(ProposalOpenQuestions.Of(session.Turn.Pipeline).Count);
+        foreach (var draft in session.Open) draft.StoppedBecause = why;
         return true;
     }
 
