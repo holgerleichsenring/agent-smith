@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.182.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.181.0...v0.182.0) (2026-11-11)
+
+
+### Features
+
+* a design turn's review stops when a revision lays new questions on the operator (2026-11-11-2bdfe) ([3535058](https://github.com/holgerleichsenring/agent-smith/commit/35350585fafec1d4788128bfd58e5743c1a54c7a))
+* an epic child refused without cuts may be re-cut and the next round reviews the new set (2026-11-11-2bdfb) ([ac802fa](https://github.com/holgerleichsenring/agent-smith/commit/ac802fa262d3efa7d597eef1ea2c38c59a42e19f))
+* design-turn review converges on epics (2026-11-11-2bdf) ([2718dd7](https://github.com/holgerleichsenring/agent-smith/commit/2718dd79960c46ef52623a1498013c19740d3685))
+* epic child reviewers read every sibling's goal and scope (2026-11-11-2bdfa) ([c1991e0](https://github.com/holgerleichsenring/agent-smith/commit/c1991e0a6d5c5ee9373da461121c1af587d5d90f))
+* proposal reviewers judge drafts with the operator's open questions taken as proposed (2026-11-11-2bdfd) ([7e2216e](https://github.com/holgerleichsenring/agent-smith/commit/7e2216ee09042d6d21b0bd47a3ce2c923178e9f1))
+* published open questions follow the drafts a design turn shows (2026-11-11-2bdfc) ([acd9ae1](https://github.com/holgerleichsenring/agent-smith/commit/acd9ae1af56788065a809463f11be5d04c063fd8))
+* the approval card says the review in one line (2026-11-11-8714) ([8b16925](https://github.com/holgerleichsenring/agent-smith/commit/8b1692561e3f91ad490d5121f79019bd761f1d3b))
+
 ## [0.181.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.180.2...v0.181.0) (2026-11-11)
 
 
