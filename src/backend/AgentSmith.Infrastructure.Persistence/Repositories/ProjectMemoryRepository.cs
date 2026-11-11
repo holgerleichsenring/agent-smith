@@ -35,7 +35,7 @@ public sealed class ProjectMemoryRepository(IServiceScopeFactory scopeFactory, I
     public async Task UpsertAsync(long projectId, ProjectMemoryRecord record, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(record);
-        if (ProjectMemoryLimits.Refusal(record) is { } refusal) throw new ArgumentException(refusal, nameof(record));
+        if (ProjectMemoryLimits.Refusal(record) is { } refusal) throw new ProjectMemoryRefusedException(refusal); // 205fg: the one check
         try
         {
             await WriteAsync(projectId, record, cancellationToken);

@@ -85,7 +85,7 @@ public sealed class MemoryRecallToolHost(
             sb.AppendLine($"## {entry.Name} ({MemoryEntryTypes.ToSlug(entry.Type)}, {standing.Label} · {standing.Record})"
                           + (labelled ? $" — {Source(repository)}" : string.Empty));
             if (standing.Label == MemoryStandingLabels.Disputed) sb.AppendLine(DisputedMarker);
-            sb.AppendLine(entry.Description);
+            sb.AppendLine(kept is null ? entry.Description : Quote(entry.Description)); // 2026-11-11-205fg
             sb.AppendLine();
             if (kept is null) sb.AppendLine(entry.Body);
             else sb.AppendLine(Quote(entry.Body)).AppendLine(Provenance(kept));
@@ -101,11 +101,15 @@ public sealed class MemoryRecallToolHost(
     public static string Provenance(ProjectMemoryRecord kept)
     {
         ArgumentNullException.ThrowIfNull(kept);
-        var by = string.IsNullOrWhiteSpace(kept.Author) ? string.Empty : $", by {kept.Author}";
+        var by = string.IsNullOrWhiteSpace(kept.Author) ? string.Empty : $", by {QuotedAuthor(kept.Author)}"; // 205fg
         return kept.SourceKind == ProjectMemorySourceKinds.Run
             ? $"(kept on the project from run {kept.SourceId}{(kept.SourceRef is null ? string.Empty : $", spec {kept.SourceRef}")}{by})"
             : $"(kept on the project from conversation {kept.SourceId}{(kept.SourceRef is null ? string.Empty : $", turn {kept.SourceRef}")}{by})";
     }
+
+    /// <summary>2026-11-11-205fg: an author in quotes on one line — a row stored before the one-line check included.</summary>
+    public static string QuotedAuthor(string author) =>
+        $"\"{(author ?? string.Empty).ReplaceLineEndings(" ").Replace('"', '\'')}\"";
 
     private static string Source(string label) =>
         label == ProjectMemorySource.Label ? "the project" : $"repository {label}";

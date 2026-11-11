@@ -36,6 +36,6 @@ public sealed class ProjectMemoryIndex(
         var where = record.SourceKind == ProjectMemorySourceKinds.Conversation
             ? $"conversation {record.SourceId}{(record.SourceRef is null ? string.Empty : $", turn {record.SourceRef}")}"
             : $"run {record.SourceId}{(record.SourceRef is null ? string.Empty : $", spec {record.SourceRef}")}";
-        return record.Author is null ? where : $"{where}, by {record.Author}";
+        return record.Author is null ? where : $"{where}, by {Tools.MemoryRecallToolHost.QuotedAuthor(record.Author)}"; // 205fg
     }
 }

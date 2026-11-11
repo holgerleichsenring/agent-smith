@@ -111,7 +111,7 @@ public sealed class ProjectMemoryCodingRunTests
         var text = await recall.Recall("contracts");
 
         text.Should().Contain("> Build contracts.\n> Then the rest.")
-            .And.Contain("(kept on the project from conversation conv-1, turn 2, by Ada)");
+            .And.Contain("(kept on the project from conversation conv-1, turn 2, by \"Ada\")");
     }
 
     [Fact]

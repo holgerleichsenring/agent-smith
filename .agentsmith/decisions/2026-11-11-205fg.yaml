@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fg
+
+decisions:
+  - category: Implementation
+    chose: "ProjectMemoryLimits.Refusal is the one check: description and author one line, slug and author at most 191 (ProjectMemoryLimits.Indexed), description 200, body 4000; it runs in ProjectMemoryRepository.UpsertAsync, where the author is set, and throws ProjectMemoryRefusedException"
+    over: "Keeping the tools' own pre-check"
+    reason: "The tools checked a record built with a null author, so an author bound there could never fire. The tools now return the store's refusal as 'Not recorded: <reason>.'; the exception is an ArgumentException, so existing callers that catch that still do."
+  - category: Implementation
+    chose: "Refuse a line break rather than strip it"
+    over: "Rewriting the description or author"
+    reason: "The 200/4000 caps already refuse rather than cut (fcd7a); the tool answer tells the model to state it again."
+  - category: Implementation
+    chose: "Recall quotes a project entry's description like its body; the author renders in double quotes, line endings folded to spaces, in recall's provenance and in the index source (MemoryRecallToolHost.QuotedAuthor)"
+    over: "Rendering the author raw after the check"
+    reason: "Rows stored before the one-line check may still hold a break; folding inside the quotes keeps every rendering one line for them too, while new rows never carry one."
+  - category: Testing
+    chose: "The concurrency test is deterministic: the first save's SavingChanges handler lets a second context on its own connection to the file-backed store save the same slug first; a counting translator proves the unique violation was hit and the retry ran"
+    over: "Four parallel upserts on one connection"
+    reason: "SQLite serialises writers, so the parallel version never reached the retry branch."
+  - category: Testing
+    chose: "The design-turn test double of the project repository runs the same Refusal check as the real one"
+    over: "Leaving the double permissive"
+    reason: "The check is the store's contract now; a double without it would let the tool tests pass for a refusal the tool no longer makes itself."
