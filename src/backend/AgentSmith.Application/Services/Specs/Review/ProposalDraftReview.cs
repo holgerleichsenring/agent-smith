@@ -23,6 +23,9 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
     /// <summary>2026-11-10-18cf: the text the last taken round attacked.</summary>
     public string? AttackedYaml { get; set; }
 
+    /// <summary>2026-11-11-2bdfb: why the re-prompt this draft went into could not be used, or null.</summary>
+    public string? NotUsedBecause { get; set; }
+
     public bool AttackedCurrentText => string.Equals(AttackedYaml, Draft.Yaml, StringComparison.Ordinal);
 
     /// <summary>2026-11-10-8e59: a review ended clean on exactly this text — its last round said build on it.</summary>

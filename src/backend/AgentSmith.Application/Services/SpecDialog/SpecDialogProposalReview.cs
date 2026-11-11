@@ -56,9 +56,11 @@ public sealed class SpecDialogProposalReview(
         var outcome = await rounds.RunAsync(turn, current, proposal, loopResult, wholeSet, ct);
         logger.LogInformation("The design turn's proposal was reviewed in {Rounds} round(s); {Waiting} spec(s) not reviewed yet",
             outcome.Rounds.Count, outcome.NotReviewed?.Count ?? 0);
+        // 2026-11-11-2bdfb: a child the re-cut dropped leaves no whole-set finding behind.
+        var gone = drafts.Select(d => d.SpecId).Except(ProposalSpecSet.Drafts(outcome.Proposal).Select(d => d.SpecId)).ToHashSet();
         pipeline.Set(ContextKeys.SpecDialogOutcome, outcome.Proposal with
         {
-            Findings = [.. outcome.Standing, .. wholeSet], ReviewRounds = outcome.Rounds, NotReviewed = outcome.NotReviewed,
+            Findings = [.. outcome.Standing, .. wholeSet.Where(f => !gone.Contains(f.SpecId))], ReviewRounds = outcome.Rounds, NotReviewed = outcome.NotReviewed,
             ReviewedClean = outcome.ReviewedClean,
         });
         return outcome.Reply;

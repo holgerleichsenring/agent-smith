@@ -10,7 +10,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// still admitted by <see cref="ProposalReviewSession.Admit"/> go into ONE re-prompt (<see cref="ProposalCutsNudge"/>);
 /// the re-proposal is merged by <see cref="ProposalReProposalGuard"/> and published; each draft gets its
 /// residues, its re-checked evidence and its round, and stops on the stop rule or on unchanged text. A failed
-/// call, an unusable reply or one that changed no draft ends the review on the last valid proposal.
+/// call, an unusable reply or one that changed no draft ends the review on the last valid proposal; 2026-11-11-2bdfb:
+/// a reply not used leaves its reason on each draft it was for. A re-cut adds and drops children's reviews.
 /// </summary>
 public sealed class ProposalRoundRevision(
     ProposalCutsReprompt reprompt, ProposalReProposalGuard guard, SpecCutResidues residues, ISpecRoundEvidence evidence,
@@ -26,17 +27,29 @@ public sealed class ProposalRoundRevision(
         var reply = await reprompt.RunAsync(session.Turn, Nudge(session, applying), ct);
         var merged = reply is null ? null
             : guard.Merge(session.Proposal, reply.Proposal, Licences(applying), session.ParentNamed, session.LastRound);
-        if (merged is not { Changed: true })
+        if (merged is not { Void: null, Changed: true })
         {
-            foreach (var draft in applying) Unchanged(session, draft);
+            // 2026-11-11-2bdfb: a reply not used says why on every draft it was for.
+            foreach (var draft in applying) Unchanged(session, draft, merged is null ? ProposalReviewSummary.UnresolvedWhy : merged.Void);
             return false;
         }
         session.Proposal = merged.Merged;
         session.LastReply = reply!;
-        session.Reverted = [.. ProposalSpecSet.Drafts(merged.Merged).Where(d => merged.Reverted.Contains(d.SpecId))];
+        var stated = ProposalSpecSet.Drafts(merged.Merged);
+        session.Reverted = [.. stated.Where(d => merged.Reverted.Contains(d.SpecId))];
+        session.LeftOut = [.. merged.Reverted.Where(id => stated.All(d => d.SpecId != id))];
         MasterOutcomes.PublishOutcome(session.Turn.Pipeline, merged.Merged, reply!.Result);
-        foreach (var draft in applying) await SettleAsync(session, draft, ct);
+        await RecutAsync(session, merged, ct);
+        foreach (var draft in applying.Where(session.Drafts.Contains)) await SettleAsync(session, draft, ct);
         return true;
+    }
+
+    // 2026-11-11-2bdfb: a dropped child's review leaves the session; an added one enters it open, its evidence checked.
+    private async Task RecutAsync(ProposalReviewSession session, ProposalGuardResult merged, CancellationToken ct)
+    {
+        session.Drafts.RemoveAll(d => merged.Dropped.Contains(d.SpecId, StringComparer.Ordinal));
+        foreach (var draft in ProposalSpecSet.Drafts(merged.Merged).Where(d => merged.Added.Contains(d.SpecId)))
+            session.Drafts.Add(new ProposalDraftReview(draft) { Evidence = await CheckAsync(session, draft, ct) });
     }
 
     internal async Task<SpecRoundEvidenceResult> CheckAsync(ProposalReviewSession session, SpecDraft draft, CancellationToken ct)
@@ -64,16 +77,17 @@ public sealed class ProposalRoundRevision(
         draft.Stopped = !changed || (cuts.Count > 0 && SpecReviewStopRule.IsDone(draft.Merged, left, draft.Evidence));
     }
 
-    private void Unchanged(ProposalReviewSession session, ProposalDraftReview draft)
+    private void Unchanged(ProposalReviewSession session, ProposalDraftReview draft, string? notUsed = null)
     {
         draft.Record(session.Round, residues.Of(draft.Draft, draft.Merged!.Cuts, draft.Evidence.Problems));
         draft.Stopped = true;
+        draft.NotUsedBecause = notUsed;
     }
 
     private static string Nudge(ProposalReviewSession session, IReadOnlyList<ProposalDraftReview> applying) =>
         ProposalCutsNudge.For([.. applying.Select(d => new ProposalNudgeItem(
             d.Draft, d.Merged!.Cuts, d.Merged.Cuts.Count == 0 ? d.Merged.Findings : [], d.Evidence.Problems))],
-            session.Reverted, session.LastRound);
+            session.Reverted, session.LastRound, session.LeftOut, session.Proposal is EpicOutcome);
 
     private static Dictionary<string, ProposalDraftLicence> Licences(IReadOnlyList<ProposalDraftReview> applying) =>
         applying.ToDictionary(d => d.SpecId, d => new ProposalDraftLicence(

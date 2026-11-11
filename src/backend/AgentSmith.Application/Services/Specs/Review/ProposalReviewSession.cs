@@ -8,17 +8,21 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// reply it came from, and every draft's review.</summary>
 internal sealed class ProposalReviewSession(
     ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, AgenticLoopResult firstReply,
-    IReadOnlyList<ProposalDraftReview> drafts)
+    List<ProposalDraftReview> drafts)
 {
     public ProposalTurn Turn => turn;
     public SpecReviewSettings Settings => settings;
     public AgenticLoopResult FirstReply => firstReply;
-    public IReadOnlyList<ProposalDraftReview> Drafts => drafts;
+    /// <summary>2026-11-11-2bdfb: a re-cut adds children to it and removes the ones it dropped.</summary>
+    public List<ProposalDraftReview> Drafts => drafts;
     public OutcomeProposal Proposal { get; set; } = proposal;
     public ProposalReply LastReply { get; set; } = new(firstReply, proposal);
     public bool ParentNamed { get; init; }
     public int Round { get; set; }
     public IReadOnlyList<SpecDraft> Reverted { get; set; } = [];
+
+    /// <summary>2026-11-11-2bdfb: ids the last re-proposal added without a refusal to license them, left out.</summary>
+    public IReadOnlyList<string> LeftOut { get; set; } = [];
 
     public bool LastRound => Round == Settings.Review.Rounds;
     public SpecSet Set => ProposalSpecSet.Of(Proposal);
