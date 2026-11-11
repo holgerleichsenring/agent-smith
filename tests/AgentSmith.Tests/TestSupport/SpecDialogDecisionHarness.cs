@@ -57,7 +57,7 @@ internal sealed class SpecDialogDecisionHarness(
         SpecDialogProposalComposer composer, SpecDialogTurnGate turns, SpecDialogTicketTextRepository ticketText,
         ConversationUploads uploads, AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
         new(sessions, projects, pending, Outcomes, Proposals, Cards, composer, turns,
-            new SpecDialogHoldings(ticketText, uploads, mocks), new SpecDialogTurnProposals(TurnProposals, composer));
+            new SpecDialogHoldings(ticketText, uploads, mocks), new SpecDialogTurnProposals(TurnProposals, composer, new RunLivenessRepository(context)));
 
     public Task<ConversationState> OpenAsync(string platform, string thread, CancellationToken ct = default) =>
         Sessions.OpenAsync(platform, "C1", thread, "U1",

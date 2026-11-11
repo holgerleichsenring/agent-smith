@@ -28,15 +28,16 @@ public sealed class SpecDialogTurnProposalStore(
         }
     }
 
-    /// <summary>The conversation's turn proposals by run id; a row that cannot be read is left out.</summary>
-    public async Task<IReadOnlyDictionary<string, OutcomeProposal>> ReadAsync(string sessionId, CancellationToken ct)
+    /// <summary>The conversation's turn proposals by run id with when each was written; a row that cannot be read is left
+    /// out. A write this store swallowed above is lost to it — making that write durable is not 2026-11-11-205ff.</summary>
+    public async Task<IReadOnlyDictionary<string, SpecDialogTurnProposalRead>> ReadAsync(string sessionId, CancellationToken ct)
     {
-        var read = new Dictionary<string, OutcomeProposal>(StringComparer.Ordinal);
-        foreach (var (runId, json) in await repository.ReadBySessionAsync(sessionId, ct))
+        var read = new Dictionary<string, SpecDialogTurnProposalRead>(StringComparer.Ordinal);
+        foreach (var (runId, json, at) in await repository.ReadBySessionAsync(sessionId, ct))
         {
             try
             {
-                read[runId] = OutcomeProposalJson.Read(json);
+                read[runId] = new(OutcomeProposalJson.Read(json), at);
             }
             catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
             {
@@ -46,3 +47,6 @@ public sealed class SpecDialogTurnProposalStore(
         return read;
     }
 }
+
+/// <summary>2026-11-11-205ff: one turn's stored proposal and when it was last written.</summary>
+public sealed record SpecDialogTurnProposalRead(OutcomeProposal Proposal, DateTimeOffset At);

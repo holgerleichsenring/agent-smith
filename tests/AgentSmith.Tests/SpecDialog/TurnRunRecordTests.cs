@@ -182,10 +182,10 @@ public sealed class TurnRunRecordTests : IDisposable
         var afterDraft = await harness.TurnProposals.ReadAsync(state.JobId, default);
         await harness.Flow().HandleAsync(state, Bug("final"), default, runId: "run-1");
 
-        afterDraft["run-1"].UnderReview.Should().BeTrue("the observer wrote the turn's draft while it was reviewed");
+        afterDraft["run-1"].Proposal.UnderReview.Should().BeTrue("the observer wrote the turn's draft while it was reviewed");
         var kept = await harness.TurnProposals.ReadAsync(state.JobId, default);
         kept.Should().ContainSingle();
-        ((BugOutcome)kept["run-1"]).Ticket.Title.Should().Be("final", "the flow replaced the draft with the turn's proposal");
+        ((BugOutcome)kept["run-1"].Proposal).Ticket.Title.Should().Be("final", "the flow replaced the draft with the turn's proposal");
     }
 
     [Fact]
@@ -203,7 +203,8 @@ public sealed class TurnRunRecordTests : IDisposable
             SpecDialogShownTranscript.Turns(current.Transcript), current.LastActivityAt, []);
 
         var read = await new SpecDialogTurnProposals(harness.TurnProposals,
-            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer())).WithAsync(view, current, false, default);
+            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
+            new AgentSmith.Infrastructure.Persistence.Repositories.RunLivenessRepository(_context)).WithAsync(view, current, false, default);
 
         read.Transcript.Where(t => t.RunId is not null).Select(t => t.Proposal?.Bug?.Title).Should()
             .Equal(["first", "second"], "the second proposal superseded the first as the card, not as the first turn's own");

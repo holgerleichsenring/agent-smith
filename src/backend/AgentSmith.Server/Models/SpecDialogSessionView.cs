@@ -71,7 +71,14 @@ public sealed record SpecDialogSessionView(
 
     /// <summary>2026-11-10-d854c: that run's own proposal when no kept turn carries it — a turn that never ended.</summary>
     public SpecDialogProposalPush? RunningProposal { get; init; }
+
+    /// <summary>2026-11-11-205ff: turns that stopped before they finished, each with its last draft, oldest first; null
+    /// with none. Not transcript turns — an interrupted turn said nothing.</summary>
+    public IReadOnlyList<SpecDialogInterruptedTurnView>? InterruptedTurns { get; init; }
 }
+
+/// <summary>2026-11-11-205ff: a turn whose run stopped before it finished — its run, when its draft was kept, the draft.</summary>
+public sealed record SpecDialogInterruptedTurnView(string RunId, DateTimeOffset At, SpecDialogProposalPush Proposal);
 
 /// <summary>2026-10-13-8762r: one mock version, addressed by its spec and number; its screenshot is a route of its own.</summary>
 public sealed record SpecDialogMockView(string SpecId, int Version, string Name, DateTimeOffset At, bool HasShot);

@@ -112,13 +112,23 @@ function Turn({
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
       ) : entry.proposal ? (
-        <TurnResult proposal={turnProposalOf(entry.proposal)} summary={said ? <AgentText text={entry.text} /> : undefined}
+        <TurnResult proposal={turnProposalOf(entry.proposal)}
+          summary={entry.interrupted ? <Interrupted /> : said ? <AgentText text={entry.text} /> : undefined}
           runId={entry.runId} onTake={replies?.onTake} onAnswer={replies?.onAnswer}
           onInspect={() => onInspect(entry.proposal!)} approve={approve} />
       ) : (
         said && <AgentText text={entry.text} />
       )}
     </DialogMessage>
+  );
+}
+
+/** 2026-11-11-205ff: the summary of a turn whose run stopped before it finished; its draft is below. */
+function Interrupted() {
+  return (
+    <p className="dsh-body text-mute" data-testid="dialog-turn-interrupted">
+      This turn stopped before it finished. Its last draft is below.
+    </p>
   );
 }
 

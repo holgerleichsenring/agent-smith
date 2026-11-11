@@ -26,6 +26,7 @@ import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
   SpecDialogImage,
+  SpecDialogInterruptedTurn,
   SpecDialogMock,
   SpecDialogReferenceSet,
   SpecDialogProposalPush,
@@ -70,6 +71,8 @@ export interface DialogEntry {
   runId?: string;
   /** Set on a decision entry. */
   decision?: SpecDialogDecision;
+  /** 2026-11-11-205ff: set on a turn that stopped before it finished; it carries its last draft and said nothing. */
+  interrupted?: boolean;
   /** Set on a decision the page showed before any read confirmed the server stored it. */
   pending?: PendingDecision;
   /** 2026-09-20-3af8: set on an image entry — what the operator attached, by its address. */
@@ -764,9 +767,23 @@ function turns(view: SpecDialogView): DialogEntry[] {
     }))
     .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
   const trailing = trailingCard(view);
+  const placed = withInterrupted(held, session?.interruptedTurns ?? []);
   return trailing
-    ? [...held, { key: `card-${trailing.at}-${held.length}`, kind: "agent", text: "", at: trailing.at, proposal: trailing }]
-    : held;
+    ? [...placed, { key: `card-${trailing.at}-${placed.length}`, kind: "agent", text: "", at: trailing.at, proposal: trailing }]
+    : placed;
+}
+
+/** 2026-11-11-205ff: each interrupted turn goes between the transcript entries at its own time, after any entry of the
+ *  same moment — it said nothing, so it is an agent entry with its draft and no text. */
+export function withInterrupted(held: DialogEntry[], interrupted: SpecDialogInterruptedTurn[]): DialogEntry[] {
+  return interrupted.reduce((entries, turn) => {
+    const entry: DialogEntry = {
+      key: `interrupted-${turn.runId}`, kind: "agent", text: "", at: turn.at, proposal: turn.proposal,
+      runId: turn.runId, interrupted: true,
+    };
+    const after = entries.findIndex((existing) => Date.parse(existing.at) > Date.parse(turn.at));
+    return after < 0 ? [...entries, entry] : [...entries.slice(0, after), entry, ...entries.slice(after)];
+  }, held);
 }
 
 /** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — the running turn's draft under

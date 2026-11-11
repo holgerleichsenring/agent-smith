@@ -9,6 +9,8 @@ namespace AgentSmith.Contracts.Runs;
 public static class RunStatuses
 {
     public const string Queued = "queued";
+    /// <summary>2026-11-11-205ff: a run its driver is executing.</summary>
+    public const string Running = "running";
     public const string WaitingForInput = "waiting_for_input";
     public const string Success = "success";
     public const string Failed = "failed";

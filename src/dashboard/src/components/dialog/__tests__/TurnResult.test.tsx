@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SpecDialogActivityPage, SpecDialogProposalPush, SpecDraftProposal } from "@/types/spec-dialog";
-import type { DialogEntry } from "@/hooks/useSpecDialog";
+import { withInterrupted, type DialogEntry } from "@/hooks/useSpecDialog";
 import { DialogTranscript } from "../DialogTranscript";
 import { TurnResult } from "../TurnResult";
 import { turnProposalOf } from "../turnProposal";
@@ -115,6 +115,23 @@ describe("TurnResult", () => {
     expect(within(row).getByTestId("turn-row-yaml")).toHaveTextContent("spec: 5");
     fireEvent.click(within(row).getByTestId("turn-row-link-facts"));
     expect(within(row).getByTestId("turn-row-facts")).toHaveTextContent("claim 5 — file5.cs:1");
+  });
+
+  // 2026-11-11-205ff: a turn that stopped before it finished keeps its draft, between the entries at its own time.
+  it("TurnResult renders an interrupted turn with its draft", () => {
+    const placed = withInterrupted(
+      [
+        { key: "u", kind: "user", text: "go", at: "2026-11-10T18:00:00Z" },
+        { key: "b", kind: "agent", text: "Next cut.", at: "2026-11-10T19:00:00Z", proposal: epic, runId: "run-b" },
+      ],
+      [{ runId: "run-a", at: "2026-11-10T18:30:00Z", proposal: { ...epic, proposalId: null } }],
+    );
+    render(<DialogTranscript entries={placed} onInspect={vi.fn()} />);
+
+    expect(placed.map((entry) => entry.key)).toEqual(["u", "interrupted-run-a", "b"]);
+    const results = screen.getAllByTestId("turn-result");
+    expect(results).toHaveLength(2);
+    expect(within(results[0]).getByTestId("dialog-turn-interrupted")).toHaveTextContent("stopped before it finished");
   });
 
   it("Two proposing turns each render their own TurnResult; only the latest has the approve bar", () => {
