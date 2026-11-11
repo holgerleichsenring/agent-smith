@@ -14,6 +14,7 @@ import {
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
+import { approvalProposal } from "@/components/dialog/approvalProposal";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -198,6 +199,8 @@ export function SpecDialogSurface() {
     nudge: dialog.proposal?.at ?? "",
   });
   const ticketEffect = bound && preview.data ? ticketApprovalEffect(preview.data) : null;
+  // 2026-11-10-d854b: Answer on a turn result puts its question into the composer.
+  const [prefill, setPrefill] = useState<{ text: string; nonce: number } | null>(null);
   const {
     pending: pendingTicket,
     found: addressedTicket,
@@ -325,6 +328,23 @@ export function SpecDialogSurface() {
   const boundTickets = new Set(
     dialog.conversations.map((held) => held.ticket).filter((id): id is string => id !== null),
   );
+  // 2026-11-10-d854b: the approve bar sits on the turn whose proposal it decides — the approval question's id is the
+  // awaiting proposal's id — and stands below the conversation only while no shown turn carries that proposal.
+  // 2026-11-10-ccd9 review: an approval card renders and sends only the awaiting proposal whose id it carries.
+  const awaitingCard = approvalProposal(dialog.question, dialog.awaitingProposal);
+  const approvalCard = dialog.question && (dialog.question.kind !== "approval" || awaitingCard) ? (
+    <DialogQuestionCard
+      question={dialog.question}
+      proposal={awaitingCard}
+      ticketEffect={ticketEffect}
+      inTicket={bound !== null}
+      onAnswer={(answer, decision) =>
+        void dialog.send(answer, project, decision, undefined, awaitingCard?.proposalId ?? dialog.question?.questionId)}
+    />
+  ) : null;
+  const approvalId = dialog.question?.kind === "approval" ? dialog.question.questionId : null;
+  const placedApproval = approvalId && dialog.entries.some((entry) => entry.proposal?.proposalId === approvalId)
+    ? approvalId : null;
 
   return (
     <div className="mock-shell mock-dialog" data-testid="spec-dialog">
@@ -422,6 +442,11 @@ export function SpecDialogSurface() {
                       onInspect={inspect}
                       greeting={<DialogGreeting />}
                       onOpenUpload={openUpload}
+                      approval={placedApproval ? { proposalId: placedApproval, node: approvalCard } : null}
+                      replies={{
+                        onTake: (text) => void dialog.send(text, project),
+                        onAnswer: (question) => setPrefill({ text: `${question}\n`, nonce: Date.now() }),
+                      }}
                     />
                     {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                         so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -432,15 +457,7 @@ export function SpecDialogSurface() {
                         since={dialog.workingSince}
                       />
                     )}
-                    {dialog.question && (
-                      <DialogQuestionCard
-                        question={dialog.question}
-                        proposal={dialog.proposal}
-                        ticketEffect={ticketEffect}
-                        inTicket={bound !== null}
-                        onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
-                      />
-                    )}
+                    {!placedApproval && approvalCard}
                   </>
                 )}
               </div>
@@ -462,6 +479,7 @@ export function SpecDialogSurface() {
                       pendingTicket?.ticketId ?? pickedTicket?.ticketId,
                     )
                   }
+                  prefill={prefill}
                   onAttach={(file) => dialog.attach(file, project)}
                   onAttachSite={(files, leftOut) => dialog.attachSite(files, project, leftOut)}
                   note={dialog.uploadNote}

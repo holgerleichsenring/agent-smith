@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-825f
+goal: "An approved proposal's filing can be resumed after a crash or a partial failure and creates each ticket exactly once."
+requires: [2026-11-10-ccd9]
+
+applies_to: "default (Server: outcome ticket filer, filed series, filing sink; Persistence: filing record)"
+
+facts:
+  - claim: "Every filing mints a fresh series base, so a second attempt at the same proposal produces new spec ids rather than finding the first attempt's."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:21,24-33; src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:47,112"
+  - claim: "The filed series maps each filed id back to the proposal's own draft id (Sources), which is the stable key a record can use."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:33"
+  - claim: "A filing that fails part-way is only reported in a Filing notice; nothing records which tickets exist, and a person approving again would file all of them again."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-80"
+  - claim: "A continuation act on a bound ticket is not recorded either, so a crash after it leaves no trace of having acted."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:45-46,91-111"
+  - claim: "OutcomeTicketFiler is at its 120-line cap."
+    evidence: "observed: 2026-11-10, wc -l src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs"
+
+scope:
+  in: "SPLIT FIRST: OutcomeTicketFiler. A filing record keyed by the claimed proposal's id and each spec's own draft id or list key (FiledSeries.Sources), holding the series base, which a resumed filing reuses through FiledSeriesFactory.Under instead of minting; the epic parent and the ticket-graph ids are seeded from the record. Before each create the filer refreshes its claim with a compare-and-set on ClaimedBy, so a second filer stops; each created ticket carries a tracker marker (the proposal id and draft key), checked before create on a resume. A continuation act is recorded the same way. The confirmed proposal is cleared only when every spec has a ticket; until then the card offers 'finish', which claims and resumes."
+  out: "The approval and claim model is 2026-11-10-ccd9."
+
+decisions:
+  - key: "KEYED BY WHAT THE PERSON APPROVED. The draft ids of the claimed proposal are stable across attempts; the filed ids are not, until the base is stored."
+  - key: "THE TRACKER IS THE LAST WORD. A marker on the ticket catches the create that succeeded just before a crash wrote the record."
+  - key: "FINISH, NOT RETRY. Nothing resumes on its own; a person sees what is missing and finishes it."
+
+steps:
+  - id: split
+    action: "Split OutcomeTicketFiler."
+  - id: record
+    action: "Filing record and migration; base stored and reused; parent and graph ids seeded."
+  - id: claim
+    action: "Claim refresh before each create; tracker marker written and checked."
+  - id: finish
+    action: "Clear only when complete; the finish card and its claim; continuation acts recorded."
+  - id: tests
+    action: "Pin resume, race and marker paths."
+
+tests:
+  - "Filing_CrashAfterOneOfThree_FinishCreatesOnlyTheOtherTwo"
+  - "Filing_ResumeReusesTheSeriesBaseAndSpecIds"
+  - "Filing_SecondFilerLosesTheClaimRefreshAndStops"
+  - "Filing_TicketCreatedButNotRecorded_MarkerPreventsADuplicate"
+  - "ContinuationAct_Recorded_IsNotRepeated"
+  - "Filing_Incomplete_CardOffersFinish"
+
+done:
+  - when: "a filing dies after one of three tickets and a person presses finish"
+    then: "each spec has exactly one ticket under the same series base"
+  - "Build green, full suite green."

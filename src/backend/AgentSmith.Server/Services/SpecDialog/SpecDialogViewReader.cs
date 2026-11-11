@@ -1,7 +1,5 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
-using AgentSmith.Server.Services.References;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -12,13 +10,18 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// 2026-09-17-042em the page may issue on the same message — but only while the row for the
 /// conversation open in it is missing, untitled or behind, so the two are not paid together on
 /// every reply.
+/// <para>
+/// 2026-11-10-ccd9: the approval card is built from the ROW — the proposal awaiting a decision and its
+/// id — so it is there after a restart and on every replica, and it never expires. A draft under review
+/// is returned beside it and never as the card. A row from before the deploy is given its id first.
+/// </para>
 /// </summary>
 public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
-    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
-    SpecDialogTicketTextRepository ticketText, ConversationUploads uploads,
-    AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null)
+    SpecDialogProposalState proposals, SpecDialogChatCard cards,
+    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns, SpecDialogHoldings holdings,
+    SpecDialogTurnProposals? turnProposals = null) // 2026-11-10-d854c: each turn's own proposal
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -26,39 +29,36 @@ public sealed class SpecDialogViewReader(
         string dialogId, CancellationToken cancellationToken)
     {
         var state = await sessions.GetOpenByThreadAsync(Platform, dialogId, cancellationToken);
-        var latest = state is null
-            ? SpecDialogLatestOutcome.None
-            : await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
-        var asked = state is null ? null : Asked(dialogId, state);
+        if (state is null) return new SpecDialogView(dialogId, null, projects.All(), null, SpecDialogTurnLivenessView.Idle);
+        await proposals.BackfillAsync(Platform, dialogId, cancellationToken);
+        var latest = await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
+        var waiting = Waiting(dialogId, state);
         // 2026-10-08-e8b9g: images and sets with whether an approval cites them, and the bytes held.
-        var held = state is null ? null : await uploads.ReadAsync(state.JobId, cancellationToken, state.Project);
-        // 2026-09-27-481bc: one indexed row, and only for a conversation that HAS one — an unbound
-        // conversation pays nothing, which matters because this read is issued after every message.
-        var ticket = state is null ? null : Ticket(await ticketText.GetAsync(state.JobId, cancellationToken));
+        var held = await holdings.UploadsAsync(state, cancellationToken);
+        var ticket = await holdings.TicketAsync(state, cancellationToken);
+        var session = await holdings.WithAsync(Session(dialogId, state, latest, held.Images, ticket), state, held, cancellationToken);
         return new SpecDialogView(
             dialogId,
-            state is null ? null : await HeldAsync(Session(dialogId, state, latest, held!.Images, ticket), state, held, cancellationToken),
+            turnProposals is null ? session
+                : await turnProposals.WithAsync(session, state, turns.Liveness(state.JobId).Computing, cancellationToken),
             projects.All(),
-            asked,
-            state is null || asked is not null
-                ? SpecDialogTurnLivenessView.Idle
-                : turns.Liveness(state.JobId));
+            waiting ?? Approval(dialogId, state, latest),
+            waiting is not null ? SpecDialogTurnLivenessView.Idle : turns.Liveness(state.JobId));
     }
 
-    // A TURN WAITING ON ITS OWN QUESTION IS NOT COMPUTING. A design turn's ask_human blocks
-    // inside the turn's execution and its wait has no deadline at all — it ends when the
-    // person answers. Reported as computing, it would render a working line beside the very
-    // card asking them to answer, so the question outranks the flag.
+    // A TURN WAITING ON ITS OWN QUESTION IS NOT COMPUTING. A turn blocked on a question waits for the
+    // person, so it is reported idle beside the card asking them. An approval card blocks nothing.
 
-    /// <summary>
-    /// What the turn is blocked on, rebuilt for a page that has just loaded. An expired wait
-    /// is still reported rather than hidden: the card needs the deadline to say so, and a
-    /// silently missing question is indistinguishable from a turn that never asked.
-    /// </summary>
-    private SpecDialogChannelQuestion? Asked(string dialogId, ConversationState state) =>
+    /// <summary>A question a running turn is blocked on, rebuilt for a page that has just loaded.</summary>
+    private SpecDialogChannelQuestion? Waiting(string dialogId, ConversationState state) =>
         pendingQuestions.TryPeek(state.JobId, out var pending)
-            ? SpecDialogChannelQuestion.From(
-                dialogId, pending.Question, state.LastActivityAt, pending.ExpiresAt)
+            ? SpecDialogChannelQuestion.From(dialogId, pending.Question, state.LastActivityAt, pending.ExpiresAt)
+            : null;
+
+    /// <summary>The approval card of the proposal awaiting a decision; its question id is the proposal id.</summary>
+    private SpecDialogChannelQuestion? Approval(string dialogId, ConversationState state, SpecDialogLatestOutcome latest) =>
+        latest is { ProposalId: { } id, Proposal: { } proposal }
+            ? SpecDialogChannelQuestion.From(dialogId, cards.CardOf(state, proposal, id), state.LastActivityAt)
             : null;
 
     // 2026-11-09-9a98: a stored mark with no turn computing here was cancelled, failed or belongs to
@@ -71,49 +71,27 @@ public sealed class SpecDialogViewReader(
         IReadOnlyList<SpecDialogImageView> images, SpecDialogTicketView? ticket)
     {
         var card = latest.Proposal is null ? null : SpecDialogShownTranscript.CardTurn(state.Transcript);
+        // The proposal was made by the turn that carried it, so that turn's moment is its own.
+        var at = card is { } turn ? state.Transcript[turn].At : state.LastActivityAt;
         return new(state.JobId,
             projects.Of(state.Project, state.Scope?.Repos ?? []),
             SpecDialogShownTranscript.Turns(state.Transcript),
             state.LastActivityAt,
             images,
             state.Subject,
-            latest.Proposal is null
-                ? null
-                // The proposal was made by the turn that carried it, so that turn's moment is its own.
-                : proposalComposer.Compose(dialogId, Current(latest.Proposal, state),
-                    card is { } turn ? state.Transcript[turn].At : state.LastActivityAt),
+            latest.Proposal is null ? null
+                : proposalComposer.Compose(dialogId, Current(latest.Proposal, state), at) is { } push
+                    ? push with { ProposalId = latest.ProposalId } : null,
             latest.Filing is null
                 ? null
                 : new SpecDialogFilingPush(dialogId, latest.Filing.Filed, latest.Filing.Error,
                     latest.Filing.At, latest.Filing.Notes ?? []),
             card,
-            ticket);
-    }
-
-    // What the conversation holds beside its turns: uploads, mocks, ratified versions and 2026-11-05-862ea its work picture.
-    private async Task<SpecDialogSessionView> HeldAsync(
-        SpecDialogSessionView session, ConversationState state, ConversationUploadsView held, CancellationToken ct) =>
-        session with
+            ticket)
         {
-            References = held.References,
-            UploadBytes = held.Bytes,
-            UploadCapBytes = ReferenceUploadLimits.MaxConversationBytes,
-            SeesImages = held.Sight?.Images ?? true,
-            SeesUploadedImages = held.Sight?.UploadedImages ?? true,
-            ImageCount = held.ImageCount,
-            Mocks = await MocksAsync(state.JobId, ct), // 2026-10-13-8762r: no bytes
-            RatifiedMocks = RatifiedMocks.Of(state.Transcript) is { Count: > 0 } ratified ? ratified : null,
-            WorkPicture = WorkPictureView.Of(state.WorkPicture),
+            Reviewing = latest.Reviewing is null ? null
+                : proposalComposer.Compose(dialogId, Current(latest.Reviewing, state), state.LastActivityAt) is { } draft
+                    ? draft with { Reviewing = true } : null,
         };
-
-    private async Task<IReadOnlyList<SpecDialogMockView>?> MocksAsync(string sessionId, CancellationToken ct) =>
-        mocks is null ? null : (await mocks.ListAsync(sessionId, ct)) is { Count: > 0 } held
-            ? [.. held.Select(m => new SpecDialogMockView(m.SpecId, m.Version, m.Name, m.At, m.HasShot))] : null;
-
-    /// <summary>The stored row as the pane reads it; a conversation bound to no ticket has none.</summary>
-    private static SpecDialogTicketView? Ticket(
-        Infrastructure.Persistence.Entities.SpecDialogTicketText? held) =>
-        held is null
-            ? null
-            : new SpecDialogTicketView(held.TicketId, held.Title, held.Text, held.ReadAt, held.Truncated);
+    }
 }

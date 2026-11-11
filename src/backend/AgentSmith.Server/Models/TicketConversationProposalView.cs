@@ -17,9 +17,20 @@ public sealed record TicketConversationProposalView(string Kind, IReadOnlyList<T
 
     /// <summary>2026-10-13-8762i: the spec ids (or "series") not reviewed yet; null when all were.</summary>
     public IReadOnlyList<string>? NotReviewed { get; init; }
+
+    /// <summary>2026-11-10-ccd9: the id an approve or reject of this proposal carries; null before a read backfills it.</summary>
+    public string? ProposalId { get; init; }
+
+    /// <summary>2026-11-10-d854b: the operator's open questions, each with the design partner's proposal.</summary>
+    public IReadOnlyList<OpenQuestion> Questions { get; init; } = [];
+
+    /// <summary>2026-11-10-d854b: what the proposing turn spent; null on an older proposal.</summary>
+    public ProposalSpend? Spend { get; init; }
 }
 
 /// <summary>2026-10-13-9a59h: one drafted spec of an open proposal.</summary>
 /// <param name="RatifiedMock">2026-10-13-8762t: the mock version a person ratified for this spec; null with none.</param>
+/// <param name="Yaml">2026-11-10-d854b: the spec as the design partner wrote it, one click away on its row.</param>
 public sealed record TicketConversationDraftView(
-    string SpecId, string Goal, IReadOnlyList<string> Repos, IReadOnlyList<string> Done, int? RatifiedMock = null);
+    string SpecId, string Goal, IReadOnlyList<string> Repos, IReadOnlyList<string> Done, int? RatifiedMock = null,
+    string? Yaml = null);

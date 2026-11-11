@@ -16,10 +16,19 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// answers the pending question, and the principal that started the turn is the one who approves.
 /// Both chat channels pass false — a move that starts a run is a dashboard affordance.
 /// </para>
+/// <para>2026-11-10-ccd9 review: it says whether it acted. A refused approval filed and changed nothing, so the
+/// decision path gives the claimed proposal back to the awaiting slot.</para>
 /// </summary>
 public interface IOutcomeSink
 {
-    Task AcceptAsync(
+    Task<OutcomeAcceptance> AcceptAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
         CancellationToken cancellationToken);
+}
+
+/// <summary>What an approval did. <see cref="Acted"/> is the default, so a sink that says nothing has acted.</summary>
+public enum OutcomeAcceptance
+{
+    Acted,
+    Refused,
 }

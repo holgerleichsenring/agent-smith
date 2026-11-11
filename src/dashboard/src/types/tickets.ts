@@ -1,5 +1,5 @@
 import type { PendingQuestionInfo, SpecEvidenceProblem, SpecReviewResidue } from "@/types/hub-events";
-import type { SpecDialogProposalFinding, SpecDialogReviewRound } from "@/types/spec-dialog";
+import type { SpecDialogOpenQuestion, SpecDialogProposalFinding, SpecDialogReviewRound, SpecDialogSpend } from "@/types/spec-dialog";
 
 // 2026-10-13-9a59p: the ticket list as GET /api/tickets serves it (TicketListView and the records
 // under it in AgentSmith.Server/Models, camelCase). Fields a later member of the series added are
@@ -528,13 +528,18 @@ export interface TicketConversation {
   proposal: {
     kind: string;
     /** 2026-10-13-8762t: ratifiedMock is the mock version a person ratified for the draft's spec. */
-    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[]; ratifiedMock?: number | null }>;
+    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[]; ratifiedMock?: number | null; yaml?: string | null }>;
     /** 2026-10-13-8762i: what still stands, every review round, and what is not reviewed yet. */
     findings?: SpecDialogProposalFinding[];
     reviewRounds?: SpecDialogReviewRound[];
     notReviewed?: string[] | null;
     /** 2026-10-28-7a69c: the comment proposed for the ticket; absent for every other kind. */
     comment?: string | null;
+    /** 2026-11-10-ccd9: the id the page's Approve sends, naming exactly this proposal. */
+    proposalId?: string | null;
+    /** 2026-11-10-d854b: the operator's open questions and what the proposing turn spent. */
+    questions?: SpecDialogOpenQuestion[];
+    spend?: SpecDialogSpend | null;
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;

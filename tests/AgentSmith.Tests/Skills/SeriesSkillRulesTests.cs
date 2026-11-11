@@ -85,10 +85,11 @@ public sealed class SeriesSkillRulesTests
             Because("the coding master's default-choice rule"));
 
         // 2026-11-10-fc66: a design turn carries neither tool — its questions go in the reply.
+        // 2026-11-10-d854a: each with a proposal, and state_open_questions lays them on the draft's card as well.
         DesignPartner().Should().Contain(
-            "- Your questions go in your reply, after the analysis that raised\n  them, each with your recommendation; "
-            + "the operator answers in the next\n  message. Where your recommendation is good enough to proceed, draft"
-            + "\n  with it and mark it proposed.",
+            "- Your questions go in your reply, after the analysis that raised\n  them, each with your proposal; "
+            + "the operator answers in the next\n  message. When you draft, `state_open_questions` puts them on the"
+            + "\n  draft's card as well. Where your proposal is good enough to proceed,\n  draft with it and mark it proposed.",
             Because("the design partner's question rule"));
     }
 

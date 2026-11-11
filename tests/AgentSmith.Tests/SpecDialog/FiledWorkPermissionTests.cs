@@ -126,6 +126,9 @@ public sealed class FiledWorkPermissionTests : IDisposable
 
         await dispatcher.DispatchAsync("/spec", "U1", "C1", CancellationToken.None, "th-1", "slack");
         await dispatcher.DispatchAsync("draft it", "U1", "C1", CancellationToken.None, "th-1", "slack");
+        // 2026-11-10-ccd9: a chat click routes as the clicker's message with the card's id, and carries false.
+        await _router.TryRouteAsync("approve", "U1", "C1", "th-1", "slack", false, CancellationToken.None,
+            proposalId: await IdAsync("slack", "th-1"));
 
         _sink.Verify(s => s.AcceptAsync(
             It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false,
@@ -133,50 +136,39 @@ public sealed class FiledWorkPermissionTests : IDisposable
     }
 
     /// <summary>
-    /// The permission the APPROVING request carries reaches nothing. An approval is admitted as
-    /// the answer to the pending question and returns before RunTurnAsync, so the bool that
-    /// governs the move is the one sampled when the turn that PROPOSED started, up to the
-    /// confirmer's fifteen minutes earlier. Both directions follow: a role removed in between
-    /// still moves the ticket, and a role GRANTED in between changes nothing — which is why the
-    /// not-started reason names a move in the tracker rather than a colleague to wait for.
+    /// 2026-11-10-ccd9: nothing waits any more, so the approving message IS the decision, and the right it carries
+    /// is the one that moves the ticket — the DECIDER's, sampled when they approve, not the proposing turn's.
     /// </summary>
     [Fact]
-    public async Task Approval_TheAnswerPost_CarriesNoPermissionOfItsOwn()
+    public async Task Approval_TheDecidersPermission_ReachesTheFiler()
     {
         await _router.TryRouteAsync("/spec", "U1", "C1", "th-2", "slack", false, CancellationToken.None);
-        var state = await _sessions.GetOpenByThreadAsync("slack", "th-2", CancellationToken.None);
-        // The gate is deliberately FREE: holding it would stop the turn for a second reason and
-        // hide whether the answer branch is what returned.
-        _pending.Set(state!.JobId, new DialogQuestion(
-            "q-1", QuestionType.Approval, "file it?", null, null, "", TimeSpan.FromMinutes(15)),
-            expiresAt: null);
+        await _router.TryRouteAsync("draft it", "U1", "C1", "th-2", "slack", false, CancellationToken.None);
 
-        var handled = await _router.TryRouteAsync(
-            "approve", "U1", "C1", "th-2", "slack", true, CancellationToken.None);
+        var handled = await _router.TryRouteAsync("approve", "U1", "C1", "th-2", "slack", true, CancellationToken.None,
+            proposalId: await IdAsync("slack", "th-2"));
 
         handled.Should().BeTrue();
-        _turnRunner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
+            Times.Once, "the decision runs no turn of its own");
         _sink.Verify(s => s.AcceptAsync(
-            It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(),
-            It.IsAny<CancellationToken>()), Times.Never,
-            "the approving message only answers the pending question; the filing runs inside the "
-            + "turn that proposed it, with the permission that turn was opened with");
+            It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    private async Task<string?> IdAsync(string platform, string thread) =>
+        (await new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository),
+            NullLogger<SpecDialogLatestOutcomeStore>.Instance).ReadAsync(platform, thread, CancellationToken.None)).ProposalId;
 
     private async Task DispatchAsync(bool mayStartRuns)
     {
-        var dispatcher = new DashboardDialogDispatcher(
-            _router, Conversations(), Messenger(),
-            AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository),
-            AgentSmith.Tests.TestSupport.TicketBinders.NoTicketText(
-                new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository(_context)),
-            AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(),
-            AgentSmith.Tests.TestSupport.TicketBinders.NoPath(),
-            NullLogger<DashboardDialogDispatcher>.Instance);
+        var dispatcher = new DashboardDialogDispatcher(_router, new DashboardDialogOpening(Conversations(), AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository), AgentSmith.Tests.TestSupport.TicketBinders.NoTicketText(
+                new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository(_context)), AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(), AgentSmith.Tests.TestSupport.TicketBinders.NoPath()), Messenger(), NullLogger<DashboardDialogDispatcher>.Instance);
         await dispatcher.DispatchAsync(
             Dialog, "/spec", "U1", mayStartRuns, null, CancellationToken.None);
         await dispatcher.DispatchAsync(
             Dialog, "draft it", "U1", mayStartRuns, null, CancellationToken.None);
+        await dispatcher.DispatchAsync(
+            Dialog, "approve", "U1", mayStartRuns, null, CancellationToken.None, proposalId: await IdAsync(Dashboard, Dialog));
         (await _sessions.GetOpenByThreadAsync(Dashboard, Dialog, CancellationToken.None))
             .Should().NotBeNull("the turn that files runs inside an open session");
     }
@@ -222,26 +214,11 @@ public sealed class FiledWorkPermissionTests : IDisposable
                     new SpecDraft("p9000a", "a slice",
                         "spec: p9000a\ngoal: \"a slice\"\ndone:\n  - \"done\"", [])
                     { Done = ["done"] })));
-        var flow = new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(
-                transport.Object, messenger, pending, composer,
-                Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            _sink.Object, composer, messenger,
-            new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance),
-            new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-        return new SpecDialogRouter(
-            new SpecCommandParser(),
-            new SpecDialogCommandHandler(
+        var flowHarness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, null, _sink.Object, messenger);
+        var flow = flowHarness.Flow();
+        return flowHarness.Router(new SpecDialogCommandHandler(
                 _sessions, new SpecDialogScopeResolver(Loader()),
-                new SpecDialogReplyComposer(), messenger),
-            turnRunner.Object, flow, turnGate,
-            new SpecDialogAnswerAdmission(_sessions, pending, transport.Object),
-            SilentTurnKeeper.Over(repository, _sessions, _context, "proj"),
-            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
-            new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
+                new SpecDialogReplyComposer(), messenger), turnRunner.Object, turnGate, new SpecDialogAnswerAdmission(_sessions, pending, transport.Object), SilentTurnKeeper.Over(repository, _sessions, _context, "proj"));
     }
 
     private static IConfigurationLoader Loader()

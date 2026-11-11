@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-d854a
+
+decisions:
+  - category: Architecture
+    chose: "OpenQuestion and ProposalSpend are Contracts records on the OutcomeProposal base; TurnSpend reads them off the turn's own tracker (PipelineCostTracker under its context key, ComplexityTier for the tier) and answers null when nothing was tracked"
+    over: "Passing the tracker into each push site"
+    reason: "The three push sites and the one exit all hold the pipeline; CollectSpecDialogReplyHandler holds nothing else. Reading without GetOrCreate means a spend is never invented for a turn that tracked nothing."
+  - category: Implementation
+    chose: "The tool takes OpenQuestion[] directly as its parameter; entries are trimmed and blank or repeated spec ids dropped before they reach the slot"
+    over: "A separate input record"
+    reason: "The contract record is already the shape the tool text names, {question, proposal, specIds}; one record means one mirror on the dashboard."
+  - category: Implementation
+    chose: "Questions ride only the final outcome, set in CollectSpecDialogReplyHandler from the slot; the under-review pushes carry spend alone"
+    over: "Also copying the slot's questions onto each mid-review push"
+    reason: "The spec names spend on those pushes; the final push is the card a person decides on."
+  - category: Implementation
+    chose: "The 548f bookkeeping moves in this commit: its spec file goes to done/ and its state line to done, with the skills pin"
+    over: "A separate bookkeeping commit"
+    reason: "Deviation: the 548f commit left its spec in planned/ and its state line under planned; 548f's own decision put the pin move here, so its record moves with it."
+  - category: Implementation
+    chose: "Skills v5.27.0 (design-partner-master 2.4.0) carries both 548f's and d854a's passages; the pin moves from v5.25.4"
+    over: "Pinning v5.26.0 first"
+    reason: "Deviation from the brief, which named v5.26.0 as the current pin: this tree pinned v5.25.4. v5.26.0 shipped project memory and the design-turn work clone, which v5.27.0 contains, so moving straight to v5.27.0 takes both."
+  - category: Testing
+    chose: "Three tests the 548f and ccd9 builds left out are added here: RevisionFindingsTests (a revision turn's prompt carries its awaiting proposal's findings, through continuity, seeds and the revision section), TurnKeeper_LowerEffortLater_KeepsTheHigherTier, GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster"
+    over: "Leaving them for a later spec"
+    reason: "The edit-loop test that pinned the first was deleted in ccd9; the other two were named as not written in 548f's decisions."
+  - category: Implementation
+    chose: "Correction: the pin record above moved the csproj from v5.26.0, not v5.25.4 — the commit changed SkillsCatalogVersion from v5.26.0 and deleted both the v5.25.4 and v5.26.0 tarballs; only docs/reference/skills/airgap.md still named v5.25.4. The review moves the pin on to v5.27.1 (the design partner names remember only when it is offered)"
+    over: "Leaving the record as written"
+    reason: "The record should say what the tree held."

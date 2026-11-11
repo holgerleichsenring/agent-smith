@@ -40,6 +40,7 @@ public sealed class BoundSessionNudgeTests : IDisposable
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SpecDialogSessionManager>().AddScoped<BoundSessionNudge>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
+        services.AddScoped<SpecDialogProposalClaim>().AddScoped<SpecDialogProposalState>(); // 2026-11-10-ccd9
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
 
@@ -70,8 +71,10 @@ public sealed class BoundSessionNudgeTests : IDisposable
         await OpenAsync("bound", binding);
 
         using var scope = _provider.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<SpecDialogLatestOutcomeStore>()
-            .SetProposalAsync(Platform, "bound", new SpecOutcome(new SpecDraft("p9001", "goal", "spec: p9001", [])), CancellationToken.None);
+        var state = (await scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>()
+            .GetOpenByThreadAsync(Platform, "bound", CancellationToken.None))!;
+        await scope.ServiceProvider.GetRequiredService<SpecDialogProposalState>()
+            .StoreAwaitingAsync(state, new SpecOutcome(new SpecDraft("p9001", "goal", "spec: p9001", [])), CancellationToken.None);
 
         _activity.Verify(a => a.ChangedAsync(Project, "github-42", It.IsAny<CancellationToken>()), Times.Once);
     }

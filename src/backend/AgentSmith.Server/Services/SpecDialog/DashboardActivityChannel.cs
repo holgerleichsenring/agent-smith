@@ -11,8 +11,9 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// answer it returns — each tool it calls, each model call that returns, the review of its own
 /// proposal and each re-prompt that sends it back to revise.
 /// <para>
-/// The dashboard platform only, as the reading channel is: a chat platform shows its own
+/// Sent on the dashboard platform only, as the reading channel is: a chat platform shows its own
 /// delivery and expects the answer later, and its thread id is a dialog id nobody has joined.
+/// Kept on the turn's run on every platform (2026-11-10-d854c).
 /// </para>
 /// <para>
 /// Into the dialog's own group, whose membership is owner-checked, and never into the run
@@ -22,19 +23,24 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class DashboardActivityChannel(
     ITurnActivityObserverAccessor observers,
     ILogger<DashboardActivityChannel> logger,
-    IHubContext<JobsHub>? hub = null)
+    IHubContext<JobsHub>? hub = null,
+    DialogActivityRecorder? recorder = null) // 2026-11-10-d854c: each step kept on the turn's run
 {
     private const string ActivityMethod = "SpecDialogActivity";
 
     /// <summary>
-    /// Sets the turn's activity observer until the handle is disposed; null — nothing set —
-    /// for a session on any other platform. <paramref name="turn"/> is what the observer
-    /// numbers its steps against and keeps them on, for a page arriving mid-turn.
+    /// Sets the turn's activity observer until the handle is disposed. <paramref name="turn"/> is what the observer
+    /// numbers its steps against and keeps them on, for a page arriving mid-turn. 2026-11-10-d854c review: a chat
+    /// platform's turn is observed too, but only to keep each step on its run — nothing is sent to a dialog group, and
+    /// an observer already set around the turn still hears every step; null when there is no recorder either.
     /// </summary>
-    public IDisposable? Observe(ConversationState state, RunningDialogTurn turn) =>
-        DialogTarget.IsDashboard(state)
-            ? observers.Observe(new DialogActivityObserver(this, DialogTarget.Of(state), turn))
-            : null;
+    public IDisposable? Observe(ConversationState state, RunningDialogTurn turn)
+    {
+        if (DialogTarget.IsDashboard(state))
+            return observers.Observe(new DialogActivityObserver(this, DialogTarget.Of(state), turn, recorder));
+        return recorder is null ? null
+            : observers.Observe(new DialogActivityObserver(null, DialogTarget.Of(state), turn, recorder, observers.Current));
+    }
 
     /// <summary>
     /// Sends one step to the dialog. NEVER throws — not even on the caller's own

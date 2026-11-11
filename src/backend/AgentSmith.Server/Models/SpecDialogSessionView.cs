@@ -38,6 +38,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="Mocks">2026-10-13-8762r: the design partner's mock versions, oldest first, never their bytes; null with none.</param>
 /// <param name="RatifiedMocks">2026-10-13-8762t: spec id -> the version a person ratified, read from the transcript; null with none.</param>
 /// <param name="WorkPicture">2026-11-05-862ea: what the design partner said the work is; null while none is stored.</param>
+/// <param name="Reviewing">2026-11-10-ccd9: a draft under review, beside <paramref name="Proposal"/> (the one awaiting a
+/// decision, carrying its id) and never approvable.</param>
 /// <param name="ProposalTurn">
 /// The index in <paramref name="Transcript"/> of the turn the proposal card belongs on — the
 /// last assistant turn that carried a draft. Null when there is no proposal.
@@ -61,7 +63,15 @@ public sealed record SpecDialogSessionView(
     int ImageCount = 0,
     IReadOnlyList<SpecDialogMockView>? Mocks = null,
     IReadOnlyDictionary<string, int>? RatifiedMocks = null,
-    WorkPictureView? WorkPicture = null);
+    WorkPictureView? WorkPicture = null,
+    SpecDialogProposalPush? Reviewing = null)
+{
+    /// <summary>2026-11-10-d854c: the run of the turn last started here — after a crash, the turn that died.</summary>
+    public string? RunningRunId { get; init; }
+
+    /// <summary>2026-11-10-d854c: that run's own proposal when no kept turn carries it — a turn that never ended.</summary>
+    public SpecDialogProposalPush? RunningProposal { get; init; }
+}
 
 /// <summary>2026-10-13-8762r: one mock version, addressed by its spec and number; its screenshot is a route of its own.</summary>
 public sealed record SpecDialogMockView(string SpecId, int Version, string Name, DateTimeOffset At, bool HasShot);

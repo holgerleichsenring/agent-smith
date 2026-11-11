@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-10-7da6
+
+decisions:
+  - category: Implementation
+    chose: "withCard replaces the card of a proposal nobody has answered yet — no user or decision entry after it — instead of appending another"
+    over: "Dropping every earlier card, or keeping one card per push"
+    reason: "Review revisions push several drafts in one live turn; each appended its own card. A card someone answered stays where it was answered, so the conversation keeps what a person replied to."
+  - category: Implementation
+    chose: "The reload rule reads ccd9's separate draft under review: while the turn computes, session.reviewing goes as a card-only entry at the end; otherwise a stored proposal whose turn is not in the transcript goes there"
+    over: "The spec's (computing && session.proposal.underReview) test"
+    reason: "Deviation, forced by ccd9 built first: the awaiting proposal and the draft under review now arrive as two fields, and the awaiting one is never under review. The awaiting card stays at its own turn (a message came after it), and the running turn's draft is the one card at the end, which the next live push replaces through the same withCard rule."
+  - category: Testing
+    chose: "The rules are exported pure functions (withCard, trailingCard) tested in src/dashboard/src/hooks/__tests__; one surface test now answers the first card before the second turn proposes"
+    over: "Driving every case through the whole SpecDialogSurface"
+    reason: "The surface test modelled two proposing turns with no message between them, which a real conversation never has; with the reply in between it shows two cards as before."

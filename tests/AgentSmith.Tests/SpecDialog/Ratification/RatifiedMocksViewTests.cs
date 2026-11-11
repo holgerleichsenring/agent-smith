@@ -89,11 +89,7 @@ public sealed class RatifiedMocksViewTests
         using var scope = rig.Provider.CreateScope();
         var context = (AgentSmithDbContext)scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var repository = scope.ServiceProvider.GetRequiredService<SpecDialogSessionRepository>();
-        var reader = new SpecDialogViewReader(scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>(),
-            new SpecDialogProjectCatalog(Mock.Of<IConfigurationLoader>(l => l.LoadConfig(It.IsAny<string>()) == new AgentSmithConfig())), new SpecDialogPendingQuestions(rig.Gate),
-            new SpecDialogLatestOutcomeStore(repository, BoundSessionNudges.Quiet(repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), rig.Gate,
-            new SpecDialogTicketTextRepository(context), TestUploads.Over(context), rig.Mocks);
+        var reader = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(context).View(scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>(), new SpecDialogProjectCatalog(Mock.Of<IConfigurationLoader>(l => l.LoadConfig(It.IsAny<string>()) == new AgentSmithConfig())), new SpecDialogPendingQuestions(rig.Gate), new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), rig.Gate, new SpecDialogTicketTextRepository(context), TestUploads.Over(context), rig.Mocks);
         return (await reader.ReadAsync(RatificationRig.Thread, default)).Session!;
     }
 

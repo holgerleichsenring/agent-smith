@@ -32,6 +32,12 @@ public sealed class SpecDialogReplySlot
     /// <summary>2026-11-05-862ea: the work picture the master last stated through state_work_picture, or null.</summary>
     public WorkPicture? WorkPicture { get; set; }
 
+    /// <summary>2026-11-10-d854a: the open questions the master last laid on its draft through state_open_questions.</summary>
+    public IReadOnlyList<OpenQuestion> Questions { get; set; } = [];
+
+    /// <summary>2026-11-10-d854c: the turn's run id, written when its pipeline grounds the turn; null before that.</summary>
+    public string? RunId { get; set; }
+
     /// <summary>What the turn's master last forwarded and was answered, for the next turn to replay.</summary>
     public ForwardedThreadCapture Thread { get; } = new();
 }

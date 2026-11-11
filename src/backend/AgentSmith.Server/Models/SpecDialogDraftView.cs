@@ -25,4 +25,7 @@ public sealed record SpecDialogDraftView(
 
     /// <summary>2026-10-02-3f06c: what the spec states without having looked.</summary>
     public IReadOnlyList<string> Assumptions { get; init; } = [];
+
+    /// <summary>2026-11-10-d854b: the repositories the spec names, shown on its row of the turn result.</summary>
+    public IReadOnlyList<string> Repos { get; init; } = [];
 }

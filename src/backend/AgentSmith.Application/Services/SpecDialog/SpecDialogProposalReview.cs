@@ -32,9 +32,9 @@ public sealed class SpecDialogProposalReview(
         if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal) || proposal is null) return loopResult;
         // 2026-11-09-9a98: out before the review; an epic's parent is never reviewed, so only its children wait.
         var waiting = proposal is EpicOutcome epic ? epic.Children : ProposalSpecSet.Drafts(proposal);
-        // 2026-11-10-18cf: each waiting draft says why, so a turn cancelled from here leaves a reason behind.
-        await (proposals?.PublishUnderReviewAsync(
-            ProposalReviewSummary.MarkedNotReviewed(proposal, waiting, proposal.Findings, ProposalReviewSummary.UnderReviewWhy), ct)
+        // 2026-11-10-18cf: each waiting draft says why, so a turn cancelled from here leaves a reason behind. d854a: spend so far.
+        await (proposals?.PublishUnderReviewAsync(ProposalReviewSummary.MarkedNotReviewed(
+            proposal, waiting, proposal.Findings, ProposalReviewSummary.UnderReviewWhy) with { Spend = TurnSpend.Of(pipeline) }, ct)
             ?? Task.CompletedTask);
         if (proposal is TicketGraphOutcome graph)
             return await plans.ReviewAsync(new ProposalTurn(pipeline, request, userPrompt, conversation, agent, costTracker), graph, loopResult, ct);

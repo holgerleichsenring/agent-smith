@@ -38,6 +38,33 @@ public sealed class SpecDialogSession : EntityBase
     /// </summary>
     public string? LatestProposalJson { get; set; }
 
+    /// <summary>
+    /// 2026-11-10-ccd9: the proposal awaiting a decision, written at turn end before it is shown and
+    /// moved into <see cref="ConfirmedOutcomeJson"/> by the claim. Old builds never touch it.
+    /// </summary>
+    public string? AwaitingProposalJson { get; set; }
+
+    /// <summary>2026-11-10-ccd9: the id minted for the awaiting proposal; every decision carries it.</summary>
+    public string? ProposalId { get; set; }
+
+    /// <summary>2026-11-10-ccd9: awaiting or filing; null when no proposal waits.</summary>
+    public string? ProposalState { get; set; }
+
+    /// <summary>2026-11-10-ccd9: the draft under review, never approvable and never over the awaiting one.</summary>
+    public string? ReviewingProposalJson { get; set; }
+
+    /// <summary>2026-11-10-ccd9: the awaiting proposal last posted to a chat thread, and when.</summary>
+    public string? PostedProposalId { get; set; }
+
+    /// <inheritdoc cref="PostedProposalId"/>
+    public DateTimeOffset? PostedAt { get; set; }
+
+    /// <summary>
+    /// 2026-11-10-d854c: the run id of the turn running now, written as its pipeline grounds the turn. Never cleared —
+    /// after a crash it still names the turn that died, whose steps and last draft are kept on that run.
+    /// </summary>
+    public string? RunningRunId { get; set; }
+
     /// <summary>JSON of what the latest filing attempt created, and its error if it stopped.</summary>
     public string? LatestFilingJson { get; set; }
 

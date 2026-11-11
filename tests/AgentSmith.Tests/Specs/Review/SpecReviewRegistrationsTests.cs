@@ -70,7 +70,7 @@ public sealed class SpecReviewRegistrationsTests
         scope.ServiceProvider.GetRequiredService<ProposalReProposalGuard>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>()
             .Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogOutcomeConfirmer>()
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogDecisionPath>()
             .Should().NotBeNull();
     }
 

@@ -16,10 +16,18 @@ public static class WorkPictureSection
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var picture) || picture is null)
             return NoneStored;
-        return string.Join("\n",
+        var lines = new List<string>
+        {
             "## Work picture",
             $"- kind: {WorkPictureText.Dashed(picture.Kind.ToString())}",
             $"- truth: {picture.Truth}",
-            $"- size: {WorkPictureText.Dashed(picture.Size.ToString())}");
+            $"- size: {WorkPictureText.Dashed(picture.Size.ToString())}",
+        };
+        // 2026-11-10-548f: the stated effort and the cap it sized for this turn, in place.
+        if (picture.Effort != Contracts.Models.Configuration.ComplexityTier.Unknown)
+            lines.Add($"- effort: {picture.Effort.ToString().ToLowerInvariant()}"
+                + (pipeline.TryGet<Contracts.Models.Configuration.CostCapValues>("PipelineCostCap", out var cap) && cap is not null
+                    ? $" (cost cap ${cap.Usd:0.##} / {cap.Tokens:N0} tokens)" : string.Empty));
+        return string.Join("\n", lines);
     }
 }

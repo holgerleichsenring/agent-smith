@@ -1,22 +1,18 @@
-using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Infrastructure.Persistence.Repositories;
-using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
 
 namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
-/// 2026-10-26-0f19b: the spec-dialog branch of a button click, over a test's store — by default with
-/// no question open, which is every click that belongs to something other than a spec dialog.
+/// 2026-11-10-ccd9: the spec-dialog branch of a button click, over a test's store — by default with no
+/// conversation in the thread, which is every click that belongs to something other than a spec dialog.
 /// </summary>
 internal static class SpecDialogButtons
 {
-    public static SpecDialogButtonAnswer Over(
-        SqliteConnection store, IDialogueTransport transport, IOpenDialogQuestions? open = null) =>
-        new(Sessions(store), open ?? Mock.Of<IOpenDialogQuestions>(), transport);
+    public static SpecDialogChatClick Over(SqliteConnection store, SpecDialogRouter? router = null) =>
+        new(Sessions(store), new SpecDialogProposalClaim(MigratedStoreTemplate.Context(store)), router!);
 
     public static SpecDialogSessionManager Sessions(SqliteConnection store)
     {

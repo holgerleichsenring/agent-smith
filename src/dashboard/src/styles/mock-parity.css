@@ -2032,6 +2032,26 @@
 .mock-tickets .doc pre.end-text { margin:0; font-family:var(--mono); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:260px; overflow:auto; }
 .mock-tickets .g-note .g-cause { color:var(--t-bad); overflow-wrap:anywhere; }
 
+/* 2026-11-10-d854b: one reduced result per proposing turn, on the conversation and on the ticket page alike — the
+   activity line, the cost-cap banner, the questions and one row per spec. Drawn from the shell's own tokens. */
+:is(.mock-dialog, .mock-tickets) .d-turn { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; min-width: 0; }
+:is(.mock-dialog, .mock-tickets) .d-turn-box { border: 1px solid var(--line); border-radius: var(--r-s); background: var(--panel); overflow: hidden; }
+:is(.mock-dialog, .mock-tickets) button.d-turn-activity { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; width: 100%; text-align: left; font: inherit; font-size: 12.5px; color: var(--ink-2); background: none; border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 12px; cursor: pointer; }
+:is(.mock-dialog, .mock-tickets) .d-turn-activity .cost { margin-left: auto; font-family: var(--mono); color: var(--ink); }
+:is(.mock-dialog, .mock-tickets) .d-turn-steps { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+:is(.mock-dialog, .mock-tickets) .d-turn-cap { display: flex; flex-direction: column; gap: 2px; background: var(--run-wash); color: var(--run); border-radius: var(--r-s); padding: 10px 12px; font-size: 12.5px; }
+:is(.mock-dialog, .mock-tickets) .d-turn-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--ink-3); }
+:is(.mock-dialog, .mock-tickets) .d-turn-q { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line-2); }
+:is(.mock-dialog, .mock-tickets) .d-turn-q:first-child, :is(.mock-dialog, .mock-tickets) .d-turn-row:first-child { border-top: 0; }
+:is(.mock-dialog, .mock-tickets) .d-turn-row { border-top: 1px solid var(--line-2); }
+:is(.mock-dialog, .mock-tickets) button.d-turn-toggle { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; width: 100%; text-align: left; font: inherit; background: none; border: 0; padding: 10px 12px; cursor: pointer; color: var(--ink); }
+:is(.mock-dialog, .mock-tickets) .d-turn-row .open { display: flex; flex-direction: column; gap: 10px; padding: 2px 12px 12px 34px; background: var(--panel-2); font-size: 12.5px; }
+:is(.mock-dialog, .mock-tickets) .d-turn-row pre { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+:is(.mock-dialog, .mock-tickets) .d-pill { font-size: 10.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; white-space: nowrap; background: var(--panel-2); color: var(--ink-3); }
+:is(.mock-dialog, .mock-tickets) .d-pill.clean { background: var(--ok-wash); color: var(--primary-deep, var(--ok)); }
+:is(.mock-dialog, .mock-tickets) .d-pill.findings { background: var(--bad-wash); color: var(--bad); }
+:is(.mock-dialog, .mock-tickets) .d-repo { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); background: var(--panel-2); border-radius: 4px; padding: 2px 6px; }
+
 /* ===== delivery surface (2026-10-25-0099c) ================================ */
 /* design/mockups/delivery-overview.html, scoped to .mock-delivery, which only the Delivery page root carries. The
    mock's own tokens map onto the shell's: its white panel is --panel, its canvas-soft --panel-2. The colours are

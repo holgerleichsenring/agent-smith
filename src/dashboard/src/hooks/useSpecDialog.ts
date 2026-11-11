@@ -66,6 +66,8 @@ export interface DialogEntry {
   /** 2026-09-17-c7aed: the proposal this agent turn produced, shown as a card on it. Live every
    *  proposing turn keeps its own; after a reload only the latest is known. */
   proposal?: SpecDialogProposalPush;
+  /** 2026-11-10-d854c: the run an agent turn came from, read from the view; its steps are paged from it. */
+  runId?: string;
   /** Set on a decision entry. */
   decision?: SpecDialogDecision;
   /** Set on a decision the page showed before any read confirmed the server stored it. */
@@ -98,8 +100,10 @@ export interface SpecDialogState {
   conversations: SpecDialogSessionSummary[];
   entries: DialogEntry[];
   question: SpecDialogQuestionPush | null;
-  /** What this turn would file, until a later turn supersedes it. */
+  /** What this turn would file, until a later turn supersedes it — a draft under review included. */
   proposal: SpecDialogProposalPush | null;
+  /** 2026-11-10-ccd9: the proposal awaiting a decision — the only one the approval card shows and names. */
+  awaitingProposal: SpecDialogProposalPush | null;
   /** What filing it actually created — the column's last state. */
   filed: SpecDialogFilingPush | null;
   failure: Error | null;
@@ -127,6 +131,7 @@ export interface SpecDialogState {
     project?: string,
     decision?: SpecDialogDecision,
     ticketId?: string,
+    proposalId?: string,
   ) => Promise<void>;
   /** 2026-10-08-e8b9h: reads the view again and RESEEDS the transcript from it — what a change
    *  the page did not say itself (an upload removed) needs to show. */
@@ -156,6 +161,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   const [entries, setEntries] = useState<DialogEntry[]>([]);
   const [question, setQuestion] = useState<SpecDialogQuestionPush | null>(null);
   const [proposal, setProposal] = useState<SpecDialogProposalPush | null>(null);
+  const [awaitingProposal, setAwaitingProposal] = useState<SpecDialogProposalPush | null>(null);
   const [filed, setFiled] = useState<SpecDialogFilingPush | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
   const [uploadNote, setUploadNote] = useState<UploadNote | null>(null);
@@ -201,6 +207,8 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   const known = useRef<KnownProposal | null>(null);
   // The same for a question: one pushed while a read was out is newer than what that read says.
   const askedAtRead = useRef<number | null>(null);
+  // 2026-11-10-ccd9: and for the awaiting proposal the card shows.
+  const awaitedAtRead = useRef<number | null>(null);
   // How long the transcript was at the latest read — where a decision clicked now will be stored.
   const turnsRead = useRef(0);
   // Where the conversation stood when this page last posted, until the reply ends the wait.
@@ -251,13 +259,15 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       // The question lives only in this state and in the server's in-memory wait, so a
       // reload has to take it back from the read or the approval gate loses its card.
       if (askedAtRead.current === null || askedAtRead.current < issued) setQuestion(next.question);
+      // 2026-11-10-ccd9: the server's truth about the proposal awaiting a decision — the card's only source.
+      if (awaitedAtRead.current === null || awaitedAtRead.current < issued) setAwaitingProposal(next.session?.proposal ?? null);
       turnsRead.current = next.session?.transcript.length ?? 0;
       setEntries((held) => withMocks(settled(held, next, issued), mocksOf(next)));
       const armed = reseed.current;
       const live = known.current;
       const learnedBefore = live !== null && live.read < issued;
       if (armed === false || (typeof armed === "string" && next.session?.sessionId !== armed)) {
-        if (learnedBefore && !next.session?.proposal) {
+        if (learnedBefore && !(next.session?.reviewing ?? next.session?.proposal)) {
           known.current = null;
           setProposal(null);
           setEntries((held) => withoutCard(held, live.proposal));
@@ -297,6 +307,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     echo: boolean | SpecDialogDecision,
     project?: string,
     ticketId?: string,
+    proposalId?: string,
   ) => {
     // Cleared before the post: the turn starts on the server before the post returns, and its
     // first repository may be announced before this line would otherwise run.
@@ -308,7 +319,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       // 2026-09-20-4b0aa: the project the page holds. The server opens the conversation with it
       // when none is open and routes this message after, in one task — so there is no second post
       // to be ordered against. A post that names none is answered exactly as it always was.
-      await postSpecDialogMessage(id, text, project, ticketId);
+      await postSpecDialogMessage(id, text, project, ticketId, proposalId);
       if (echo === true) append("user", text, new Date().toISOString());
       else if (echo)
         append("decision", text, new Date().toISOString(), {
@@ -469,6 +480,11 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     const offProposal = client.specDialogProposals.add((proposed) => {
       if (proposed.dialogId !== dialogId) return;
       setProposal(proposed);
+      // 2026-11-10-ccd9: a draft under review is shown in the pane, never on the approval card.
+      if (!proposed.reviewing) {
+        awaitedAtRead.current = reads.current;
+        setAwaitingProposal(proposed);
+      }
       setFiled(null);
       const ownTurn = replyWasDraftOnly.current;
       known.current = { proposal: proposed, read: reads.current, ownTurn };
@@ -545,14 +561,16 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   /// there is no second post here and nothing to reseed around — the two remaining armings, a
   /// switch to another conversation and an attachment, are untouched. The echo keeps its place.
   const send = useCallback(
-    async (text: string, project?: string, decision?: SpecDialogDecision, ticketId?: string) => {
+    async (text: string, project?: string, decision?: SpecDialogDecision, ticketId?: string, proposalId?: string) => {
       const said = text.trim();
       if (!dialogId || said.length === 0) return;
       // Nothing to open a conversation on, and nothing open: the page does not guess a project.
       if (!view?.session && !project) return;
-      await post(dialogId, said, decision ?? true, project, ticketId);
+      // 2026-11-10-ccd9: a typed word names the open card only while that card is the latest agent entry.
+      const named = proposalId ?? typedCard(question, entries);
+      await post(dialogId, said, decision ?? true, project, ticketId, named);
     },
-    [dialogId, view, post],
+    [dialogId, view, post, question, entries],
   );
 
   // 2026-09-20-3af8: the image is stored BEFORE any message follows it, and the server opens
@@ -611,9 +629,11 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     awaitedReply.current = null;
     known.current = null;
     askedAtRead.current = null;
+    awaitedAtRead.current = null;
     setEntries([]);
     setQuestion(null);
     setProposal(null);
+    setAwaitingProposal(null);
     setFiled(null);
     setView(null);
     setAwaiting(false);
@@ -687,7 +707,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
 
   working.current = awaiting || computing;
   return {
-    dialogId, view, conversations, entries, question, proposal, filed, failure, uploadNote, awaiting,
+    dialogId, view, conversations, entries, question, proposal, awaitingProposal, filed, failure, uploadNote, awaiting,
     working: working.current, workingSince,
     readings, activity, send, refresh, startNew, open, remove, attach, attachSite,
   };
@@ -729,16 +749,37 @@ function mocksOf(view: SpecDialogView): TranscriptMock[] {
 
 function turns(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
-  return (session?.transcript ?? [])
+  const transcript = session?.transcript ?? [];
+  const held = transcript
     .map((turn, index): DialogEntry => ({
       key: `held-${index}`,
       kind: turn.decision ? "decision" : turn.role === "user" ? "user" : "agent",
       text: turn.text,
       at: turn.at,
       ...(turn.decision ? { decision: turn.decision } : {}),
-      ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal } : {}),
+      ...(turn.runId ? { runId: turn.runId } : {}),
+      // 2026-11-10-d854b: every proposing turn keeps its own proposal (d854c); the awaiting one carries its id.
+      ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal }
+        : turn.proposal ? { proposal: turn.proposal } : {}),
     }))
     .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
+  const trailing = trailingCard(view);
+  return trailing
+    ? [...held, { key: `card-${trailing.at}-${held.length}`, kind: "agent", text: "", at: trailing.at, proposal: trailing }]
+    : held;
+}
+
+/** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — the running turn's draft under
+ *  review (ccd9 keeps it beside the awaiting proposal), or a stored proposal whose turn is not in the transcript. */
+export function trailingCard(view: SpecDialogView): SpecDialogProposalPush | null {
+  const session = view.session;
+  if (!session) return null;
+  if (view.turn?.computing && session.reviewing) return session.reviewing;
+  const placed = session.proposalTurn !== null && session.proposalTurn !== undefined
+    && session.proposalTurn < session.transcript.length;
+  if (session.proposal && !placed) return session.proposal;
+  // 2026-11-10-d854b: a turn that died after a draft has no kept turn; its last draft is still its result.
+  return !view.turn?.computing && session.runningProposal ? session.runningProposal : null;
 }
 
 /** A pending decision meets the first read issued after it: the decision stored at or after the turn
@@ -763,11 +804,15 @@ function settled(held: DialogEntry[], view: SpecDialogView, issued: number): Dia
 
 /** A proposal follows the reply it came from, so its card goes on that reply — or on a turn of
  *  its own when the reply was nothing but the draft and so added no entry. */
-function withCard(
+export function withCard(
   held: DialogEntry[],
   proposal: SpecDialogProposalPush,
   ownTurn: boolean,
 ): DialogEntry[] {
+  // 2026-11-10-7da6: a card nobody answered yet — no message and no decision after it — takes the newer draft.
+  const answered = held.findLastIndex((entry) => entry.kind === "user" || entry.kind === "decision");
+  const open = held.findLastIndex((entry, index) => index > answered && entry.proposal !== undefined);
+  if (open >= 0) return held.map((entry, index) => (index === open ? { ...entry, proposal } : entry));
   const last = held.at(-1);
   if (!ownTurn && last?.kind === "agent" && !last.proposal) {
     return [...held.slice(0, -1), { ...last, proposal }];
@@ -794,13 +839,26 @@ function sameDraft(a: SpecDialogProposalPush, b: SpecDialogProposalPush): boolea
   return draft(a) === draft(b);
 }
 
+/** 2026-11-10-ccd9: the open approval card's id when the latest agent entry is that card's own turn — what a
+ *  typed approve or reject names. After a later agent reply, a typed word is an ordinary message. Review fixes: the
+ *  latest entry must carry THAT proposal, not merely one, and a proposal with open questions is decided by its
+ *  buttons — a bare typed word beside it is an ordinary message. */
+export function typedCard(question: SpecDialogQuestionPush | null, entries: DialogEntry[]): string | undefined {
+  if (question?.kind !== "approval") return undefined;
+  const lastAgent = [...entries].reverse().find((entry) => entry.kind === "agent");
+  const shown = lastAgent?.proposal;
+  if (shown?.proposalId !== question.questionId) return undefined;
+  return (shown.questions?.length ?? 0) > 0 ? undefined : question.questionId;
+}
+
 /** A filing older than the proposal filed an earlier one, and the proposal outranks it —
  *  the same move a live proposal push makes when it clears the filing. */
 function heldOutcome(view: SpecDialogView): {
   proposal: SpecDialogProposalPush | null;
   filed: SpecDialogFilingPush | null;
 } {
-  const proposal = view.session?.proposal ?? null;
+  // 2026-11-10-ccd9: the pane shows a draft under review over the awaiting proposal; the card never does.
+  const proposal = view.session?.reviewing ?? view.session?.proposal ?? null;
   const filing = view.session?.filing ?? null;
   const superseded = proposal !== null && filing !== null && Date.parse(filing.at) < Date.parse(proposal.at);
   return { proposal, filed: superseded ? null : filing };

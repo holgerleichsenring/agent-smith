@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Server.Models;
 
@@ -44,7 +45,16 @@ public sealed class SpecDialogProposalComposer(
         {
             Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
             Uploads = proposal.Uploads, UnderReview = proposal.UnderReview,
+            Questions = KnownIds(proposal), Spend = proposal.Spend, // 2026-11-10-d854a
         };
+    }
+
+    /// <summary>2026-11-10-d854a: a revision may renumber or drop specs after the questions were stated, so each keeps
+    /// only the ids of a spec the person will approve.</summary>
+    internal static IReadOnlyList<OpenQuestion> KnownIds(OutcomeProposal proposal)
+    {
+        var known = ProposalSpecSet.Drafts(proposal).Select(d => d.SpecId).ToHashSet(StringComparer.Ordinal);
+        return [.. proposal.Questions.Select(q => q with { SpecIds = [.. q.SpecIds.Where(known.Contains)] })];
     }
 
     private SpecDialogProposalPush? Shape(
@@ -87,6 +97,6 @@ public sealed class SpecDialogProposalComposer(
         [.. draft.Steps.Select(step => step.Action)],
         draft.Tests, draft.Done, draft.Requires, draft.Yaml)
     {
-        Facts = draft.Facts, Assumptions = draft.Assumptions, // 2026-10-02-3f06c
+        Facts = draft.Facts, Assumptions = draft.Assumptions, Repos = draft.Repos, // 2026-10-02-3f06c; d854b: repos
     };
 }

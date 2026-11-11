@@ -74,7 +74,9 @@ public sealed class TicketConversationTranscriptTests : IDisposable
             .Select(e => (e.Role, e.Author, e.Group)).Should().Equal(
                 (TicketConversationRoles.Person, null, null), (TicketConversationRoles.Agent, null, null));
         view.Proposal!.Drafts.Should().ContainSingle().Which.Should().BeEquivalentTo(
-            new TicketConversationDraftView("2026-10-13-1a2b", "Export in a second.", ["api"], ["It exports in a second."]));
+            new TicketConversationDraftView("2026-10-13-1a2b", "Export in a second.", ["api"], ["It exports in a second."]),
+            options => options.Excluding(d => d.Yaml)); // 2026-11-10-d854b: the yaml rides along, pinned below
+        view.Proposal!.Drafts[0].Yaml.Should().NotBeNullOrEmpty();
         (view.SessionId, view.OpenDialogId).Should().Be(("s-1", "d-1"));
     }
 
@@ -101,6 +103,19 @@ public sealed class TicketConversationTranscriptTests : IDisposable
         (view.TranscriptHidden, view.SessionId).Should().Be((false, (string?)null));
     }
 
+    // 2026-11-10-ccd9 review (L2, L5): the ticket page backfills a pre-deploy row's id, and a question keeps only the ids
+    // of specs the person will approve — as the dialog page's own read keeps them.
+    [Fact]
+    public async Task TicketConversation_PreDeployRowWithQuestions_GetsAnIdAndKnownSpecIdsOnly()
+    {
+        await SeedAsync(Proposal with { Questions = [new OpenQuestion("Which store?", "Redis", ["2026-10-13-1a2b", "2026-10-13-gone"])] });
+
+        var proposal = (await _h.Conversation.ReadAsync("alpha", "42", true, default))!.Proposal!;
+
+        proposal.ProposalId.Should().NotBeNullOrEmpty("Approve on the ticket page names the card it shows");
+        proposal.Questions.Single().SpecIds.Should().Equal("2026-10-13-1a2b");
+    }
+
     [Fact]
     public async Task TicketConversation_ProposalCleared_ProposalNull()
     {
@@ -110,7 +125,9 @@ public sealed class TicketConversationTranscriptTests : IDisposable
         await using (var scope = _h.Services.CreateAsyncScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>();
-            await uow.Set<SpecDialogSession>().ExecuteUpdateAsync(s => s.SetProperty(x => x.LatestProposalJson, (string?)null));
+            // 2026-11-10-ccd9 review: the read above backfilled the row, so the awaiting slot is cleared with its mirror.
+            await uow.Set<SpecDialogSession>().ExecuteUpdateAsync(s => s.SetProperty(x => x.LatestProposalJson, (string?)null)
+                .SetProperty(x => x.AwaitingProposalJson, (string?)null));
         }
 
         var view = (await _h.Conversation.ReadAsync("alpha", "42", true, default))!;

@@ -55,6 +55,7 @@ public sealed partial class SpecDialogOutcomeTests
         await using var scope = bed.Harness.Services.CreateAsyncScope();
         var kept = await scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>()
             .GetOpenByThreadAsync("slack", "th-filing-kind", CancellationToken.None);
-        kept!.Transcript.Should().ContainSingle().Which.Kind.Should().Be(SpecDialogTurnKind.Filing);
+        kept!.Transcript.Where(t => t.Role == TranscriptRole.Assistant).Should().ContainSingle()
+            .Which.Kind.Should().Be(SpecDialogTurnKind.Filing, "2026-11-10-ccd9: the click is stored as the person's message");
     }
 }

@@ -69,7 +69,7 @@ internal static class SlackEventEndpointHandler
                 await scope.ServiceProvider
                     .GetRequiredService<SlackMessageDispatcher>()
                     .DispatchAsync(text, userId, channelId ?? "?", CancellationToken.None,
-                        threadId, DispatcherDefaults.PlatformSlack);
+                        threadId, DispatcherDefaults.PlatformSlack, SlackPayloadExtractor.ExtractEventSentAt(json));
             }
             catch (Exception ex)
             {

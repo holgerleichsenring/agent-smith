@@ -21,11 +21,14 @@ public sealed class SpecDialogProposalContinuity(
             ? null
             : proposals.Observe(new DialogProposalObserver(scopes, state, loggers.CreateLogger<DialogProposalObserver>()));
 
-    /// <summary>A stored mark means the turn that wrote this proposal never finished its review.</summary>
+    /// <summary>
+    /// A draft under review means the turn that wrote it never finished; 2026-11-10-ccd9: otherwise the proposal
+    /// awaiting a decision is what the conversation is about, so the master reads it and revises it when asked.
+    /// </summary>
     public async Task<ConversationState> ContinuingAsync(ConversationState state, CancellationToken ct)
     {
         if (state.Revising is not null || state.ThreadId is null) return state;
-        var stored = (await latestOutcome.ReadAsync(state.Platform, state.ThreadId, ct)).Proposal;
-        return stored is { UnderReview: true } ? state with { Revising = stored } : state;
+        var stored = await latestOutcome.ReadAsync(state.Platform, state.ThreadId, ct);
+        return (stored.Reviewing ?? stored.Proposal) is { } revising ? state with { Revising = revising } : state;
     }
 }

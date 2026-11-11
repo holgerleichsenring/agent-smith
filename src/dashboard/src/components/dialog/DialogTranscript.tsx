@@ -7,7 +7,8 @@ import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
 import type { SpecDialogImage, SpecDialogProposalPush, SpecDialogReferenceSet } from "@/types/spec-dialog";
 import { AuthedImage } from "./AuthedImage";
 import { MockShot } from "./MockShot";
-import { DialogProposalCard } from "./DialogProposalCard";
+import { TurnResult } from "./TurnResult";
+import { turnProposalOf } from "./turnProposal";
 import { DialogDocumentCard } from "./DialogDocumentCard";
 import { documentBlocks } from "./documentBlocks";
 import { sizeOf } from "./referenceSelection";
@@ -31,14 +32,32 @@ import { sizeOf } from "./referenceSelection";
 // 2026-10-01-283db: an uploaded website is one of the operator's lines too, as ONE chip — its name,
 // how many files and how large — however many files it holds.
 // 2026-10-09-86e1: and the chip OPENS that upload in the Uploads tab, where its files are.
+// 2026-11-10-d854b: a turn that proposed something shows its reduced result (TurnResult) in place of the card, its
+// reply as the summary; only the proposal awaiting a decision carries the approve bar.
+
+/** The approve bar and the proposal it decides; placed on the turn whose proposal carries that id. */
+export interface TurnApproval {
+  proposalId: string;
+  node: ReactNode;
+}
+
+/** What a turn's result can do with the conversation: send a reply, or put a question into the composer. */
+export interface TurnReplies {
+  onTake?: (text: string) => void;
+  onAnswer?: (question: string) => void;
+}
 
 export function DialogTranscript({
   entries,
   onInspect,
   greeting,
   onOpenUpload,
+  approval,
+  replies,
 }: {
   entries: DialogEntry[];
+  approval?: TurnApproval | null;
+  replies?: TurnReplies;
   onInspect: (proposal: SpecDialogProposalPush) => void;
   /** 2026-10-09-86e1: show one upload's files — the pane's Uploads tab, opened on it. */
   onOpenUpload?: (setId: string) => void;
@@ -61,7 +80,9 @@ export function DialogTranscript({
   return (
     <div data-testid="dialog-transcript" className="flex flex-col gap-4">
       {entries.map((entry) => (
-        <Turn key={entry.key} entry={entry} onInspect={onInspect} onOpenUpload={onOpenUpload} />
+        <Turn key={entry.key} entry={entry} onInspect={onInspect} onOpenUpload={onOpenUpload}
+          approve={approval && entry.proposal?.proposalId === approval.proposalId ? approval.node : undefined}
+          replies={replies} />
       ))}
     </div>
   );
@@ -71,10 +92,14 @@ function Turn({
   entry,
   onInspect,
   onOpenUpload,
+  approve,
+  replies,
 }: {
   entry: DialogEntry;
   onInspect: (proposal: SpecDialogProposalPush) => void;
   onOpenUpload?: (setId: string) => void;
+  approve?: ReactNode;
+  replies?: TurnReplies;
 }) {
   if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
   if (entry.kind === "image" && entry.image) return <Attached image={entry.image} />;
@@ -86,10 +111,13 @@ function Turn({
     <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${mine ? "user" : "agent"}` : "dialog-turn-card"}>
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
+      ) : entry.proposal ? (
+        <TurnResult proposal={turnProposalOf(entry.proposal)} summary={said ? <AgentText text={entry.text} /> : undefined}
+          runId={entry.runId} onTake={replies?.onTake} onAnswer={replies?.onAnswer}
+          onInspect={() => onInspect(entry.proposal!)} approve={approve} />
       ) : (
         said && <AgentText text={entry.text} />
       )}
-      {entry.proposal && <DialogProposalCard proposal={entry.proposal} onInspect={onInspect} />}
     </DialogMessage>
   );
 }

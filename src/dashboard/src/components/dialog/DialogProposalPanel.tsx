@@ -6,7 +6,6 @@ import type {
   SpecDialogProposalPush,
 } from "@/types/spec-dialog";
 import { DialogProposalGraph } from "./DialogProposalGraph";
-import { DialogProposalRounds } from "./DialogProposalRounds";
 import { DialogProposalUploads } from "./DialogProposalUploads";
 import { MockVersions } from "./MockVersions";
 
@@ -50,12 +49,8 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
   return (
     <div data-testid="dialog-proposal" data-kind={proposal.kind} className="flex flex-col gap-3.5">
       <DialogProposalUploads uploads={proposal.uploads} />
-      {/* 2026-11-09-9a98: readable while the review runs and after it was cut short. */}
-      <DialogProposalRounds
-        rounds={proposal.reviewRounds}
-        notReviewed={proposal.notReviewed}
-        underReview={proposal.underReview}
-      />
+      {/* 2026-11-10-d854b: the review rounds live in each spec's row of the turn result now; the panel keeps the
+          graph and the uploads. */}
       {proposal.bug && (
         <div data-testid="dialog-proposal-bug">
           <Label>A bug ticket</Label>

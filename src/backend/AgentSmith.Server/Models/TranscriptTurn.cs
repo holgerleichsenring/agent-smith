@@ -8,8 +8,10 @@ namespace AgentSmith.Server.Models;
 /// that answered an approval question records its decision; a row without one reads as null.
 /// A person's turn records its author's display name; a person's mock ratification names the spec and version in
 /// <see cref="Mock"/>. Both read as null on every other turn and on older rows; so does a digest's DigestThrough.
+/// 2026-11-10-d854c: an agent turn records the run it came from as <see cref="RunId"/>; null on older rows and on a
+/// turn whose pipeline never started.
 /// </summary>
 public sealed record TranscriptTurn(
     TranscriptRole Role, string Text, DateTimeOffset At, SpecDialogTurnKind? Kind = null,
     SpecDialogDecision? Decision = null, MockRatificationTurn? Mock = null, string? Author = null,
-    int? DigestThrough = null);
+    int? DigestThrough = null, string? RunId = null);

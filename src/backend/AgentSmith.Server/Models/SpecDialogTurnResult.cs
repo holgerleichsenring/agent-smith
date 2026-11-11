@@ -40,6 +40,9 @@ public sealed record SpecDialogTurnResult(
     string Reply, OutcomeProposal Outcome, string Shown, SpecDialogTurnKind Kind, bool Stewarded = false,
     string? Subject = null, ForwardedThreadCapture? Thread = null, WorkPicture? WorkPicture = null)
 {
+    /// <summary>2026-11-10-d854c: the run the turn ran as, stamped on its kept turn; null when the pipeline never started.</summary>
+    public string? RunId { get; init; }
+
     public static SpecDialogTurnResult On(
         string platform, string reply, OutcomeProposal outcome, SpecDialogTurnKind? kind = null, bool stewarded = false,
         string? subject = null, ForwardedThreadCapture? thread = null, WorkPicture? workPicture = null) =>

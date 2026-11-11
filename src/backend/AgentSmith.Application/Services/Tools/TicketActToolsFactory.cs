@@ -15,7 +15,8 @@ namespace AgentSmith.Application.Services.Tools;
 /// with a reply slot, beside outcome_format (2026-11-05-862eb). The MASTER only — a child acts on no one's word, so no
 /// child surface carries them. A turn seeded with none of their ports gets none of them.
 /// </summary>
-public sealed class TicketActToolsFactory(SeriesVerification verification, ISkillReferenceSource references)
+public sealed class TicketActToolsFactory(
+    SeriesVerification verification, ISkillReferenceSource references, Scope.ScopeEstimateRecorder? tiers = null)
 {
     public IReadOnlyList<AITool> Tools(AgenticMasterContext context)
     {
@@ -26,8 +27,10 @@ public sealed class TicketActToolsFactory(SeriesVerification verification, ISkil
         {
             if (pipeline.TryGet<bool>(ContextKeys.SpecDialogNameable, out var nameable) && nameable)
                 tools.AddRange(new NameConversationToolHost(slot).GetTools(null, null));
-            tools.AddRange(new WorkPictureToolHost(slot).GetTools(null, null)); // 2026-11-05-862ea: every design turn
+            tools.AddRange(new WorkPictureToolHost(slot, tiers is null ? null // 2026-11-05-862ea; 548f: its effort raises the cap
+                : (tier, ct) => tiers.ApplyTierAsync(pipeline, tier, ct)).GetTools(null, null));
             tools.AddRange(new OutcomeFormatToolHost(references, TurnFolds.Of(pipeline)).GetTools(null, null)); // 85e2: folds
+            tools.AddRange(new OpenQuestionsToolHost(slot).GetTools(null, null)); // 2026-11-10-d854a
         }
         if (pipeline.TryGet<IAttemptStart>(ContextKeys.SpecDialogAttemptStart, out var start) && start is not null)
             tools.AddRange(new StartNextAttemptToolHost(start).GetTools(null, null));

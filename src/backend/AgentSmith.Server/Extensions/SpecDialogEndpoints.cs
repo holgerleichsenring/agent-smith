@@ -23,8 +23,9 @@ internal static class SpecDialogEndpoints
     /// <summary>One message from a browser: the dialog id the page minted, the text, and —
     /// 2026-09-20-4b0aa — the project the page holds, so a FIRST message can open its own
     /// conversation. A caller that names none is answered exactly as it always was.</summary>
+    /// <param name="ProposalId">2026-11-10-ccd9: the card the message was sent from, so an approve or reject decides that card.</param>
     internal sealed record SpecDialogMessageRequest(
-        string DialogId, string Text, string? Project = null, string? TicketId = null);
+        string DialogId, string Text, string? Project = null, string? TicketId = null, string? ProposalId = null);
 
     internal static async Task<IResult> IngestAsync(
         SpecDialogMessageRequest body, HttpContext ctx)
@@ -45,23 +46,21 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, admission.MayStartRuns, body.Project, body.TicketId,
-            Security.DisplayName.Of(ctx.User));
+        Dispatch(ctx, body, owner, admission.MayStartRuns, Security.DisplayName.Of(ctx.User));
         return Results.Accepted();
     }
 
     /// <summary>
     /// Fire-and-forget on a FRESH scope, the way both chat channels dispatch. A design
-    /// turn runs a master and the approval gate waits up to fifteen minutes: awaiting it
-    /// here would hold the connection for the whole turn, and passing the request's token
-    /// would abort the conversation the moment the tab closed.
+    /// turn runs a master: awaiting it here would hold the connection for the whole turn, and
+    /// passing the request's token would abort the conversation the moment the tab closed.
     /// <para>2026-09-22-476a: the scope is ASYNC — the turn resolves the transient, async-only
     /// sandbox coordinator, and a synchronous Dispose throws after the reply is written.</para>
     /// </summary>
     private static void Dispatch(
-        HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns,
-        string? project, string? ticketId, string? author)
+        HttpContext ctx, SpecDialogMessageRequest body, string owner, bool mayStartRuns, string? author)
     {
+        var (dialogId, text) = (body.DialogId, body.Text.Trim());
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("AgentSmith.Server.SpecDialogIngestion");
@@ -72,8 +71,8 @@ internal static class SpecDialogEndpoints
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
-                    .DispatchAsync(
-                        dialogId, text, owner, mayStartRuns, project, CancellationToken.None, ticketId, author);
+                    .DispatchAsync(dialogId, text, owner, mayStartRuns, body.Project, CancellationToken.None,
+                        body.TicketId, author, body.ProposalId);
             }
             catch (Exception ex)
             {

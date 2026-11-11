@@ -46,7 +46,7 @@ The ceilings on one agentic loop: tool calls, tokens, sub agents, concurrent ski
 
 ### Pipeline cost cap
 
-The money one. A default cap in USD and tokens, four tier caps (trivial, small, medium, large) applied by the estimated size of the work, and optional per pipeline overrides. A run that hits its cap stops and says so. A tier you never edited keeps its built-in default ($1, $2, $8 and $25), and the form shows that value marked as the default; editing one stores only that tier. [Pipeline cost cap](../reference/configuration/pipeline-cost-cap.md) has the token halves and how a tier is picked.
+The money one. A default cap in USD and tokens, five tier caps (trivial, small, medium, large, xl) applied by the estimated size of the work, and optional per pipeline overrides. A run that hits its cap stops and says so. A tier you never edited keeps its built-in default ($1, $2, $8, $25 and $40), and the form shows that value marked as the default; editing one stores only that tier. [Pipeline cost cap](../reference/configuration/pipeline-cost-cap.md) has the token halves and how a tier is picked.
 
 ### Queue
 

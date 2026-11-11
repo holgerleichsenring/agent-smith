@@ -57,10 +57,9 @@ public enum EventType
     // ContainerState so the operator distinguishes "Exited(137)" from
     // "container missing".
     SandboxVanished = 71,
-    // p0327: a run parked on a DialogQuestion past the hot-wait threshold.
-    // Carries the serialized checkpoint (pending question + step cursor +
-    // pipeline context) so the server-side projector can persist it — the
-    // event stream is the only DB channel a spawned orchestrator has.
+    // p0327: a run parked on a DialogQuestion past the hot-wait threshold. Carries the serialized checkpoint (pending
+    // question + step cursor + pipeline context) so the server-side projector can persist it — the event stream is
+    // the only DB channel a spawned orchestrator has.
     RunCheckpointed = 72,
     // p0328: the ratification outcome of the expectation negotiation
     // (verbatim/edited/rejected/unratified + edit distance). Carries the
@@ -69,11 +68,9 @@ public enum EventType
     // DB channel a spawned orchestrator has. Nothing emits it any more; it stays
     // so archived trails decode.
     ExpectationRatified = 73,
-    // p0344b: the run-story snapshot at run end — the progress ledger + the
-    // acceptance dispositions as camelCase wire JSON. The server-side applier
-    // persists both onto the run row (ProgressLedgerJson / AcceptanceJson) so
-    // the run detail serves the REAL story; the event stream is the only DB
-    // channel a spawned orchestrator has.
+    // p0344b: the run-story snapshot at run end — the progress ledger + the acceptance dispositions as camelCase wire
+    // JSON. The server-side applier persists both onto the run row (ProgressLedgerJson / AcceptanceJson) so the run
+    // detail serves the REAL story; the event stream is the only DB channel a spawned orchestrator has.
     RunStoryRecorded = 74,
     // p0357: the run's resolved cost budget (complexity tier + cap USD/tokens),
     // published by ScopeRepos at step ~4 — persisted onto the run row so the
@@ -117,4 +114,6 @@ public enum EventType
     DefaultDecisionTaken = 88,
     // 2026-10-25-9324b: the memories a spec relied on, or one a master disputed.
     MemoryUseRecorded = 89,
+    // 2026-11-10-d854c: one step a design turn reported, kept on its run so it is readable after the turn.
+    DialogActivity = 90,
 }

@@ -36,6 +36,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
     private readonly AgentSmithDbContext _context;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogRouter _router;
+    private readonly AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness _harness;
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner;
     private readonly Mock<AgentSmith.Contracts.Dialogue.IDialogueTransport> _dialogueTransport = new();
@@ -72,24 +73,9 @@ public sealed class SpecDialogRoutingTests : IDisposable
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome()));
         var outcomeComposer = new SpecDialogOutcomeComposer();
-        var outcomeFlow = new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(
-                _dialogueTransport.Object,
-                messenger, pendingQuestions, outcomeComposer,
-                Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            _outcomeSink.Object, outcomeComposer, messenger,
-new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance),
-            new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
-            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-        _router = new SpecDialogRouter(
-            new SpecCommandParser(), commandHandler,
-            _turnRunner.Object, outcomeFlow, turnGate,
-            new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object),
-            SilentTurnKeeper.Over(repository, _sessions, _context),
-            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
-            new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
+        _harness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, null, _outcomeSink.Object, messenger);
+
+        _router = _harness.Router(commandHandler, _turnRunner.Object, turnGate, new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object), SilentTurnKeeper.Over(repository, _sessions, _context));
     }
 
     [Fact]
@@ -163,34 +149,70 @@ new DashboardOutcomeChannel(
         stateA.JobId.Should().NotBe(stateB.JobId, "each thread has its own session");
     }
 
-    // p0315c "edit iterates": a non-approval confirmation reply is an edit
-    // note — the router re-runs the design turn over the refreshed transcript
-    // and NOTHING reaches the outcome sink.
+    // 2026-11-10-ccd9: no edit loop — a message after a proposal is an ordinary message that runs an ordinary
+    // turn; the proposal stays awaiting and nothing reaches the outcome sink.
     [Fact]
-    public async Task Router_EditNote_RerunsTurnAndFilesNothing()
+    public async Task Router_ANoteAfterAProposal_RunsAnOrdinaryTurnAndFilesNothing()
+    {
+        ProposeThenAnswer();
+
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("split it into two slices", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
+
+        _turnRunner.Verify(r =>
+                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2), "the note is a message, and a message runs a turn");
+        _outcomeSink.Verify(s2 => s2.AcceptAsync(
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never, "nothing is filed without an approve");
+        (await _harness.Outcomes.ReadAsync(Platform, "th-edit", CancellationToken.None)).ProposalId
+            .Should().NotBeNull("an answer turn leaves the proposal awaiting");
+    }
+
+    // 2026-11-10-ccd9: an approve carrying the card's id decides it inside the gate and runs no turn.
+    [Fact]
+    public async Task Router_ApproveWithTheCardsId_FilesAndRunsNoTurn()
+    {
+        ProposeThenAnswer();
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-ok", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-ok", Platform, false, CancellationToken.None);
+        var id = (await _harness.Outcomes.ReadAsync(Platform, "th-ok", CancellationToken.None)).ProposalId;
+
+        await _router.TryRouteAsync("approve", "U1", Channel, "th-ok", Platform, true, CancellationToken.None, proposalId: id);
+
+        _turnRunner.Verify(r =>
+                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
+            Times.Once, "a decision runs no turn");
+        _outcomeSink.Verify(s2 => s2.AcceptAsync(
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true, It.IsAny<CancellationToken>()),
+            Times.Once, "the decider's own right to start runs goes with the filing");
+    }
+
+    // 2026-11-10-ccd9: a decision on a card that is no longer the awaiting one decides nothing and is told so.
+    [Fact]
+    public async Task Router_ApproveWithAnOlderId_IsToldAndRunsNoTurn()
+    {
+        ProposeThenAnswer();
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-old", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-old", Platform, false, CancellationToken.None);
+
+        await _router.TryRouteAsync("approve", "U1", Channel, "th-old", Platform, true, CancellationToken.None, proposalId: "gone");
+
+        _outcomeSink.Verify(s2 => s2.AcceptAsync(
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        var state = await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None);
+        state!.Transcript.Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text.Contains("replaced"));
+    }
+
+    private void ProposeThenAnswer()
     {
         var draft = new SpecDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         _turnRunner.SetupSequence(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
-        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentSmith.Contracts.Dialogue.DialogAnswer(
-                "q1", "split it into two slices", null, DateTimeOffset.UtcNow, "U1"));
-
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
-
-        _turnRunner.Verify(r =>
-                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(2), "the edit note re-prompts the master with a fresh turn");
-        _outcomeSink.Verify(s2 => s2.AcceptAsync(
-                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false, It.IsAny<CancellationToken>()),
-            Times.Never, "an edited proposal is never filed");
-        var state = await _sessions.GetOpenByThreadAsync(Platform, "th-edit", CancellationToken.None);
-        state!.Transcript.Where(t => t.Role == TranscriptRole.Assistant).Select(t => t.Text)
-            .Should().Contain(["draft reply", "revised reply"]);
     }
 
     // 2026-09-17-042ec: the router records what the turn produced on the kept turn.
@@ -206,141 +228,6 @@ new DashboardOutcomeChannel(
         var state = await _sessions.GetOpenByThreadAsync(Platform, "th-kind", CancellationToken.None);
         state!.Transcript.Select(t => (t.Role, t.Kind)).Should().Equal(
             (TranscriptRole.User, (SpecDialogTurnKind?)null), (TranscriptRole.Assistant, SpecDialogTurnKind.Failure));
-    }
-
-    // 2026-09-17-042el: an edit note typed at the approval gate is routed as the answer, and the turn
-    // it re-runs reads a transcript that already ends with the note — the append precedes the publish.
-    [Fact]
-    public async Task Router_EditNoteAnswer_ReRunsOverATranscriptEndingInTheNote()
-    {
-        const string note = "cut it into two slices";
-        var draft = new SpecDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
-        var reRun = new TaskCompletionSource<ConversationState>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var noteRouted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var turns = 0;
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
-            .Returns(async (ConversationState state, TurnPoster ___, CancellationToken _) =>
-            {
-                if (Interlocked.Increment(ref turns) == 1)
-                    return SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft));
-                reRun.TrySetResult(state);
-                await noteRouted.Task;
-                return SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome());
-            });
-        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .Returns(answer.Task);
-        // The publish holds its caller until the re-run has read the transcript — awaited or not, a
-        // publish ahead of the append is then seen — and the store is never used by both routes at once.
-        _dialogueTransport.Setup(t => t.PublishAnswerAsync(
-                It.IsAny<string>(), It.IsAny<AgentSmith.Contracts.Dialogue.DialogAnswer>(), It.IsAny<CancellationToken>()))
-            .Returns((string _, AgentSmith.Contracts.Dialogue.DialogAnswer published, CancellationToken _) =>
-            {
-                answer.TrySetResult(published);
-                reRun.Task.Wait(TestWaits.Hang);
-                return Task.CompletedTask;
-            });
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None);
-        var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-note", CancellationToken.None))!.JobId;
-        var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
-        await TestWaits.UntilAsync(
-            () => _pendingQuestions.TryPeek(sessionId, out _), "the proposal reaches the approval gate");
-
-        (await _router.TryRouteAsync(note, "U1", Channel, "th-note", Platform, false, CancellationToken.None))
-            .Should().BeTrue();
-
-        var reRunState = await reRun.Task.OrHang("the note re-runs the turn");
-        noteRouted.SetResult();
-        reRunState.Transcript.Last(turn => turn.Role == TranscriptRole.User).Text.Should().Be(note);
-        (await proposing.OrHang("the proposal route returns")).Should().BeTrue();
-    }
-
-    // 2026-09-22-355b: a shape PICKED on a chat surface completes the pending question inside
-    // that surface's own adapter and is published straight onto the transport, so it never
-    // passes the answer admission that appends. Without carrying the note as a value the
-    // re-run reads a byte-identical transcript, spends a whole master loop plus a proposal
-    // review on it, and returns the same cut under "revising the proposal".
-    [Fact]
-    public async Task Router_AShapePickedByButton_ReRunsOverATranscriptEndingInThatShape()
-    {
-        const string shape = "Cut into several specs";
-        var draft = new SpecDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
-        ConversationState? reRun = null;
-        var turns = 0;
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
-            .Returns((ConversationState state, TurnPoster ___, CancellationToken _) =>
-            {
-                if (Interlocked.Increment(ref turns) == 1)
-                    return Task.FromResult(
-                        SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)));
-                reRun = state;
-                return Task.FromResult(
-                    SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
-            });
-        // The button's answer arrives on the transport ALONE — the adapter completed the
-        // question itself, so nothing was ever appended on its way in.
-        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AgentSmith.Contracts.Dialogue.DialogAnswer(
-                "q1", shape, null, DateTimeOffset.UtcNow, "U1"));
-
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
-
-        reRun.Should().NotBeNull("the picked shape is an edit note, so the turn runs again");
-        reRun!.Transcript[^1].Should().Match<TranscriptTurn>(
-            turn => turn.Role == TranscriptRole.User && turn.Text == shape,
-            "the master must read the chosen shape as the latest user turn");
-        reRun.Revising.Should().BeOfType<SpecOutcome>("it knows what it is re-cutting");
-        var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-shape", CancellationToken.None);
-        stored!.Transcript.Count(t => t.Text == shape).Should().Be(1);
-    }
-
-    // The other half of the same wire: a shape TYPED as a message was already appended by the
-    // answer admission, so carrying it must not put it in the transcript a second time.
-    [Fact]
-    public async Task Router_AShapeTypedAsAMessage_DoesNotAppendItTwice()
-    {
-        const string shape = "Make it a bug ticket";
-        var draft = new SpecDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
-        var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var turns = 0;
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
-            .Returns((ConversationState _, TurnPoster ___, CancellationToken __) => Task.FromResult(
-                Interlocked.Increment(ref turns) == 1
-                    ? SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft))
-                    : SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome())));
-        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .Returns(answer.Task);
-        _dialogueTransport.Setup(t => t.PublishAnswerAsync(
-                It.IsAny<string>(), It.IsAny<AgentSmith.Contracts.Dialogue.DialogAnswer>(), It.IsAny<CancellationToken>()))
-            .Returns((string _, AgentSmith.Contracts.Dialogue.DialogAnswer published, CancellationToken _) =>
-            {
-                answer.TrySetResult(published);
-                return Task.CompletedTask;
-            });
-
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None);
-        var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None))!.JobId;
-        var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
-        await TestWaits.UntilAsync(
-            () => _pendingQuestions.TryPeek(sessionId, out _),
-            "the proposal reaches the approval gate");
-
-        (await _router.TryRouteAsync(shape, "U1", Channel, "th-typed", Platform, false, CancellationToken.None))
-            .Should().BeTrue();
-        (await proposing.OrHang("the held proposal turn returns once the shape is answered"))
-            .Should().BeTrue();
-
-        var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None);
-        stored!.Transcript.Count(t => t.Text == shape).Should().Be(1,
-            "the answer admission already appended it on its way in");
     }
 
     // 2026-09-17-042el: a question is pending only while a turn holds the gate, so the answer

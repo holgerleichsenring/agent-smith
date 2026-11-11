@@ -51,13 +51,14 @@ public sealed class SpecDialogOutcomeComposer
     public ComposedReply ComposeRejected() => new(_ =>
         "Rejected — nothing was filed. Keep discussing; I will re-propose when the shape changes.");
 
-    public ComposedReply ComposeTimeout() => new(m =>
-        "Confirmation timed out — nothing will be filed. Ask again "
-        + m.Wording("in this thread ", "below ")
-        + "when you want me to re-propose.");
+    /// <summary>2026-11-10-ccd9: a newer proposal took the place of the one awaiting a decision.</summary>
+    public ComposedReply ComposeSuperseded() => new(_ =>
+        "The earlier proposal is replaced by the one below; it can no longer be approved.");
 
-    public ComposedReply ComposeEditAck(string note) => new(m =>
-        $"Revising the proposal with your note: {m.Italic(note)}");
+    /// <summary>2026-11-10-ccd9: a decision on a card that is no longer the one awaiting.</summary>
+    public ComposedReply ComposeReplaced(bool another) => new(m => another
+        ? "That proposal was replaced; the current proposal is " + m.Wording("posted below.", "below.")
+        : "That proposal is no longer open; nothing was filed.");
 
     public ComposedReply ComposeFiled(OutcomeProposal proposal, FilingReport report) =>
         new(m => $"Filed {Summarize(proposal)}:\n{FormatTickets(report.Filed, m)}{FormatNotes(report.Notes)}");

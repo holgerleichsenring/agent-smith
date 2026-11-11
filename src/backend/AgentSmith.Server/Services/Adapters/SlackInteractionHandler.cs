@@ -19,7 +19,7 @@ public sealed class SlackInteractionHandler(
     ClarificationTaker clarifications,
     SlackMessageDispatcher dispatcher,
     SlackAdapter adapter,
-    SpecDialogButtonAnswer dialogButtons, // 2026-10-26-0f19b: a click on a question another replica asked
+    SpecDialogChatClick dialogClicks, // 2026-11-10-ccd9: a click on a conversation's card, decided by its id
     ILogger<SlackInteractionHandler> logger)
 {
     private const string ClarificationPrefix = "clarification";
@@ -65,27 +65,23 @@ public sealed class SlackInteractionHandler(
     private async Task HandleJobQuestionAsync(
         string channelId, string questionId, string answer, JsonNode payload, CancellationToken ct)
     {
-        // A typed question this replica asked completes its own wait; one another replica asked for a
-        // spec dialog is found through the thread's session (2026-10-26-0f19b).
+        // A typed question this replica asked completes its own wait; a conversation's card is decided by its
+        // id (2026-11-10-ccd9); a run started from this thread takes its answer; an older card is told so.
         var userId = payload["user"]?["id"]?.GetValue<string>() ?? payload["user"]?["username"]?.GetValue<string>() ?? "unknown";
         var dialogAnswer = new DialogAnswer(questionId, answer, Comment: null, DateTimeOffset.UtcNow, userId);
-        if (adapter.TryCompleteTypedQuestion(questionId, dialogAnswer)
-            || await dialogButtons.TryAnswerAsync(DispatcherDefaults.PlatformSlack, ThreadOf(payload), dialogAnswer, ct))
-        {
-            await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
-            logger.LogInformation("Typed question '{QuestionId}' answered with '{Answer}' by {User}", questionId, answer, userId);
-            return;
-        }
-
-        // A run started from this thread: the binding says which run the answer belongs to.
-        var thread = new ChatThread(DispatcherDefaults.PlatformSlack, channelId, ThreadOf(payload),
-            payload["user"]?["id"]?.GetValue<string>() ?? "slack-user");
-        if (!await answers.TryAnswerAsync(thread, questionId, answer, null, ct))
-        {
+        var thread = ThreadOf(payload);
+        var slack = DispatcherDefaults.PlatformSlack;
+        // A conversation's card is marked answered only when a decision was taken on it.
+        var click = adapter.TryCompleteTypedQuestion(questionId, dialogAnswer) ? SpecDialogRouted.Decided
+            : await dialogClicks.TryCurrentAsync(slack, channelId, thread, dialogAnswer, ct);
+        if (click == SpecDialogRouted.No
+            && await answers.TryAnswerAsync(new ChatThread(slack, channelId, thread, userId), questionId, answer, null, ct))
+            click = SpecDialogRouted.Decided;
+        if (click == SpecDialogRouted.No) click = await dialogClicks.TryStaleAsync(slack, channelId, thread, dialogAnswer, ct);
+        if (click == SpecDialogRouted.Decided) await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
+        if (click == SpecDialogRouted.No)
             logger.LogWarning("Answer for {QuestionId} in {ChannelId} matches no open run", questionId, channelId);
-            return;
-        }
-        await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
+        else logger.LogInformation("Question '{QuestionId}' clicked '{Answer}' by {User}: {Click}", questionId, answer, userId, click);
     }
 
     // A question posted inside a thread carries the thread's ts; one posted at the top has none.

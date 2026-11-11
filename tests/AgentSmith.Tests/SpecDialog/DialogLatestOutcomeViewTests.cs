@@ -82,18 +82,16 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     }
 
     [Fact]
-    public async Task View_AfterFilingSucceeds_CarriesTheLatestProposalAndFiling()
+    public async Task View_AfterFilingSucceeds_CarriesTheFilingAndNoAwaitingProposal()
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("approve").HandleAsync(state, Proposal(), false, CancellationToken.None);
+        await DecideAsync(state, Proposal(), "approve");
 
         var view = await ReadAsync();
-        view.Proposal!.Spec!.SpecId.Should().Be("p9999");
-        view.Proposal.Spec.Yaml.Should().Be(DraftYaml, "the pane can disclose the raw form");
+        view.Proposal.Should().BeNull("2026-11-10-ccd9: the claim took it out of the awaiting slot — nothing is offered twice");
         view.Filing!.Error.Should().BeNull();
         view.Filing.Filed.Single().Reference.Should().Be("https://tracker.test/1");
-        view.Filing.At.Should().BeOnOrAfter(view.Proposal.At, "the filing is of this proposal");
     }
 
     /// <summary>2026-09-17-042ea: a filing note survives a reload like the tickets it is about.</summary>
@@ -119,7 +117,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("reject").HandleAsync(state, Proposal(), false, CancellationToken.None);
+        await DecideAsync(state, Proposal(), "reject");
 
         var view = await ReadAsync();
         view.Proposal.Should().BeNull("a reload must not offer what the operator turned down");
@@ -134,27 +132,25 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             (TranscriptRole.User, "smaller"), (TranscriptRole.Assistant, "Second cut:\n" + Draft),
             (TranscriptRole.User, "why?"), (TranscriptRole.Assistant, "Because the store is shared."));
 
-        // Set directly: this is about where the card goes, and a timed-out approval now clears
-        // the proposal it would have been placed for.
-        await new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
-            .SetProposalAsync(Platform, Dialog, Proposal(), CancellationToken.None);
+        // Set directly: this is about where the card goes.
+        await Harness().Proposals.StoreAwaitingAsync(state, Proposal(), CancellationToken.None);
 
         (await ReadAsync()).ProposalTurn.Should().Be(3);
     }
 
-    /// <summary>
-    /// A timed-out approval is over as surely as a rejected one. Found by review: only a
-    /// rejection cleared the proposal, so a reload after a timeout offered an approval that
-    /// nothing was waiting for.
-    /// </summary>
+    /// <summary>2026-11-10-ccd9: nothing expires — a proposal nobody answered is shown from the row after a reload,
+    /// with the id an approve of it carries, and its approval card is rebuilt from the row.</summary>
     [Fact]
-    public async Task View_AfterATimeout_CarriesNoLatestProposal()
+    public async Task ViewReader_AfterRestart_ShowsTheCardFromTheRow()
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow(timeout: true).HandleAsync(state, Proposal(), false, CancellationToken.None);
+        await Flow().HandleAsync(state, Proposal(), CancellationToken.None);
 
-        (await ReadAsync()).Proposal.Should().BeNull("nothing is waiting for that approval any more");
+        var view = await ReadViewAsync();
+        view.Session!.Proposal!.ProposalId.Should().NotBeNullOrEmpty();
+        view.Question!.QuestionId.Should().Be(view.Session.Proposal.ProposalId, "the card names the proposal it shows");
+        view.Question.ExpiresAt.Should().BeNull("a proposal never expires");
     }
 
     /// <summary>
@@ -193,25 +189,25 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         view.Transcript.Should().NotBeEmpty("the rest of the dialog still reads");
     }
 
+    /// <summary>2026-11-10-ccd9: the awaiting write fails its caller, so no card is shown that the row does not hold.</summary>
     [Fact]
-    public async Task LatestOutcomeStore_WithNoOpenSession_WritesNothingAndReadsNone()
+    public async Task OutcomeFlow_AwaitingWriteFails_TurnFailedAndNoCard()
     {
-        var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var state = (await ConversationAsync((TranscriptRole.Assistant, Draft))) with { ThreadId = "d-nobody" };
 
-        await store.SetProposalAsync(Platform, "d-nobody", Proposal(), CancellationToken.None);
+        await Flow().HandleAsync(state, Proposal(), CancellationToken.None);
 
-        (await store.ReadAsync(Platform, "d-nobody", CancellationToken.None))
-            .Should().Be(SpecDialogLatestOutcome.None, "a turn must not fail for want of a record");
+        _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogProposalPush>().Should().BeEmpty("nothing was stored");
+        _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogChannelQuestion>().Should().BeEmpty();
     }
 
     [Fact]
     public async Task StewardTakeover_ClearsAStoredProposal()
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
-        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
-        await latest.SetProposalAsync(Platform, Dialog, Proposal(), CancellationToken.None);
+        await Harness().Proposals.StoreAwaitingAsync(state, Proposal(), CancellationToken.None);
 
-        await Flow().HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None, stewarded: true);
+        await Flow().HandleAsync(state, new AnswerOutcome(), CancellationToken.None, stewarded: true);
 
         (await ReadAsync()).Proposal.Should().BeNull("the steward changes the series with edit_series, not a stale card");
     }
@@ -220,10 +216,9 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     public async Task DesignPartnerAnswer_KeepsAStoredProposal()
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
-        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
-        await latest.SetProposalAsync(Platform, Dialog, Proposal(), CancellationToken.None);
+        await Harness().Proposals.StoreAwaitingAsync(state, Proposal(), CancellationToken.None);
 
-        await Flow().HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
+        await Flow().HandleAsync(state, new AnswerOutcome(), CancellationToken.None);
 
         (await ReadAsync()).Proposal.Should().NotBeNull("an answer leaves the proposal under discussion where it was");
     }
@@ -235,7 +230,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("reject").HandleAsync(state, Reviewed(), false, CancellationToken.None);
+        await DecideAsync(state, Reviewed(), "reject");
 
         // 2026-09-17-042ek: on a PAGE the findings reach the operator on the push, which the
         // approval card lists them from — so the question text beside that card is empty. That
@@ -253,7 +248,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("split it").HandleAsync(state, Reviewed(), false, CancellationToken.None);
+        await DecideAsync(state, Reviewed(), "split it");
 
         var finding = (await ReadAsync()).Proposal!.Findings.Should().ContainSingle().Subject;
         finding.SpecId.Should().Be("p9999");
@@ -295,36 +290,38 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         return (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!;
     }
 
-    private async Task<SpecDialogSessionView> ReadAsync() =>
-        (await new SpecDialogViewReader(
-                _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
-                new SpecDialogTurnGate(TimeProvider.System),
+    private async Task<SpecDialogSessionView> ReadAsync() => (await ReadViewAsync()).Session!;
+
+    private Task<SpecDialogView> ReadViewAsync() =>
+        Harness().View(_sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
+                ProposalComposer(), new SpecDialogTurnGate(TimeProvider.System),
                 new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context))
-            .ReadAsync(Dialog, CancellationToken.None)).Session!;
+            .ReadAsync(Dialog, CancellationToken.None);
 
     private static SpecOutcome Proposal() => new(new SpecDraft("p9999", "widget goal", DraftYaml, []));
 
-    private SpecDialogOutcomeFlow Flow(string answer = "", bool timeout = false)
+    // 2026-11-10-ccd9: the flow stores and shows; an answer arrives later as a decision on the shown id.
+    private SpecDialogOutcomeFlow Flow() => Harness().Flow();
+
+    private SpecDialogDecisionHarness Harness()
     {
-        var transport = new Mock<IDialogueTransport>();
-        transport.Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) => timeout
-                ? null
-                : new DialogAnswer(questionId, answer, null, DateTimeOffset.UtcNow, Owner));
         var messenger = new SpecDialogMessenger(
             [new DashboardAdapter(NullLogger<DashboardAdapter>.Instance, _hub)],
             NullLogger<SpecDialogMessenger>.Instance);
         var composer = new SpecDialogOutcomeComposer();
         var channel = new DashboardOutcomeChannel(
             ProposalComposer(), NullLogger<DashboardOutcomeChannel>.Instance, _hub);
-        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
-        return new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                composer, Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Sink(messenger, composer, channel, latest), composer, messenger, channel, latest,
-            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
+        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+        return new SpecDialogDecisionHarness(_context, channel, Sink(messenger, composer, channel, latest), messenger);
+    }
+
+    private async Task DecideAsync(ConversationState state, OutcomeProposal proposal, string answer)
+    {
+        var harness = Harness();
+        await harness.Flow().HandleAsync(state, proposal, CancellationToken.None);
+        if (SpecDialogAnswerWords.DecisionIn(answer) is not { } decision) return;
+        var id = (await harness.Outcomes.ReadAsync(Platform, Dialog, CancellationToken.None)).ProposalId;
+        await harness.Decisions().DecideAsync(state, decision, id, false, CancellationToken.None);
     }
 
     private TicketFilingOutcomeSink Sink(

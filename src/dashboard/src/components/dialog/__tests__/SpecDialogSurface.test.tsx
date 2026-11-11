@@ -99,6 +99,7 @@ const fetchSpecDialog = vi.fn();
 // route the message in one ordered act. The mock takes it so a test can say it travelled.
 const postSpecDialogMessage =
   vi.fn<(dialogId: string, text: string, project?: string) => Promise<void>>(async () => {});
+const sentProposalIds: (string | undefined)[] = [];
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
 const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
@@ -137,10 +138,13 @@ vi.mock("@/lib/specDialogApi", () => ({
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
   // 2026-09-25-8e51b: the binding is passed on only when there IS one, so every case that
   // predates it still asserts the three-argument call it always made.
-  postSpecDialogMessage: (dialogId: string, text: string, project?: string, ticketId?: string) =>
-    ticketId === undefined
+  // 2026-11-10-ccd9 review: the card a message names is recorded beside the call, for the cases about it.
+  postSpecDialogMessage: (dialogId: string, text: string, project?: string, ticketId?: string, proposalId?: string) => {
+    sentProposalIds.push(proposalId);
+    return ticketId === undefined
       ? postSpecDialogMessage(dialogId, text, project)
-      : postSpecDialogMessage(dialogId, text, project, ticketId),
+      : postSpecDialogMessage(dialogId, text, project, ticketId);
+  },
   readTicketConversation: (project: string, ticketId: string) =>
     readTicketConversation(project, ticketId),
   readTicketProject: (ticketId: string) => readTicketProject(ticketId),
@@ -226,6 +230,8 @@ function proposal(overrides: Partial<SpecDialogProposalPush> = {}): SpecDialogPr
     children: [],
     at: "2026-09-15T10:03:00Z",
     findings: [],
+    // 2026-11-10-ccd9 review: an approval card renders only the awaiting proposal whose id it carries.
+    proposalId: "q-1",
     ...overrides,
   };
 }
@@ -451,6 +457,7 @@ beforeEach(() => {
   fetchSpecDialogConversations.mockReset();
   fetchSpecDialogConversations.mockResolvedValue(listing([]));
   postSpecDialogMessage.mockReset();
+  sentProposalIds.length = 0;
   fetchFiledWork.mockReset();
   fetchFiledWork.mockResolvedValue({ dialogId: "d-1", tickets: [] });
   subscribeSpecDialog.mockClear();
@@ -554,6 +561,7 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_TheApprovalGate_OffersApproveAndRejectThoughItCarriesNoChoices", async () => {
     await renderSurface();
+    act(() => proposals.emit(proposal()));
 
     act(() => questions.emit(question()));
 
@@ -568,6 +576,7 @@ describe("SpecDialogSurface", () => {
   // The post is accepted before it is routed, so the click is pending until a later read confirms it.
   it("SpecDialog_ApprovingTheGate_ShowsADecisionNotAnOperatorMessage", async () => {
     await renderSurface();
+    act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
 
     fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
@@ -595,14 +604,34 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-turn-user")).toBeNull();
   });
 
+  // 2026-11-10-ccd9: the next turn's draft under review is shown in the pane; the approval card keeps showing — and
+  // sending — the proposal awaiting a decision, by its id.
+  it("Card_WhileNextTurnReviews_ShowsAndSendsTheAwaitingProposal", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "epic", spec: null, parent: draftSpec("p9000"), children: [draftSpec("p9000a"), draftSpec("p9000b")],
+    })));
+    act(() => questions.emit(question()));
+    act(() => proposals.emit(proposal({ spec: draftSpec("p9100"), proposalId: null, reviewing: true, at: "2026-09-15T10:05:00Z" })));
+
+    expect(await screen.findByTestId("dialog-approval-summary"))
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
+    fireEvent.click(screen.getByTestId("dialog-answer-approve"));
+
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
+    expect(sentProposalIds.at(-1)).toBe("q-1");
+  });
+
   it("SpecDialog_AnApprovalTheServerDidNotRecord_IsDroppedAndTheQuestionComesBack", async () => {
     await renderSurface();
+    act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
     fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
     await screen.findByTestId("dialog-turn-decision");
     expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
 
     const unrecorded = view({ question: question() });
+    unrecorded.session!.proposal = proposal();
     unrecorded.session!.transcript = [
       { role: "user", text: "approve", at: "2026-09-15T10:02:00Z", decision: null },
     ];
@@ -1798,6 +1827,7 @@ describe("SpecDialogSurface", () => {
   // ordinary message and bought a whole design turn on the word "approve".
   it("SpecDialog_AnExpiredQuestion_OffersNoButtonAndSaysItIsNotWaiting", async () => {
     await renderSurface();
+    act(() => proposals.emit(proposal()));
 
     act(() => questions.emit(question({
       expiresAt: new Date(Date.now() - 1000).toISOString(),
@@ -1810,6 +1840,7 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_AQuestionWithTimeLeft_StillOffersItsControls", async () => {
     await renderSurface();
+    act(() => proposals.emit(proposal()));
 
     act(() => questions.emit(question({
       expiresAt: new Date(Date.now() + 600_000).toISOString(),
@@ -1821,13 +1852,15 @@ describe("SpecDialogSurface", () => {
   // The question reaches the page as a hub push and lives nowhere else, so before the read
   // carried it a refresh during the gate left a blocked master and an empty page.
   it("SpecDialog_AReloadDuringTheGate_TakesTheQuestionBackFromTheRead", async () => {
-    fetchSpecDialog.mockResolvedValue(view({
+    const reloaded = view({
       question: {
         dialogId: "any", questionId: "q-9", kind: "approval",
         text: "File these two tickets?", choices: [], at: "2026-09-15T10:01:00Z",
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
       },
-    }));
+    });
+    reloaded.session!.proposal = proposal({ dialogId: "any", proposalId: "q-9" });
+    fetchSpecDialog.mockResolvedValue(reloaded);
 
     render(<SpecDialogSurface />);
 
@@ -2582,7 +2615,7 @@ describe("SpecDialogSurface", () => {
     })));
 
     const live = await screen.findByTestId("dialog-turn-card");
-    const card = within(live).getByTestId("dialog-card");
+    const card = within(live).getByTestId("turn-result");
     expect(card).toHaveAttribute("data-kind", "epic");
     expect(card).toHaveTextContent("goal of p9000");
     expect(card).toHaveTextContent("p9000a");
@@ -2604,8 +2637,8 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
 
     const reloaded = await screen.findByTestId("dialog-turn-card");
-    expect(within(reloaded).getByTestId("dialog-card")).toHaveTextContent("goal of p9001");
-    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("dialog-card")).toBeNull();
+    expect(within(reloaded).getByTestId("turn-result")).toHaveTextContent("goal of p9001");
+    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("turn-result")).toBeNull();
   });
 
   it("SpecDialog_TheCard_MovesThePaneToTheProposal", async () => {
@@ -2900,32 +2933,22 @@ describe("SpecDialogSurface", () => {
     expect(within(surface).queryByTestId("markdown")).toBeNull();
   });
 
-  // The proposal reaches the page as a live push, and the saved copy is dropped when its write
-  // fails. A reload can therefore land on an approval with nothing to summarise — and with the
-  // server text now empty, an unexplained pair of buttons unless the card says so itself.
-  //
-  // Found by review: the draft is not "in the conversation above" in this case. The shown
-  // transcript strips every draft block and the seed drops the agent entry that leaves empty,
-  // so the page holds nothing about it at all — and telling the operator to look up the page
-  // for something that was never rendered is worse than saying nothing.
-  it("SpecDialog_AnApprovalWithoutASavedProposal_SaysNothingWasSavedAndPointsAtReject", async () => {
+  // 2026-11-10-ccd9 review: an approval card shows only the awaiting proposal whose id it carries. A read whose
+  // approval question names a proposal this page does not hold has nothing to decide on, so it offers no card — the
+  // row is the record, and approving a card the person cannot see is the one thing the card must never do.
+  it("SpecDialog_AnApprovalWithoutTheAwaitingProposal_OffersNoCard", async () => {
     fetchSpecDialog.mockResolvedValue(view({
       question: {
         dialogId: "any", questionId: "q-9", kind: "approval", text: "", choices: [],
-        at: "2026-09-15T10:01:00Z",
-        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        at: "2026-09-15T10:01:00Z", expiresAt: null,
       },
     }));
 
     render(<SpecDialogSurface />);
 
-    const surface = await screen.findByTestId("dialog-question");
-    const line = within(surface).getByTestId("dialog-approval-unsummarised");
-    expect(line).toHaveTextContent("Nothing was saved about this proposal");
-    expect(line).toHaveTextContent("Reject it and ask for a fresh one");
-    expect(line).not.toHaveTextContent("above");
-    expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+    expect(screen.queryByTestId("dialog-question")).toBeNull();
+    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
   });
 
   // The other way the summary goes missing: a proposal DID arrive, of a kind this build cannot
@@ -2955,6 +2978,7 @@ describe("SpecDialogSurface", () => {
   // the confirmer had already stopped waiting to make.
   it("SpecDialog_AnExpiredQuestion_PromisesATurnNotARevision", async () => {
     await renderSurface();
+    act(() => proposals.emit(proposal()));
 
     act(() => questions.emit(question({
       text: "", expiresAt: new Date(Date.now() - 1000).toISOString(),
@@ -3042,7 +3066,7 @@ describe("SpecDialogSurface", () => {
     }));
 
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent("draft it");
-    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("dialog-card")).toHaveAttribute("data-kind", "epic");
+    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("turn-result")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
     expect(screen.getByTestId("dialog-approval-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
@@ -3073,7 +3097,7 @@ describe("SpecDialogSurface", () => {
     }));
 
     await screen.findByTestId("dialog-turn-user");
-    expect(screen.getAllByTestId("dialog-card")).toHaveLength(1);
+    expect(screen.getAllByTestId("turn-result")).toHaveLength(1);
   });
 
   // Found by review: the draft-only flag outlived the conversation it was set in, so a card on
@@ -3089,7 +3113,7 @@ describe("SpecDialogSurface", () => {
     await screen.findByTestId("dialog-turn-agent");
     act(() => proposals.emit(proposal()));
 
-    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("dialog-card")).toBeInTheDocument();
+    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("turn-result")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-turn-card")).toBeNull();
   });
 
@@ -3099,6 +3123,11 @@ describe("SpecDialogSurface", () => {
     reloadedWith({ proposal: proposal() });
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a first cut", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
+    // 2026-11-10-7da6: the person answers the first card, so the second turn's proposal gets a card of its own
+    // instead of replacing an unanswered one.
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "smaller please" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a second cut", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal({ spec: draftSpec("p9002") })));
 

@@ -54,6 +54,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SpecReviewRound]: "SpecReviewRound", // 2026-10-13-8762e
   [EventType.DefaultDecisionTaken]: "DefaultDecisionTaken", // 2026-10-13-8762o
   [EventType.MemoryUseRecorded]: "MemoryUseRecorded", // 2026-10-25-9324b
+  [EventType.DialogActivity]: "DialogActivity", // 2026-11-10-d854c
 };
 
 interface FilterRailProps {

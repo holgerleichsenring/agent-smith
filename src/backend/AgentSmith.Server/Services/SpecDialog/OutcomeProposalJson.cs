@@ -44,6 +44,7 @@ internal static class OutcomeProposalJson
         Uploads = proposal.Uploads.Count == 0 ? null : proposal.Uploads,
         UnderReview = proposal.UnderReview ? true : null,
         ReviewedClean = proposal.ReviewedClean.Count == 0 ? null : proposal.ReviewedClean,
+        Questions = proposal.Questions.Count == 0 ? null : proposal.Questions, Spend = proposal.Spend, // 2026-11-10-d854a
     };
 
     private static OutcomeProposal FromDto(Dto dto) => (OutcomeProposal)(dto.Kind switch
@@ -59,7 +60,7 @@ internal static class OutcomeProposalJson
     {
         Templates = dto.Templates ?? [], Findings = dto.Findings ?? [], ReviewRounds = dto.ReviewRounds ?? [],
         NotReviewed = dto.NotReviewed, Uploads = dto.Uploads ?? [], UnderReview = dto.UnderReview == true,
-        ReviewedClean = dto.ReviewedClean ?? [],
+        ReviewedClean = dto.ReviewedClean ?? [], Questions = dto.Questions ?? [], Spend = dto.Spend,
     };
 
     /// <param name="Findings">
@@ -87,5 +88,6 @@ internal static class OutcomeProposalJson
         bool? UnderReview = null, // 2026-11-09-9a98: absent on a final proposal
         string? Comment = null, // 2026-10-28-7a69c: comment only
         IReadOnlyList<UploadProvenance>? Uploads = null, // 2026-11-04-96a0c: absent on an older row
-        IReadOnlyList<AgentSmith.Contracts.Specs.ReviewedText>? ReviewedClean = null); // 2026-11-10-8e59: absent on an older row
+        IReadOnlyList<AgentSmith.Contracts.Specs.ReviewedText>? ReviewedClean = null, // 2026-11-10-8e59: absent on an older row
+        IReadOnlyList<OpenQuestion>? Questions = null, ProposalSpend? Spend = null); // 2026-11-10-d854a: absent on an older row
 }

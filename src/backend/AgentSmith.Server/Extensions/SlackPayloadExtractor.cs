@@ -29,6 +29,13 @@ internal static class SlackPayloadExtractor
         return (text, userId, channelId, threadId);
     }
 
+    /// <summary>2026-11-10-ccd9 review: the event's own ts — seconds since the epoch with a microsecond fraction — as the
+    /// moment Slack took the message; null when it is missing or unreadable.</summary>
+    internal static DateTimeOffset? ExtractEventSentAt(JsonNode json) =>
+        decimal.TryParse(json["event"]?["ts"]?.GetValue<string>(), System.Globalization.NumberStyles.AllowDecimalPoint,
+            System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+            ? DateTimeOffset.UnixEpoch.AddTicks((long)(seconds * TimeSpan.TicksPerSecond)) : null;
+
     internal static (string channelId, string? questionId, string answer) ExtractInteractionFields(JsonNode json)
     {
         var channelId = json["channel"]?["id"]?.GetValue<string>() ?? string.Empty;

@@ -20,10 +20,21 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
 {
     public async Task<SpecDialogSession?> SessionAsync(ResolvedProject project, string ticketId, CancellationToken ct)
     {
-        using var scope = scopes.CreateScope();
         var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
-        return await scope.ServiceProvider.GetRequiredService<SpecDialogSessionRepository>()
-            .GetByTicketAsync(project.Tracker.Name, key, ct);
+        var session = await ReadAsync(project.Tracker.Name, key, ct);
+        // 2026-11-10-ccd9 review: a row from before the deploy is given its id here too, so its Approve can name it;
+        // re-read in a scope of its own, because the backfill's set-based write leaves a tracked row as it was.
+        if (session is not { IsOpen: true, ProposalId: null, LatestProposalJson: not null }) return session;
+        using (var scope = scopes.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<SpecDialogProposalClaim>()
+                .BackfillAsync(session.Platform, session.ThreadId, SpecDialogProposalState.UnderReview, ct);
+        return await ReadAsync(project.Tracker.Name, key, ct);
+    }
+
+    private async Task<SpecDialogSession?> ReadAsync(string tracker, string key, CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<SpecDialogSessionRepository>().GetByTicketAsync(tracker, key, ct);
     }
 
     public IEnumerable<TicketConversationEntryView> Turns(SpecDialogSession session) =>
@@ -38,10 +49,12 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
     /// <summary>The open proposal and its drafts; null when none is open.</summary>
     public TicketConversationProposalView? Proposal(SpecDialogSession session)
     {
-        if (session.LatestProposalJson is not { } json) return null;
+        // 2026-11-10-ccd9: the proposal awaiting a decision, with the id the page's approve sends.
+        if (SpecDialogAwaitingRow.Json(session) is not { } json) return null;
         var ratified = Read(session, () => RatifiedMocks.Of(SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson)),
             new Dictionary<string, int>());
-        return Read<TicketConversationProposalView?>(session, () => Of(OutcomeProposalJson.Read(json), ratified), null);
+        return Read<TicketConversationProposalView?>(session,
+            () => Of(OutcomeProposalJson.Read(json), ratified) with { ProposalId = SpecDialogAwaitingRow.Id(session) }, null);
     }
 
     private static TicketConversationProposalView Of(OutcomeProposal proposal, IReadOnlyDictionary<string, int> ratified) => (proposal switch
@@ -51,10 +64,14 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
         TicketGraphOutcome => new("tickets", []),
         TicketCommentOutcome comment => new("comment", []) { Comment = comment.Comment }, // 2026-10-28-7a69c
         _ => new("bug", []),
-    }) with { Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed };
+    }) with
+    {
+        Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
+        Questions = SpecDialogProposalComposer.KnownIds(proposal), Spend = proposal.Spend, // d854b; the page's own id filter
+    };
 
     private static TicketConversationDraftView Draft(SpecDraft draft, IReadOnlyDictionary<string, int> ratified) =>
-        new(draft.SpecId, draft.Goal, draft.Repos, draft.Done, ratified.TryGetValue(draft.SpecId, out var v) ? v : null);
+        new(draft.SpecId, draft.Goal, draft.Repos, draft.Done, ratified.TryGetValue(draft.SpecId, out var v) ? v : null, draft.Yaml);
 
     private T Read<T>(SpecDialogSession session, Func<T> read, T fallback)
     {

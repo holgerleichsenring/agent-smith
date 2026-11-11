@@ -43,6 +43,12 @@ public abstract record OutcomeProposal
     /// <summary>2026-11-09-9a98: published while its turn's review runs, which a final proposal never is.
     /// Stored, it outlives a cancel; a reader takes it as true only while that turn computes.</summary>
     public bool UnderReview { get; init; }
+
+    /// <summary>2026-11-10-d854a: the operator's open questions the turn laid on its draft through state_open_questions.</summary>
+    public IReadOnlyList<OpenQuestion> Questions { get; init; } = [];
+
+    /// <summary>2026-11-10-d854a: the turn's spend when this was pushed; the total on the final proposal.</summary>
+    public ProposalSpend? Spend { get; init; }
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>

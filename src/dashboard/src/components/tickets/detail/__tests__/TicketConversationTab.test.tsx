@@ -188,7 +188,7 @@ describe("Ticket conversation tab", () => {
     expect(dialogApi.resume).toHaveBeenCalledTimes(1);
     const [sessionId, dialogId] = dialogApi.resume.mock.calls[0];
     expect(sessionId).toBe("s-1");
-    expect(dialogApi.post).toHaveBeenCalledWith(dialogId, "Add the import consumer", "shop", undefined);
+    expect(dialogApi.post).toHaveBeenCalledWith(dialogId, "Add the import consumer", "shop", undefined, undefined);
   });
 
   it.each([
@@ -240,7 +240,7 @@ describe("Ticket conversation tab", () => {
 
     expect(dialogHub.joins.at(-1)).toBe(dialogHub.joins.at(-2));
     expect(dialogApi.resume).toHaveBeenCalledTimes(1);
-    expect(dialogApi.post).toHaveBeenCalledWith(dialogApi.resume.mock.calls[0][1], "Go on", "shop", undefined);
+    expect(dialogApi.post).toHaveBeenCalledWith(dialogApi.resume.mock.calls[0][1], "Go on", "shop", undefined, undefined);
     expect(screen.queryByTestId("ticket-composer-failure")).toBeNull();
   });
 
@@ -414,12 +414,26 @@ describe("Ticket conversation tab", () => {
     world.questions["d-open"] = approvalQuestion("d-open");
     await open();
     expect(screen.getByTestId("ticket-effect")).toHaveTextContent("Approving continues this ticket's series. The next attempt starts now.");
-    expect(screen.getByTestId("ticket-proposal")).toHaveTextContent("Import consumer cap 30 s · portal-worker");
+    // 2026-11-10-d854b: the draft is a row of the turn result now — its goal, then its repository.
+    expect(screen.getByTestId("ticket-proposal")).toHaveTextContent(/Import consumer cap 30 s\s*portal-worker/);
     fireEvent.click(screen.getByTestId("ticket-approve"));
     await settle();
     await settle();
     expect(dialogApi.resume).not.toHaveBeenCalled();
-    expect(dialogApi.post).toHaveBeenCalledWith("d-open", "approve", "shop", undefined);
+    expect(dialogApi.post).toHaveBeenCalledWith("d-open", "approve", "shop", undefined, "q-1"); // 2026-11-10-ccd9: the card shown
+  });
+
+  it("TicketComposer_QueuedDecision_CarriesTheShownId", async () => {
+    world.conversation = {
+      ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: { ...PROPOSAL, proposalId: "p-shown" },
+    };
+    world.sessions["d-open"] = session("s-1");
+    world.questions["d-open"] = approvalQuestion("d-open", { questionId: "p-later" });
+    await open();
+    fireEvent.click(screen.getByTestId("ticket-approve"));
+    await settle();
+    await settle();
+    expect(dialogApi.post).toHaveBeenCalledWith("d-open", "approve", "shop", undefined, "p-shown");
   });
 
   it("WithRefusedQuestionPending_ThereIsNoApprove", async () => {

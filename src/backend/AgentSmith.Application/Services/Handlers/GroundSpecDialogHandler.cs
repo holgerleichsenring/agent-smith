@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Turns;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -23,7 +24,9 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class GroundSpecDialogHandler(
     DialogGroundingReader reader,
     ILogger<GroundSpecDialogHandler> logger,
-    Memory.DesignMemoryIndex? memoryIndex = null) // 2026-11-10-85e2: composed as a run's is
+    Memory.DesignMemoryIndex? memoryIndex = null, // 2026-11-10-85e2: composed as a run's is
+    Scope.ScopeEstimateRecorder? tiers = null, // 2026-11-10-548f
+    ITurnRunRecorderAccessor? runs = null) // 2026-11-10-d854c
     : ICommandHandler<GroundSpecDialogContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -31,6 +34,10 @@ public sealed class GroundSpecDialogHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         var pipeline = context.Pipeline;
+        await LinkRunAsync(pipeline, cancellationToken);
+        // 2026-11-10-548f: the conversation's stated effort sizes this turn's cap before the master's first call.
+        if (tiers is not null && pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var picture) && picture is not null)
+            await tiers.ApplyTierAsync(pipeline, picture.Effort, cancellationToken);
         var scope = Scope(pipeline);
         if (scope.Count == 0)
         {
@@ -63,6 +70,16 @@ public sealed class GroundSpecDialogHandler(
         var index = memoryIndex is not null ? await memoryIndex.ComposeAsync(pipeline, memory, ct)
             : memory.Count > 0 ? memory.RenderLabelled() : null;
         if (!string.IsNullOrWhiteSpace(index)) pipeline.Set(ContextKeys.MemoryIndex, index);
+    }
+
+    /// <summary>2026-11-10-d854c: the turn's run id, on its reply slot and reported for the conversation's row, before
+    /// the master's first call — a turn that dies after this still names its run.</summary>
+    private async Task LinkRunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId)) return;
+        if (pipeline.TryGet<SpecDialogReplySlot>(ContextKeys.SpecDialogReplySlot, out var slot) && slot is not null)
+            slot.RunId = runId;
+        await (runs?.Current?.RecordAsync(runId, cancellationToken) ?? Task.CompletedTask);
     }
 
     /// <summary>

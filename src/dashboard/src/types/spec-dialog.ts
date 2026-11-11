@@ -28,6 +28,10 @@ export interface SpecDialogTurn {
   at: string;
   /** Set on the operator turn that answered an approval question with approve or reject. */
   decision?: SpecDialogDecision | null;
+  /** 2026-11-10-d854c: the run an agent turn came from; absent on older turns. */
+  runId?: string | null;
+  /** 2026-11-10-d854c: the proposal this turn made, kept by its run id; absent when it made none. */
+  proposal?: SpecDialogProposalPush | null;
 }
 
 /**
@@ -152,6 +156,12 @@ export interface SpecDialogSession {
   ticket: SpecDialogSessionTicket | null;
   /** 2026-11-05-862ea: what the design partner said the work is; null while none is stored. */
   workPicture?: SpecDialogWorkPicture | null;
+  /** 2026-11-10-ccd9: a draft under review beside the awaiting `proposal`; never approvable. */
+  reviewing?: SpecDialogProposalPush | null;
+  /** 2026-11-10-d854c: the run of the turn last started here — after a crash, the turn that died. */
+  runningRunId?: string | null;
+  /** 2026-11-10-d854c: that run's own proposal when no kept turn carries it. */
+  runningProposal?: SpecDialogProposalPush | null;
 }
 
 /** 2026-11-05-862ea: the work picture the design partner stated — kind and size as camelCase strings. */
@@ -343,6 +353,28 @@ export interface SpecDraftProposal {
   facts?: SpecDraftFact[];
   /** 2026-10-02-3f06c: what the spec states without having looked. */
   assumptions?: string[];
+  /** 2026-11-10-d854b: the repositories the spec names. */
+  repos?: string[];
+}
+
+/** 2026-11-10-d854c: one step a design turn kept on its run. */
+export interface SpecDialogActivityStep {
+  kind: string;
+  name?: string | null;
+  detail?: string | null;
+  seq: number;
+  timestamp: string;
+}
+
+/** 2026-11-10-d854c: one page of a turn's steps, run-wide, with how many there are; d854b: its span and sub-agent calls. */
+export interface SpecDialogActivityPage {
+  count: number;
+  steps: SpecDialogActivityStep[];
+  nextSeq: number | null;
+  hasMore: boolean;
+  firstAt?: string | null;
+  lastAt?: string | null;
+  subAgentCalls?: number;
 }
 
 /** 2026-10-02-3f06c: one fact a drafted spec states, with the evidence it cites. */
@@ -412,6 +444,29 @@ export interface SpecDialogProposalPush {
   comment?: string | null;
   /** 2026-11-04-96a0c: per upload, what the proposing turn and the conversation opened; absent on an older proposal. */
   uploads?: SpecDialogUploadRead[];
+  /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries; absent on a draft under review. */
+  proposalId?: string | null;
+  /** 2026-11-10-ccd9: a draft under review — shown, never approvable, never over the awaiting proposal. */
+  reviewing?: boolean;
+  /** 2026-11-10-d854a: the operator's open questions, each with the design partner's proposal; absent on an older proposal. */
+  questions?: SpecDialogOpenQuestion[];
+  /** 2026-11-10-d854a: the proposing turn's spend so far, its total on the final proposal; absent on an older one. */
+  spend?: SpecDialogSpend | null;
+}
+
+/** 2026-11-10-d854a: a question only the operator can answer, the design partner's proposal, and the specs it touches. */
+export interface SpecDialogOpenQuestion {
+  question: string;
+  proposal: string;
+  specIds: string[];
+}
+
+/** 2026-11-10-d854a: what a proposing turn spent, its cap, the tier that sized it and whether the cap was hit. */
+export interface SpecDialogSpend {
+  usd: number;
+  capUsd?: number | null;
+  tier?: string | null;
+  capHit: boolean;
 }
 
 /** 2026-11-04-96a0c: one upload's read_file coverage, counted over the files read_file can open. */

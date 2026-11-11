@@ -5,94 +5,56 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Routes a turn's typed terminal outcome. Answer → nothing (today's default
-/// path). Bug / spec / epic → shown in-thread and CONFIRMED at the approval
-/// gate first; only a confirmed proposal reaches the outcome sink (p0315c:
-/// real ticket filing). Rejected / timed-out proposals route nowhere and say
-/// so; an edit note is handed back to the router, which re-runs the design
-/// turn over the transcript that now ends with the note.
+/// Puts a turn's typed terminal outcome before the person. An answer proposes nothing. A bug, spec,
+/// epic, list or comment is stored as the proposal awaiting a decision and then shown — on the page, and
+/// as a card in a chat thread.
+/// <para>
+/// 2026-11-10-ccd9: nothing waits and nothing expires. The proposal is stored BEFORE it is shown, so no
+/// card exists that the row does not hold; a decision on it arrives later as a message carrying its id
+/// and goes through <see cref="SpecDialogDecisionPath"/>. A proposal that replaces an awaiting one says so.
+/// </para>
 /// </summary>
 public sealed class SpecDialogOutcomeFlow(
-    SpecDialogOutcomeConfirmer confirmer,
-    IOutcomeSink outcomeSink,
+    SpecDialogProposalState proposals,
     SpecDialogOutcomeComposer composer,
-    SpecDialogMessenger messenger,
+    SpecDialogReplyComposer replies,
+    SpecDialogNotices notices,
     DashboardOutcomeChannel outcomeChannel,
-    SpecDialogLatestOutcomeStore latestOutcome,
-    RatifiedMockStamp ratifiedMocks,
-    ILogger<SpecDialogOutcomeFlow> logger)
+    SpecDialogChatCard chatCards,
+    ILogger<SpecDialogOutcomeFlow> logger,
+    SpecDialogTurnProposalStore? turnProposals = null) // 2026-11-10-d854c
 {
     /// <summary>
-    /// <paramref name="stewarded"/>: the ticket steward led the turn. A proposal stored before it took over is
+    /// <paramref name="stewarded"/>: the ticket steward led the turn. A proposal awaiting before it took over is
     /// cleared, so the series changes through edit_series alone and no stale card can be approved beside it.
+    /// <paramref name="runId"/> keys the turn's own proposal row (2026-11-10-d854c).
     /// </summary>
-    public async Task<OutcomeFlowResult> HandleAsync(
-        ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
-        CancellationToken cancellationToken, bool stewarded = false)
+    public async Task HandleAsync(
+        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken, bool stewarded = false,
+        string? runId = null)
     {
-        if (stewarded) await SupersedeStoredProposalAsync(state, cancellationToken);
-        // The pane shows what would be filed BEFORE the approval is asked, so the person
-        // holding the question reads the proposal itself rather than a summary of it. An
-        // answer proposes nothing and publishes nothing — the channel decides that, because
-        // "which outcomes have a shape" is the same question the pane asks.
-        await outcomeChannel.ProposeAsync(state, proposal, cancellationToken);
-        if (proposal is AnswerOutcome) return new OutcomeFlowCompleted();
-        // Kept beside the push, never for an answer: an answer leaves the proposal under
-        // discussion where it was, live and after a reload alike.
-        await latestOutcome.SetProposalAsync(state.Platform, state.ThreadId!, proposal, cancellationToken);
-
-        var confirmation = await confirmer.ConfirmAsync(state, proposal, cancellationToken);
-        logger.LogInformation(
-            "Outcome {Kind} for spec-dialog session {SessionId}: {Confirmation}",
-            proposal.GetType().Name, state.JobId, confirmation.GetType().Name);
-
-        return await ApplyAsync(state, proposal, confirmation, mayStartRuns, cancellationToken);
-    }
-
-    /// <summary>
-    /// What a confirmation does. 2026-09-22-355b: the timeout is its OWN case and the default
-    /// throws. It used to fall through to the timeout, so a result added later would have
-    /// cleared the stored proposal and told the thread nothing would be filed — silently
-    /// destroying it instead of failing to compile.
-    /// </summary>
-    internal async Task<OutcomeFlowResult> ApplyAsync(
-        ConversationState state, OutcomeProposal proposal, ConfirmationResult confirmation,
-        bool mayStartRuns, CancellationToken cancellationToken)
-    {
-        switch (confirmation)
+        if (stewarded && await proposals.SupersedeAsync(state, cancellationToken) is not null)
         {
-            case OutcomeConfirmed:
-                // Only a person's ratification names a mock: stamped from the transcript as it stands now.
-                var stamped = await ratifiedMocks.StampAsync(state, proposal, cancellationToken);
-                await outcomeSink.AcceptAsync(state, stamped, mayStartRuns, cancellationToken);
-                return new OutcomeFlowCompleted();
-            case OutcomeEditRequested edit:
-                await SendAsync(state, composer.ComposeEditAck(edit.Note), cancellationToken);
-                return new OutcomeFlowEditRequested(edit.Note);
-            case OutcomeRejected:
-                await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
-                await SendAsync(state, composer.ComposeRejected(), cancellationToken);
-                return new OutcomeFlowCompleted();
-            case OutcomeConfirmationTimedOut:
-                // A timed-out approval is over as surely as a rejected one; the pane must not
-                // offer it after a reload. An edit note keeps it, because it is being revised.
-                await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
-                await SendAsync(state, composer.ComposeTimeout(), cancellationToken);
-                return new OutcomeFlowCompleted();
-            default:
-                throw new InvalidOperationException(
-                    $"Confirmation result '{confirmation.GetType().Name}' has no outcome flow — "
-                    + "a new result must say what it does with the stored proposal.");
+            logger.LogInformation("The ticket steward leads spec-dialog session {SessionId}; its awaiting proposal is cleared", state.JobId);
+            await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
         }
+        if (proposal is AnswerOutcome) return;
+        (string Id, string? Replaced) stored;
+        try
+        {
+            stored = await proposals.StoreAwaitingAsync(state, proposal, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "The proposal of spec-dialog session {SessionId} could not be stored — not shown", state.JobId);
+            await notices.TellAsync(state, replies.ComposeTurnFailed("the proposal could not be stored, so it is not shown"), cancellationToken);
+            return;
+        }
+        await (turnProposals?.WriteAsync(state, runId, proposal, cancellationToken) ?? Task.CompletedTask);
+        if (stored.Replaced is not null) await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
+        await outcomeChannel.ProposeAsync(state, proposal, cancellationToken, stored.Id);
+        await chatCards.PostAsync(state, proposal, stored.Id, cancellationToken);
+        logger.LogInformation("Outcome {Kind} for spec-dialog session {SessionId} awaits a decision as {ProposalId}",
+            proposal.GetType().Name, state.JobId, stored.Id);
     }
-
-    private async Task SupersedeStoredProposalAsync(ConversationState state, CancellationToken ct)
-    {
-        if ((await latestOutcome.ReadAsync(state.Platform, state.ThreadId!, ct)).Proposal is null) return;
-        await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, ct);
-        logger.LogInformation("The ticket steward leads spec-dialog session {SessionId}; its stored proposal is cleared", state.JobId);
-    }
-
-    private Task SendAsync(ConversationState state, ComposedReply notice, CancellationToken ct) =>
-        messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, ct);
 }

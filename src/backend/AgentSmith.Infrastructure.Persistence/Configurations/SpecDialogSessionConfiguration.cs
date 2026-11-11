@@ -27,6 +27,10 @@ public sealed class SpecDialogSessionConfiguration : IEntityTypeConfiguration<Sp
         // provider-blind; a bounded string lets each provider's own convention pick the type.
         builder.Property(s => s.Subject).HasMaxLength(PersistenceLimits.ConversationSubject);
         builder.Property(s => s.WorkPictureJson).HasMaxLength(PersistenceLimits.WorkPicture); // 2026-11-05-862ea
+        builder.Property(s => s.ProposalId).HasMaxLength(PersistenceLimits.ProposalId); // 2026-11-10-ccd9
+        builder.Property(s => s.ProposalState).HasMaxLength(PersistenceLimits.ProposalId);
+        builder.Property(s => s.PostedProposalId).HasMaxLength(PersistenceLimits.ProposalId);
+        builder.Property(s => s.RunningRunId).HasMaxLength(PersistenceLimits.IndexedString); // 2026-11-10-d854c
         // 2026-09-25-8e51b: the ticket a conversation belongs to. The UNIQUE index over the pair
         // lives on the context, not here — it has to be filtered on SQL Server, which treats two
         // NULLs as equal, and an entity configuration cannot see the provider name.

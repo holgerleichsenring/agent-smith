@@ -133,57 +133,31 @@ public sealed class OutcomeShapeOfferTests : IDisposable
 
         var result = await ConfirmAsync(proposal, label);
 
-        result.Should().BeOfType<OutcomeEditRequested>()
-            .Which.Note.Should().Be(label,
-                "the picked shape is the note the master is asked to re-propose in");
+        result.Should().BeNull(
+            "2026-11-10-ccd9: the picked shape is an ordinary message the master re-proposes from");
     }
 
     [Fact]
     public async Task Confirmation_AReplyMatchingAnApprovalWord_StillApproves() =>
         (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "approve"))
-            .Should().BeOfType<OutcomeConfirmed>();
+            .Should().Be(SpecDialogDecision.Approved);
 
     [Fact]
     public async Task Confirmation_AnyOtherText_IsStillAnEditNote() =>
         (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "drop the second slice"))
-            .Should().BeOfType<OutcomeEditRequested>()
-            .Which.Note.Should().Be("drop the second slice");
+            .Should().BeNull("any other text is an ordinary message");
 
+    /// <summary>2026-11-10-ccd9: nothing expires — a proposal nobody answers stays awaiting, with its id.</summary>
     [Fact]
-    public async Task OutcomeFlow_ATimedOutConfirmation_ClearsTheProposalAsItDoesToday()
+    public async Task OutcomeFlow_NobodyAnswers_TheProposalStaysAwaiting()
     {
         var (flow, store, state) = await FlowAsync();
-        var proposal = new SpecOutcome(Draft("p9001"));
-        await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
 
-        var result = await flow.ApplyAsync(
-            state, proposal, new OutcomeConfirmationTimedOut(), false, CancellationToken.None);
+        await flow.HandleAsync(state, new SpecOutcome(Draft("p9001")), CancellationToken.None);
 
-        result.Should().BeOfType<OutcomeFlowCompleted>();
-        (await store.ReadAsync(Platform, Thread, CancellationToken.None)).Proposal.Should().BeNull(
-            "a timed-out approval is over as surely as a rejected one — the pane must not "
-            + "offer it after a reload");
-    }
-
-    /// <summary>
-    /// The fall-through used to MEAN timeout: a fifth result would have cleared the stored
-    /// proposal and told the thread nothing would be filed, destroying it in silence instead
-    /// of failing to compile.
-    /// </summary>
-    [Fact]
-    public async Task OutcomeFlow_AnUnknownConfirmation_Throws()
-    {
-        var (flow, store, state) = await FlowAsync();
-        var proposal = new SpecOutcome(Draft("p9001"));
-        await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
-
-        var act = () => flow.ApplyAsync(
-            state, proposal, new UnknownConfirmation(), false, CancellationToken.None);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*UnknownConfirmation*");
-        (await store.ReadAsync(Platform, Thread, CancellationToken.None)).Proposal.Should().NotBeNull(
-            "a result nobody handled must not take the proposal down with it");
+        var held = await store.ReadAsync(Platform, Thread, CancellationToken.None);
+        held.Proposal.Should().NotBeNull("no code path clears a stored proposal for lack of an answer");
+        held.ProposalId.Should().NotBeNullOrEmpty();
     }
 
     /// <summary>
@@ -250,13 +224,10 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     public async Task Confirmation_AmendLabelInBoundThread_IsEditNote()
     {
         (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "Amend this ticket", bound: true))
-            .Should().BeOfType<OutcomeEditRequested>().Which.Note.Should().Be("Amend this ticket");
+            .Should().BeNull("an ordinary message");
         (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "approve", bound: true))
-            .Should().BeOfType<OutcomeConfirmed>("approving in a bound thread is the continuation");
+            .Should().Be(SpecDialogDecision.Approved, "approving in a bound thread is the continuation");
     }
-
-    /// <summary>A result added later, standing in for the one nobody remembered to handle.</summary>
-    private sealed record UnknownConfirmation : ConfirmationResult;
 
     private static IEnumerable<OutcomeProposal> EveryConfirmedKind() =>
     [
@@ -266,70 +237,26 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         new TicketGraphOutcome([Ticket("order-api"), Ticket("order-ui")]),
     ];
 
-    /// <summary>The question the confirmer actually asked, captured while the wait is open.</summary>
-    private static async Task<DialogQuestion> AskedAsync(OutcomeProposal proposal, bool bound = false)
-    {
-        var (_, asked) = await RunConfirmerAsync(proposal, "approve", bound);
-        return asked!;
-    }
+    /// <summary>2026-11-10-ccd9: the approval card the conversation is shown — posted, never waited on.</summary>
+    private Task<DialogQuestion> AskedAsync(OutcomeProposal proposal, bool bound = false) =>
+        Task.FromResult(Harness().Cards.CardOf(State(bound), proposal, "card-1"));
 
-    private static async Task<ConfirmationResult> ConfirmAsync(
-        OutcomeProposal proposal, string reply, bool bound = false)
-    {
-        var (result, _) = await RunConfirmerAsync(proposal, reply, bound);
-        return result;
-    }
+    /// <summary>2026-11-10-ccd9: what a reply decides — an approve or reject word, or nothing (an ordinary message).</summary>
+    private static Task<SpecDialogDecision?> ConfirmAsync(OutcomeProposal proposal, string reply, bool bound = false) =>
+        Task.FromResult(SpecDialogAnswerWords.DecisionIn(reply));
 
-    private static async Task<(ConfirmationResult Result, DialogQuestion? Asked)> RunConfirmerAsync(
-        OutcomeProposal proposal, string reply, bool bound = false)
-    {
-        var pending = new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System));
-        DialogQuestion? asked = null;
-        var transport = new Mock<IDialogueTransport>();
-        transport
-            .Setup(t => t.WaitForAnswerAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string jobId, string questionId, TimeSpan _, CancellationToken _) =>
-            {
-                asked = pending.TryPeek(jobId, out var peeked) ? peeked.Question : null;
-                return new DialogAnswer(questionId, reply, null, DateTimeOffset.UtcNow, "U1");
-            });
-        var confirmer = new SpecDialogOutcomeConfirmer(
-            transport.Object,
-            new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance),
-            pending, new SpecDialogOutcomeComposer(),
-            Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
-
-        var result = await confirmer.ConfirmAsync(State(bound), proposal, CancellationToken.None);
-        return (result, asked);
-    }
+    private SpecDialogDecisionHarness Harness(IOutcomeSink? sink = null) => new(_context,
+        new DashboardOutcomeChannel(new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
+            NullLogger<DashboardOutcomeChannel>.Instance), sink ?? Mock.Of<IOutcomeSink>());
 
     private async Task<(SpecDialogOutcomeFlow Flow, SpecDialogLatestOutcomeStore Store, ConversationState State)>
         FlowAsync(IOutcomeSink? sink = null)
     {
-        var repository = new SpecDialogSessionRepository(_context);
-        var sessions = new SpecDialogSessionManager(
-            repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
-            NullLogger<SpecDialogSessionManager>.Instance);
-        var state = await sessions.OpenAsync(
+        var harness = Harness(sink);
+        var state = await harness.Sessions.OpenAsync(
             Platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
-        var store = new SpecDialogLatestOutcomeStore(
-            repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
-        var messenger = new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance);
-        var composer = new SpecDialogOutcomeComposer();
-        var flow = new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(
-                Mock.Of<IDialogueTransport>(), messenger,
-                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                composer, Mock.Of<AgentSmith.Server.Contracts.IOpenDialogQuestions>(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            sink ?? Mock.Of<IOutcomeSink>(), composer, messenger,
-            new DashboardOutcomeChannel(
-                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                NullLogger<DashboardOutcomeChannel>.Instance),
-            store, AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
-        return (flow, store, state);
+        return (harness.Flow(), harness.Outcomes, state);
     }
 
     private static ConversationState State(bool bound = false) => new()

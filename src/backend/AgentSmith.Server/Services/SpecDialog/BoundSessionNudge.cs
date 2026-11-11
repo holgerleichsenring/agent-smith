@@ -17,7 +17,13 @@ public sealed class BoundSessionNudge(
     {
         ArgumentNullException.ThrowIfNull(session);
         await repository.SaveAsync(ct);
-        if (session.TicketKey is not { Length: > 0 } ticketKey) return;
+        await NotifyAsync(session, ct);
+    }
+
+    /// <summary>2026-11-10-ccd9: the nudge alone, after a write that went past the unit of work (a compare-and-set).</summary>
+    public async Task NotifyAsync(SpecDialogSession? session, CancellationToken ct)
+    {
+        if (session?.TicketKey is not { Length: > 0 } ticketKey) return;
         try
         {
             await activity.ChangedAsync(session.Project, ticketKey, ct);

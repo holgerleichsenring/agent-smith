@@ -67,12 +67,12 @@ public sealed class SpecDialogSessionManager(
     /// </summary>
     public async Task<ConversationState?> AppendTurnAsync(
         string platform, string threadId, TranscriptRole role, string text,
-        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct, string? author = null)
+        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct, string? author = null, string? runId = null)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
 
-        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, Author: author);
+        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, Author: author, RunId: runId); // d854c
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;

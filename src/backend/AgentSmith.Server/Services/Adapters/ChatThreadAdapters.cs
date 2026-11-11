@@ -22,9 +22,16 @@ public sealed class ChatThreadAdapters(
         if (Resolve(thread) is { } adapter) await adapter.PostAsync(thread, text, cancellationToken);
     }
 
-    public async Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
+    public async Task PostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken) =>
+        await TryPostQuestionAsync(thread, question, cancellationToken);
+
+    /// <summary>2026-11-10-ccd9: the same post, saying whether a poster took it — a card nobody posted is not one a
+    /// thread was shown.</summary>
+    public async Task<bool> TryPostQuestionAsync(ChatThread thread, DialogQuestion question, CancellationToken cancellationToken)
     {
-        if (Resolve(thread) is { } adapter) await adapter.PostQuestionAsync(thread, question, cancellationToken);
+        if (Resolve(thread) is not { } adapter) return false;
+        await adapter.PostQuestionAsync(thread, question, cancellationToken);
+        return true;
     }
 
     private IChatThreadAdapter? Resolve(ChatThread thread)

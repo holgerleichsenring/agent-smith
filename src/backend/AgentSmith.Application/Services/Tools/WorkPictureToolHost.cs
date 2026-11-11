@@ -2,6 +2,7 @@ using System.ComponentModel;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -10,8 +11,11 @@ namespace AgentSmith.Application.Services.Tools;
 /// 2026-11-05-862ea: state_work_picture — the design master records what the operator's work is: its kind, where its
 /// truth lives, its expected size. The picture lands on the turn's reply slot and is stored when the turn is kept,
 /// replacing a stored one; a refused picture comes back with the rule it broke. The last admitted call of a turn wins.
+/// 2026-11-10-548f: an optional effort raises the turn's cost cap to that tier at once, which is what its review may
+/// spend; the answer names the cap.
 /// </summary>
-public sealed class WorkPictureToolHost(SpecDialogReplySlot slot) : IToolHost
+public sealed class WorkPictureToolHost(
+    SpecDialogReplySlot slot, Func<ComplexityTier, CancellationToken, Task<CostCapValues?>>? raise = null) : IToolHost
 {
     public const string Name = "state_work_picture";
 
@@ -23,24 +27,39 @@ public sealed class WorkPictureToolHost(SpecDialogReplySlot slot) : IToolHost
         + "into this form; feature: behavior that exists nowhere yet; fix: existing behavior that is wrong; document: "
         + "writing documentation as the work.";
 
+    /// <summary>2026-11-10-548f: what each tier means for a design turn, and what stating it does.</summary>
+    internal const string EffortDescription =
+        "Optional. size is how the work is cut; effort is how much the review of this turn's drafts may spend. trivial "
+        + "or small: one small spec; medium: one spec of real work; large: a series; xl: a whole product or proof of "
+        + "concept carried into repositories. The turn's cost cap rises to this tier's cap and never falls.";
+
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? stage, string? investigatorMode)
     {
         _ = stage;
         _ = investigatorMode;
-        return [AIFunctionFactory.Create(StateWorkPicture, name: Name)];
+        return [AIFunctionFactory.Create(StateWorkPictureAsync, name: Name)];
     }
 
     [Description(
-        "Record the work picture of this conversation: the kind of undertaking, where its truth lives, and the "
-        + "expected size. Call it again to record a correction; the last call replaces the stored picture. It is not a source read.")]
-    private string StateWorkPicture(
+        "Record the work picture of this conversation: the kind of undertaking, where its truth lives, the "
+        + "expected size and the effort. Call it again to record a correction; the last call replaces the stored picture. It is not a source read.")]
+    private async Task<string> StateWorkPictureAsync(
         [Description(KindDescription)] string kind,
         [Description("One line of plain prose, at most 300 characters: where what is wanted is described (an upload, the ticket, the conversation) and what the repositories already provide.")] string truth,
-        [Description("one-spec, series or plan.")] string size)
+        [Description("one-spec, series or plan.")] string size,
+        [Description(EffortDescription)] string? effort = null,
+        CancellationToken cancellationToken = default)
     {
-        var (picture, refusal) = WorkPictureAdmission.Of(kind, truth, size);
+        var (picture, refusal) = WorkPictureAdmission.Of(kind, truth, size, effort);
         if (picture is null) return $"Not stored: {refusal} State it again.";
-        slot.WorkPicture = picture;
-        return Stored;
+        // 2026-11-10-548f review: a correction later in the turn replaces the picture, never the turn's own higher
+        // effort — its cap already rose to it, and the keeper stores the higher of this and the stored tier.
+        slot.WorkPicture = picture with
+        {
+            Effort = (ComplexityTier)Math.Max((int)picture.Effort, (int)(slot.WorkPicture?.Effort ?? ComplexityTier.Unknown)),
+        };
+        if (picture.Effort == ComplexityTier.Unknown || raise is null) return Stored;
+        var cap = await raise(picture.Effort, cancellationToken);
+        return cap is null ? Stored : $"{Stored} The turn's cost cap is now ${cap.Usd:0.##} / {cap.Tokens:N0} tokens.";
     }
 }

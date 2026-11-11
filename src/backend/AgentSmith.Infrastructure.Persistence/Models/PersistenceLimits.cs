@@ -34,4 +34,7 @@ public static class PersistenceLimits
     /// <summary>2026-10-13-9a59b: a pull-request review note's stored body; a longer one is cut and
     /// marked Truncated.</summary>
     public const int ReviewNoteBody = 4000;
+
+    /// <summary>2026-11-10-ccd9: a minted proposal id (32 hex) and the proposal state word.</summary>
+    public const int ProposalId = 64;
 }

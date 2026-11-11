@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-10-548f
+goal: "A design turn states an optional effort tier in its work picture, which raises the turn's cost cap and so the budget its review may spend; a new xl tier defaults to $40."
+
+applies_to: "default (Application: work picture tool and section, scope estimate recorder; Server: turn keeper; Contracts: cost cap config; Dashboard: settings form)"
+
+facts:
+  - claim: "Tier caps are code defaults per ComplexityTier, Trivial $1 up to Large $25 at 200k tokens per dollar, and a tier only ever raises the resolved cap."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:49-56,65-73,91"
+  - claim: "ScopeEstimateRecorder applies a tier: raises the live tracker's cap, stores the tier in the context and publishes RunBudgetResolvedEvent, which sets the run row's BudgetTier."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:27-66; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunClassificationProjection.cs:24"
+  - claim: "A design turn runs no scope classification, so its cap stays the resolved default."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:19-26; src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:303"
+  - claim: "The design master has no money fence: spec-dialog masters get no loop hooks, and their spend reaches the tracker once, after the loop ends. The cap is checked by the proposal review, which stops reviewing when it is exhausted."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:364-366,438-447; src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewBudget.cs:38; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSession.cs:29"
+  - claim: "Where loop hooks exist, they read the cap once when they are built."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterLoopHooksFactory.cs:27"
+  - claim: "Conversation 44's turn has BudgetTier NULL and its review stopped at '$5.00 / 1,500,000 tokens' with 7 of 10 specs unreviewed."
+    evidence: "observed: 2026-11-10, Runs and SpecDialogSessions rows of run 2026-11-10T19-36-22-96b7"
+  - claim: "The work picture is stated through state_work_picture, whose kind argument describes its values in its own [Description]; the stored picture is seeded into the next turn and rendered by WorkPictureSection."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:20-46; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:71; src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureSection.cs:14-23"
+  - claim: "Admission parses a closed set by every enum value. The keeper stores a picture only from a turn that did not fail, and the runner's failure branch builds its result without the slot's picture; the runner is at its 120-line cap."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureAdmission.cs:35-40; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnKeeper.cs:37-39; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:78-82"
+  - claim: "The tier list is hand-written in four places; the capabilities endpoint derives its list from TierDefaults."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:34; config/agentsmith.schema.json:176; docs/reference/configuration/pipeline-cost-cap.md:46; src/dashboard/src/lib/configApi.ts:896; src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:38"
+
+scope:
+  in: "ComplexityTier gains Xl (appended) with code default $40 / 8,000,000 tokens. state_work_picture gains an optional effort argument whose [Description] says what each tier means for a design turn; Unknown is not an admissible value. An admitted effort is applied at once through ScopeEstimateRecorder.ApplyAsync and the tool answer names the raised cap. The stored picture keeps the higher of the stored and the stated tier; it is stored from failed turns too (the runner's failure branch carries the slot's picture, after SpecDialogTurnRunner is split below its cap, by whichever of this spec and 2026-11-10-d854c lands first); GroundSpecDialog applies a seeded effort before the master runs. WorkPictureSection renders the effort and the cap in place. The four hand-written tier lists name Xl."
+  out: "Continuing a turn that still hits the cap at the next tier is a named successor (a banner action in the result view). A money fence for the design master itself is not added; the cap governs its review. The coding run's scope classifier keeps four tiers."
+
+decisions:
+  - key: "THE CAP BUYS REVIEW. The master's own spend is tracked after its loop; what the raised cap changes is how much of the drafted set the review can check before it stops. Saying it buys the turn more drafting would be false."
+  - key: "THE MODEL SETS ITS OWN CEILING, BOUNDED. It can raise the cap at most to PerTier[Xl] (default $40), never above a configured override, and only for review. The effort and the cap are shown in the work picture and the run's budget, so the choice is visible."
+  - key: "HIGHER WINS. A later turn stating a lower tier keeps the higher stored one: a conversation does not shrink because one turn was a small answer."
+  - key: "THE MASTER SAYS IT, NO EXTRA CALL. The work picture is stated before the review; a separate classification call would cost a round trip and know less."
+  - key: "LATENT TRAP NAMED. MasterLoopHooksFactory captures the cap once. Design turns have no hooks, so the in-turn raise is safe today; giving them hooks later must read the cap per check."
+
+steps:
+  - id: tier
+    action: "Append Xl to ComplexityTier; TierDefaults gains Xl $40 / 8,000,000; the schema, the reference page, configApi.ts and SettingsForm list it; split SpecDialogTurnRunner if 2026-11-10-d854c has not."
+  - id: picture
+    action: "WorkPicture gains Effort (Unknown for a stored picture without one); WorkPictureAdmission takes an optional effort from the tiers without Unknown; WorkPictureView and WorkPictureSection show it with the cap."
+  - id: apply
+    action: "TicketActToolsFactory hands the pipeline and ScopeEstimateRecorder to WorkPictureToolHost, which applies the effort; GroundSpecDialogHandler applies a seeded effort; the keeper stores the higher tier and stores on failed turns too."
+  - id: skill
+    action: "design-partner-master, Work picture paragraph, one phrase added in place; the text is under skill_text."
+  - id: tests
+    action: "Pin the raise, the override, the higher-wins rule, the failed-turn store and the four hand-written lists."
+
+skill_text:
+  effort_description: "Optional. size is how the work is cut; effort is how much the review of this turn's drafts may spend. trivial or small: one small spec; medium: one spec of real work; large: a series; xl: a whole product or proof of concept carried into repositories. The turn's cost cap rises to this tier's cap and never falls."
+  work_picture_paragraph:
+    old: "undertaking (`state_work_picture` says which kind is which), where the"
+    new: "undertaking (`state_work_picture` says which kind is which), the effort, where the"
+
+tests:
+  - "StateWorkPicture_EffortXl_RaisesTheTurnCapToTheXlTier"
+  - "StateWorkPicture_EffortBelowAPerPipelineOverride_KeepsTheOverride"
+  - "StateWorkPicture_NoEffort_LeavesTheCap"
+  - "WorkPictureAdmission_EffortUnknown_IsRefusedNamingTheTiers"
+  - "TurnKeeper_LowerEffortLater_KeepsTheHigherTier"
+  - "TurnKeeper_FailedTurnWithPicture_StoresIt"
+  - "GroundSpecDialog_SeededEffort_AppliesTheTierBeforeTheMaster"
+  - "WorkPictureSection_StoredEffort_RendersEffortAndCap"
+  - "SettingsForm lists Xl with its $40 default (vitest)"
+
+done:
+  - when: "a design turn states effort xl"
+    then: "its tracker's cap is $40 / 8,000,000 unless the resolved cap is higher, the run row's BudgetTier is 'xl', and its review may spend up to that cap"
+  - when: "the next turn of that conversation starts"
+    then: "its cap is raised to the stored tier before the master's first call"
+  - "Config Studio shows and saves an Xl tier cap."
+  - "Build green, full suite and dashboard tests green; skills released (one release with 2026-11-10-d854a) and pinned."
