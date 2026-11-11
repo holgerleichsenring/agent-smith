@@ -7,7 +7,7 @@ applies_to: "default (Contracts: ProjectMemoryLimits; Application: MemoryRecallT
 repos_touched: [agent-smith]
 
 invariants:
-  - "ONE CHECK. Every bound on a stored project memory is in ProjectMemoryLimits.Refusal: description and author hold no line break, slug and author fit 191, description 200, body 4000. The writes refuse rather than rewrite the person's text."
+  - "ONE CHECK. Every bound on a stored project memory is in ProjectMemoryLimits.Refusal: description and author hold no line break, slug and author fit 191, description 200, body 4000. The check runs where the author is set — ProjectMemoryRepository.UpsertAsync, reached through ProjectMemoryStore — and the tools return that refusal as their answer; they refuse rather than rewrite the person's text."
   - "QUOTED IN EVERY RENDERING. Recall renders a project entry's description quoted like its body; the author is rendered only after the one-line check, quoted in the provenance line of recall and in the index source."
 
 facts:
@@ -17,6 +17,8 @@ facts:
     evidence: "MemoryRecallToolHost.cs:101-108; src/backend/AgentSmith.Application/Services/Memory/ProjectMemoryIndex.cs:34-40"
   - claim: "The design-turn write trims the description but keeps inner newlines; the coding-run write passes it the same way."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:41-44; src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:92"
+  - claim: "The tools call Refusal with a null author; the author joins the record only in the store, and the repository runs Refusal again and throws."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:42-44; src/backend/AgentSmith.Application/Services/Memory/ProjectMemoryStore.cs:31-37; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ProjectMemoryRepository.cs:38"
   - claim: "Limits refuse only description and body; slug and author columns are 191."
     evidence: "src/backend/AgentSmith.Contracts/Memory/ProjectMemoryRecord.cs:43-58; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ProjectMemoryConfiguration.cs:22,29"
   - claim: "The concurrent-upsert test runs four writers on one SQLite connection."
@@ -31,7 +33,7 @@ decisions:
 
 steps:
   - id: limits
-    action: "ProjectMemoryLimits.Refusal: line breaks, slug and author bounds."
+    action: "ProjectMemoryLimits.Refusal: line breaks, slug and author bounds; the tools drop their own pre-check and return the refusal the store write raises."
   - id: render
     action: "Quote the description in recall and the author in provenance and index source."
   - id: tests

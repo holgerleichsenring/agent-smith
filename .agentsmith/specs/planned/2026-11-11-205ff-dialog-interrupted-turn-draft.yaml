@@ -8,7 +8,7 @@ repos_touched: [agent-smith]
 
 invariants:
   - "NO ORPHAN ROW. Every row in the per-turn proposal store of a conversation is rendered in its view: on the transcript turn carrying its run id, as RunningProposal, or as an interrupted turn."
-  - "LIVENESS FROM THE ROW, NOT THE PROCESS. Whether an orphan's run is live is read from the run's stored status (Runs row), never from the in-process SpecDialogTurnGate, which another replica cannot see. Only a live run's row is RunningProposal; every other orphan is an interrupted turn."
+  - "LIVENESS FROM THE ROW, NOT THE PROCESS. Whether an orphan's run is live is read from the run's stored status (Runs row), never from the in-process SpecDialogTurnGate, which another replica cannot see. Only a live run's row is RunningProposal; every other orphan is an interrupted turn. Until the RunLivenessReaper marks a dead run, its row still shows as RunningProposal."
 
 facts:
   - claim: "RunningRunId is written once per turn and overwritten by the next turn's grounding; nothing records the earlier one."
@@ -17,8 +17,8 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnProposals.cs:17-27"
   - claim: "A per-turn write that fails is logged and swallowed."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnProposalStore.cs:22-29"
-  - claim: "A run's status is persisted on its Runs row."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs (Status)"
+  - claim: "A run's status is persisted on its Runs row; a dead run is marked by the liveness reaper."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs (Status); src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:27"
 
 assumptions:
   - "A replica that dies mid-turn writes no Notice turn, so no transcript turn carries its run id (inferred from 2026-11-10-d854c: Notice and Failure turns are written by the live process)."
@@ -42,7 +42,7 @@ steps:
     action: "Pin the crash-then-next-turn case and the other-replica liveness case."
 
 tests:
-  - "TurnProposals_CrashedTurnThenNextTurn_BothDraftsInTheView"
+  - "TurnProposals_CrashedTurnThenNextTurn_BothDraftsInTheView (sets A's Run.Status to failed directly, as the reaper would)"
   - "TurnProposals_OrphanOfALiveRunOnAnotherReplica_IsRunningNotInterrupted"
   - "TurnResult renders an interrupted turn with its draft (vitest)"
 

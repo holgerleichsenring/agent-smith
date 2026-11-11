@@ -7,7 +7,7 @@ applies_to: "default (Server: SpecDialogRouter, a decision-result handler, SpecD
 repos_touched: [agent-smith]
 
 invariants:
-  - "DECISION = OUTCOME, ALSO ACROSS A CRASH. A transcript turn keeps Decision=Approved/Rejected only once that decision was applied (Decided). Refused, Replaced and No take it back. A crash between AdmitAsync's decided append and DecideAsync leaves a decided turn whose proposal is still awaiting; the view and the ticket page read a decision as applied only when the proposal it names is no longer awaiting."
+  - "DECISION = OUTCOME, ALSO ACROSS A CRASH. A transcript turn keeps Decision=Approved/Rejected only once that decision was applied (Decided). Refused, Replaced and No take it back. A crash between AdmitAsync's decided append and DecideAsync leaves a decided turn whose proposal is still awaiting; the decided user turn carries DecisionProposalId (the proposal it named), and the view and the ticket page read a decision as applied only when that proposal is no longer awaiting."
   - "OWN SLOT. The confirmed JSON is written once, by the claim, with its proposal id; clear and release act only WHERE ConfirmedProposalId = their id, in one statement."
   - "RELEASE NEVER EMPTIES. A release that would leave the awaiting slot without JSON changes nothing and returns false."
 
@@ -18,8 +18,10 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:78-80,82-85,89-94"
   - claim: "DecideAsync returns Refused (shape refusal or sink refusal after release) or Replaced without touching the stored decision."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:38-49,65-86"
-  - claim: "ClaimAsync writes ConfirmedOutcomeJson; ReleaseAsync copies ConfirmedOutcomeJson back into the awaiting slot."
+  - claim: "ClaimAsync writes ConfirmedOutcomeJson; ReleaseAsync already matches ProposalId and Filing, and copies ConfirmedOutcomeJson back into the awaiting slot."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogProposalClaim.cs:59-70,74-80"
+  - claim: "A transcript turn carries no proposal id."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:14"
   - claim: "The sink writes ConfirmedOutcomeJson again after the claim, unconditionally, so a slow filing A overwrites B's JSON."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-48"
   - claim: "ClearConfirmedAsync loads the open session and nulls ConfirmedOutcomeJson whatever proposal it holds."
@@ -28,7 +30,7 @@ facts:
     evidence: "wc -l on origin/main 5b813b120"
 
 scope:
-  in: "A decision-result handler (out of the router) takes back the stored decision on every result but Decided, on the click and the typed path. The session gains ConfirmedProposalId. A confirmed-slot repository (out of SpecDialogProposalClaim) holds the slot's compare-and-sets: the claim writes JSON and id together; ClearConfirmed(id) and Release(id) are single ExecuteUpdate statements WHERE ConfirmedProposalId = id, Release also requiring the JSON. The sink's SetConfirmedAsync call after the claim is deleted (the claim already wrote it). Additive nullable column in all three migration sets."
+  in: "The decided user turn gains DecisionProposalId, serialised in TranscriptJson (no migration), written by AdmitAsync. SpecDialogDecisionOutcome (out of the router) takes back the stored decision on every result but Decided, on the click and the typed path. The session gains ConfirmedProposalId. SpecDialogConfirmedSlot (out of SpecDialogProposalClaim) holds the slot's compare-and-sets: the claim writes JSON and id together; ClearConfirmed(id) becomes one ExecuteUpdate WHERE ConfirmedProposalId = id (today it loads and clears whatever is there); Release keeps its ProposalId match and also requires the JSON. The sink's SetConfirmedAsync call after the claim is deleted (the claim already wrote it). Additive nullable column in all three migration sets."
   out: "There is still one confirmed slot: B's claim replaces A's durable copy while A files, so a crash of A's filing loses what A was filing — exactly-once and resumable filing is 2026-11-10-825f. During a rolling deploy an old-build claim writes no ConfirmedProposalId; such a slot is cleared or released by nobody new and waits for 825f's resume or a later claim."
 
 decisions:
@@ -38,7 +40,9 @@ decisions:
 
 steps:
   - id: split
-    action: "Move the decision-result handling out of SpecDialogRouter and the confirmed-slot statements out of SpecDialogProposalClaim into their own types (both files are at the cap)."
+    action: "Move the decision-result handling out of SpecDialogRouter into SpecDialogDecisionOutcome and the confirmed-slot statements out of SpecDialogProposalClaim into SpecDialogConfirmedSlot (both files are at the cap)."
+  - id: proposal-id
+    action: "TranscriptTurn gains DecisionProposalId; AdmitAsync writes it on a decided turn; the view reads a decision as applied only when that proposal is no longer awaiting."
   - id: undecide
     action: "The decision-result handler undecides on Refused, Replaced and No."
   - id: column
@@ -51,6 +55,8 @@ tests:
   - "Decision_SinkRefusesAfterClaim_StoredTurnHasNoDecision"
   - "Claim_FirstFilingCompletesAfterSecondClaim_SecondFilingsConfirmedJsonUntouched"
   - "Release_ConfirmedJsonCleared_ChangesNothing"
+  - "View_DecidedTurnWhoseProposalStillAwaits_ReadsAsNotApplied"
+  - "ClearConfirmed_OtherProposalsId_ChangesNothing"
   - "Sink_AfterClaim_DoesNotWriteConfirmedJson"
 
 done:

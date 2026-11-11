@@ -8,7 +8,7 @@ repos_touched: [agent-smith, agent-smith-skills]
 
 invariants:
   - "EFFORT IS BOUNDED BOTH WAYS. A design turn's effort, stated in the turn or seeded at its start, never sets the cap below the resolved cap and never above a configured per-pipeline override. A coding run's scope estimate keeps its p0413a rule unchanged."
-  - "ONE TIER, EVERYWHERE. The tier in the context key, in RunBudgetResolvedEvent and in TurnSpend is the tier that sized the live cap — the higher of stated and stored — never a lower one stated later."
+  - "ONE TIER, EVERYWHERE. The tier in the context key, in RunBudgetResolvedEvent and in TurnSpend is the highest tier stated in the conversation (stored or this turn), never a lower one stated later; the cap published beside it is the clamped value."
   - "THE MODEL SEES WHAT IT SIZES. Every design-turn prompt names the cap the turn starts with, whether or not an effort is stored."
   - "NO INVENTED COSTS. The tool text gives only observed facts about what a review costs, each with the run it was seen in."
 
