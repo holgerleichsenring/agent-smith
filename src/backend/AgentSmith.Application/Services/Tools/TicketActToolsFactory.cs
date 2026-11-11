@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 
@@ -27,8 +28,10 @@ public sealed class TicketActToolsFactory(
         {
             if (pipeline.TryGet<bool>(ContextKeys.SpecDialogNameable, out var nameable) && nameable)
                 tools.AddRange(new NameConversationToolHost(slot).GetTools(null, null));
+            var stored = pipeline.TryGet<WorkPicture>(ContextKeys.SpecDialogWorkPicture, out var kept) && kept is not null
+                ? kept.Effort : ComplexityTier.Unknown; // 205fc review: the stored tier is the floor across turns
             tools.AddRange(new WorkPictureToolHost(slot, efforts is null ? null // 862ea; 548f, 205fc: its effort sizes the cap
-                : (tier, ct) => efforts.ApplyAsync(pipeline, tier, ct)).GetTools(null, null));
+                : (tier, ct) => efforts.ApplyAsync(pipeline, tier, ct), stored).GetTools(null, null));
             tools.AddRange(new OutcomeFormatToolHost(references, TurnFolds.Of(pipeline)).GetTools(null, null)); // 85e2: folds
             tools.AddRange(new OpenQuestionsToolHost(slot).GetTools(null, null)); // 2026-11-10-d854a
         }

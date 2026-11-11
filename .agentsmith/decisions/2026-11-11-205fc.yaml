@@ -26,3 +26,7 @@ decisions:
     chose: "Tests that stated a series without effort now pass one (surface, harness, effort tests); the surface test expects the kept higher effort"
     over: "Exempting tests from the rule"
     reason: "The rule is the product's; the tests were written before it."
+  - category: Implementation
+    chose: "Review fix: state_work_picture takes the max of the stated effort, the turn's slot and the conversation's STORED picture; TicketActToolsFactory passes the stored tier in"
+    over: "Max against the per-turn slot only"
+    reason: "The slot is fresh per turn, so xl in turn one then small in turn two published 'small' beside a $40 cap while the keeper stored xl. The stored picture is seeded into the pipeline before the turn, so it is the floor across turns."

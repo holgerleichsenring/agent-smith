@@ -72,6 +72,27 @@ public sealed class DesignEffortCapTests
     }
 
     [Fact]
+    public async Task StateWorkPicture_XlThenSmallInTheNextTurn_KeepsXlAndFortyDollars()
+    {
+        var (efforts, pipeline, events) = Seeded(withOverride: false);
+        await Tool(new SpecDialogReplySlot(), efforts, pipeline).InvokeAsync(Stated("xl"));
+        pipeline.Set(ContextKeys.SpecDialogWorkPicture, // what the keeper stored after turn one
+            new WorkPicture(UndertakingKind.Rebuild, "the upload", UndertakingSize.Series, ComplexityTier.Xl));
+
+        pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot()); // turn two's fresh slot
+        var master = new AgenticMasterContext("design-partner-master", new Repository(new BranchName("main"), "/tmp"),
+            string.Empty, new AgentConfig { Type = "claude" }, pipeline);
+        var nextTurn = new TicketActToolsFactory(Handlers.MasterHandlerFixture.Verification(),
+                Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>(), efforts)
+            .Tools(master).OfType<AIFunction>().Single(t => t.Name == WorkPictureToolHost.Name);
+        await nextTurn.InvokeAsync(Stated("small"));
+
+        pipeline.Get<ComplexityTier>(ContextKeys.ComplexityTier).Should().Be(ComplexityTier.Xl);
+        events.Select(e => e.Tier).Should().Equal("xl", "xl");
+        Cap(pipeline).Usd.Should().Be(40m);
+    }
+
+    [Fact]
     public void WorkPictureAdmission_SeriesWithoutEffort_IsRefusedNamingTheTiers()
     {
         var (picture, refusal) = WorkPictureAdmission.Of("rebuild", "the upload", "series");

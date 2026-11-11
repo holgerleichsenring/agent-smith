@@ -15,7 +15,8 @@ namespace AgentSmith.Application.Services.Tools;
 /// spend; the answer names the cap.
 /// </summary>
 public sealed class WorkPictureToolHost(
-    SpecDialogReplySlot slot, Func<ComplexityTier, CancellationToken, Task<CostCapValues?>>? raise = null) : IToolHost
+    SpecDialogReplySlot slot, Func<ComplexityTier, CancellationToken, Task<CostCapValues?>>? raise = null,
+    ComplexityTier stored = ComplexityTier.Unknown) : IToolHost
 {
     public const string Name = "state_work_picture";
 
@@ -57,7 +58,9 @@ public sealed class WorkPictureToolHost(
         if (picture is null) return $"Not stored: {refusal} State it again.";
         // 2026-11-10-548f review: a correction later in the turn replaces the picture, never the turn's own higher
         // effort — its cap already rose to it, and the keeper stores the higher of this and the stored tier.
-        var effective = (ComplexityTier)Math.Max((int)picture.Effort, (int)(slot.WorkPicture?.Effort ?? ComplexityTier.Unknown));
+        // 205fc review: the conversation's stored tier counts too, so a lower effort in a later turn never publishes less.
+        var kept = (int)(slot.WorkPicture?.Effort ?? ComplexityTier.Unknown);
+        var effective = (ComplexityTier)Math.Max((int)picture.Effort, Math.Max(kept, (int)stored));
         slot.WorkPicture = picture with { Effort = effective };
         // 2026-11-11-205fc: the raise gets the tier the slot keeps, so the published tier never falls below the cap.
         if (picture.Effort == ComplexityTier.Unknown || raise is null) return Stored;
