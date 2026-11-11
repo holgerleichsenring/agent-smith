@@ -14,3 +14,7 @@ decisions:
     chose: "No server code changes"
     over: "Touching the server's own design-turn texts"
     reason: "out: any other skills text; the 205f series owns it."
+  - category: Implementation
+    chose: "Review fix: skills v5.28.2 (PR #269) drops 'a bound ticket's first judgement' from the answer outcome; the server pins v5.28.2 and the removal test also proves this clause is gone"
+    over: "Leaving the outcome list naming the judgement as an answer"
+    reason: "After f874 the bound-ticket section says the judgement lands as a proposal; the model read both statements, which strained 205fb's one rule and 205fd's 'say it once and truly'."

@@ -45,7 +45,9 @@ public sealed class DesignTurnTextContractTests
             "how a run later corrects a spec is not drafting knowledge").And
             .Contain("stops the spec before it spends a token", "the re-check's effect on facts stays");
         PackagedMaster.Read("design-partner-master").Should().NotContain("Your first reply\nis an",
-            "the bound-ticket section states the situation, not the order of replies");
+            "the bound-ticket section states the situation, not the order of replies").And
+            .NotContain("a bound ticket's first judgement",
+                "f874 review: the judgement lands as a proposal, so the answer outcome no longer names it");
     }
 
     [Fact]
