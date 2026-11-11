@@ -27,8 +27,7 @@ internal static class ReferencePromptSection
         return "\n\n## Material the operator uploaded\n"
             + "These addresses are what the operator uploaded to this conversation, every file at "
             + "its own path — a website, an application's source, documents; find out which before "
-            + "you rely on it. Read them with read_file, grep and directory_tree; a write comes back "
-            + "refused. A browser upload carries no file mode, so a script is not executable.\n"
+            + "you rely on it. Read them with read_file, grep_in_tree and directory_tree.\n" // 2026-11-11-205fd
             + bullets + "\n\n"
             + "A stylesheet states exact values — colours, sizes, spacing, fonts. When the operator "
             + "asks for something to look like it, read the value there rather than estimating "

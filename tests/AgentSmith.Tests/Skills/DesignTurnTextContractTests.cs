@@ -36,4 +36,17 @@ public sealed class DesignTurnTextContractTests
         master.Should().Contain("lay the forks on `state_open_questions`",
             "the one rule says where the forks go");
     }
+
+    [Fact]
+    public void SkillText_DesignPartner_RoleMatchesTheWorkClone()
+    {
+        var master = PackagedMaster.Read("design-partner-master");
+
+        master.Should().NotContain("what you run, you run in an upload's own container",
+            "the work clone runs commands too (4778); a role that denies it stops the model trying things out");
+        master.Should().Contain("what you try, you try in throwaway clones",
+            "the role names both places the turn may run something");
+        master.Should().NotContain("When `remember` is on your surface",
+            "the remember tool describes itself; the skill does not restate it");
+    }
 }

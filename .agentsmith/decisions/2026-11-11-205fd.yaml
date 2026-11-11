@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-205fd
+
+decisions:
+  - category: Implementation
+    chose: "The skill rewrites (role line, Orientation, remember paragraph, upload discovery as a situation) shipped in skills v5.28.0 and are pinned by 205fa; this commit pins them with a test and fixes the server texts"
+    over: "A second skills release for d"
+    reason: "One release carries the series' skills half; a test over the pinned catalog proves the rewrite arrived."
+  - category: Implementation
+    chose: "The upload section names grep_in_tree and drops the write and file-mode sentences; the coverage line names grep_in_tree"
+    over: "Keeping the file-mode sentence in the section"
+    reason: "The design turn has no write tool, so 'a write comes back refused' denied a tool it never had; the file-mode fact is the run_in_reference tool's own description (ReferenceCommandToolHost), where it matters."
+  - category: Implementation
+    chose: "SpecAttackPrompt.ReadOnlyLine follows the verbatim plugin brief on the same line, for every reviewer"
+    over: "Editing the brief, or adding the line only to proposal reviews"
+    reason: "The brief stays verbatim (a paraphrase drifts); no review look carries a shell (DerivationTools), so the line holds for every reviewer and a condition would guard a case that does not exist."
+  - category: Implementation
+    chose: "The ReadOnlyLine's reason sits in a one-line comment and the class summary is re-wrapped"
+    over: "A summary block of its own"
+    reason: "SpecAttackPrompt sits at the 120-line cap."

@@ -33,7 +33,7 @@ public sealed class ReferencePromptSectionTests
         var section = Section(new ReferenceCoverage(readable, new HashSet<string> { "app/f00.cs", "app/f01.cs" }, 4));
 
         section.Should().Contain("Earlier turns of this conversation opened 2 of the 30 files read_file can read")
-            .And.Contain("grep and run_in_reference are not counted")
+            .And.Contain("grep_in_tree and run_in_reference are not counted")
             .And.Contain("Their content is not in this turn; only the note carries it forward.")
             .And.Contain("`app/f02.cs`").And.Contain("`app/f26.cs`").And.NotContain("`app/f27.cs`")
             .And.Contain("… and 3 more.")
@@ -50,6 +50,21 @@ public sealed class ReferencePromptSectionTests
         section.Should().Contain("opened 2 of the 2 files").And.Contain("All 2 opened earlier.")
             .And.NotContain("Not opened yet").And.NotContain("cannot open");
     }
+
+    // 2026-11-11-205fd: the read tools by their surface names; no sentence about a write tool the turn never had.
+    [Fact]
+    public void ReferencePromptSection_NamesGrepInTree_NoWriteSentence()
+    {
+        var section = ReferencePromptSection.Build(["reference:site"]);
+
+        section.Should().Contain("read_file, grep_in_tree and directory_tree")
+            .And.NotContain("a write comes back").And.NotContain("file mode");
+    }
+
+    [Fact]
+    public void ReferenceCoverageText_NamesGrepInTree() =>
+        ReferenceCoverageText.Under(new ReferenceCoverage(new HashSet<string> { "a.cs" }, new HashSet<string>(), 0))
+            .Should().Contain("grep_in_tree and run_in_reference are not counted").And.NotContain("; grep and");
 
     private string Section(ReferenceCoverage coverage)
     {

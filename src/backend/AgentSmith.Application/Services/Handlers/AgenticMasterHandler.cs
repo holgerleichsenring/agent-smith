@@ -299,8 +299,8 @@ public sealed class AgenticMasterHandler(
 
         // p0356: the probed toolchain inventory enters the CODING master's system
         // prompt as a capability statement — per-run stable, so the automatic
-        // prompt-cache anchoring is unaffected. Scan masters review read-only and
-        // spec-dialog turns run no commands; neither is probed.
+        // prompt-cache anchoring is unaffected. Scan masters review read-only and a
+        // spec-dialog turn runs commands only in a throwaway work clone; neither is probed.
         if (!isScanMaster && !isSpecDialog)
         {
             var toolchainSection = await toolchainProbe.ProbeAsync(

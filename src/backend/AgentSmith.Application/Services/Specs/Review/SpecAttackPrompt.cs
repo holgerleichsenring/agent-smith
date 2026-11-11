@@ -6,10 +6,9 @@ namespace AgentSmith.Application.Services.Specs.Review;
 
 /// <summary>
 /// 2026-10-13-8762e: what one fresh attack reviewer is asked. The brief is the spec-first plugin's own
-/// (skills/review-spec/SKILL.md, line 31), verbatim — a paraphrase would be a second brief to drift. Around
-/// it the framework adds what the reviewer cannot know: the answer shape, the registers a cut may quote,
-/// the round's evidence problems and how many citations were never checked, the prior round's residues,
-/// whether the spec describes today, and the wider goal.
+/// (skills/review-spec/SKILL.md, line 31), verbatim — a paraphrase would be a second brief to drift. Around it the
+/// framework adds what the reviewer cannot know: the answer shape, the registers a cut may quote, the round's evidence
+/// problems and unchecked citations, the prior round's residues, whether the spec describes today, the wider goal.
 /// </summary>
 public static class SpecAttackPrompt
 {
@@ -22,6 +21,9 @@ public static class SpecAttackPrompt
         + "Answer with exactly one verdict — BUILD, BUILD WITH CUTS, or REFUSE — and back each finding with "
         + "file:line evidence. For BUILD WITH CUTS name each cut precisely. REFUSE is a successful result "
         + "when the spec is wrong.";
+
+    // 2026-11-11-205fd: follows the verbatim brief, because no review look carries a shell (DerivationTools).
+    public const string ReadOnlyLine = "You read the files; you cannot run a shell or extract archives.";
 
     /// <summary>2026-10-13-8762g: the lens 2026-09-05-c4e1 asked for, after the brief — a criterion the
     /// repository makes false before any work starts drives a run that cannot finish.</summary>
@@ -49,7 +51,7 @@ public static class SpecAttackPrompt
     {
         ArgumentNullException.ThrowIfNull(input);
         return $$"""
-            {{Brief}}
+            {{Brief}} {{ReadOnlyLine}}
 
             {{DecidabilityLens}}
             {{(input.Proposal ? "\n" + ProposalJudgement + "\n" : string.Empty)}}
