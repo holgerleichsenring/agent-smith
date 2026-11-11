@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-2bdfb
+goal: "An epic child refused without cuts may be re-cut — split, merged, re-homed — and the next round reviews the new and changed specs; a revision not used says why."
+
+applies_to: "default (spec review: ProposalReProposalGuard, ProposalRoundRevision, ProposalReviewSession, ProposalCutsNudge, ProposalReviewSummary, ProposalReplyText; SpecDialogProposalReview)"
+
+invariants:
+  - "LICENSED BY REFUSAL. In an epic, a re-proposal may drop a child, or change a child's identity (requires, repos, applies_to), only for children this round refused without cuts; it may add ids only when at least one applying child was refused without cuts, otherwise every added id is left out and listed as reverted. Every other draft keeps its id; a change beyond its licence is reverted alone, as today; one missing from the re-proposal is restored in its last valid text and listed as reverted in the next nudge."
+  - "VOID STAYS NARROW. The reply is void as a whole only for another kind; another epic parent id; for a lone spec, any change of id; a dropped id that a draft of the merged set still requires; or a cycle or a requires on a missing sibling in the MERGED set (RequiresEdgeChecker over the merged drafts). Order is the reply's."
+  - "NEXT ROUND REVIEWS IT. An added child enters the session open, with its evidence checked; a changed draft stays open as today. On the last round they are published not reviewed with the existing last-revision reason, never as reviewed."
+  - "DROPPED LEAVES. A dropped child's review leaves the session, and no rounds, findings — whole-set findings included — or not-reviewed entry are published for an id the proposal no longer states."
+  - "CONTRACT FOLLOWS THE SET. When the id set changed, the epic's series contract comes from the reply, and the published reply text carries that contract; otherwise both stay the last valid proposal's, as today."
+  - "SAID, NOT SILENT. When a re-prompt's reply is not used — the call failed, it did not resolve to a proposal, or it was void — every draft that went into that re-prompt carries one standing finding on the published proposal naming why, and the review ends as today."
+  - "TOLD SO. The nudge for an epic child refused without cuts says it may be kept, split, merged or re-homed, keeping the ids of the drafts kept, and that a draft another spec requires keeps its id. A lone spec and drafts with cuts are told as today."
+
+facts:
+  - claim: "Any change of the id sequence voids the whole re-proposal."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReProposalGuard.cs:23-25"
+  - claim: "A rewrite refused without cuts is admitted only when id, requires, repos and applies_to hold."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReProposalGuard.cs:39-42; src/backend/AgentSmith.Application/Services/Specs/Review/SpecIdentityRule.cs:17-23"
+  - claim: "A void or unchanged re-proposal marks every draft in it unchanged and ends the review; the stopped draft's findings stand, but nothing says the reply was not used or why."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalRoundRevision.cs:27-33; src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs:67-70"
+  - claim: "A refused draft is told to rewrite itself keeping its id and requires."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalCutsNudge.cs:15"
+  - claim: "Settling looks each draft's id up in the merged proposal with First — safe today only because the guard forbids id changes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalRoundRevision.cs:57"
+  - claim: "Requires edges are checked on the reply inside the resolver, not on the merged set; the filer's orderer refuses a broken epic only at filing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:76; src/backend/AgentSmith.Application/Services/SpecDialog/EpicChildOrderer.cs:37-42"
+  - claim: "The published reply text keeps the first reply's map and replaces only parent and children, so its contract block is the first reply's."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReplyText.cs:33-37"
+  - claim: "Whole-set findings are taken once over the first drafts and published unfiltered."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:54,61"
+  - claim: "Live run 2026-11-11: after round 1 the design partner re-proposed with a ninth child, the review ended after one of four rounds, and the published children were the first draft's, byte for byte."
+    evidence: "observed: prod run 2026-11-11T12-43-35-f508 events 671-674 and SpecDialogSessions conversation 46 (questions name 2026-11-11-0009, children 0001-0008), 2026-11-11"
+
+scope:
+  in: "The guard returns either a merge (drafts, reverted ids, added ids, dropped ids, changed) or a void with its reason; ProposalReviewSession.Drafts becomes a list the revision adds to and removes from; ProposalRoundRevision adds a ProposalDraftReview per added id (evidence checked, open), removes dropped ones, settles only drafts still stated, and on a reply not used records the reason on each applying draft; ProposalReviewSummary publishes that reason as a standing finding; ProposalReplyText.EpicBody writes the published contract when the id set changed; SpecDialogProposalReview drops whole-set findings for ids the published proposal does not state; the nudge text."
+  out: "No change to cut licences, SpecRevisionGuard, the coding-run review, carry-over across turns or filing. A re-cut of a draft that had cuts is not licensed; a lone spec is never re-cut into an epic here."
+
+decisions:
+  - "A missing unlicensed draft is restored rather than voiding the reply: one forgotten sibling must not throw away every other change, and the next round's reviewer sees both texts beside each other (2026-11-11-2bdfa)."
+  - "Re-cut is licensed by REFUSE without cuts only — the reviewer said the spec is wrong, not that wording must change — the same licence that admits a rewrite today."
+  - "A draft another spec requires keeps its id, so a split does not force a change on an unlicensed sibling's requires, which would void the reply."
+
+steps:
+  - id: guard
+    action: "Rework ProposalReProposalGuard.Merge per the invariants; ProposalGuardResult gains Added, Dropped, and a void carries its reason; the merged set's edges are checked with RequiresEdgeChecker."
+  - id: session
+    action: "ProposalReviewSession.Drafts mutable; ProposalRoundRevision applies added and dropped drafts, settles only stated ids, records the not-used reason; split any class that would pass the 120-line ratchet."
+  - id: summary
+    action: "ProposalReviewSummary emits one finding per draft carrying a not-used reason; ProposalReplyText carries the published contract on a changed set; SpecDialogProposalReview filters whole-set findings to stated ids."
+  - id: nudge
+    action: "RewriteFromFindings gains the epic re-cut licence; the lone-spec text stays."
+  - id: tests
+    action: "Tests below; ProposalReviewRoundsTests.ProposalReview_ChildOrderChanged_KeepsLastValid (:129) becomes order-is-the-reply's; ProposalReview_ReProposalChangedIdsOrKind_KeepsLastValid (:115) keeps the lone-spec and kind cases and gains the not-used finding."
+
+tests:
+  - "ProposalReview_RefusedChildSplit_SecondRoundReviewsBothAndPublishesThem"
+  - "ProposalReview_RefusedChildRehomed_ReposChangeAdmitted"
+  - "ProposalReview_AddedIdWithoutRefusal_LeftOutAndListedReverted"
+  - "ProposalReview_UnlicensedChildMissing_RestoredInLastValidText"
+  - "ProposalReview_UnlicensedChildIdentityChanged_RevertedAlone"
+  - "ProposalReview_DroppedIdStillRequired_ReplyVoidWithReasonOnResult"
+  - "ProposalReview_MergedSetCycle_ReplyVoid"
+  - "ProposalReview_KindChanged_ReplyVoidWithReasonOnResult"
+  - "ProposalReview_RecutOnLastRound_NewChildPublishedNotReviewed"
+  - "ProposalReview_DroppedChild_NoRoundsOrFindingsPublished (whole-set finding on the dropped id included)"
+  - "ProposalReview_RecutWithContract_ReplyTextCarriesThePublishedContract"
+  - "ProposalCutsNudge_RefusedChild_OffersRecut; ProposalCutsNudge_RefusedLoneSpec_RewriteOnly"
+
+done:
+  - "In the rig, an epic whose child is refused without cuts and re-proposed as two children runs a second round over both, and the published proposal holds both (test above)."
+  - "A reply that is not used leaves a finding with its reason on every draft it was for (tests above)."
+  - "Build green, full suite green."

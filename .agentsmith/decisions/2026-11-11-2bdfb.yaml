@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-2bdfb
+
+decisions:
+  - category: Architecture
+    chose: "ProposalReProposalGuard.Merge always returns a ProposalGuardResult; a void carries its reason (Void) and the last valid proposal as Merged. The epic's child merge lives in a new ProposalEpicRecut returning a ProposalChildMerge (kept, reverted, added, dropped)"
+    over: "Keeping the nullable result, or growing the guard past the line cap"
+    reason: "SAID, NOT SILENT needs the reason at the revision; the child re-cut is one responsibility of its own and keeps the guard under 120 lines."
+  - category: Implementation
+    chose: "A child refused without cuts that the reply restates is admitted whatever it changes; an added id is admitted while any applying child was refused without cuts; a missing unlicensed child is restored at its old position; an added id without a licence is listed in Reverted and, absent from the merged set, rendered in the next nudge as left out"
+    over: "Showing a left-out child as 'reverted' with a text it never had"
+    reason: "The nudge's reverted section quotes the text a draft stands as; a left-out id stands as nothing, so it gets its own line (ProposalCutsNudge.LeftOutLine)."
+  - category: Implementation
+    chose: "Void checks run on the merged set: a dropped id any merged draft still requires, then RequiresEdgeChecker over the merged parent and children (cycle, missing sibling, duplicate id)"
+    over: "Relying on the resolver's check of the reply alone"
+    reason: "Reverting an unlicensed requires change or restoring a missing child can break edges the reply alone did not have."
+  - category: Implementation
+    chose: "One reason for a re-prompt that returned null: 'the re-prompt failed or its reply did not resolve to a proposal'"
+    over: "Telling the failed call and the unresolved reply apart"
+    reason: "ProposalCutsReprompt returns null for both and TicketPlanReview shares it; both are logged with their cause there. Deviation: the spec lists the causes separately, the finding names them together."
+  - category: Implementation
+    chose: "ProposalReplyText writes the published contract (SeriesContractYaml through the manifest's underscored naming) when the published children are another id set than the first reply's; an empty contract removes the block"
+    over: "Copying the last reply's raw contract block"
+    reason: "CONTRACT FOLLOWS THE SET: the text must carry what is published, and a later used reply that kept the set does not move the contract."
+  - category: Implementation
+    chose: "Whole-set findings are dropped only for ids the first drafts stated and the published proposal no longer does"
+    over: "Keeping only findings whose id the published proposal states"
+    reason: "A whole-set finding may name no draft at all; only a dropped child's findings are about an id that left."
+  - category: Testing
+    chose: "Tests that drop or omit a child start from a three-child epic; ProposalReview_ChildOrderChanged_KeepsLastValid became ProposalReview_ChildOrderChanged_OrderIsTheReplys"
+    over: "Two-child epics throughout"
+    reason: "The epic parser refuses an epic of fewer than two children, so a two-child epic losing one never reaches the guard."

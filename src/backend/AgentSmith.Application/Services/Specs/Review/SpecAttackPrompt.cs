@@ -34,16 +34,6 @@ public static class SpecAttackPrompt
         + "whole tree, because the spec committed under " + ProjectMetaPaths.Root + "/ quotes X; cut it to 'no file "
         + "outside " + ProjectMetaPaths.Root + "/ contains X', resting the cut on your read of a file that holds X today.";
 
-    /// <summary>2026-11-10-14a3g: what a wrong draft costs the person, asked of a design turn's reviewer beyond its
-    /// citations — conversation 43's review cut two citation ranges and passed a whole backend in one child, done lines
-    /// no one could answer, and a capability the material approved but the draft dropped.</summary>
-    public const string ProposalJudgement =
-        "This is a draft in a design conversation. Beyond its citations, answer three questions, each with a cut or a "
-        + "finding when the answer is no: can ONE coding run build this spec, and one reviewer check every claim of it "
-        + "against the code? Can each done line be answered yes or no by reading the code or running a test? Does the "
-        + "scope keep every capability the uploaded material lists as approved or required — open what it lists under "
-        + "reference:<name> and name any that is dropped or postponed?";
-
     /// <summary>The fewest words a quote should carry: a shorter run also occurs elsewhere in its register.</summary>
     public const int QuoteWords = 4;
 
@@ -54,7 +44,7 @@ public static class SpecAttackPrompt
             {{Brief}} {{ReadOnlyLine}}
 
             {{DecidabilityLens}}
-            {{(input.Proposal ? "\n" + ProposalJudgement + "\n" : string.Empty)}}
+            {{SpecAttackJudgement.For(input)}}
             You are reviewer {{input.Reviewer + 1}} of round {{input.Round}} ({{input.Scope}} scope). You did not
             write this spec and have no stake in it.
             {{WiderGoal(input.WiderGoal)}}
@@ -81,7 +71,7 @@ public static class SpecAttackPrompt
             - Anything resting on a file you did not open is discarded, and so is a verdict that rests on it.
             {{Today(input.DescribesToday)}}
             ## What the evidence check found before you
-            {{Evidence(input)}}{{Residues(input.PriorResidues)}}{{input.QuestionPin}}
+            {{Evidence(input)}}{{Residues(input.PriorResidues)}}{{input.QuestionPin}}{{SpecAttackSiblingsSection.Render(input.Siblings)}}{{SpecAttackQuestionsSection.Render(input.OpenQuestions)}}
             ## The spec
             {{input.Draft.Yaml.TrimEnd()}}
             {{DerivationLookPromptSection.Render(look)}}

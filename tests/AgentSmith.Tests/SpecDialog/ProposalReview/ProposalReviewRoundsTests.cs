@@ -123,10 +123,18 @@ public sealed class ProposalReviewRoundsTests
 
         rig.Outcome.Should().BeOfType<SpecOutcome>().Which.Draft.Yaml.Should().Be(((SpecOutcome)proposal).Draft.Yaml);
         rig.Nudges.Should().ContainSingle("an invalid re-proposal ends the review");
+        // 2026-11-11-2bdfb: the reply not used says why on the draft it was for.
+        rig.Outcome.Findings.Should().ContainSingle(f => f.Problem == ProposalReviewSummary.NotUsedProblem)
+            .Which.Should().BeEquivalentTo(new
+            {
+                SpecId = Lone,
+                Why = ProposalReviewSummary.NotUsedWhy(kind ? ProposalReProposalGuard.OtherKind : ProposalReProposalGuard.OtherId),
+            });
     }
 
+    /// <summary>2026-11-11-2bdfb: order is the reply's; the unlicensed change to the moved child is still reverted.</summary>
     [Fact]
-    public async Task ProposalReview_ChildOrderChanged_KeepsLastValid()
+    public async Task ProposalReview_ChildOrderChanged_OrderIsTheReplys()
     {
         var rig = new ProposalReviewRig();
         rig.Propose(Epic());
@@ -136,8 +144,9 @@ public sealed class ProposalReviewRoundsTests
 
         await rig.RunAsync();
 
-        ((EpicOutcome)rig.Outcome).Children.Select(c => c.SpecId).Should().Equal(First, Second);
-        rig.DraftOf(First).Yaml.Should().Contain(Step);
+        ((EpicOutcome)rig.Outcome).Children.Select(c => c.SpecId).Should().Equal(Second, First);
+        rig.DraftOf(First).Yaml.Should().Contain(NewStep, "its cut was applied");
+        rig.DraftOf(Second).Requires.Should().Equal([First], "dropping its requires was beyond its licence");
     }
 
     [Fact]

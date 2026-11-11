@@ -2854,9 +2854,9 @@ describe("SpecDialogSurface", () => {
     expect(within(surface).queryByTestId("dialog-answer-approve")).toBeNull();
   });
 
-  // 2026-09-17-042ed: the review of the proposal is read where the approval is given, with the
-  // evidence line the framework minted for the look it rests on.
-  it("SpecDialog_TheApprovalSurface_ListsEachFindingWithItsEvidence", async () => {
+  // 2026-11-11-8714: the approval card counts the review in one line; the findings themselves sit under each spec
+  // row of the turn result, so the card no longer lists them a second time.
+  it("SpecDialog_TheApprovalSurface_SaysTheReviewInOneLine", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
       findings: [
@@ -2874,12 +2874,10 @@ describe("SpecDialogSurface", () => {
     act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
     const surface = await screen.findByTestId("dialog-question");
-    const findings = within(surface).getAllByTestId("dialog-proposal-finding");
-    expect(findings).toHaveLength(2);
-    expect(findings[0]).toHaveTextContent("p9001 — false premise: the endpoint already exists");
-    expect(within(surface).getByTestId("dialog-finding-evidence"))
-      .toHaveTextContent("[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
-    expect(within(surface).getByTestId("dialog-finding-quote")).toHaveTextContent("done of p9001");
+    expect(within(surface).getByTestId("dialog-approval-review"))
+      .toHaveTextContent(/^2 findings, each under its spec above\.$/);
+    expect(within(surface).queryByTestId("dialog-proposal-finding")).toBeNull();
+    expect(within(surface).queryByTestId("dialog-proposal-rounds")).toBeNull();
   });
 
   it("SpecDialog_ACleanReview_ShowsNoFindings", async () => {
@@ -2927,7 +2925,7 @@ describe("SpecDialogSurface", () => {
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
+    expect(within(surface).getByTestId("dialog-approval-review")).toHaveTextContent("1 finding, each under its spec above.");
     expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
     expect(within(surface).queryByTestId("markdown")).toBeNull();
@@ -2970,7 +2968,7 @@ describe("SpecDialogSurface", () => {
     const line = within(surface).getByTestId("dialog-approval-unsummarised");
     expect(line).toHaveTextContent("cannot count what it would file");
     expect(line).not.toHaveTextContent("Nothing was saved");
-    expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
+    expect(within(surface).getByTestId("dialog-approval-review")).toHaveTextContent("1 finding, each under its spec above.");
   });
 
   // An expired approval has no summary, no findings and — since the server text went empty —

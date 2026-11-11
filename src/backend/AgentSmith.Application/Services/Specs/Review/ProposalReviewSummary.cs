@@ -37,6 +37,15 @@ internal static class ProposalReviewSummary
 
     public const string UnreadWhy = "the reviewers could not read what this spec names";
 
+    /// <summary>2026-11-11-2bdfe: a revision laid new questions on the operator, so the review waits on the answers.</summary>
+    public static string WaitingOnAnswersWhy(int questions) =>
+        $"it rests on the operator's {questions} open question(s) and is reviewed again once they are answered";
+
+    /// <summary>2026-11-11-2bdfb: the standing finding on a draft whose re-prompt's reply was not used.</summary>
+    public const string NotUsedProblem = "revision not used";
+    public const string UnresolvedWhy = "the re-prompt failed or its reply did not resolve to a proposal";
+    public static string NotUsedWhy(string reason) => $"the design partner's revision of this spec was not used: {reason}";
+
     /// <summary>
     /// The review as it stands. A draft still open is not reviewed — its current text was never attacked — and
     /// says why: what stopped it, or <paramref name="final"/> ? its last revision came too late : still under review.
@@ -50,6 +59,8 @@ internal static class ProposalReviewSummary
         var waiting = unfinished.Select(d => d.SpecId).ToList();
         var standing = Problems(ParentId(session.Proposal), parentProblems)
             .Concat(drafts.SelectMany(d => Problems(d.SpecId, d.Evidence.Problems).Concat(Uncleared(d))))
+            .Concat(drafts.Where(d => d.NotUsedBecause is not null)
+                .Select(d => new ProposalFinding(d.SpecId, NotUsedProblem, NotUsedWhy(d.NotUsedBecause!))))
             .Concat(unfinished.Select(d => new ProposalFinding(d.SpecId, NotReviewedYet,
                 NotReviewedWhy(d.StoppedBecause ?? (final ? LastRevisionWhy : UnderReviewWhy)))))
             .ToList();

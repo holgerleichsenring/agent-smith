@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-2bdfe
+goal: "A design turn's review stops once a used revision lays new open questions on the operator, and publishes its drafts as waiting on those answers instead of reviewing them further."
+
+applies_to: "default (spec review: ProposalRoundRevision, ProposalReviewSummary)"
+
+invariants:
+  - "ANSWERS BEFORE ROUNDS. When a re-prompt's reply is used and the slot's questions afterwards hold a question the snapshot before that re-prompt (2026-11-11-2bdfc) did not, the review ends after that revision is published; no further round is taken in this turn."
+  - "SAID WHY. Every draft that is still open then is published not reviewed, with the reason that it rests on the operator's open questions and is reviewed again once they are answered; drafts that already stopped keep their record."
+  - "SAME QUESTIONS GO ON. A used reply whose questions are all on the earlier list (same question text, trimmed, ordinal) does not stop the review."
+  - "STILL REVIEWED BEFORE BUILD. Nothing here changes 2026-11-10-8e59: a spec not reviewed in its exact text is reviewed before it is built."
+
+facts:
+  - claim: "Simulating rounds over conversation 46 with gpt-5.6 (siblings and questions shown, re-cut allowed): after round 1 the revision held 16 children and 14 owner questions; rounds 2 to 4 refused almost every child again, grew the set to 20 children and 20 questions, and spent about 1.1M input tokens."
+    evidence: "observed: scratchpad e2e simulation over conversation 46, 2026-11-11"
+  - claim: "The review ends on the loop's false return from a round."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:37-43"
+  - claim: "A draft still open at the end is published not reviewed with its StoppedBecause reason, or the last-revision reason."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs:47-55"
+
+scope:
+  in: "ProposalRoundRevision compares the slot's questions before and after a used re-prompt; on a new question it sets StoppedBecause on every draft still open (a reason constant in ProposalReviewSummary naming the count of open questions) and returns false."
+  out: "No change to the tool, the card, the nudge or the coding-run review. No cap on the number of children."
+
+decisions:
+  - "Stop on NEW questions, not on any: a revision that keeps the same questions may still converge, while one that adds questions has shown the drafts rest on decisions only the operator makes — further rounds then measured churn, not progress."
+
+steps:
+  - id: stop
+    action: "Detect new questions after a used reply; mark open drafts and end the review."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "ProposalReview_RevisionAddsQuestion_ReviewEndsAndOpenDraftsWaitOnAnswers"
+  - "ProposalReview_RevisionKeepsQuestions_NextRoundRuns"
+  - "ProposalReview_RevisionAddsQuestion_StoppedDraftsKeepTheirRecord"
+
+done:
+  - "In the rig, a used revision that adds an open question ends the review after that revision, and every draft still open is published not reviewed with the waiting-on-answers reason (tests above)."
+  - "Build green, full suite green."

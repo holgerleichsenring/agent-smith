@@ -9,7 +9,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// its last reply proposed — a draft reverted, an early end. The first proposal reply's prose is kept and its
 /// draft block replaced by one rendered from the published proposal: a spec's ```yaml block, or the epic's
 /// ```outcome block with parent and children set to the published drafts. On Slack and Teams the reply is
-/// where a draft is read, and the next turn replays it, so it must be what will be filed.
+/// where a draft is read, and the next turn replays it, so it must be what will be filed. 2026-11-11-2bdfb: when the
+/// published children are another id set than the first reply's, the contract block is the published contract.
 /// </summary>
 public static class ProposalReplyText
 {
@@ -33,8 +34,27 @@ public static class ProposalReplyText
         var map = (blocks.Count > 0 ? Read(blocks[0].Groups[1].Value) : null) as Dictionary<object, object?>
             ?? new Dictionary<object, object?> { ["kind"] = "epic" };
         map["parent"] = Read(epic.Parent.Yaml);
+        if (!SameIds(map, epic)) Contract(map, epic.Contract);
         map["children"] = epic.Children.Select(child => Read(child.Yaml)).ToList();
         return OutcomeYamlReader.ToYaml(map);
+    }
+
+    // 2026-11-11-2bdfb: a re-cut set publishes the reply's contract, so the text carries the published one.
+    private static bool SameIds(Dictionary<object, object?> map, EpicOutcome epic) =>
+        map.TryGetValue("children", out var node) && node is List<object?> children
+        && children.Select(c => (c as Dictionary<object, object?>)?.GetValueOrDefault("spec")?.ToString())
+            .ToHashSet(StringComparer.Ordinal).SetEquals(epic.Children.Select(c => c.SpecId));
+
+    private static void Contract(Dictionary<object, object?> map, Contracts.Specs.SeriesContract? contract)
+    {
+        if (Specs.SeriesContractYaml.Write(contract) is not { } document)
+        {
+            map.Remove(Specs.SeriesContractReader.Key);
+            return;
+        }
+        map[Specs.SeriesContractReader.Key] = Read(new SerializerBuilder()
+            .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
+            .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull).Build().Serialize(document));
     }
 
     private static object? Read(string yaml)

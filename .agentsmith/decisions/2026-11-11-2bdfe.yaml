@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-2bdfe
+
+decisions:
+  - category: Implementation
+    chose: "After a used reply is merged, published and settled, ProposalRoundRevision compares the slot's questions with 2bdfc's snapshot (ProposalOpenQuestions.AddsTo: question text trimmed, ordinal); on a new one every draft still open gets StoppedBecause = WaitingOnAnswersWhy(count) and the revision returns false"
+    over: "Stopping in the loop, or on any question"
+    reason: "The revision already holds the snapshot, and the loop ends on its false return; the summary publishes an open draft's StoppedBecause as its not-reviewed reason, so no summary change beyond the reason. Same questions may still converge (the spec's decision)."
+  - category: Implementation
+    chose: "The comparison runs after 2bdfc's restore, so a reply whose changes were all reverted, or that stated none, never stops the review on questions it did not get to keep"
+    over: "Comparing the reply's raw questions"
+    reason: "The questions compared are the ones that will be published with the drafts."
+  - category: Testing
+    chose: "2bdfd's ProposalReview_QuestionsStatedByRevision_ReachNextRound now restates an existing question with a new proposal"
+    over: "Keeping it adding a new question"
+    reason: "Deviation forced by this spec: a new question now ends the review, so only a restated question's revised proposal can reach a next round."

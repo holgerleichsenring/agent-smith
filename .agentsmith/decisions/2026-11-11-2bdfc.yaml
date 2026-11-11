@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-2bdfc
+
+decisions:
+  - category: Implementation
+    chose: "ProposalRoundRevision.ApplyAsync snapshots the slot's questions through ProposalOpenQuestions.Of before the re-prompt and puts them back (ProposalOpenQuestions.Restore) when the reply failed, did not resolve, was void, or every change it made was reverted"
+    over: "A second slot reader in the revision"
+    reason: "2bdfd already reads the slot through ProposalOpenQuestions; one reader keeps one meaning of 'the turn's questions'."
+  - category: Implementation
+    chose: "'Every draft it changed was reverted' is read as: the merged proposal's drafts are byte-identical to the proposal before the re-prompt"
+    over: "Comparing the guard's reverted list with the reply's changed drafts"
+    reason: "A re-cut can change the set without any id being reverted; comparing what is published before and after decides by what the operator sees."
+  - category: Implementation
+    chose: "A used reply that leaves the slot's list empty gets the earlier list back"
+    over: "Telling a reply that never called state_open_questions from one that called it with an empty list"
+    reason: "A VALID REPLY'S QUESTIONS STAND says a reply that stated none keeps the earlier list; the slot cannot tell the two apart, and neither should the published card."
+  - category: Implementation
+    chose: "The spec's fact citation was re-grounded from Services/SpecDialog/TicketActToolsFactory.cs:27 to Services/Tools/TicketActToolsFactory.cs:27"
+    over: "Leaving the planned fact as written"
+    reason: "Deviation: the file lives under Services/Tools; SpecEvidenceRuleTests blocked the 2bdfa gate on the stale path while the spec was still planned."

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-2bdfa
+goal: "A design turn's reviewer of an epic child reads every sibling's goal and scope, so a capability a named sibling takes is not judged dropped or postponed."
+
+applies_to: "default (spec review: SpecAttackInput, SpecAttackPrompt, ProposalReviewLoop)"
+
+invariants:
+  - "SIBLINGS SHOWN. Every attack prompt for a child of an epic proposal lists every OTHER child of the proposal under review in that round: its id, goal, repos and scope in/out as its yaml states them. A lone spec, the coding-run review and the parent's evidence check get no such section."
+  - "PLACED IS NOT DROPPED. The proposal judgement asks for a capability the material requires that no spec of the epic takes; a capability a sibling's goal or scope takes is not a finding against this child."
+  - "CURRENT SET. The siblings are read from the proposal of the round being reviewed, so after a revision the next round shows the revised set."
+
+facts:
+  - claim: "The proposal judgement asks the reviewer to name any capability the material lists that is dropped or postponed, with no notion of siblings."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:40-45"
+  - claim: "A child's attack input carries the parent's goal as its wider goal and nothing of the other children."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:104-110"
+  - claim: "Live run 2026-11-11 (8-child epic, gpt-5.6): 6 of 8 children were judged REFUSE in round 1, and 20 of the 54 findings say the child's scope postpones a capability the material requires, most of them capabilities another child's scope holds."
+    evidence: "observed: prod SpecDialogSessions conversation 46, ReviewingProposalJson.reviewRounds, 2026-11-11"
+  - claim: "Replaying those 8 children against gpt-5.6 with the material inlined (16 calls per arm): findings saying the scope postpones a capability fell from 16 to 2 with the siblings shown; the verdicts stayed REFUSE on other grounds."
+    evidence: "observed: scratchpad A/B over conversation 46, 2026-11-11"
+
+scope:
+  in: "A Siblings list on SpecAttackInput (id, goal, repos, scope in, scope out), filled by a new ProposalAttackSiblings.Of(session, draft) from the session's current EpicOutcome children minus the draft itself; a '## The other specs of this epic' section rendered by a new SpecAttackSiblingsSection when the list is non-empty; the last question of ProposalJudgement, only when Siblings is non-empty, reworded to: does the scope, together with the other specs of this epic listed below, keep every capability the uploaded material lists as approved or required, and name any that no spec of this epic takes. A lone spec keeps today's text."
+  out: "No change to the coding-run review (SpecReviewLoop), the series contract round or the evidence check. No skill change."
+
+decisions:
+  - "The scope is read from the yaml (scope.in, scope.out) rather than added to SpecDraft: the record is a contract shared with filing, and the reviewer only needs the words."
+
+steps:
+  - id: input
+    action: "Add SpecAttackSibling(SpecId, Goal, Repos, ScopeIn, ScopeOut) and SpecAttackInput.Siblings (init, default empty); fill it in ProposalReviewLoop.Input for an EpicOutcome from session.Proposal's children except the draft."
+  - id: prompt
+    action: "Render the siblings section immediately before '## The spec' (the per-draft tail, so the shared prefix stays cacheable) from SpecAttackSiblingsSection; SpecAttackPrompt.cs (120 lines) and ProposalReviewLoop.cs (118) sit at the line cap, so the new code lives in the two new classes. Reword the epic variant of ProposalJudgement as in scope.in."
+  - id: tests
+    action: "Tests below; update SpecAttackPromptTests.SpecAttackPrompt_ProposalScope_AsksTheThreeJudgementQuestions for the epic wording."
+
+tests:
+  - "ProposalReview_EpicChild_PromptListsEverySiblingButItself"
+  - "ProposalReview_LoneSpec_PromptHasNoSiblingSection"
+  - "ProposalReview_AfterRevision_NextRoundShowsRevisedSiblings"
+  - "SpecAttackPrompt_ProposalJudgement_AsksForCapabilityNoSpecOfTheEpicTakes"
+  - "SpecAttackPrompt_LoneSpec_KeepsTodaysJudgement"
+
+done:
+  - "A child's attack prompt names every other child's id, goal and scope, and a lone spec's prompt has no sibling section (tests above)."
+  - "Build green, full suite green."
