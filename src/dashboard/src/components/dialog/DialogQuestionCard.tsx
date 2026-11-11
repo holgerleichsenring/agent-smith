@@ -1,8 +1,7 @@
 "use client";
 
-import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
+import { approvalReviewLine } from "@/components/dialog/approvalReviewLine";
 import { DialogProposalUploads } from "@/components/dialog/DialogProposalUploads";
-import { DialogProposalRounds } from "@/components/dialog/DialogProposalRounds";
 import { Markdown } from "@/components/ui/Markdown";
 import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import type {
@@ -92,6 +91,7 @@ export function DialogQuestionCard({
   // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
   // confirmation that still carries its text keeps that text, and shows no second line.
   const unsummarised = decision && !summary && question.text.trim().length === 0;
+  const reviewLine = proposal ? approvalReviewLine(proposal) : null;
   return (
     <div
       data-testid="dialog-question"
@@ -113,8 +113,10 @@ export function DialogQuestionCard({
             : "Nothing was saved about this proposal, so this page cannot show it. Reject it and ask for a fresh one."}
         </p>
       )}
-      {decision && proposal && <DialogProposalRounds rounds={proposal.reviewRounds} notReviewed={proposal.notReviewed} />}
-      {decision && proposal && <DialogProposalFindings findings={proposal.findings} />}
+      {/* 2026-11-11-8714: the rounds and findings sit under each spec above; the card counts them. */}
+      {decision && proposal && reviewLine && (
+        <p data-testid="dialog-approval-review" className="dsh-body text-ink">{reviewLine}</p>
+      )}
       {decision && proposal && <DialogProposalUploads uploads={proposal.uploads} />}
       {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
       <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-8714
+goal: "The approval card says the review in one line and leaves its rounds and findings to the spec rows above, which already show them per spec."
+
+applies_to: "dashboard (dialog: DialogQuestionCard)"
+
+invariants:
+  - "ONE LINE. An approval card with a proposal shows one review line — how many specs the last rounds refused, cut or cleared, how many standing findings, how many not reviewed yet — and no review rounds or finding list of its own."
+  - "SHOWN ONCE. The rounds and findings stay where TurnResult renders them, per spec row and for the parent; nothing the card dropped is lost from the page."
+  - "NOTHING TO SAY, NO LINE. A proposal with no rounds, no findings and nothing unreviewed gets no review line, so silence never reads as a clearance."
+
+facts:
+  - claim: "The approval card renders every review round of every spec and every standing finding in full."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:116-117"
+  - claim: "TurnResult renders each spec row with that spec's rounds and findings, and the findings not tied to a drafted spec beneath."
+    evidence: "src/dashboard/src/components/dialog/TurnResult.tsx:96-109"
+  - claim: "The ticket page shows the same TurnResult for its proposal."
+    evidence: "src/dashboard/src/components/tickets/detail/ProposalBlock.tsx:63-69"
+  - claim: "Conversation 46's approval card listed 8 specs' rounds with 54 findings below the spec list that already held them; the page ran about two screen-lengths."
+    evidence: "observed: operator screenshot of conversation 46, 2026-11-11"
+
+scope:
+  in: "A reviewLine(proposal) helper and its use in DialogQuestionCard in place of DialogProposalRounds and DialogProposalFindings; tests."
+  out: "No change to TurnResult, TurnSpecRow, DialogProposalRounds or DialogProposalFindings, which keep rendering where they are."
+
+steps:
+  - id: line
+    action: "Add components/dialog/approvalReviewLine.ts (counts from the last round per spec, standing findings and notReviewed) and render it in the card."
+  - id: tests
+    action: "Unit tests for the helper; the surface tests that read findings inside the card read the line instead."
+
+tests:
+  - "approvalReviewLine_CountsLastVerdictPerSpecFindingsAndUnreviewed"
+  - "approvalReviewLine_NothingToSay_ReturnsNull"
+  - "SpecDialog_TheApprovalSurface_SaysTheReviewInOneLine"
+
+done:
+  - "The approval card holds no review rounds or finding list, and its review line counts them (tests above)."
+  - "pnpm test and pnpm build green; build and full suite green at the spec gate."

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-11-8714
+
+decisions:
+  - category: Design
+    chose: "The approval card replaces its review rounds and finding list with one counted line; the details stay under each spec row of TurnResult"
+    over: "Collapsing the card's rounds behind a toggle"
+    reason: "The card repeated what the spec rows already show; a toggle would keep two copies of the same review on one page. Conversation 46's card ran 54 findings below the list that held them."
+  - category: Implementation
+    chose: "The line counts the LAST round's verdict per spec, leaves the series token out of the spec count and counts it among the not-reviewed"
+    over: "Counting every round"
+    reason: "The last round is the review's standing answer; earlier rounds are history the spec row keeps."
