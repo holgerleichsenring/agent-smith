@@ -37,6 +37,17 @@ public sealed class DesignTurnTextContractTests
             "the one rule says where the forks go");
     }
 
+    /// <summary>2026-11-11-f874: the format carries drafting facts only, and the bound-ticket section no reply script.</summary>
+    [Fact]
+    public void SkillText_DesignPartner_HasNoRunLoreAndNoScriptedFirstReply()
+    {
+        PackagedMaster.Reference("design-outcome-spec").Should().NotContain("never rewrites the spec",
+            "how a run later corrects a spec is not drafting knowledge").And
+            .Contain("stops the spec before it spends a token", "the re-check's effect on facts stays");
+        PackagedMaster.Read("design-partner-master").Should().NotContain("Your first reply\nis an",
+            "the bound-ticket section states the situation, not the order of replies");
+    }
+
     [Fact]
     public void SkillText_DesignPartner_RoleMatchesTheWorkClone()
     {

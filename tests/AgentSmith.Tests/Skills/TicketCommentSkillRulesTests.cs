@@ -27,7 +27,9 @@ public sealed partial class TicketCommentSkillRulesTests
         var master = PackagedMaster.Read("design-partner-master");
 
         master.Should().Contain("### A conversation bound to a ticket", Because("the bound-ticket review"));
-        master.Should().Contain("is an **answer** that says whether it holds", Because("judging the ticket first"));
+        // 2026-11-11-f874: the situation (whether it holds), not a scripted first answer.
+        master.Should().Contain("the person wants to know whether it holds", Because("judging the ticket first"));
+        master.Should().NotContain("Your first reply\nis an **answer**", "the bound-ticket section states no reply order");
         master.Should().Contain("posts the comment on the ticket and starts nothing", Because("the comment outcome"));
     }
 
