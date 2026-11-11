@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-11-2bdfc
+goal: "The open questions published with a design turn's proposal are the ones stated with the drafts it shows; a re-proposal that is not used takes its questions with it."
+
+applies_to: "default (spec review: ProposalRoundRevision; SpecDialogReplySlot)"
+
+invariants:
+  - "QUESTIONS FOLLOW THE DRAFTS. When a re-prompt's reply is not used — the call failed, it did not resolve to a proposal, it was void, or every draft it changed was reverted — the reply slot's questions are what they were before that re-prompt."
+  - "A VALID REPLY'S QUESTIONS STAND. A reply that resolved, was not void and had a change admitted keeps the questions it stated; so does a reply that changed no draft, since the drafts shown are then the ones it re-proposed; a reply that stated none keeps the earlier list."
+
+facts:
+  - claim: "state_open_questions writes the reply slot the pipeline holds, and a later call — a re-prompt's included — replaces the list."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/OpenQuestionsToolHost.cs:40; src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:27"
+  - claim: "The collect step lays the slot's questions on whatever outcome is published, whichever reply stated them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:42"
+  - claim: "The pane drops spec ids no published draft carries, but keeps the question text."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:52-58"
+  - claim: "Live run 2026-11-11: the re-prompt called state_open_questions, its reply was not used, and two of the three published questions name 2026-11-11-0009, which no published draft is."
+    evidence: "observed: prod run 2026-11-11T12-43-35-f508 event 673 and SpecDialogSessions conversation 46 AwaitingProposalJson.questions, 2026-11-11"
+
+scope:
+  in: "ProposalRoundRevision.ApplyAsync reads the SpecDialogReplySlot from the turn's pipeline (when present), keeps its Questions before the re-prompt and puts them back when the reply is not used."
+  out: "No change to the tool, the composer or the collect step. A re-prompt can overwrite the slot's Subject and WorkPicture the same way; that is not changed here."
+
+steps:
+  - id: restore
+    action: "Snapshot and restore in ProposalRoundRevision.ApplyAsync."
+  - id: tests
+    action: "The rig seeds a SpecDialogReplySlot into its Pipeline with the first reply's questions; each scripted reply sets slot.Questions as the tool would. Tests below."
+
+tests:
+  - "ProposalReview_ReplyNotUsed_QuestionsAreTheFirstReplys"
+  - "ProposalReview_ReplyAllReverted_QuestionsAreTheFirstReplys"
+  - "ProposalReview_ReplyUsed_QuestionsAreTheRevisions"
+  - "ProposalReview_ReplyUsedWithoutQuestions_EarlierQuestionsStand"
+  - "ProposalReview_ReplyChangedNoDraft_ItsQuestionsStand"
+
+done:
+  - "In the rig, a re-prompt that states new questions and is not used leaves the slot's Questions equal to the first reply's after the review, and CollectSpecDialogReplyHandler lays those on the outcome (tests above)."
+  - "Build green, full suite green."

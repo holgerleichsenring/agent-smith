@@ -24,6 +24,7 @@ public sealed class ProposalRoundRevision(
         var applying = session.Admit(toFix);
         foreach (var draft in toFix.Except(applying)) Unchanged(session, draft);
         if (applying.Count == 0) return true;
+        var asked = ProposalOpenQuestions.Of(session.Turn.Pipeline); // 2026-11-11-2bdfc: the questions before the re-prompt
         var reply = await reprompt.RunAsync(session.Turn, Nudge(session, applying), ct);
         var merged = reply is null ? null
             : guard.Merge(session.Proposal, reply.Proposal, Licences(applying), session.ParentNamed, session.LastRound);
@@ -31,8 +32,11 @@ public sealed class ProposalRoundRevision(
         {
             // 2026-11-11-2bdfb: a reply not used says why on every draft it was for.
             foreach (var draft in applying) Unchanged(session, draft, merged is null ? ProposalReviewSummary.UnresolvedWhy : merged.Void);
+            if (merged is not { Void: null }) ProposalOpenQuestions.Restore(session.Turn.Pipeline, asked);
             return false;
         }
+        if (!Admitted(session.Proposal, merged.Merged) || ProposalOpenQuestions.Of(session.Turn.Pipeline).Count == 0)
+            ProposalOpenQuestions.Restore(session.Turn.Pipeline, asked);
         session.Proposal = merged.Merged;
         session.LastReply = reply!;
         var stated = ProposalSpecSet.Drafts(merged.Merged);
@@ -83,6 +87,10 @@ public sealed class ProposalRoundRevision(
         draft.Stopped = true;
         draft.NotUsedBecause = notUsed;
     }
+
+    // 2026-11-11-2bdfc: a used reply all of whose changes were reverted leaves the drafts the earlier questions came with.
+    private static bool Admitted(OutcomeProposal before, OutcomeProposal merged) =>
+        !ProposalSpecSet.Drafts(before).Select(d => d.Yaml).SequenceEqual(ProposalSpecSet.Drafts(merged).Select(d => d.Yaml), StringComparer.Ordinal);
 
     private static string Nudge(ProposalReviewSession session, IReadOnlyList<ProposalDraftReview> applying) =>
         ProposalCutsNudge.For([.. applying.Select(d => new ProposalNudgeItem(
