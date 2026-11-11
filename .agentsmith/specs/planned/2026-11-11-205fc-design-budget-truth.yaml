@@ -18,7 +18,7 @@ facts:
   - claim: "effort is optional and its text says the cap 'rises to this tier's cap', which a trivial/small tier below the $5 default never does."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:31-34,50; src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:49-56 and RaisedTo"
   - claim: "ApplyTierAsync raises the resolved cap (which already includes a per-pipeline override) to the tier cap, so an override below the tier is exceeded."
-    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:49-67,91-94; PipelineCostCapConfig.cs:17"
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:49-67,91-94; src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:17"
   - claim: "GroundSpecDialogHandler applies the stored effort through ApplyTierAsync at every turn start."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:40"
   - claim: "ScopeEstimateRecorder is at the 120-line cap."
@@ -26,7 +26,7 @@ facts:
   - claim: "548f decided the raise is never above a configured override; its test covers only an override above the tier."
     evidence: ".agentsmith/specs/done/2026-11-10-548f-budget-design-turn-tier.yaml decisions[1]; tests StateWorkPicture_EffortBelowAPerPipelineOverride_KeepsTheOverride"
   - claim: "The tool host keeps the higher effort on the slot but passes the STATED effort to the raise, which sets the ComplexityTier context key and publishes it; TurnSpend reads that key."
-    evidence: "WorkPictureToolHost.cs:57-62; ScopeEstimateRecorder.cs:53-65; src/backend/AgentSmith.Application/Services/SpecDialog/TurnSpend.cs:19-22"
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:57-62; src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:53-65; src/backend/AgentSmith.Application/Services/SpecDialog/TurnSpend.cs:19-22"
   - claim: "Size is admitted from UndertakingSize; effort is admitted separately."
     evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/WorkPictureAdmission.cs:23-24"
 

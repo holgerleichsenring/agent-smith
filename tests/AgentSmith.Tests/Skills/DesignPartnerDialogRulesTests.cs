@@ -76,9 +76,9 @@ public sealed class DesignPartnerDialogRulesTests
             + "parent's list reads the requirement as already met");
 
         master.Should().Contain(
-            "conversation has not settled when a slice is done, that is still open:",
-            "without this the master invents a done list to satisfy the rule — the missing "
-            + "answer is a question for the operator, not a placeholder");
+            "conversation has not settled when a slice is done, the child carries",
+            "2026-11-11-205fb: an unsettled done list is a proposal marked on the card, not a "
+            + "reason to hold the draft back");
     }
 
     /// <summary>

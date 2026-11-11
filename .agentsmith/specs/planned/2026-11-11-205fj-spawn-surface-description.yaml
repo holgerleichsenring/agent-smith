@@ -18,7 +18,7 @@ facts:
   - claim: "A design turn may start 4 children, each up to 20 tool rounds, by default."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:56,68"
   - claim: "The design master does not cite spawn-budget."
-    evidence: "agent-smith-skills v5.27.1: spawn-budget is cited by six masters, not design-partner-master"
+    evidence: "observed: agent-smith-skills v5.27.1 spawn-budget is cited by six masters, not design-partner-master, 2026-11-11"
 
 scope:
   in: "SpawnAgentToolHost builds its description per surface (AIFunctionFactory with a description string): the design variant says children read only, names the per-turn count and rounds from LoopLimitsConfig, and keeps the whole-answer sentence."

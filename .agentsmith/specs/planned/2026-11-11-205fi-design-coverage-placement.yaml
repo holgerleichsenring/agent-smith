@@ -19,9 +19,9 @@ facts:
   - claim: "Coverage changes as turns open files."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferenceCoverageText.cs:14-27"
   - claim: "The skill says each upload is listed with its note under it."
-    evidence: "agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md:124-125"
+    evidence: "observed: agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md line 124-125, 2026-11-11"
   - claim: "The project memory index and the scope repositories' MEMORY.md render into the system prompt through {MemoryIndexSection}."
-    evidence: "SKILL.md:7,99; src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:44,58,68"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 7,99, 2026-11-11; src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:44,58,68"
 
 scope:
   in: "ReferencePromptSection.Build renders the address list only; a separate render of coverage and note per address goes into the design turn's user prompt beside the work picture. SKILL.md:124-125 says the list stands above and each upload's note and coverage stand with the turn."

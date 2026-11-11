@@ -14,7 +14,7 @@ facts:
   - claim: "Recall prints entry.Description raw between the heading and the quoted body."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:84-91"
   - claim: "Recall's provenance line and the index's source interpolate the author raw."
-    evidence: "MemoryRecallToolHost.cs:101-108; src/backend/AgentSmith.Application/Services/Memory/ProjectMemoryIndex.cs:34-40"
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:101-108; src/backend/AgentSmith.Application/Services/Memory/ProjectMemoryIndex.cs:34-40"
   - claim: "The design-turn write trims the description but keeps inner newlines; the coding-run write passes it the same way."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:41-44; src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:92"
   - claim: "The tools call Refusal with a null author; the author joins the record only in the store, and the repository runs Refusal again and throws."

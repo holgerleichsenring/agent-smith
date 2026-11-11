@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-11-205fa: "SPEC REPOS CONTRACT (design formats, skills pin v5.28.0). Spec and epic formats show the top-level repos key the server checks; no text calls the repository prose. The pin carries the 205f series' skills half; pinned-text tests follow its wording. -> .agentsmith/specs/done/2026-11-11-205fa-spec-repos-contract.yaml"
     2026-11-10-d854b: "REDUCED TURN RESULT VIEW (dashboard transcript, ticket proposal block, proposal views). Each proposing turn shows TurnResult: summary, paged activity line, cap banner, questions with take or answer, one row per spec; the approve bar only on the awaiting proposal. -> .agentsmith/specs/done/2026-11-10-d854b-turn-result-view.yaml"
     2026-11-10-d854c: "TURN RESULT AFTER RELOAD (dialog activity, run events, turn runner, proposal store). Steps are DialogActivity run events read run-wide; the row and the kept turn name the run; each turn's proposal is kept by run id; thrown and cancelled turns keep a Notice with it. -> .agentsmith/specs/done/2026-11-10-d854c-turn-result-after-reload.yaml"
     2026-11-10-d854a: "TURN QUESTIONS LIST (design master tools, review loop, proposal push, skills v5.27.0). state_open_questions lays the operator's questions on the draft with proposal and known spec ids; every push carries the turn's spend, the final one its total and cap hit; the reply keeps the questions. -> .agentsmith/specs/done/2026-11-10-d854a-turn-result-decisions.yaml"
@@ -1437,7 +1438,6 @@ state:
     2026-10-28-7a69d: "DESIGN PARTNER TICKET REVIEW (skills pin). The embedded catalog moves to v5.22.0: in a ticket's conversation the design partner first judges whether the ticket holds, then proposes a spec or epic, or kind: comment. -> .agentsmith/specs/done/2026-10-28-7a69d-design-partner-ticket-review.yaml"
   active: {}
   planned:
-    2026-11-11-205fa: "SPEC REPOS CONTRACT (design formats). Spec and epic formats show the top-level repos key the server checks. -> .agentsmith/specs/planned/2026-11-11-205fa-spec-repos-contract.yaml"
     2026-11-11-205fb: "DESIGN ASK RULE (design skill). Draft now with a proposal per fork on state_open_questions; no ask-then-draft rule. -> .agentsmith/specs/planned/2026-11-11-205fb-design-ask-rule.yaml"
     2026-11-11-205fc: "DESIGN BUDGET TRUTH (work picture). Cap shown every turn, effort required for series/plan, effort bounded by resolved cap and per-pipeline override in turn and at turn start, effective tier reported. -> .agentsmith/specs/planned/2026-11-11-205fc-design-budget-truth.yaml"
     2026-11-11-205fd: "DESIGN PROMPT HYGIENE (design texts). Role vs work clone, dead and duplicate text, procedure as situation, grep_in_tree, read-only reviewer line. -> .agentsmith/specs/planned/2026-11-11-205fd-design-prompt-hygiene.yaml"

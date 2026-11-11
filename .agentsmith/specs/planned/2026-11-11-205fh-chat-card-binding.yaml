@@ -17,7 +17,7 @@ facts:
   - claim: "PostedAt is the server's UtcNow after the post; the typed path compares it with the platform's sentAt."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogChatCard.cs:43; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:51-58"
   - claim: "A failed post is logged and swallowed; PostedAt stays at the older card, and a later agent reply makes every typed word undecided."
-    evidence: "SpecDialogChatCard.cs:33-42; SpecDialogDecisionPath.cs:56"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogChatCard.cs:33-42; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:56"
   - claim: "The adapters' PostQuestionAsync returns no platform id or time."
     evidence: "src/backend/AgentSmith.Server/Contracts/IChatThreadAdapter.cs:22; src/backend/AgentSmith.Server/Services/Adapters/SlackThreadAdapter.cs:24-31; src/backend/AgentSmith.Server/Services/Adapters/TeamsThreadAdapter.cs:26-29; src/backend/AgentSmith.Server/Services/Adapters/ChatThreadAdapters.cs:30-35"
 

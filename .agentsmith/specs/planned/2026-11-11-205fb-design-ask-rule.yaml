@@ -13,21 +13,21 @@ invariants:
 
 facts:
   - claim: "Stance says a question is one fork with a proposal."
-    evidence: "agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md:51-53"
+    evidence: "observed: agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md line 51-53, 2026-11-11"
   - claim: "Converging says: when an open question would change the cut, ask it and draft once it is answered."
-    evidence: "SKILL.md:175-177"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 175-177, 2026-11-11"
   - claim: "The spec-or-epic fork says: propose the spec and name the alternative, a question before the draft takes a turn."
-    evidence: "SKILL.md:243-246"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 243-246, 2026-11-11"
   - claim: "Outcomes calls answer the default."
-    evidence: "SKILL.md:200-202"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 200-202, 2026-11-11"
   - claim: "The epic format says: when done is not settled for a slice, ask rather than propose a child without it."
-    evidence: "agent-smith-skills v5.27.1 references/design-outcome-epic.md:44-46"
+    evidence: "observed: agent-smith-skills v5.27.1 references/design-outcome-epic.md line 44-46, 2026-11-11"
   - claim: "state_open_questions shows its questions on a card only together with a draft."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/OpenQuestionsToolHost.cs:29"
   - claim: "A bare typed word does not decide a proposal with open questions: client-side on the dashboard, server-side for chat."
     evidence: "src/dashboard/src/hooks/useSpecDialog.ts:846-852 (typedCard); src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:57"
   - claim: "Converging says dropping or postponing a capability the material requires is the operator's call: ask it, with your proposal."
-    evidence: "SKILL.md:183-184"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 183-184, 2026-11-11"
 
 scope:
   in: "SKILL.md:175-177 becomes: draft now with your proposal for every fork and lay the forks on state_open_questions; a redirect costs the operator one sentence, a turn without a draft costs a turn. SKILL.md:200-202 names answer as the outcome for a question, not for a request for work. The epic line 44-46 becomes: a slice whose done is not settled carries your proposed done lines, marked in the reply and on state_open_questions. SKILL.md:183-184 becomes: dropping or postponing a capability the material requires is the operator's call — draft with your proposal and put it on state_open_questions."

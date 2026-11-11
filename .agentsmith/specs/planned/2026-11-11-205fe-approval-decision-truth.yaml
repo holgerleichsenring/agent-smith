@@ -27,7 +27,7 @@ facts:
   - claim: "ClearConfirmedAsync loads the open session and nulls ConfirmedOutcomeJson whatever proposal it holds."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:33-39"
   - claim: "SpecDialogRouter is at 120 lines and SpecDialogProposalClaim at 119."
-    evidence: "wc -l on origin/main 5b813b120"
+    evidence: "observed: wc -l on origin/main 5b813b120, 2026-11-11"
 
 scope:
   in: "The decided user turn gains DecisionProposalId, serialised in TranscriptJson (no migration), written by AdmitAsync. SpecDialogDecisionOutcome (out of the router) takes back the stored decision on every result but Decided, on the click and the typed path. The session gains ConfirmedProposalId. SpecDialogConfirmedSlot (out of SpecDialogProposalClaim) holds the slot's compare-and-sets: the claim writes JSON and id together; ClearConfirmed(id) becomes one ExecuteUpdate WHERE ConfirmedProposalId = id (today it loads and clears whatever is there); Release keeps its ProposalId match and also requires the JSON. The sink's SetConfirmedAsync call after the claim is deleted (the claim already wrote it). Additive nullable column in all three migration sets."

@@ -13,11 +13,11 @@ invariants:
 
 facts:
   - claim: "The role line says what the master runs, it runs in an upload's own container."
-    evidence: "agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md:20-22"
+    evidence: "observed: agent-smith-skills v5.27.1 skills/_masters/design-partner-master/SKILL.md line 20-22, 2026-11-11"
   - claim: "Orientation says run_command runs in a fresh work clone and restates four read tools' descriptions."
-    evidence: "SKILL.md:78-89"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 78-89, 2026-11-11"
   - claim: "The remember paragraph restates the remember tool's description almost verbatim."
-    evidence: "SKILL.md:94-98; src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:25-28"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 94-98, 2026-11-11; src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs:25-28"
   - claim: "The upload section names a 'grep' tool (the tool is grep_in_tree), says 'a write comes back refused' though no write tool exists, and repeats the file-mode line run_in_reference states."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:29-31; src/backend/AgentSmith.Application/Services/Tools/ReferenceCommandToolHost.cs:30"
   - claim: "The coverage line also names 'grep'."
@@ -27,7 +27,7 @@ facts:
   - claim: "The reviewer brief tells the reviewer to extract archives; no reviewer has a shell — its tools are search, read, an optional dependency audit and an optional declared verify stage."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:17-24; src/backend/AgentSmith.Application/Services/Specs/DerivationTools.cs:17-36"
   - claim: "Upload discovery is scripted step by step."
-    evidence: "SKILL.md:131-153"
+    evidence: "observed: agent-smith-skills v5.27.1 SKILL.md line 131-153, 2026-11-11"
 
 scope:
   in: "Role line: you change no repository and file nothing; what you try, you try in throwaway clones and upload containers. Orientation keeps 'cite what they show' and the history: full fact. The remember paragraph goes (the tool says it). ReferencePromptSection and ReferenceCoverageText name grep_in_tree; the write and file-mode sentences go. SKILL.md:131-153 becomes the situation: a note is what earlier turns learned; without one you know nothing until you look; what you learn is lost unless note_reference keeps it. SpecAttackPrompt appends after the verbatim Brief, for every reviewer: 'You read the files; you cannot run a shell or extract archives.' The stale comment is corrected."
