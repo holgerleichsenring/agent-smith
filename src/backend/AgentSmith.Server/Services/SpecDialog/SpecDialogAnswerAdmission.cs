@@ -40,7 +40,7 @@ public sealed class SpecDialogAnswerAdmission(
         if (open is null) return null;
         var asked = pendingQuestions.TryPeek(open.JobId, out var peeked) ? peeked : null;
         var decision = asked is null ? SpecDialogAnswerWords.DecisionIn(text) : SpecDialogAnswerWords.DecisionOn(asked.Question, text);
-        var named = decision is null ? null
+        var named = decision is null || asked is not null ? null // an answer to a live question names no proposal
             : proposalId ?? (proposals is null ? null : (await proposals.ReadAsync(open, ct)).AwaitingId);
         var state = await sessions.AppendTurnAsync(
             platform, threadId, TranscriptRole.User, text, null, decision, ct, author, decisionProposalId: named);
@@ -56,8 +56,15 @@ public sealed class SpecDialogAnswerAdmission(
     }
 
     /// <summary>Takes back the decision recorded on the last stored message; it decided nothing.</summary>
-    public async Task<ConversationState> UndecideAsync(ConversationState state, CancellationToken ct) =>
+    public Task<ConversationState> UndecideAsync(ConversationState state, CancellationToken ct) =>
+        SettleAsync(state, applied: false, ct);
+
+    /// <summary>2026-11-11-205fe review: marks the decision on the last stored message applied — it decided its card.</summary>
+    public Task<ConversationState> AppliedAsync(ConversationState state, CancellationToken ct) =>
+        SettleAsync(state, applied: true, ct);
+
+    private async Task<ConversationState> SettleAsync(ConversationState state, bool applied, CancellationToken ct) =>
         state.Transcript.Count == 0 || state.Transcript[^1].Decision is null
             ? state
-            : await sessions.ClearDecisionAsync(state.Platform, state.ThreadId!, state.Transcript[^1], ct) ?? state;
+            : await sessions.SettleDecisionAsync(state.Platform, state.ThreadId!, state.Transcript[^1], applied, ct) ?? state;
 }

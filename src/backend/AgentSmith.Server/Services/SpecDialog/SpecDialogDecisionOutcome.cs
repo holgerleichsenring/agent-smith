@@ -5,8 +5,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
 /// 2026-11-11-205fe: what a decision did, on the stored turn. The message was stored WITH its decision before the
-/// gate; only a decision that decided its card keeps it. Refused, Replaced and No take it back, so the transcript never
-/// shows an approval that approved nothing — on the click path and the typed path alike.
+/// gate; only a decision that decided its card keeps it, marked applied. Refused, Replaced and No take it back, so the
+/// transcript never shows an approval that approved nothing — on the click path and the typed path alike.
 /// </summary>
 public sealed class SpecDialogDecisionOutcome(SpecDialogDecisionPath decisions, SpecDialogAnswerAdmission admission)
 {
@@ -16,7 +16,8 @@ public sealed class SpecDialogDecisionOutcome(SpecDialogDecisionPath decisions, 
         DateTimeOffset? sentAt = null)
     {
         var decided = await decisions.DecideAsync(state, decision, proposalId, mayStartRuns, ct, sentAt);
-        if (decided != SpecDialogDecided.Decided) await admission.UndecideAsync(state, ct);
+        if (decided == SpecDialogDecided.Decided) await admission.AppliedAsync(state, ct);
+        else await admission.UndecideAsync(state, ct);
         return decided;
     }
 

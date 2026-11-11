@@ -75,7 +75,7 @@ public sealed class SpecDialogViewReader(
         var at = card is { } turn ? state.Transcript[turn].At : state.LastActivityAt;
         return new(state.JobId,
             projects.Of(state.Project, state.Scope?.Repos ?? []),
-            SpecDialogShownTranscript.Turns(state.Transcript, latest.ProposalId), // 2026-11-11-205fe
+            SpecDialogShownTranscript.Turns(state.Transcript), // 2026-11-11-205fe: applied decisions only
             state.LastActivityAt,
             images,
             state.Subject,

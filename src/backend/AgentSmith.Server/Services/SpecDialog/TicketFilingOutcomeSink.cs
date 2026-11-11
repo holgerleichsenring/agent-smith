@@ -43,7 +43,7 @@ public sealed class TicketFilingOutcomeSink(
             return OutcomeAcceptance.Refused;
         }
         if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketCommentOutcome)
-            return await ContinueAsync(state, proposal, mayStartRuns, cancellationToken);
+            return await ContinueAsync(state, proposal, mayStartRuns, proposalId, cancellationToken);
         // 2026-11-11-205fe: the claim wrote the confirmed slot with its id; a second writer here was the defect.
         var report = proposal is TicketGraphOutcome graph
             ? await graphs.FileAsync(state, graph, mayStartRuns, cancellationToken)
@@ -87,9 +87,12 @@ public sealed class TicketFilingOutcomeSink(
     }
 
     private async Task<OutcomeAcceptance> ContinueAsync(
-        ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken cancellationToken)
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns, string? proposalId,
+        CancellationToken cancellationToken)
     {
         var outcome = await continuation.ApplyAsync(state, proposal, mayStartRuns, cancellationToken);
+        // 205fe review: an acted continuation clears its own confirmed slot, as a filing does; a refused one keeps it.
+        if (outcome.Acted) await confirmed.ClearAsync(state.Platform, state.ThreadId!, proposalId, CancellationToken.None);
         logger.LogInformation(
             "Approval in ticket conversation {SessionId}: {Notice}", state.JobId, outcome.Notice);
         if (outcome is { Filing: { } report, Filed: { } filed })

@@ -70,16 +70,33 @@ public sealed class ApprovalDecisionTruthTests : IDisposable
     }
 
     [Fact]
-    public async Task View_DecidedTurnWhoseProposalStillAwaits_ReadsAsNotApplied()
+    public async Task View_CrashBeforeDecideThenNewProposal_OldTurnStillNotApproved()
     {
-        var (_, id) = await ProposedAsync();
-        // The server dies between storing the decided message and deciding it.
+        var (state, id) = await ProposedAsync();
+        // The server dies between storing the decided message and deciding it; a later turn proposes B.
         await Admission().AdmitAsync("approve", "U1", Platform, Thread, default, proposalId: id);
+        await Harness().Flow().HandleAsync(state, Spec("p2"), default);
         var transcript = (await Harness().Sessions.GetOpenByThreadAsync(Platform, Thread, default))!.Transcript;
 
-        transcript[^1].DecisionProposalId.Should().Be(id);
-        SpecDialogShownTranscript.Turns(transcript, id)[^1].Decision.Should().BeNull("its proposal still awaits");
-        SpecDialogShownTranscript.Turns(transcript, null)[^1].Decision.Should().Be("approved", "once claimed it was applied");
+        var stale = transcript.Last(t => t.Role == TranscriptRole.User);
+        (stale.DecisionProposalId, stale.DecisionApplied).Should().Be((id, (bool?)null));
+        (await Harness().Outcomes.ReadAsync(Platform, Thread, default)).ProposalId.Should().NotBe(id, "B replaced A");
+        SpecDialogShownTranscript.Turns(transcript).Last(t => t.Role == "user").Decision
+            .Should().BeNull("nothing applied the decision, whatever became of its proposal");
+    }
+
+    [Fact]
+    public async Task Decision_Rejected_StoredTurnIsMarkedAppliedAndShown()
+    {
+        var (_, id) = await ProposedAsync();
+
+        var admitted = await Admission().AdmitAsync("reject", "U1", Platform, Thread, default, proposalId: id);
+        var decided = await Outcome().DecideAsync(admitted!.State, SpecDialogDecision.Rejected, id, false, default);
+
+        decided.Should().Be(SpecDialogDecided.Decided);
+        (await LastUserTurnAsync()).DecisionApplied.Should().BeTrue();
+        var transcript = (await Harness().Sessions.GetOpenByThreadAsync(Platform, Thread, default))!.Transcript;
+        SpecDialogShownTranscript.Turns(transcript).Last(t => t.Role == "user").Decision.Should().Be("rejected");
     }
 
     [Fact]

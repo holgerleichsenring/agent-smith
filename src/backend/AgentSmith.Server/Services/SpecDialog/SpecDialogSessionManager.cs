@@ -82,12 +82,12 @@ public sealed class SpecDialogSessionManager(
     }
 
     /// <summary>
-    /// 2026-09-17-042el: takes the decision back from a stored turn whose answer answered nothing —
-    /// the latest turn equal to <paramref name="turn"/>, so a message stored after it is not touched.
+    /// 2026-09-17-042el: settles the decision on a stored turn — the latest turn equal to <paramref name="turn"/>, so a
+    /// message stored after it is not touched: applied marks it (205fe review), otherwise it is taken back.
     /// Returns the updated state, or null when the thread has no open session.
     /// </summary>
-    public async Task<ConversationState?> ClearDecisionAsync(
-        string platform, string threadId, TranscriptTurn turn, CancellationToken ct)
+    public async Task<ConversationState?> SettleDecisionAsync(
+        string platform, string threadId, TranscriptTurn turn, bool applied, CancellationToken ct)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
@@ -95,7 +95,7 @@ public sealed class SpecDialogSessionManager(
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).ToList();
         var index = transcript.LastIndexOf(turn);
         if (index < 0) return SpecDialogSessionMapper.ToState(session);
-        transcript[index] = turn with { Decision = null, DecisionProposalId = null };
+        transcript[index] = applied ? turn with { DecisionApplied = true } : turn with { Decision = null, DecisionProposalId = null };
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript(transcript);
         await bound.SaveAsync(session, ct);
 

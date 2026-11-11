@@ -10,9 +10,10 @@ namespace AgentSmith.Server.Models;
 /// <see cref="Mock"/>. Both read as null on every other turn and on older rows; so does a digest's DigestThrough.
 /// 2026-11-10-d854c: an agent turn records the run it came from as <see cref="RunId"/>; null on older rows and on a
 /// turn whose pipeline never started. 2026-11-11-205fe: a decided operator turn names the proposal it decided as
-/// <see cref="DecisionProposalId"/>, so a decision whose proposal still awaits reads as not applied.
+/// <see cref="DecisionProposalId"/>; review fix: <see cref="DecisionApplied"/> is set once the decision path applied it, so
+/// a decision that names a proposal and carries no mark was never applied — whatever later happens to that proposal.
 /// </summary>
 public sealed record TranscriptTurn(
     TranscriptRole Role, string Text, DateTimeOffset At, SpecDialogTurnKind? Kind = null,
     SpecDialogDecision? Decision = null, MockRatificationTurn? Mock = null, string? Author = null,
-    int? DigestThrough = null, string? RunId = null, string? DecisionProposalId = null);
+    int? DigestThrough = null, string? RunId = null, string? DecisionProposalId = null, bool? DecisionApplied = null);

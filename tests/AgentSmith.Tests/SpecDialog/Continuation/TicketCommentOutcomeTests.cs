@@ -1,8 +1,10 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.SpecDialog.Continuation;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.SpecDialog.Continuation;
@@ -56,6 +58,20 @@ public sealed class TicketCommentOutcomeTests : IDisposable
         (await _h.RecordAsync()).Should().BeNull("a comment records no series under the ticket");
         (await _h.NudgesAsync()).Should().BeEmpty("nothing starts");
         // 2026-11-10-ccd9: the claim, not the sink, takes an approved proposal out of the awaiting slot.
+    }
+
+    [Fact]
+    public async Task Decide_CommentApprovedInBoundConversation_ClearsItsConfirmedSlot()
+    {
+        await _h.BindAsync(Proposal);
+
+        (await _h.DecideAsync(SpecDialogDecision.Approved)).Should().Be(SpecDialogDecided.Decided);
+
+        var row = await _h.InScopeAsync(sp => ((AgentSmith.Infrastructure.Persistence.AgentSmithDbContext)sp.GetRequiredService<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>())
+            .Set<AgentSmith.Infrastructure.Persistence.Entities.SpecDialogSession>()
+            .SingleAsync(x => x.SessionId == ContinuationHarness.SessionId));
+        (row.ConfirmedOutcomeJson, row.ConfirmedProposalId).Should().Be(((string?)null, (string?)null),
+            "205fe review: an acted continuation clears its own slot, as a filing does");
     }
 
     [Fact]
