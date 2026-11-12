@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-7c1c
+goal: "spec_review.design_turn defaults to on: a Work it out proposal gets its one advisory review pass unless the operator turns it off."
+
+applies_to: "default (spec review config: SpecReviewConfig.DesignTurn); dashboard (Settings → Spec review)"
+
+requires: [2026-11-12-cd4ch, 2026-11-12-01b4]
+
+facts:
+  - claim: "DesignTurn defaults to false."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:21-23"
+  - claim: "The pass is advisory: one pass after the turn, its findings on the proposal, nothing re-prompted."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:10-37"
+  - claim: "The settings form reads an absent value as off."
+    evidence: "src/dashboard/src/components/config/SeriesSettingsForms.tsx:25"
+  - claim: "Two harness classes switched the pass on by a mocked settings reader because the default left it off."
+    evidence: "tests/AgentSmith.PipelineHarness/Composition/DesignTurnReviewOn.cs:9-19"
+
+scope:
+  in: "The default, its schema description, docs, the settings form default, and the tests that assumed off."
+  out: "What the pass does; it stays advisory."
+
+steps:
+  - id: default
+    action: "DesignTurn defaults to true; its summary, the schema description and the docs say on by default."
+  - id: form
+    action: "The settings form reads an absent designTurn as on."
+  - id: tests
+    action: "Tests that relied on off set it off explicitly; DesignTurnReviewOn is removed, the harness reads the default."
+
+tests:
+  - "SpecReviewConfigTests (default on)"
+  - "SpecDialogProposalReviewTests, TicketPlanReviewTests (off when switched off)"
+  - "SpecDialogProposalUnderReviewTests, SpecDialogOutcomeTests (the pass runs on the default)"
+
+done:
+  - "A config with no spec_review.design_turn reviews a Work it out proposal once, advisory."
+  - "A spec the pass cleared shows reviewed clean; with the switch off no pill says so."
