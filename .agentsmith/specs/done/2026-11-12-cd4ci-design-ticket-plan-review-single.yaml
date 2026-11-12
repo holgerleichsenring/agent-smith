@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4ci
+goal: "A proposed ticket list gets one advisory plan review under spec_review.design_turn, the transcript whole; nothing re-prompts, and the ticket:<id> existence check always runs."
+
+applies_to: "default (spec dialog: TicketPlanReview, TicketPlanReviewer, TicketPlanReviewPrompt, ProposalMechanicalChecks)"
+
+invariants:
+  - "NO RE-PROMPT. A ticket list is never sent back to the design partner; ProposalCutsReprompt, SameKeys and the cut machinery are gone."
+  - "ONE CALL. With spec_review.design_turn on, one plan reviewer answers merge, order, missing, size and owner per ticket, with the operator's open questions shown; its findings go on the card."
+  - "WHOLE TRANSCRIPT. The reviewer reads every operator message; no character window cuts the middle out."
+  - "FACTS ALWAYS. Every ticket:<id> a ticket requires is read for existence whether the switch is on or off; a finding naming no ticket of the list is still discarded."
+
+facts:
+  - claim: "The plan review re-prompts the design partner once with quoted cuts and keeps the re-proposal only with the same keys."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketPlanReview.cs:53-64"
+  - claim: "The reviewer reads the operator's messages through a 40,000-character window."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketPlanReviewPrompt.cs:17"
+
+scope:
+  in: "TicketPlanReview without the re-prompt, under the switch, inside ProposalReviewPass; ProposalMechanicalChecks for the off path; TicketPlanReviewPrompt without the window, the keys clause and the cut fields, with an owner question and the open questions; TicketPlanCut and the cut admission deleted; ProposalCutsReprompt and ProposalReply deleted; ProposalTurn reduced to pipeline, agent and tracker."
+  out: "TranscriptWindow and the fold digest (another series member); the review tool (2026-11-12-cd4cj)."
+
+decisions:
+  - "The whole operator transcript, not the fold digest: the reviewer is a one-shot call with its own window, and the digest is the master's carry-over, owned elsewhere."
+
+steps:
+  - id: review
+    action: "TicketPlanReview: one reviewer call plus existence; no re-prompt."
+  - id: prompt
+    action: "Prompt: whole transcript, owner question, open questions, no cut fields."
+  - id: wire
+    action: "ProposalReviewPass dispatches a list; ProposalMechanicalChecks runs evidence or existence when off; ProposalTurn trimmed."
+  - id: tests
+    action: "Delete re-prompt tests; tests below."
+
+tests:
+  - "TicketPlanReview_SwitchOff_ChecksExistenceOnly"
+  - "TicketPlanReview_Findings_NeverRePromptTheDesignPartner"
+  - "TicketPlanReviewPrompt_LongTranscript_ShowsEveryMessage"
+  - "TicketPlanReviewPrompt_OpenQuestions_AreShown"
+
+done:
+  - "No code path re-prompts the design partner after a ticket list (ProposalCutsReprompt is gone)."
+  - "With the switch off, no plan reviewer is called and missing ticket:<id> requirements are still findings."
+  - "Build green, full suite green."

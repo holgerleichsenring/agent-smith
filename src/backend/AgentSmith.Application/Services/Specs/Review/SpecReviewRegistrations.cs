@@ -29,8 +29,8 @@ public static class SpecReviewRegistrations
             .AddTransient<ISpecRederiver, SpecRederiver>().AddTransient<SpecReviewLoop>()
             .AddSingleton<ISpecReviewSettingsReader, LoaderSpecReviewSettingsReader>()
             .AddTransient<ReviewExhaustion>().AddTransient<ReviewObjectionPark>() // 2026-10-13-8762h
-            // 2026-11-12-cd4ch: the design turn's one advisory pass and its panel; the re-prompt stays for the ticket plan.
-            .AddTransient<ProposalAttackPanel>().AddTransient<ProposalCutsReprompt>().AddTransient<ProposalAttackPass>()
+            // 2026-11-12-cd4ch: the design turn's one advisory pass and its panel.
+            .AddTransient<ProposalAttackPanel>().AddTransient<ProposalAttackPass>()
             .AddTransient<SeriesContractCheck>().AddTransient<SeriesContractReader>() // 2026-10-13-8762j
             // 2026-10-13-8762k: the set-scope round — reviewer, admission, the run's round and the turn's.
             .AddTransient<SeriesContractAdmission>().AddTransient<ISeriesContractReviewer, SeriesContractReviewer>()

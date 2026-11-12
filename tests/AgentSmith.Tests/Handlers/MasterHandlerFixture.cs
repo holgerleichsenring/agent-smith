@@ -93,12 +93,11 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
             OutcomeGate(loop),
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
-                AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Checks(),
                 // 2026-11-12-cd4ch: the design turn's pass off, as by default; the pass has its own rig.
                 AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
                     () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 4, designTurn: false)),
                 new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Pass(),
-                AgentSmith.Tests.SpecDialog.ProposalReview.TicketPlanReviewRig.Default(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>

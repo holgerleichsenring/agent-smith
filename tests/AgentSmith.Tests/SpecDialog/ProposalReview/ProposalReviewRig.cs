@@ -64,7 +64,6 @@ internal sealed class ProposalReviewRig
 
     /// <summary>When above 0, every reviewer call waits until this many are in flight at once.</summary>
     public int GatherInFlight { get; init; }
-    public AgenticLoopResult FirstReply { get; private set; } = Result("");
 
     /// <summary>2026-11-12-cd4ch: <paramref name="designTurn"/> is on unless a test turns the design turn's pass off.</summary>
     public static SpecReviewSettings Of(
@@ -153,22 +152,18 @@ internal sealed class ProposalReviewRig
     {
         var proposal = ((OutcomeResolved)MasterHandlerFixture.BuildOutcomeResolver().Resolve(reply, [])).Proposal;
         Pipeline.Set(ContextKeys.SpecDialogOutcome, proposal);
-        FirstReply = Result(reply);
         return proposal;
     }
 
     public SpecDialogProposalReview Review(ISpecReviewSettingsReader? reader = null) =>
-        new(ProposalEvidenceTestReview.Create(), reader ?? Reader(() => Settings), Pass(), TicketPlanReviewRig.Default(),
-            NullLogger<SpecDialogProposalReview>.Instance, Proposals);
+        new(Checks(), reader ?? Reader(() => Settings), Pass(), NullLogger<SpecDialogProposalReview>.Instance, Proposals);
 
-    public async Task<AgenticLoopResult> RunAsync(ISpecReviewSettingsReader? reader = null)
-    {
-        var request = new AgenticLoopRequest(new AgentConfig(), TaskType.Planning, "system", "user", []);
-        var conversation = new MasterConversation();
-        conversation.Opened(request, FirstReply.Response);
-        return await Review(reader).ReviewAsync(Pipeline, request, "user", FirstReply, conversation, new AgentConfig(),
-            PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
-    }
+    /// <summary>2026-11-12-cd4ci: the mechanical checks the post-turn review runs when the pass is off.</summary>
+    public static ProposalMechanicalChecks Checks() =>
+        new(ProposalEvidenceTestReview.Create(), TicketPlanReviewRig.Default(), NullLogger<ProposalMechanicalChecks>.Instance);
+
+    public async Task RunAsync(ISpecReviewSettingsReader? reader = null) =>
+        await Review(reader).ReviewAsync(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
 
     /// <summary>2026-11-09-9a98: set by a test that watches what the review publishes as it goes.</summary>
     public ITurnProposalObserverAccessor? Proposals { get; init; }
@@ -188,17 +183,17 @@ internal sealed class ProposalReviewRig
         new(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)), TimeSpan.Zero);
 
     /// <summary>2026-11-12-cd4ch: the one advisory pass, as the post-turn review and the review tool run it.</summary>
-    public ProposalReviewPass Pass() => Pass(WholeSetReviewer());
-
-    /// <summary>The pass with <paramref name="wholeSet"/> as its whole-set reviewer, reporting to <paramref name="activity"/>.</summary>
-    public ProposalReviewPass Pass(ISpecCutReviewer wholeSet, ITurnActivityObserverAccessor? activity = null) =>
-        new(new ProposalWholeSetReview(wholeSet, DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
+    /// <param name="wholeSet">The whole-set reviewer; the rig's clean one when null.</param>
+    /// <param name="plans">The ticket-plan review; a default one when null.</param>
+    public ProposalReviewPass Pass(
+        ISpecCutReviewer? wholeSet = null, ITurnActivityObserverAccessor? activity = null, TicketPlanReview? plans = null) =>
+        new(new ProposalWholeSetReview(wholeSet ?? WholeSetReviewer(), DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
                 NullLogger<ProposalWholeSetReview>.Instance),
             new ProposalAttackPass(
                 new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
                 Evidence(), new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(), NullLogger<ProposalSeriesRound>.Instance),
                 NullLogger<ProposalAttackPass>.Instance),
-            activity ?? TurnActivityRecorder.Silent());
+            plans ?? TicketPlanReviewRig.Default(), activity ?? TurnActivityRecorder.Silent());
 
     private ISeriesContractReviewer SeriesReviewer()
     {

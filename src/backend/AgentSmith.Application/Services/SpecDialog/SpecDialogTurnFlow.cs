@@ -36,7 +36,7 @@ public sealed class SpecDialogTurnFlow(
         ArgumentNullException.ThrowIfNull(context);
         if (context.IsTicketSteward) return MasterOutcomes.PublishOutcome(context.Pipeline, new AnswerOutcome(), loopResult);
         var gated = await outcomeGate.GateAsync(context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
-        return await proposalReview.ReviewAsync(
-            context.Pipeline, request, userPrompt, gated, conversation, context.AgentConfig, costTracker, ct);
+        await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, ct);
+        return gated;
     }
 }

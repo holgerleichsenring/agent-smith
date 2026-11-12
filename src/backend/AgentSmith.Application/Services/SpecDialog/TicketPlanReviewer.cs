@@ -17,9 +17,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// <summary>
 /// 2026-10-14-dbcek: a fresh reasoning instance reviews a proposed list of tickets as a plan, with a look over the
 /// turn's repositories AND its uploaded material, where the operator's requirements live too. Admission: a missing
-/// requirement is a finding about the whole list; any other finding naming no ticket of the list is dropped; a cut
-/// is kept only when its quote is verbatim in that ticket's title, requirement or a done item. Null when the call
-/// failed or the answer could not be read.
+/// requirement is a finding about the whole list; any other finding naming no ticket of the list is dropped.
+/// 2026-11-12-cd4ci: findings only — nothing is cut. Null when the call failed or the answer could not be read.
 /// </summary>
 public sealed class TicketPlanReviewer(
     IChatClientFactory chats, IRunContextAccessor runContext, DerivationLookFactory looks, ILogger<TicketPlanReviewer> logger)
@@ -27,13 +26,13 @@ public sealed class TicketPlanReviewer(
     private const string RoleName = "ticket-plan-reviewer";
     public const int MaxIterations = DerivationLookTerms.CutReviewAllowance + 2;
 
-    public async Task<TicketPlanVerdict?> ReviewAsync(ProposalTurn turn, TicketGraphOutcome graph, CancellationToken ct)
+    public async Task<IReadOnlyList<ProposalFinding>?> ReviewAsync(ProposalTurn turn, TicketGraphOutcome graph, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(turn);
         ArgumentNullException.ThrowIfNull(graph);
         var (look, uploads) = Look(turn.Pipeline);
         turn.Pipeline.TryGet<IReadOnlyList<SpecDialogTurn>>(ContextKeys.SpecDialogTranscript, out var transcript);
-        var prompt = TicketPlanReviewPrompt.For(graph, transcript ?? [], look, uploads);
+        var prompt = TicketPlanReviewPrompt.For(graph, transcript ?? [], look, uploads, ProposalOpenQuestions.Of(turn.Pipeline));
         var key = turn.Pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var jobId) && jobId is not null ? jobId : "spec-dialog";
         try
         {
@@ -69,31 +68,22 @@ public sealed class TicketPlanReviewer(
             [.. readable.Keys.Where(k => k.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))]);
     }
 
-    private TicketPlanVerdict Admit(TicketGraphOutcome graph, IReadOnlyList<TicketPlanFindingWire> answer)
+    private List<ProposalFinding> Admit(TicketGraphOutcome graph, IReadOnlyList<TicketPlanFindingWire> answer)
     {
-        var (findings, cuts) = (new List<ProposalFinding>(), new List<TicketPlanCut>());
+        var findings = new List<ProposalFinding>();
         foreach (var item in answer)
         {
             var (problem, why) = (item.Problem?.Trim().ToLowerInvariant() ?? "other", item.Why?.Trim() ?? string.Empty);
-            var quote = string.IsNullOrWhiteSpace(item.Quote) ? null : item.Quote.Trim();
             if (problem == TicketPlanReviewPrompt.Missing)
             {
-                findings.Add(new ProposalFinding(TicketPlanReviewPrompt.ListKey, problem, why, quote));
+                findings.Add(new ProposalFinding(TicketPlanReviewPrompt.ListKey, problem, why));
                 continue;
             }
             var ticket = graph.Tickets.FirstOrDefault(t => string.Equals(t.Key, item.Ticket?.Trim(), StringComparison.Ordinal));
             if (ticket is null)
-            {
                 logger.LogWarning("The plan review named no ticket of the list ({Ticket}) — discarding: {Why}", item.Ticket, why);
-                continue;
-            }
-            findings.Add(new ProposalFinding(ticket.Key, problem, why, quote));
-            if (quote is not null && item.Replacement is { } replacement && States(ticket, quote))
-                cuts.Add(new TicketPlanCut(ticket.Key, quote, replacement.Trim(), why));
+            else findings.Add(new ProposalFinding(ticket.Key, problem, why));
         }
-        return new TicketPlanVerdict(findings, cuts);
+        return findings;
     }
-
-    private static bool States(GraphTicket ticket, string quote) =>
-        new[] { ticket.Title, ticket.Requirement }.Concat(ticket.Done).Any(text => text.Contains(quote, StringComparison.Ordinal));
 }
