@@ -13,6 +13,7 @@ public sealed class TicketDraftWrite(TicketGraphChecker checker, TicketGraphOrde
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(ticket);
+        ticket = GraphTicketLines.Normalized(ticket);
         if (DraftKind.Conflict(draft, DraftKind.Tickets) is { } conflict) return DraftWrite.Refused(conflict);
         var siblings = draft.Tickets.Select(t => t.Key).Where(k => k != ticket.Key).ToHashSet(StringComparer.Ordinal);
         if (checker.Ticket(ticket, siblings, scope) is { } error) return DraftWrite.Refused(error);

@@ -49,7 +49,7 @@ public sealed class WorkPictureToolHost(
         + "expected size and the effort. Call it again to record a correction; the last call replaces the stored picture. It is not a source read.")]
     private async Task<string> StateWorkPictureAsync(
         [Description(KindDescription)] string kind,
-        [Description("One line of plain prose, at most 300 characters: where what is wanted is described (an upload, the ticket, the conversation) and what the repositories already provide.")] string truth,
+        [Description("One line of plain prose: where what is wanted is described (an upload, the ticket, the conversation) and what the repositories already provide.")] string truth,
         [Description("one-spec, series or plan.")] string size,
         [Description(EffortDescription)] string? effort = null,
         CancellationToken cancellationToken = default)

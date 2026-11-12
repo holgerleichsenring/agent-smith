@@ -34,27 +34,23 @@ public sealed class TicketGraphCheckerTests
     public void TicketGraphChecker_NoDoneItem_RefusedNamingTheTicket() =>
         Check(Ticket("orders-api") with { Done = [] }, Ticket("orders-ui")).Should().Contain("ticket 'orders-api' has no 'done' item");
 
+    // 2026-11-12-cd4cd: no length or count bound on a ticket's fields.
     [Fact]
-    public void TicketGraphChecker_FieldOverItsBound_RefusedNamingTheFieldAndTheBound()
+    public void TicketGraphChecker_LongFields_AreAccepted() =>
+        Check(Ticket("orders-api") with
+        {
+            Title = new string('t', 300), Requirement = new string('r', 5000),
+            Done = [.. Enumerable.Range(1, 12).Select(i => new string('d', 400))],
+        }, Ticket("orders-ui")).Should().BeNull();
+
+    [Fact]
+    public void GraphTicketLines_MultiLineTitleAndDoneItem_AreFoldedToOneLine()
     {
-        Check(Ticket("orders-api") with { Title = new string('t', 121) }, Ticket("orders-ui"))
-            .Should().Contain("ticket 'orders-api'").And.Contain("'title' is 121 characters and its bound is 120");
-        Check(Ticket("orders-api") with { Requirement = new string('r', 1201) }, Ticket("orders-ui"))
-            .Should().Contain("'requirement' is 1201 characters and its bound is 1200");
-        Check(Ticket("orders-api") with { Done = [new string('d', 241)] }, Ticket("orders-ui"))
-            .Should().Contain("'done item' is 241 characters and its bound is 240");
-        Check(Ticket("orders-api") with { Done = [.. Enumerable.Range(1, 9).Select(i => $"d{i}")] }, Ticket("orders-ui"))
-            .Should().Contain("9 'done' items and a ticket holds at most 8");
+        var ticket = GraphTicketLines.Normalized(Ticket("orders-api") with { Title = "first\nsecond", Done = ["a\n  b"] });
+
+        ticket.Title.Should().Be("first second");
+        ticket.Done.Should().Equal("a b");
     }
-
-    [Fact]
-    public void TicketGraphChecker_MultiLineDoneItem_Refused() =>
-        Check(Ticket("orders-api") with { Done = ["first line\nsecond line"] }, Ticket("orders-ui"))
-            .Should().Contain("ticket 'orders-api'").And.Contain("each item is one line");
-
-    [Fact]
-    public void TicketGraphChecker_MultiLineTitle_Refused() =>
-        Check(Ticket("orders-api") with { Title = "first\nsecond" }, Ticket("orders-ui")).Should().Contain("a title is one line");
 
     [Fact]
     public void TicketGraphChecker_RequiresUnknownSibling_RefusedNamingIt() =>

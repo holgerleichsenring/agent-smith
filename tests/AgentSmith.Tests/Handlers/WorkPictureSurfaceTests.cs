@@ -48,9 +48,8 @@ public sealed class WorkPictureSurfaceTests
     [Theory]
     [InlineData("migration", "repo-a", "series", "The kind 'migration' is none of: rebuild, feature, fix, document.")]
     [InlineData("1", "repo-a", "series", "The kind '1' is none of")]
-    [InlineData("fix", "repo-a.\nAnd repo-b.", "series", "The truth is more than one line.")]
     [InlineData("fix", "repo-a", "huge", "The size 'huge' is none of: one-spec, series, plan.")]
-    public async Task StateWorkPicture_UnknownKindOrMultiLineTruth_ReturnsTheRuleAndSetsNothing(
+    public async Task StateWorkPicture_UnknownKindOrSize_ReturnsTheRuleAndSetsNothing(
         string kind, string truth, string size, string rule)
     {
         var slot = new SpecDialogReplySlot();

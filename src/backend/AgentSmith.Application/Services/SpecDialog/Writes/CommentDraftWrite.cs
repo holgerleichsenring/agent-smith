@@ -11,8 +11,6 @@ public static class CommentDraftWrite
         if (DraftKind.Conflict(draft, DraftKind.Comment) is { } conflict) return DraftWrite.Refused(conflict);
         var text = (comment ?? string.Empty).Trim();
         if (text.Length == 0) return DraftWrite.Refused("the comment is empty");
-        return text.Length > TicketCommentOutcomeParser.MaxLength
-            ? DraftWrite.Refused($"the comment is {text.Length} characters — at most {TicketCommentOutcomeParser.MaxLength}")
-            : DraftWrite.To(draft with { Comment = text });
+        return DraftWrite.To(draft with { Comment = text });
     }
 }

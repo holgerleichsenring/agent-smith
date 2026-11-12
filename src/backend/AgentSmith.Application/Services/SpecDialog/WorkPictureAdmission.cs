@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// 2026-11-05-862ea: whether a stated work picture is stored. Kind and size are closed sets, read case-insensitively
-/// with or without dashes; truth is one line of plain prose within <see cref="WorkPictureLimits.Truth"/>. A refusal
+/// with or without dashes; truth is one line of plain prose (2026-11-12-cd4cd: folded, and only as long as the stored picture holds). A refusal
 /// names the rule broken, so the model can state the picture again.
 /// </summary>
 public static class WorkPictureAdmission
@@ -17,7 +17,7 @@ public static class WorkPictureAdmission
     /// <param name="effort">2026-11-10-548f: optional; a cost-cap tier other than unknown.</param>
     public static (WorkPicture? Picture, string? Refusal) Of(string? kind, string? truth, string? size, string? effort = null)
     {
-        var line = truth?.Trim() ?? string.Empty;
+        var line = Specs.CriterionLine.Collapse(truth ?? string.Empty); // 2026-11-12-cd4cd: one line, folded
         if (Parsed<UndertakingKind>(kind) is not { } k)
             return (null, $"The kind '{kind}' is none of: {Names<UndertakingKind>()}.");
         if (Parsed<UndertakingSize>(size) is not { } s)
@@ -40,8 +40,9 @@ public static class WorkPictureAdmission
     private static string? TruthRuleBroken(string line)
     {
         if (line.Length == 0) return "The truth is empty.";
-        if (line.Length > WorkPictureLimits.Truth) return $"The truth is longer than {WorkPictureLimits.Truth} characters.";
-        if (line.Any(char.IsControl)) return "The truth is more than one line.";
+        var stored = System.Text.Json.JsonSerializer.Serialize(line).Length;
+        if (stored > WorkPictureLimits.Stored - 200)
+            return $"The truth is {stored} characters stored and the stored picture holds {WorkPictureLimits.Stored}.";
         return line.Any(Markup.Contains) ? $"The truth contains markup ({Markup})." : null;
     }
 

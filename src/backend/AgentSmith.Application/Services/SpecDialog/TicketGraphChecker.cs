@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// 2026-10-14-dbcej: whether a proposed list of tickets can be filed as it stands — each key (2026-11-12-cd4cc: no
-/// count), each ticket's fields within <see cref="TicketGraphLimits"/>, each requires, each repository
+/// count), each ticket's fields present, each requires, each repository
 /// and the order the edges allow, checked in that order. Every reason names the ticket and the rule
 /// so the design partner's one re-prompt can fix it. A done item is one line because the filed
 /// body lists it under the acceptance criteria, where only a list item reads back as a criterion.
@@ -59,29 +59,15 @@ public sealed partial class TicketGraphChecker(TicketGraphOrderer orderer)
                 + "lower-case letters, digits or '-'";
     }
 
+    // 2026-11-12-cd4cd: no length or count bound; a field must only be there.
     private static string? Fields(GraphTicket t)
     {
         if (t.Title.Length == 0) return $"ticket '{t.Key}' has no 'title'";
-        if (t.Title.Contains('\n')) return $"ticket '{t.Key}': 'title' spans several lines — a title is one line";
-        if (t.Title.Length > TicketGraphLimits.MaxTitle) return Over(t, "title", t.Title.Length, TicketGraphLimits.MaxTitle);
         if (t.Requirement.Length == 0) return $"ticket '{t.Key}' has no 'requirement' — state its scope in prose";
-        if (t.Requirement.Length > TicketGraphLimits.MaxRequirement)
-            return Over(t, "requirement", t.Requirement.Length, TicketGraphLimits.MaxRequirement);
         if (t.Done.Count == 0)
             return $"ticket '{t.Key}' has no 'done' item — name at least one outcome that is true once it has merged";
-        if (t.Done.Count > TicketGraphLimits.MaxDoneItems)
-            return $"ticket '{t.Key}' has {t.Done.Count} 'done' items and a ticket holds at most {TicketGraphLimits.MaxDoneItems}";
-        foreach (var item in t.Done)
-        {
-            if (item.Length == 0) return $"ticket '{t.Key}' has an empty 'done' item";
-            if (item.Contains('\n')) return $"ticket '{t.Key}': a 'done' item spans several lines — each item is one line";
-            if (item.Length > TicketGraphLimits.MaxDoneItem) return Over(t, "done item", item.Length, TicketGraphLimits.MaxDoneItem);
-        }
-        return null;
+        return t.Done.Any(item => item.Length == 0) ? $"ticket '{t.Key}' has an empty 'done' item" : null;
     }
-
-    private static string Over(GraphTicket t, string field, int length, int bound) =>
-        $"ticket '{t.Key}': the '{field}' is {length} characters and its bound is {bound} — shorten it";
 
     private static string? Requires(GraphTicket t, IReadOnlySet<string> siblings)
     {

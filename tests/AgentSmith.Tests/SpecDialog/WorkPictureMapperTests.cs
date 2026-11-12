@@ -25,11 +25,10 @@ public sealed class WorkPictureMapperTests
     [Fact]
     public void SpecDialogSessionMapper_WriteWorkPicture_NonAsciiTruthAtTheLimitFitsTheBound()
     {
-        var truth = string.Concat(Enumerable.Repeat("ü\"", WorkPictureLimits.Truth / 2));
+        var truth = string.Concat(Enumerable.Repeat("ü\"", 150));
 
         var json = SpecDialogSessionMapper.WriteWorkPicture(new WorkPicture(UndertakingKind.Document, truth, UndertakingSize.Plan));
 
-        truth.Length.Should().Be(WorkPictureLimits.Truth);
         json.Length.Should().BeLessThanOrEqualTo(WorkPictureLimits.Stored, "every escaped character still fits the column");
         SpecDialogSessionMapper.ReadWorkPicture(json)!.Truth.Should().Be(truth);
     }

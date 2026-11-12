@@ -76,7 +76,7 @@ public sealed class TicketGraphOutcomeParser(TicketGraphChecker checker)
 
         var ticket = new GraphTicket(
             Text("key"), Text("title"), Text("requirement"), Items("done"), Items("requires"), Items("repos"));
-        return error is null ? (ticket, null) : (null, error);
+        return error is null ? (GraphTicketLines.Normalized(ticket), null) : (null, error);
     }
 
     private static bool Known(string field) =>

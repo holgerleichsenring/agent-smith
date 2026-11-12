@@ -31,8 +31,8 @@ public sealed class TicketCommentOutcomeTests : IDisposable
     {
         new TicketCommentOutcomeParser().Parse(Map(null)).Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("'comment'");
-        new TicketCommentOutcomeParser().Parse(Map(new string('x', TicketCommentOutcomeParser.MaxLength + 1)))
-            .Should().BeOfType<OutcomeInvalid>().Which.Error.Should().Contain("at most 4000");
+        new TicketCommentOutcomeParser().Parse(Map(new string('x', 4_001)))
+            .Should().BeOfType<OutcomeResolved>("2026-11-12-cd4cd: a comment has no length bound");
     }
 
     [Fact]
