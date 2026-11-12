@@ -160,6 +160,19 @@ describe("TurnResult", () => {
     ].join("\n"));
   });
 
+  it("TurnResult_HeldAnswer_KeepsApproveFromFilingPastIt", () => {
+    render(<TurnResult proposal={turnProposalOf(epic)} onSend={vi.fn()} approve={<button data-testid="approve-bar">Approve</button>} />);
+    expect(screen.getByTestId("approve-bar")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByTestId("turn-question-answer")[0]);
+    fireEvent.change(screen.getByTestId("turn-question-field"), { target: { value: "Only their team" } });
+
+    expect(screen.queryByTestId("approve-bar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("turn-approve-held")).toHaveTextContent("Send your answer first");
+    fireEvent.click(screen.getByTestId("turn-question-drop"));
+    expect(screen.getByTestId("approve-bar")).toBeInTheDocument();
+  });
+
   it("TurnQuestions_HeldState_SurvivesARemountUnderItsProposalId", () => {
     // This jsdom build ships no localStorage; a Map backs it here.
     const backing = new Map<string, string>();

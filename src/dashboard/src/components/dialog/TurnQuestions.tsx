@@ -14,14 +14,18 @@ export function TurnQuestions({
   questions,
   heldKey,
   onSend,
+  onAnswersHeld,
 }: {
   questions: SpecDialogOpenQuestion[];
   /** The proposal id the held state is kept under across a reload; none keeps it only while the page is open. */
   heldKey?: string;
   onSend?: (text: string) => void;
+  /** How many own answers are held, so the caller can keep Approve from filing past them. */
+  onAnswersHeld?: (count: number) => void;
 }) {
   const [held, setHeld] = useState<HeldQuestions>(() => loadHeld(heldKey));
   useEffect(() => saveHeld(heldKey, held), [heldKey, held]);
+  useEffect(() => onAnswersHeld?.(ownAnswers(held)), [held, onAnswersHeld]);
   if (questions.length === 0) return null;
   const set = (index: number, entry: HeldQuestions[number] | null) => setHeld((was) => {
     const next = { ...was };

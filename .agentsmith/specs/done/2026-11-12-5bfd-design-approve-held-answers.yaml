@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-5bfd
+goal: "While the operator holds own answers to open questions, the approve bar steps aside and says to send or drop them first."
+
+applies_to: "default (dashboard: Work it out turn result)"
+
+requires: [2026-11-12-e2f5]
+
+facts:
+  - claim: "Approve & file files every question on its proposal; held answers that were not sent are dropped."
+    evidence: "src/dashboard/src/components/dialog/TurnQuestions.tsx:103"
+
+scope:
+  in: "TurnQuestions reports how many own answers are held; TurnResult hides the approve bar while any are held and shows one line instead. Test."
+  out: "The server's approval path."
+
+steps:
+  - id: report
+    action: "TurnQuestions calls onAnswersHeld with the count of held own answers."
+  - id: step-aside
+    action: "TurnResult renders a line in place of the approve bar while the count is above zero."
+
+tests:
+  - "TurnResult_HeldAnswer_KeepsApproveFromFilingPastIt"
+
+done:
+  - "A held answer can no longer be lost to an Approve click."
