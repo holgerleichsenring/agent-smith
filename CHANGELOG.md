@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.183.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.182.0...v0.183.0) (2026-11-12)
+
+
+### Features
+
+* a design proposal has no ticket or child count; a long epic files as several series (2026-11-12-cd4cc) ([61305b5](https://github.com/holgerleichsenring/agent-smith/commit/61305b5070e271432de67c59279ec1f4ebba09e2))
+* a design turn ends when the model stops, its kind read off the draft (2026-11-12-cd4ce) ([a1c7ee4](https://github.com/holgerleichsenring/agent-smith/commit/a1c7ee405353a86d4228a56a50035f17b28d1581))
+* a design turn's budgets are read from the agent block of agentsmith.yml (2026-11-12-cd4cl) ([67849f8](https://github.com/holgerleichsenring/agent-smith/commit/67849f811d490c7995274ac2edcba448f95efce2))
+* a design turn's review is one advisory pass behind spec_review.design_turn (2026-11-12-cd4ch) ([2291810](https://github.com/holgerleichsenring/agent-smith/commit/22918104fcaac992f18dfba4352409901568403c))
+* a ticket list gets one advisory plan review, never a re-prompt (2026-11-12-cd4ci) ([97cf527](https://github.com/holgerleichsenring/agent-smith/commit/97cf527fc9bf1fdd39c8bc8256a77d8cdc81e8ac))
+* design proposal fields carry no length bound; one-line fields are folded (2026-11-12-cd4cd) ([1f0c7b4](https://github.com/holgerleichsenring/agent-smith/commit/1f0c7b4a2467db72f4be0dfbc3531ea36fb32a13))
+* design writes are validated on their own tool result and nothing re-prompts the turn (2026-11-12-cd4cb) ([75be43d](https://github.com/holgerleichsenring/agent-smith/commit/75be43da267c5f0771f84e59fd63e78cfa2bd691))
+* open questions and the work picture live in their tools alone (2026-11-12-cd4cf) ([a65c6ce](https://github.com/holgerleichsenring/agent-smith/commit/a65c6ce4cf7d0c3ed0423e316466af3e790cfe34))
+* outcome_format is retired and each write tool carries its schema (2026-11-12-cd4cg) ([1a77491](https://github.com/holgerleichsenring/agent-smith/commit/1a77491bd2554ad63668fc52430f62680fbbaa26))
+* pin skills v5.29.0, the design partner that writes items (2026-11-12-681f) ([f9883fe](https://github.com/holgerleichsenring/agent-smith/commit/f9883fee8773d70d89c3402cc2e032f3ef69668e))
+* the design conversation keeps one unbounded notes file the master reads and writes (2026-11-12-cd4ck) ([b33a752](https://github.com/holgerleichsenring/agent-smith/commit/b33a752486eb3bdcf79dfa58646bcf7038d4f495))
+* the design master writes its proposal one item at a time into a per-turn store (2026-11-12-cd4ca) ([34ab07b](https://github.com/holgerleichsenring/agent-smith/commit/34ab07bca5ce8c3dd98b33e2264d857f64f4a4c7))
+* the design partner can ask for the advisory review mid-turn with review_proposal (2026-11-12-cd4cj) ([4f9d98b](https://github.com/holgerleichsenring/agent-smith/commit/4f9d98b8024f97c3da15bcfe9b8ec00b807ee832))
+* Work it out writes its proposal item by item — no caps, no re-prompts ([70e01d5](https://github.com/holgerleichsenring/agent-smith/commit/70e01d558ea9b68329d001278509d7204ee3e259))
+
+
+### Bug Fixes
+
+* an imperfect worker tool call reaches the model as that call's error (2026-11-12-0c24) ([5726af5](https://github.com/holgerleichsenring/agent-smith/commit/5726af5ee573f813bedd4417db69f4d3ed06e1b3))
+* the upload coverage line points at the conversation notes (2026-11-12-ecde) ([9cc5e18](https://github.com/holgerleichsenring/agent-smith/commit/9cc5e1835919d05e76e4d84ab7066a382fff5ba5))
+
 ## [0.182.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.181.0...v0.182.0) (2026-11-11)
 
 
