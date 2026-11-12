@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Specs.Review;
-using AgentSmith.Contracts.Events;
 using FluentAssertions;
 using static AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig;
 
@@ -7,13 +6,10 @@ namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
 /// 2026-11-11-2bdfd: a design turn's reviewers judge each draft with the operator's open questions taken as proposed,
-/// and a decision only the operator can make returns as an open question, not a rewrite.
+/// so a decision only the operator can make reads as an open question, not as a finding.
 /// </summary>
 public sealed class ProposalReviewQuestionsTests
 {
-    private const string Step = "Write the orders through the buffered file writer.";
-    private const string NewStep = "Write the orders through the streaming file writer.";
-
     [Fact]
     public async Task ProposalReview_OpenQuestions_ShownToEveryReviewerWithProposals()
     {
@@ -34,23 +30,6 @@ public sealed class ProposalReviewQuestionsTests
     }
 
     [Fact]
-    public async Task ProposalReview_QuestionsStatedByRevision_ReachNextRound()
-    {
-        // 2026-11-11-2bdfe: a NEW question ends the review, so the revision restates the question with a new proposal.
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 2) };
-        rig.Slot.Questions = [Question("Who owns the file?", "Accounting.")];
-        rig.Propose(SpecReply(Yaml(Lone)));
-        rig.OnReview = input => input.Round == 1 ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) : Build();
-        rig.Replies(rig.Asks(_ => SpecReply(Yaml(Lone, step: NewStep)), Question("Who owns the file?", "Finance.")));
-
-        await rig.RunAsync();
-
-        rig.Reviewed.Where(i => i.Round == 1).Should().OnlyContain(i => i.OpenQuestions.Single().Proposal == "Accounting.");
-        rig.Reviewed.Where(i => i.Round == 2).Should().NotBeEmpty()
-            .And.OnlyContain(i => i.OpenQuestions.Single().Proposal == "Finance.");
-    }
-
-    [Fact]
     public async Task ProposalReview_NoQuestions_NoSection()
     {
         var rig = new ProposalReviewRig { Settings = Of(rounds: 1) };
@@ -60,17 +39,5 @@ public sealed class ProposalReviewQuestionsTests
 
         SpecAttackPrompt.For(rig.Reviewed.First(), null).Should().NotContain(SpecAttackQuestionsSection.Heading);
         SpecAttackQuestionsSection.Render([]).Should().BeEmpty();
-    }
-
-    [Fact]
-    public void ProposalCutsNudge_TellsOperatorDecisionsGoToOpenQuestions()
-    {
-        var nudge = ProposalCutsNudge.For(
-            [new ProposalNudgeItem(new(Lone, "goal", Yaml(Lone), []), [], [new SpecReviewFinding("owner decides", "x:1")], [])],
-            [], lastRound: false);
-
-        nudge.Should().EndWith(ProposalCutsNudge.ReProposeWhole + " " + ProposalCutsNudge.OperatorDecisions);
-        ProposalCutsNudge.OperatorDecisions.Should().Contain("state_open_questions").And.Contain("state the whole list again")
-            .And.Contain("the draft then follows that proposal");
     }
 }

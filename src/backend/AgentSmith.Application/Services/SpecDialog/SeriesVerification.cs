@@ -32,13 +32,13 @@ public sealed class SeriesVerification(
         if (unstarted.Count == 0) return "Every spec of the series already ran; nothing is left to verify.";
         if (series.ShaByRepo.Count == 0
             || !pipeline.TryGet<ResolvedProject>(ContextKeys.SpecDialogProject, out var project) || project is null)
-            return $"{DefaultBranch} {Say(await ReviewAsync(unstarted, looks.ForProposalReview(pipeline), pipeline, agent, ct))}";
+            return $"{DefaultBranch} {Say(await ReviewAsync(unstarted, looks.ForProposalReview(pipeline, agent), pipeline, agent, ct))}";
 
         var opened = Open(project, series.ShaByRepo);
         try
         {
             var findings = new List<ProposalFinding>(await EvidenceAsync(Current(unstarted), opened, ct));
-            findings.AddRange(await ReviewAsync(unstarted, looks.ForReview(opened), pipeline, agent, ct));
+            findings.AddRange(await ReviewAsync(unstarted, looks.ForReview(opened, agent), pipeline, agent, ct));
             return $"Verified {unstarted.Count} unstarted spec(s) at the ticket branch "
                 + $"({string.Join(", ", series.ShaByRepo.Select(r => $"{r.Key}@{r.Value}"))}). {Say(findings)}";
         }

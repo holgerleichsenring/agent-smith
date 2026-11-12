@@ -168,7 +168,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<BugOutcomeParser>().AddTransient<TicketCommentOutcomeParser>(); // 7a69c
         services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>().AddTransient<TicketGraphOutcomeParser>(); // 3a36e, dbcej
         services.AddTransient<RequiresEdgeChecker>().AddTransient<TicketGraphChecker>().AddTransient<TicketGraphOrderer>(); SpecDialog.Writes.ProposalWriteRegistrations.AddProposalWrites(services); // cd4ca
-        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalReview>()
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalReview>().AddTransient<ProposalWholeSetReview>().AddTransient<ProposalReviewPass>().AddTransient<ProposalMechanicalChecks>().AddTransient<TicketExistenceFindings>() // cd4ch/i
             .AddTransient<SpecDialogTurnFlow>().AddTransient<TicketPlanReview>().AddTransient<TicketPlanReviewer>(); // dbcek
         // 2026-10-02-3f06c: the proposal's cited files, read before its model review.
         services.AddTransient<EvidenceReferences>().AddTransient<EvidenceCheck>().AddTransient<EpicChildOrderer>().AddTransient<ProposalEvidenceReview>();

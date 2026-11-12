@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -33,5 +34,11 @@ public static class DialogTranscriptSection
     public static string Render(PipelineContext pipeline, IReadOnlyList<SpecDialogTurn> transcript, bool stewarded) =>
         DialogThreadSeed.For(pipeline, stewarded) is { } thread
             ? SeededNote + Environment.NewLine + string.Join(Environment.NewLine, thread.Unseen.Select(TranscriptWindow.Line))
-            : TranscriptWindow.Render(transcript);
+            : TranscriptWindow.Render(transcript, Window(pipeline));
+
+    // 2026-11-12-cd4cl: the project agent's window, seeded with the turn; a pipeline seeded without one (a test, a
+    // composition with no project) reads the defaults the config itself carries.
+    private static TranscriptWindowConfig Window(PipelineContext pipeline) =>
+        pipeline.TryGet<TranscriptWindowConfig>(ContextKeys.SpecDialogTranscriptWindow, out var window) && window is not null
+            ? window : new TranscriptWindowConfig();
 }

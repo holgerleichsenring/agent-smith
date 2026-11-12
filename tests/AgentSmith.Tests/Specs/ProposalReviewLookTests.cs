@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AgentSmith.Tests.Specs.DerivationTestLooks;
@@ -23,7 +24,7 @@ public sealed class ProposalReviewLookTests
     [Fact]
     public void ReviewLook_ListsTheTurnsRepositories_NotItsTemplates()
     {
-        var look = Factory().ForProposalReview(Turn(new RecordingScope(), new RecordingScope()));
+        var look = Factory().ForProposalReview(Turn(new RecordingScope(), new RecordingScope()), new AgentConfig());
 
         look!.Repositories.Should().Equal([Repo],
             "a template says how work is done, not what this turn assumes");
@@ -44,7 +45,7 @@ public sealed class ProposalReviewLookTests
             ["reference:site"] = upload,
         };
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)sandboxes);
-        var look = Factory().ForProposalReview(pipeline)!;
+        var look = Factory().ForProposalReview(pipeline, new AgentConfig())!;
         var search = new RepositorySearchTool(look, NullLogger.Instance);
 
         var answer = await search.SearchRepository("reference:site", "Notification", "spec-doc");
@@ -71,8 +72,8 @@ public sealed class ProposalReviewLookTests
     [Fact]
     public void ReviewLook_ATurnWithNoRepository_IsNoLook()
     {
-        Factory().ForProposalReview(new PipelineContext()).Should().BeNull();
-        Factory().ForProposalReview(Turn(new RecordingScope(), template: null)).Should().NotBeNull();
+        Factory().ForProposalReview(new PipelineContext(), new AgentConfig()).Should().BeNull();
+        Factory().ForProposalReview(Turn(new RecordingScope(), template: null), new AgentConfig()).Should().NotBeNull();
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public sealed class ProposalReviewLookTests
         var drafts = new[] { new AgentSmith.Contracts.Models.SpecDraft("p9999", "widget goal", "spec: p9999", []) };
 
         var review = SpecCutReviewPrompt.For(drafts, ticketText: null,
-            Factory().ForProposalReview(Turn(new RecordingScope(), template: null)));
+            Factory().ForProposalReview(Turn(new RecordingScope(), template: null), new AgentConfig()));
         var derivation = SpecCutReviewPrompt.For(
             drafts, ticketText: null, DerivationTestLooks.Over(new CountingSandbox(0)));
 
@@ -290,7 +291,7 @@ public sealed class ProposalReviewLookTests
     private static DerivationLook Over(ISandbox scope) =>
         new(new Dictionary<string, ISandbox> { [Repo] = scope },
             new FixedReaderFactory(new InMemorySandboxFileReader()), new PackageEcosystemDetector(),
-            NullLogger.Instance, templates: null, DerivationLookTerms.ProposalReview, audits: false);
+            NullLogger.Instance, templates: null, DerivationLookTerms.ProposalReviewWith(24), audits: false);
 
     private static PipelineContext Turn(ISourceScopeSandbox repo, ISourceScopeSandbox? template)
     {

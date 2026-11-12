@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Loop;
 
 /// <summary>
 /// Tracks tokens-in / tokens-out / wall-clock during a single skill call and
-/// enforces the token + wall-clock caps. Tool-call and LLM-call counters are
+/// enforces the input-token + wall-clock caps (2026-11-12-cd4cl: output is counted, not capped). Tool-call and LLM-call counters are
 /// observational (recorded for the cost record; M.E.AI's MaximumIterationsPerRequest
 /// is the hard stop on the loop). Constructed per skill call, used and discarded.
 /// </summary>
@@ -44,10 +44,6 @@ public sealed class LimitEnforcer
         if (AccumulatedInputTokens > _limits.MaxInputTokensPerSkillCall)
             return Cap(LimitDecisionKind.CappedTokens, "tokens",
                 $"input tokens {AccumulatedInputTokens} > {_limits.MaxInputTokensPerSkillCall}");
-
-        if (AccumulatedOutputTokens > _limits.MaxOutputTokensPerSkillCall)
-            return Cap(LimitDecisionKind.CappedTokens, "tokens",
-                $"output tokens {AccumulatedOutputTokens} > {_limits.MaxOutputTokensPerSkillCall}");
 
         return LimitDecision.Continue();
     }

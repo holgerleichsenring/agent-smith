@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
@@ -83,13 +84,15 @@ public sealed class DerivationLookFactory(
     /// read off <see cref="ContextKeys.Sandboxes"/> directly (a design turn has no discoveries), templates dropped.
     /// 2026-11-10-864f: its uploads join read-only under their address. No audit. Null when it holds neither.
     /// </summary>
-    public DerivationLook? ForProposalReview(PipelineContext pipeline) => ForProposal(pipeline, DerivationLookTerms.ProposalReview);
+    /// <remarks>2026-11-12-cd4cl: on <paramref name="agent"/>'s look allowance.</remarks>
+    public DerivationLook? ForProposalReview(PipelineContext pipeline, AgentConfig agent) =>
+        ForProposal(pipeline, DerivationLookTerms.ProposalReviewWith(agent.DialogReviewLookAllowance));
 
     /// <summary>The proposal review's look over repositories the caller opened and disposes — a series
-    /// verified at the ticket branch rather than at the turn's default branch.</summary>
-    public DerivationLook ForReview(IReadOnlyDictionary<string, ISandbox> repositories) =>
+    /// verified at the ticket branch rather than at the turn's default branch, or a ticket plan.</summary>
+    public DerivationLook ForReview(IReadOnlyDictionary<string, ISandbox> repositories, AgentConfig agent) =>
         new(repositories, files, ecosystems, logger, templates: null,
-            DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity);
+            DerivationLookTerms.ProposalReviewWith(agent.DialogReviewLookAllowance), audits: false, activity: turnActivity);
 
     /// <summary>2026-10-13-8762i: one attack reviewer's look at one proposal draft, on that draft's attack terms.</summary>
     public DerivationLook? ForProposalAttack(PipelineContext pipeline, Contracts.Models.SpecDraft draft) =>

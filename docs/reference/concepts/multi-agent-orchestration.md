@@ -48,7 +48,7 @@ A child runs its own tool loop with the master's base surface:
 - A child never gets `spawn_agents`, so it cannot spawn grandchildren. It also never gets `update_progress` or `ensure_repo_sandbox`; the ledger and the repository scope stay with the master.
 - A child of a design turn keeps only the reads: `read_file`, `grep_in_tree`, `find_files`, `directory_tree`, `web_fetch`, `recall` where the project keeps a memory store, and the bound ticket's reads. It never acts on the ticket.
 
-A child has no budget fence and no ledger reminders. Its only bound is its iteration ceiling: `max_sub_agent_loop_iterations` on the agent the run uses (default 100), or `limits.max_dialog_sub_agent_loop_iterations` (default 20) for a child of a design turn.
+A child has no budget fence and no ledger reminders. Its only bound is its iteration ceiling: `max_sub_agent_loop_iterations` on the agent the run uses (default 100), or `dialog_sub_agent_loop_iterations` on that agent (default 100) for a child of a design turn.
 
 ## How results come back
 
@@ -75,11 +75,11 @@ limits:
   max_concurrent_sub_agents: 4               # children in flight at once
   max_sub_agents_per_run: 20                 # children across all spawn_agents calls in one run; 0 removes the tools
   max_sub_agents_per_dialog_turn: 4          # the same count for one design turn; 0 removes the tools there
-  max_dialog_sub_agent_loop_iterations: 20   # iteration ceiling for a design turn's child
 
 agents:
   claude-default:
-    max_sub_agent_loop_iterations: 100       # iteration ceiling for every other child
+    max_sub_agent_loop_iterations: 100       # iteration ceiling for a run's child
+    dialog_sub_agent_loop_iterations: 100    # iteration ceiling for a design turn's child
 ```
 
 The per-run count is a budget that `spawn_agents` reserves from. When a call asks for more children than are left, the ones that fit run and the rest come back as `Failed` with `reason: budget_exhausted`, without a model call. A design turn builds a budget of its own from `max_sub_agents_per_dialog_turn`, so one conversation turn cannot open twenty children.

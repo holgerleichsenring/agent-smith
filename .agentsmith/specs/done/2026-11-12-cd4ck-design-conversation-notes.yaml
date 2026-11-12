@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4ck
+goal: "A design conversation keeps one working notes file the master reads and writes with no size cap; every turn's prompt carries it whole, replacing note_reference's 8,000-char per-upload note."
+
+applies_to: "default (design turn tools, reference store, turn prompt, run carry)"
+
+invariants:
+  - "ONE FILE PER CONVERSATION. read_notes and write_notes act on the conversation's notes; write_notes replaces the whole file; nothing bounds its length."
+  - "STORED WITH THE CONVERSATION. The notes are a row of the conversation's reference store keyed on its session id, so every replica reads the same file and the conversation's delete sweeps it."
+  - "WHOLE IN THE NEXT TURN. The user prompt of every design turn carries the notes whole, fenced as data; a conversation without notes says so in one line."
+  - "NOTHING LOST. Per-upload notes written before this spec are read as part of the conversation's notes until the first write replaces them."
+  - "RUNS STILL SEE IT. A run carrying an upload shows its conversation's notes once per conversation, as data."
+
+facts:
+  - claim: "note_reference refuses a note over IReferenceNotes.MaxChars = 8000 characters."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/IReferenceNotes.cs:11; src/backend/AgentSmith.Application/Services/Tools/ReferenceNoteToolHost.cs:34-35"
+  - claim: "A note is a ReferenceFile row of kind note under the upload's set id, keyed on the session id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceNoteRepository.cs:17-49"
+  - claim: "note_reference is offered only on a turn that holds an upload."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ReferenceDesignTools.cs:30,41-42"
+  - claim: "The skill tells the master that what earlier turns read is not in this turn (skills pin v5.28.2)."
+    evidence: "audit REPORT.md G5 citing SKILL.md:133-136"
+
+scope:
+  in: "IConversationNotes (contract), ConversationNotesRepository + DbConversationNotes (persistence), ConversationNotesToolHost (read_notes, write_notes) on the design master, ConversationNotesSection in the design prompt, the run carry, removal of note_reference, IReferenceNotes, the per-set note on the sandbox, the upload view and the dashboard type; tests."
+  out: "The skill text (another agent): the sentence 'What earlier turns read is not in this turn' and every mention of note_reference become obsolete and are named in the report. The steward surface. No migration: the existing note kind is reused."
+
+steps:
+  - id: contract
+    action: "IConversationNotes { ReadAsync, WriteAsync } replaces IReferenceNotes."
+  - id: store
+    action: "ConversationNotesRepository over ReferenceFile rows of kind note: read joins every note row of the session (legacy ones under their set id), write replaces them all with one row of empty set id. DbConversationNotes opens a scope per call."
+  - id: tools
+    action: "ConversationNotesToolHost built from the seeded port; joins the design master's surface. ReferenceNoteToolHost deleted."
+  - id: prompt
+    action: "SpecDialogTurnMaterial reads the notes and the port; the seeds carry both; ConversationNotesSection renders them in SpecDialogPromptFactory."
+  - id: carry
+    action: "ReferenceSetCarrier carries the conversation's notes; ReferencePromptSection shows them once per conversation."
+  - id: cleanup
+    action: "Drop ReferenceSetSandbox.Note, the factory's note parameter, ReferenceSetView.Note, the dashboard type's note and the per-set note line."
+
+tests:
+  - "ConversationNotesRepository_WriteThenRead_ReturnsTheWholeFile"
+  - "ConversationNotesRepository_LegacySetNotes_AreReadUntilTheFirstWrite"
+  - "ConversationNotesToolHost_WriteNotes_StoresTextOverEightThousandChars"
+  - "ConversationNotesSection_RendersTheNotesWholeAndFenced"
+  - "MaterializeReferenceSets carries the conversation's notes"
+
+done:
+  - "No IReferenceNotes, note_reference or 8000-character note bound remains in src."
+  - "A design turn offers read_notes and write_notes with or without an upload, and its prompt carries the notes whole (tests above)."
+  - "Build and full suite green at the spec gate."

@@ -40,7 +40,7 @@ public sealed class SpecDialogTurnFlow(
         var proposal = context.Pipeline.TryGet<SpecDialogReplySlot>(ContextKeys.SpecDialogReplySlot, out var slot) && slot is not null
             ? Writes.ProposalDraftOutcome.For(slot.Proposal) : new AnswerOutcome();
         var gated = MasterOutcomes.PublishOutcome(context.Pipeline, proposal, loopResult);
-        return await proposalReview.ReviewAsync(
-            context.Pipeline, request, userPrompt, gated, conversation, context.AgentConfig, costTracker, ct);
+        await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, ct); // cd4ch: advisory, the reply stands
+        return gated;
     }
 }

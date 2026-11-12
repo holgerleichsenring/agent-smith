@@ -92,15 +92,11 @@ internal static class MasterHandlerFixture
         new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
-                Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
-                AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
-                AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
-                // 2026-10-13-8762i: rounds 0 — the single review; the rounds have their own rig.
+                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Checks(),
+                // 2026-11-12-cd4ch: the design turn's pass off, as by default; the pass has its own rig.
                 AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
-                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
-                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
-                AgentSmith.Tests.SpecDialog.ProposalReview.TicketPlanReviewRig.Default(),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 4, designTurn: false)),
+                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Pass(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>

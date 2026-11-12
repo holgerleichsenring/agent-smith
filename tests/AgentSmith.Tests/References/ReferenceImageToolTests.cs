@@ -77,7 +77,7 @@ public sealed class ReferenceImageToolTests
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox> { ["reference:site"] = _fixture.Open(Holds.None()) });
 
-        var tools = new ReferenceDesignTools(new SandboxContainerRuntime(false), null, _fixture,
+        var tools = new ReferenceDesignTools(new SandboxContainerRuntime(false), _fixture,
             new DesignImageFakes.RecordingDeposit()).For(pipeline);
 
         tools.Select(t => t.Name).Should().Contain("view_reference_image").And.NotContain("run_in_reference");

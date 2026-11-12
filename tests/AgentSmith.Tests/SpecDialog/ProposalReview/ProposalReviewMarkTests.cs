@@ -20,7 +20,7 @@ public sealed class ProposalReviewMarkTests
     private const string NewStep = "Write the orders through the streaming file writer.";
 
     [Fact]
-    public async Task ProposalReviewLoop_BothReviewersFail_DraftIsMarkedWithTheNoAnswerReason()
+    public async Task ProposalAttackPass_BothReviewersFail_DraftIsMarkedWithTheNoAnswerReason()
     {
         var rig = new ProposalReviewRig { OnReview = input => input.Draft.SpecId == Second ? null : Build() }.WithRepository();
         rig.Propose(Epic());
@@ -30,60 +30,24 @@ public sealed class ProposalReviewMarkTests
         rig.Outcome.NotReviewed.Should().Equal(Second);
         rig.Outcome.Findings.Should().Contain(f => f.SpecId == Second
             && f.Why == ProposalReviewSummary.NotReviewedWhy(ProposalReviewSummary.NoAnswerWhy));
-        rig.Reviewed.Count(i => i.Draft.SpecId == Second).Should().Be(8, "each of the 4 rounds tries it again");
+        rig.Reviewed.Count(i => i.Draft.SpecId == Second).Should().Be(2, "one pass: each reviewer once");
     }
 
     [Fact]
-    public async Task ProposalReviewLoop_ReviewersFailThenAnswer_DraftIsReviewed()
-    {
-        var rig = new ProposalReviewRig
-        {
-            OnReview = input => input.Draft.SpecId == Second && input.Round == 1 ? null : Build(),
-        }.WithRepository();
-        rig.Propose(Epic());
-
-        await rig.RunAsync();
-
-        rig.Outcome.NotReviewed.Should().BeNull();
-        rig.Outcome.ReviewRounds.Should().Contain(r => r.SpecId == Second && r.Round == 2);
-    }
-
-    [Fact]
-    public async Task ProposalReview_LastRoundRefuseRewritten_IsMarkedWithoutTheOldFindings()
-    {
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 1), OnReview = _ => Refuse("the writer is not buffered") };
-        rig.Propose(SpecReply(Yaml(Lone)));
-        rig.Replies(_ => SpecReply(Yaml(Lone, step: NewStep)));
-
-        await rig.RunAsync();
-
-        rig.DraftOf(Lone).Yaml.Should().Contain(NewStep);
-        rig.Outcome.NotReviewed.Should().Equal(Lone);
-        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Lone
-            && f.Why == ProposalReviewSummary.NotReviewedWhy(ProposalReviewSummary.LastRevisionWhy));
-        rig.Outcome.Findings.Should().NotContain(f => f.Why == "the writer is not buffered",
-            "that finding was about the text the rewrite replaced");
-    }
-
-    [Fact]
-    public async Task ProposalReview_CostCapReachedBeforeTheRePrompt_MarkedWithTheCapReason()
+    public async Task ProposalReview_CostCapReachedBeforeThePass_MarkedWithTheCapReason()
     {
         var rig = new ProposalReviewRig();
         rig.Propose(SpecReply(Yaml(Lone)));
-        rig.OnReview = _ =>
+        var tracker = PipelineCostTracker.GetOrCreate(rig.Pipeline);
+        tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10 });
+        tracker.Track(new ChatResponse(new ChatMessage(ChatRole.Assistant, "x"))
         {
-            var tracker = PipelineCostTracker.GetOrCreate(rig.Pipeline);
-            tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10 });
-            tracker.Track(new ChatResponse(new ChatMessage(ChatRole.Assistant, "x"))
-            {
-                Usage = new UsageDetails { InputTokenCount = 1_000, OutputTokenCount = 10 },
-            });
-            return RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep));
-        };
+            Usage = new UsageDetails { InputTokenCount = 1_000, OutputTokenCount = 10 },
+        });
 
         await rig.RunAsync();
 
-        rig.Nudges.Should().BeEmpty("the cap stops the re-prompt");
+        rig.Reviewed.Should().BeEmpty("the cap stops the pass");
         rig.Outcome.NotReviewed.Should().Equal(Lone);
         rig.Outcome.Findings.Should().Contain(f => f.SpecId == Lone && f.Problem == ProposalReviewSummary.NotReviewedYet
             && f.Why.Contains("cost cap"));
@@ -119,22 +83,21 @@ public sealed class ProposalReviewMarkTests
     }
 
     [Fact]
-    public async Task ProposalReview_CutsAppliedAfterTheLastRound_AreNotReviewedClean()
+    public async Task ProposalReview_CutsAreAdvice_ProposalUnchangedFindingsStand()
     {
-        // A build that still quotes a cut: the round's verdict is build, but the cut changes the text afterwards.
         var rig = new ProposalReviewRig
         {
-            Settings = Of(rounds: 1),
-            OnReview = _ => new SpecAttackResult(SpecReviewVerdicts.Build, [Cut(SpecRegisterNames.Steps, Step, NewStep)], []),
+            OnReview = _ => new SpecAttackResult(SpecReviewVerdicts.BuildWithCuts, [Cut(SpecRegisterNames.Steps, Step, NewStep)],
+                [new SpecReviewFinding("the writer is not buffered", "shop/src/Export/Writer.cs:9 [A1]")]),
         };
-        rig.Propose(SpecReply(Yaml(Lone)));
-        rig.Replies(_ => SpecReply(Yaml(Lone, step: NewStep)));
+        var proposed = rig.Propose(SpecReply(Yaml(Lone)));
 
         await rig.RunAsync();
 
-        rig.DraftOf(Lone).Yaml.Should().Contain(NewStep);
-        rig.Outcome.ReviewRounds.Should().ContainSingle().Which.Verdict.Should().Be(SpecReviewVerdicts.Build);
-        rig.Outcome.ReviewedClean.Should().BeEmpty("the build was on the text before the cut; nobody attacked the text after it");
+        rig.DraftOf(Lone).Yaml.Should().Be(ProposalSpecSet.Drafts(proposed).Single().Yaml, "nothing re-prompts the design partner");
+        rig.Outcome.ReviewRounds.Should().ContainSingle().Which.Cuts.Should().ContainSingle().Which.Replacement.Should().Be(NewStep);
+        rig.Outcome.Findings.Should().Contain(f => f.SpecId == Lone && f.Why == "the writer is not buffered");
+        rig.Outcome.ReviewedClean.Should().BeEmpty("a review that asked for cuts is not a clean one");
     }
 
     [Fact]

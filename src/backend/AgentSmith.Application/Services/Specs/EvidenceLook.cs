@@ -16,6 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <param name="Path">2026-09-17-042eh: the path the look was scoped to, or null.</param>
 /// <param name="LinesReturned">2026-09-17-042eh: numbered lines the result carried, or 0.</param>
 /// <param name="Pattern">2026-11-04-6768a: the pattern a search ran, or null.</param>
+/// <param name="FirstLine">2026-11-12-cd4cl: the file line the returned lines start at — a paged read's start_line.</param>
 public sealed record EvidenceLook(
     string Id, string Repository, string What, int ExitCode, bool Ran, string Line,
-    string Kind = "", string? Path = null, int LinesReturned = 0, string? Pattern = null);
+    string Kind = "", string? Path = null, int LinesReturned = 0, string? Pattern = null, int FirstLine = 1);

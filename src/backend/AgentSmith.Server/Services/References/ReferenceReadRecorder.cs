@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Services.References;
 
 /// <summary>
 /// 2026-11-04-96a0c: keeps what a finished design turn opened of one upload, and says how much that was. It stores in
-/// a scope of its own, like DbReferenceNotes, and only the readable files of the set. A store failure is logged and
+/// a scope of its own, like DbConversationNotes, and only the readable files of the set. A store failure is logged and
 /// swallowed and the counts come from memory: storing never fails an answer the turn already has.
 /// </summary>
 public sealed class ReferenceReadRecorder(IServiceScopeFactory scopeFactory, ILogger<ReferenceReadRecorder> logger)

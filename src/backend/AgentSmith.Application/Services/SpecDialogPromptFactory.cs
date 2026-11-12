@@ -40,6 +40,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             {DialogImageNote.Render(imagesExisting, imagesCarried)}
             {ConversationNameNote.Render(pipeline)}
             {WorkPictureSection.Render(pipeline)}
+            {ConversationNotesSection.Render(pipeline)}
             {Handlers.ReferencePromptSection.ThisTurn(Uploads(pipeline))}
             {TurnContract(transcript)}
             """;

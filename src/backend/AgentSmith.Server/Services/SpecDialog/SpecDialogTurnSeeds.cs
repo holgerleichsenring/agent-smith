@@ -74,6 +74,8 @@ internal static class SpecDialogTurnSeeds
         if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
         // 2026-09-22-9519: the way back out of a filing, beside the identity it acts under; 14a3d: only once something was filed.
         if (facts.Withdrawal is { } withdrawal) seeds[ContextKeys.SpecDialogWithdrawal] = withdrawal;
+        if (facts.NotesStore is { } notes) seeds[ContextKeys.SpecDialogNotesStore] = notes; // 2026-11-12-cd4ck
+        if (facts.Notes is { } text) seeds[ContextKeys.SpecDialogNotes] = text;
         if (state.WorkPicture is { } picture) seeds[ContextKeys.SpecDialogWorkPicture] = picture; // 2026-11-05-862ea
         // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
         // carries it, so an unbound conversation renders exactly the prompt it rendered before.
@@ -97,6 +99,7 @@ internal static class SpecDialogTurnSeeds
         if (designSources is { Count: > 0 }) seeds[ContextKeys.SpecDialogDesignSources] = designSources;
         // 2026-10-01-283de: and the project itself, whose spec render_reference's browser sandbox is built from.
         if (project is not null) seeds[ContextKeys.SpecDialogProject] = project;
+        if (project is not null) seeds[ContextKeys.SpecDialogTranscriptWindow] = project.Agent.DialogTranscript; // cd4cl
         if (thread is not null) seeds[ContextKeys.SpecDialogThread] = thread; // the thread this turn continues
         if (poster?.MayStartRuns == true) seeds[ContextKeys.MayStartRuns] = true; // 2026-11-10-fcd7b: holds runs.control
         if (workClones is not null) seeds[ContextKeys.WorkClones] = workClones; // 2026-11-10-4778

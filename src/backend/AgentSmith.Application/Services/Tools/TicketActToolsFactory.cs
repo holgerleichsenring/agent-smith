@@ -14,11 +14,13 @@ namespace AgentSmith.Application.Services.Tools;
 /// derive_specs (2026-10-26-bdd0g), read_series, verify_series and edit_series; and name_conversation (2026-11-04-96a0a)
 /// for a conversation that has no subject yet, bound or not; and state_work_picture (2026-11-05-862ea) on every turn
 /// with a reply slot, beside the proposal write tools (2026-11-12-cd4ca). The MASTER only — a child acts on no one's word, so no
-/// child surface carries them. A turn seeded with none of their ports gets none of them.
+/// child surface carries them. A turn seeded with none of their ports gets none of them. 2026-11-12-cd4cj:
+/// review_proposal on a design partner's turn, when the review pass is composed.
 /// </summary>
 public sealed class TicketActToolsFactory(
     SeriesVerification verification, ProposalWriteTools writes,
-    Scope.DesignEffortCap? efforts = null)
+    Scope.DesignEffortCap? efforts = null,
+    ProposalReviewPass? review = null, Specs.Review.ISpecReviewSettingsReader? reviewSettings = null)
 {
     public IReadOnlyList<AITool> Tools(AgenticMasterContext context)
     {
@@ -35,6 +37,8 @@ public sealed class TicketActToolsFactory(
                 : (tier, ct) => efforts.ApplyAsync(pipeline, tier, ct), stored).GetTools(null, null));
             tools.AddRange(new OpenQuestionsToolHost(slot).GetTools(null, null)); // 2026-11-10-d854a
             tools.AddRange(writes.For(pipeline, slot.Proposal)); // 2026-11-12-cd4ca: the draft is written, not replied
+            if (review is not null && reviewSettings is not null && !context.IsTicketSteward) // 2026-11-12-cd4cj
+                tools.AddRange(new ReviewProposalToolHost(review, reviewSettings, pipeline, context.AgentConfig).GetTools(null, null));
         }
         if (pipeline.TryGet<IAttemptStart>(ContextKeys.SpecDialogAttemptStart, out var start) && start is not null)
             tools.AddRange(new StartNextAttemptToolHost(start).GetTools(null, null));

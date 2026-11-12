@@ -24,4 +24,8 @@ public sealed class SpecReviewConfigTests
         (config.Rounds, config.Reviewers, config.MaxConcurrent, config.BudgetSharePercent).Should().Be((4, 2, 2, 40));
         config.Problems().Should().BeEmpty();
     }
+
+    [Fact]
+    public void SpecReviewConfig_DesignTurn_DefaultsOff() =>
+        new AgentSmithConfig().SpecReview.DesignTurn.Should().BeFalse("2026-11-12-cd4ch: a design turn's review pass is opt-in");
 }

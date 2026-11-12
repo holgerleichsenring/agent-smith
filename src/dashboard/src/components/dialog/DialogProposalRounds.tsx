@@ -2,9 +2,10 @@
 
 import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 
-// 2026-10-13-8762i: the review rounds a design turn's proposal went through before it reached the person who
-// approves it — per draft, round by round, what each reviewer answered, the cuts the design partner applied,
-// the findings, and any cut wording still standing. Drafts not yet reviewed say so; the reserved "series"
+// 2026-10-13-8762i: the review a design turn's proposal went through before it reached the person who approves it —
+// per draft, what each reviewer answered, the cuts it suggests, the findings, and any cut wording still standing.
+// 2026-11-12-cd4ch: one advisory pass records one round per draft; nothing is applied, so a cut is a suggestion. A
+// proposal stored while the review ran in rounds still shows each of them. Drafts not yet reviewed say so; the reserved "series"
 // entry is the series contract. A proposal stored before the rounds shipped carries neither field, and an
 // absent field renders nothing.
 
@@ -36,7 +37,7 @@ export function DialogProposalRounds({
     <div data-testid="dialog-proposal-rounds" className="mt-1.5 mb-1.5">
       {specIds.map((specId) => (
         <div key={specId} data-testid={`dialog-rounds-${specId}`} className="mb-1">
-          <div className="fl">{specId === SERIES_TOKEN ? "the series contract" : specId} — review rounds</div>
+          <div className="fl">{specId === SERIES_TOKEN ? "the series contract" : specId} — review</div>
           <ol className="ml-4 flex list-decimal flex-col gap-1">
             {(rounds ?? []).filter((round) => round.specId === specId).map((round) => (
               <Round key={round.round} round={round} />
@@ -62,7 +63,7 @@ function Round({ round }: { round: SpecDialogReviewRound }) {
       <ul className="ml-4 list-disc">
         {round.cuts.map((cut, index) => (
           <li key={`cut-${index}`} data-testid="dialog-round-cut">
-            cut {cut.register}: “{cut.quote}” → {cut.replacement ? `“${cut.replacement}”` : "removed"}
+            suggested cut {cut.register}: “{cut.quote}” → {cut.replacement ? `“${cut.replacement}”` : "removed"}
             <span className="ml-1 dsh-mono font-mono text-body">{cut.evidence}</span>
           </li>
         ))}

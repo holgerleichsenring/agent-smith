@@ -115,29 +115,28 @@ public sealed class MaterializeReferenceSetsTests
         Text(_repo, "/work/.git/info/exclude").Should().Be("# local\n*.log\n/.agentsmith/reference/\n");
     }
 
-    // 2026-10-02-075dd: a carried set brings its note as it stands when the run begins.
+    // 2026-11-12-cd4ck: a carried set brings its conversation's notes as they stand when the run begins.
     [Fact]
-    public async Task ReferenceSetCarrier_CarriesTheLiveNote()
+    public async Task ReferenceSetCarrier_CarriesTheConversationsNotes()
     {
         _sets.Add("set-a", ("app/app.py", "print(1)"));
         var pipeline = Pipeline(["set-a"]);
 
-        await Handler(_sets, new FixedNotes("set-a", "python3 app/app.py"))
+        await Handler(_sets, new FixedNotes("s-1", "python3 app/app.py"))
             .ExecuteAsync(new MaterializeReferenceSetsContext(pipeline), CancellationToken.None);
 
         pipeline.Get<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets).Single().Note.Should().Be("python3 app/app.py");
     }
 
-    private sealed class FixedNotes(string setId, string note) : IReferenceNotes
+    private sealed class FixedNotes(string session, string note) : IConversationNotes
     {
-        public Task<IReadOnlyDictionary<string, string>> NotesAsync(string sessionId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string> { [setId] = note });
+        public Task<string?> ReadAsync(string sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(sessionId == session ? note : null);
 
-        public Task<bool> SetAsync(string sessionId, string set, string text, CancellationToken cancellationToken) =>
-            Task.FromResult(false);
+        public Task WriteAsync(string sessionId, string notes, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private MaterializeReferenceSetsHandler Handler(IReferenceSetReader reader, IReferenceNotes? notes = null)
+    private MaterializeReferenceSetsHandler Handler(IReferenceSetReader reader, IConversationNotes? notes = null)
         => new(ReferenceCarryDoubles.Materializer(reader, notes));
 
     private PipelineContext Pipeline(IReadOnlyList<string> cited, IReadOnlyList<string>? images = null, string carrying = "sample-api")

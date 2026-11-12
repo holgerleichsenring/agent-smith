@@ -41,7 +41,8 @@ public sealed partial class SpecDialogWorkPictureTests
         // 2026-11-12-cd4ca: 35466 with the proposal write tools (22 tools) — the draft is written, not replied.
         // 2026-11-12-cd4cg: 36329 with outcome_format gone (21 tools) and the schemas in the write tools' descriptions,
         // which no turn fetches any more (an epic format alone was 12000 characters per fetch).
-        (system + user + tools).Should().BeLessThan(37000, "a first design turn carries only what it can use");
-        count.Should().BeLessThanOrEqualTo(21);
+        // 2026-11-12-cd4cj/cd4ck: review_proposal, and read_notes/write_notes in place of note_reference (23 tools).
+        (system + user + tools).Should().BeLessThan(39000, "a first design turn carries only what it can use");
+        count.Should().BeLessThanOrEqualTo(23);
     }
 }

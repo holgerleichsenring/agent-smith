@@ -9,9 +9,8 @@ namespace AgentSmith.Contracts.Sandbox;
 public interface IReferenceSetSandboxFactory
 {
     /// <param name="address">The name the turn addresses it by — <c>reference:&lt;name&gt;</c>.</param>
-    /// <param name="note">2026-10-02-075dd: the set's note, shown beside its address in the turn's prompt.</param>
     /// <param name="coverage">2026-11-04-96a0c: what earlier turns opened of the set, shown beside its address too.</param>
     ISourceScopeSandbox Create(
-        ResolvedProject project, string conversationId, string address, string setId, string? note = null,
+        ResolvedProject project, string conversationId, string address, string setId,
         ReferenceCoverage? coverage = null);
 }

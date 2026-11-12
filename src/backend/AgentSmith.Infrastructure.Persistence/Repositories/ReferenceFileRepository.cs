@@ -74,7 +74,8 @@ public sealed class ReferenceFileRepository(IUnitOfWork unitOfWork)
     /// Every file of one conversation, in both tables, deleted — inside whatever transaction the
     /// caller opened, which is how they join the conversation delete's unit of work.
     /// 2026-10-01-283df: except the website sets in <paramref name="keep"/>, which an approval cites.
-    /// 2026-10-02-075dd: and their notes — the run that carries a set reads how to run it.
+    /// 2026-10-02-075dd: and the notes — the run that carries a set reads them. 2026-11-12-cd4ck: the notes are the
+    /// conversation's, so any kept set keeps every note row.
     /// 2026-10-08-e8b9k: and the images it cites, with the legacy row of the same id — the leader
     /// sweeps a copy whose legacy row is gone.
     /// </summary>
@@ -83,8 +84,8 @@ public sealed class ReferenceFileRepository(IUnitOfWork unitOfWork)
         var kept = keep.ToList();
         var keptImages = await Images(sessionId).Where(f => kept.Contains(f.SetId)).Select(f => f.Id).ToListAsync(ct);
         return await unitOfWork.Set<ReferenceFile>()
-                .Where(f => f.SessionId == sessionId && !(kept.Contains(f.SetId) && (f.Kind == ReferenceFileKind.Site
-                    || f.Kind == ReferenceFileKind.Note || f.Kind == ReferenceFileKind.Image)))
+                .Where(f => f.SessionId == sessionId && !(kept.Count > 0 && f.Kind == ReferenceFileKind.Note)
+                    && !(kept.Contains(f.SetId) && (f.Kind == ReferenceFileKind.Site || f.Kind == ReferenceFileKind.Image)))
                 .ExecuteDeleteAsync(ct)
             + await unitOfWork.Set<SpecDialogAttachment>()
                 .Where(a => a.SessionId == sessionId && !keptImages.Contains(a.Id)).ExecuteDeleteAsync(ct);

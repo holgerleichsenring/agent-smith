@@ -34,7 +34,6 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
               max_tool_calls_per_verifier: 19
               max_llm_calls_per_skill: 12
               max_input_tokens_per_skill_call: 123456
-              max_output_tokens_per_skill_call: 9000
               max_seconds_per_skill_call: 240
               max_concurrent_skill_calls: 4
             secrets: {}
@@ -45,7 +44,6 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
         cfg.Limits.MaxToolCallsPerVerifier.Should().Be(19);
         cfg.Limits.MaxLlmCallsPerSkill.Should().Be(12);
         cfg.Limits.MaxInputTokensPerSkillCall.Should().Be(123456);
-        cfg.Limits.MaxOutputTokensPerSkillCall.Should().Be(9000);
         cfg.Limits.MaxSecondsPerSkillCall.Should().Be(240);
         cfg.Limits.MaxConcurrentSkillCalls.Should().Be(4);
     }
@@ -63,7 +61,6 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
         cfg.Limits.MaxToolCallsPerVerifier.Should().Be(20);
         cfg.Limits.MaxLlmCallsPerSkill.Should().Be(15);
         cfg.Limits.MaxInputTokensPerSkillCall.Should().Be(500_000); // p0236: raised 200k → 500k
-        cfg.Limits.MaxOutputTokensPerSkillCall.Should().Be(16_000);
         cfg.Limits.MaxSecondsPerSkillCall.Should().Be(300);
         cfg.Limits.MaxConcurrentSkillCalls.Should().Be(10);
     }
@@ -101,5 +98,34 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
     {
         var limits = new LoopLimitsConfig();
         limits.ResolveToolCallCap("not-a-real-mode").Should().Be(limits.MaxToolCallsPerSkill);
+    }
+
+    // 2026-11-12-cd4cl: a design turn's budgets are read off the agent, beside its compaction.
+    [Fact]
+    public void BindFromYaml_AgentDialogBudgets_BindAndDefault()
+    {
+        var cfg = Load("""
+            agents:
+              tuned:
+                type: Claude
+                model: claude-sonnet-4-20250514
+                dialog_master_loop_iterations: 300
+                dialog_sub_agent_loop_iterations: 50
+                dialog_review_look_allowance: 40
+                dialog_transcript: { verbatim_chars: 90000, keep_recent_chars: 45000, min_recent_turns: 3, max_fold_chars: 100000 }
+              plain: { type: Claude, model: claude-sonnet-4-20250514 }
+            projects: {}
+            secrets: {}
+            """);
+
+        var tuned = cfg.Agents["tuned"];
+        (tuned.DialogMasterLoopIterations, tuned.DialogSubAgentLoopIterations, tuned.DialogReviewLookAllowance)
+            .Should().Be((300, 50, 40));
+        (tuned.DialogTranscript.VerbatimChars, tuned.DialogTranscript.KeepRecentChars, tuned.DialogTranscript.MinRecentTurns,
+            tuned.DialogTranscript.MaxFoldChars).Should().Be((90_000, 45_000, 3, 100_000));
+        var plain = cfg.Agents["plain"];
+        (plain.DialogMasterLoopIterations, plain.DialogSubAgentLoopIterations, plain.DialogReviewLookAllowance)
+            .Should().Be((200, 100, 24), "the run master's and run child's defaults, and the attack reviewer's floor");
+        plain.DialogTranscript.VerbatimChars.Should().Be(60_000);
     }
 }

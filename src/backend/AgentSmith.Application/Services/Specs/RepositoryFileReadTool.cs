@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -25,7 +24,8 @@ public sealed class RepositoryFileReadTool(
     /// <summary>2026-09-15-ffa7: per look, because the id it spells is the holder's.</summary>
     public string Description =>
         "Reads one file of one repository, relative to the repository root, and returns its "
-        + "content — a manifest, a lock file, a config. Read-only. The result starts with an "
+        + "content — a manifest, a lock file, a config. Read-only. A long file is cut; the cut names the "
+        + "start_line to read on from. The result starts with an "
         + $"evidence id such as [{look.Terms.EvidencePrefix}2]; a fact that rests on this file cites that id.";
 
     public async Task<string> ReadFile(
@@ -33,6 +33,8 @@ public sealed class RepositoryFileReadTool(
         string repository,
         [Description("The path relative to the repository root, e.g. 'src/Api/Api.csproj'.")]
         string path,
+        [Description("Optional 1-based line to start at, to read on past a cut. Omit to read from the top.")]
+        int? start_line = null,
         CancellationToken ct = default)
     {
         if (!ContainedPath.TryRelative(path, out var under) || under == ".")
@@ -52,13 +54,16 @@ public sealed class RepositoryFileReadTool(
         // 2026-09-17-042eh: numbered for a holder whose findings name a line, and the bound
         // applies to the NUMBERED text — so the lines the result carries are counted from
         // exactly what the model was shown, never from the file on disk.
-        var shown = read.Content is null ? null
-            : look.Terms.NumberedReads ? Numbered(read.Content) : read.Content;
+        // 2026-11-12-cd4cl: a paged read starts at start_line, and its numbers are the file's own.
+        var first = Math.Max(1, start_line ?? 1);
+        var page = read.Content is null ? null : ReadPage.From(read.Content, first);
+        var shown = page is null ? null
+            : look.Terms.NumberedReads ? Numbered(page, first) : page;
         var id = look.Evidence.Remember(new EvidenceRecord(
             repository, EvidenceRecord.Read, $"read {under}",
             read.Ran ? read.Content is null ? MissingExit : ReadExit : SourceScopeLook.NotRunExit,
             read.Ran, under,
-            shown is null || !look.Terms.NumberedReads ? 0 : LinesWithin(shown, MaxChars)));
+            shown is null || !look.Terms.NumberedReads ? 0 : LinesWithin(shown, MaxChars), FirstLine: first));
         logger.LogInformation(
             "The {Actor} read {Repo}/{Path} — {Outcome} as {Id}",
             look.Terms.Actor, repository, under,
@@ -68,7 +73,7 @@ public sealed class RepositoryFileReadTool(
             // 2026-09-24-4f10: the subject is the PATH. Read as a sentence about the
             // repository this answer is wrong, and a premise check read it that way.
             ? $"[{id}] {repository} has nothing at {under}. That is about this path only — a file of that name may sit elsewhere in the repository."
-            : $"[{id}] {repository}/{under}:\n" + BoundedResultTool.Bound(shown, MaxChars);
+            : $"[{id}] {repository}/{under}:\n" + ReadPage.Bound(shown, first, MaxChars);
     }
 
     /// <summary>
@@ -76,14 +81,14 @@ public sealed class RepositoryFileReadTool(
     /// read returns raw bytes, so a reviewer asked for a line number would count them itself
     /// and be believed — the numbers a finding is checked against have to be the framework's.
     /// </summary>
-    public static string Numbered(string content)
+    public static string Numbered(string content, int first = 1)
     {
         ArgumentNullException.ThrowIfNull(content);
         // A file's trailing newline terminates its LAST line; it does not open another. Split
         // alone invents one, and LinesWithin would then admit a finding on a line that is not
         // in the file at all.
         var body = content.EndsWith('\n') ? content[..^1] : content;
-        return string.Join("\n", body.Split('\n').Select((line, i) => $"{i + 1}\t{line}"));
+        return string.Join("\n", body.Split('\n').Select((line, i) => $"{i + first}\t{line}"));
     }
 
     /// <summary>

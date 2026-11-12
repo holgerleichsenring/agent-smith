@@ -26,7 +26,7 @@ public sealed class TicketPlanCompositionTests
     public async Task SpecDialogProposalReview_FromRealServiceCollection_ReviewsATicketList()
     {
         var rig = new TicketPlanReviewRig();
-        rig.ReviewerAnswers.Enqueue(Finding("order-ui", "order", quote: "nothing like this"));
+        rig.ReviewerAnswers.Enqueue(Finding("order-ui", "order"));
         var services = Composition();
         services.AddSingleton(rig.Factory());
         // 2026-11-10-8e59: there is no config here; an unreadable block reviews nothing, so the test supplies one.
@@ -36,10 +36,7 @@ public sealed class TicketPlanCompositionTests
         var review = scope.ServiceProvider.GetRequiredService<SpecDialogProposalReview>();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)List(Ticket("order-api"), Ticket("order-ui", "order-api")));
-        var reply = ProposalReviewRig.Result("Here is the list.");
-
-        await review.ReviewAsync(pipeline, new AgenticLoopRequest(new AgentConfig(), TaskType.Planning, "system", "user", []),
-            "user", reply, new MasterConversation(), new AgentConfig(), PipelineCostTracker.GetOrCreate(pipeline), CancellationToken.None);
+        await review.ReviewAsync(pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(pipeline), CancellationToken.None);
 
         rig.ReviewerPrompts.Should().ContainSingle().Which.Should().Contain("Review the list as a PLAN");
         pipeline.Get<OutcomeProposal>(ContextKeys.SpecDialogOutcome).Findings.Should().ContainSingle()

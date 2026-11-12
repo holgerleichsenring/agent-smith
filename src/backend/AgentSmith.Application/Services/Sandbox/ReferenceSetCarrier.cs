@@ -11,11 +11,11 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// keeps that directory out of git. Every set is READ before any is written: a set this process
 /// cannot read refuses the whole carry, because building silently without the approved reference
 /// is the failure this series removes.
-/// 2026-10-02-075dd: each set carries its note as it stands when the run begins.
+/// 2026-11-12-cd4ck: each set carries its conversation's notes as they stand when the run begins.
 /// </summary>
 public sealed class ReferenceSetCarrier(
     IReferenceSetReader sets, ReferenceSetMaterialiser materialiser, ReferenceGitExclusion exclusion,
-    IReferenceNotes? notes = null)
+    IConversationNotes? notes = null)
 {
     internal const string NoStoreReason =
         "this process holds no reference store, or the set was deleted";
@@ -33,9 +33,9 @@ public sealed class ReferenceSetCarrier(
             return ReferenceCarry.Refused(Refusal(unreadable, NoStoreReason));
         await exclusion.EnsureAsync(sandbox, ct);
         var addresses = ReferenceScopeName.For(read.Select(r => ReferenceSetName.Of(r.Files.Select(f => f.Path))));
-        var noted = new Dictionary<string, string>();
+        var noted = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var session in notes is null ? [] : record.CitedSets.Select(id => record.ConversationOf(id)!).Distinct())
-            foreach (var (id, note) in await notes!.NotesAsync(session, ct)) noted[id] = note;
+            noted[session] = await notes!.ReadAsync(session, ct);
         var carried = new List<CarriedReferenceSet>();
         for (var i = 0; i < read.Count; i++)
         {
@@ -43,7 +43,7 @@ public sealed class ReferenceSetCarrier(
             var path = ReferenceDirectory.ForSet(id);
             await materialiser.WriteUnderAsync(sandbox, files, path, ct);
             carried.Add(new CarriedReferenceSet(id, ReferenceSetName.Of(files.Select(f => f.Path)),
-                addresses[i], repo, path, record.ConversationOf(id)!, files.Count, noted.GetValueOrDefault(id)));
+                addresses[i], repo, path, record.ConversationOf(id)!, files.Count, noted.GetValueOrDefault(record.ConversationOf(id)!)));
         }
         return new ReferenceCarry(carried, null);
     }

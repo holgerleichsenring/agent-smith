@@ -22,6 +22,8 @@ export function SpecReviewForm({ value, onChange }: { value: SpecReviewSetting; 
       <NumberField label="Budget share (percent)" value={value.budgetSharePercent}
         onChange={(v) => set({ budgetSharePercent: keep(v, value.budgetSharePercent) })} testId="setting-specreview-share"
         help="share of the run's cost cap and wall clock review may use" />
+      <CheckField label="Review Work it out proposals" value={value.designTurn ?? false}
+        onChange={(v) => set({ designTurn: v })} testId="setting-specreview-designturn" />
     </>
   );
 }

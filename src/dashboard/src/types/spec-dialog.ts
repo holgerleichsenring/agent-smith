@@ -73,8 +73,6 @@ export interface SpecDialogReferenceSet {
   files: number;
   bytes: number;
   at: string;
-  /** 2026-10-02-075dd: what the design partner recorded about the set — what it is, how to run it. */
-  note?: string | null;
   /** 2026-10-08-e8b9g: an approval of the conversation cites it, so it cannot be removed. */
   cited?: boolean;
 }

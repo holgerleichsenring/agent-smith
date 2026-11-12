@@ -22,19 +22,4 @@ public sealed class TurnReplyTests
 
         merged.Should().StartWith(Analysis).And.Contain($"spec: {Lone}").And.NotContain("Fixed.").And.NotContain("spec: broken");
     }
-
-    [Fact]
-    public async Task TurnReply_SchemaFixThenReviewCut_KeepsTheFirstProseAndQuestions()
-    {
-        var afterFix = TurnReply.KeepFirstProse($"{Analysis}\n\n```yaml\nspec: broken\n```", SpecReply(Yaml(Lone), "Fixed."));
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 2) };
-        rig.Propose(afterFix);
-        rig.OnReview = input => input.Draft.Yaml.Contains(NewStep) ? Build() : Cuts(Cut(SpecRegisterNames.Steps, Step, NewStep));
-        rig.Replies(_ => SpecReply(Yaml(Lone, step: NewStep), "Review applied."));
-
-        var reply = (await rig.RunAsync()).Response.Text;
-
-        reply.Should().StartWith(Analysis).And.Contain("1. Wer darf exportieren?").And.Contain(NewStep)
-            .And.NotContain("Fixed.").And.NotContain("Review applied.");
-    }
 }

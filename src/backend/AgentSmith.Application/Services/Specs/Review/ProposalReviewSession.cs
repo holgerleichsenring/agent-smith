@@ -4,27 +4,16 @@ using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
-/// <summary>2026-10-13-8762i: one design turn's proposal review between rounds — the last valid proposal and the
-/// reply it came from, and every draft's review.</summary>
+/// <summary>2026-10-13-8762i: one design turn's proposal review — the proposal and every draft's review.
+/// 2026-11-12-cd4ch: one pass, nothing revised, so the proposal is the one the turn wrote.</summary>
 internal sealed class ProposalReviewSession(
-    ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, AgenticLoopResult firstReply,
-    List<ProposalDraftReview> drafts)
+    ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, List<ProposalDraftReview> drafts)
 {
     public ProposalTurn Turn => turn;
     public SpecReviewSettings Settings => settings;
-    public AgenticLoopResult FirstReply => firstReply;
-    /// <summary>2026-11-11-2bdfb: a re-cut adds children to it and removes the ones it dropped.</summary>
     public List<ProposalDraftReview> Drafts => drafts;
-    public OutcomeProposal Proposal { get; set; } = proposal;
-    public ProposalReply LastReply { get; set; } = new(firstReply, proposal);
-    public bool ParentNamed { get; init; }
-    public int Round { get; set; }
-    public IReadOnlyList<SpecDraft> Reverted { get; set; } = [];
+    public OutcomeProposal Proposal => proposal;
 
-    /// <summary>2026-11-11-2bdfb: ids the last re-proposal added without a refusal to license them, left out.</summary>
-    public IReadOnlyList<string> LeftOut { get; set; } = [];
-
-    public bool LastRound => Round == Settings.Review.Rounds;
     public SpecSet Set => ProposalSpecSet.Of(Proposal);
     public List<ProposalDraftReview> Open => [.. Drafts.Where(draft => !draft.Stopped)];
 
@@ -35,10 +24,8 @@ internal sealed class ProposalReviewSession(
             : null;
 
     /// <summary>
-    /// 2026-11-10-18cf: which open drafts may still be reviewed, asked before every round and every re-prompt.
-    /// Only the run's cost cap stops them, and it is written on each draft as the reason. A design turn's review
-    /// has no wall-time rule and no share: time says nothing about a review's quality, and a spec handed out
-    /// unreviewed is worse than a slow turn. A cancel ends the turn itself.
+    /// 2026-11-10-18cf: which open drafts may be reviewed. Only the run's cost cap stops them, and it is written on
+    /// each draft as the reason. A design turn's review has no wall-time rule and no share. A cancel ends the turn.
     /// </summary>
     public List<ProposalDraftReview> Admit(IReadOnlyList<ProposalDraftReview> open)
     {
