@@ -33,6 +33,16 @@ public sealed class ProposalWriteToolsTests
         store.Changed.Should().BeTrue();
     }
 
+    /// <summary>2026-11-12-681f: DialogDraftRepos reads a top-level repos key, so the schema the model writes from names it.</summary>
+    [Fact]
+    public void WriteSpec_Schema_NamesTheReposKeyTheScopeCheckReads()
+    {
+        var tool = Handlers.MasterHandlerFixture.ProposalWrites().For(new PipelineContext(), new ProposalStore())
+            .OfType<AIFunction>().Single(t => t.Name == SpecWriteToolHost.Name);
+
+        tool.JsonSchema.ToString().Should().Contain("repos: the one repository it changes");
+    }
+
     [Fact]
     public void TicketGraphChecker_Ticket_BadKey_IsNamed()
     {

@@ -16,6 +16,9 @@ namespace AgentSmith.Tests.Skills;
 /// 2026-11-05-862ec: the draft templates moved into the design-outcome references, and
 /// outcome_format('document') serves writing-documents in place of the master's citation.
 /// </para>
+/// <para>
+/// 2026-11-12-681f: v5.29.0 folded the references back into the master; the design-partner rules read its prose.
+/// </para>
 /// </summary>
 public sealed class DesignReferenceRulesTests
 {
@@ -23,6 +26,8 @@ public sealed class DesignReferenceRulesTests
     private static readonly Version RulesRelease = new(5, 8, 0);
 
     private static string DesignPartner() => PackagedMaster.Read("design-partner-master");
+
+    private static string Folded() => PackagedMaster.Folded("design-partner-master");
 
     private static string CodingAgent() => PackagedMaster.Read("coding-agent-master");
 
@@ -32,75 +37,47 @@ public sealed class DesignReferenceRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_WritesDocumentsWithoutDiscussion()
     {
-        var master = DesignPartner();
+        var master = Folded();
 
         master.Should().Contain(
-            "- **document** — a text the operator takes elsewhere (a prompt, a",
-            Because("a document is an outcome of its own, not a spec or an answer"));
-        master.Should().Contain(
-            "A request for a document is not a request for work: it is answered with",
-            Because("the discuss-first gate would otherwise spend a turn before the text"));
-        master.Should().Contain(
-            "the document in the first reply, with no discussion before it.",
-            "the rule has to say WHEN the document comes, or it waits behind a discussion");
-        master.Should().NotContain("{{ref:writing-documents}}",
-            "outcome_format('document') serves the reference on the turn that drafts one");
-        master.Should().Contain("(`spec`, `bug`, `epic`, `tickets`, `comment` or `document`)",
-            "the master asks outcome_format for the document's format like any other kind's");
-
-        var reference = PackagedMaster.ReadEntry("references/writing-documents.md");
-        reference.Should().Contain("The whole document stands inside ONE fence of four",
-            "the dialog extracts the document by that fence; a three-backtick fence collides "
-            + "with the code inside it");
-        reference.Should().Contain("A document is read by someone who did not see this conversation",
+            "A request for a document is answered with the document in the first reply, inside one fence of four backticks",
+            Because("the dialog extracts the document by that fence, in the first reply rather than behind a discussion"));
+        master.Should().Contain("for a reader who did not see this chat",
             "a document written for the chat is useless to the next session it is handed to");
+        master.Should().Contain("its first line a `#` heading the operator sees as its title",
+            "the document's title is read off its first heading");
+        master.Should().NotContain("{{ref:writing-documents}}", "2026-11-12-681f: the rule lives in the master");
     }
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_StaysOnItsProjectAndTicket()
     {
-        var master = DesignPartner();
+        var master = Folded();
 
-        master.Should().Contain("### What you work on",
+        master.Should().Contain("Your subject is the project whose context, code map and repositories are above",
             Because("the master needs its subject named before it can stay on it"));
-        master.Should().Contain(
-            "A question about neither — the weather, the news, a recipe — gets one",
+        master.Should().Contain("when the conversation is bound to a ticket, that ticket",
+            "a bound conversation's subject includes its ticket");
+        master.Should().Contain("A question about something else gets one sentence that names what you work on",
             "the binding has to say what an off-subject question gets instead of an answer");
-        master.Should().Contain(
-            "it, without tools or outside knowledge. A request for a document is",
-            "an off-subject question costs neither a tool call nor an ungrounded answer, and a document request is "
-            + "bound to the same subject");
     }
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_WritesScenarioCriteria()
     {
-        var master = PackagedMaster.Reference("design-outcome-spec");
+        var master = Folded();
 
-        master.Should().Contain("    when: \"<the trigger>\"",
-            Because("the draft template has to show the scenario shape the schema accepts"));
-        master.Should().Contain("    then: \"<the observable result>\"",
-            "a scenario without its observable result is not verifiable");
-        master.Should().Contain(
-            "- A `done` item is one line, or a scenario when the criterion has a",
-            "the rule says when a scenario is the right shape, so a line stays a line");
-        master.Should().Contain(
-            "scenario as the line `GIVEN … WHEN … THEN …`, so write each part as",
-            "every reader renders the scenario as one line, so each part must read as a clause");
+        master.Should().Contain("Each `done` line is something a reviewer answers yes or no against the code",
+            Because("a done line is verifiable"));
+        master.Should().Contain("a scenario `when`/`then` (`given` when the start matters)",
+            "the master names the scenario shape the schema accepts");
     }
 
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_ListsBugCriteria()
-    {
-        var master = PackagedMaster.Reference("design-outcome-bug");
-
-        master.Should().Contain(
-            "acceptance_criteria:          # optional: how the fix is verified, one item each",
-            Because("a fix-bug ticket's criteria are a list the ticket renders item by item"));
-        master.Should().Contain(
-            "  - \"WHEN <the trigger> THEN <the observable result>\"",
-            "the bug template shows a scenario criterion as well as a plain one");
-    }
+    public void EmbeddedSkills_DesignPartnerMaster_ListsBugCriteria() =>
+        Folded().Should().Contain(
+            "**A bug** says what is wrong, where (file or method when you saw it) and what correct behaviour looks like",
+            Because("a fix-bug ticket is executed as it stands, so it carries how the fix is verified"));
 
     [Fact]
     public void EmbeddedSkills_Masters_DescribeDesignRead()
@@ -111,7 +88,7 @@ public sealed class DesignReferenceRulesTests
         // 2026-11-10-14a3h: design_read's guidance rides its own description, offered only with a Figma source.
         partner.Should().NotContain("## Reading a design",
             Because("the section left the system prompt for the tool that appears with its material"));
-        PackagedMaster.Reference("design-outcome-spec").Should().Contain("  `version` design_read reported",
+        Folded().Should().Contain("citing the frame's link with its `node-id` and the `version` `design_read` reported",
             "a ticket derived from a design cites the version the run compares against");
 
         coding.Should().Contain(
@@ -134,12 +111,12 @@ public sealed class DesignReferenceRulesTests
         var precedence = PackagedMaster.ReadEntry("references/source-precedence.md");
 
         // 2026-11-10-14a3h: uploads keep their section; mock and design-system guidance ride their tools and sections.
-        partner.Should().Contain("## Uploaded material",
+        partner.Should().Contain("**Uploads.**",
             Because("an upload reaches the design partner as an address it reads like a repository"));
-        PackagedMaster.Reference("design-outcome-spec").Should().Contain(
-            "the `DESIGN.md` token — never \"looks like the reference\". A run compares",
-            "criteria carry the values, because the comparison reports and never decides");
-        partner.Should().Contain("What the material records is the WHAT",
+        Folded().Should().Contain("**Built against an upload**: name it and its `reference:` address")
+            .And.Contain("criteria in the values read (sizes, spacing, hex colours, fonts, text)",
+                "criteria carry the values, because the comparison reports and never decides");
+        partner.Should().Contain("The material gives the WHAT",
             "the WHAT rule leads the precedence for this master");
         precedence.Should().Contain("**look is part of the WHAT**",
             "the visual-reference paragraph keeps one home, the shared order");

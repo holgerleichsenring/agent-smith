@@ -12,9 +12,9 @@ public sealed class ShapeRuleMasterRulesTests
     [Fact]
     public void PackagedMaster_DesignPartner_KeepsShapeRulesOutOfDone()
     {
-        var format = PackagedMaster.Reference("design-outcome-spec");
+        var master = PackagedMaster.Folded("design-partner-master");
 
-        format.Should().Contain("is a step, never a done line, also when the operator wrote it", // 2026-11-10-14a3h: one sentence
+        master.Should().Contain("A shape rule (size, layout, naming) is a step, not a done line.", // 2026-11-12-681f: in the master
             "a shape rule stays out of done");
     }
 

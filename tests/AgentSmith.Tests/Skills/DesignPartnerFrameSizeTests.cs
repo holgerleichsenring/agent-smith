@@ -16,13 +16,14 @@ namespace AgentSmith.Tests.Skills;
 /// 2026-11-05-862ec: the design-partner frame as the PINNED catalog renders it. The master carries role, stance,
 /// reading and the outcome list; every format lives in a design-outcome reference that outcome_format serves on
 /// the turn that drafts. v5.23.0 resolved to 42,829 characters; the split frame must stay at most 26,000.
+/// <para>
+/// 2026-11-12-681f: v5.29.0 retired outcome_format and its references; the items' shapes are the write tools'
+/// schemas, so the frame still carries no format.
+/// </para>
 /// </summary>
 public sealed class DesignPartnerFrameSizeTests : IDisposable
 {
     private const int FrameCap = 26_000;
-
-    private static readonly string[] OutcomeReferences =
-        ["design-outcome-spec", "design-outcome-epic", "design-outcome-tickets", "design-outcome-bug", "design-outcome-comment"];
 
     private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), $"agentsmith-frame-{Guid.NewGuid():N}");
 
@@ -41,15 +42,6 @@ public sealed class DesignPartnerFrameSizeTests : IDisposable
 
         body.Length.Should().BeLessThanOrEqualTo(FrameCap, $"the pin is {PackagedMaster.Pin} and the frame is split");
         body.Should().NotContain("```outcome").And.NotContain("kind: epic").And.NotContain("## Drafting a spec");
-    }
-
-    [Fact]
-    public async Task DesignPartnerFrameSize_EmbeddedCatalog_EveryOutcomeReferenceExists()
-    {
-        var references = await ReferencesAsync();
-
-        OutcomeReferences.Should().OnlyContain(slug => references.TryRead(slug) != null,
-            "outcome_format answers from these references; a missing one falls back to instructions the frame no longer has");
     }
 
     [Fact]

@@ -41,6 +41,7 @@ public sealed class SkillsConfigValidatorTests
     [InlineData("v5.25.4")]
     [InlineData("v5.27.0")]
     [InlineData("v5.28.2")]
+    [InlineData("v5.29.0")]
     [InlineData("v6.0.0")]
     [InlineData("main")]
     public void SkillsConfigValidator_PinAtOrAbove5_13_OrNotAVersion_Passes(string version) =>

@@ -1,108 +1,88 @@
-using System.Text.RegularExpressions;
-using AgentSmith.Application.Services.SpecDialog;
-using AgentSmith.Contracts.Models;
 using AgentSmith.Tests.Prompts;
-using AgentSmith.Tests.Validation;
 using FluentAssertions;
-using static AgentSmith.Tests.Skills.TicketGraphSkillSentences;
 
 namespace AgentSmith.Tests.Skills;
 
 /// <summary>
 /// The rules of series 2026-10-14-dbce — ticket lists in merge order and absence criteria judged over the source
-/// tree — read from the PINNED catalog. The parser, checker, review and filing work without these sentences; a
+/// tree — read from the PINNED catalog. The write tools, checker, review and filing work without these sentences; a
 /// release that drops one fails here instead of leaving a design partner that never proposes a list.
+/// <para>
+/// 2026-11-12-681f: v5.29.0 writes tickets with <c>write_ticket</c>; the count, the field bounds, the quoting and the
+/// outcome block went with the fence, and the ticket's fields live in the tool's schema.
+/// </para>
 /// </summary>
-public sealed partial class TicketGraphSkillRulesTests
+public sealed class TicketGraphSkillRulesTests
 {
     /// <summary>First agent-smith-skills release carrying every rule of the series.</summary>
     private static readonly Version TicketGraphRelease = new(5, 18, 0);
 
-    [GeneratedRegex("```outcome\\s*\\n(kind: tickets\\n.*?)```", RegexOptions.Singleline)]
-    private static partial Regex TicketsBlock();
-
     private static string Because(string rule) =>
         $"the pin is {PackagedMaster.Pin} and {rule} ships from v{TicketGraphRelease}";
 
-    private static string DesignPartner() => PackagedMaster.Read("design-partner-master");
-
-    private static string TicketsFormat() => PackagedMaster.Reference("design-outcome-tickets");
-
-    private static string Block() => TicketsBlock().Match(TicketsFormat()).Groups[1].Value;
+    private static string DesignPartner() => PackagedMaster.Folded("design-partner-master");
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_OffersTicketsAtMergeBoundaries() =>
-        DesignPartner().Should().Contain(MergeBoundaries, Because("the tickets outcome"));
+        DesignPartner().Should().Contain("`write_ticket`, one per piece that must merge before another can be built",
+            Because("the tickets outcome"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_AsksTheMergeTestThenTheBranchStateTest()
     {
         var master = DesignPartner();
+        const string mergeTest = "The merge test first: must one piece be MERGED before the next can be built or reviewed?";
+        const string branchTest = "Then the branch-state test: can ONE branch state satisfy every claim at once?";
 
-        master.Should().Contain(MergeTestFirst, Because("the merge test"));
-        master.Should().Contain("Then apply the branch-state test:", Because("the branch-state test second"));
-        master.Should().NotContain("Apply the branch-state test first:", "the merge test is asked first");
+        master.Should().Contain(mergeTest, Because("the merge test")).And.Contain(branchTest, Because("the branch-state test"));
+        master.IndexOf(mergeTest, StringComparison.Ordinal).Should()
+            .BeLessThan(master.IndexOf(branchTest, StringComparison.Ordinal), "the merge test is asked first");
     }
 
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_TicketIsABoundedQuotedEnglishTextWithAUniqueKey() =>
-        TicketsFormat().Should().Contain(TicketText, Because("the ticket text rule"));
-
-    [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_RequiresNameOnlyTicketsMergedFirstWithIdsWithoutHash() =>
-        TicketsFormat().Should().Contain(MergeOrder, Because("the merge order rule"));
-
-    [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_SplitsMoreThanTwentyTicketsAcrossProposals()
+    public void EmbeddedSkills_DesignPartnerMaster_RequiresNameOnlyTicketsMergedFirstWithIdsWithoutHash()
     {
-        TicketsFormat().Should().Contain(ProposalSize, Because("the proposal size rule"));
+        var master = DesignPartner();
+
+        master.Should().Contain("`requires` orders them, so a ticket's dependencies are written before it",
+            Because("the merge order rule"));
+        master.Should().Contain("A filed ticket is required as `ticket:<tracker id>` (`ticket:41`, `ticket:PROJ-41`)",
+            Because("a filed ticket's id without '#'"));
     }
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_TicketIsWrittenAgainstItsMergedRequiresAndSizedForOneRun() =>
-        TicketsFormat().Should().Contain(SizedForOneRun, Because("the ticket size rule"));
+        DesignPartner().Should().Contain(
+            "Its requirement describes the change against the code as it stands once its requires have merged, "
+            + "small enough for one run to build, review and merge.",
+            Because("the ticket size rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_ProposesTicketsOnlyUnbound() =>
-        TicketsFormat().Should().Contain(UnboundOnly, Because("the unbound-only rule"));
+        DesignPartner().Should().Contain("Tickets belong to a conversation not bound to a ticket.",
+            Because("the unbound-only rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_ScopesAbsenceCriteriaToTheSourceTree() =>
-        PackagedMaster.Reference("design-outcome-spec").Should().Contain(AbsenceScoped, Because("the scoped absence criterion"));
+        DesignPartner().Should().Contain("An absence criterion reads \"no file outside .agentsmith/ contains X\"",
+            Because("the scoped absence criterion"));
 
     [Fact]
     public void EmbeddedSkills_CodingAgentMaster_JudgesAbsenceOverTheSourceTree() =>
-        PackagedMaster.Read("coding-agent-master").Should().Contain(AbsenceJudged, Because("the absence judgement"));
+        PackagedMaster.Read("coding-agent-master").Should().Contain(
+            "Judge an absence criterion (\"no file contains X\") over the source tree: a match under .agentsmith/ "
+            + "does not count against it, because the committed spec there quotes X.",
+            Because("the absence judgement"));
 
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_SaysWhatATicketListFiles() =>
-        TicketsFormat().Should().Contain(WhatTicketsFile, Because("the filing sentence"));
-
-    [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_ShowsATicketTextBlockWithoutSpecs()
+    public void EmbeddedSkills_DesignPartnerMaster_SaysWhatATicketListFiles()
     {
-        var block = Block();
+        var master = DesignPartner();
 
-        block.Should().NotBeEmpty(Because("the kind: tickets block"));
-        foreach (var field in new[] { "key:", "title:", "requirement:", "done:", "requires:", "repos:", "\"ticket:1234\"" })
-            block.Should().Contain(field);
-        foreach (var field in new[] { "spec:", "work:", "steps:", "facts:" })
-            block.Should().NotContain(field, "a ticket text carries no spec");
-
-        var values = block.Split('\n').Select(line => line.Trim().TrimStart('-').Trim())
-            .Where(line => line.Length > 0 && line is not ("kind: tickets" or "tickets:" or "done:"));
-        values.Should().OnlyContain(line => line.StartsWith('"') || Regex.IsMatch(line, "^[a-z]+: [\"\\[]"),
-            "every string of a ticket text is double-quoted");
-    }
-
-    [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_ShowsAnExampleTheCheckerAccepts()
-    {
-        var map = OutcomeYamlReader.ReadMap(Block());
-
-        var resolution = TicketGraphFixtures.Parser().Parse(map, ["backend"]);
-
-        resolution.Should().BeOfType<OutcomeResolved>()
-            .Which.Proposal.Should().BeOfType<TicketGraphOutcome>().Which.Tickets.Should().HaveCount(2);
+        master.Should().Contain("**A ticket** is a ticket text: the run it starts derives its own specs.",
+            Because("a ticket carries no spec"));
+        master.Should().Contain(
+            "A ticket waits until its requires merge; to settle its specs earlier, the operator opens Work it out on it.",
+            Because("the filing sentence"));
     }
 }

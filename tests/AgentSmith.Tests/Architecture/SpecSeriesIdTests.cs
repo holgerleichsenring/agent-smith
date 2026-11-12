@@ -46,7 +46,6 @@ public sealed class SpecSeriesIdTests
         "tests/AgentSmith.Tests/Architecture/SpecIdReader.cs",
         "tests/AgentSmith.Tests/Architecture/SpecIdSchemaTests.cs",
         "tests/AgentSmith.Tests/Architecture/SpecYamlFile.cs",
-        "tests/AgentSmith.Tests/Skills/DesignPartnerPlaceholderTests.cs",
     ];
 
     [Fact]
