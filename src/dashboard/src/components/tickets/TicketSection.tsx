@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
@@ -9,20 +9,19 @@ import type { TicketBucket, TicketCounts, TicketSummary } from "@/types/tickets"
 import { TicketNeedsYou } from "./TicketNeedsYou";
 import { TicketRow } from "./TicketRow";
 import { TICKET_SECTIONS } from "./ticketSections";
-import { age } from "./ticketFormat";
 
 // 2026-10-13-9a59p: one bucket of the ticket list — the mock's slim .section-head with its count
 // from the server's counts, and the rows beneath. A section that holds more tickets than were
-// loaded ends with "Show all {n}" into its bucket view. Done is collapsed to this month's line
-// until "Show done" is pressed, except in its own bucket view, which was asked for. 2026-10-15-114fd:
-// Closed collapses the same way, to its count and "Show closed".
+// loaded ends with "Show all {n}" into its bucket view. 2026-11-12-aedda: every section draws its
+// rows — Done and Closed were collapsed behind a button, which hid most tickets of a list whose
+// work is largely finished; this month's merges stay in the metric strip.
 
 interface Props {
   bucket: TicketBucket;
   counts: TicketCounts;
   rows: TicketSummary[];
   first: boolean;
-  /** The bucket's own view: no Show-all link, Done open. */
+  /** The bucket's own view: no Show-all link. */
   chosen: boolean;
   footer?: ReactNode;
 }
@@ -30,8 +29,6 @@ interface Props {
 export function TicketSection({ bucket, counts, rows, first, chosen, footer }: Props) {
   const spec = TICKET_SECTIONS[bucket];
   const count = spec.count(counts);
-  const [open, setOpen] = useState(chosen);
-  const collapsed = (bucket === "done" || bucket === "closed") && !open && !chosen;
   return (
     <section data-testid={`ticket-section-${bucket}`}>
       <div className={cn("section-head", first && "first")}>
@@ -41,14 +38,8 @@ export function TicketSection({ bucket, counts, rows, first, chosen, footer }: P
         </span>
         <span className="sh-sub">{spec.sub}</span>
       </div>
-      {collapsed ? (
-        bucket === "done" ? <DoneLine counts={counts} onShow={() => setOpen(true)} /> : <ClosedLine count={count} onShow={() => setOpen(true)} />
-      ) : rows.length === 0 ? (
-        <div className="msub">{spec.empty}</div>
-      ) : (
-        <Rows bucket={bucket} rows={rows} />
-      )}
-      {!collapsed && !chosen && count > rows.length && <ShowAll bucket={bucket} count={count} />}
+      {rows.length === 0 ? <div className="msub">{spec.empty}</div> : <Rows bucket={bucket} rows={rows} />}
+      {!chosen && count > rows.length && <ShowAll bucket={bucket} count={count} />}
       {footer}
     </section>
   );
@@ -81,34 +72,5 @@ function ShowAll({ bucket, count }: { bucket: TicketBucket; count: number }) {
     >
       Show all {count} ›
     </Link>
-  );
-}
-
-function DoneLine({ counts, onShow }: { counts: TicketCounts; onShow: () => void }) {
-  const last = counts.lastDone;
-  const when = age(last?.at);
-  return (
-    <div className="done-row" data-testid="ticket-done-line">
-      <span>
-        <b>{counts.doneThisMonth.tickets} merged this month</b>
-        {last && when ? `, last ${when} ago (${last.ticketId})` : ""}.
-      </span>
-      <button type="button" className="btn sm" onClick={onShow} data-testid="ticket-done-show">
-        Show done
-      </button>
-    </div>
-  );
-}
-
-function ClosedLine({ count, onShow }: { count: number; onShow: () => void }) {
-  return (
-    <div className="done-row" data-testid="ticket-closed-line">
-      <span>
-        <b>{count === 1 ? "1 closed ticket" : `${count} closed tickets`}</b> — nobody owes them a move.
-      </span>
-      <button type="button" className="btn sm" onClick={onShow} data-testid="ticket-closed-show">
-        Show closed
-      </button>
-    </div>
   );
 }

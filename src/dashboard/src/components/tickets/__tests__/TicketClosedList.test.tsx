@@ -91,14 +91,11 @@ describe("TicketList, closed", () => {
     expect(screen.queryByTestId("ticket-close-89")).toBeNull();
   });
 
-  it("TicketList_ClosedBucket_ShowsWhoWhenAndNoteAndReopenAndIsCollapsed", async () => {
+  it("TicketList_ClosedBucket_ShowsWhoWhenAndNoteAndReopen_Open", async () => {
     renderTickets(list([ticket({ bucket: "stuck", status: "failed" }), closedByHand()], { stuck: 1, closed: 1 }));
     const section = await screen.findByTestId("ticket-section-closed");
     expect(screen.getByTestId("ticket-section-closed-count")).toHaveTextContent("1");
-    expect(within(section).queryByTestId("ticket-row-shop-88")).toBeNull();
-    expect(within(section).getByTestId("ticket-closed-line")).toHaveTextContent("1 closed ticket");
-
-    fireEvent.click(within(section).getByTestId("ticket-closed-show"));
+    expect(within(section).queryByTestId("ticket-closed-show")).toBeNull();
     const row = within(section).getByTestId("ticket-row-shop-88");
     expect(row).toHaveTextContent("closed by Ada Lovelace 2h ago: superseded by #90");
     expect(within(row).getByTestId("ticket-dot").className).toBe("sd closed");
