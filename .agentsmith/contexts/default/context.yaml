@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-cd4ce: "DESIGN TURN FINISH (reply collection). A design turn ends when the model stops calling tools; its kind is what the draft holds, nothing re-prompts, and a proposal turn without prose is answered by what its draft holds. -> .agentsmith/specs/done/2026-11-12-cd4ce-design-turn-finish.yaml"
     2026-11-12-cd4cd: "DESIGN FIELD BOUNDS REMOVED (ticket graph checker, comment, work picture). No length or count bound on ticket fields, a comment or a truth; title, done items and truth are folded to one line; the truth only has to fit the stored column. -> .agentsmith/specs/done/2026-11-12-cd4cd-design-field-bounds-removed.yaml"
     2026-11-12-cd4cc: "DESIGN COUNT LIMITS REMOVED (ticket graph checker, epic parser, epic filing). A proposal holds any number of tickets or epic children; an approved epic longer than series.max_specs files as consecutive series, only the first started, later requires rewired to filed ids. -> .agentsmith/specs/done/2026-11-12-cd4cc-design-count-limits-removed.yaml"
     2026-11-12-cd4cb: "DESIGN WRITE VALIDATION (spec dialog: turn flow, agent config). Validation lives on each write's tool result; the outcome gate, its cut-at-limit re-ask, the failure notice and dialog_master_max_output_tokens are gone, and nothing after the loop re-prompts a design turn. -> .agentsmith/specs/done/2026-11-12-cd4cb-design-write-validation.yaml"

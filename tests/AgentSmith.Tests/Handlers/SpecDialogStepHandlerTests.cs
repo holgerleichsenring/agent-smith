@@ -92,11 +92,28 @@ public sealed class SpecDialogStepHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot());
+        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new AnswerOutcome());
         var sut = new CollectSpecDialogReplyHandler();
 
         var result = await sut.ExecuteAsync(new CollectSpecDialogReplyContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("no reply text");
+    }
+
+    // 2026-11-12-cd4ce: a turn that wrote a proposal and ended without prose is answered by what its draft holds.
+    [Fact]
+    public async Task CollectSpecDialogReply_EmptyAnswerWithAProposal_SaysWhatTheDraftHolds()
+    {
+        var pipeline = new PipelineContext();
+        var slot = new SpecDialogReplySlot();
+        slot.Proposal.Seed(new ProposalDraft { Bug = new BugTicketDraft("t", "d", null) }, changed: true);
+        pipeline.Set(ContextKeys.SpecDialogReplySlot, slot);
+        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new BugOutcome(new BugTicketDraft("t", "d", null)));
+
+        var result = await new CollectSpecDialogReplyHandler().ExecuteAsync(new CollectSpecDialogReplyContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        slot.Reply.Should().Be("The draft holds a bug.");
     }
 }
