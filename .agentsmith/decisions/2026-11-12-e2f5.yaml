@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-e2f5
+
+decisions:
+  - category: Design
+    chose: "Take and Answer hold state on the page; one 'Send N answers' sends every own answer plus 'take your proposal' for the taken ones"
+    over: "Each click sending a reply (one design turn per question)"
+    reason: "Every reply starts a whole design turn; the drafts already rest on the proposals, so taking one changes nothing that needs a turn."
+  - category: Design
+    chose: "Approve & file decides every question still on the proposal, recorded as a 'Decided by the owner' section on the filed work ticket"
+    over: "Rewriting the drafts' 'proposed:' decision lines, or a new field on SpecApprovalRecord"
+    reason: "Editing the yaml would break the reviewed-clean hash and re-review every spec; the ticket body is what a person and the run both read, and the approval path already carries the questions on the claimed proposal."
+  - category: Scope
+    chose: "Approve stays available while answers are held; the action row says what each path does"
+    over: "Disabling Approve until held answers are sent or dropped"
+    reason: "The approval card is its own component and a decision is the operator's; a later spec can hold it if unsent answers get lost in practice."
+  - category: Design
+    chose: "Held state in localStorage under the proposal id, every access in try/catch"
+    over: "Server-side held state"
+    reason: "A per-viewer convenience; a page without storage keeps it while open."
+  - category: Scope
+    chose: "Chat cards unchanged; the ticket-conversation amendment path (AmendedSpecification) carries no decided section"
+    over: "Changing them here"
+    reason: "Chat renders the questions as text with approve/reject only, so no per-question send exists there; the amendment re-renders an existing ticket and is a follow-up."

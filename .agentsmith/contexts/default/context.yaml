@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-e2f5: "DESIGN QUESTIONS BATCH (dashboard TurnQuestions; OutcomeTicketFiler, DecidedQuestionLines). Take and Answer are held on the page and sent as one message; Approve & file records every standing question as decided on its proposal in the work ticket body. -> .agentsmith/specs/done/2026-11-12-e2f5-design-questions-batch.yaml"
     2026-11-12-01b4: "TURN RESULT HONEST (dashboard turnProposal/TurnSpecRow; SpecDialogTurnProposals). A row says reviewed clean only when its last review round answered build, an unreviewed row has no pill; the awaiting proposal anchors on the kept turn whose run wrote it, so it renders once. -> .agentsmith/specs/done/2026-11-12-01b4-turn-result-honest.yaml"
     2026-11-12-ecde: "COVERAGE LINE NOTES (design turn prompt, ReferenceCoverageText). The upload coverage line names read_notes as what carries earlier reading, since the per-upload note was retired. -> .agentsmith/specs/done/2026-11-12-ecde-coverage-line-notes.yaml"
     2026-11-12-0c24: "WORKER TOOL CALL ERRORS (external worker transport, WorkerReplyTranslator). A worker tool call with non-object arguments or an unoffered name reaches the model as that call's error and the turn goes on; only a refusal or an empty answer fails the call. -> .agentsmith/specs/done/2026-11-12-0c24-worker-tool-call-errors.yaml"

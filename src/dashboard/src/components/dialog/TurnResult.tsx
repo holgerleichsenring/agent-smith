@@ -18,8 +18,8 @@ export function TurnResult({
   proposal,
   summary,
   runId,
-  onTake,
-  onAnswer,
+  onSend,
+  heldKey,
   onInspect,
   approve,
   before,
@@ -28,8 +28,10 @@ export function TurnResult({
   proposal: TurnProposal;
   summary?: ReactNode;
   runId?: string | null;
-  onTake?: (text: string) => void;
-  onAnswer?: (question: string) => void;
+  /** 2026-11-12-e2f5: sends the operator's held answers as one reply. */
+  onSend?: (text: string) => void;
+  /** The proposal id the questions' held state is kept under. */
+  heldKey?: string;
   onInspect?: () => void;
   /** The approve bar — given only for the current awaiting proposal. */
   approve?: ReactNode;
@@ -62,7 +64,7 @@ export function TurnResult({
           <span>Nothing is lost: an unreviewed spec is reviewed before it is built.</span>
         </div>
       )}
-      <TurnQuestions questions={proposal.questions ?? []} onTake={onTake} onAnswer={onAnswer} />
+      <TurnQuestions key={heldKey ?? "turn"} questions={proposal.questions ?? []} heldKey={heldKey} onSend={onSend} />
       {proposal.bug && (
         <div data-testid="turn-bug" className="d-turn-box px-3 py-2">
           <div className="dsh-body font-semibold text-ink">{proposal.bug.title}</div>

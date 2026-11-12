@@ -25,8 +25,9 @@ public sealed class OpenQuestionsToolHost(SpecDialogReplySlot slot) : IToolHost
 
     [Description(
         "Lays the questions only the operator can answer onto this turn's draft, for its card: each entry is the "
-        + "question, your proposal, and the ids of the specs it touches. The card offers to take your proposal or to "
-        + "answer differently; either comes back as the operator's next message. The questions show with the draft on "
+        + "question, your proposal, and the ids of the specs it touches. The operator takes your proposal or answers "
+        + "differently; their answers come back together as one message, and a question still open when they approve "
+        + "is filed as decided on your proposal. The questions show with the draft on "
         + "every surface, so your reply need not repeat them. A later call in this turn replaces the list.")]
     private string StateOpenQuestions(
         [Description("The questions, each {question, proposal, specIds}.")] OpenQuestion[] questions)

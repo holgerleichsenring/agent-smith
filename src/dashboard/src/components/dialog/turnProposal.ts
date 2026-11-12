@@ -98,11 +98,6 @@ export function titleOf(proposal: TurnProposal): string {
   return proposal.bug?.title ?? proposal.drafts[0]?.goal ?? proposal.kind;
 }
 
-/** What "Take proposal" sends: the question and the proposal, readable without the card. */
-export function takeText(question: SpecDialogOpenQuestion): string {
-  return `${question.question} — ${question.proposal}`;
-}
-
 /** How many review rounds the turn ran — the highest round any draft reached. */
 export function roundsOf(proposal: TurnProposal): number {
   return (proposal.reviewRounds ?? []).reduce((most, round) => Math.max(most, round.round), 0);

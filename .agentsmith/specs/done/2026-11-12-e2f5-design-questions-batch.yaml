@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-e2f5
+goal: "A turn's open questions are taken or answered in place and sent as one message; approving files every question still standing as decided on its proposal."
+
+applies_to: "dashboard (dialog turn result: TurnQuestions); default (filing: OutcomeTicketFiler)"
+
+requires: [2026-11-12-01b4]
+
+facts:
+  - claim: "Take proposal sent the question and its proposal as a reply, so each click started a whole design turn."
+    evidence: "src/dashboard/src/components/dialog/TurnQuestions.tsx:37-40"
+  - claim: "The surface wires onTake to dialog.send."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:446-449"
+  - claim: "The filed ticket body carries no word of the proposal's open questions."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:88-119"
+  - claim: "Chat surfaces render the questions as text only, with no per-question button."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogQuestionLines.cs:12-23"
+
+scope:
+  in: "TurnQuestions held state and one send; the decided questions on a filed spec or epic ticket."
+  out: "Holding Approve while answers are unsent (the row says so instead); the ticket-conversation amendment path (AmendedSpecification); chat cards, which have no per-question button."
+
+steps:
+  - id: held
+    action: "Take marks a question taken (undoable), Answer opens an inline field whose text is held; nothing is sent."
+  - id: one-send
+    action: "With an own answer held, one Send N answers button sends one message with every answer and 'take your proposal' for each taken question; otherwise Take all proposals marks every question taken and the row points at Approve & file."
+  - id: persist
+    action: "Held state is kept in localStorage under the proposal id, every access in try/catch."
+  - id: decided
+    action: "Filing a spec or an epic appends a Decided by the owner section to the work ticket body, one line per question still on the proposal: the question, its specs and decided: the proposal."
+
+tests:
+  - "TurnQuestions.test.tsx: Take_DoesNotSend, TakeAll_MarksEveryQuestion, SendAnswers_SendsOneMessage"
+  - "EpicWorkTicketTests: Filing_ProposalWithOpenQuestions_RecordsEachAsDecided"
+
+done:
+  - "No click on a question starts a turn; only Send N answers sends, once."
+  - "A filed spec or epic ticket lists each standing question as decided on its proposal."
