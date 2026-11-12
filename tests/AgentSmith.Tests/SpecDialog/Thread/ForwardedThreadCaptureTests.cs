@@ -38,6 +38,23 @@ public sealed class ForwardedThreadCaptureTests
     }
 
     [Fact]
+    public void ForwardedThreadCapture_Observe_OffersEachUsableThreadLedByTheLoopsMaster()
+    {
+        var capture = new ForwardedThreadCapture();
+        var sink = new RecordingSink();
+        var prompt = new ChatMessage(ChatRole.User, "the prompt");
+        capture.Observe(sink);
+        capture.Lead(true);
+
+        capture.Record([new(ChatRole.System, "system"), prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "first")));
+        capture.Record([prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "second")) { ConversationId = "s-1" });
+
+        sink.Offers.Should().ContainSingle();
+        sink.Offers[0].Messages.Select(m => m.Text).Should().Equal("the prompt", "first");
+        sink.Offers[0].Stewarded.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task AgenticLoopRunner_RequestWithCapture_RecordsTheResponseText()
     {
         var capture = new ForwardedThreadCapture();
@@ -52,5 +69,12 @@ public sealed class ForwardedThreadCaptureTests
         capture.AnsweredText.Should().Be(ToolLoopErrorToleranceSupport.Answer);
         capture.Messages!.Select(m => m.Role).Should().Equal(ChatRole.User, ChatRole.Assistant, ChatRole.Tool, ChatRole.Assistant);
         capture.Messages![2].Contents.OfType<FunctionResultContent>().Single().Result.Should().Be("file text");
+    }
+
+    private sealed class RecordingSink : IForwardedThreadSink
+    {
+        public List<(IReadOnlyList<ChatMessage> Messages, bool Stewarded)> Offers { get; } = [];
+
+        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded) => Offers.Add((messages, stewarded));
     }
 }

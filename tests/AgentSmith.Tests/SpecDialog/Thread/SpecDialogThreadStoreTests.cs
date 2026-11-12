@@ -62,6 +62,33 @@ public sealed class SpecDialogThreadStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task SpecDialogThreadStore_Load_MidTurnRow_RendersFromTranscriptFrom()
+    {
+        var started = State(User("q1"), Assistant("a1"), User("q2"));
+        await using (var context = _store.Context())
+            await DialogThreadStores.Over(context).KeepGrowingAsync(
+                started, Capture("half way").Messages!, true, CancellationToken.None);
+        var later = State([.. started.Transcript, Assistant("the turn failed", SpecDialogTurnKind.Failure), User("q3")]);
+
+        await using var fresh = _store.Context();
+        var thread = await DialogThreadStores.Over(fresh).LoadAsync(later, new AgentConfig(), CancellationToken.None);
+
+        thread!.Messages.Select(m => m.Text).Should().Equal("the prompt", "half way");
+        thread.Unseen.Select(t => t.Text).Should().Equal("the turn failed", "q3");
+        thread.Stewarded.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SpecDialogThreadStore_CanFold_FollowsCompactionAndWindow()
+    {
+        using var context = _store.Context();
+        var store = DialogThreadStores.Over(context);
+
+        store.CanFold(new AgentConfig()).Should().BeTrue();
+        store.CanFold(new AgentConfig { Compaction = new CompactionConfig { IsEnabled = false } }).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task SpecDialogThreadRepository_TwoWriters_NewestByIdWinsAndOlderAreDeleted()
     {
         await using var first = _store.Context();

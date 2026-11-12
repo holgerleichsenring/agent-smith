@@ -38,7 +38,7 @@ public sealed class SpecDialogTurnRunner(
     DashboardReadingChannel reading,
     DashboardActivityChannel activity, SpecDialogTurnMaterial material, SpecDialogThreadStore threads,
     SpecDialogTurnEnding ending, SpecDialogProposalContinuity continuity, SpecDialogTurnRunLink runLink,
-    DesignTurnResourcesFactory turnResources) : ISpecDialogTurnRunner
+    DesignTurnResourcesFactory turnResources, SpecDialogThreadWriteLink threadWrites) : ISpecDialogTurnRunner
 {
     /// <summary>2026-11-10-d854c: a turn that throws or is cancelled, before its pipeline starts or inside it, leaves a
     /// Notice turn with its run id (null when no run started); a thrown turn answers null, a cancelled one rethrows.</summary>
@@ -90,6 +90,8 @@ public sealed class SpecDialogTurnRunner(
         using var observing = reading.Observe(state);
         using var publishing = continuity.Observe(state);
         using var linking = runLink.Observe(state); // 2026-11-10-d854c: the grounding step names the run on the row
+        // 2026-11-12-92e9a: the thread is stored as it grows; closed below before the gate lets the next turn in.
+        var writing = threadWrites.Observe(state, project.Agent, slot.Thread);
         var computing = gate.Begin(state.JobId);
         try
         {
@@ -99,6 +101,7 @@ public sealed class SpecDialogTurnRunner(
         }
         finally
         {
+            await writing.CloseAsync();
             gate.Finish(state.JobId, computing);
             pumpCts.Cancel();
             await pump;

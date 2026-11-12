@@ -5,11 +5,13 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Keeps the thread a design turn ended with and hands it to the next turn, from the database alone.
+/// Keeps the thread a design turn ended with — and, 2026-11-12-92e9a, the thread it has grown so far — and hands it to
+/// the next turn, from the database alone.
 /// <para>
 /// The thread applies only where the turn can fold it: compaction on with a positive trigger ratio, and a window —
 /// the role's own or the dialog window. A turn with nothing new from the operator, or one whose stored start lies
@@ -37,23 +39,34 @@ public sealed class SpecDialogThreadStore(
 
     /// <summary>Stores the turn's thread; nothing when the turn captured none. <paramref name="kept"/> is the state
     /// the reply was appended into, whose last turn is that reply.</summary>
-    public async Task KeepAsync(ConversationState started, SpecDialogTurnResult result, ConversationState? kept, CancellationToken ct)
+    public Task KeepAsync(ConversationState started, SpecDialogTurnResult result, ConversationState? kept, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(started);
         ArgumentNullException.ThrowIfNull(result);
-        if (result.Thread?.Messages is not { } messages) return;
+        if (result.Thread?.Messages is not { } messages) return Task.CompletedTask;
         var answered = kept is not null && string.Equals(result.Reply, result.Thread.AnsweredText, StringComparison.Ordinal);
-        await repository.ReplaceAsync(new SpecDialogThread
-        {
-            SessionId = started.JobId, Stewarded = result.Stewarded, MessagesJson = codec.Encode(messages),
-            TranscriptFrom = started.Transcript.Count, ReplyAt = answered ? kept!.Transcript.Count - 1 : null,
-            WrittenAt = time.GetUtcNow(),
-        }, ct);
+        return WriteAsync(started, messages, result.Stewarded, answered ? kept!.Transcript.Count - 1 : null, ct);
     }
 
-    public Task DropAsync(string sessionId, CancellationToken ct) => repository.DeleteBySessionAsync(sessionId, ct);
+    /// <summary>2026-11-12-92e9a: stores the thread of a turn still running, which has no reply yet.</summary>
+    public Task KeepGrowingAsync(
+        ConversationState started, IReadOnlyList<ChatMessage> messages, bool stewarded, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(started);
+        ArgumentNullException.ThrowIfNull(messages);
+        return WriteAsync(started, messages, stewarded, null, ct);
+    }
 
-    private bool CanFold(AgentConfig agent) =>
+    /// <summary>Whether a turn under <paramref name="agent"/> can fold a replayed thread, which Load requires.</summary>
+    public bool CanFold(AgentConfig agent) =>
         agent.Compaction is { IsEnabled: true, MaxContextTokensTriggerRatio: > 0 }
         && (chats.GetContextWindowTokens(agent, TaskType.Primary) ?? agent.DialogContextWindowTokens) > 0;
+
+    private Task WriteAsync(
+        ConversationState started, IReadOnlyList<ChatMessage> messages, bool stewarded, int? replyAt, CancellationToken ct) =>
+        repository.ReplaceAsync(new SpecDialogThread
+        {
+            SessionId = started.JobId, Stewarded = stewarded, MessagesJson = codec.Encode(messages),
+            TranscriptFrom = started.Transcript.Count, ReplyAt = replyAt, WrittenAt = time.GetUtcNow(),
+        }, ct);
 }

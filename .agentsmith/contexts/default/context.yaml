@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-92e9a: "DIALOG THREAD DURABLE (SpecDialogThreadWriter, SpecDialogThreadWriteLink, ForwardedThreadCapture sink, SpecDialogTurnRunner, SpecDialogTurnKeeper). A design turn's thread is written as each model call lands, newest-only with one write in flight, closed before the gate on every exit; a failed turn keeps its row. -> .agentsmith/specs/done/2026-11-12-92e9a-dialog-thread-durable.yaml"
     2026-11-12-aeddb: "DELIVERY PAST PERIODS (dashboard /delivery, DeliveryPeriodNav, useDelivery, deliveryApi; DeliveryWindowFactory, DeliveryEndpoints). GET /api/delivery takes ?offset= in whole periods back; the page steps previous / next with the span's dates, next disabled at the current period. -> .agentsmith/specs/done/2026-11-12-aeddb-delivery-past-periods.yaml"
     2026-11-12-aedda: "TICKET LIST EVERY TICKET (dashboard /tickets, TicketSection, TicketList, useTicketBucketPage). Done and Closed draw their rows in the unfiltered list instead of a collapsed line, and the unfiltered list pages past the first fifty with Load more on the server's cursor. -> .agentsmith/specs/done/2026-11-12-aedda-tickets-list-every-ticket.yaml"
     2026-11-12-83ca: "SKILLS PIN REPLY QUESTIONS (skills catalog pin v5.29.1). The design partner's reply is the analysis and leaves listing to the card, each open question is one decision, and a larger proposal takes a second look with review_proposal. -> .agentsmith/specs/done/2026-11-12-83ca-skills-pin-reply-questions.yaml"
