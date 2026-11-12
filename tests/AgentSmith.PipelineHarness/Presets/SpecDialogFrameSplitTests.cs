@@ -8,6 +8,7 @@ using AgentSmith.PipelineHarness.Evals;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.SpecDialog;
+using AgentSmith.PipelineHarness.Llm;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,32 +28,11 @@ public sealed class SpecDialogFrameSplitTests
     private const string Repo = "spec-dialog-fixture";
     private const string Project = "fixture-spec-dialog";
 
-    private const string EpicReply =
-        """
-        Two slices: the store has to exist before the endpoint reads it.
-        ```outcome
-        kind: epic
-        parent:
-          spec: p9000
-          goal: "Widget platform end to end"
-        children:
-          - spec: p9000a
-            goal: "Widget storage layer"
-            steps:
-              - id: store
-                action: "Add the widget store"
-            done:
-              - "a widget is stored and read back"
-          - spec: p9000b
-            goal: "Widget API on top of the storage layer"
-            requires: [p9000a]
-            steps:
-              - id: api
-                action: "Add the widget endpoint"
-            done:
-              - "the endpoint returns a stored widget"
-        ```
-        """;
+    private const string Parent = "spec: p9000\ngoal: \"Widget platform end to end\"";
+    private const string Storage =
+        "spec: p9000a\ngoal: \"Widget storage layer\"\ndone:\n  - \"a widget is stored and read back\"";
+    private const string Api =
+        "spec: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\ndone:\n  - \"the endpoint returns a stored widget\"";
 
     [Fact]
     public async Task SpecDialogHarness_FrameSplit_FormatArrivesOnlyThroughOutcomeFormat()
@@ -62,7 +42,8 @@ public sealed class SpecDialogFrameSplitTests
         await TurnAsync(harness, State([new TranscriptTurn(TranscriptRole.User, "we need widgets", DateTimeOffset.UtcNow)]));
         var system = SystemPrompt(harness.ChatClient.CallMessages[0]);
         var firstCalls = harness.ChatClient.CallMessages.Count;
-        harness.ChatClient.EnqueueToolCall("outcome_format", """{"kind": "epic"}""").EnqueueText(EpicReply);
+        harness.ChatClient.EnqueueToolCall("outcome_format", """{"kind": "epic"}""").EnqueueEpicWrite(Parent, Storage, Api)
+            .EnqueueText("Two slices: the store has to exist before the endpoint reads it.");
 
         var result = await TurnAsync(harness, Discussed());
 

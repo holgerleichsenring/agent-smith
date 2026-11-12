@@ -65,7 +65,12 @@ internal static class SpecDialogTurnSeeds
                 new BranchName(primary.DefaultBranch ?? "main"), primary.Url ?? string.Empty),
         };
         // 2026-09-17-042ed: only an edit turn carries one, and the prompt renders its findings.
-        if (state.Revising is { } revising) seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
+        if (state.Revising is { } revising)
+        {
+            seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
+            // 2026-11-12-cd4ca: the draft is edited in place; an interrupted one is proposed again as it stands.
+            slot.Proposal.Seed(Application.Services.SpecDialog.Writes.ProposalDraftSeed.Of(revising), revising.UnderReview);
+        }
         if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
         // 2026-09-22-9519: the way back out of a filing, beside the identity it acts under; 14a3d: only once something was filed.
         if (facts.Withdrawal is { } withdrawal) seeds[ContextKeys.SpecDialogWithdrawal] = withdrawal;

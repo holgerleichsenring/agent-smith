@@ -1,6 +1,8 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Server.Models;
+using AgentSmith.PipelineHarness.Composition;
+using AgentSmith.PipelineHarness.Llm;
 using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,28 +22,36 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task SpecDialogOutcomeGate_FirstTurnDraft_IsKeptAsAProposal()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        ScriptSpec(harness.ChatClient);
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
         string.Join("\n", harness.ChatClient.CallMessages[0].Select(m => m.Text)).Should()
             .NotContain("MAY NOT propose");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "nothing sends the draft back");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; nothing sends the draft back");
         result.Outcome.Should().BeOfType<SpecOutcome>();
     }
 
+    // 2026-11-12-cd4ca: an invalid write is answered on its own tool result; nothing re-prompts the turn.
     [Fact]
-    public async Task Turn_TwiceInvalidProposal_IsRecordedAsANotice()
+    public async Task Turn_InvalidSpecWrite_IsRefusedOnItsToolResult_AndNothingReprompts()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        const string invalid = "Draft:\n```yaml\nspec: not-a-valid-spec-id\n```";
-        harness.ChatClient.EnqueueText(invalid).EnqueueText(invalid);
+        harness.ChatClient.EnqueueSpecWrite("spec: not-a-valid-spec-id\ngoal: \"g\"").EnqueueText("Two questions first, then.");
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        result.Reply.Should().Contain("did not pass validation");
-        result.Kind.Should().Be(SpecDialogTurnKind.Notice);
+        ToolResults(harness, 1).Should().StartWith("Not stored:").And.Contain("is no spec id");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply, and no re-prompt");
+        result.Outcome.Should().BeOfType<AnswerOutcome>("nothing was stored");
+        result.Reply.Should().Be("Two questions first, then.");
     }
+
+    /// <summary>The tool results the master read on its <paramref name="call"/>-th call.</summary>
+    private static string ToolResults(RealCompositionHarness harness, int call) =>
+        string.Join("\n", harness.ChatClient.CallMessages[call]
+            .SelectMany(m => m.Contents.OfType<Microsoft.Extensions.AI.FunctionResultContent>())
+            .Select(r => r.Result?.ToString()));
 
     [Fact]
     public async Task CreateSpec_FilingNotice_IsRecordedAsAFiling()

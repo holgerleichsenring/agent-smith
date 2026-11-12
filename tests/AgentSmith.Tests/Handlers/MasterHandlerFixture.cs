@@ -106,9 +106,26 @@ internal static class MasterHandlerFixture
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate OutcomeGate(IAgenticLoopRunner loop) =>
-        new(loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
-            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-            NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
+        new(loop, NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
+
+    /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks.</summary>
+    internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites()
+    {
+        var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
+            new AgentSmith.Application.Services.Validation.SpecSchemaProvider());
+        var orderer = new AgentSmith.Application.Services.SpecDialog.TicketGraphOrderer();
+        return new(
+            new AgentSmith.Application.Services.SpecDialog.Writes.TicketDraftWrite(
+                new AgentSmith.Application.Services.SpecDialog.TicketGraphChecker(orderer), orderer),
+            new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftWrite(
+                new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftIds(
+                    new AgentSmith.Application.Services.Specs.SeriesIdFactory(TimeProvider.System)),
+                validator, AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(),
+                new AgentSmith.Application.Services.SpecDialog.SpecDraftReader(),
+                new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftShape(
+                    new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker())),
+            new AgentSmith.Application.Services.SpecDialog.Writes.ContractDraftWrite(AgentSmith.Tests.TestSupport.SeriesContracts.Reader()));
+    }
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
@@ -178,7 +195,7 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
-            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification(), Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>()),
+            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification(), Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>(), ProposalWrites()),
             new AgentSmith.Application.Services.Tools.DesignWorkToolGate(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),

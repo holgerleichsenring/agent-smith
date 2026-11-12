@@ -12,11 +12,12 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public static class TicketStewardTools
 {
-    public static readonly IReadOnlySet<string> Excluded = new HashSet<string>(StringComparer.Ordinal)
-    {
+    public static readonly IReadOnlySet<string> Excluded = new HashSet<string>(
+    [
         "withdraw_filed_ticket", "write_mock", "read_mock", WorkPictureToolHost.Name,
         OutcomeFormatToolHost.Name, OpenQuestionsToolHost.Name, // 2026-11-10-d854a: questions ride a design draft
-    };
+        .. ProposalWriteTools.Names, // 2026-11-12-cd4ca: the steward proposes nothing
+    ], StringComparer.Ordinal);
 
     public static IList<AITool> Of(IList<AITool> masterSurface)
     {

@@ -74,7 +74,7 @@ public sealed class ProposalUnderReviewTests
     }
 
     [Fact]
-    public void SpecDialogRevisionSection_InterruptedProposal_RendersItsDrafts()
+    public void SpecDialogRevisionSection_InterruptedProposal_SaysItStandsInTheDraft()
     {
         var rig = new ProposalReviewRig();
         var proposal = rig.Propose(Epic()) with { UnderReview = true };
@@ -82,7 +82,7 @@ public sealed class ProposalUnderReviewTests
 
         var section = SpecDialogRevisionSection.Render(rig.Pipeline);
 
-        section.Should().Contain("The proposal your last turn wrote").And.Contain(First).And.Contain(Second);
+        section.Should().Contain("The proposal your last turn wrote").And.Contain("It stands in your draft below");
     }
 
     [Fact]

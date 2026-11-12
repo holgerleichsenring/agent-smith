@@ -8,6 +8,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.SpecDialog;
+using AgentSmith.PipelineHarness.Llm;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.AI;
@@ -29,10 +30,8 @@ public sealed class SpecDialogProposalUnderReviewTests
     private const string Project = "fixture-spec-dialog";
     private const string Dialog = "d-under-review";
 
-    private const string SpecReply =
+    private const string SpecYaml =
         """
-        One spec.
-        ```yaml
         spec: 2026-11-09-aaaa
         goal: "Widgets are stored and read back"
         steps:
@@ -40,7 +39,6 @@ public sealed class SpecDialogProposalUnderReviewTests
             action: "Add the widget store"
         done:
           - "a widget is stored and read back"
-        ```
         """;
 
     private readonly RecordingDialogHub _hub = new();
@@ -60,7 +58,7 @@ public sealed class SpecDialogProposalUnderReviewTests
     {
         await using var harness = BuildHarness();
         var state = await OpenAsync(harness);
-        harness.ChatClient.EnqueueText(SpecReply);
+        harness.ChatClient.EnqueueSpecWrite(SpecYaml).EnqueueText("One spec.");
 
         // The pipeline turns a cancel into a failed result or lets it escape, depending on where it lands.
         var first = await TurnAsync(harness, state, _cancel.Token).ContinueWith(t => t.IsCompletedSuccessfully ? t.Result : null, TaskScheduler.Default);
@@ -75,8 +73,9 @@ public sealed class SpecDialogProposalUnderReviewTests
         harness.ChatClient.EnqueueText("Continuing.");
         await TurnAsync(harness, state, CancellationToken.None);
 
-        PromptOf(harness.ChatClient.CallMessages[^1]).Should().Contain("The proposal your last turn wrote")
-            .And.Contain("Widgets are stored and read back");
+        // 2026-11-12-cd4ca: the interrupted draft stands in the store and is proposed again, so its review follows.
+        harness.ChatClient.CallMessages.Select(PromptOf).Last(p => p.Contains("## Design conversation"))
+            .Should().Contain("The proposal your last turn wrote").And.Contain("Widgets are stored and read back");
     }
 
     private static string PromptOf(IReadOnlyList<ChatMessage>? messages) =>

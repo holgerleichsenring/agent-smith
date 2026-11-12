@@ -13,6 +13,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.PipelineHarness.Composition;
+using AgentSmith.PipelineHarness.Llm;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
@@ -54,49 +55,46 @@ public sealed partial class SpecDialogOutcomeTests
           - "GET /widget returns the widget"
         """;
 
-    private const string ValidDraft =
-        $"""
-        ```yaml
-        {ValidDraftYaml}
-        ```
+    private const string EpicParentYaml =
+        """
+        spec: p9000
+        goal: "Widget platform end to end"
         """;
 
-    private const string BugOutcomeReply =
+    private const string EpicStorageYaml =
         """
-        That is a one-line fix, not a spec.
-        ```outcome
-        kind: bug
-        title: "Add a null check to AppendTurnAsync"
-        description: "AppendTurnAsync dereferences the session state without a null check; return early when the thread has no open session."
-        ```
+        spec: p9000a
+        goal: "Widget storage layer"
+        steps:
+          - id: store
+            action: "Add the widget store"
+        done:
+          - "a widget is stored and read back"
         """;
 
-    private const string EpicOutcomeReply =
+    private const string EpicApiYaml =
         """
-        This exceeds one spec — proposing an epic.
-        ```outcome
-        kind: epic
-        parent:
-          spec: p9000
-          goal: "Widget platform end to end"
-        children:
-          - spec: p9000a
-            goal: "Widget storage layer"
-            steps:
-              - id: store
-                action: "Add the widget store"
-            done:
-              - "a widget is stored and read back"
-          - spec: p9000b
-            goal: "Widget API on top of the storage layer"
-            requires: [p9000a]
-            steps:
-              - id: api
-                action: "Add the widget endpoint"
-            done:
-              - "the endpoint returns a stored widget"
-        ```
+        spec: p9000b
+        goal: "Widget API on top of the storage layer"
+        requires: [p9000a]
+        steps:
+          - id: api
+            action: "Add the widget endpoint"
+        done:
+          - "the endpoint returns a stored widget"
         """;
+
+    /// <summary>2026-11-12-cd4ca: the master writes the spec through write_spec and replies in prose.</summary>
+    private static void ScriptSpec(ScriptedChatClient client, string prose = "Here is the spec draft.") =>
+        client.EnqueueSpecWrite(ValidDraftYaml).EnqueueText(prose);
+
+    private static void ScriptBug(ScriptedChatClient client) =>
+        client.EnqueueBugWrite("Add a null check to AppendTurnAsync",
+                "AppendTurnAsync dereferences the session state without a null check; return early when the thread has no open session.")
+            .EnqueueText("That is a one-line fix, not a spec.");
+
+    private static void ScriptEpic(ScriptedChatClient client) =>
+        client.EnqueueEpicWrite(EpicParentYaml, EpicStorageYaml, EpicApiYaml).EnqueueText("This exceeds one spec — proposing an epic.");
 
     // ---- p0315e: resolution + confirmation (recording sink at the seam) ----
 
@@ -125,7 +123,7 @@ public sealed partial class SpecDialogOutcomeTests
         var (bridge, adapter, sink) = (new InMemoryDialogueBridge(),
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText(BugOutcomeReply);
+        ScriptBug(harness.ChatClient);
         var state = Discussed("add a null check to AppendTurnAsync");
 
         var result = await RunTurnAsync(harness, state);
@@ -144,7 +142,7 @@ public sealed partial class SpecDialogOutcomeTests
         var (bridge, adapter, sink) = (new InMemoryDialogueBridge(),
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        ScriptSpec(harness.ChatClient);
         var state = Discussed("draft the widget spec now");
 
         var result = await RunTurnAsync(harness, state);
@@ -157,18 +155,18 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task Runner_OnTheDashboard_KeepsTheDraftAndShowsTheProseWithoutIt()
+    public async Task Runner_OnTheDashboard_KeepsTheDraftAndShowsTheProse()
     {
         var (bridge, adapter, sink) =
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        ScriptSpec(harness.ChatClient);
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now") with { Platform = "dashboard" });
 
         result.Outcome.Should().BeOfType<SpecOutcome>();
-        result.Reply.Should().Contain("```yaml", "the transcript keeps what the master wrote");
-        result.Shown.Should().Be("Here is the spec draft:", "the dashboard pane shows the draft");
+        result.Reply.Should().Be("Here is the spec draft.", "the reply is prose; the draft is what write_spec stored");
+        result.Shown.Should().Be("Here is the spec draft.", "the dashboard pane shows the draft");
     }
 
     [Fact]
@@ -177,7 +175,7 @@ public sealed partial class SpecDialogOutcomeTests
         var (bridge, adapter, sink) = (new InMemoryDialogueBridge(),
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText(EpicOutcomeReply);
+        ScriptEpic(harness.ChatClient);
         var state = Discussed("build the whole widget platform");
 
         var result = await RunTurnAsync(harness, state);
@@ -200,7 +198,7 @@ public sealed partial class SpecDialogOutcomeTests
         var (bridge, adapter, sink) =
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}");
+        ScriptSpec(harness.ChatClient, "Draft.");
         var state = Discussed("draft the widget spec now");
 
         var result = await RunTurnAsync(harness, state);

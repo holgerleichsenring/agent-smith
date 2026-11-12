@@ -35,19 +35,34 @@ public sealed partial class TicketGraphChecker(TicketGraphOrderer orderer)
         return orderer.Order(tickets).Error;
     }
 
+    /// <summary>2026-11-12-cd4ca: why one ticket cannot stand among <paramref name="siblings"/> (the other keys of
+    /// its draft), or null — its key, fields, requires and repositories, checked as the whole list checks them.</summary>
+    public string? Ticket(GraphTicket ticket, IReadOnlySet<string> siblings, IReadOnlyList<string> scope)
+    {
+        ArgumentNullException.ThrowIfNull(ticket);
+        ArgumentNullException.ThrowIfNull(siblings);
+        ArgumentNullException.ThrowIfNull(scope);
+        return Key(ticket.Key, $"'{ticket.Key}'") ?? Fields(ticket) ?? Requires(ticket, siblings) ?? Repos(ticket, scope);
+    }
+
     private static string? Keys(IReadOnlyList<GraphTicket> tickets)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < tickets.Count; i++)
         {
             var key = tickets[i].Key;
-            if (key.Length == 0) return $"ticket #{i + 1} has no 'key'";
-            if (!KeyShape().IsMatch(key))
-                return $"ticket #{i + 1} has the key '{key}' — a key is a lower-case letter followed by 1 to 40 "
-                    + "lower-case letters, digits or '-'";
+            if (Key(key, $"#{i + 1}") is { } error) return error;
             if (!seen.Add(key)) return $"ticket '{key}' is named twice — every key is unique in the list";
         }
         return null;
+    }
+
+    private static string? Key(string key, string name)
+    {
+        if (key.Length == 0) return $"ticket {name} has no 'key'";
+        return KeyShape().IsMatch(key) ? null
+            : $"ticket {name} has the key '{key}' — a key is a lower-case letter followed by 1 to 40 "
+                + "lower-case letters, digits or '-'";
     }
 
     private static string? Fields(GraphTicket t)

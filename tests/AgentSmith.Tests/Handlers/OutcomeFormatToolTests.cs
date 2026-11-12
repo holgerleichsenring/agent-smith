@@ -84,7 +84,7 @@ public sealed class OutcomeFormatToolTests
     [Fact]
     public void TicketActToolsFactory_DesignTurn_OffersOutcomeFormat()
     {
-        var factory = new TicketActToolsFactory(MasterHandlerFixture.Verification(), new References(Catalog));
+        var factory = new TicketActToolsFactory(MasterHandlerFixture.Verification(), new References(Catalog), MasterHandlerFixture.ProposalWrites());
         var seeded = Context();
         seeded.Pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot());
 

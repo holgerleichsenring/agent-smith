@@ -1,77 +1,53 @@
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.SpecDialog.Writes;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Turns;
+using AgentSmith.Contracts.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// p0315b/p0315e: resolves a design turn's typed terminal outcome (answer / bug / spec / epic) and publishes it for
-/// CollectSpecDialogReply. An invalid outcome re-prompts the
-/// master ONCE with the exact error; a second failure replaces the reply with an honest notice, so the raw invalid
-/// output never reaches the thread.
+/// p0315b/p0315e: publishes a design turn's typed terminal outcome for CollectSpecDialogReply. 2026-11-12-cd4ca: the
+/// outcome is what the turn's write tools stored, never a block parsed from the reply. A reply cut at the output
+/// limit is re-asked once under the raised budget; a second cut fails the turn's reply with a notice.
 /// </summary>
 public sealed class SpecDialogOutcomeGate(
     IAgenticLoopRunner loopRunner,
-    ISpecDialogPromptFactory promptFactory,
-    IOutcomeProposalResolver outcomeResolver,
-    ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
     ILogger<SpecDialogOutcomeGate> logger)
 {
-    private static readonly OutcomeInvalid Cut = new(
-        "the reply was cut off at the output limit before it ended; write the whole reply again");
+    private const string Cut = "the reply was cut off at the output limit before it ended; write the whole reply again";
 
     public async Task<AgenticLoopResult> GateAsync(
         PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
         AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
     {
-        // 2026-10-12-3a36e: the turn's repositories, keyed by their configured names in the dialog.
-        IReadOnlyList<string> scope = [.. Specs.DerivationLookFactory.ProposalRepositories(pipeline)?.Keys ?? []];
-        // A reply cut at the output limit is re-asked under the raised budget before anything reads it.
-        if (loopResult.Response.FinishReason == ChatFinishReason.Length)
-            return await RetryAsync(pipeline, request with { MaxOutputTokensOverride = request.AgentConfig.DialogMasterMaxOutputTokens },
-                userPrompt, loopResult, conversation, costTracker, Cut, scope, ct);
-        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty, scope);
-        if (resolution is OutcomeResolved first)
-            return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
-        var invalid = (OutcomeInvalid)resolution;
-        logger.LogWarning("Design-partner terminal outcome failed validation — re-prompting once: {Error}", invalid.Error);
-        await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Revising), ct);
-        return await RetryAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, invalid, scope, ct);
-    }
-
-    // 2026-09-24-3907: WITH the thread, like every sibling re-prompt. Without it the runner assembles [system] + nudge
-    // and nothing else, so a model told "do not repeat the invalid output" holds no copy of it.
-    private async Task<AgenticLoopResult> RetryAsync(
-        PipelineContext pipeline, AgenticLoopRequest request, string userPrompt, AgenticLoopResult loopResult,
-        MasterConversation conversation, PipelineCostTracker costTracker, OutcomeInvalid invalid,
-        IReadOnlyList<string> scope, CancellationToken ct)
-    {
+        if (loopResult.Response.FinishReason != ChatFinishReason.Length) return Published(pipeline, loopResult);
         AgenticLoopResult retry;
         try
         {
-            var nudge = promptFactory.BuildOutcomeFixNudge(userPrompt, invalid.Error);
-            retry = await loopRunner.RunAsync(request with { UserPrompt = nudge, PriorMessages = conversation.Thread() }, ct);
+            var nudge = $"{Cut}.\n\nOriginal task:\n{userPrompt}";
+            retry = await loopRunner.RunAsync(request with
+            {
+                UserPrompt = nudge, PriorMessages = conversation.Thread(),
+                MaxOutputTokensOverride = request.AgentConfig.DialogMasterMaxOutputTokens,
+            }, ct);
             conversation.Continued(nudge, retry.Response);
             costTracker.Track(retry.Response);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Outcome-fix re-prompt failed");
-            return MasterOutcomes.FailOutcome(pipeline, loopResult, invalid.Error);
+            logger.LogWarning(ex, "The re-ask of a design reply cut at the output limit failed");
+            return MasterOutcomes.FailOutcome(pipeline, loopResult, Cut);
         }
-        if (retry.Response.FinishReason == ChatFinishReason.Length) return MasterOutcomes.FailOutcome(pipeline, retry, Cut.Error);
-        var resolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty, scope);
-        // 2026-11-09-0620n: a schema fix contributes its block; the operator reads the first reply's prose. A first reply
-        // cut at the output limit is not a full reply, so its re-ask stands as it came.
-        if (resolution is OutcomeResolved second)
-            return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, ReferenceEquals(invalid, Cut) ? retry
-                : MasterOutcomes.WithReplyText(retry, TurnReply.KeepFirstProse(loopResult.Response.Text ?? string.Empty, retry.Response.Text ?? string.Empty)));
-        var stillInvalid = (OutcomeInvalid)resolution;
-        logger.LogWarning("Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
-        return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);
+        return retry.Response.FinishReason == ChatFinishReason.Length
+            ? MasterOutcomes.FailOutcome(pipeline, retry, Cut)
+            : Published(pipeline, retry);
     }
+
+    private static AgenticLoopResult Published(PipelineContext pipeline, AgenticLoopResult result) =>
+        MasterOutcomes.PublishOutcome(pipeline,
+            pipeline.TryGet<SpecDialogReplySlot>(ContextKeys.SpecDialogReplySlot, out var slot) && slot is not null
+                ? ProposalDraftOutcome.For(slot.Proposal) : new AnswerOutcome(), result);
 }

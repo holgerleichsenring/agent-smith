@@ -35,11 +35,21 @@ public sealed class SeriesContractReader(SeriesContractCheck check)
         if (!map.TryGetValue(Key, out var node) || node is null) return SeriesContractRead.None;
         if (OutcomeYamlReader.GetMap(map, Key) is not { } block)
             return new(null, "the series contract cannot be read: 'contract' is not a mapping");
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(block.ToDictionary(e => e.Key, e => Plain(e.Value))));
+        return FromDraft(json.RootElement, children);
+    }
+
+    /// <summary>2026-11-12-cd4ca: a contract the design master wrote as data over its draft's children, each named by
+    /// its id or its position.</summary>
+    public SeriesContractRead FromDraft(JsonElement block, IReadOnlyList<SpecDraft> children)
+    {
+        ArgumentNullException.ThrowIfNull(children);
+        if (block.ValueKind != JsonValueKind.Object)
+            return new(null, "the series contract cannot be read: it is not an object");
         var ids = children.Select(c => c.SpecId).ToList();
         var elements = new SeriesContractElements(ids, id => ids.Contains(id, StringComparer.Ordinal) ? id : null,
             "name a child by its id or its position");
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(block.ToDictionary(e => e.Key, e => Plain(e.Value))));
-        return Checked(elements, json.RootElement, [.. children.Select(c => (c.SpecId, c.Repos))]);
+        return Checked(elements, block, [.. children.Select(c => (c.SpecId, c.Repos))]);
     }
 
     private SeriesContractRead Checked(

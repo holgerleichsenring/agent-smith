@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4ca
+goal: "The design master writes specs and tickets one tool call at a time into a per-turn proposal store; the reply is prose and the proposal is built from the store."
+
+applies_to: "default (spec dialog: reply slot, design tools, outcome gate)"
+
+invariants:
+  - "ONE ITEM PER CALL. write_ticket, write_spec, write_bug, write_comment, write_contract and remove_item each change one item of the store; no reply text is parsed for a proposal."
+  - "THE STORE MINTS SPEC IDS. A spec written without an id gets a placeholder id from the store; the model names it by that id afterwards (requires, rewrite, remove)."
+  - "ALWAYS BUILDABLE. A write that would leave the store unfileable (two kinds at once, a requires naming nothing, a cycle, a second parent, specs without a parent) is refused with the reason; the store is unchanged."
+  - "KIND FROM THE STORE. A turn that changed nothing is an answer; otherwise the store's content is the proposal (comment, bug, tickets, one spec, or parent + children)."
+  - "A STANDING PROPOSAL IS EDITED, NOT RE-EMITTED. The proposal awaiting a decision seeds the store, so a revision rewrites one item."
+
+facts:
+  - claim: "Today the turn's outcome is parsed from fenced blocks in the reply."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:37"
+  - claim: "The review reads the published proposal from ContextKeys.SpecDialogOutcome."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:31"
+  - claim: "The proposal awaiting a decision is seeded as ContextKeys.SpecDialogRevisedProposal."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:68"
+
+scope:
+  in: "ProposalStore on SpecDialogReplySlot, the write tools on the design surface, the build of the outcome from the store in the gate, seeding from the standing proposal, the prompt section showing the store, tests."
+  out: "The review loop and its re-prompt (another series member), the skill text, the gate's removal (2026-11-12-cd4cb)."
+
+steps:
+  - id: store
+    action: "Add ProposalDraft/ProposalStore (Contracts) and SpecDialogReplySlot.Proposal."
+  - id: writes
+    action: "Add the write checks (TicketDraftWrite, SpecDraftWrite, ProposalItemRemoval) and the write tool hosts on TicketActToolsFactory."
+  - id: build
+    action: "Build the OutcomeProposal from the store (ProposalDraftOutcome) and publish it from the gate; seed the store from the standing proposal."
+  - id: tests
+    action: "Unit tests for the writes and the build; harness turns migrated from fenced blocks to tool calls."
+
+tests:
+  - "WriteTicket_RequiresUnknownKey_IsRefused"
+  - "WriteSpec_WithoutId_MintsPlaceholder"
+  - "WriteSpec_SecondRootWithoutParent_IsRefused"
+  - "ProposalDraftOutcome_ParentAndChildren_IsEpic"
+  - "ProposalDraftOutcome_Unchanged_IsAnswer"
+
+done:
+  - "A design turn's proposal is what its write tools stored; a reply with a fenced block proposes nothing (tests above)."
+  - "Build and full suite green at the spec gate."

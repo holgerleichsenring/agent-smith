@@ -6,6 +6,7 @@ using AgentSmith.PipelineHarness.Composition;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.PipelineHarness.Llm;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +30,6 @@ public sealed class SpecDialogTests
 
     private const string ValidDraft =
         """
-        ```yaml
         spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
@@ -39,7 +39,6 @@ public sealed class SpecDialogTests
           - "Widget_Get_ReturnsWidget"
         done:
           - "GET /widget returns the widget"
-        ```
         """;
 
     [Fact]
@@ -84,30 +83,15 @@ public sealed class SpecDialogTests
     public async Task DesignPartner_SpecOutcome_ProducesSchemaValidDraft()
     {
         await using var harness = BuildHarness();
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        harness.ChatClient.EnqueueSpecWrite(ValidDraft).EnqueueText("Here is the spec draft.");
 
         var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        reply.Should().Contain("spec: p9999", "a schema-valid draft is shown as-is");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "a valid draft needs no re-prompt");
-    }
-
-    [Fact]
-    public async Task DesignPartner_InvalidDraft_Reprompted_NotSurfacedRaw()
-    {
-        await using var harness = BuildHarness();
-        harness.ChatClient
-            .EnqueueText("Draft:\n```yaml\nspec: not-a-valid-spec-id\n```")
-            .EnqueueText($"Corrected:\n{ValidDraft}");
-
-        var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
-
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(2,
-            "the invalid draft re-prompts the master exactly once with the schema error");
-        reply.Should().Contain("spec: p9999", "the corrected draft is what surfaces");
-        reply.Should().NotContain("not-a-valid-spec-id", "the invalid draft is never surfaced raw");
-        FlattenPrompt(harness).Should().Contain("failed schema validation",
-            "the re-prompt names the validation failure to the master");
+        reply.Should().Be("Here is the spec draft.", "the reply is prose; the draft is what write_spec stored");
+        string.Join("\n", harness.ChatClient.CallMessages[1].SelectMany(m => m.Contents)
+                .OfType<Microsoft.Extensions.AI.FunctionResultContent>().Select(r => r.Result?.ToString()))
+            .Should().Contain("Stored spec 'p9999'", "a schema-valid draft is stored as written");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; nothing re-prompts");
     }
 
     // ---- harness plumbing ----

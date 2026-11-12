@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-cd4ca: "DESIGN PROPOSAL STORE (spec dialog: reply slot, write tools, outcome gate). The design master writes specs, tickets, a bug or a comment one tool call at a time into a per-turn store seeded from the standing proposal; a write is checked and refused with its reason; the outcome is built from the store. -> .agentsmith/specs/done/2026-11-12-cd4ca-design-proposal-store-writes.yaml"
     2026-11-11-f874: "DESIGN TEXT LEFTOVERS (skills pin v5.28.2). The spec format drops run-time correction lore and keeps the re-check fact; the bound-ticket section states the situation and each approvable outcome's effect instead of a scripted first reply, and no answer outcome claims it. -> .agentsmith/specs/done/2026-11-11-f874-design-text-leftovers.yaml"
     2026-11-11-205fh: "CHAT CARD BINDING (chat thread adapters, SpecDialogChatCard, decision path). A typed decision binds by the platform's own posted time (Slack ts) or not at all (Teams decides by buttons); a thread never shown the awaiting card gets it reposted with a notice instead of a model turn. -> .agentsmith/specs/done/2026-11-11-205fh-chat-card-binding.yaml"
     2026-11-11-205fg: "PROJECT MEMORY BOUNDS (ProjectMemoryLimits, project memory repository, recall, index). One check at the store write: description and author one line, slug and author at most 191; tools answer its refusal; recall and index quote description and author; a deterministic two-connection upsert proves the retry. -> .agentsmith/specs/done/2026-11-11-205fg-project-memory-bounds.yaml"

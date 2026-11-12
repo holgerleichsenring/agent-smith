@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.PipelineHarness.Llm;
 using AgentSmith.Server.Models;
 using FluentAssertions;
 
@@ -23,62 +24,18 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     /// <summary>
-    /// 2026-09-24-3907: the outcome-fix re-prompt used to be a COLD call — the runner assembles
-    /// [system] + PriorMessages + user, and this one passed none. A model told "do not repeat the
-    /// invalid output" held no copy of it and re-drafted the whole specification from a prompt that
-    /// never said what the key it got wrong allows. Every sibling re-prompt carries the thread,
-    /// including the one called two lines earlier in the same method.
+    /// 2026-09-24-3907: the refusal names the way out — "this property is not allowed here" alone is unsatisfiable.
+    /// 2026-11-12-cd4ca: it arrives on the write's own tool result, and nothing re-prompts the turn.
     /// </summary>
     [Fact]
-    public async Task Turn_AnOutcomeFailsValidation_TheRePromptCarriesTheThread()
+    public async Task Turn_SpecWriteFailsSchema_TheToolResultNamesTheAllowedProperties()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient
-            .EnqueueText($"Draft:\n```yaml\nspec: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"\n```")
-            .EnqueueText(Answer);
-        var state = State("draft it") with
-        {
-            Transcript =
-            [
-                new TranscriptTurn(TranscriptRole.User, "we need widgets", DateTimeOffset.UtcNow),
-                new TranscriptTurn(TranscriptRole.Assistant, "which tenant?", DateTimeOffset.UtcNow),
-                new TranscriptTurn(TranscriptRole.User, "global", DateTimeOffset.UtcNow),
-            ],
-        };
+        harness.ChatClient.EnqueueSpecWrite("spec: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"").EnqueueText(Answer);
 
-        await RunTurnAsync(harness, state);
+        await RunTurnAsync(harness, State("draft it"));
 
-        harness.ChatClient.InvocationCount.Should().Be(2, "a failed outcome is re-prompted exactly once");
-        harness.ChatClient.CallMessages[1].Count.Should().BeGreaterThan(
-            2, "the re-prompt carries the conversation, not just a system prompt and a nudge");
-        string.Join("\n", harness.ChatClient.CallMessages[1].Select(m => m.Text))
-            .Should().Contain("we need widgets", "the thread the turn was correcting is still there");
-    }
-
-    /// <summary>
-    /// 2026-09-24-3907: and the refusal names the way out. "This property is not allowed here"
-    /// alone is unsatisfiable for a reader told to fix exactly what the error names.
-    /// </summary>
-    [Fact]
-    public async Task Turn_AnOutcomeFailsValidation_TheNudgeNamesTheAllowedProperties()
-    {
-        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient
-            .EnqueueText($"Draft:\n```yaml\nspec: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"\n```")
-            .EnqueueText(Answer);
-        var state = State("draft it") with
-        {
-            Transcript =
-            [
-                new TranscriptTurn(TranscriptRole.User, "we need widgets", DateTimeOffset.UtcNow),
-                new TranscriptTurn(TranscriptRole.Assistant, "which tenant?", DateTimeOffset.UtcNow),
-                new TranscriptTurn(TranscriptRole.User, "global", DateTimeOffset.UtcNow),
-            ],
-        };
-
-        await RunTurnAsync(harness, state);
-
-        string.Join("\n", harness.ChatClient.CallMessages[1].Select(m => m.Text))
-            .Should().Contain("it allows in, out");
+        harness.ChatClient.InvocationCount.Should().Be(2, "the write and the reply, and no re-prompt");
+        ToolResults(harness, 1).Should().Contain("it allows in, out");
     }
 }
