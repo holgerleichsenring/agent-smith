@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-0c24
+
+decisions:
+  - category: Design
+    chose: "A worker tool call with non-object arguments arrives with empty arguments; argument binding answers the model with the parameter it is missing"
+    over: "Failing the whole worker call with ExternalWorkerCallException; or carrying the reason as FunctionCallContent.Exception"
+    reason: "One malformed call ended a seven-minute design turn in a replay. The loop already answers a failing tool and bounds repeats (ToolLoopErrorTolerance); FunctionInvokingChatClient does not read the content's Exception, while the binding error names exactly what to send."
+  - category: Design
+    chose: "A call naming a tool never offered passes to the loop"
+    over: "Failing the worker call"
+    reason: "FunctionInvokingChatClient answers an unknown name as not found and the loop continues; the same rule as for any other imperfect call."

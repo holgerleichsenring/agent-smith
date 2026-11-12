@@ -7,9 +7,11 @@ namespace AgentSmith.Infrastructure.Services.Workers;
 /// <summary>
 /// p0416: turns a worker's reply back into the <see cref="ChatResponse"/> the agent loop
 /// consumes unchanged — assistant text and tool calls the FunctionInvokingChatClient then
-/// executes for real. Validation is strict: an empty answer, a call naming a tool that was
-/// never offered, or arguments that are not an object is a failure with a reason, because
-/// each one means the worker did not answer the call it was given.
+/// executes for real. A refusal or an empty answer is a failure with a reason, because the
+/// worker did not answer the call it was given. 2026-11-12-0c24: an imperfect tool CALL is
+/// data — arguments that are not an object arrive empty, so binding answers the model with the
+/// parameters it is missing, and a name never offered reaches the loop, which answers it as
+/// unknown. The model reads why, and the loop's own tolerance decides when failures end it.
 /// </summary>
 public sealed class WorkerReplyTranslator
 {
@@ -17,22 +19,15 @@ public sealed class WorkerReplyTranslator
         WorkerReply reply, WorkerRequest request, out ChatResponse response, out string? problem)
     {
         var calls = reply.ToolCalls ?? [];
-        problem = Validate(reply, calls, request);
+        problem = Validate(reply, calls);
         response = problem is null ? BuildResponse(reply, calls, request) : new ChatResponse();
         return problem is null;
     }
 
-    private static string? Validate(
-        WorkerReply reply, IReadOnlyList<WorkerToolCall> calls, WorkerRequest request)
+    private static string? Validate(WorkerReply reply, IReadOnlyList<WorkerToolCall> calls)
     {
         if (!string.IsNullOrWhiteSpace(reply.Error))
             return $"the worker refused the call: {reply.Error}";
-        if (Unoffered(calls, request) is { } unknown)
-            return $"the worker called tool '{unknown}', which was not offered. "
-                + $"Offered: [{string.Join(", ", request.Tools.Select(t => t.Name))}]";
-        if (calls.FirstOrDefault(c => c.Arguments.ValueKind != JsonValueKind.Object) is { } malformed)
-            return $"the worker called tool '{malformed.Name}' with arguments that are not a "
-                + $"JSON object (was {malformed.Arguments.ValueKind})";
         if (string.IsNullOrWhiteSpace(reply.Text) && calls.Count == 0)
             return "the worker answered with neither text nor tool calls";
         return null;
@@ -58,10 +53,7 @@ public sealed class WorkerReplyTranslator
         List<AIContent> contents = [];
         if (!string.IsNullOrWhiteSpace(reply.Text)) contents.Add(new TextContent(reply.Text));
         for (var i = 0; i < calls.Count; i++)
-            contents.Add(new FunctionCallContent(
-                calls[i].CallId ?? $"{request.RequestId}_call_{i + 1}",
-                calls[i].Name,
-                ToArguments(calls[i].Arguments)));
+            contents.Add(Call(calls[i], calls[i].CallId ?? $"{request.RequestId}_call_{i + 1}"));
 
         return new ChatResponse(new ChatMessage(ChatRole.Assistant, contents))
         {
@@ -71,11 +63,10 @@ public sealed class WorkerReplyTranslator
         };
     }
 
-    private static string? Unoffered(IReadOnlyList<WorkerToolCall> calls, WorkerRequest request)
-    {
-        var offered = request.Tools.Select(t => t.Name).ToHashSet(StringComparer.Ordinal);
-        return calls.Select(c => c.Name).FirstOrDefault(name => !offered.Contains(name));
-    }
+    /// <summary>The call as the loop executes it; arguments that are not an object arrive empty.</summary>
+    private static FunctionCallContent Call(WorkerToolCall call, string callId) =>
+        new(callId, call.Name, call.Arguments.ValueKind == JsonValueKind.Object
+            ? ToArguments(call.Arguments) : new Dictionary<string, object?>());
 
     // Values stay as JsonElement — the same shape the provider clients hand the
     // function-invoking layer, so argument binding behaves identically.

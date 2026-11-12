@@ -142,29 +142,75 @@ public sealed class WorkerReplyTranslationTests
     }
 
     [Fact]
-    public void Translate_ToolThatWasNeverOffered_FailsNamingWhatWasOffered()
+    public void Translate_ToolThatWasNeverOffered_PassesToTheLoop()
     {
+        // 2026-11-12-0c24: the loop answers an unknown name itself; the transport no longer fails the turn.
         var reply = new WorkerReply(ToolCalls:
             [new WorkerToolCall("rm_rf", JsonDocument.Parse("{}").RootElement)]);
 
         new WorkerReplyTranslator()
-            .TryTranslate(reply, RequestOffering("write_file"), out _, out var problem)
-            .Should().BeFalse();
+            .TryTranslate(reply, RequestOffering("write_file"), out var response, out var problem)
+            .Should().BeTrue();
 
-        problem.Should().Contain("rm_rf").And.Contain("write_file");
+        problem.Should().BeNull();
+        response.Messages.Single().Contents.OfType<FunctionCallContent>().Single().Name.Should().Be("rm_rf");
     }
 
     [Fact]
-    public void Translate_ArgumentsThatAreNotAnObject_Fails()
+    public void Translate_ArgumentsThatAreNotAnObject_ArriveEmpty()
     {
         var reply = new WorkerReply(ToolCalls:
             [new WorkerToolCall("write_file", JsonDocument.Parse("\"src/A.cs\"").RootElement)]);
 
         new WorkerReplyTranslator()
-            .TryTranslate(reply, RequestOffering("write_file"), out _, out var problem)
-            .Should().BeFalse();
+            .TryTranslate(reply, RequestOffering("write_file"), out var response, out var problem)
+            .Should().BeTrue();
 
-        problem.Should().Contain("not a JSON object");
+        problem.Should().BeNull();
+        var call = response.Messages.Single().Contents.OfType<FunctionCallContent>().Single();
+        call.Name.Should().Be("write_file");
+        call.Arguments.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Loop_MalformedWorkerCall_AnswersTheModelAndContinues()
+    {
+        var malformed = new WorkerReply(ToolCalls:
+            [new WorkerToolCall("write_notes", default)]);
+        new WorkerReplyTranslator().TryTranslate(malformed, RequestOffering("write_notes"), out var first, out _)
+            .Should().BeTrue();
+        var calls = 0;
+        var seen = new List<ChatMessage>();
+        var inner = new ScriptedClient(messages =>
+        {
+            seen.AddRange(messages);
+            return calls++ == 0 ? first : new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"));
+        });
+        var invoked = false;
+        var tool = AIFunctionFactory.Create((string text) => { invoked = true; return "stored"; }, "write_notes");
+        using var loop = new FunctionInvokingChatClient(inner) { IncludeDetailedErrors = true };
+
+        var response = await loop.GetResponseAsync("go", new ChatOptions { Tools = [tool] });
+
+        response.Text.Should().Be("done");
+        invoked.Should().BeFalse("a call without arguments is never executed");
+        seen.SelectMany(m => m.Contents).OfType<FunctionResultContent>().Single()
+            .Result!.ToString().Should().Contain("missing a value for the required parameter 'text'");
+    }
+
+    private sealed class ScriptedClient(Func<IEnumerable<ChatMessage>, ChatResponse> answer) : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(answer(messages.ToList()));
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
     }
 
     [Fact]

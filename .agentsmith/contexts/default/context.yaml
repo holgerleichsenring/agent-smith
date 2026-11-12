@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-0c24: "WORKER TOOL CALL ERRORS (external worker transport, WorkerReplyTranslator). A worker tool call with non-object arguments or an unoffered name reaches the model as that call's error and the turn goes on; only a refusal or an empty answer fails the call. -> .agentsmith/specs/done/2026-11-12-0c24-worker-tool-call-errors.yaml"
     2026-11-12-cd4cg: "DESIGN OUTCOME FORMAT REMOVED (design tools, loop hooks). outcome_format, TurnFolds and the OnFold hook are retired; write_spec, write_ticket and write_contract carry their schema in their descriptions. -> .agentsmith/specs/done/2026-11-12-cd4cg-design-outcome-format-removed.yaml"
     2026-11-12-cd4cf: "DESIGN QUESTIONS SINGLE CHANNEL (open-questions and work-picture tools, chat confirmation). The tools are the one channel: their answers no longer ask for a copy in the reply, and a chat confirmation lists the proposal's open questions. -> .agentsmith/specs/done/2026-11-12-cd4cf-design-questions-single-channel.yaml"
     2026-11-12-cd4ce: "DESIGN TURN FINISH (reply collection). A design turn ends when the model stops calling tools; its kind is what the draft holds, nothing re-prompts, and a proposal turn without prose is answered by what its draft holds. -> .agentsmith/specs/done/2026-11-12-cd4ce-design-turn-finish.yaml"
