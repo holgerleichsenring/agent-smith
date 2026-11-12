@@ -83,7 +83,7 @@ public sealed class SpecDialogTests
     public async Task DesignPartner_SpecOutcome_ProducesSchemaValidDraft()
     {
         await using var harness = BuildHarness();
-        harness.ChatClient.EnqueueSpecWrite(ValidDraft).EnqueueText("Here is the spec draft.");
+        harness.ChatClient.EnqueueSpecWrite(ValidDraft).EnqueueText("A first reply.").EnqueueText("Here is the spec draft.");
 
         var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
@@ -91,7 +91,7 @@ public sealed class SpecDialogTests
         string.Join("\n", harness.ChatClient.CallMessages[1].SelectMany(m => m.Contents)
                 .OfType<Microsoft.Extensions.AI.FunctionResultContent>().Select(r => r.Result?.ToString()))
             .Should().Contain("Stored spec 'p9999'", "a schema-valid draft is stored as written");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; nothing re-prompts");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the write, the reply, and the reply after the review report (92e9b)");
     }
 
     // ---- harness plumbing ----

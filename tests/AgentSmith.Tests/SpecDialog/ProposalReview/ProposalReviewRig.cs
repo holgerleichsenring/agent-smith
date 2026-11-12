@@ -162,8 +162,14 @@ internal sealed class ProposalReviewRig
     public static ProposalMechanicalChecks Checks() =>
         new(ProposalEvidenceTestReview.Create(), TicketPlanReviewRig.Default(), NullLogger<ProposalMechanicalChecks>.Instance);
 
-    public async Task RunAsync(ISpecReviewSettingsReader? reader = null) =>
-        await Review(reader).ReviewAsync(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
+    /// <summary>2026-11-12-92e9b: reviews the published outcome and publishes what came back, as the turn flow does.</summary>
+    public async Task<DesignTurnReview> RunAsync(ISpecReviewSettingsReader? reader = null)
+    {
+        var review = await Review(reader).ReviewAsync(
+            new ProposalTurn(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline)), Outcome, CancellationToken.None);
+        Pipeline.Set(ContextKeys.SpecDialogOutcome, review.Reviewed);
+        return review;
+    }
 
     /// <summary>2026-11-09-9a98: set by a test that watches what the review publishes as it goes.</summary>
     public ITurnProposalObserverAccessor? Proposals { get; init; }

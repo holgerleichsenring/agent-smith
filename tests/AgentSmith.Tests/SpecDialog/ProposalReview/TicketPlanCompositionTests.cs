@@ -35,11 +35,11 @@ public sealed class TicketPlanCompositionTests
         using var scope = provider.CreateScope();
         var review = scope.ServiceProvider.GetRequiredService<SpecDialogProposalReview>();
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)List(Ticket("order-api"), Ticket("order-ui", "order-api")));
-        await review.ReviewAsync(pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(pipeline), CancellationToken.None);
+        var reviewed = await review.ReviewAsync(new AgentSmith.Application.Services.Specs.Review.ProposalTurn(pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(pipeline)),
+            List(Ticket("order-api"), Ticket("order-ui", "order-api")), CancellationToken.None);
 
         rig.ReviewerPrompts.Should().ContainSingle().Which.Should().Contain("Review the list as a PLAN");
-        pipeline.Get<OutcomeProposal>(ContextKeys.SpecDialogOutcome).Findings.Should().ContainSingle()
+        reviewed.Reviewed.Findings.Should().ContainSingle()
             .Which.SpecId.Should().Be("order-ui");
     }
 

@@ -91,13 +91,14 @@ internal static class MasterHandlerFixture
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow(IAgenticLoopRunner loop) =>
         new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
-            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
+            new AgentSmith.Application.Services.SpecDialog.DesignTurnReviewDrive(new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
                 AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Checks(),
                 // 2026-11-12-cd4ch: the design turn's pass off, as by default; the pass has its own rig.
                 AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
                     () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 4, designTurn: false)),
                 new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Pass(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
+                loop, NullLogger<AgentSmith.Application.Services.SpecDialog.DesignTurnReviewDrive>.Instance));
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks.</summary>

@@ -8,17 +8,23 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// 2026-10-13-8762i: what a design turn keeps of the review the proposal it revises already had
 /// (<see cref="ContextKeys.SpecDialogRevisedProposal"/>). A draft byte-identical to one that has rounds there
 /// and is not in its NotReviewed keeps those rounds and counts as stopped; the drafts it listed as not
-/// reviewed go first. A series round is never carried: its review is taken fresh each turn.
+/// reviewed go first. A series round is never carried: its review is taken fresh each turn. 2026-11-12-92e9b: within
+/// the turn, a draft whose exact text a pass already reviewed (<see cref="ProposalReviewLedger"/>) carries that pass's
+/// result instead, so an unchanged text is not attacked twice in one turn.
 /// </summary>
 internal static class ProposalReviewCarryOver
 {
     public static List<ProposalDraftReview> Seed(PipelineContext pipeline, IReadOnlyList<SpecDraft> drafts)
     {
         var revised = pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal, out var r) ? r : null;
-        var waiting = revised?.NotReviewed ?? [];
-        return [.. drafts.Select(draft => Carried(new ProposalDraftReview(draft), revised, waiting))
-            .OrderBy(review => waiting.Contains(review.SpecId, StringComparer.Ordinal) ? 0 : 1)];
+        var ledger = ProposalReviewLedger.Of(pipeline);
+        var reviews = drafts.Select(draft => (Draft: draft, Before: ledger.For(draft) ?? revised)).ToList();
+        return [.. reviews.Select(d => Carried(new ProposalDraftReview(d.Draft), d.Before, d.Before?.NotReviewed ?? []))
+            .OrderBy(review => Waiting(reviews, review.SpecId) ? 0 : 1)];
     }
+
+    private static bool Waiting(IReadOnlyList<(SpecDraft Draft, OutcomeProposal? Before)> reviews, string specId) =>
+        reviews.Any(d => d.Draft.SpecId == specId && (d.Before?.NotReviewed ?? []).Contains(specId, StringComparer.Ordinal));
 
     private static ProposalDraftReview Carried(
         ProposalDraftReview review, OutcomeProposal? revised, IReadOnlyList<string> waiting)

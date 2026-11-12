@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-92e9b
+
+decisions:
+  - category: Design
+    chose: "The ledger maps each exact text key (a spec's id and yaml, an epic parent's yaml with its contract, a ticket list's JSON) to the whole reviewed proposal that held it; slices are taken by id on read"
+    over: "A per-draft record type copied out of ProposalDraftReview"
+    reason: "ProposalReviewCarryOver already carries rounds and clean texts from a reviewed proposal (the revised one); seeding it from the ledger reuses that logic unchanged, and both callers of ProposalReviewPass record in one place."
+  - category: Design
+    chose: "The ledger is recorded inside ProposalReviewPass.ReviewAsync, after the pass"
+    over: "Recording in the drive and in ReviewProposalToolHost separately"
+    reason: "The review_proposal tool and the end pass run the same pass; recording there means neither caller can forget it."
+  - category: Design
+    chose: "Composing the published outcome takes one pass's review whole when one pass covered every text, and slices by spec id (the series token for the parent) otherwise"
+    over: "Always slicing, or re-running a pass with everything carried"
+    reason: "Whole-set findings with ids outside the drafts survive the common case; a re-run would call the whole-set and series reviewers again for texts already reviewed."
+  - category: Design
+    chose: "A draft carried from the ledger but marked not reviewed (cost cap, no answer, blind) is tried again by a later pass, as the cross-turn carry already does"
+    over: "Carrying the not-reviewed mark and never asking again"
+    reason: "Such a text was not attacked; the not-reviewed reason is not kept on the proposal in a readable form, and the loop's end does not depend on it — the text is in the ledger either way."
+  - category: Design
+    chose: "A report goes back when the pass left a round or a finding other than 'not reviewed yet' or the bound-conversation note"
+    over: "Reporting every pass"
+    reason: "The spec: a pass that reviewed nothing drives no report pass. A list in a ticket's own conversation is never read by a reviewer, so its note is not a review."
+  - category: Design
+    chose: "SpecDialogProposalReview returns the reviewed proposal and the report; SpecDialogTurnFlow publishes once after the drive"
+    over: "Publishing before the review and overwriting after it"
+    reason: "ReviewedProposalSource reads the published outcome first, so a review_proposal call in a report pass would review the stale proposal."
+  - category: Design
+    chose: "A report pass that throws restores the slot's draft and open questions taken before it and keeps the previous reply"
+    over: "Keeping whatever the failed pass wrote"
+    reason: "The reviewed proposal published is the previous draft's; a store left with the failed pass's writes would disagree with it."
+  - category: Design
+    chose: "Report pass cost is tracked with costTracker.Track directly"
+    over: "Passing the handler's TrackMasterResponse delegate"
+    reason: "The dialog master runs without governor hooks, where TrackMasterResponse is exactly costTracker.Track; ConcludeAsync already receives the tracker."

@@ -161,6 +161,7 @@ public sealed partial class SpecDialogOutcomeTests
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         ScriptSpec(harness.ChatClient);
+        harness.ChatClient.EnqueueText("Here is the spec draft."); // 2026-11-12-92e9b: the reply after the review report
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now") with { Platform = "dashboard" });
 

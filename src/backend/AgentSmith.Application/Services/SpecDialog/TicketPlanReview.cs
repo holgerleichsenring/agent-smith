@@ -14,6 +14,9 @@ namespace AgentSmith.Application.Services.SpecDialog;
 public sealed class TicketPlanReview(
     TicketPlanReviewer reviewer, TicketExistenceFindings existence, ILogger<TicketPlanReview> logger)
 {
+    /// <summary>The problem of the one finding a list in a ticket's own conversation gets: nothing reviewed it.</summary>
+    public const string BoundProblem = "bound conversation";
+
     public const string BoundWhy =
         "a list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket";
 
@@ -40,6 +43,6 @@ public sealed class TicketPlanReview(
 
     private static OutcomeProposal? Bound(PipelineContext pipeline, TicketGraphOutcome graph) =>
         pipeline.Has(ContextKeys.SpecDialogTicket)
-            ? graph with { Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, "bound conversation", BoundWhy)] }
+            ? graph with { Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, BoundProblem, BoundWhy)] }
             : null;
 }

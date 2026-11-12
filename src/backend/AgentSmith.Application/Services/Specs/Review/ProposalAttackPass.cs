@@ -75,6 +75,7 @@ public sealed class ProposalAttackPass(
             RepositoryNames = SpecReviewRepositories.Names(session.Turn.Pipeline), Proposal = true, // 14a3g
             Siblings = ProposalAttackSiblings.Of(session, draft.Draft), // 2026-11-11-2bdfa
             OpenQuestions = ProposalOpenQuestions.Of(session.Turn.Pipeline), // 2026-11-11-2bdfd
+            OperatorTurns = ProposalOperatorTurns.Of(session.Turn.Pipeline), // 2026-11-12-92e9b
         };
 
     private static IReadOnlyList<SpecDraft> Reviewed(OutcomeProposal proposal) => proposal switch

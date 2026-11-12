@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using AgentSmith.PipelineHarness.Composition;
@@ -26,6 +27,7 @@ public sealed partial class SpecDialogOutcomeTests
             "p9999", "GET /widget returns the widget", "contradiction",
             "the spec also forbids touching the service"));
         ScriptSpec(harness.ChatClient);
+        harness.ChatClient.EnqueueText("The contradiction stands: the spec forbids touching the service.");
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
@@ -38,7 +40,12 @@ public sealed partial class SpecDialogOutcomeTests
         finding.Why.Should().Be("the spec also forbids touching the service");
         finding.Quote.Should().Be("GET /widget returns the widget");
         finding.Evidence.Should().BeNull("a contradiction quotes the spec; it cites no look");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; the review is not drawn from the master's script");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the write, the reply, and the reply after the review report; the review is not drawn from the master's script");
+        // 2026-11-12-92e9b: the master reads the review of its final draft before its reply goes out.
+        harness.ChatClient.CallMessages.Select(call => call.Last().Text)
+            .Should().ContainSingle(text => text.StartsWith(DesignTurnReviewReport.Heading, StringComparison.Ordinal))
+            .Which.Should().Contain("the spec also forbids touching the service");
+        result.Reply.Should().Be("The contradiction stands: the spec forbids touching the service.");
     }
 
     [Fact]
