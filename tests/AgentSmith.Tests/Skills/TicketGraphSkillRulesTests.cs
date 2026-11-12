@@ -56,8 +56,6 @@ public sealed partial class TicketGraphSkillRulesTests
     public void EmbeddedSkills_DesignPartnerMaster_SplitsMoreThanTwentyTicketsAcrossProposals()
     {
         TicketsFormat().Should().Contain(ProposalSize, Because("the proposal size rule"));
-        ProposalSize.Should().Contain($"{TicketGraphLimits.MinTickets} to {TicketGraphLimits.MaxTickets} tickets",
-            "the master names the bounds the checker enforces");
     }
 
     [Fact]

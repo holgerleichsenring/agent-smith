@@ -103,7 +103,7 @@ public sealed class SeriesContractFilingTests
     {
         var root = Root();
         var calls = new[] { "OutcomeTicketFiler.cs", "AmendedSpecification.cs" }
-            .SelectMany(file => Regex.Matches(File.ReadAllText(Path.Combine(root, file)), @"\.(Mint|Under)\(([^;]*?)\)[,;]")
+            .SelectMany(file => Regex.Matches(File.ReadAllText(Path.Combine(root, file)), @"\.(Mint|MintParts|Under)\(([^;]*?)\)[,;]")
                 .Select(m => m.Groups[2].Value)).ToList();
 
         calls.Should().HaveCount(4, "a lone spec and an epic, filed and amended");
@@ -143,7 +143,7 @@ public sealed class SeriesContractFilingTests
     {
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var parser = new EpicOutcomeParser(validator, new SpecDraftReader(), new RequiresEdgeChecker(),
-            DialogTestRepos.Real(), SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader());
+            DialogTestRepos.Real(), SeriesContracts.Reader());
         return parser.Parse(OutcomeYamlReader.ReadMap($"""
             kind: epic
             parent:

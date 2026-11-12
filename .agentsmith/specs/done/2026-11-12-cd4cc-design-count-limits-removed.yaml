@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4cc
+goal: "A design proposal holds any number of tickets or epic children; an epic longer than one series files as several series in order."
+
+applies_to: "default (spec dialog: ticket graph checker, epic parser, epic filing)"
+
+requires: [2026-11-12-cd4ca]
+
+invariants:
+  - "NO COUNT. A list of one ticket, a list of fifty, an epic of one child and an epic of forty are proposals like any other."
+  - "SERIES STAY SERIES. series.max_specs still bounds one coding run's series; a longer approved epic files as consecutive series of at most that many, the later ones not started, their requires on an earlier part naming its filed ids."
+
+facts:
+  - claim: "TicketGraphChecker refuses fewer than 2 and more than 20 tickets."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketGraphChecker.cs:25-30"
+  - claim: "EpicOutcomeParser refuses fewer than 2 children and more than series.max_specs."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:33-45"
+  - claim: "A series member id is the base plus one letter a..z."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesIdFactory.cs:31"
+
+scope:
+  in: "TicketGraphLimits.MinTickets/MaxTickets, the epic child count checks, FiledSeriesFactory.MintParts, SeriesDraftIds.Rewire, OutcomeTicketFiler's epic arm, tests."
+  out: "series.max_specs for derivation, continuation and re-cut (unchanged)."
+
+steps:
+  - id: limits
+    action: "Remove the ticket count and the epic child count checks."
+  - id: parts
+    action: "FiledSeriesFactory.MintParts chunks an ordered set by series.max_specs; the filer files each part as a work ticket, only the first may start, and a note names the order."
+  - id: tests
+    action: "Tests for thirty children accepted and a thirty-spec set filed as two series."
+
+tests:
+  - "EpicOutcomeParser_ThirtyChildren_Accepted"
+  - "FiledSeriesFactory_MintParts_LongSet_SplitsIntoSeriesAndRewiresRequires"
+
+done:
+  - "No count of tickets or children is refused (grep MinTickets, MaxTickets: none)."
+  - "Build and full suite green at the spec gate."

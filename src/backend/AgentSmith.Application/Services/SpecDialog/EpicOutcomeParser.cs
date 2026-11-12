@@ -8,20 +8,13 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// child specs — validating the parent and EVERY child against the
 /// spec schema (each child is a filable spec in its own right) and
 /// the requires: edges for consistency before the shape is proposed.
-/// <para>
-/// 2026-09-17-0e79a: the spec CAP (2026-10-13-8762u: series.max_specs) is checked here, on the proposal, before any ticket exists.
-/// The filers create and then store, so a refusal at store time would leave a filed ticket with
-/// no set; and a run that met an over-cap set could only refuse it or truncate it. A cut this
-/// long is a programme, and the place a person can split it is the conversation.
-/// </para>
 /// </summary>
 public sealed class EpicOutcomeParser(
     ISpecDraftValidator draftValidator,
     SpecDraftReader draftReader,
     RequiresEdgeChecker edgeChecker,
     DialogDraftRepos draftRepos,
-    Specs.SeriesContractReader contracts,
-    Specs.ISeriesSettingsReader series)
+    Specs.SeriesContractReader contracts)
 {
     /// <param name="scope">2026-10-12-3a36e: the turn's repository names each child's repos is
     /// checked against or filled from; the parent names none.</param>
@@ -29,20 +22,9 @@ public sealed class EpicOutcomeParser(
     {
         if (OutcomeYamlReader.GetMap(map, "parent") is not { } parentMap)
             return new OutcomeInvalid("epic outcome is missing 'parent' (a spec mapping)");
-        var childMaps = OutcomeYamlReader.GetList(map, "children");
-        if (childMaps is null || childMaps.Count < 2)
-            return new OutcomeInvalid(
-                "epic outcome needs 'children' with at least two spec entries — "
-                + "a single slice is just a spec; emit the bare ```yaml draft instead");
-
-        // 2026-10-13-8762u: the SERIES cap, read live; an invalid series block refuses naming its field.
-        var settings = series.Current();
-        if (settings.Refusal() is { } invalid) return new OutcomeInvalid(invalid);
-        if (childMaps.Count > settings.Series.MaxSpecs)
-            return new OutcomeInvalid(
-                $"epic outcome has {childMaps.Count} children and one series holds at most series.max_specs = "
-                + $"{settings.Series.MaxSpecs} specs — propose the first {settings.Series.MaxSpecs} as this "
-                + "epic and the rest as a second one, cut after this one has delivered");
+        // 2026-11-12-cd4cc: no count — a set longer than one series is split into several when it is filed.
+        if (OutcomeYamlReader.GetList(map, "children") is not { Count: > 0 } childMaps)
+            return new OutcomeInvalid("epic outcome needs 'children' with at least one spec entry");
 
         var (parent, parentError) = ReadDraft(parentMap, "parent");
         if (parent is null) return new OutcomeInvalid(parentError!);

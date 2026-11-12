@@ -164,7 +164,7 @@ public sealed class DialogDraftReposTests
         var reader = new SpecDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
-            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
+            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader()),
             new TicketGraphOutcomeParser(new TicketGraphChecker(new TicketGraphOrderer())), new TicketCommentOutcomeParser(),
             DialogTestRepos.Real());
     }

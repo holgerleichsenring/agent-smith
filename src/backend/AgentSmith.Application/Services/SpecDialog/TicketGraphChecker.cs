@@ -4,8 +4,8 @@ using AgentSmith.Contracts.Models;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-10-14-dbcej: whether a proposed list of tickets can be filed as it stands — the count, each
-/// key, each ticket's fields within <see cref="TicketGraphLimits"/>, each requires, each repository
+/// 2026-10-14-dbcej: whether a proposed list of tickets can be filed as it stands — each key (2026-11-12-cd4cc: no
+/// count), each ticket's fields within <see cref="TicketGraphLimits"/>, each requires, each repository
 /// and the order the edges allow, checked in that order. Every reason names the ticket and the rule
 /// so the design partner's one re-prompt can fix it. A done item is one line because the filed
 /// body lists it under the acceptance criteria, where only a list item reads back as a criterion.
@@ -22,12 +22,6 @@ public sealed partial class TicketGraphChecker(TicketGraphOrderer orderer)
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(scope);
         var tickets = graph.Tickets;
-        if (tickets.Count < TicketGraphLimits.MinTickets)
-            return $"the tickets outcome has {tickets.Count} ticket(s) and a list holds at least "
-                + $"{TicketGraphLimits.MinTickets} — a single piece of work is a spec or a bug";
-        if (tickets.Count > TicketGraphLimits.MaxTickets)
-            return $"the tickets outcome has {tickets.Count} tickets and a list holds at most {TicketGraphLimits.MaxTickets} — "
-                + $"propose the first {TicketGraphLimits.MaxTickets} now and name them with ticket:<id> in the next approval";
         if (Keys(tickets) is { } keyError) return keyError;
         var siblings = tickets.Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var ticket in tickets)

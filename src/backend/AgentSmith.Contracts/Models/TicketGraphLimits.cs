@@ -7,8 +7,6 @@ namespace AgentSmith.Contracts.Models;
 /// </summary>
 public static class TicketGraphLimits
 {
-    public const int MinTickets = 2;
-    public const int MaxTickets = 20;
     public const int MaxTitle = 120;
     public const int MaxRequirement = 1200;
     public const int MaxDoneItems = 8;

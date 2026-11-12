@@ -95,26 +95,26 @@ public sealed class OutcomeTicketFiler(
             filed, notes, mayStartRuns, ct);
 
     /// <summary>
-    /// 2026-09-17-0e79d: an approved cut is ONE piece of work — one work ticket from the parent
-    /// draft, carrying the whole ordered set: SpecSequence splices one master-verify-record block
-    /// per unexecuted spec. 2026-10-06-03c7f: the parent's goal is the series' goal.
+    /// 2026-09-17-0e79d: an approved cut is ONE piece of work — one work ticket from the parent draft, carrying the
+    /// ordered set. 2026-11-12-cd4cc: a set longer than one series files as several in order; only the first starts.
     /// </summary>
-    private Task FileEpicAsync(
+    private async Task FileEpicAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
         EpicOutcome epic, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(epic);
-        // The order is the SET's, and the proposal pane ran this same orderer to show it.
-        var order = orderer.Order(epic.Children);
+        var order = orderer.Order(epic.Children); // the SET's order, as the proposal pane showed it
         if (order.Error is not null)
             throw new InvalidOperationException($"The epic cannot be filed: {order.Error}.");
-        var series = seriesFiling.Mint(order.Children, epic);
-        return sets.FileAsync(
-            provider, state, project, TicketFilingRole.Work,
+        var parts = seriesFiling.MintParts(order.Children, epic);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var (series, goal) = (parts[i], parts.Count == 1 ? epic.Parent.Goal : $"{epic.Parent.Goal} (part {i + 1} of {parts.Count})");
             // 2026-09-13-ed5a: the work ticket records what the analysis read while it cut.
-            note => renderer.RenderEpicParent(
-                epic.Parent, series.Drafts, epic.Templates, state.JobId, note, series.Id),
-            series, epic.Parent.Goal, filed, notes, mayStartRuns, ct);
+            await sets.FileAsync(provider, state, project, TicketFilingRole.Work, note => renderer.RenderEpicParent(
+                epic.Parent, series.Drafts, epic.Templates, state.JobId, note, series.Id), series, goal, filed, notes, mayStartRuns && i == 0, ct);
+            if (i > 0) notes.Add($"Part {i + 1} ({series.Id}) continues part {i} ({parts[i - 1].Id}); start it once part {i} has merged.");
+        }
     }
 }

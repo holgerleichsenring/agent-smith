@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.Logging;
 
@@ -14,11 +15,32 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// narrowed to the filed members — a follow-up that left executed children out files a contract without them.
 /// 2026-10-13-8762l: so are the source's review rounds (<see cref="ApprovedReviewRounds.Rekey"/>).</para>
 /// </summary>
-public sealed class FiledSeriesFactory(SeriesIdFactory ids, SeriesDraftIds draftIds, ILogger<FiledSeriesFactory> logger)
+public sealed class FiledSeriesFactory(
+    SeriesIdFactory ids, SeriesDraftIds draftIds, ISeriesSettingsReader settings, ILogger<FiledSeriesFactory> logger)
 {
     /// <summary>A freshly minted series of <paramref name="ordered"/>.</summary>
     /// <param name="source">The approved proposal the drafts come from; its contract, if an epic carries one, is filed.</param>
     public FiledSeries Mint(IReadOnlyList<SpecDraft> ordered, OutcomeProposal? source) => Under(ids.Mint(), ordered, source);
+
+    /// <summary>
+    /// 2026-11-12-cd4cc: <paramref name="ordered"/> as one series, or as several when it holds more than one series
+    /// may (series.max_specs) — each a fresh series of the next drafts in order, whose requires on an earlier part
+    /// name that part's filed ids.
+    /// </summary>
+    public IReadOnlyList<FiledSeries> MintParts(IReadOnlyList<SpecDraft> ordered, OutcomeProposal? source)
+    {
+        ArgumentNullException.ThrowIfNull(ordered);
+        var size = Math.Clamp(settings.Current().Series.MaxSpecs, 1, SeriesConfig.MemberLetters);
+        var parts = new List<FiledSeries>();
+        var earlier = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var chunk in ordered.Chunk(size))
+        {
+            var part = Mint(draftIds.Rewire(chunk, earlier), source);
+            foreach (var (filedId, placeholder) in part.Sources) earlier[placeholder] = filedId;
+            parts.Add(part);
+        }
+        return parts;
+    }
 
     /// <summary>The drafts re-id'd under a known base.</summary>
     public FiledSeries Under(string series, IReadOnlyList<SpecDraft> ordered, OutcomeProposal? source)
