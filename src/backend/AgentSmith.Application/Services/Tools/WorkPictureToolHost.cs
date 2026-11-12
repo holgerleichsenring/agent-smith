@@ -20,7 +20,7 @@ public sealed class WorkPictureToolHost(
 {
     public const string Name = "state_work_picture";
 
-    internal const string Stored = "Stored. State it in one line of your reply.";
+    internal const string Stored = "Stored."; // 2026-11-12-cd4cf: the picture is shown from the store, not echoed
 
     /// <summary>2026-11-10-fc66: each kind defined, so a proof of concept carried into a codebase reads as a rebuild.</summary>
     internal const string KindDescription =
@@ -55,7 +55,7 @@ public sealed class WorkPictureToolHost(
         CancellationToken cancellationToken = default)
     {
         var (picture, refusal) = WorkPictureAdmission.Of(kind, truth, size, effort);
-        if (picture is null) return $"Not stored: {refusal} State it again.";
+        if (picture is null) return $"Not stored: {refusal}";
         // 2026-11-10-548f review: a correction later in the turn replaces the picture, never the turn's own higher
         // effort — its cap already rose to it, and the keeper stores the higher of this and the stored tier.
         // 205fc review: the conversation's stored tier counts too, so a lower effort in a later turn never publishes less.

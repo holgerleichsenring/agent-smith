@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4cf
+
+decisions:
+  - category: Design
+    chose: "The chat confirmation lists the proposal's questions; the dashboard card and transcript already render them from the proposal"
+    over: "Asking the model to keep them in its reply"
+    reason: "Questions were emitted twice (14 KB in one replay); the surface renders the stored list, so the reply carries analysis only."
+  - category: Implementation
+    chose: "Refusals keep their rule but drop 'State it again'"
+    over: "Keeping the imperative"
+    reason: "A refusal on a tool result already says the item was not stored; what to do next is the model's call."

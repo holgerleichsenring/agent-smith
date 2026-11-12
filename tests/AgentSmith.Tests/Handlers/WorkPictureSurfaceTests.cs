@@ -27,7 +27,7 @@ public sealed class WorkPictureSurfaceTests
         var corrected = await Invoke(slot, "feature", "repo-a", "one-spec");
 
         answer.Should().Be(WorkPictureToolHost.Stored);
-        corrected.Should().Be("Stored. State it in one line of your reply.");
+        corrected.Should().Be("Stored.");
         slot.WorkPicture.Should().Be(
             new WorkPicture(UndertakingKind.Feature, "repo-a", UndertakingSize.OneSpec, ComplexityTier.Large),
             "the last admitted call of a turn wins, keeping the turn's higher effort (548f)");

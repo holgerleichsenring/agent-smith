@@ -105,6 +105,16 @@ public sealed class SpecDialogDashboardWordingTests
             "the approval card renders the summary, the findings and the two buttons itself");
     }
 
+    // 2026-11-12-cd4cf: the open questions ride the proposal; chat shows them where the card would.
+    [Fact]
+    public void OutcomeConfirmation_BoundForSlack_ListsTheOpenQuestions()
+    {
+        var asked = Epic() with { Questions = [new OpenQuestion("Per tenant or global?", "Global.", ["p9000a"])] };
+
+        _outcomes.ComposeConfirmation(asked).In(SpecDialogMarkup.ChatMrkdwn)
+            .Should().Contain("Open questions:").And.Contain("1. Per tenant or global? (p9000a) — proposed: Global.");
+    }
+
     [Fact]
     public void OutcomeConfirmation_BoundForSlack_ListsTheSlices()
     {
