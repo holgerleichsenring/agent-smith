@@ -12,4 +12,7 @@ public static partial class ContextKeys
     /// <summary>2026-11-12-cd4ck: <c>string</c> — the conversation's notes as the turn began; absent while none are
     /// written.</summary>
     public const string SpecDialogNotes = "SpecDialogNotes";
+
+    /// <summary>2026-11-12-cd4cl: <c>TranscriptWindowConfig</c> — the project agent's transcript window.</summary>
+    public const string SpecDialogTranscriptWindow = "SpecDialogTranscriptWindow";
 }

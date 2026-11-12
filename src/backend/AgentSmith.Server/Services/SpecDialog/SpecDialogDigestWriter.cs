@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Folds the older turns of a conversation that has grown past <see cref="TranscriptWindow.VerbatimChars"/> into one
+/// Folds the older turns of a conversation that has grown past its window's verbatim bound into one
 /// digest turn, written by the summarization model and appended as an ordinary assistant turn. Every stored turn
 /// stays; the window reads the digest in their place.
 /// <para>
@@ -42,7 +42,7 @@ public sealed class SpecDialogDigestWriter(
         {
             if (await SameSessionAsync(state, ct) is not { } session) return;
             var turns = SpecDialogTurnSeeds.MapTranscript(SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson));
-            if (TranscriptWindow.Fold(turns) is not { } fold) return;
+            if (TranscriptWindow.Fold(turns, AgentOf(state.Project).DialogTranscript) is not { } fold) return;
             var digest = await SummarizeAsync(state, fold, ct);
             if (digest.Length == 0)
             {

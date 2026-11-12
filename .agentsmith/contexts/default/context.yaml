@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-cd4cl: "DESIGN BUDGETS TO CONFIG (agent config, transcript window, reviewer looks, loop limits). agents.<name>.dialog_transcript, dialog_review_look_allowance (24), dialog_sub_agent_loop_iterations (100) and dialog_master_loop_iterations (200) bound a design turn; the unwired output cap is gone; reviewer reads page by start_line. -> .agentsmith/specs/done/2026-11-12-cd4cl-design-budgets-to-config.yaml"
     2026-11-12-cd4ck: "DESIGN CONVERSATION NOTES (design master tools, reference store, turn prompt, run carry). read_notes/write_notes keep one unbounded notes file per conversation in the reference store; every turn's prompt carries it whole and fenced; note_reference and its 8,000-char cap are gone. -> .agentsmith/specs/done/2026-11-12-cd4ck-design-conversation-notes.yaml"
     2026-11-11-f874: "DESIGN TEXT LEFTOVERS (skills pin v5.28.2). The spec format drops run-time correction lore and keeps the re-check fact; the bound-ticket section states the situation and each approvable outcome's effect instead of a scripted first reply, and no answer outcome claims it. -> .agentsmith/specs/done/2026-11-11-f874-design-text-leftovers.yaml"
     2026-11-11-205fh: "CHAT CARD BINDING (chat thread adapters, SpecDialogChatCard, decision path). A typed decision binds by the platform's own posted time (Slack ts) or not at all (Teams decides by buttons); a thread never shown the awaiting card gets it reposted with a notice instead of a model turn. -> .agentsmith/specs/done/2026-11-11-205fh-chat-card-binding.yaml"

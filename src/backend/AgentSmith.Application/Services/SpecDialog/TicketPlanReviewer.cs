@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Specs.Review;
@@ -25,20 +26,19 @@ public sealed class TicketPlanReviewer(
     IChatClientFactory chats, IRunContextAccessor runContext, DerivationLookFactory looks, ILogger<TicketPlanReviewer> logger)
 {
     private const string RoleName = "ticket-plan-reviewer";
-    public const int MaxIterations = DerivationLookTerms.CutReviewAllowance + 2;
 
     public async Task<TicketPlanVerdict?> ReviewAsync(ProposalTurn turn, TicketGraphOutcome graph, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(turn);
         ArgumentNullException.ThrowIfNull(graph);
-        var (look, uploads) = Look(turn.Pipeline);
+        var (look, uploads) = Look(turn.Pipeline, turn.Agent);
         turn.Pipeline.TryGet<IReadOnlyList<SpecDialogTurn>>(ContextKeys.SpecDialogTranscript, out var transcript);
         var prompt = TicketPlanReviewPrompt.For(graph, transcript ?? [], look, uploads);
         var key = turn.Pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var jobId) && jobId is not null ? jobId : "spec-dialog";
         try
         {
             // The look owns none of the turn's sandboxes — the runner disposes them — so nothing is disposed.
-            var chat = chats.Create(turn.Agent, TaskType.Reasoning, look is null ? null : MaxIterations);
+            var chat = chats.Create(turn.Agent, TaskType.Reasoning, look is null ? null : look.Terms.Allowance + 2); // cd4cl
             using var _ = turn.CostTracker.BeginCall(RoleName, RoleName, SkillExecutionPhase.Plan, key);
             using var _scope = runContext.BeginCallScope(RoleName, SkillExecutionPhase.Plan.ToString(), key);
             var response = await chat.GetResponseAsync(
@@ -58,14 +58,14 @@ public sealed class TicketPlanReviewer(
     }
 
     /// <summary>The turn's repositories and uploads, no template; the uploads by their reference: address.</summary>
-    private (DerivationLook? Look, IReadOnlyList<string> Uploads) Look(PipelineContext pipeline)
+    private (DerivationLook? Look, IReadOnlyList<string> Uploads) Look(PipelineContext pipeline, AgentConfig agent)
     {
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map) || map is null)
             return (null, []);
         var readable = map.Where(e => !e.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal))
             .ToDictionary(e => e.Key, e => e.Value, StringComparer.Ordinal);
         if (readable.Count == 0) return (null, []);
-        return (looks.ForReview(readable),
+        return (looks.ForReview(readable, agent),
             [.. readable.Keys.Where(k => k.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))]);
     }
 

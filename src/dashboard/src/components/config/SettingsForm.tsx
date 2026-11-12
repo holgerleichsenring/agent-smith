@@ -282,7 +282,6 @@ function LimitsForm({ value, onChange }: { value: LimitsSetting; onChange: (v: S
 
       <DrawerSection title="Token & time budgets" defaultOpen testId="setting-limits-budgets">
         {field("maxInputTokensPerSkillCall", "Max input tokens per skill call")}
-        {field("maxOutputTokensPerSkillCall", "Max output tokens per skill call")}
         {field("maxSecondsPerSkillCall", "Max seconds per skill call")}
       </DrawerSection>
 

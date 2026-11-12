@@ -96,7 +96,7 @@ public sealed class SpecDialogProposalReview(
         PipelineCostTracker costTracker, CancellationToken ct)
     {
         // The look owns none of the turn's repositories — the runner disposes them — so nothing is disposed.
-        var look = looks.ForProposalReview(pipeline);
+        var look = looks.ForProposalReview(pipeline, agent);
         var key = pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var jobId) && jobId is not null
             ? jobId
             : "spec-dialog";

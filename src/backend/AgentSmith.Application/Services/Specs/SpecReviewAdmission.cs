@@ -36,7 +36,8 @@ internal sealed class SpecReviewAdmission(ILogger logger)
         if (!InTheDiff(finding, diffs))
             return Discard(finding, "that path is not in the diff this review was shown");
         if (!OwnReadRule.Within(finding.Line, read))
-            return Discard(finding, $"line {finding.Line} is past the {read.LinesReturned} line(s) [{read.Id}] returned");
+            return Discard(finding, $"line {finding.Line} is outside lines {read.FirstLine} to "
+                + $"{read.FirstLine + read.LinesReturned - 1} that [{read.Id}] returned");
         return true;
     }
 

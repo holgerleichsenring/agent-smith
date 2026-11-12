@@ -94,6 +94,7 @@ internal static class SpecDialogTurnSeeds
         if (designSources is { Count: > 0 }) seeds[ContextKeys.SpecDialogDesignSources] = designSources;
         // 2026-10-01-283de: and the project itself, whose spec render_reference's browser sandbox is built from.
         if (project is not null) seeds[ContextKeys.SpecDialogProject] = project;
+        if (project is not null) seeds[ContextKeys.SpecDialogTranscriptWindow] = project.Agent.DialogTranscript; // cd4cl
         if (thread is not null) seeds[ContextKeys.SpecDialogThread] = thread; // the thread this turn continues
         if (poster?.MayStartRuns == true) seeds[ContextKeys.MayStartRuns] = true; // 2026-11-10-fcd7b: holds runs.control
         if (workClones is not null) seeds[ContextKeys.WorkClones] = workClones; // 2026-11-10-4778

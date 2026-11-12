@@ -117,7 +117,6 @@
         "max_tool_calls_per_verifier": { "type": "integer", "description": "Default 20." },
         "max_llm_calls_per_skill": { "type": "integer", "description": "Default 15." },
         "max_input_tokens_per_skill_call": { "type": "integer", "description": "Default 500000." },
-        "max_output_tokens_per_skill_call": { "type": "integer", "description": "Default 16000." },
         "max_seconds_per_skill_call": { "type": "integer", "description": "Default 300." },
         "max_concurrent_skill_calls": { "type": "integer", "description": "Default 10." },
         "max_skills_per_phase": { "type": "integer", "description": "Default 5." },
@@ -129,10 +128,6 @@
         "max_sub_agents_per_dialog_turn": {
           "type": "integer",
           "description": "Sub-agents one design turn may spawn. Default 4. 0 takes spawn_agents off the design surface."
-        },
-        "max_dialog_sub_agent_loop_iterations": {
-          "type": "integer",
-          "description": "The loop ceiling of a design turn's child. Default 20."
         }
       }
     },
@@ -591,7 +586,20 @@
         "scan_master_max_output_tokens": { "type": "integer", "description": "Default 32000." },
         "scan_master_loop_iterations": { "type": "integer", "description": "Default 100." },
         "scan_context_window_tokens": { "type": "integer", "description": "Default 200000." },
-        "dialog_master_loop_iterations": { "type": "integer", "description": "Default 100." },
+        "dialog_master_loop_iterations": { "type": "integer", "description": "Tool iterations of one design turn's master. Default 200." },
+        "dialog_sub_agent_loop_iterations": { "type": "integer", "description": "Loop ceiling of a design turn's child. Default 100." },
+        "dialog_review_look_allowance": { "type": "integer", "description": "Looks a design turn's proposal and plan reviewers may take. Default 24." },
+        "dialog_transcript": {
+          "type": "object",
+          "description": "The transcript window a design turn's prompt carries; past verbatim_chars a digest folds the older turns.",
+          "additionalProperties": false,
+          "properties": {
+            "verbatim_chars": { "type": "integer", "description": "Rendered whole up to this. Default 60000." },
+            "keep_recent_chars": { "type": "integer", "description": "A fold leaves this much verbatim. Default 30000." },
+            "min_recent_turns": { "type": "integer", "description": "The newest turns a fold never takes. Default 2." },
+            "max_fold_chars": { "type": "integer", "description": "The most one fold reads. Default 200000." }
+          }
+        },
         "dialog_master_max_output_tokens": { "type": "integer", "description": "Output budget a dialog turn is re-asked under once its reply was cut. Default 32000." },
         "dialog_context_window_tokens": { "type": "integer", "description": "Window a dialog turn folds against when the role states none; <= 0 states none and stops the thread replay. Default 200000." }
       }

@@ -112,7 +112,7 @@ public sealed class MasterToolComposition(
             ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
             Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
-            ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);
+            ChildIterationCeiling: isSpecDialog ? context.AgentConfig.DialogSubAgentLoopIterations : null); // cd4cl
         var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx);
         return sanity.Wrap(master.Concat(spawn.GetTools(null, null)), context.Pipeline);
     }

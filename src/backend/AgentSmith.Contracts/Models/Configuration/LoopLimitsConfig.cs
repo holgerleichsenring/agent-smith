@@ -17,8 +17,8 @@ public sealed class LoopLimitsConfig
     // multi-file work. (Enforcement is currently observational — RecordLlmCall
     // is not yet wired into the loop — so this is headroom, not the fix for the
     // "A task was cancelled" HTTP-timeout, which is AgentConfig.NetworkTimeoutSeconds.)
+    // 2026-11-12-cd4cl: the output arm is gone — never wired, and the input and cost caps are the budget.
     public int MaxInputTokensPerSkillCall { get; set; } = 500_000;
-    public int MaxOutputTokensPerSkillCall { get; set; } = 16_000;
     public int MaxSecondsPerSkillCall { get; set; } = 300;
     public int MaxConcurrentSkillCalls { get; set; } = 10;
 
@@ -54,18 +54,6 @@ public sealed class LoopLimitsConfig
     /// surface entirely.
     /// </summary>
     public int MaxSubAgentsPerDialogTurn { get; set; } = 4;
-
-    /// <summary>
-    /// 2026-09-22-5891: the per-pass tool-iteration ceiling for a child spawned by a DESIGN
-    /// turn. A child gets no governor hooks and reports its spend only when it has finished,
-    /// so how far it may go IS the bound on a fan-out — the turn's cost cap is consulted once,
-    /// before the wave, and refuses only a LATER one. Deliberately far below
-    /// <c>agent.max_sub_agent_loop_iterations</c> (100): a dialog child reads and reports, it
-    /// does not carry a bulk cross-repo slice. It sits here rather than beside its sibling in
-    /// AgentConfig because that file stands at the 120-line limit, and the fan-out numbers a
-    /// design turn is bounded by then read as one block.
-    /// </summary>
-    public int MaxDialogSubAgentLoopIterations { get; set; } = 20;
 
     /// <summary>
     /// Returns the per-call tool-call cap for the active investigator mode.

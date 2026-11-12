@@ -25,16 +25,16 @@ public sealed class TranscriptWindowTests
         IReadOnlyList<SpecDialogTurn> longWithoutDigest = [U("need a widget"), A(Big("A", 40_000)), U(Big("B", 30_000))];
         IReadOnlyList<SpecDialogTurn> withDigestUnderTheBound = [U("need a widget"), A("short"), Digest("tiny digest", 1)];
 
-        TranscriptWindow.Render(shortOne).Should().Be(Today(shortOne));
-        TranscriptWindow.Render(longWithoutDigest).Should().Be(Today(longWithoutDigest));
-        TranscriptWindow.Render(withDigestUnderTheBound).Should().Be(Today(withDigestUnderTheBound));
+        RenderWindow(shortOne).Should().Be(Today(shortOne));
+        RenderWindow(longWithoutDigest).Should().Be(Today(longWithoutDigest));
+        RenderWindow(withDigestUnderTheBound).Should().Be(Today(withDigestUnderTheBound));
         DialogTranscriptSection.Render(new AgentSmith.Contracts.Commands.PipelineContext(), shortOne, stewarded: false).Should().Be(Today(shortOne));
     }
 
     [Fact]
     public void TranscriptWindow_PastTheBoundWithADigest_RendersDigestThenPinnedThenEveryLaterTurn()
     {
-        var rendered = TranscriptWindow.Render(
+        var rendered = RenderWindow(
         [
             U("require the ledger widget"), A(Big("FOLDED-1", 25_000)), U(Big("FOLDED-2", 20_000)),
             A(Big("FOLDED-3", 20_000)), U("FOLDED-4 more"), Digest("DIGEST-TEXT", 4), A("recent answer"), U("recent question"),
@@ -51,7 +51,7 @@ public sealed class TranscriptWindowTests
     [Fact]
     public void TranscriptWindow_Pins_FilingMockRatifiedNewestProposalAndTheAnswerAfterAProposal()
     {
-        var rendered = TranscriptWindow.Render(
+        var rendered = RenderWindow(
         [
             U("open"), A(Big("FOLDED-a", 30_000)), A("proposal one", SpecDialogTurnKind.SpecProposal), U("approve one"),
             A("filed one", SpecDialogTurnKind.Filing), A("mock ok", SpecDialogTurnKind.MockRatified), A(Big("FOLDED-b", 30_000)),
@@ -67,7 +67,7 @@ public sealed class TranscriptWindowTests
     [Fact]
     public void TranscriptWindow_Pins_TheOpeningOperatorTurn()
     {
-        var rendered = TranscriptWindow.Render(
+        var rendered = RenderWindow(
         [
             U("the requirement statement"), A(Big("FOLDED-1", 35_000)), U("second operator turn"), A(Big("FOLDED-2", 35_000)),
             Digest("DIGEST", 3), U("now"),
@@ -79,7 +79,7 @@ public sealed class TranscriptWindowTests
     [Fact]
     public void TranscriptWindow_DigestTurns_AreNeverRenderedAsTurns()
     {
-        var rendered = TranscriptWindow.Render(
+        var rendered = RenderWindow(
         [
             U("open"), A(Big("FOLDED-1", 35_000)), U("q"), Digest("OLD-DIGEST", 2), A(Big("FOLDED-2", 35_000)), U("q2"),
             Digest("NEW-DIGEST", 5), A("latest"),
@@ -92,7 +92,7 @@ public sealed class TranscriptWindowTests
     [Fact]
     public void TranscriptWindow_PersonTurnsWithAnAuthor_KeepTheNameVerbatimAndPinned()
     {
-        var rendered = TranscriptWindow.Render(
+        var rendered = RenderWindow(
         [
             U("need the widget", "Ada"), A(Big("FOLDED-1", 35_000)), A("the proposal", SpecDialogTurnKind.SpecProposal),
             U("approved", "Bob"), A(Big("FOLDED-2", 35_000)), Digest("DIGEST", 4), U("latest word", "Cy"),
@@ -107,39 +107,39 @@ public sealed class TranscriptWindowTests
     {
         var turns = Enumerable.Range(0, 10).Select(i => i % 2 == 0 ? U(Big($"T{i}", 9_000)) : A(Big($"T{i}", 9_000))).ToList();
 
-        var fold = TranscriptWindow.Fold(turns)!;
+        var fold = FoldWindow(turns)!;
 
         fold.From.Should().Be(0);
         fold.Through.Should().Be(6);
         fold.Turns.Should().Equal(turns.Take(7));
         fold.PreviousDigest.Should().BeNull();
-        Width(turns.Skip(7)).Should().BeLessThanOrEqualTo(TranscriptWindow.KeepRecentChars);
-        Width(turns.Skip(6)).Should().BeGreaterThan(TranscriptWindow.KeepRecentChars, "it folds no more than it has to");
+        Width(turns.Skip(7)).Should().BeLessThanOrEqualTo(W.KeepRecentChars);
+        Width(turns.Skip(6)).Should().BeGreaterThan(W.KeepRecentChars, "it folds no more than it has to");
     }
 
     [Fact]
     public void TranscriptWindow_Fold_TwoHugeNewestTurns_FoldsNeitherOfThem()
     {
-        var fold = TranscriptWindow.Fold([U("a"), A(Big("H1", 40_000)), U(Big("H2", 40_000))])!;
+        var fold = FoldWindow([U("a"), A(Big("H1", 40_000)), U(Big("H2", 40_000))])!;
 
         fold.Through.Should().Be(0);
         fold.Turns.Should().ContainSingle();
-        TranscriptWindow.Fold([A(Big("H1", 40_000)), U(Big("H2", 40_000))]).Should().BeNull();
+        FoldWindow([A(Big("H1", 40_000)), U(Big("H2", 40_000))]).Should().BeNull();
     }
 
     [Fact]
     public void TranscriptWindow_Fold_RightAfterAFold_IsNullUntilTheTailPassesTheBoundAgain()
     {
         var turns = Enumerable.Range(0, 10).Select(i => U(Big($"T{i}", 9_000))).ToList();
-        var first = TranscriptWindow.Fold(turns)!;
+        var first = FoldWindow(turns)!;
         turns.Add(Digest("THE-DIGEST", first.Through));
 
-        TranscriptWindow.Fold(turns).Should().BeNull("the tail was folded down to 30,000 characters");
+        FoldWindow(turns).Should().BeNull("the tail was folded down to 30,000 characters");
         turns.AddRange(Enumerable.Range(0, 3).Select(i => A(Big($"N{i}", 9_000))));
-        TranscriptWindow.Fold(turns).Should().BeNull("about 54,000 characters of tail are still under the bound");
+        FoldWindow(turns).Should().BeNull("about 54,000 characters of tail are still under the bound");
         turns.Add(U(Big("N3", 9_000)));
 
-        var next = TranscriptWindow.Fold(turns)!;
+        var next = FoldWindow(turns)!;
         next.From.Should().Be(first.Through + 1);
         next.PreviousDigest.Should().Be("THE-DIGEST");
         next.Turns.Should().NotContain(t => t.Kind == SpecDialogTurnKind.Digest);
@@ -150,14 +150,14 @@ public sealed class TranscriptWindowTests
     {
         var turns = Enumerable.Range(0, 30).Select(i => U(Big($"T{i}", 9_000))).ToList();
 
-        var first = TranscriptWindow.Fold(turns)!;
-        Width(first.Turns).Should().BeLessThanOrEqualTo(TranscriptWindow.MaxFoldChars);
-        Width(turns.Skip(first.Through + 1)).Should().BeGreaterThan(TranscriptWindow.VerbatimChars);
+        var first = FoldWindow(turns)!;
+        Width(first.Turns).Should().BeLessThanOrEqualTo(W.MaxFoldChars);
+        Width(turns.Skip(first.Through + 1)).Should().BeGreaterThan(W.VerbatimChars);
         turns.Add(Digest("D1", first.Through));
 
-        var next = TranscriptWindow.Fold(turns)!;
+        var next = FoldWindow(turns)!;
         next.From.Should().Be(first.Through + 1);
         Width(turns.Skip(next.Through + 1).Where(t => t.Kind != SpecDialogTurnKind.Digest))
-            .Should().BeLessThanOrEqualTo(TranscriptWindow.KeepRecentChars);
+            .Should().BeLessThanOrEqualTo(W.KeepRecentChars);
     }
 }

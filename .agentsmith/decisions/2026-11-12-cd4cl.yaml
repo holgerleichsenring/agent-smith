@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4cl
+
+decisions:
+  - category: Architecture
+    chose: "The design-turn budgets live on the agent block (agents.<name>.dialog_*), beside dialog_master_loop_iterations and compaction"
+    over: "A new top-level design_turn block beside pipeline_cost_cap; the limits block"
+    reason: "The agent block is what a design turn already reads its ceiling, window and compaction from, through the turn's AgentConfig. The limits block never reaches DI (AgentProviderExtensions registers a fresh LoopLimitsConfig), so a key there would be silently ignored; a new top-level block needs raw config, composer and studio plumbing for four numbers."
+  - category: Design
+    chose: "Run-sized defaults: dialog master 200 (run master), dialog child 100 (run child), proposal/plan reviewer looks 24 (attack reviewer floor); transcript window keeps 60,000/30,000/2/200,000"
+    over: "Keeping 100, 20 and 6"
+    reason: "Audit L12, L13, L20: the old numbers were gag-sized; the turn's cost cap is the stop the operator owns. The window is harness, not a gag, so its numbers stay and only become configurable."
+  - category: Implementation
+    chose: "ForProposalReview and ForReview take the AgentConfig; TicketPlanReviewer's iteration ceiling is its look's allowance plus 2"
+    over: "Reading the allowance out of the pipeline; a constant raised in place"
+    reason: "Every caller already holds the agent; a seeded key would be a second path to the same value. The plan reviewer's ceiling followed a constant that no longer matches its look."
+  - category: Implementation
+    chose: "The window is seeded per turn from the project agent and read with a default when absent; the digest writer reads it off the project agent"
+    over: "Changing ISpecDialogPromptFactory.Build's signature"
+    reason: "The prompt factories are pure over the pipeline and built in many tests; the turn seeds already carry the project's values."
+  - category: Scope
+    chose: "Remove MaxOutputTokensPerSkillCall (config, enforcer arm, schema, example, dashboard settings field) and retire limits.max_output_tokens_per_skill_call and limits.max_dialog_sub_agent_loop_iterations as advisory keys"
+    over: "Keeping them deprecated in the schema"
+    reason: "Nothing enforced the output cap (L11); the schema coverage rule admits deprecated keys only at the root, and the retired-key detector tells an operator who still sets them."
+  - category: Design
+    chose: "The reviewer's read_file takes start_line; numbers stay absolute; the cut names the start_line to read on; EvidenceLook.FirstLine bounds what an id admits"
+    over: "Raising RepositoryFileReadTool.MaxChars"
+    reason: "G7/L22: keep the per-call cut, let the model read on, as Claude Code does. The design master's own read_file already pages by start_line/line_count."
+  - category: Scope
+    chose: "The coding run's cut, premise and contradiction checks keep their constant allowance; LoopLimitsConfig's yaml binding to DI is named, not fixed"
+    over: "Fixing every limits consumer here"
+    reason: "Only design-turn budgets are this spec's; the DI binding gap affects every limits key and is its own defect (follow-up: limits-config-binding, to be minted by the orchestrator)."

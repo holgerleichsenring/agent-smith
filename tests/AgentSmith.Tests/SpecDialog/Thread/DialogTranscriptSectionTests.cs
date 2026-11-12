@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using FluentAssertions;
+using static AgentSmith.Tests.SpecDialog.TranscriptDigest.DigestTurns;
 
 namespace AgentSmith.Tests.SpecDialog.Thread;
 
@@ -34,8 +35,8 @@ public sealed class DialogTranscriptSectionTests
         pipeline.Set(ContextKeys.SpecDialogThread, new DialogThread(true, [], [Transcript[2]]));
 
         DialogTranscriptSection.Render(new PipelineContext(), Transcript, stewarded: false)
-            .Should().Be(TranscriptWindow.Render(Transcript));
+            .Should().Be(RenderWindow(Transcript));
         DialogTranscriptSection.Render(pipeline, Transcript, stewarded: false)
-            .Should().Be(TranscriptWindow.Render(Transcript), "the steward's thread is not the design partner's");
+            .Should().Be(RenderWindow(Transcript), "the steward's thread is not the design partner's");
     }
 }
