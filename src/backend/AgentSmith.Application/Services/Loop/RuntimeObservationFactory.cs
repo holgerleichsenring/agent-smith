@@ -125,7 +125,7 @@ public sealed class RuntimeObservationFactory
             "Raise max_tool_calls_per_skill (or per-investigator / per-verifier) " +
             "if the skill needs more tool turns, or narrow the prompt scope.",
         ExecutionLimitCategories.ExecutionLimitTokens =>
-            "Raise max_input_tokens_per_skill_call / max_output_tokens_per_skill_call, " +
+            "Raise max_input_tokens_per_skill_call, " +
             "or split the work across smaller calls.",
         ExecutionLimitCategories.ExecutionLimitWallClock =>
             "Raise max_seconds_per_skill_call for slow tool chains, or simplify the prompt.",

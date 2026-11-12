@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4ch
+
+decisions:
+  - category: Architecture
+    chose: "A new switch spec_review.design_turn (bool, default false) beside rounds"
+    over: "Reading spec_review.rounds as 0 = off, >=1 = one pass (audit L15)"
+    reason: "rounds sizes the coding run's review, which keeps its default of 4; overloading it would turn the design pass on everywhere the run review is on. Default off is the brief's contract."
+  - category: Architecture
+    chose: "ProposalAttackPass (one pass) + ProposalWholeSetReview + ProposalReviewPass (the entry both the post-turn review and the review_proposal tool call); SpecDialogProposalReview only reads the switch, publishes under review and writes the result"
+    over: "Keeping ProposalReviewLoop with rounds forced to 1"
+    reason: "A loop of one still carried the re-prompt seam, the guard and the session's revision state. The pass entry returns the proposal with findings and never writes the pipeline, so a mid-turn tool can run it without changing the proposal."
+  - category: Implementation
+    chose: "With the switch off only ProposalEvidenceReview runs (no model call) and nothing is marked not reviewed"
+    over: "Marking every draft 'review is turned off' or 'not reviewed yet'"
+    reason: "Off is the default now; a mark on every card would be noise. The run's own review still attacks every spec not recorded clean before it is built (ReviewSpecsHandler + ReviewedClean), so nothing is promised that does not happen."
+  - category: Implementation
+    chose: "The payload shape stays: one ProposalReviewRound per draft (Round 1, no residues), Findings, NotReviewed, ReviewedClean"
+    over: "A new findings-only payload"
+    reason: "The card, the ticket page and approvalReviewLine already render rounds; one round per draft counts correctly (test added). Cuts stay on the round as suggestions; the round header reads 'review' and a cut 'suggested cut'."
+  - category: Implementation
+    chose: "A draft whose pass said anything but build has its findings standing on the card; build-with-cuts no longer clears"
+    over: "The old Clears rule (build-with-cuts with no residues clears)"
+    reason: "Residues meant 'still standing after the re-proposal'. With nothing applied, every cut stands, so the findings beside it do too."
+  - category: Implementation
+    chose: "SpecReviewStopRule deleted; SpecRevisionGuard and SpecIdentityRule kept"
+    over: "Keeping SpecReviewStopRule for the coding run"
+    reason: "Its only caller was ProposalRoundRevision; the coding run never used it. The guard and identity rule still serve SpecCutReviser and SpecRederiver."
+  - category: Scope
+    chose: "ProposalCutsReprompt, ProposalReply and the ProposalTurn request/conversation stay until 2026-11-12-cd4ci"
+    over: "Removing them here"
+    reason: "TicketPlanReview still re-prompts on main; the ticket-plan spec removes the last caller and these with it, one gated commit each."
+  - category: Scope
+    chose: "TurnReply (WithBlock, KeepFirstProse) stays"
+    over: "Deleting KeepFirstProse as the brief lists"
+    reason: "Its remaining caller is SpecDialogOutcomeGate, which belongs to agent A; the review's own splice (ProposalReviewSummary.Reply, ProposalReplyText) is gone. TurnReply goes when the gate goes."

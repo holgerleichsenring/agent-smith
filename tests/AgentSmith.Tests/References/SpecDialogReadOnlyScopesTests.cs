@@ -31,37 +31,14 @@ public sealed class SpecDialogReadOnlyScopesTests
         var second = await sets.AddAsync("s-1", [Css("my-site/b.css")], CancellationToken.None);
         var references = new Mock<IReferenceSetSandboxFactory>();
         references.Setup(f => f.Create(
-                Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<ReferenceCoverage?>()))
-            .Returns((ResolvedProject _, string _, string address, string _, string? _, ReferenceCoverage? _) => Scope(address));
+                Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ReferenceCoverage?>()))
+            .Returns((ResolvedProject _, string _, string address, string _, ReferenceCoverage? _) => Scope(address));
 
         var opened = await Scopes(sets, references.Object, db).OpenAsync(Project, "s-1", CancellationToken.None);
 
         opened.Keys.Should().Equal("reference:my-site", "reference:my-site-2");
-        references.Verify(f => f.Create(Project, "s-1", "reference:my-site", first.SetId, null, It.IsAny<ReferenceCoverage?>()));
-        references.Verify(f => f.Create(Project, "s-1", "reference:my-site-2", second.SetId, null, It.IsAny<ReferenceCoverage?>()));
-    }
-
-    // 2026-10-02-075dd: a note written in one turn reaches the next turn's scope with its set.
-    [Fact]
-    public async Task SpecDialogReadOnlyScopes_OpenAsync_HandsEachSetItsNote()
-    {
-        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
-        await using var db = store.Context();
-        var sets = new ReferenceSetRepository(db);
-        var set = await sets.AddAsync("s-1", [Css("app/a.css")], CancellationToken.None);
-        await new ReferenceNoteRepository(db).SetAsync("s-1", set.SetId, "open index.html", CancellationToken.None);
-        var references = new Mock<IReferenceSetSandboxFactory>();
-        references.Setup(f => f.Create(
-                Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<ReferenceCoverage?>()))
-            .Returns((ResolvedProject _, string _, string address, string _, string? _, ReferenceCoverage? _) => Scope(address));
-
-        await new SpecDialogReadOnlyScopes(
-                new ProjectTemplateScopes(Mock.Of<ISourceScopeSandboxFactory>(), NullLogger<ProjectTemplateScopes>.Instance),
-                sets, references.Object, ReferenceReads.Coverage(db), ReferenceReads.Recorder(db),
-                NullLogger<SpecDialogReadOnlyScopes>.Instance, new ReferenceNoteRepository(db))
-            .OpenAsync(Project, "s-1", CancellationToken.None);
-
-        references.Verify(f => f.Create(Project, "s-1", "reference:app", set.SetId, "open index.html", It.IsAny<ReferenceCoverage?>()));
+        references.Verify(f => f.Create(Project, "s-1", "reference:my-site", first.SetId, It.IsAny<ReferenceCoverage?>()));
+        references.Verify(f => f.Create(Project, "s-1", "reference:my-site-2", second.SetId, It.IsAny<ReferenceCoverage?>()));
     }
 
     [Fact]
@@ -116,9 +93,9 @@ public sealed class SpecDialogReadOnlyScopesTests
         var references = new Mock<IReferenceSetSandboxFactory>();
         ReferenceCoverage? handed = null;
         references.Setup(f => f.Create(
-                Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<ReferenceCoverage?>()))
-            .Callback((ResolvedProject _, string _, string _, string _, string? _, ReferenceCoverage? coverage) => handed = coverage)
-            .Returns((ResolvedProject _, string _, string address, string _, string? _, ReferenceCoverage? _) => Scope(address));
+                Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ReferenceCoverage?>()))
+            .Callback((ResolvedProject _, string _, string _, string _, ReferenceCoverage? coverage) => handed = coverage)
+            .Returns((ResolvedProject _, string _, string address, string _, ReferenceCoverage? _) => Scope(address));
 
         await Scopes(sets, references.Object, db).OpenAsync(Project, "s-1", CancellationToken.None);
 

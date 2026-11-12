@@ -21,7 +21,7 @@ public sealed class OutcomeProposalResolverTests
         var reader = new SpecDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
-            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
+            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader()),
             new TicketGraphOutcomeParser(new TicketGraphChecker(new TicketGraphOrderer())), new TicketCommentOutcomeParser(),
             DialogTestRepos.Real());
     }
@@ -166,7 +166,7 @@ public sealed class OutcomeProposalResolverTests
     }
 
     [Fact]
-    public void Resolve_EpicSingleChild_Invalid()
+    public void Resolve_EpicSingleChild_IsAnEpic()
     {
         var resolution = _resolver.Resolve(
             """
@@ -178,11 +178,11 @@ public sealed class OutcomeProposalResolverTests
             children:
               - spec: p9000a
                 goal: "only slice"
+                done: ["the slice holds"]
             ```
             """, []);
 
-        resolution.Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Contain("at least two");
+        resolution.Should().BeOfType<OutcomeResolved>().Which.Proposal.Should().BeOfType<EpicOutcome>(); // 2026-11-12-cd4cc
     }
 
     [Fact]

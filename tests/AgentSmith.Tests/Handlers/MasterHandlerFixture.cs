@@ -91,24 +91,33 @@ internal static class MasterHandlerFixture
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow(IAgenticLoopRunner loop) =>
         new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
-            OutcomeGate(loop),
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
-                Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
-                AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
-                AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
-                // 2026-10-13-8762i: rounds 0 — the single review; the rounds have their own rig.
+                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Checks(),
+                // 2026-11-12-cd4ch: the design turn's pass off, as by default; the pass has its own rig.
                 AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
-                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
-                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
-                AgentSmith.Tests.SpecDialog.ProposalReview.TicketPlanReviewRig.Default(),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 4, designTurn: false)),
+                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Pass(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
-    internal static AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate OutcomeGate(IAgenticLoopRunner loop) =>
-        new(loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
-            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-            NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
+    /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks.</summary>
+    internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites()
+    {
+        var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
+            new AgentSmith.Application.Services.Validation.SpecSchemaProvider());
+        var orderer = new AgentSmith.Application.Services.SpecDialog.TicketGraphOrderer();
+        return new(
+            new AgentSmith.Application.Services.SpecDialog.Writes.TicketDraftWrite(
+                new AgentSmith.Application.Services.SpecDialog.TicketGraphChecker(orderer), orderer),
+            new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftWrite(
+                new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftIds(
+                    new AgentSmith.Application.Services.Specs.SeriesIdFactory(TimeProvider.System)),
+                validator, AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(),
+                new AgentSmith.Application.Services.SpecDialog.SpecDraftReader(),
+                new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftShape(
+                    new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker())),
+            new AgentSmith.Application.Services.SpecDialog.Writes.ContractDraftWrite(AgentSmith.Tests.TestSupport.SeriesContracts.Reader()));
+    }
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
@@ -178,7 +187,7 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
-            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification(), Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>()),
+            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification(), ProposalWrites()),
             new AgentSmith.Application.Services.Tools.DesignWorkToolGate(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
@@ -263,7 +272,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.EpicOutcomeParser(
                 validator, reader,
                 new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker(),
-                AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
+                AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader()),
             new AgentSmith.Application.Services.SpecDialog.TicketGraphOutcomeParser(new AgentSmith.Application.Services.SpecDialog.TicketGraphChecker(
                 new AgentSmith.Application.Services.SpecDialog.TicketGraphOrderer())),
             new AgentSmith.Application.Services.SpecDialog.TicketCommentOutcomeParser(),

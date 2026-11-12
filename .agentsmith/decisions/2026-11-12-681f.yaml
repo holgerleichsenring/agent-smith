@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-681f
+
+decisions:
+  - category: Implementation
+    chose: "The server pins skills v5.29.0 (design-partner-master 3.0.0): items are written with write_ticket/write_spec/write_contract/write_bug/write_comment/remove_item, notes with read_notes/write_notes, review is review_proposal; the design-outcome-* and writing-documents references are gone"
+    over: "Holding the pin at v5.28.2"
+    reason: "v5.28.2 still teaches outcome_format, fenced outcome blocks, counts and re-proposing after review, all of which the cd4c series removed from the server."
+  - category: Testing
+    chose: "Delete the tests that pinned removed rules: the 20-ticket split, the bounded quoted ticket text, the ticket block and its checker-accepted example, apply-review-cuts-and-re-propose, the outcome references existing, the comment block the parser read, the placeholder ids the model typed"
+    over: "Re-adding those rules to the skill or keeping tests against the old references"
+    reason: "Each rule was retired on purpose; the store mints ids, each write is checked on its own tool result, and the tool schemas replace the format references."
+  - category: Testing
+    chose: "Rewrite the remaining assertions against v5.29.0's phrases, read through PackagedMaster.Folded (whitespace folded), and replace PackagedMaster.Reference"
+    over: "Quoting whole wrapped sentences with embedded newlines"
+    reason: "A phrase survives a re-wrap of the prose; the line breaks carry no meaning. Reference had no reader left."
+  - category: Testing
+    chose: "The repos-key contract moves from the outcome template to write_spec's schema (ProposalWriteToolsTests.WriteSpec_Schema_NamesTheReposKeyTheScopeCheckReads)"
+    over: "Deleting it with the template"
+    reason: "DialogDraftRepos still reads a top-level repos key; the schema the model writes from is now where the key has to be named."

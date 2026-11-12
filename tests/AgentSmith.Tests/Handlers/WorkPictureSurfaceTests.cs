@@ -27,7 +27,7 @@ public sealed class WorkPictureSurfaceTests
         var corrected = await Invoke(slot, "feature", "repo-a", "one-spec");
 
         answer.Should().Be(WorkPictureToolHost.Stored);
-        corrected.Should().Be("Stored. State it in one line of your reply.");
+        corrected.Should().Be("Stored.");
         slot.WorkPicture.Should().Be(
             new WorkPicture(UndertakingKind.Feature, "repo-a", UndertakingSize.OneSpec, ComplexityTier.Large),
             "the last admitted call of a turn wins, keeping the turn's higher effort (548f)");
@@ -48,9 +48,8 @@ public sealed class WorkPictureSurfaceTests
     [Theory]
     [InlineData("migration", "repo-a", "series", "The kind 'migration' is none of: rebuild, feature, fix, document.")]
     [InlineData("1", "repo-a", "series", "The kind '1' is none of")]
-    [InlineData("fix", "repo-a.\nAnd repo-b.", "series", "The truth is more than one line.")]
     [InlineData("fix", "repo-a", "huge", "The size 'huge' is none of: one-spec, series, plan.")]
-    public async Task StateWorkPicture_UnknownKindOrMultiLineTruth_ReturnsTheRuleAndSetsNothing(
+    public async Task StateWorkPicture_UnknownKindOrSize_ReturnsTheRuleAndSetsNothing(
         string kind, string truth, string size, string rule)
     {
         var slot = new SpecDialogReplySlot();
@@ -64,7 +63,7 @@ public sealed class WorkPictureSurfaceTests
     [Fact]
     public void TicketActToolsFactory_DesignTurn_OffersStateWorkPicture()
     {
-        var factory = new TicketActToolsFactory(MasterHandlerFixture.Verification(), Moq.Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>());
+        var factory = new TicketActToolsFactory(MasterHandlerFixture.Verification(), MasterHandlerFixture.ProposalWrites());
         var seeded = Context();
         seeded.Pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot());
 

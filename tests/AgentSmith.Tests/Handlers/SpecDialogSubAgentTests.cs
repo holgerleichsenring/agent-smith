@@ -96,9 +96,9 @@ public sealed class SpecDialogSubAgentTests
         var loop = new DesignLoopRunner(Tasks("RepoScout"));
         var context = DesignContext();
         context.AgentConfig.MaxSubAgentLoopIterations = 100;
+        context.AgentConfig.DialogSubAgentLoopIterations = 7; // 2026-11-12-cd4cl: the agent's own dialog ceiling
 
-        await RunAsync(loop, context, subAgents: RealRunner(childLoop),
-            limits: new LoopLimitsConfig { MaxDialogSubAgentLoopIterations = 7 });
+        await RunAsync(loop, context, subAgents: RealRunner(childLoop));
 
         childLoop.SeenRequests.Should().ContainSingle();
         childLoop.SeenRequests[0].MaxIterations.Should().Be(

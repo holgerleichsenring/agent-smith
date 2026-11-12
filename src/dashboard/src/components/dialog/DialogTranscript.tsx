@@ -179,13 +179,6 @@ function ReferenceSetChip({ set, onOpen }: { set: SpecDialogReferenceSet; onOpen
             </button>
           )}
         </div>
-        {/* 2026-10-02-075dd: the recipe the model recorded, so the operator sees what later turns follow. */}
-        {set.note && (
-          <details data-testid={`dialog-reference-note-${set.setId}`} className="px-3 pb-2">
-            <summary className="ec-sub cursor-pointer">note</summary>
-            <pre className="ec-sub whitespace-pre-wrap">{set.note}</pre>
-          </details>
-        )}
       </div>
     </DialogMessage>
   );

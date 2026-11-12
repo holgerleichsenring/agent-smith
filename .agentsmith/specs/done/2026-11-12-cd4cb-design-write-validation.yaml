@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4cb
+goal: "Each design write answers with the mechanical check of its item; the outcome gate, its cut-at-limit re-ask and the dialog output-token budget are removed."
+
+applies_to: "default (spec dialog: turn flow, agent config)"
+
+requires: [2026-11-12-cd4ca]
+
+invariants:
+  - "ON THE TOOL RESULT. A malformed item is refused on the write that carries it, with the exact reason; nothing after the loop re-prompts the turn."
+  - "NO SECOND BUDGET. A reply cut at the output limit is prose only; it is published as it came, and no raised token budget exists for a re-ask."
+
+facts:
+  - claim: "After 2026-11-12-cd4ca the gate only re-asks a reply cut at the output limit under DialogMasterMaxOutputTokens."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:26-46"
+  - claim: "DialogMasterMaxOutputTokens defaults to 32000 and is read only by the gate."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.Dialog.cs:15"
+
+scope:
+  in: "Delete SpecDialogOutcomeGate, MasterOutcomes.FailOutcome/OutcomeFailureNotice, AgentConfig.DialogMasterMaxOutputTokens and its doc line; SpecDialogTurnFlow publishes the store's outcome; tests."
+  out: "The review after the turn (another series member)."
+
+steps:
+  - id: flow
+    action: "SpecDialogTurnFlow publishes ProposalDraftOutcome.For(slot.Proposal) and hands it to the review; delete the gate and its registration."
+  - id: config
+    action: "Remove DialogMasterMaxOutputTokens and the docs row; remove FailOutcome and OutcomeFailureNotice if nothing else calls them."
+  - id: tests
+    action: "Delete SpecDialogOutcomeGateLengthTests; a turn whose reply is cut publishes what the store holds."
+
+tests:
+  - "DesignTurn_ReplyCutAtTheOutputLimit_PublishesTheStoreWithoutAReask"
+
+done:
+  - "No class re-prompts a design turn after its loop; SpecDialogOutcomeGate and DialogMasterMaxOutputTokens are gone (grep)."
+  - "Build and full suite green at the spec gate."

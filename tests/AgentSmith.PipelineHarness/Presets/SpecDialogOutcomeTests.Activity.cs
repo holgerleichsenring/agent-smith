@@ -1,11 +1,12 @@
 using AgentSmith.Contracts.Turns;
 using AgentSmith.Tests.TestHelpers;
+using AgentSmith.PipelineHarness.Llm;
 using FluentAssertions;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-09-17-042ee: the two re-prompts and the review are the slow parts of a turn that no
+/// 2026-09-17-042ee: the review is the slow part of a turn that no
 /// tool call names, so each says what it is. Proven over the REAL turn: the observer is
 /// ambient, so a case sets one around the run and reads back what the turn reported.
 /// <para>
@@ -16,23 +17,10 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed partial class SpecDialogOutcomeTests
 {
     [Fact]
-    public async Task DialogTurn_InvalidOutcome_ReportsRevising()
-    {
-        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText("Draft:\n```yaml\nspec: not-a-valid-spec-id\n```").EnqueueText("Two questions first, then.");
-        using var recorded = Observing(out var recorder);
-
-        var result = await RunTurnAsync(harness, State("update the widgets"));
-
-        result.Reply.Should().Contain("Two questions first");
-        recorder.Lines.Should().Contain("revising", "an invalid outcome is sent back once with its error");
-    }
-
-    [Fact]
     public async Task DialogTurn_Review_ReportsReviewing()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        ScriptSpec(harness.ChatClient);
         using var recorded = Observing(out var recorder);
 
         await RunTurnAsync(harness, Discussed("draft the widget spec now"));

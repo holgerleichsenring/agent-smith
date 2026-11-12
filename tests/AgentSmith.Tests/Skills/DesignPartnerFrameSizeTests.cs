@@ -16,13 +16,14 @@ namespace AgentSmith.Tests.Skills;
 /// 2026-11-05-862ec: the design-partner frame as the PINNED catalog renders it. The master carries role, stance,
 /// reading and the outcome list; every format lives in a design-outcome reference that outcome_format serves on
 /// the turn that drafts. v5.23.0 resolved to 42,829 characters; the split frame must stay at most 26,000.
+/// <para>
+/// 2026-11-12-681f: v5.29.0 retired outcome_format and its references; the items' shapes are the write tools'
+/// schemas, so the frame still carries no format.
+/// </para>
 /// </summary>
 public sealed class DesignPartnerFrameSizeTests : IDisposable
 {
     private const int FrameCap = 26_000;
-
-    private static readonly string[] OutcomeReferences =
-        ["design-outcome-spec", "design-outcome-epic", "design-outcome-tickets", "design-outcome-bug", "design-outcome-comment"];
 
     private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), $"agentsmith-frame-{Guid.NewGuid():N}");
 
@@ -44,15 +45,6 @@ public sealed class DesignPartnerFrameSizeTests : IDisposable
     }
 
     [Fact]
-    public async Task DesignPartnerFrameSize_EmbeddedCatalog_EveryOutcomeReferenceExists()
-    {
-        var references = await ReferencesAsync();
-
-        OutcomeReferences.Should().OnlyContain(slug => references.TryRead(slug) != null,
-            "outcome_format answers from these references; a missing one falls back to instructions the frame no longer has");
-    }
-
-    [Fact]
     public void DesignPartnerFrame_EmbeddedCatalog_DropsNarrowReadingOneReplyConvergenceAndOneSpecAcrossRepositories()
     {
         var master = PackagedMaster.Read("design-partner-master");
@@ -61,20 +53,6 @@ public sealed class DesignPartnerFrameSizeTests : IDisposable
         master.Should().NotContain("The work has **converged** when the operator has replied");
         master.Should().NotContain("still one spec").And.NotContain("however many\nrepositories");
         master.Should().NotContain("**Uploads first.**").And.Contain("## Work picture").And.Contain("`state_work_picture`");
-    }
-
-    [Theory]
-    [InlineData("document", "The whole document stands inside ONE fence of four")]
-    [InlineData("epic", "## Drafting a spec")]
-    [InlineData("epic", "## Proposing an epic")]
-    [InlineData("tickets", "kind: tickets")]
-    public async Task OutcomeFormat_EmbeddedCatalog_ServesTheKindsReference(string kind, string expected)
-    {
-        var tool = new OutcomeFormatToolHost(await ReferencesAsync()).GetTools(null, null).Single();
-
-        var answer = (await tool.InvokeAsync(new AIFunctionArguments { ["kind"] = kind }))?.ToString();
-
-        answer.Should().Contain(expected).And.NotBe(OutcomeFormatToolHost.InOwnInstructions);
     }
 
     private async Task<ISkillReferenceSource> ReferencesAsync()

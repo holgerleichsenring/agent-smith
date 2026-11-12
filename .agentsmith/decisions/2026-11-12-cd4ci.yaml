@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4ci
+
+decisions:
+  - category: Architecture
+    chose: "TicketPlanReview.ReviewAsync (reviewer + existence) is dispatched by ProposalReviewPass; TicketPlanReview.CheckAsync (existence only) by the new ProposalMechanicalChecks when the switch is off"
+    over: "TicketPlanReview reading the settings itself, as before"
+    reason: "One place reads spec_review for a design turn (SpecDialogProposalReview); the pass is then one entry for every reviewable kind, which the review_proposal tool reuses."
+  - category: Implementation
+    chose: "TicketExistenceFindings extracted from TicketPlanReview"
+    over: "Keeping ExistenceAsync private in TicketPlanReview"
+    reason: "Existence is a mechanical fact that runs on and off; one type with that one responsibility."
+  - category: Implementation
+    chose: "The reviewer reads every operator message, joined; RequirementWindowChars and the middle cut-out are gone"
+    over: "The fold digest (TranscriptWindow)"
+    reason: "The plan reviewer is a fresh call with its own context; TranscriptWindow belongs to another series member and the digest is the master's carry-over."
+  - category: Implementation
+    chose: "Answer shape {ticket, problem, why}; the owner question (5) and the open questions are in the prompt; TicketPlanCut, TicketPlanVerdict and the verbatim-quote admission deleted"
+    over: "Keeping quote as an optional finding quote"
+    reason: "The quote existed only to make a cut machine-applicable (audit R21); a finding names its ticket and why. Discarding a finding that names no ticket stays."
+  - category: Implementation
+    chose: "ProposalTurn reduced to (Pipeline, Agent, CostTracker); SpecDialogProposalReview.ReviewAsync returns Task and SpecDialogTurnFlow returns the gated reply"
+    over: "Keeping the request, prompt and conversation on the turn"
+    reason: "With ProposalCutsReprompt gone nothing continues the thread; the review never changes the reply."
+  - category: Implementation
+    chose: "A bound conversation's list still gets the 'bound conversation' finding on both paths"
+    over: "Only when the pass runs"
+    reason: "It is a fact about where a list may be filed, not a review opinion."

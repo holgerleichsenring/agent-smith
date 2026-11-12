@@ -47,9 +47,10 @@ public sealed record DerivationLookTerms(
         MayRunAStage: false);
 
     /// <summary>2026-09-17-042ed: a design turn's proposal, reviewed inside the turn. The cut
-    /// review's allowance and rules, under its own name and letter.</summary>
-    public static DerivationLookTerms ProposalReview { get; } =
-        CutReview with { Actor = "proposal review", EvidencePrefix = "P", MayRunAStage = false };
+    /// review's rules, under its own name and letter. 2026-11-12-cd4cl: its allowance is the agent's
+    /// <c>dialog_review_look_allowance</c>.</summary>
+    public static DerivationLookTerms ProposalReviewWith(int allowance) =>
+        CutReview with { Actor = "proposal review", Allowance = allowance, EvidencePrefix = "P", MayRunAStage = false };
 
     /// <summary>2026-09-17-0e79c: the check a spec's own stated premises are put to before
     /// its work starts. Its own letter M — L is the derivation's and P is the proposal

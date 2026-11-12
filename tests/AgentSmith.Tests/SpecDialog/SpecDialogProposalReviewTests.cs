@@ -38,7 +38,7 @@ public sealed class SpecDialogProposalReviewTests
         });
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         reviewer.Drafts.Should().ContainSingle().Which.SpecId.Should().Be("p9999");
         reviewer.TicketText.Should().BeNull("a design turn has no ticket behind it");
@@ -54,24 +54,39 @@ public sealed class SpecDialogProposalReviewTests
         var reviewer = new RecordingReviewer(_ => SpecCutReview.Clean);
         var pipeline = Turn(new EpicOutcome(Draft("p9000"), [Draft("p9000a"), Draft("p9000b")]));
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         reviewer.Drafts.Select(d => d.SpecId).Should().Equal("p9000", "p9000a", "p9000b");
-        ReviewFindings(pipeline).Should().BeEmpty("a clean review leaves the proposal as it was");
+        ReviewFindings(pipeline).Should().BeEmpty("a clean review leaves no finding");
     }
 
     [Fact]
-    public async Task SpecDialogProposalReview_RoundsOff_SaysTheReviewIsTurnedOffAndPromisesNoReview()
+    public async Task ProposalReview_SwitchOff_RunsOnlyTheEvidenceCheck()
     {
         var reviewer = new RecordingReviewer(_ => SpecCutReview.Clean);
-        var pipeline = Turn(new EpicOutcome(Draft("p9000"), [Draft("p9000a"), Draft("p9000b")]));
+        var pipeline = Turn(new SpecOutcome(CitingAMissingFile("p9999")), MissingTree());
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+        await Review(reviewer, designTurn: false)
+            .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
-        Outcome(pipeline).Findings.Where(f => f.Problem == SpecDialogProposalReview.ReviewOffProblem).Select(f => f.SpecId)
-            .Should().Equal(["p9000a", "p9000b"], "with spec_review.rounds at 0 nothing reviews a child before it is built");
-        Outcome(pipeline).NotReviewed.Should().BeNull("nothing will review them, so no review is promised");
-        Outcome(pipeline).Findings.Should().NotContain(f => f.Why.Contains("will be reviewed before it is built"));
+        reviewer.Calls.Should().Be(0, "spec_review.design_turn is off by default");
+        Outcome(pipeline).Findings.Should().ContainSingle().Which.Problem.Should().Be(ProposalEvidenceReview.Problem);
+        Outcome(pipeline).ReviewRounds.Should().BeEmpty();
+        Outcome(pipeline).NotReviewed.Should().BeNull("the run reviews every spec before it is built; the card promises nothing");
+    }
+
+    [Fact]
+    public async Task ProposalReview_SwitchOn_OnePassNoRePrompt()
+    {
+        var reviewer = new RecordingReviewer(_ => SpecCutReview.Clean);
+        var proposal = new EpicOutcome(Draft("p9000"), [Draft("p9000a"), Draft("p9000b")]);
+        var pipeline = Turn(proposal);
+
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+
+        reviewer.Calls.Should().Be(1);
+        Outcome(pipeline).ReviewRounds.Select(r => (r.SpecId, r.Round)).Should().Equal(("p9000a", 1), ("p9000b", 1));
+        ((EpicOutcome)Outcome(pipeline)).Children.Should().Equal(proposal.Children);
     }
 
     [Theory]
@@ -84,7 +99,7 @@ public sealed class SpecDialogProposalReviewTests
             ? new BugOutcome(new BugTicketDraft("a null check", "it dereferences null", null))
             : new AnswerOutcome());
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         reviewer.Calls.Should().Be(0, "an answer is no plan, and a bug is a ticket someone will run");
     }
@@ -104,7 +119,7 @@ public sealed class SpecDialogProposalReviewTests
         });
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         var findings = ReviewFindings(pipeline);
         findings.Select(f => f.Evidence).Should().Equal(
@@ -123,7 +138,7 @@ public sealed class SpecDialogProposalReviewTests
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
         var tracker = Tracker(pipeline);
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), tracker, CancellationToken.None);
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), tracker, CancellationToken.None);
 
         Tracker(pipeline).PerSkillBreakdown.Should().ContainSingle()
             .Which.SkillName.Should().Be("spec-cut-reviewer");
@@ -135,16 +150,16 @@ public sealed class SpecDialogProposalReviewTests
     // letting it escape destroys a reply the turn already has — the operator is answered with a
     // failure notice instead of the proposal the review was only advising on.
     [Fact]
-    public async Task Flow_ReviewTimedOutOnAnUncancelledToken_MarksReviewOff()
+    public async Task Flow_ReviewTimedOutOnAnUncancelledToken_BlocksNothing()
     {
         var reviewer = new RecordingReviewer(_ => throw new TaskCanceledException("A task was canceled."));
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         var review = async () => await Review(reviewer)
-            .ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+            .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         await review.Should().NotThrowAsync("the run was never cancelled — only the model call gave up");
-        MarkedReviewOff(Outcome(pipeline), "p9999");
+        Outcome(pipeline).ReviewRounds.Should().ContainSingle("the attack pass still runs");
     }
 
     [Fact]
@@ -156,7 +171,7 @@ public sealed class SpecDialogProposalReviewTests
         await cancelled.CancelAsync();
 
         var review = async () => await Review(reviewer)
-            .ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), cancelled.Token);
+            .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), cancelled.Token);
 
         await review.Should().ThrowAsync<OperationCanceledException>(
             "an operator cancel is the run ending, not a review to swallow");
@@ -177,78 +192,39 @@ public sealed class SpecDialogProposalReviewTests
         });
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         ReviewFindings(pipeline).Should().ContainSingle()
             .Which.Evidence.Should().Be($"[P2] {Repo}: the proposal review ran 'grep -E 'MapGet' .' exited 0");
     }
 
     [Fact]
-    public async Task Flow_ReviewFailed_MarksReviewOff()
+    public async Task Flow_ReviewFailed_BlocksNothing()
     {
         var reviewer = new RecordingReviewer(_ => throw new InvalidOperationException("model unreachable"));
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         var review = async () => await Review(reviewer)
-            .ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+            .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         await review.Should().NotThrowAsync("a review that could not be taken is not evidence of a fault");
-        MarkedReviewOff(Outcome(pipeline), "p9999");
+        Outcome(pipeline).ReviewRounds.Should().ContainSingle("the attack pass still runs");
     }
-
-    // 2026-10-02-3f06c: the evidence check and the model review are two halves of one review; the
-    // write carries both, and a model call that fails keeps what the check already found.
-    [Fact]
-    public async Task SpecDialogProposalReview_ModelFindsToo_BothKindsKept()
-    {
-        var reviewer = new RecordingReviewer(_ => new SpecCutReview(
-            [new CutFinding("p9999", "goal of p9999", "contradiction", "it forbids what it asks for")]));
-        var pipeline = Turn(new SpecOutcome(CitingAMissingFile("p9999")), MissingTree());
-
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
-
-        ReviewFindings(pipeline).Select(f => f.Problem).Should().Equal(
-            ProposalEvidenceReview.Problem, "contradiction");
-    }
-
-    [Fact]
-    public async Task SpecDialogProposalReview_ModelReviewFails_KeepsTheEvidenceFindings()
-    {
-        var reviewer = new RecordingReviewer(_ => throw new InvalidOperationException("model unreachable"));
-        var pipeline = Turn(new SpecOutcome(CitingAMissingFile("p9999")), MissingTree());
-
-        await Review(reviewer).ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
-
-        MarkedReviewOff(Outcome(pipeline), "p9999");
-        var finding = Outcome(pipeline).Findings.Should().ContainSingle(f => f.Problem == ProposalEvidenceReview.Problem).Subject;
-        finding.Quote.Should().Be("the handler exists");
-        finding.Evidence.Should().BeNull("it rests on the check's own read, not on a minted look");
-    }
-
-    // 2026-11-10-8e59: with rounds off nothing reviews a draft before it is built, and the draft says so truthfully.
-    private static void MarkedReviewOff(OutcomeProposal outcome, string specId)
-    {
-        outcome.NotReviewed.Should().BeNull("nothing will review it, so it is not promised a review");
-        outcome.Findings.Should().Contain(f => f.SpecId == specId && f.Problem == SpecDialogProposalReview.ReviewOffProblem);
-    }
-
-    // These tests run with rounds off, where every draft also carries the review-off mark; they assert the review.
-    private static List<ProposalFinding> ReviewFindings(PipelineContext pipeline) =>
-        [.. Outcome(pipeline).Findings.Where(f => f.Problem != SpecDialogProposalReview.ReviewOffProblem)];
 
     private static SpecDraft CitingAMissingFile(string specId) =>
         Draft(specId) with { Facts = [new SpecFact("the handler exists", $"{Repo}/src/Gone.cs:12")] };
 
     private static ISandbox MissingTree() => new EvidenceTreeSandbox(new Dictionary<string, string>());
 
+    // 2026-11-12-cd4ch: the design turn's pass on unless a test turns it off; the rig's attackers say build.
     private static SpecDialogProposalReview Review(
-        ISpecCutReviewer reviewer, ITurnActivityObserverAccessor? activity = null) =>
-        new(reviewer, DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
-            ProposalEvidenceTestReview.Create(activity),
-            ProposalReview.ProposalReviewRig.Reader(() => ProposalReview.ProposalReviewRig.Of(rounds: 0)),
-            new ProposalReview.ProposalReviewRig().Loop(), ProposalReview.TicketPlanReviewRig.Default(),
-            activity ?? TurnActivityRecorder.Silent(),
-            NullLogger<SpecDialogProposalReview>.Instance);
+        ISpecCutReviewer reviewer, ITurnActivityObserverAccessor? activity = null, bool designTurn = true) =>
+        new(new ProposalMechanicalChecks(ProposalEvidenceTestReview.Create(activity), ProposalReview.TicketPlanReviewRig.Default(),
+                NullLogger<ProposalMechanicalChecks>.Instance),
+            ProposalReview.ProposalReviewRig.Reader(() => ProposalReview.ProposalReviewRig.Of(rounds: 4, designTurn: designTurn)),
+            new ProposalReview.ProposalReviewRig().Pass(reviewer, activity), NullLogger<SpecDialogProposalReview>.Instance);
+
+    private static List<ProposalFinding> ReviewFindings(PipelineContext pipeline) => [.. Outcome(pipeline).Findings];
 
     [Fact]
     public async Task DialogTurn_Review_ReportsReviewingAndItsReads()
@@ -264,7 +240,7 @@ public sealed class SpecDialogProposalReviewTests
         var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         await Review(reviewer, accessor)
-            .ReviewAsync(pipeline, Request, "user", Reply, new MasterConversation(), new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+            .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         recorder.Lines.Should().Equal(
             ["reviewing", $"tool read_file {Repo}/src/Api.cs"],
@@ -277,11 +253,6 @@ public sealed class SpecDialogProposalReviewTests
                 new AIFunctionArguments { ["repository"] = Repo, ["path"] = "src/Api.cs" },
                 CancellationToken.None)
             .AsTask();
-
-    private static readonly AgenticLoopRequest Request =
-        new(new AgentConfig(), AgentSmith.Contracts.Providers.TaskType.Planning, "system", "user", []);
-
-    private static readonly AgenticLoopResult Reply = ProposalReview.ProposalReviewRig.Result("reply");
 
     private static SpecDraft Draft(string specId) =>
         new(specId, $"goal of {specId}", $"spec: {specId}", []);

@@ -46,9 +46,6 @@ public sealed class ReferenceSetSandbox(
     /// <summary>2026-10-02-075dd: the conversation the set was uploaded to — where its note is kept.</summary>
     public string ConversationId => conversationId;
 
-    /// <summary>2026-10-02-075dd: the set's note as the turn began, or null.</summary>
-    public string? Note { get; init; }
-
     /// <summary>2026-11-04-96a0c: what earlier turns opened of the set, read as the turn began, or null.</summary>
     public ReferenceCoverage? Coverage { get; init; }
 

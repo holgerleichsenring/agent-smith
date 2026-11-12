@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-681f
+goal: "The server pins skills v5.29.0, whose design partner proposes by writing items with tools, and the skill-text tests follow that text."
+
+applies_to: "default (server: the skills pin, the tests that read the pinned skill text, the skills docs)"
+
+repos_touched: [agent-smith]
+
+# Follows the cd4c series: skills v5.29.0 (design-partner-master 3.0.0) folds the six
+# design-outcome-* / writing-documents references into SKILL.md and drops every fence, count and re-prompt rule.
+
+steps:
+  - id: pin
+    do: "AgentSmith.Infrastructure.Core.csproj pins v5.29.0 with its sha256; the v5.29.0 tarball replaces v5.28.2 under Resources/; the example yml and skills docs name v5.29.0."
+  - id: delete
+    do: "Delete each skill-text test that pins a rule v5.29.0 removed on purpose: ticket/child counts, field bounds, YAML quoting, outcome fences and outcome_format, the format references, placeholder ids the model types, apply-review-cuts-and-re-propose."
+  - id: rewrite
+    do: "Rewrite each test whose guidance v5.29.0 still carries in other words against the meaning-bearing phrases of the new text."
+  - id: contract
+    do: "Re-point code-to-text contracts at the write tools the skill names (write_ticket, write_spec, write_contract, write_bug, write_comment, remove_item, read_notes, write_notes)."
+
+definition_of_done:
+  - "The server pins v5.29.0 and no file outside .agentsmith/ names v5.28.2 except the validator's accepted-version list."
+  - "The Skills, Prompts, SpecDialog and References test classes are green and no test asserts a rule v5.29.0 removed."
+  - "The full suite is green."
+
+out:
+  - "The skills repository; a gap in its text is reported, not patched here."

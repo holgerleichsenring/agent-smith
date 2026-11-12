@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-ecde
+
+decisions:
+  - category: Design
+    chose: "Name read_notes in the coverage line"
+    over: "Dropping the sentence"
+    reason: "The line tells the master its earlier reading is not in this turn; it should say where what it kept lives."

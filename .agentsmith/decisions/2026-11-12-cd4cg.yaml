@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4cg
+
+decisions:
+  - category: Design
+    chose: "The schema of each item lives in its write tool's description (yaml field list for a spec, typed parameters for a ticket, the contract's object shape)"
+    over: "Keeping outcome_format to serve the catalog's references"
+    reason: "With typed writes the tool signature is the format; fetching it cost one to two calls and up to 12,000 characters per turn, and again after every fold."
+  - category: Implementation
+    chose: "TurnFolds and MasterLoopHooks.OnFold are deleted with outcome_format; Governs stays"
+    over: "Keeping the fold counter for later use"
+    reason: "Nothing else read the count; a design turn's loop is back to carrying no hooks."

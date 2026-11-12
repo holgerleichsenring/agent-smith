@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4cd
+
+decisions:
+  - category: Design
+    chose: "Title, done items and the work picture's truth are folded to one line (CriterionLine.Collapse) instead of refused"
+    over: "Refusing a multi-line field"
+    reason: "The one-line rule exists because the filed body lists done items; folding keeps that true without a re-write by the model."
+  - category: Design
+    chose: "The work picture keeps one check: its truth must fit the stored column (2000 characters as JSON), named as that fact"
+    over: "Widening the column with a migration per provider"
+    reason: "The column is a storage fact, about seven times the old 300-character bound; a picture that does not fit was silently skipped by the store before, now the tool says so."
+  - category: Implementation
+    chose: "A ticket keeps its presence checks: title, requirement and at least one done item"
+    over: "Removing every field check"
+    reason: "A ticket without them cannot be filed or finished; that is a fact, not a size."

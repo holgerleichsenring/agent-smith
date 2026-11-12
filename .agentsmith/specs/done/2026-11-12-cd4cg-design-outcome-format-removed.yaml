@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4cg
+goal: "outcome_format and its host are retired; each design write tool's description carries the schema of what it writes."
+
+applies_to: "default (spec dialog: design tools, loop hooks)"
+
+requires: [2026-11-12-cd4ca]
+
+invariants:
+  - "SCHEMA IN THE TOOL. write_spec, write_ticket and write_contract describe their fields; no tool returns a format to draft against."
+  - "NOTHING COUNTS FOLDS. TurnFolds and MasterLoopHooks.OnFold served only outcome_format and are gone; a design turn's loop carries no hooks."
+
+facts:
+  - claim: "outcome_format returned the catalog's format references and was re-armed by a fold."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/OutcomeFormatToolHost.cs:17-58"
+  - claim: "A design turn's loop hooks carried only OnFold."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:386"
+
+scope:
+  in: "Delete OutcomeFormatToolHost, TurnFolds, MasterLoopHooks.OnFold and their wiring; the ISkillReferenceSource argument of TicketActToolsFactory; schema text in the write tool descriptions; tests."
+  out: "The skill catalog's format references and the master text (the skills repository, another agent)."
+
+steps:
+  - id: retire
+    action: "Remove outcome_format, TurnFolds and OnFold; TicketActToolsFactory no longer takes the reference source."
+  - id: schema
+    action: "write_spec, write_ticket and write_contract carry their field schema in their descriptions."
+  - id: tests
+    action: "Delete the format tests; a design turn's tools hold write_spec and no outcome_format."
+
+tests:
+  - "SpecDialogHarness_EpicWrittenThroughTheWriteTools_ResolvesAsAnEpic"
+  - "DesignTurn_Loop_CarriesNoHooks"
+
+done:
+  - "No outcome_format, TurnFolds or OnFold in src (grep)."
+  - "Build and full suite green at the spec gate."

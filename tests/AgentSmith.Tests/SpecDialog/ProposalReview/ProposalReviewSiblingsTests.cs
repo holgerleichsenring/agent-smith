@@ -12,9 +12,6 @@ namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 public sealed class ProposalReviewSiblingsTests
 {
     private const string Third = "2026-10-14-9000d";
-    private const string Step = "Write the orders through the buffered file writer.";
-    private const string NewStep = "Write the orders through the streaming file writer.";
-
     [Fact]
     public async Task ProposalReview_EpicChild_PromptListsEverySiblingButItself()
     {
@@ -50,23 +47,5 @@ public sealed class ProposalReviewSiblingsTests
         rig.Reviewed.Should().NotBeEmpty().And.OnlyContain(i => i.Siblings.Count == 0);
         SpecAttackPrompt.For(rig.Reviewed.First(), null).Should().NotContain(SpecAttackSiblingsSection.Heading)
             .And.Contain(SpecAttackJudgement.Lone);
-    }
-
-    [Fact]
-    public async Task ProposalReview_AfterRevision_NextRoundShowsRevisedSiblings()
-    {
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 2) };
-        rig.Propose(Epic());
-        rig.OnReview = input => input.Round > 1 ? Build()
-            : input.Draft.SpecId == First ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep))
-            : Refuse("the import is not taken by any slice");
-        rig.Replies(_ => Epic(Yaml(First, step: NewStep), Yaml(Second, "The import reads the export file.", requires: [First])));
-
-        await rig.RunAsync();
-
-        rig.Reviewed.Where(i => i.Draft.SpecId == First && i.Round == 1).Should()
-            .OnlyContain(i => i.Siblings.Single().Goal == "The export writes every order of the day into one file.");
-        rig.Reviewed.Where(i => i.Draft.SpecId == First && i.Round == 2).Should().NotBeEmpty()
-            .And.OnlyContain(i => i.Siblings.Single().Goal == "The import reads the export file.");
     }
 }

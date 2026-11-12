@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4ce
+
+decisions:
+  - category: Design
+    chose: "No finish_turn tool: the turn ends when the model answers without a tool call"
+    over: "A finish_turn tool that returns the store's standing problems"
+    reason: "The store is fileable after every accepted write (2026-11-12-cd4ca), so a finish tool would have nothing to report; the loop's own end is the model saying it is done, as in Claude Code."
+  - category: Design
+    chose: "An empty reply with a proposal is answered by 'The draft holds …', computed from the store"
+    over: "Failing the turn, or asking the model for prose"
+    reason: "The card renders the proposal from the store; demanding a sentence would be a re-prompt for the UI."

@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
 /// 2026-10-14-dbcek: what the plan reviewer keeps of its model's answer, and what it is shown — the operator's
-/// messages within a window, the uploads by their reference: address, readable through its look.
+/// messages whole, its open questions, the uploads by their reference: address, readable through its look.
 /// </summary>
 public sealed class TicketPlanReviewerTests
 {
@@ -29,46 +29,39 @@ public sealed class TicketPlanReviewerTests
     [Fact]
     public async Task TicketPlanReviewer_FindingForUnknownTicket_Dropped()
     {
-        var verdict = await ReviewAsync(Finding("order-export", "merge", quote: "in prose", replacement: ""));
+        var findings = await ReviewAsync(Finding("order-export", "merge"));
 
-        verdict!.Findings.Should().BeEmpty();
-        verdict.Cuts.Should().BeEmpty();
+        findings.Should().NotBeNull().And.BeEmpty();
     }
 
     [Fact]
-    public async Task TicketPlanReviewer_QuoteNotInTheTicket_FindingKeptWithoutCut()
+    public async Task TicketPlanReviewer_FindingOnATicket_KeptUnderItsKey()
     {
-        var verdict = await ReviewAsync(Finding("order-ui", "size", quote: "and the order edit form", replacement: ""));
+        var findings = await ReviewAsync(Finding("order-ui", "size"));
 
-        verdict!.Findings.Should().ContainSingle().Which.SpecId.Should().Be("order-ui");
-        verdict.Cuts.Should().BeEmpty();
+        findings!.Should().ContainSingle().Which.Should().Match<ProposalFinding>(f => f.SpecId == "order-ui" && f.Why == "size on order-ui");
     }
 
     [Fact]
-    public async Task TicketPlanReviewer_QuoteInTheTicket_IsACut()
+    public async Task TicketPlanReviewer_MissingRequirement_IsAListFinding()
     {
-        var verdict = await ReviewAsync(Finding("order-ui", "size", quote: "in prose", replacement: ""));
+        var findings = await ReviewAsync(Finding("order-ui", TicketPlanReviewPrompt.Missing));
 
-        verdict!.Cuts.Should().ContainSingle().Which.Should().Be(new TicketPlanCut("order-ui", "in prose", "", "size on order-ui"));
+        findings!.Should().ContainSingle().Which.SpecId.Should().Be(TicketPlanReviewPrompt.ListKey);
     }
 
     [Fact]
-    public async Task TicketPlanReviewer_MissingRequirement_FindingOnly()
+    public async Task TicketPlanReviewer_OpenQuestions_AreShownToTheReviewer()
     {
-        var verdict = await ReviewAsync(Finding("order-ui", TicketPlanReviewPrompt.Missing, quote: "in prose", replacement: ""));
+        var rig = new TicketPlanReviewRig();
+        rig.Pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot
+        {
+            Questions = [new OpenQuestion("Who owns refunds?", "Accounting.", [])],
+        });
 
-        verdict!.Findings.Should().ContainSingle().Which.SpecId.Should().Be(TicketPlanReviewPrompt.ListKey);
-        verdict.Cuts.Should().BeEmpty("nothing in the list can be quoted for what is absent");
-    }
+        await rig.Reviewer().ReviewAsync(Turn(rig.Pipeline), Two(), CancellationToken.None);
 
-    [Fact]
-    public async Task TicketPlanReviewer_MissingRequirementNamingNoTicket_KeptAsListFinding()
-    {
-        var verdict = await ReviewAsync(Finding(TicketPlanReviewPrompt.ListKey, TicketPlanReviewPrompt.Missing, quote: "refunds of cancelled orders"));
-
-        var finding = verdict!.Findings.Should().ContainSingle().Subject;
-        finding.SpecId.Should().Be("the list");
-        finding.Quote.Should().Be("refunds of cancelled orders");
+        rig.ReviewerPrompts.Should().ContainSingle().Which.Should().Contain("- Who owns refunds?").And.Contain("proposed: Accounting.");
     }
 
     [Fact]
@@ -93,18 +86,18 @@ public sealed class TicketPlanReviewerTests
     }
 
     [Fact]
-    public void TicketPlanReviewPrompt_For_NamesTheUploadsAndSaysExistingAndLaterRequirementsAreNotMissing()
+    public void TicketPlanReviewPrompt_For_NamesTheUploadsAndAsksFiveQuestionsWithoutCuts()
     {
         var prompt = TicketPlanReviewPrompt.For(Two(), [new SpecDialogTurn(SpecDialogTurn.UserRole, "Orders need refunds.")], null,
-            ["reference:requirements"]);
+            ["reference:requirements"], []);
 
         prompt.Should().Contain("- reference:requirements").And.Contain("Orders need refunds.")
-            .And.Contain("A requirement met by a ticket:<id> requirement, or one the conversation says is left for a later list, is not missing.")
-            .And.Contain("key: order-ui").And.Contain("requires: order-api");
+            .And.Contain($"5. {TicketPlanReviewPrompt.Owner}").And.Contain("key: order-ui").And.Contain("requires: order-api")
+            .And.NotContain("quote").And.NotContain("replacement").And.NotContain("the keys stay");
     }
 
     [Fact]
-    public void TicketPlanReviewPrompt_RequirementsOverTheWindow_KeepsFirstTurnAndNamesTheOmitted()
+    public void TicketPlanReviewPrompt_LongTranscript_ShowsEveryMessage()
     {
         var big = new string('x', 15_000);
         IReadOnlyList<SpecDialogTurn> transcript =
@@ -115,25 +108,21 @@ public sealed class TicketPlanReviewerTests
 
         var requirements = TicketPlanReviewPrompt.Requirements(transcript);
 
-        requirements.Should().StartWith("FIRST ").And.Contain("(2 message(s) between these were left out to fit the window)")
-            .And.Contain("FOURTH ").And.NotContain("SECOND ").And.NotContain("noted");
-        requirements.Length.Should().BeLessThan(TicketPlanReviewPrompt.RequirementWindowChars + 200);
+        requirements.Should().Contain("FIRST ").And.Contain("SECOND ").And.Contain("THIRD ").And.Contain("FOURTH ")
+            .And.NotContain("noted").And.NotContain("left out");
     }
 
     [Fact]
-    public void TicketPlanReviewPrompt_CutsNudge_ListsQuoteAndReplacementPerKeyAndKeepsKeys()
+    public void TicketPlanReviewPrompt_OpenQuestions_AreShown()
     {
-        var nudge = TicketPlanReviewPrompt.CutsNudge(
-            [new TicketPlanCut("order-ui", "and the edit form", "", "too big"), new TicketPlanCut("order-api", "cancel", "read", "order")]);
+        var prompt = TicketPlanReviewPrompt.For(Two(), [], null, [], [new OpenQuestion("Keep cancelled orders?", "No.", [])]);
 
-        nudge.Should().Contain("- order-ui: remove \"and the edit form\" — too big")
-            .And.Contain("- order-api: replace \"cancel\" with \"read\" — order")
-            .And.EndWith("Re-propose the whole list, in the same shape, every ticket in it, the keys unchanged.");
+        prompt.Should().Contain("QUESTIONS THE OPERATOR STILL ANSWERS").And.Contain("- Keep cancelled orders?").And.Contain("proposed: No.");
     }
 
     private static SpecDialogTurn User(string text) => new(SpecDialogTurn.UserRole, text);
 
-    private static async Task<TicketPlanVerdict?> ReviewAsync(string answer)
+    private static async Task<IReadOnlyList<ProposalFinding>?> ReviewAsync(string answer)
     {
         var rig = new TicketPlanReviewRig();
         rig.ReviewerAnswers.Enqueue(answer);
@@ -141,8 +130,7 @@ public sealed class TicketPlanReviewerTests
     }
 
     private static ProposalTurn Turn(PipelineContext pipeline) =>
-        new(pipeline, new AgenticLoopRequest(new AgentConfig(), TaskType.Planning, "system", "user", []), "user",
-            new MasterConversation(), new AgentConfig(), PipelineCostTracker.GetOrCreate(pipeline));
+        new(pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(pipeline));
 
     /// <summary>Searches the named repository once, then answers clean.</summary>
     private sealed class SearchingProvider(string repository) : IChatClient

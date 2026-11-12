@@ -29,7 +29,7 @@ internal static class ApprovedSetDoubles
 
     /// <summary>2026-10-06-03c7c: what a filing and an amendment make their series with.</summary>
     internal static FiledSeriesFactory SeriesFiling() =>
-        new(SeriesIds(), DraftIds(), Microsoft.Extensions.Logging.Abstractions.NullLogger<FiledSeriesFactory>.Instance);
+        new(SeriesIds(), DraftIds(), SeriesSettingsDoubles.Reader(), Microsoft.Extensions.Logging.Abstractions.NullLogger<FiledSeriesFactory>.Instance);
 
     /// <summary>2026-10-06-03c7c: a filed series of the given drafts under a fixed base.</summary>
     internal static FiledSeries Series(params SpecDraft[] drafts) => new("2026-10-06-0a0a", drafts);

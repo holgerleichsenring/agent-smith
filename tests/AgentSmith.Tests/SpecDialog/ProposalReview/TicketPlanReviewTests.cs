@@ -11,98 +11,62 @@ using static AgentSmith.Tests.SpecDialog.ProposalReview.TicketPlanReviewRig;
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
-/// 2026-10-14-dbcek: a proposed list of tickets is reviewed as a plan — one review, one re-prompt for quoted cuts, the
-/// revised list reviewed once more, the keys fixed, and every ticket:&lt;id&gt; of the final list read for existence.
+/// 2026-10-14-dbcek: a proposed list of tickets is reviewed as a plan, and every ticket:&lt;id&gt; it requires is read
+/// for existence. 2026-11-12-cd4ci: one advisory reviewer call under spec_review.design_turn; nothing re-prompts.
 /// </summary>
 public sealed class TicketPlanReviewTests
 {
-    private const string Cut = "in prose";
-
     private static TicketGraphOutcome Two() => List(Ticket("order-api"), Ticket("order-ui", "order-api"));
 
-    private static string CutOnUi() => Finding("order-ui", "size", quote: Cut, replacement: "");
+    private static string SizeOnUi() => Finding("order-ui", "size");
 
     [Fact]
     public async Task TicketPlanReview_CleanList_OneReviewerCallNoRePrompt()
     {
         var rig = new TicketPlanReviewRig();
 
-        var reply = await rig.RunAsync(Two());
+        await rig.RunAsync(Two());
 
         rig.ReviewerPrompts.Should().ContainSingle();
-        rig.Nudges.Should().BeEmpty();
         rig.Outcome.Findings.Should().BeEmpty();
-        reply.Response.Text.Should().Be("Here is the list.");
     }
 
     [Fact]
-    public async Task TicketPlanReview_AdmittedCut_RePromptsOnceAndPublishesTheRevisedList()
+    public async Task TicketPlanReview_Findings_NeverRePromptTheDesignPartner()
     {
         var rig = new TicketPlanReviewRig();
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
-        var revised = ListReply(("order-api", "[]"), ("order-ui", "[order-api]"));
-        rig.PartnerReplies.Enqueue(revised);
+        rig.ReviewerAnswers.Enqueue(SizeOnUi());
+        var list = Two();
 
-        var reply = await rig.RunAsync(Two());
+        await rig.RunAsync(list);
 
-        rig.Nudges.Should().ContainSingle().Which.Should().Contain($"order-ui: remove \"{Cut}\"")
-            .And.EndWith("Re-propose the whole list, in the same shape, every ticket in it, the keys unchanged.");
-        reply.Response.Text.Should().Be(revised);
-        rig.Outcome.Tickets.Select(t => t.Requirement).Should().Equal("The scope of order-api.", "The scope of order-ui.");
+        rig.ReviewerPrompts.Should().ContainSingle("one reviewer call, whatever it finds");
+        rig.Outcome.Tickets.Should().Equal(list.Tickets);
+        rig.Outcome.Findings.Should().ContainSingle().Which.Should().Match<ProposalFinding>(f => f.SpecId == "order-ui" && f.Problem == "size");
     }
 
     [Fact]
-    public async Task TicketPlanReview_RevisedList_ReviewedOnceMoreAndItsFindingsStand()
+    public async Task TicketPlanReview_SwitchOff_ChecksExistenceOnly()
     {
-        var rig = new TicketPlanReviewRig();
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
-        rig.ReviewerAnswers.Enqueue(Finding("order-api", "order", quote: "The scope of order-api.", replacement: "x"));
-        rig.PartnerReplies.Enqueue(ListReply(("order-api", "[]"), ("order-ui", "[order-api]")));
+        var rig = Existing(missing: ["41"]);
+        rig.Settings = ProposalReviewRig.Of(rounds: 4, designTurn: false);
+        rig.ReviewerAnswers.Enqueue(SizeOnUi());
 
-        await rig.RunAsync(Two());
+        await rig.RunAsync(List(Ticket("order-api", "ticket:41"), Ticket("order-ui", "order-api")));
 
-        rig.ReviewerPrompts.Should().HaveCount(2);
-        rig.Nudges.Should().ContainSingle("the second review's cut is a finding, never a second re-prompt");
-        rig.Outcome.Findings.Should().ContainSingle().Which.Should().Match<ProposalFinding>(f => f.SpecId == "order-api" && f.Problem == "order");
-    }
-
-    [Fact]
-    public async Task TicketPlanReview_RePromptChangesTheKeys_LastValidListKept()
-    {
-        var rig = new TicketPlanReviewRig();
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
-        rig.PartnerReplies.Enqueue(ListReply(("order-api", "[]"), ("order-screens", "[order-api]")));
-
-        var reply = await rig.RunAsync(Two());
-
-        rig.Outcome.Tickets.Select(t => t.Key).Should().Equal("order-api", "order-ui");
-        rig.Outcome.Tickets[1].Requirement.Should().Contain(Cut);
-        reply.Response.Text.Should().Be("Here is the list.");
-        rig.Outcome.Findings.Should().ContainSingle().Which.SpecId.Should().Be("order-ui");
-    }
-
-    [Fact]
-    public async Task TicketPlanReview_RoundsZero_FindingsOnlyNoRePrompt()
-    {
-        var rig = new TicketPlanReviewRig { Settings = ProposalReviewRig.Of(rounds: 0) };
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
-
-        await rig.RunAsync(Two());
-
-        rig.Nudges.Should().BeEmpty();
-        rig.Outcome.Findings.Should().ContainSingle().Which.Quote.Should().Be(Cut);
+        rig.ReviewerPrompts.Should().BeEmpty("spec_review.design_turn is off by default");
+        rig.Outcome.Findings.Should().ContainSingle().Which.Problem.Should().Be("required ticket not found");
     }
 
     [Fact]
     public async Task TicketPlanReview_InvalidSettings_ReviewsNothingAndSaysWhy()
     {
         var rig = new TicketPlanReviewRig { Settings = ProposalReviewRig.Of(rounds: 4, reviewers: 0) };
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
+        rig.ReviewerAnswers.Enqueue(SizeOnUi());
 
         await rig.RunAsync(Two());
 
         rig.ReviewerPrompts.Should().BeEmpty("a block the run refuses is never clamped (2026-11-10-8e59)");
-        rig.Nudges.Should().BeEmpty();
         rig.Outcome.Findings.Should().ContainSingle().Which.Why.Should().Contain("spec_review.reviewers is 0");
     }
 
@@ -126,9 +90,8 @@ public sealed class TicketPlanReviewTests
         var rig = new TicketPlanReviewRig { ReviewerFails = new TaskCanceledException("network timeout") };
         var list = Two();
 
-        var reply = await rig.RunAsync(list);
+        await rig.RunAsync(list);
 
-        reply.Response.Text.Should().Be("Here is the list.");
         rig.Outcome.Tickets.Should().Equal(list.Tickets);
         rig.Outcome.Findings.Should().BeEmpty();
     }
@@ -143,7 +106,7 @@ public sealed class TicketPlanReviewTests
         var seenAtCall = -1;
         rig.OnReviewerCall = () => seenAtCall = recorder.Seen.Count(a => a.Kind == TurnActivityKind.Reviewing);
 
-        await rig.RunAsync(Two(), rig.Review(accessor));
+        await rig.RunAsync(Two(), rig.Turn(accessor));
 
         seenAtCall.Should().Be(1);
     }
@@ -172,33 +135,6 @@ public sealed class TicketPlanReviewTests
     }
 
     [Fact]
-    public async Task TicketPlanReview_RePromptAddsTicketRequirement_ItIsReadForExistence()
-    {
-        var rig = Existing(missing: ["52"]);
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
-        rig.PartnerReplies.Enqueue(ListReply(("order-api", "[]"), ("order-ui", "[order-api, \"ticket:52\"]")));
-
-        await rig.RunAsync(Two());
-
-        rig.Existence!.Checked.Should().ContainSingle().Which.Should().Equal("52");
-        rig.Outcome.Findings.Should().ContainSingle().Which.Should().Match<ProposalFinding>(
-            f => f.SpecId == "order-ui" && f.Problem == "required ticket not found");
-    }
-
-    [Fact]
-    public async Task TicketPlanReview_RePromptDropsAMissingRequirement_NoStaleFinding()
-    {
-        var rig = Existing(missing: ["41"]);
-        rig.ReviewerAnswers.Enqueue(CutOnUi());
-        rig.PartnerReplies.Enqueue(ListReply(("order-api", "[]"), ("order-ui", "[order-api]")));
-
-        await rig.RunAsync(List(Ticket("order-api"), Ticket("order-ui", "order-api", "ticket:41")));
-
-        rig.Existence!.Checked.Should().BeEmpty("the final list requires no existing ticket");
-        rig.Outcome.Findings.Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task TicketPlanReview_NoExistenceRegistered_ChecksNothing()
     {
         var rig = new TicketPlanReviewRig();
@@ -214,7 +150,7 @@ public sealed class TicketPlanReviewTests
     {
         foreach (var proposed in new[] { ProposalReviewRig.SpecReply(ProposalReviewRig.Yaml(ProposalReviewRig.Lone)), ProposalReviewRig.Epic() })
         {
-            var rig = new ProposalReviewRig { Settings = ProposalReviewRig.Of(rounds: 0) };
+            var rig = new ProposalReviewRig();
             rig.Propose(proposed);
 
             await rig.RunAsync();
@@ -229,11 +165,7 @@ public sealed class TicketPlanReviewTests
         var rig = new TicketPlanReviewRig();
         var loop = new Moq.Mock<AgentSmith.Application.Services.Loop.IAgenticLoopRunner>(Moq.MockBehavior.Strict).Object;
         var flow = new SpecDialogTurnFlow(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-            new TicketStewardPromptFactory(), AgentSmith.Tests.Handlers.MasterHandlerFixture.OutcomeGate(loop), new SpecDialogProposalReview(
-                Moq.Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(), AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
-                ProposalEvidenceTestReview.Create(), ProposalReviewRig.Reader(() => rig.Settings), new ProposalReviewRig().Loop(),
-                rig.Review(), TurnActivityRecorder.Silent(),
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<SpecDialogProposalReview>.Instance));
+            new TicketStewardPromptFactory(), rig.Turn());
         var context = AgentSmith.Tests.Handlers.MasterHandlerFixture.BuildContext(PipelinePresets.TicketStewardMaster);
         var reply = ProposalReviewRig.Result(ListReply(("order-api", "[]"), ("order-ui", "[order-api]")));
 

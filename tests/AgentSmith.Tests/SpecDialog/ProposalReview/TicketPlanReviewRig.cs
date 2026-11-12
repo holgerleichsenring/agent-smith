@@ -21,8 +21,9 @@ using Moq;
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
-/// 2026-10-14-dbcek: the plan review of a proposed list as the product composes it — the real review, reviewer,
-/// re-prompt and resolver — over a scripted reviewer model, a scripted design partner and a scripted existence read.
+/// 2026-10-14-dbcek: the plan review of a proposed list as the product composes it — the real post-turn review, pass,
+/// plan review and reviewer — over a scripted reviewer model and a scripted existence read. 2026-11-12-cd4ci: the
+/// design turn's pass is on unless a test turns it off; nothing re-prompts.
 /// </summary>
 internal sealed class TicketPlanReviewRig
 {
@@ -31,8 +32,6 @@ internal sealed class TicketPlanReviewRig
     public Queue<string> ReviewerAnswers { get; } = new();
     public List<string> ReviewerPrompts { get; } = [];
     public Exception? ReviewerFails { get; set; }
-    public Queue<string> PartnerReplies { get; } = new();
-    public List<string> Nudges { get; } = [];
     public ScriptedExistence? Existence { get; set; }
     public Action? OnReviewerCall { get; set; }
 
@@ -43,15 +42,22 @@ internal sealed class TicketPlanReviewRig
 
     public static TicketGraphOutcome List(params GraphTicket[] tickets) => new(tickets);
 
-    /// <summary>The design partner's reply re-proposing a list, every string quoted.</summary>
+    /// <summary>The design partner's reply proposing a list, every string quoted.</summary>
     public static string ListReply(params (string Key, string Requires)[] tickets) =>
         TicketGraphFixtures.Block(string.Concat(tickets.Select(t => TicketGraphFixtures.Item(t.Key, t.Requires))));
 
-    public TicketPlanReview Review(ITurnActivityObserverAccessor? activity = null, ISpecReviewSettingsReader? reader = null) =>
-        new(reader ?? ProposalReviewRig.Reader(() => Settings), Reviewer(),
-            new ProposalCutsReprompt(Partner(), MasterHandlerFixture.BuildOutcomeResolver(), TurnActivityRecorder.Silent(),
-                NullLogger<ProposalCutsReprompt>.Instance),
-            activity ?? TurnActivityRecorder.Silent(), NullLogger<TicketPlanReview>.Instance, Existence);
+    public TicketPlanReview Review() =>
+        new(Reviewer(), new TicketExistenceFindings(NullLogger<TicketExistenceFindings>.Instance, Existence),
+            NullLogger<TicketPlanReview>.Instance);
+
+    /// <summary>The post-turn review over this rig's plan review, reporting to <paramref name="activity"/>.</summary>
+    public SpecDialogProposalReview Turn(ITurnActivityObserverAccessor? activity = null, ISpecReviewSettingsReader? reader = null)
+    {
+        var plans = Review();
+        return new(new ProposalMechanicalChecks(ProposalEvidenceTestReview.Create(), plans, NullLogger<ProposalMechanicalChecks>.Instance),
+            reader ?? ProposalReviewRig.Reader(() => Settings), new ProposalReviewRig().Pass(activity: activity, plans: plans),
+            NullLogger<SpecDialogProposalReview>.Instance);
+    }
 
     /// <summary>The scripted reviewer model, for a composition that builds the reviewer itself.</summary>
     public IChatClientFactory Factory() => new ScriptedFactory(this);
@@ -60,35 +66,17 @@ internal sealed class TicketPlanReviewRig
         new(new ScriptedFactory(this), new AsyncLocalRunContextAccessor(), DerivationTestLooks.Factory(),
             NullLogger<TicketPlanReviewer>.Instance);
 
-    public async Task<AgenticLoopResult> RunAsync(TicketGraphOutcome graph, TicketPlanReview? review = null)
+    public async Task RunAsync(TicketGraphOutcome graph, SpecDialogProposalReview? review = null)
     {
         Pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)graph);
-        var request = new AgenticLoopRequest(new AgentConfig(), TaskType.Planning, "system", "user", []);
-        var first = ProposalReviewRig.Result("Here is the list.");
-        var conversation = new MasterConversation();
-        conversation.Opened(request, first.Response);
-        var turn = new ProposalTurn(Pipeline, request, "user", conversation, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline));
-        return await (review ?? Review()).ReviewAsync(turn, graph, first, CancellationToken.None);
+        await (review ?? Turn()).ReviewAsync(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
     }
 
     public TicketGraphOutcome Outcome => (TicketGraphOutcome)Pipeline.Get<OutcomeProposal>(ContextKeys.SpecDialogOutcome);
 
     /// <summary>A reviewer answer of one finding, as JSON.</summary>
-    public static string Finding(string ticket, string problem, string? quote = null, string? replacement = null) =>
-        System.Text.Json.JsonSerializer.Serialize(new[] { new { ticket, problem, why = $"{problem} on {ticket}", quote, replacement } });
-
-    private IAgenticLoopRunner Partner()
-    {
-        var runner = new Mock<IAgenticLoopRunner>();
-        runner.Setup(r => r.RunAsync(It.IsAny<AgenticLoopRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AgenticLoopRequest request, CancellationToken _) =>
-            {
-                Nudges.Add(request.UserPrompt);
-                if (PartnerReplies.Count == 0) throw new InvalidOperationException("the design partner has no scripted reply");
-                return ProposalReviewRig.Result(PartnerReplies.Dequeue());
-            });
-        return runner.Object;
-    }
+    public static string Finding(string ticket, string problem) =>
+        System.Text.Json.JsonSerializer.Serialize(new[] { new { ticket, problem, why = $"{problem} on {ticket}" } });
 
     private sealed class ScriptedFactory(TicketPlanReviewRig rig) : IChatClientFactory
     {

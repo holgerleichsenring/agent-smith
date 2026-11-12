@@ -47,21 +47,6 @@ public sealed class ProposalUnderReviewTests
     }
 
     [Fact]
-    public async Task ProposalReview_AfterARound_PublishesTheRoundAndWhatIsStillOpen()
-    {
-        var rig = new ProposalReviewRig { Proposals = _accessor };
-        rig.OnReview = input => input.Draft.SpecId == First ? Build() : null;
-        rig.Propose(Epic());
-        using var observing = _accessor.Observe(new Recording(_published));
-
-        await rig.RunAsync();
-
-        var afterRound = _published[1];
-        afterRound.UnderReview.Should().BeTrue();
-        afterRound.ReviewRounds.Should().ContainSingle(r => r.SpecId == First && r.Verdict == SpecReviewVerdicts.Build);
-    }
-
-    [Fact]
     public async Task ProposalReview_WhenItEnds_TheFinalProposalCarriesNoMark()
     {
         var rig = new ProposalReviewRig { Proposals = _accessor };
@@ -74,7 +59,7 @@ public sealed class ProposalUnderReviewTests
     }
 
     [Fact]
-    public void SpecDialogRevisionSection_InterruptedProposal_RendersItsDrafts()
+    public void SpecDialogRevisionSection_InterruptedProposal_SaysItStandsInTheDraft()
     {
         var rig = new ProposalReviewRig();
         var proposal = rig.Propose(Epic()) with { UnderReview = true };
@@ -82,7 +67,7 @@ public sealed class ProposalUnderReviewTests
 
         var section = SpecDialogRevisionSection.Render(rig.Pipeline);
 
-        section.Should().Contain("The proposal your last turn wrote").And.Contain(First).And.Contain(Second);
+        section.Should().Contain("The proposal your last turn wrote").And.Contain("It stands in your draft below");
     }
 
     [Fact]

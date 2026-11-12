@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4ck
+
+decisions:
+  - category: Design
+    chose: "One notes file per conversation with read_notes and write_notes (whole replace), no size cap, offered on every design turn that has a store"
+    over: "Raising the per-upload note cap; an edit tool beside write"
+    reason: "Claude Code keeps one working file across a session; a per-upload note only existed on turns with an upload and capped what a turn could carry forward. Read and write are the smallest pair; an edit tool can follow if whole rewrites prove costly."
+  - category: Architecture
+    chose: "Store the notes as a ReferenceFile row of the existing note kind with an empty set id, keyed on the session id"
+    over: "A new column on the dialog session row; a file on the server's disk"
+    reason: "The reference store is where a conversation's material already persists: every replica reads it, the conversation delete sweeps it, and no migration is needed. A local disk breaks multi-replica."
+  - category: Implementation
+    chose: "A read joins legacy per-upload note rows under their set id until the first write replaces them all"
+    over: "A data migration; dropping old notes"
+    reason: "The notes were model-written knowledge (how to run an upload); folding them on read keeps them with no migration and no second code path once written."
+  - category: Implementation
+    chose: "The conversation delete keeps every note row when any cited set is kept"
+    over: "Keeping only the cited set's note row"
+    reason: "The notes are the conversation's now; a run carrying the cited set reads them, so they survive with it."
+  - category: Implementation
+    chose: "The turn reads the notes once before the pipeline (SpecDialogTurnMaterial) and seeds text and store; the prompt renders them fenced as data in the user prompt"
+    over: "Reading them in the prompt factory"
+    reason: "The prompt factory is synchronous and pure; the turn material step already reads conversation facts before a turn. The user prompt keeps the cached system prefix stable when the notes change."
+  - category: Scope
+    chose: "The upload chip's note and ReferenceSetView.Note are removed; the dashboard does not show the conversation's notes yet"
+    over: "Building a notes panel in this spec"
+    reason: "The per-set note no longer exists. Showing the conversation's notes to the operator is a dashboard change of its own (follow-up: design-notes-panel, to be minted by the orchestrator)."
+  - category: Scope
+    chose: "The skill text is not touched; its 'What earlier turns read is not in this turn' sentence and every note_reference mention are obsolete"
+    over: "Editing the skills catalog here"
+    reason: "Skills text is another agent's job in the cd4c series; the pinned text still names note_reference until then."

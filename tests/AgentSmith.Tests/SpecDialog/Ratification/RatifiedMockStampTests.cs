@@ -73,11 +73,29 @@ public sealed class RatifiedMockStampTests : IDisposable
         SpecSchemaFile.Validate(document).Should().HaveCount(valid ? 0 : 1);
     }
 
+    // 2026-11-12-cd4cc: thirty drafts under series.max_specs 24 file as two series; a requires across the cut names
+    // the earlier part's filed id.
+    [Fact]
+    public void FiledSeriesFactory_MintParts_LongSet_SplitsIntoSeriesAndRewiresRequires()
+    {
+        var factory = new FiledSeriesFactory(new SeriesIdFactory(TimeProvider.System),
+            new SeriesDraftIds(new SpecDraftIdRewriter()), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(),
+            NullLogger<FiledSeriesFactory>.Instance);
+        var drafts = Enumerable.Range(0, 30).Select(i => Draft($"p{9100 + i}")).ToList();
+        drafts[29] = drafts[29] with { Requires = ["p9100"] };
+
+        var parts = factory.MintParts(drafts, null);
+
+        parts.Select(p => p.Drafts.Count).Should().Equal(24, 6);
+        parts[1].Drafts[^1].Requires.Should().Equal(parts[0].Drafts[0].SpecId);
+    }
+
     [Fact]
     public void FiledSeriesFactory_Sources_MapMintedIdsToProposalIds()
     {
         var factory = new FiledSeriesFactory(new SeriesIdFactory(TimeProvider.System),
-            new SeriesDraftIds(new SpecDraftIdRewriter()), NullLogger<FiledSeriesFactory>.Instance);
+            new SeriesDraftIds(new SpecDraftIdRewriter()), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(),
+            NullLogger<FiledSeriesFactory>.Instance);
         var drafts = new[] { Draft("p-first"), Draft("p-second") };
 
         var filed = factory.Under("2026-10-14-ab12", drafts, new EpicOutcome(Draft("parent"), drafts));

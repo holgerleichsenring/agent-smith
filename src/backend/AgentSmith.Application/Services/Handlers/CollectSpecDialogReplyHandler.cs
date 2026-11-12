@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.SpecDialog.Writes;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
@@ -23,19 +24,20 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
                 "Spec-dialog run has no reply slot — the turn runner must seed "
                 + $"ContextKeys.{nameof(ContextKeys.SpecDialogReplySlot)}."));
 
-        var answer = context.Pipeline.TryGet<string>(ContextKeys.MasterAnswer, out var a) ? a : null;
-        if (string.IsNullOrWhiteSpace(answer))
-            return Task.FromResult(CommandResult.Fail(
-                "The design-partner master produced no reply text."));
-
-        // p0315e: the typed terminal outcome travels with the reply. The
-        // AgenticMaster gate always publishes one for spec-dialog runs, so an
-        // absent proposal is a composition bug, not an answer.
+        // p0315e: the typed terminal outcome travels with the reply; an absent proposal is a composition bug.
         if (!context.Pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var outcome)
             || outcome is null)
             return Task.FromResult(CommandResult.Fail(
                 "Spec-dialog run published no outcome proposal — the AgenticMaster "
                 + $"gate must set ContextKeys.{nameof(ContextKeys.SpecDialogOutcome)}."));
+
+        // 2026-11-12-cd4ce: a turn is done when the model stops; one that wrote a proposal and said nothing more is
+        // answered by what its draft holds. Only a turn with neither failed.
+        var answer = context.Pipeline.TryGet<string>(ContextKeys.MasterAnswer, out var a) ? a : null;
+        if (string.IsNullOrWhiteSpace(answer) && outcome is AnswerOutcome)
+            return Task.FromResult(CommandResult.Fail(
+                "The design-partner master produced no reply text."));
+        if (string.IsNullOrWhiteSpace(answer)) answer = $"The draft holds {ProposalDraftHolding.Of(slot.Proposal.Current)}.";
 
         slot.Reply = answer;
         // 2026-11-10-d854a: every review path ends here, so the questions and the turn's total spend are set once.

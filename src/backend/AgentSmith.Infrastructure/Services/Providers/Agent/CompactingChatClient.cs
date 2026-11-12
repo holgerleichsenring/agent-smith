@@ -108,7 +108,7 @@ public sealed class CompactingChatClient : DelegatingChatClient
         if (addition is null) return BuildView(messages); // summarizer failed => fail-open
         _summary = string.IsNullOrEmpty(_summary) ? addition : _summary + "\n" + addition;
         _foldedUpTo = tailStart;
-        _foldEvents++; _hooks?.OnFold?.Invoke(); // 2026-11-10-85e2
+        _foldEvents++;
 
         var result = BuildView(messages);
         _logger?.LogInformation(

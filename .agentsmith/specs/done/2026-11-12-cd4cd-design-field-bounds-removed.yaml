@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4cd
+goal: "A design proposal's ticket, comment and work-picture fields carry no length or count bound; one-line fields are folded to one line, never refused."
+
+applies_to: "default (spec dialog: ticket graph checker, comment, work picture)"
+
+requires: [2026-11-12-cd4ca]
+
+invariants:
+  - "NO LENGTH. Title, requirement, done items and their count, a comment and a work picture's truth are accepted at any length the storage holds."
+  - "ONE LINE BY FOLDING. A title, a done item and a truth written over several lines are stored as one line, whitespace folded."
+
+facts:
+  - claim: "TicketGraphLimits bounded title 120, requirement 1200, done 8 items of 240."
+    evidence: "src/backend/AgentSmith.Contracts/Models/TicketGraphLimits.cs:12-15"
+  - claim: "A comment was bounded at 4000 characters and a truth at 300."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketCommentOutcomeParser.cs:13; src/backend/AgentSmith.Contracts/Models/WorkPictureLimits.cs:9"
+  - claim: "The stored work picture column is 2000 characters."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:21"
+
+scope:
+  in: "Delete TicketGraphLimits and WorkPictureLimits.Truth, the comment bound; GraphTicketLines folds title and done items; WorkPictureAdmission folds the truth and checks only the stored column; tests."
+  out: "The work picture column width (a storage fact, unchanged)."
+
+steps:
+  - id: bounds
+    action: "Remove the bounds from TicketGraphChecker, the comment parser and write, and the work picture admission and tool text."
+  - id: fold
+    action: "Add GraphTicketLines.Normalized and use it on ticket writes and the ticket parser."
+  - id: tests
+    action: "Tests for long fields accepted, folding, and the column check."
+
+tests:
+  - "TicketGraphChecker_LongFields_AreAccepted"
+  - "GraphTicketLines_MultiLineTitleAndDoneItem_AreFoldedToOneLine"
+  - "WorkPictureAdmission_MultiLineLongTruth_IsFoldedAndStored"
+
+done:
+  - "No ticket, comment or truth length bound remains (grep TicketGraphLimits, MaxLength in the comment parser: none)."
+  - "Build and full suite green at the spec gate."

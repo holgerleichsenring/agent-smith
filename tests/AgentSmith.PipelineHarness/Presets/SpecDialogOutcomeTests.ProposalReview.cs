@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using AgentSmith.PipelineHarness.Composition;
+using AgentSmith.PipelineHarness.Llm;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,7 +25,7 @@ public sealed partial class SpecDialogOutcomeTests
         var reviewer = Reviewer(harness).Finds(new CutFinding(
             "p9999", "GET /widget returns the widget", "contradiction",
             "the spec also forbids touching the service"));
-        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        ScriptSpec(harness.ChatClient);
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
@@ -37,7 +38,7 @@ public sealed partial class SpecDialogOutcomeTests
         finding.Why.Should().Be("the spec also forbids touching the service");
         finding.Quote.Should().Be("GET /widget returns the widget");
         finding.Evidence.Should().BeNull("a contradiction quotes the spec; it cites no look");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "the review is not drawn from the master's script");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; the review is not drawn from the master's script");
     }
 
     [Fact]
@@ -45,7 +46,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         var reviewer = Reviewer(harness);
-        harness.ChatClient.EnqueueText(EpicOutcomeReply);
+        ScriptEpic(harness.ChatClient);
 
         var result = await RunTurnAsync(harness, Discussed("plan the widget platform"));
 
@@ -60,7 +61,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         var reviewer = Reviewer(harness);
-        harness.ChatClient.EnqueueText(BugOutcomeReply);
+        ScriptBug(harness.ChatClient);
 
         var result = await RunTurnAsync(harness, Discussed("add a null check to AppendTurnAsync"));
 
@@ -102,7 +103,7 @@ public sealed partial class SpecDialogOutcomeTests
         harness.StubSandboxFactory!.MissingPaths.UnionWith(["src/Gone.cs", $"{Repo}/src/Gone.cs"]);
         harness.ChatClient
             .EnqueueToolCall("read_file", $$"""{"path": "{{Repo}}/src/Router.cs"}""")
-            .EnqueueText($"Here is the spec draft:\n{CitingDraft}");
+            .EnqueueSpecWrite(CitingDraft).EnqueueText("Here is the spec draft.");
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
@@ -116,7 +117,6 @@ public sealed partial class SpecDialogOutcomeTests
 
     private const string CitingDraft =
         $$"""
-        ```yaml
         spec: p9999
         goal: "Add a widget endpoint to the sample service"
         facts:
@@ -131,7 +131,6 @@ public sealed partial class SpecDialogOutcomeTests
           - "Widget_Get_ReturnsWidget"
         done:
           - "GET /widget returns the widget"
-        ```
         """;
 
     private static HarnessSpecCutReviewer Reviewer(RealCompositionHarness harness) =>

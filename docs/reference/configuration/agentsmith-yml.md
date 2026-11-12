@@ -83,7 +83,7 @@ One entry per LLM configuration. A project names one with `agent:`.
 | `compaction` | `is_enabled` (true), `max_context_tokens` (200000), `max_context_tokens_trigger_ratio` (0.7), `keep_recent_iterations` (3). It summarizes with the `summarization` role |
 | loop tuning | `max_master_loop_iterations` (200), `max_sub_agent_loop_iterations` (100), `max_fix_iterations` (3), `ledger_reminder_every_n_iterations` (10), `reminder_drift_editless_iterations` (8), `verdict_owed_after_iterations` (3), `checkpoint_push_min_interval_seconds` (120), `supports_vision` (true) |
 | scan tuning | `scan_min_source_reads` (6), `scan_master_max_output_tokens` (32000), `scan_master_loop_iterations` (100), `scan_context_window_tokens` (200000) |
-| dialog tuning | `dialog_master_loop_iterations` (100), `dialog_master_max_output_tokens` (32000, used only to re-ask a turn whose reply was cut), `dialog_context_window_tokens` (200000; a design turn replays the previous turn's thread only when it can fold against a window) |
+| dialog tuning | `dialog_master_loop_iterations` (200), `dialog_sub_agent_loop_iterations` (100), `dialog_review_look_allowance` (24, the looks a design turn's proposal and plan reviewers may take), `dialog_context_window_tokens` (200000; a design turn replays the previous turn's thread only when it can fold against a window), `dialog_transcript` (`verbatim_chars` 60000, `keep_recent_chars` 30000, `min_recent_turns` 2, `max_fold_chars` 200000: past `verbatim_chars` a digest folds the older turns) |
 
 ### agents.catalog
 
@@ -303,7 +303,7 @@ These blocks apply to every project unless a project overrides them. On a server
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |
-| `spec_review` | `rounds` (4, `0` turns it off), `reviewers` (2), `max_concurrent` (2), `budget_share_percent` (40): the review each unbuilt spec gets before it is built |
+| `spec_review` | `rounds` (4, `0` turns it off), `reviewers` (2), `max_concurrent` (2), `budget_share_percent` (40): the review each unbuilt spec gets before it is built; `design_turn` (false): one advisory review pass after a Work it out turn |
 | `series` | `max_specs` (24, at most 26), `specs_per_attempt` (8, at most 18), `seconds_per_spec` (0 = not measured), `budget_usd` (150, `0` = no attempt starts by itself), `wall_clock_hours` (12), `continue_after_wall_time` (true) |
 | `role_mapping` | what a role name means: `role_claim`, `group_claim`, `group_roles`, `roles`, `person_grants`, `project_bindings` (`project`, `groups`, `people` as `claim`/`value`, `roles`: roles held in that project only, their run, init and dialog permissions), `observation_retention_days`. Edited on the Access page |
 | `mcp_servers` | the studio's MCP server catalog: `transport`, `url`, `auth` |

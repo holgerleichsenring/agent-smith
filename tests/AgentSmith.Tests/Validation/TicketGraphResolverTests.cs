@@ -25,7 +25,7 @@ public sealed class TicketGraphResolverTests
         var reader = new SpecDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
-            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), SeriesContracts.Reader(), SeriesSettingsDoubles.Reader()),
+            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), SeriesContracts.Reader()),
             Parser(), new TicketCommentOutcomeParser(), DialogTestRepos.Real());
     }
 
@@ -86,7 +86,7 @@ public sealed class TicketGraphResolverTests
         block.Length.Should().BeLessThanOrEqualTo(24_000, "twenty realistic ticket texts fit the 8192-token output cap");
         var graph = Resolver().Resolve(reply, RepoScope).Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<TicketGraphOutcome>().Subject;
-        graph.Tickets.Should().HaveCount(TicketGraphLimits.MaxTickets);
+        graph.Tickets.Should().HaveCount(20);
         graph.Tickets.Should().AllSatisfy(t => t.Done.Should().HaveCount(4));
     }
 

@@ -103,7 +103,7 @@ public sealed class SeriesContractFilingTests
     {
         var root = Root();
         var calls = new[] { "OutcomeTicketFiler.cs", "AmendedSpecification.cs" }
-            .SelectMany(file => Regex.Matches(File.ReadAllText(Path.Combine(root, file)), @"\.(Mint|Under)\(([^;]*?)\)[,;]")
+            .SelectMany(file => Regex.Matches(File.ReadAllText(Path.Combine(root, file)), @"\.(Mint|MintParts|Under)\(([^;]*?)\)[,;]")
                 .Select(m => m.Groups[2].Value)).ToList();
 
         calls.Should().HaveCount(4, "a lone spec and an epic, filed and amended");
@@ -127,23 +127,11 @@ public sealed class SeriesContractFilingTests
         stored.Set.Goal.Should().Be("goal");
     }
 
-    [Fact]
-    public void ProposalReProposalGuard_ReplyChangesTheContract_KeepsTheLastValidOne()
-    {
-        var last = new EpicOutcome(Draft("parent"), [Draft("c-1"), Draft("c-2")], Contract());
-        var reply = last with { Contract = SeriesContractFixtures.Of(names: [new("Other", "event", 1, "c-2")]) };
-
-        var merged = new ProposalReProposalGuard(new SpecRevisionGuard()).Merge(
-            last, reply, new Dictionary<string, ProposalDraftLicence>(), parentNamed: false, lastRound: false);
-
-        ((EpicOutcome)merged!.Merged).Contract.Should().BeSameAs(last.Contract, "no draft's cut licenses the contract");
-    }
-
     private static OutcomeResolution Parse(string contract)
     {
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var parser = new EpicOutcomeParser(validator, new SpecDraftReader(), new RequiresEdgeChecker(),
-            DialogTestRepos.Real(), SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader());
+            DialogTestRepos.Real(), SeriesContracts.Reader());
         return parser.Parse(OutcomeYamlReader.ReadMap($"""
             kind: epic
             parent:

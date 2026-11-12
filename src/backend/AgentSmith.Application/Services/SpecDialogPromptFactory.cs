@@ -32,6 +32,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             {SpecDialog.FrameworkFactsSection.Render(pipeline)}
             {SpecDialog.DialogScopeRepositoriesSection.Render(pipeline)}
             {SpecDialogRevisionSection.Render(pipeline)}
+            {SpecDialog.Writes.ProposalDraftSection.Render(pipeline)}
 
             ## Your reply
             Write the reply text now — it is delivered verbatim to the chat thread.
@@ -39,6 +40,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             {DialogImageNote.Render(imagesExisting, imagesCarried)}
             {ConversationNameNote.Render(pipeline)}
             {WorkPictureSection.Render(pipeline)}
+            {ConversationNotesSection.Render(pipeline)}
             {Handlers.ReferencePromptSection.ThisTurn(Uploads(pipeline))}
             {TurnContract(transcript)}
             """;
@@ -75,14 +77,4 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
     // 2026-11-11-205fi: the turn's sandbox map, where each upload's sandbox carries its coverage and note.
     private static IReadOnlyDictionary<string, Contracts.Sandbox.ISandbox>? Uploads(PipelineContext pipeline) =>
         pipeline.TryGet<IReadOnlyDictionary<string, Contracts.Sandbox.ISandbox>>(ContextKeys.Sandboxes, out var map) ? map : null;
-
-    // p0315e: one nudge covers every typed terminal outcome — a spec draft
-    // (```yaml) and a bug/epic payload (```outcome) fail the same gate.
-    public string BuildOutcomeFixNudge(string originalUserPrompt, string validationError) =>
-        "The terminal outcome in your previous reply failed schema validation and was "
-        + $"NOT shown to the operator. Validation error: {validationError}\n"
-        + "Fix exactly what the error names and reply again with the full corrected "
-        + "block (plus at most a line of framing). Do not repeat the invalid output.\n\n"
-        + "Original task:\n" + originalUserPrompt;
-
 }

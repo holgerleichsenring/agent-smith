@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4ca
+
+decisions:
+  - category: Design
+    chose: "The proposal store is an immutable ProposalDraft swapped whole by ProposalStore.Apply; every write is checked against the current draft and either replaces it or leaves it standing"
+    over: "A mutable list the tools append to, checked once at the end of the turn"
+    reason: "A check at the end can only re-prompt or fail the turn; a check on the write answers on its own tool result and the store is always fileable."
+  - category: Design
+    chose: "An epic is a spec written with parent=true plus the other specs of the draft; several specs without a parent are refused, so the parent is written first"
+    over: "A parent_key on each child"
+    reason: "One flag keeps the child write independent of the parent's handle, and turning a lone spec into an epic is one write of a parent. The refusal names the next step."
+  - category: Design
+    chose: "A spec written without spec: gets a placeholder id minted by the store ({date}-{4 hex}); a stated id-shaped id is used as the handle, a rewrite when the draft holds it"
+    over: "Only store-minted ids, or model-made ids as today"
+    reason: "Minting removes the placeholder ceremony; accepting a stated id keeps a requires edge writable before the answer comes back and lets a scripted turn name its specs. Filing re-ids every placeholder as before."
+  - category: Design
+    chose: "write_bug, write_comment (bound conversations only) and write_contract beside the contracted write_ticket, write_spec and remove_item"
+    over: "Folding bug and comment into write_ticket flags"
+    reason: "Each kind keeps its own fields and schema; a draft holds one kind, and a write of another kind is refused naming what to remove."
+  - category: Design
+    chose: "The proposal awaiting a decision seeds the store; a turn that writes nothing is an answer and the standing proposal stays, an interrupted one (UnderReview) is proposed again as it stands"
+    over: "A fresh empty store per turn"
+    reason: "A revision then rewrites one ticket instead of re-emitting thirty; the prompt shows the draft item by item with its handle."
+  - category: Implementation
+    chose: "The outcome gate builds the outcome from the store and keeps only the cut-at-limit re-ask; BuildOutcomeFixNudge is deleted"
+    over: "Deleting the gate in this spec"
+    reason: "The gate's removal is 2026-11-12-cd4cb; nothing here can be invalid any more, so its schema re-prompt and nudge were dead."
+  - category: Implementation
+    chose: "OutcomeProposalResolver and the outcome parsers stay compiled for ProposalCutsReprompt only"
+    over: "Deleting them now"
+    reason: "ProposalCutsReprompt belongs to the review loop another series member removes; deleting the resolver here would edit that class. Once it is gone the resolver, the four parsers and SpecDialogDraftBlocks' outcome rules are dead and go."

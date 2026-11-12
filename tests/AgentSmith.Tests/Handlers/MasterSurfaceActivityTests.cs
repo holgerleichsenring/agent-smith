@@ -39,21 +39,6 @@ public sealed class MasterSurfaceActivityTests
             .And.NotContain(tool => tool is ActivityReportingAIFunction);
     }
 
-    [Fact]
-    public async Task DialogTurn_InvalidOutcome_ReportsRevising()
-    {
-        var accessor = TurnActivityRecorder.Silent();
-        var recorder = new TurnActivityRecorder();
-        using var observing = accessor.Observe(recorder);
-        // Neither pass resolves to a terminal outcome, so the gate re-prompts once.
-        var loop = new RecordingLoopRunner("```outcome\nkind: nonsense\n```");
-
-        await RunAsync(loop, SpecDialog: true);
-
-        loop.SeenRequests.Should().HaveCount(2, "the gate re-prompts once on an invalid outcome");
-        recorder.Lines.Should().Contain("revising");
-    }
-
     private static async Task RunAsync(RecordingLoopRunner loop, bool SpecDialog)
     {
         var master = SpecDialog ? "design-partner-master" : "coding-agent-master";

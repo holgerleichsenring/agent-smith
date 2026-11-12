@@ -14,13 +14,10 @@ public sealed class TicketGraphOutcomeParserTests
     private static string Error(string tickets) =>
         Parse(tickets).Should().BeOfType<OutcomeInvalid>().Subject.Error;
 
+    // 2026-11-12-cd4cc: a list has no count.
     [Fact]
-    public void TicketGraphOutcomeParser_OneTicket_RefusedNamingTheMinimumOfTwo() =>
-        Error(Item("orders-api")).Should().Contain("1 ticket").And.Contain("at least 2");
-
-    [Fact]
-    public void TicketGraphOutcomeParser_TwentyOneTickets_RefusedNamingTheMaximumOfTwenty() =>
-        Error(string.Concat(Enumerable.Range(1, 21).Select(i => Item($"t{i}")))).Should().Contain("21 tickets").And.Contain("at most 20");
+    public void TicketGraphOutcomeParser_TwentyOneTickets_AreAList() =>
+        Parse(Item("orders-api") + string.Concat(Enumerable.Range(1, 20).Select(i => Item($"t{i}")))).Should().BeOfType<OutcomeResolved>();
 
     [Fact]
     public void TicketGraphOutcomeParser_UnknownTicketField_RefusedNamingTheTicket() =>

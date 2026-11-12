@@ -26,8 +26,8 @@ public sealed class OpenQuestionsToolHost(SpecDialogReplySlot slot) : IToolHost
     [Description(
         "Lays the questions only the operator can answer onto this turn's draft, for its card: each entry is the "
         + "question, your proposal, and the ids of the specs it touches. The card offers to take your proposal or to "
-        + "answer differently; either comes back as the operator's next message. The card shows only on the dashboard "
-        + "and only with a draft, so the same questions stay in your reply. A later call in this turn replaces the list.")]
+        + "answer differently; either comes back as the operator's next message. The questions show with the draft on "
+        + "every surface, so your reply need not repeat them. A later call in this turn replaces the list.")]
     private string StateOpenQuestions(
         [Description("The questions, each {question, proposal, specIds}.")] OpenQuestion[] questions)
     {
@@ -35,10 +35,10 @@ public sealed class OpenQuestionsToolHost(SpecDialogReplySlot slot) : IToolHost
         for (var i = 0; i < entries.Length; i++)
         {
             var refusal = Refusal(entries[i]);
-            if (refusal is not null) return $"Not stored: entry {i + 1} has an empty {refusal}. {Rule} State them again.";
+            if (refusal is not null) return $"Not stored: entry {i + 1} has an empty {refusal}. {Rule}";
         }
         slot.Questions = [.. entries.Select(Normalized)];
-        return $"Stored {entries.Length} question(s). Keep them in your reply as well.";
+        return $"Stored {entries.Length} question(s)."; // 2026-11-12-cd4cf: the one channel; nothing to repeat
     }
 
     private static string? Refusal(OpenQuestion? entry)

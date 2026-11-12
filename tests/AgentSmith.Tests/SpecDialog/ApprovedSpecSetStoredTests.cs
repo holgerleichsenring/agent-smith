@@ -82,34 +82,16 @@ public sealed class ApprovedSpecSetStoredTests
             .Repositories.Should().Equal("sample-api", "sample-web");
     }
 
-    /// <summary>
-    /// The cap is checked on the PROPOSAL, before any ticket exists: the filers create and then
-    /// store, so a refusal at store time would leave a filed ticket with no set.
-    /// </summary>
+    /// <summary>2026-11-12-cd4cc: a proposal has no count; a set longer than one series is split when it is filed.</summary>
     [Fact]
-    public void EpicOutcomeParser_TwentyFourChildren_Accepted_TwentyFiveRefusedNamingTheCap()
+    public void EpicOutcomeParser_ThirtyChildren_Accepted()
     {
-        var parser = Parser(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader());
-
-        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(24)), []).Should().BeOfType<OutcomeResolved>();
-        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(25)), []).Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Contain("25 children").And.Contain("series.max_specs = 24");
+        Parser().Parse(OutcomeYamlReader.ReadMap(EpicYaml(30)), []).Should().BeOfType<OutcomeResolved>();
     }
 
-    /// <summary>2026-10-13-8762u: an invalid series block is refused where it is read, naming the field.</summary>
-    [Fact]
-    public void EpicOutcomeParser_InvalidSeriesConfig_RefusedNamingTheField()
-    {
-        var parser = Parser(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(
-            new AgentSmith.Contracts.Models.Configuration.SeriesConfig { MaxSpecs = 27 }));
-
-        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(2)), []).Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Contain("series.max_specs is 27");
-    }
-
-    private static EpicOutcomeParser Parser(AgentSmith.Application.Services.Specs.ISeriesSettingsReader series) => new(
+    private static EpicOutcomeParser Parser() => new(
         new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), new RequiresEdgeChecker(),
-        DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), series);
+        DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader());
 
     private static string EpicYaml(int children)
     {

@@ -58,7 +58,7 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
-    public void ProposalReviewRounds_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
+    public void ProposalReviewPass_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -66,12 +66,29 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ProposalReviewLoop>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ProposalReProposalGuard>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ProposalAttackPass>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.ProposalReviewPass>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>()
             .Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogDecisionPath>()
             .Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ReviewProposalTool_FromTheRealServiceProvider_IsOnTheDesignPartnersSurface()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var context = new AgentSmith.Application.Models.AgenticMasterContext("design-partner-master",
+            new AgentSmith.Domain.Entities.Repository(new AgentSmith.Domain.Models.BranchName("main"), "/tmp"), string.Empty,
+            new AgentSmith.Contracts.Models.Configuration.AgentConfig { Type = "claude" }, new AgentSmith.Contracts.Commands.PipelineContext());
+        context.Pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.SpecDialogReplySlot, new AgentSmith.Contracts.Models.SpecDialogReplySlot());
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Tools.TicketActToolsFactory>().Tools(context)
+            .Select(t => t.Name).Should().Contain(AgentSmith.Application.Services.Tools.ReviewProposalToolHost.Name);
     }
 
     [Fact]

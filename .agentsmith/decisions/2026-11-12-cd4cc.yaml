@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4cc
+
+decisions:
+  - category: Design
+    chose: "A long epic is cut into parts of series.max_specs at filing, each its own work ticket and series; only the first part may start and a filing note says each later part continues the one before"
+    over: "Raising the series letter space, or refusing the long epic"
+    reason: "A series is what one coding run works and its letters are a..z; the operator's approval of a long epic should not be refused for that. Starting later parts before earlier ones merge would build on code that is not there, so they wait for a person."
+  - category: Implementation
+    chose: "A later part's requires on an earlier part are rewritten to the earlier part's filed ids (SeriesDraftIds.Rewire)"
+    over: "Leaving the placeholders"
+    reason: "A placeholder means nothing once filed; the filed id names the spec the part depends on."
+  - category: Implementation
+    chose: "An epic of one child and a ticket list of one are accepted"
+    over: "Keeping the 'a single slice is just a spec' rule"
+    reason: "A parent with one child is still a cut the operator can approve; the rule only cost a re-prompt."

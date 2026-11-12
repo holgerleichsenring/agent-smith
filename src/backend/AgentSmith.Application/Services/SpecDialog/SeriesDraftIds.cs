@@ -11,10 +11,14 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class SeriesDraftIds(SpecDraftIdRewriter rewriter)
 {
-    public IReadOnlyList<SpecDraft> Assign(string series, IReadOnlyList<SpecDraft> ordered)
+    public IReadOnlyList<SpecDraft> Assign(string series, IReadOnlyList<SpecDraft> ordered) =>
+        Rewire(ordered, Map(series, ordered));
+
+    /// <summary>2026-11-12-cd4cc: the drafts with every id the map names rewritten — ids, requires and yaml alike.</summary>
+    public IReadOnlyList<SpecDraft> Rewire(IReadOnlyList<SpecDraft> drafts, IReadOnlyDictionary<string, string> ids)
     {
-        var ids = Map(series, ordered);
-        return [.. ordered.Select(draft => draft with
+        ArgumentNullException.ThrowIfNull(drafts);
+        return [.. drafts.Select(draft => draft with
         {
             SpecId = rewriter.RewriteValue(draft.SpecId, ids),
             Requires = [.. draft.Requires.Select(r => rewriter.RewriteValue(r, ids))],

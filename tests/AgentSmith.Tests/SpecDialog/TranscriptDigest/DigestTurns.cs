@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Tests.SpecDialog.TranscriptDigest;
 
@@ -17,6 +18,13 @@ internal static class DigestTurns
 
     /// <summary>A text of exactly <paramref name="chars"/> characters that starts with <paramref name="marker"/>.</summary>
     public static string Big(string marker, int chars) => marker + new string('x', chars - marker.Length);
+
+    /// <summary>2026-11-12-cd4cl: the default window, as agentsmith.yml carries it when nothing is set.</summary>
+    public static readonly TranscriptWindowConfig W = new();
+
+    public static string RenderWindow(IReadOnlyList<SpecDialogTurn> turns) => TranscriptWindow.Render(turns, W);
+
+    public static TranscriptFold? FoldWindow(IReadOnlyList<SpecDialogTurn> turns) => TranscriptWindow.Fold(turns, W);
 
     /// <summary>The rendered width of turns, as the window measures them.</summary>
     public static int Width(IEnumerable<SpecDialogTurn> turns) =>

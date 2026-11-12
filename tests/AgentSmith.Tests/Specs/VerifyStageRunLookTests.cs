@@ -46,9 +46,9 @@ public sealed class VerifyStageRunLookTests
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)
             new Dictionary<string, ISandbox> { [Repo] = new CountingSandbox(0) });
 
-        var look = Factory().ForProposalReview(pipeline);
+        var look = Factory().ForProposalReview(pipeline, new AgentConfig());
 
-        DerivationLookTerms.ProposalReview.MayRunAStage.Should().BeFalse(
+        DerivationLookTerms.ProposalReviewWith(24).MayRunAStage.Should().BeFalse(
             "it is the cut review's terms with fields replaced, so its value is written out");
         look!.Tools.Select(tool => tool.Name).Should().NotContain(VerifyStageRunTool.Name);
     }

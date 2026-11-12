@@ -21,6 +21,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// against them.</param>
 /// <param name="Pattern">2026-11-04-6768a: the pattern a search ran, or null for every other kind — what the
 /// premise check replays at the series base, never read back out of <paramref name="What"/>.</param>
+/// <param name="FirstLine">2026-11-12-cd4cl: the file line the returned lines start at; 1 unless the read paged.</param>
 public sealed record EvidenceRecord(
     string Repository,
     string Kind,
@@ -29,7 +30,8 @@ public sealed record EvidenceRecord(
     bool Ran,
     string? Path = null,
     int LinesReturned = 0,
-    string? Pattern = null)
+    string? Pattern = null,
+    int FirstLine = 1)
 {
     public const string Read = "read";
     public const string Search = "search";

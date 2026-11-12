@@ -18,6 +18,10 @@ public sealed class SpecReviewConfig
     /// <summary>The percent of the run's cost cap and wall clock the review may use.</summary>
     public int BudgetSharePercent { get; set; } = 40;
 
+    /// <summary>2026-11-12-cd4ch: whether a design turn's proposal gets one advisory review pass after the turn.
+    /// Off, only the mechanical evidence check runs there; the run reviews every spec before it is built.</summary>
+    public bool DesignTurn { get; set; }
+
     /// <summary>What is wrong with these values, one sentence each; empty when nothing is. The ONE rule —
     /// a run refuses what this names, never clamping it.</summary>
     public IReadOnlyList<string> Problems()

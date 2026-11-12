@@ -38,6 +38,9 @@ public sealed class SpecDialogReplySlot
     /// <summary>2026-11-10-d854c: the turn's run id, written when its pipeline grounds the turn; null before that.</summary>
     public string? RunId { get; set; }
 
+    /// <summary>2026-11-12-cd4ca: the items the turn's write tools stored; the turn's proposal is built from it.</summary>
+    public ProposalStore Proposal { get; } = new();
+
     /// <summary>What the turn's master last forwarded and was answered, for the next turn to replay.</summary>
     public ForwardedThreadCapture Thread { get; } = new();
 }

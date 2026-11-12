@@ -34,19 +34,6 @@ public sealed class ProposalSpendTests
         _published[0].Spend!.Usd.Should().Be(3m);
     }
 
-    [Fact]
-    public async Task ProposalReviewLoop_MidReviewPush_CarriesSpendSoFar()
-    {
-        var rig = Spending(4m);
-        rig.OnReview = input => input.Draft.SpecId == First ? Build() : null;
-        using var observing = _accessor.Observe(new Recording(_published));
-
-        await rig.RunAsync();
-
-        _published.Should().HaveCountGreaterThan(1);
-        _published[1].Spend!.Usd.Should().Be(4m);
-    }
-
     private ProposalReviewRig Spending(decimal usd)
     {
         var rig = new ProposalReviewRig { Proposals = _accessor };

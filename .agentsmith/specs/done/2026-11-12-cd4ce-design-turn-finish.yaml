@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4ce
+goal: "A design turn ends when the model stops calling tools; its kind is what its draft holds, and a proposal turn without prose is answered by the draft."
+
+applies_to: "default (spec dialog: reply collection)"
+
+requires: [2026-11-12-cd4cb]
+
+invariants:
+  - "THE MODEL ENDS THE TURN. No finish tool and no re-prompt: the loop's last answer without tool calls is the end."
+  - "NO PROSE IS NO FAILURE. A turn that wrote a proposal and said nothing more gets the line naming what its draft holds; only a turn with neither fails."
+
+facts:
+  - claim: "CollectSpecDialogReply failed every turn with an empty reply."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:27-30"
+  - claim: "After 2026-11-12-cd4cb the turn flow publishes ProposalDraftOutcome.For(slot.Proposal) and nothing re-prompts."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogTurnFlow.cs"
+
+scope:
+  in: "CollectSpecDialogReplyHandler, ProposalDraftHolding, tests."
+  out: "The review after the turn (another series member)."
+
+steps:
+  - id: collect
+    action: "Read the outcome first; an empty reply with a proposal becomes 'The draft holds …'."
+  - id: tests
+    action: "Unit and harness tests for a turn that ends on writes alone."
+
+tests:
+  - "CollectSpecDialogReply_EmptyAnswerWithAProposal_SaysWhatTheDraftHolds"
+  - "DesignTurn_EndsWithWritesAndNoProse_ProposesTheDraftAndSaysWhatItHolds"
+
+done:
+  - "A turn of writes and no prose files its draft; the tests above pass."
+  - "Build and full suite green at the spec gate."

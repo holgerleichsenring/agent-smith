@@ -45,5 +45,9 @@ public static class RetiredConfigKeys
         new("pipeline_storage", "2026-10-02",
             "It set the lifetime of in-flight run artifacts in Redis, and nothing stores them there "
             + "any more: a run's markdown lives in the database (2026-10-02-5ab2f)."),
+        new("limits.max_output_tokens_per_skill_call", "2026-11-12",
+            "It was never enforced: the input-token and cost caps are the budget (2026-11-12-cd4cl)."),
+        new("limits.max_dialog_sub_agent_loop_iterations", "2026-11-12",
+            "A design turn's child reads its ceiling from agents.<name>.dialog_sub_agent_loop_iterations (2026-11-12-cd4cl)."),
     ];
 }

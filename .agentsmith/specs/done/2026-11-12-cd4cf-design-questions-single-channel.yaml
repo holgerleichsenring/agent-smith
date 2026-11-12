@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4cf
+goal: "state_open_questions and state_work_picture are the one channel for their content; their answers no longer tell the model to repeat it, and chat shows the questions with the proposal."
+
+applies_to: "default (spec dialog: question and work-picture tools, chat confirmation)"
+
+requires: [2026-11-12-cd4ca]
+
+invariants:
+  - "ONCE. A tool answer states what was stored and never asks for the same content in the reply."
+  - "EVERY SURFACE. The dashboard card renders a proposal's questions; a chat confirmation lists them as text."
+
+facts:
+  - claim: "state_open_questions answered 'Keep them in your reply as well.'"
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/OpenQuestionsToolHost.cs:41"
+  - claim: "state_work_picture answered 'Stored. State it in one line of your reply.'"
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WorkPictureToolHost.cs:23"
+  - claim: "The chat confirmation carried the proposal and its findings, not its questions."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:24-31"
+
+scope:
+  in: "The two tool answers and descriptions, SpecDialogQuestionLines in the chat confirmation, tests."
+  out: "The skill text (another agent)."
+
+steps:
+  - id: answers
+    action: "Drop the instructing sentences from both tools' answers and the question tool's description."
+  - id: chat
+    action: "List the proposal's open questions in the chat confirmation."
+
+tests:
+  - "OutcomeConfirmation_BoundForSlack_ListsTheOpenQuestions"
+
+done:
+  - "No tool answer on the design surface asks to repeat content in the reply (grep)."
+  - "Build and full suite green at the spec gate."

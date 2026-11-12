@@ -125,18 +125,18 @@ public sealed class ExternalWorkerChatClientTests
     }
 
     [Fact]
-    public async Task Bridge_InventedTool_ThrowsRatherThanReachingTheLoop()
+    public async Task Bridge_InventedTool_ReachesTheLoopWhichAnswersItAsUnknown()
     {
+        // 2026-11-12-0c24: the function-invoking loop answers an unknown name; the transport does not end the turn.
         var tool = AIFunctionFactory.Create((string path) => "ok", "write_file", "Writes a file");
         var runner = new ScriptedWorkerProcessRunner().EnqueueToolCall("delete_repo", "{}");
         var (client, context) = NewClient(runner);
 
-        var act = async () => await InRunScope(context, () => client.GetResponseAsync(
+        var response = await InRunScope(context, () => client.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "hi")],
             new ChatOptions { Tools = [tool] }, CancellationToken.None));
 
-        (await act.Should().ThrowAsync<ExternalWorkerCallException>()).Which.Reason
-            .Should().Contain("delete_repo");
+        response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().Single().Name.Should().Be("delete_repo");
     }
 
     [Fact]

@@ -28,16 +28,17 @@ public sealed class LimitEnforcerHitLimitTests
         enforcer.HitLimit.Should().Be("tokens");
     }
 
+    // 2026-11-12-cd4cl: output is counted, never capped — the input and cost caps are the budget.
     [Fact]
-    public void HitLimit_OutputTokenCapReached_RecordsTokens()
+    public void RecordLlmCall_ManyOutputTokens_Continues()
     {
-        var limits = new LoopLimitsConfig { MaxOutputTokensPerSkillCall = 50 };
-        var enforcer = new LimitEnforcer(limits, new CancellationTokenSource());
+        var enforcer = new LimitEnforcer(new LoopLimitsConfig(), new CancellationTokenSource());
 
-        var decision = enforcer.RecordLlmCall(inputTokens: 5, outputTokens: 100);
+        var decision = enforcer.RecordLlmCall(inputTokens: 5, outputTokens: 10_000_000);
 
-        decision.Kind.Should().Be(LimitDecisionKind.CappedTokens);
-        enforcer.HitLimit.Should().Be("tokens");
+        decision.Kind.Should().Be(LimitDecisionKind.Continue);
+        enforcer.AccumulatedOutputTokens.Should().Be(10_000_000);
+        enforcer.HitLimit.Should().BeNull();
     }
 
     [Fact]

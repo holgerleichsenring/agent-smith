@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-0c24
+goal: "A worker tool call with non-object arguments or an unoffered tool name reaches the model as that call's error; the turn goes on."
+
+applies_to: "default (external worker transport)"
+
+requires: []
+
+invariants:
+  - "AN IMPERFECT CALL IS DATA. The call stays in the response; the loop answers it with the reason, as it answers a tool that throws."
+  - "THE LOOP'S TOLERANCE DECIDES. Repeated bad calls end the loop by ToolLoopErrorTolerance's count, not by the transport."
+
+facts:
+  - claim: "Non-object arguments or an unoffered tool failed the whole worker call with ExternalWorkerCallException."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerReplyTranslator.cs:30-35"
+  - claim: "The loop reads a failed tool's exception message and survives three consecutive failures."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ToolLoopErrorTolerance.cs:19-35"
+
+assumptions:
+  - "A local claude -p replay of a design turn died after seven minutes because write_notes was called with Undefined arguments (replay log, not in the repository)."
+
+scope:
+  in: "WorkerReplyTranslator: non-object arguments arrive empty, so binding answers the model with the parameters it is missing; an unoffered name passes to the loop, which answers it as unknown. Tests."
+  out: "A worker refusal or an empty answer (still failures); provider clients."
+
+steps:
+  - id: translate
+    action: "Validate keeps refusal and emptiness; malformed arguments become a call with empty arguments; unoffered names pass through."
+  - id: tests
+    action: "Translator tests for both shapes, and one through a real FunctionInvokingChatClient showing the model receives the error and the loop continues."
+
+tests:
+  - "Translate_ArgumentsThatAreNotAnObject_ArriveEmpty"
+  - "Translate_ToolThatWasNeverOffered_PassesToTheLoop"
+  - "Loop_MalformedWorkerCall_AnswersTheModelAndContinues"
+  - "Bridge_InventedTool_ReachesTheLoopWhichAnswersItAsUnknown"
+
+done:
+  - "A malformed or unknown worker call no longer throws ExternalWorkerCallException."
+  - "Build and full suite green at the spec gate."

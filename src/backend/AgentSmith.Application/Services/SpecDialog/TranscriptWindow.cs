@@ -1,29 +1,28 @@
 using System.Text;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// The part of a long conversation a dialog turn's prompt carries. Up to <see cref="VerbatimChars"/> the transcript
+/// The part of a long conversation a dialog turn's prompt carries. Up to the window's verbatim bound the transcript
 /// is rendered whole, as it always was; past that, the latest digest stands in for the turns it folded, the pinned
 /// ones among them stay verbatim, and every later turn follows. A fold is due only once the verbatim tail outgrows the
-/// bound, and it folds down to <see cref="KeepRecentChars"/>, so a fold follows at least that much new conversation.
+/// bound, and it folds down to the window's keep-recent bound, so a fold follows at least that much new conversation.
+/// 2026-11-12-cd4cl: the bounds are <see cref="TranscriptWindowConfig"/>, read from agentsmith.yml.
 /// </summary>
 public static class TranscriptWindow
 {
-    public const int VerbatimChars = 60_000;
-    public const int KeepRecentChars = 30_000;
-    public const int MinRecentTurns = 2;
-    public const int MaxFoldChars = 200_000;
 
     public static string Line(SpecDialogTurn turn) =>
         turn.Author is { } author ? $"[{turn.Role}: {author}] {turn.Text}" : $"[{turn.Role}] {turn.Text}";
 
-    public static string Render(IReadOnlyList<SpecDialogTurn> turns)
+    public static string Render(IReadOnlyList<SpecDialogTurn> turns, TranscriptWindowConfig window)
     {
         ArgumentNullException.ThrowIfNull(turns);
+        ArgumentNullException.ThrowIfNull(window);
         var full = Join(turns);
-        if (LatestDigest(turns) is not { } digest || full.Length <= VerbatimChars) return full;
+        if (LatestDigest(turns) is not { } digest || full.Length <= window.VerbatimChars) return full;
         var through = digest.DigestThrough!.Value;
         var pinned = Pinned(turns);
         var kept = Enumerable.Range(0, turns.Count)
@@ -37,24 +36,25 @@ public static class TranscriptWindow
         return sb.ToString().TrimEnd();
     }
 
-    /// <summary>The fold that is due, or null: the verbatim tail is at most <see cref="VerbatimChars"/>, or only the
-    /// newest <see cref="MinRecentTurns"/> would be left to fold.</summary>
-    public static TranscriptFold? Fold(IReadOnlyList<SpecDialogTurn> turns)
+    /// <summary>The fold that is due, or null: the verbatim tail is within the window's verbatim bound, or only its
+    /// newest turns would be left to fold.</summary>
+    public static TranscriptFold? Fold(IReadOnlyList<SpecDialogTurn> turns, TranscriptWindowConfig window)
     {
         ArgumentNullException.ThrowIfNull(turns);
+        ArgumentNullException.ThrowIfNull(window);
         var digest = LatestDigest(turns);
         var after = digest?.DigestThrough ?? -1;
         var tail = Enumerable.Range(after + 1, Math.Max(0, turns.Count - after - 1))
             .Where(i => !IsDigest(turns[i])).ToList();
         var rest = tail.Sum(i => Width(turns[i]));
-        if (rest <= VerbatimChars) return null;
+        if (rest <= window.VerbatimChars) return null;
         var folded = new List<int>();
         var input = 0;
         foreach (var index in tail)
         {
             var width = Width(turns[index]);
-            if (rest <= KeepRecentChars || tail.Count - folded.Count <= MinRecentTurns) break;
-            if (folded.Count > 0 && input + width > MaxFoldChars) break;
+            if (rest <= window.KeepRecentChars || tail.Count - folded.Count <= window.MinRecentTurns) break;
+            if (folded.Count > 0 && input + width > window.MaxFoldChars) break;
             folded.Add(index);
             input += width;
             rest -= width;

@@ -31,7 +31,6 @@ public sealed class ProposalSeriesRoundTests
             .Which.Should().Match<ProposalFinding>(f => f.Quote == Quote && f.Evidence == Entry && f.Why.Contains("export queue"));
         rig.Outcome.Findings.Should().Contain(f => f.SpecId == Parent && f.Problem == ProposalSeriesRound.Problem
             && f.Why.Contains(SpecReviewVerdicts.BuildWithCuts));
-        rig.Nudges.Should().BeEmpty("the turn shows series cuts; it never re-prompts for them");
         rig.DraftOf(Second).Yaml.Should().Contain("buffered file writer");
     }
 

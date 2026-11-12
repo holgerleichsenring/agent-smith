@@ -22,8 +22,9 @@ internal static class OwnReadRule
             .Select(id => reads.TryGetValue(id, out var read) ? read : null)
             .FirstOrDefault(read => read is not null && Same(read, repository, path));
 
-    /// <summary>True when the line lies inside what the read returned.</summary>
-    public static bool Within(int line, EvidenceLook read) => line >= 1 && line <= read.LinesReturned;
+    /// <summary>True when the line lies inside what the read returned — from its first line, as many as it carried.</summary>
+    public static bool Within(int line, EvidenceLook read) =>
+        line >= read.FirstLine && line < read.FirstLine + read.LinesReturned;
 
     /// <summary>True when the look named this repository and, normalised, this path.</summary>
     public static bool Same(EvidenceLook look, string repository, string? path) =>
