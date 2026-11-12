@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.184.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.183.0...v0.184.0) (2026-11-12)
+
+
+### Features
+
+* a Work it out proposal gets its advisory review pass by default (2026-11-12-7c1c) ([505a838](https://github.com/holgerleichsenring/agent-smith/commit/505a83838499dfc0a947f4277251a6e75251b790))
+* Delivery steps back and forth through past days, weeks and months (2026-11-12-aeddb) ([16a8f54](https://github.com/holgerleichsenring/agent-smith/commit/16a8f5449cafee720780c1e38b181a8bf179be41))
+* open questions are answered in place and sent as one message, and approval files them as decided (2026-11-12-e2f5) ([fb32e60](https://github.com/holgerleichsenring/agent-smith/commit/fb32e60f902f4020a7d2f51f1d6fafda76721f43))
+* pin skills v5.29.1, the reply is the analysis and each question is one decision (2026-11-12-83ca) ([5c8ec5b](https://github.com/holgerleichsenring/agent-smith/commit/5c8ec5b33a2337d60badf9b7ee3d01ab2be31d2d))
+
+
+### Bug Fixes
+
+* a held answer keeps Approve from filing past it (2026-11-12-5bfd) ([3a09486](https://github.com/holgerleichsenring/agent-smith/commit/3a09486c9ca8f5e150b96921b355a8d037a36d07))
+* a turn result says reviewed clean only after a review, and shows the awaiting proposal once (2026-11-12-01b4) ([c95efff](https://github.com/holgerleichsenring/agent-smith/commit/c95efff76ed960efddf73e7dd736c6fd35f0ba3c))
+* the ticket list shows every ticket, and Delivery reaches past periods (2026-11-12-aedda, 2026-11-12-aeddb) ([46956f0](https://github.com/holgerleichsenring/agent-smith/commit/46956f078bc1cf7ff7bbc8e1c1c81cf924a88d8d))
+* the unfiltered ticket list shows every ticket, Done and Closed open, and pages past fifty (2026-11-12-aedda) ([8e4fd40](https://github.com/holgerleichsenring/agent-smith/commit/8e4fd40887c0a0ece5b5958934281af9fbd102f8))
+* Work it out shows the result once, honestly, and answers questions without a turn per click ([1edb7d9](https://github.com/holgerleichsenring/agent-smith/commit/1edb7d970fe5d7bae01fddd2053f46393c26a14f))
+
 ## [0.183.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.182.0...v0.183.0) (2026-11-12)
 
 
