@@ -71,6 +71,28 @@ describe("TurnResult", () => {
     expect(within(rows[9]).getByTestId("turn-row-status")).toHaveTextContent("reviewed clean");
   });
 
+  // 2026-11-12-01b4: with review off nothing reviewed the specs, so no row says reviewed clean and nothing counts clean.
+  it("TurnResult with no review shows no pill and no clean count", () => {
+    const unreviewed = { ...epic, findings: [], reviewRounds: [], notReviewed: null, spend: null };
+    render(<TurnResult proposal={turnProposalOf(unreviewed)} />);
+
+    expect(screen.getAllByTestId(/^turn-row-2026/)).toHaveLength(10);
+    expect(screen.queryByTestId("turn-row-status")).toBeNull();
+    expect(screen.getByTestId("turn-specs")).not.toHaveTextContent("clean");
+  });
+
+  it("TurnResult says reviewed clean only for the spec whose last round answered build", () => {
+    const rounds = [
+      { specId: draft(1).specId, round: 1, verdict: "build", reviewerVerdicts: ["build"], cuts: [], findings: [], residues: [] },
+      { specId: draft(2).specId, round: 1, verdict: "build", reviewerVerdicts: ["build"], cuts: [], findings: [], residues: [] },
+      { specId: draft(2).specId, round: 2, verdict: "refuse", reviewerVerdicts: ["refuse"], cuts: [], findings: [], residues: [] },
+    ];
+    render(<TurnResult proposal={turnProposalOf({ ...epic, findings: [], reviewRounds: rounds, notReviewed: null, spend: null })} />);
+
+    expect(screen.getAllByTestId("turn-row-status").map((pill) => pill.textContent)).toEqual(["reviewed clean", "findings"]);
+    expect(screen.getByTestId("turn-specs")).toHaveTextContent("1 clean · 1 with findings");
+  });
+
   it("TurnResult's activity line shows duration, steps and cost and pages the steps", async () => {
     render(<TurnResult proposal={turnProposalOf(epic)} runId="run-1" />);
     const line = screen.getByTestId("turn-activity-line");

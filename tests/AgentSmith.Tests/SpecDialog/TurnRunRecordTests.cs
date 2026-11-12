@@ -210,6 +210,34 @@ public sealed class TurnRunRecordTests : IDisposable
             .Equal(["first", "second"], "the second proposal superseded the first as the card, not as the first turn's own");
     }
 
+    // 2026-11-12-01b4: a tool-written proposal leaves no draft block in the reply, so the text anchor finds no turn and the
+    // card trailed the transcript as a second copy; the awaiting proposal sits on the reply whose run kept it.
+    [Fact]
+    public async Task TurnProposals_ToolWrittenAwaitingProposal_SitsOnItsOwnReply()
+    {
+        var harness = new SpecDialogDecisionHarness(_context);
+        var state = await harness.OpenAsync("dashboard", Dialog);
+        await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.User, "cut it", null, null, default);
+        await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "first", null, null, default, runId: "run-1");
+        await harness.Flow().HandleAsync(state, Bug("first"), default, runId: "run-1");
+        await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "second", null, null, default, runId: "run-2");
+        await harness.Flow().HandleAsync(state, Bug("second"), default, runId: "run-2");
+        await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "a plain answer", null, null, default, runId: "run-3");
+        var current = (await harness.Sessions.GetOpenByThreadAsync("dashboard", Dialog, default))!;
+        var awaiting = (await harness.Outcomes.ReadAsync("dashboard", Dialog, default)).Proposal!;
+        var composer = new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer());
+        var view = new SpecDialogSessionView(current.JobId, new SpecDialogProjectView("sample", [], []),
+            SpecDialogShownTranscript.Turns(current.Transcript), current.LastActivityAt, [],
+            Proposal: composer.Compose(Dialog, awaiting, current.LastActivityAt),
+            ProposalTurn: SpecDialogShownTranscript.CardTurn(current.Transcript));
+
+        var read = await new SpecDialogTurnProposals(harness.TurnProposals, composer,
+            new AgentSmith.Infrastructure.Persistence.Repositories.RunLivenessRepository(_context)).WithAsync(view, current, false, default, awaiting);
+
+        view.ProposalTurn.Should().BeNull("no reply's text holds a draft block");
+        read.ProposalTurn.Should().Be(2, "the reply of run-2 kept the awaiting proposal; run-3 only answered");
+    }
+
     private static DialogActivityEvent Step(int seq, DateTimeOffset at) => new("run-1", at, "tool", "read_file", "a.cs", seq, at);
 
     private static BugOutcome Bug(string title) => new(new BugTicketDraft(title, "It vanished.", null));

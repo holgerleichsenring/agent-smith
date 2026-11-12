@@ -40,7 +40,7 @@ public sealed class SpecDialogViewReader(
         return new SpecDialogView(
             dialogId,
             turnProposals is null ? session
-                : await turnProposals.WithAsync(session, state, turns.Liveness(state.JobId).Computing, cancellationToken),
+                : await turnProposals.WithAsync(session, state, turns.Liveness(state.JobId).Computing, cancellationToken, latest.Proposal),
             projects.All(),
             waiting ?? Approval(dialogId, state, latest),
             waiting is not null ? SpecDialogTurnLivenessView.Idle : turns.Liveness(state.JobId));

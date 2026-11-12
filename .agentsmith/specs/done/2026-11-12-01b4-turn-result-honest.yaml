@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-01b4
+goal: "A turn result says reviewed clean only for a spec a review round cleared, and the awaiting proposal renders once, on its own reply."
+
+applies_to: "default (spec dialog view: SpecDialogTurnProposals; dashboard turn result: turnProposal, TurnSpecRow)"
+
+requires: [2026-11-12-cd4ca, 2026-11-12-cd4ch]
+
+facts:
+  - claim: "statusOf returned clean for every spec without findings, so with review off every row read reviewed clean."
+    evidence: "src/dashboard/src/components/dialog/turnProposal.ts:65-70"
+  - claim: "The pill set carried a retired review-off wording nothing emits since cd4ch."
+    evidence: "src/dashboard/src/components/dialog/turnProposal.ts:47"
+  - claim: "ProposalTurn is the last assistant turn whose TEXT holds a draft block; since cd4ca drafts are written by tools, so it is null."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:30-37"
+  - claim: "With ProposalTurn null the client appends the awaiting proposal as a second, text-less entry beside the reply that already carries it by run id."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:766-773,796-798"
+  - claim: "The awaiting proposal and the turn's own row are written from the same object by the same serializer."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:45-53"
+
+scope:
+  in: "Review pill and header count of a turn result; where the view anchors the awaiting proposal."
+  out: "Chat typed-approval anchoring (SpecDialogDecisionPath.AgentSpokeAfterTheCard), which uses the same text anchor."
+
+steps:
+  - id: pill
+    action: "statusOf returns clean only when the spec's last review round answered build; with no round, no finding and no not-reviewed mark it returns null and the row shows no pill; the header counts only rows with a status."
+  - id: retired-mark
+    action: "Drop the review-off wording from NOT_REVIEWED_PROBLEMS."
+  - id: anchor
+    action: "SpecDialogTurnProposals sets ProposalTurn to the last kept turn whose own proposal is the awaiting one; the text anchor stays the fallback for rows older than d854c."
+
+tests:
+  - "turnProposal.test.ts (no review: no pill, no clean count)"
+  - "useSpecDialog transcript test (the awaiting proposal on its reply, once)"
+  - "TurnRunRecordTests (ProposalTurn is the reply that carried the awaiting proposal)"
+
+done:
+  - "With review off no row says reviewed clean and the header has no clean count."
+  - "A tool-written awaiting proposal renders once, on its reply, with the approval controls."
