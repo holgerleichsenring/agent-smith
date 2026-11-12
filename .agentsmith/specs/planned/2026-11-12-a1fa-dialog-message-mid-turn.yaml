@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-a1fa
+goal: "A message the operator sends while a design turn runs reaches that turn's master at its next model call, and the turn carries on with it; nothing stops or waits."
+
+applies_to: "default (SpecDialogRouter, SpecDialogTurnGate, dialog chat client pipeline)"
+
+requires: [2026-11-12-92e9a]
+
+facts:
+  - claim: "A message during a running turn is stored, then answered with a turn-in-progress reply; the running loop never sees it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:73-86"
+  - claim: "The turn gate is per process; another replica cannot reach the running loop in memory."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-31"
+  - claim: "The master's loop is one GetResponseAsync through a chain of delegating clients, each model call passing every client."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:187-200"
+  - claim: "The operator works this way with Claude Code: messages sent mid-turn arrive with the next tool result and the work continues; feedback comes from reviews, not from the operator waiting."
+    evidence: "observed: 2026-11-12 operator statement in conversation"
+
+scope:
+  in: "Delivering operator messages into a running design turn; the busy reply."
+  out: "Cancelling a turn; chat-platform wording beyond dropping the busy reply; the ticket steward."
+
+steps:
+  - id: inbox
+    action: "Before each model call of a design turn, a delegating client reads the conversation's operator turns stored after the turn began (from the database, so any replica's admission counts) and appends each once as a user message headed 'The operator wrote while you were working', with its time."
+  - id: no-busy-reply
+    action: "The router no longer answers a busy gate with the turn-in-progress reply when the message was stored for a running design turn; the page shows it in the history at once."
+  - id: replay
+    action: "A delivered turn is recorded as seen by the turn, so the next turn's replay does not render it again as unseen."
+  - id: after-loop
+    action: "A message stored after the master's last model call starts the next turn when the gate is released."
+
+tests:
+  - "OperatorInboxChatClientTests: StoredDuringTurn_AppendedAtNextCall_Once"
+  - "SpecDialogRouterTests: BusyGate_DesignTurn_NoInProgressReply"
+  - "SpecDialogThreadStoreTests: DeliveredTurn_NotReplayedAsUnseen"
+  - "SpecDialogRouterTests: StoredAfterLastCall_StartsNextTurn"
+
+done:
+  - "An operator message sent mid-turn appears in that turn's thread and the turn's reply can answer it."
+  - "No operator message is lost or answered twice."

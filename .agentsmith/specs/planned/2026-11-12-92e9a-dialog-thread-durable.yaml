@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-92e9a
+goal: "A design turn's thread is stored as it grows and survives a failed turn, so a turn cut short keeps its work and the next turn continues it."
+
+applies_to: "default (SpecDialog thread: ForwardedThreadCapture, SpecDialogThreadStore, SpecDialogTurnKeeper)"
+
+requires: []
+
+facts:
+  - claim: "The thread is written once, after the turn, from the reply slot."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnKeeper.cs:33-34"
+  - claim: "A turn that returns without a reply ends as Failure and carries no thread; the keeper then deletes the conversation's row, earlier turns' work included. A thrown or cancelled turn never reaches the keeper."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnEnding.cs:28-33"
+  - claim: "The capture overwrites one in-memory snapshot per model call and has no sink."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ForwardedThreadCapture.cs:22-28"
+  - claim: "The capture sits under the compactor and records the folded view, on every tool iteration."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:192"
+  - claim: "Load replays the newest row only when the agent can fold, and renders the transcript turns from TranscriptFrom on."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogThreadStore.cs:24-36"
+  - claim: "Writes during a turn already go through an Observe handle that opens its own scope."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunLink.cs:12-16"
+  - claim: "The capture records only after a call succeeded."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ThreadCapturingChatClient.cs:17-18"
+
+scope:
+  in: "Writing the captured thread while the turn runs; keeping it on a failed turn."
+  out: "A message-per-row table; sub-agent and reviewer threads; the transcript and digest; the per-process turn gate, which lets two replicas run one conversation's turns at once (already true, made no worse by design)."
+
+steps:
+  - id: write-as-it-grows
+    action: "The capture gets a sink, set through an Observe handle opened by the turn runner with its own scope. One writer per turn keeps only the newest snapshot, with one write in flight; it skips when Load could not fold. Stewarded comes from AgenticMasterContext.IsTicketSteward at loop start and travels with the sink, not from the reply slot."
+  - id: final-wins
+    action: "The runner closes and awaits the writer in its finally, before the gate is released, on every exit (reply, failure, throw, cancel), with no cancellation token; no write is issued after that, so a dead turn's write can never replace the next turn's row or revive a deleted conversation's."
+  - id: keep-on-failure
+    action: "A Failure turn keeps the row its calls wrote instead of deleting the thread. A refused call never reaches the capture (it records only after a successful call), so the kept row is always one the provider accepted."
+
+tests:
+  - "SpecDialogThreadWriterTests: EachCall_ReplacesSnapshot_OneWriteInFlight"
+  - "SpecDialogThreadWriterTests: Closed_NoWriteAfterFinal"
+  - "SpecDialogThreadWriterTests: CannotFold_WritesNothing"
+  - "SpecDialogTurnKeeperThreadTests: FailedTurn_DropsTheThread rewritten as FailedTurn_KeepsThreadItsCallsWrote"
+  - "SpecDialogTurnRunnerTests: ThrownTurn_WriterClosedBeforeGateReleased"
+  - "SpecDialogThreadStoreTests: Load_MidTurnRow_RendersFromTranscriptFrom"
+
+done:
+  - "A turn stopped after N model calls leaves a thread row holding those calls' messages."
+  - "The turn after a failed one starts from the stored thread, not from the transcript alone."

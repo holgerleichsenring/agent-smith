@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-92e9c
+goal: "Each agent turn in Work it out reads as one unchanging message: its steps as quiet lines, its reply, one line per spec, its questions as text and one course line."
+
+applies_to: "dashboard (dialog transcript: DialogTranscript, a new TurnMessage, useSpecDialog, TurnQuestions, TurnActivityLine); default (superseded notice)"
+
+requires: [2026-11-12-92e9b]
+
+facts:
+  - claim: "A proposing turn renders TurnResult with Inspect, folding spec rows, a findings block and question buttons."
+    evidence: "src/dashboard/src/components/dialog/TurnResult.tsx:52-120"
+  - claim: "The ticket page renders TurnResult too, through its before and rowExtra slots."
+    evidence: "src/dashboard/src/components/tickets/detail/ProposalBlock.tsx:39-57"
+  - claim: "A past turn's steps are fetched after reload but shown only when its activity line is unfolded."
+    evidence: "src/dashboard/src/components/dialog/TurnActivityLine.tsx:28-69"
+  - claim: "Steps are served per run, 200 per page."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/DialogActivityReader.cs:21-42"
+  - claim: "While the page is open the hook strips a shown turn's proposal or swaps a newer draft into it, so a written turn changes."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:826-853"
+  - claim: "A newer proposal posts a notice declaring the one above void, on the steward and design paths, on whatever platform the conversation runs."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:39-54"
+  - claim: "The operator agreed to a mock of a history in which a written turn never changes and answered questions are plainly done."
+    evidence: "observed: 2026-11-12 mock https://claude.ai/artifact/5cYbkoebmDAiyUhycJaatC agreed in conversation"
+
+scope:
+  in: "A new transcript message for agent turns; condensed steps; the hook's mutations of finished turns; the superseded notice on the dashboard; TurnQuestions losing its held state and controls (the ticket page then shows questions as text too)."
+  out: "TurnResult, TurnSpecRow and the ticket page, which keep their rendering; where actions live (92e9d); chat platforms; the agent graph."
+
+steps:
+  - id: condensed-steps
+    action: "One client condenser over raw steps, used for live pushes and for a past turn's fetched pages alike: reads and searches counted per burst, writes as their own lines, a model step with narrated text as its own line, a model step without text dropped. Review rounds and refusals come from the proposal's reviewRounds, not the trail. Every agent turn shows the lines inline, live and after reload; the past-turn fetch moves from TurnActivityLine into TurnMessage."
+  - id: message
+    action: "TurnMessage: reply text; one line per spec (✓ passed, ✂ cuts, ✕ refused with its short reason, · not reviewed); a bug, comment or ticket list as plain lines; open questions as numbered text with proposal and touched specs; one course line with duration, cost (when the turn has spend), review rounds, refusals open or resolved, a cost-cap note when the cap ended the review, and a link to the run, which is where a past proposal's detail lives. No buttons, folds or Inspect."
+  - id: immutable
+    action: "useSpecDialog no longer strips or swaps the proposal of a turn already shown. A push with reviewing true never becomes a transcript entry (it shows in the working line only); only a final proposal attaches, to its turn's reply. A turn renders the same live and after reload."
+  - id: no-superseded
+    action: "SpecDialogOutcomeFlow posts the superseded notice only when the conversation is not on the dashboard (DialogTarget.IsDashboard), on the steward and design paths; chat keeps it. ComposeSuperseded stays."
+  - id: retire
+    action: "turnQuestionsHeld.ts, TurnQuestions' controls and TurnResult's answersHeld guard go; TurnActivityLine loses its runId fetch; the transcript stops using TurnResult. The approval review line moves onto the course line."
+
+tests:
+  - "TurnMessage.test.tsx: RendersStepsSpecsQuestionsCourse; HasNoButtons; BugCommentTicketList_AsLines; CostCap_NotedOnCourseLine"
+  - "useSpecDialog.test.ts: ShownTurn_KeepsItsProposal_AfterFiling"
+  - "condenseSteps.test.ts: CountsReadBursts_KeepsWritesAndNarration_SameForLiveAndFetched"
+  - "useSpecDialog.test.ts: ReviewingDraft_NotInTranscript_FinalAttachesToReply"
+  - "SpecDialogOutcomeFlowTests: Superseded_NotPostedOnDashboard_PostedOnChat"
+  - "TurnResult.test.tsx: transcript-only cases (Take/Undo, held answers) removed; ticket-page cases stay"
+
+done:
+  - "A reloaded conversation shows each finished turn's steps, specs, questions and course line, with no control inside any turn."
+  - "Nothing already shown changes when a later turn arrives or a proposal is filed."

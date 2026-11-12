@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-92e9b
+goal: "The design partner reads the review of its final draft before it answers, and its reviewers' brief holds the operator's decisions, so the reply states the review that stands."
+
+applies_to: "default (SpecDialogTurnFlow, SpecDialogProposalReview, ReviewProposalToolHost, ProposalAttackPass); skills (design-partner-master)"
+
+requires: [2026-11-12-92e9a]
+
+facts:
+  - claim: "The post-turn review runs after the master's loop has returned, after the outcome is published; its result goes to the card only."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogTurnFlow.cs:42-43"
+  - claim: "The loop is one GetResponseAsync per RunAsync; continuing means a second RunAsync, which always appends a user message."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:49-51"
+  - claim: "A second pass on the same thread is already done elsewhere: RunAsync on conversation.Thread(), Continued, TrackMasterResponse."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:500-512"
+  - claim: "review_proposal returns findings to the model and records nothing about which text it reviewed."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ReviewProposalToolHost.cs:33-44"
+  - claim: "The post-turn wrapper also runs the mechanical checks when the design-turn review is off, marks drafts unread on broken settings, publishes the under-review state and writes the result onto the outcome."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:21-37"
+  - claim: "The review tool reads the published outcome before the slot, so publishing before the last pass reviews a stale proposal."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ReviewedProposalSource.cs:16"
+  - claim: "Spec reviewers get open questions only; the ticket-list reviewer already gets the transcript's turns."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketPlanReviewer.cs:33-34"
+  - claim: "The pinned skill tells the master the rest is settled on the way."
+    evidence: "observed: 2026-11-12 agent-smith-skills tag v5.29.1, skills/_masters/design-partner-master/SKILL.md lines 122-131"
+  - claim: "Run 2026-11-12T21-58-29-8c35 replied that the objections were worked in while the post-turn review refused 4 of 8 specs, 3 citing owner decisions the operator had confirmed that turn."
+    evidence: "observed: 2026-11-12 SpecDialogSessions.AwaitingProposalJson of session 0c05650c"
+
+scope:
+  in: "Reviewing the final draft before the reply; the operator's turns in the spec reviewer's brief; the skill paragraph."
+  out: "Any stop rule on refusals or round counts; the master's thread in any reviewer; the coding run's build-time review; the card's display (92e9c)."
+
+steps:
+  - id: attempted-ledger
+    action: "A per-turn ledger keyed by exact draft text holds each pass's result for that text (verdicts, cuts, findings, blind, not reviewed, cap reached), whichever pass ran it: review_proposal or the end pass. It seeds ProposalReviewCarryOver within the turn, so an unchanged text is never attacked twice in one turn, and the published outcome carries the newest ledger result for every final text."
+  - id: review-before-reply
+    action: "Reverses cd4cb's no-re-prompt on purpose. When the master's loop ends and a draft text is not in the ledger, the end pass runs over the slot's draft. When that pass produced verdicts or findings, the master gets one more RunAsync on its thread, images cleared, cost tracked, with a user message headed as a review report (not the operator); a pass that reviewed nothing (cost cap reached, settings unreadable) drives no report pass. Repeat until the loop ends with every draft text in the ledger. A throw in an extra RunAsync keeps the previous pass's reply and draft, as the apply drive does. The outcome is published after the last pass; the under-review state is published once per pass."
+  - id: keep-branches
+    action: "Design-turn review off: mechanical checks only, no extra pass. Broken settings: drafts marked unread, no extra pass. A ticket list goes through the same drive: its plan review's findings reach the master before it replies, keyed by the list's text."
+  - id: decisions-to-reviewers
+    action: "The spec reviewer's brief carries the transcript's operator turns as the owner's own words, as TicketPlanReviewer does; never the master's thread."
+  - id: skill
+    action: "Skill: reviews of your final draft come back to you before you answer; weigh them and say in the reply which objections stand and why. Drop 'the rest is settled on the way'. Skills release and pin bump land before this backend change."
+
+tests:
+  - "SpecDialogTurnFlowTests: LoopEndsWithUnattemptedDraft_ReviewReportReachesMasterBeforeReply"
+  - "SpecDialogTurnFlowTests: LoopEndsWithAttemptedDrafts_NoFurtherPass"
+  - "SpecDialogTurnFlowTests: CostCapReached_PassReviewsNothing_NoReportPass"
+  - "SpecDialogTurnFlowTests: ReviewedByTool_UnchangedText_OutcomeCarriesToolResult"
+  - "SpecDialogTurnFlowTests: ExtraPassThrows_KeepsPreviousReply"
+  - "SpecDialogTurnFlowTests: DesignTurnReviewOff_NoExtraPass"
+  - "ProposalAttackPassTests: Input_CarriesOperatorTurns"
+
+done:
+  - "No review result is written to a proposal after the reply that describes it."
+  - "A spec reviewer prompt holds the operator's answer to a question the operator answered."
