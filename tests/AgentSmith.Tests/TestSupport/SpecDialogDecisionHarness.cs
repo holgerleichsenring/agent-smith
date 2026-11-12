@@ -46,11 +46,19 @@ internal sealed class SpecDialogDecisionHarness(
     public SpecDialogDecisionPath Decisions() => new(Proposals, Outcomes, Sink, RatifiedMockStamps.Over(Repository),
         new SpecDialogOutcomeComposer(), Notices, Cards);
 
+    /// <summary>2026-11-12-a1fa: the inbox the router queues into shares the gate it is handed, unless a test hands one.</summary>
     public SpecDialogRouter Router(
         SpecDialogCommandHandler commands, ISpecDialogTurnRunner turns, SpecDialogTurnGate gate,
-        SpecDialogAnswerAdmission admission, SpecDialogTurnKeeper keeper, SpecDialogSessionManager? sessions = null) =>
-        new(new SpecCommandParser(), commands, turns, Flow(), new SpecDialogDecisionOutcome(Decisions(), admission), gate, admission, keeper,
-            new SpecDialogReplyComposer(), Messenger, NullLogger<SpecDialogRouter>.Instance);
+        SpecDialogAnswerAdmission admission, SpecDialogTurnKeeper keeper, SpecDialogSessionManager? sessions = null,
+        SpecDialogOperatorInbox? inbox = null)
+    {
+        var queue = inbox ?? new SpecDialogOperatorInbox(gate);
+        var delivery = new SpecDialogTurnDelivery(turns, keeper, Messenger, Flow());
+        var queued = new SpecDialogQueuedTurns(queue, gate, sessions ?? Sessions, admission, delivery, Messenger,
+            new SpecDialogReplyComposer(), NullLogger<SpecDialogQueuedTurns>.Instance);
+        return new(new SpecCommandParser(), commands, delivery, queued, new SpecDialogDecisionOutcome(Decisions(), admission),
+            gate, queue, admission, keeper, NullLogger<SpecDialogRouter>.Instance);
+    }
 
     public SpecDialogViewReader View(
         SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects, SpecDialogPendingQuestions pending,

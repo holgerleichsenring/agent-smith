@@ -2721,6 +2721,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Delivered")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("MessagesJson")
                         .IsRequired()
                         .HasColumnType("TEXT");

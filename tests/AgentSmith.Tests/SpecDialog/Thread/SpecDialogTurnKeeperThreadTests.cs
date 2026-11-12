@@ -27,7 +27,7 @@ public sealed class SpecDialogTurnKeeperThreadTests : IDisposable
         var (keeper, state) = await OpenAsync(context);
         await keeper.KeepAsync(state, Result("a1", Capture("a1")), Platform, Dialog, CancellationToken.None);
         await DialogThreadStores.Over(context).KeepGrowingAsync(
-            state, Capture("the failed turn's call").Messages!, false, CancellationToken.None);
+            state, new ThreadSnapshot(Capture("the failed turn's call").Messages!, false, []), CancellationToken.None);
 
         // A Failure turn carries no thread (SpecDialogTurnEnding.OfAsync), so only what its calls wrote can be kept.
         await keeper.KeepAsync(state, Result("the turn failed", null, SpecDialogTurnKind.Failure),

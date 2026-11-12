@@ -52,6 +52,7 @@ internal static class SpecDialogDeletionEndpoints
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
         SpecDialogTurnGate turnGate,
+        SpecDialogOperatorInbox inbox,
         ISpecDialogConversationDeleter deleter,
         IHeldSandboxRegister holds,
         CancellationToken cancellationToken)
@@ -63,6 +64,7 @@ internal static class SpecDialogDeletionEndpoints
         try
         {
             await deleter.DeleteAsync(sessionId, cancellationToken);
+            inbox.Drop(sessionId); // 2026-11-12-a1fa: cleanup only; the router never lets go with a message waiting
             // 2026-09-22-2d11b: the conversation is gone, so what it was holding between turns
             // is nobody's. The removals are detached: this route runs inside the turn gate.
             _ = holds.ReleaseConversationAsync(sessionId, CancellationToken.None);

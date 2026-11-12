@@ -2805,6 +2805,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Delivered")
+                        .HasColumnType("text");
+
                     b.Property<string>("MessagesJson")
                         .IsRequired()
                         .HasColumnType("text");

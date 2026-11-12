@@ -2819,6 +2819,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("Delivered")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("MessagesJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

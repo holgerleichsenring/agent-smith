@@ -54,6 +54,24 @@ public sealed class ForwardedThreadCaptureTests
         sink.Offers[0].Stewarded.Should().BeTrue();
     }
 
+    // 2026-11-12-a1fa: a turn handed over with a tool result is delivered once a later call carried it, never before.
+    [Fact]
+    public void ForwardedThreadCapture_Drained_DeliveredOnlyWithTheNextRecordedCall()
+    {
+        var capture = new ForwardedThreadCapture();
+        var sink = new RecordingSink();
+        var prompt = new ChatMessage(ChatRole.User, "the prompt");
+        capture.Observe(sink);
+        capture.Record([prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "a tool call")));
+
+        capture.Drained(4);
+        capture.Delivered.Should().BeEmpty("the call that carries it has not answered yet");
+        capture.Record([prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "the answer")));
+
+        capture.Delivered.Should().Equal(4);
+        sink.Offers.Select(o => o.Delivered.Count).Should().Equal(0, 1);
+    }
+
     [Fact]
     public async Task AgenticLoopRunner_RequestWithCapture_RecordsTheResponseText()
     {
@@ -73,8 +91,9 @@ public sealed class ForwardedThreadCaptureTests
 
     private sealed class RecordingSink : IForwardedThreadSink
     {
-        public List<(IReadOnlyList<ChatMessage> Messages, bool Stewarded)> Offers { get; } = [];
+        public List<(IReadOnlyList<ChatMessage> Messages, bool Stewarded, IReadOnlyList<int> Delivered)> Offers { get; } = [];
 
-        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded) => Offers.Add((messages, stewarded));
+        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded, IReadOnlyList<int> delivered) =>
+            Offers.Add((messages, stewarded, delivered));
     }
 }

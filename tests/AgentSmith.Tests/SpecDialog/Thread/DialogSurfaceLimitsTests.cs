@@ -88,6 +88,7 @@ public sealed class DialogSurfaceLimitsTests
     {
         public bool? Stewarded { get; private set; }
 
-        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded) => Stewarded = stewarded;
+        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded, IReadOnlyList<int> delivered) =>
+            Stewarded = stewarded;
     }
 }

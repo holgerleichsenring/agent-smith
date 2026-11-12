@@ -86,7 +86,7 @@ public sealed class DialogHoldReleaseTests : IDisposable
 
         await SpecDialogDeletionEndpoints.DeleteAsync(
             session.JobId, Principal(Owner), new SpecDialogOwnership(_repository),
-            new SpecDialogTurnGate(TimeProvider.System), deleter.Object, _register,
+            new SpecDialogTurnGate(TimeProvider.System), new SpecDialogOperatorInbox(new SpecDialogTurnGate(TimeProvider.System)), deleter.Object, _register,
             CancellationToken.None);
 
         deleter.Verify(d => d.DeleteAsync(session.JobId, It.IsAny<CancellationToken>()), Times.Once);

@@ -83,7 +83,7 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.MemoryStandings.IndexReader(Repositories()),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
-            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(), new AgentSmith.Application.Services.Turns.MidTurnMessageTools(),
             NullLogger<AgenticMasterHandler>.Instance);
 
     /// <summary>The dialog turn's prompt and reply handling: both prompt contracts, the outcome gate and the

@@ -58,7 +58,7 @@ public sealed class AgenticMasterHandler(
     Memory.MemoryIndexReader memoryIndex, // 2026-10-13-8762m: re-read at every spec-execution start
     IDialogueTransport? dialogueTransport,
     MasterToolComposition composition, // which tool surface this master gets
-    TurnActivityTools reportingTools, // 2026-09-17-042ee: the surface those steps come from
+    TurnActivityTools reportingTools, MidTurnMessageTools midTurn, // 042ee: steps reported; a1fa: messages handed on
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
 {
@@ -373,7 +373,7 @@ public sealed class AgenticMasterHandler(
         var composed = composition.Compose(
             isScanMaster, isSpecDialog, fs, records, human, credentials, writeContextYaml, web,
             progress, withdraw, readTicket, ticketWork, ticketRuns, context);
-        var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
+        var masterTools = isSpecDialog ? midTurn.Delivering(reportingTools.Reporting(composed), context) : composed;
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,

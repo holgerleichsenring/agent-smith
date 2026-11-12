@@ -404,8 +404,9 @@ public sealed class DashboardDialogChannelTests : IDisposable
     }
 
     [Fact]
-    public async Task Ingest_WhileATurnIsRunning_IsToldSoAndDoesNotQueueASecond()
+    public async Task Ingest_WhileATurnIsRunning_IsQueuedAndRunsTheNextTurnBeforeTheGateIsFree()
     {
+        // 2026-11-12-a1fa: a message the running turn's tools never handed on starts the next turn — no busy reply.
         await OpenAsync();
         var release = new TaskCompletionSource();
         var entered = new TaskCompletionSource();
@@ -422,13 +423,12 @@ public sealed class DashboardDialogChannelTests : IDisposable
         await entered.Task.OrHang("the dispatched turn enters the runner");
 
         await Ingest("and one more thing", Owner);
-        await Settle(opened + 1);
-
-        LastText().Should().Contain("Still working on the previous turn");
         release.SetResult();
         await Settle(opened + 2);
-        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Once,
-            "the second message informs the next turn rather than starting one");
+
+        AllTexts().Skip(opened).Should().NotContain(t => t.Contains("Still working on the previous turn"));
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Exactly(2),
+            "the queued message runs the next turn");
     }
 
     [Fact]

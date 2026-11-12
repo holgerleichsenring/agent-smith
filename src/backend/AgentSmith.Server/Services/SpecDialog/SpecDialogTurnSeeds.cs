@@ -41,7 +41,8 @@ internal static class SpecDialogTurnSeeds
         SpecDialogTurnFacts facts, SeededTicket? ticket = null,
         BoundTicket? bound = null, IReadOnlyList<DesignSource>? designSources = null,
         ResolvedProject? project = null, DialogThread? thread = null, TurnPoster? poster = null,
-        AgentSmith.Application.Services.Sandbox.WorkCloneSet? workClones = null)
+        AgentSmith.Application.Services.Sandbox.WorkCloneSet? workClones = null,
+        AgentSmith.Contracts.Turns.IMidTurnMessages? messages = null)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -103,6 +104,7 @@ internal static class SpecDialogTurnSeeds
         if (thread is not null) seeds[ContextKeys.SpecDialogThread] = thread; // the thread this turn continues
         if (poster?.MayStartRuns == true) seeds[ContextKeys.MayStartRuns] = true; // 2026-11-10-fcd7b: holds runs.control
         if (workClones is not null) seeds[ContextKeys.WorkClones] = workClones; // 2026-11-10-4778
+        if (messages is not null) seeds[ContextKeys.SpecDialogOperatorMessages] = messages; // 2026-11-12-a1fa
         return seeds;
     }
 

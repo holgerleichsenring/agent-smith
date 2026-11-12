@@ -181,6 +181,9 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   // message has instead of the flag above, and what a page that did post adds to it.
   const [computing, setComputing] = useState(false);
   const [workingSince, setWorkingSince] = useState<number | null>(null);
+  // 2026-11-12-a1fa: the same, for a send to ask without being rebuilt each time the answer changes.
+  const computingNow = useRef(false);
+  useEffect(() => { computingNow.current = computing; }, [computing]);
   // Whether the page is showing the working line at all, for the subscription below to ask
   // without being torn down and rebuilt every time the answer changes.
   const working = useRef(false);
@@ -314,10 +317,14 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     proposalId?: string,
   ) => {
     // Cleared before the post: the turn starts on the server before the post returns, and its
-    // first repository may be announced before this line would otherwise run.
-    setReadings([]);
-    setActivity([]);
-    setWorkingSince(Date.now());
+    // first repository may be announced before this line would otherwise run. 2026-11-12-a1fa: a
+    // turn already computing takes the message with its next tool result and carries on, so its
+    // steps and its clock stay; its own reply ends the wait.
+    if (!computingNow.current) {
+      setReadings([]);
+      setActivity([]);
+      setWorkingSince(Date.now());
+    }
     const from = { read: reads.current, turns: turnsRead.current };
     try {
       // 2026-09-20-4b0aa: the project the page holds. The server opens the conversation with it

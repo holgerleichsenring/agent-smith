@@ -25,14 +25,13 @@ public enum SpecDialogRouted
 public sealed class SpecDialogRouter(
     SpecCommandParser parser,
     SpecDialogCommandHandler commandHandler,
-    ISpecDialogTurnRunner turnRunner,
-    SpecDialogOutcomeFlow outcomeFlow,
+    SpecDialogTurnDelivery delivery,
+    SpecDialogQueuedTurns queued, // 2026-11-12-a1fa: a message sent while a design turn runs reaches it
     SpecDialogDecisionOutcome decisions, // 2026-11-11-205fe: undecides what it did not decide
     SpecDialogTurnGate turnGate,
+    SpecDialogOperatorInbox inbox,
     SpecDialogAnswerAdmission admission,
     SpecDialogTurnKeeper keeper,
-    SpecDialogReplyComposer composer,
-    SpecDialogMessenger messenger,
     ILogger<SpecDialogRouter> logger)
 {
     /// <summary>
@@ -79,39 +78,37 @@ public sealed class SpecDialogRouter(
         if (admitted.Decision is { } named && proposalId is not null)
             return SpecDialogDecisionOutcome.Routed(await decisions.DecideAsync(state, named, proposalId, poster.MayStartRuns, ct));
 
-        if (!turnGate.TryEnter(state.JobId))
-        {
-            await admission.UndecideAsync(state, ct);
-            await messenger.SendAsync(platform, channelId, threadId, composer.ComposeTurnInProgress(state), ct);
+        // 2026-11-12-a1fa: a held gate queues the message for the running design turn or answers that a turn runs.
+        if (!turnGate.TryEnterTurn(state.JobId)
+            && !await queued.EnterOrWaitAsync(admitted, poster, channelId, threadId, platform, ct))
             return SpecDialogRouted.Handled;
-        }
+        var exited = false;
         try
         {
-            if (admitted.Decision is { } decision
-                && await decisions.DecideAsync(state, decision, null, poster.MayStartRuns, ct, sentAt) is var typed
-                && typed != SpecDialogDecided.No)
-                return SpecDialogDecisionOutcome.Routed(typed);
-            if (admitted.Decision is not null) state = await admission.UndecideAsync(state, ct);
-            await RunTurnAsync(state, channelId, threadId, platform, poster, ct);
+            var routed = await DecideOrRunAsync(admitted, state, channelId, threadId, platform, poster, sentAt, ct);
+            var ranQueued = await queued.RunThenExitAsync(state, channelId, threadId, platform, ct);
+            exited = true;
+            // Outside the gate: a message typed while the digest is written starts its own turn.
+            if (routed is null || ranQueued) await keeper.FoldAsync(state, ct);
+            return routed ?? SpecDialogRouted.Handled;
         }
         finally
         {
-            turnGate.Exit(state.JobId);
+            if (!exited) inbox.Abandon(state.JobId); // a thrown turn: what waited stays in the transcript
         }
-        // Outside the gate: a message typed while the digest is written starts its own turn.
-        await keeper.FoldAsync(state, ct);
-        return SpecDialogRouted.Handled;
     }
 
-    private async Task RunTurnAsync(
-        ConversationState state, string channelId, string threadId, string platform, TurnPoster poster, CancellationToken ct)
+    /// <summary>A typed decision decided inside the gate, or the turn the message runs (null).</summary>
+    private async Task<SpecDialogRouted?> DecideOrRunAsync(
+        SpecDialogAdmitted admitted, ConversationState state, string channelId, string threadId, string platform,
+        TurnPoster poster, DateTimeOffset? sentAt, CancellationToken ct)
     {
-        // 2026-11-10-d854c: a turn that threw has kept and sent its notice with its run id inside the runner.
-        if (await turnRunner.RunTurnAsync(state, poster, ct) is not { } result) return;
-        if (await keeper.KeepAsync(state, result, platform, threadId, ct) is { } notice) // 2026-11-04-96a0b
-            await messenger.SendAsync(platform, channelId, threadId, notice, ct);
-        await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
-        // p0315e: a non-answer outcome is stored as the proposal awaiting a decision and shown; nothing waits.
-        await outcomeFlow.HandleAsync(state, result.Outcome, ct, result.Stewarded, result.RunId);
+        if (admitted.Decision is { } decision
+            && await decisions.DecideAsync(state, decision, null, poster.MayStartRuns, ct, sentAt) is var typed
+            && typed != SpecDialogDecided.No)
+            return SpecDialogDecisionOutcome.Routed(typed);
+        if (admitted.Decision is not null) state = await admission.UndecideAsync(state, ct);
+        await delivery.RunAsync(state, channelId, threadId, platform, poster, ct);
+        return null;
     }
 }

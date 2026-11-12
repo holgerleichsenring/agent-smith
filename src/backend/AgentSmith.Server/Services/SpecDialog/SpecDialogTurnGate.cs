@@ -22,11 +22,26 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogTurnGate(TimeProvider time)
 {
-    private readonly ConcurrentDictionary<string, byte> _running = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, SpecDialogGateHold> _running = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, RunningDialogTurn> _computing =
         new(StringComparer.Ordinal);
 
-    public bool TryEnter(string sessionId) => _running.TryAdd(sessionId, 0);
+    public bool TryEnter(string sessionId) => _running.TryAdd(sessionId, SpecDialogGateHold.Other);
+
+    /// <summary>2026-11-12-a1fa: the router enters for a turn; until the turn says otherwise it is a design turn.</summary>
+    public bool TryEnterTurn(string sessionId) => _running.TryAdd(sessionId, SpecDialogGateHold.DesignTurn);
+
+    /// <summary>The turn that holds the gate says which master leads it; a hold that is not a turn stays as it is.</summary>
+    public void Lead(string sessionId, bool stewarded)
+    {
+        var led = stewarded ? SpecDialogGateHold.StewardTurn : SpecDialogGateHold.DesignTurn;
+        if (_running.TryGetValue(sessionId, out var hold) && hold != SpecDialogGateHold.Other)
+            _running.TryUpdate(sessionId, led, hold);
+    }
+
+    /// <summary>Whether a design turn the router runs holds the session's gate on this process.</summary>
+    public bool HoldsDesignTurn(string sessionId) =>
+        _running.TryGetValue(sessionId, out var hold) && hold == SpecDialogGateHold.DesignTurn;
 
     public void Exit(string sessionId) => _running.TryRemove(sessionId, out _);
 

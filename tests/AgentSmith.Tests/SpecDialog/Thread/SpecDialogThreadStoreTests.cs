@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -61,13 +62,50 @@ public sealed class SpecDialogThreadStoreTests : IDisposable
             .Should().BeNull("nothing new from the operator");
     }
 
+    // 2026-11-12-a1fa: a message handed to the master with a tool result, carried by a later successful call, is seen.
+    [Fact]
+    public async Task SpecDialogThreadStore_DeliveredTurn_NotRenderedAsUnseen()
+    {
+        var started = State(User("q1"));
+        var capture = Capture("a1");
+        capture.Drained(1);
+        capture.Record([new(Microsoft.Extensions.AI.ChatRole.User, "the prompt")],
+            new(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, "a1")));
+        var kept = State(User("q1"), User("also this"), Assistant("a1"));
+        await KeepAsync(started, Result("a1", capture), kept);
+        var later = State([.. kept.Transcript, User("q2")]);
+
+        await using var fresh = _store.Context();
+        var thread = await DialogThreadStores.Over(fresh).LoadAsync(later, new AgentConfig(), CancellationToken.None);
+
+        thread!.Unseen.Select(t => t.Text).Should().Equal("q2");
+    }
+
+    // 2026-11-12-a1fa: drained into a turn whose next call never answered, the message was never read — so it renders.
+    [Fact]
+    public async Task SpecDialogThreadStore_DrainedThenFailed_RenderedAgain()
+    {
+        var started = State(User("q1"));
+        var capture = Capture("half way");
+        capture.Drained(1);
+        await using (var context = _store.Context())
+            await DialogThreadStores.Over(context).KeepGrowingAsync(
+                started, new ThreadSnapshot(capture.Messages!, false, capture.Delivered), CancellationToken.None);
+        var later = State(User("q1"), User("also this"), Assistant("the turn failed", SpecDialogTurnKind.Failure));
+
+        await using var fresh = _store.Context();
+        var thread = await DialogThreadStores.Over(fresh).LoadAsync(later, new AgentConfig(), CancellationToken.None);
+
+        thread!.Unseen.Select(t => t.Text).Should().Equal("also this", "the turn failed");
+    }
+
     [Fact]
     public async Task SpecDialogThreadStore_Load_MidTurnRow_RendersFromTranscriptFrom()
     {
         var started = State(User("q1"), Assistant("a1"), User("q2"));
         await using (var context = _store.Context())
             await DialogThreadStores.Over(context).KeepGrowingAsync(
-                started, Capture("half way").Messages!, true, CancellationToken.None);
+                started, new ThreadSnapshot(Capture("half way").Messages!, true, []), CancellationToken.None);
         var later = State([.. started.Transcript, Assistant("the turn failed", SpecDialogTurnKind.Failure), User("q3")]);
 
         await using var fresh = _store.Context();

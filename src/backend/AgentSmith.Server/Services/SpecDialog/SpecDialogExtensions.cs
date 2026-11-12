@@ -24,7 +24,7 @@ internal static class SpecDialogExtensions
         services.AddSingleton<SpecDialogMessenger>();
         // Singletons: process-lifetime, in-memory coordination state (a running
         // turn is an in-process loop, so the guards live and die with it).
-        services.AddSingleton<SpecDialogTurnGate>();
+        services.AddSingleton<SpecDialogTurnGate>().AddSingleton<SpecDialogOperatorInbox>(); // a1fa: beside the gate
         services.AddSingleton<SpecDialogPendingQuestions>();
         services.AddTransient<SpecDialogQuestionPump>();
         // Scoped: the session manager rides the per-message DI scope's unit of
@@ -68,7 +68,7 @@ internal static class SpecDialogExtensions
         // which is where it stores the subject. The edit re-entry shares that unit of work for
         // the same reason.
         services.AddScoped<SpecDialogSubjectStore>().AddScoped<SpecDialogWorkPictureStore>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
-        services.AddScoped<SpecDialogRouter>();
+        services.AddScoped<SpecDialogRouter>().AddScoped<SpecDialogTurnDelivery>().AddScoped<SpecDialogQueuedTurns>(); // a1fa
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>().AddScoped<MockRatification>();

@@ -33,10 +33,10 @@ public sealed class SpecDialogThreadWriterTests : IDisposable
             Interlocked.Decrement(ref inFlight);
         });
 
-        writer.Offer(Thread("call 1"), false);
+        writer.Offer(Thread("call 1"), false, []);
         await firstStarted.Task;
-        writer.Offer(Thread("call 2"), false);
-        writer.Offer(Thread("call 3"), false);
+        writer.Offer(Thread("call 2"), false, []);
+        writer.Offer(Thread("call 3"), false, []);
         release.SetResult();
         await writer.CloseAsync();
 
@@ -48,10 +48,10 @@ public sealed class SpecDialogThreadWriterTests : IDisposable
     public async Task SpecDialogThreadWriter_Closed_NoWriteAfterFinal()
     {
         var writer = Writer(true, Recording);
-        writer.Offer(Thread("call 1"), false);
+        writer.Offer(Thread("call 1"), false, []);
 
         await writer.CloseAsync();
-        writer.Offer(Thread("call 2"), false);
+        writer.Offer(Thread("call 2"), false, []);
         await writer.CloseAsync();
 
         _written.Should().Equal("call 1");
@@ -62,7 +62,7 @@ public sealed class SpecDialogThreadWriterTests : IDisposable
     {
         var writer = Writer(false, Recording);
 
-        writer.Offer(Thread("call 1"), false);
+        writer.Offer(Thread("call 1"), false, []);
         await writer.CloseAsync();
 
         _written.Should().BeEmpty("Load would not replay a thread the turn cannot fold");
@@ -99,7 +99,7 @@ public sealed class SpecDialogThreadWriterTests : IDisposable
     }
 
     private static SpecDialogThreadWriter Writer(bool isFoldable, Func<IReadOnlyList<ChatMessage>, bool, Task> write) =>
-        new(isFoldable, write, NullLogger.Instance);
+        new(isFoldable, snapshot => write(snapshot.Messages, snapshot.Stewarded), NullLogger.Instance);
 
     private static IReadOnlyList<ChatMessage> Thread(string last) =>
         [new ChatMessage(ChatRole.User, "the prompt"), new ChatMessage(ChatRole.Assistant, last)];

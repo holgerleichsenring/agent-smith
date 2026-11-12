@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Server.Models;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -18,16 +17,16 @@ public sealed class SpecDialogThreadWriteLink(
     {
         ArgumentNullException.ThrowIfNull(capture);
         var writer = new SpecDialogThreadWriter(threads.CanFold(agent),
-            (messages, stewarded) => WriteAsync(started, messages, stewarded), loggers.CreateLogger<SpecDialogThreadWriter>());
+            snapshot => WriteAsync(started, snapshot), loggers.CreateLogger<SpecDialogThreadWriter>());
         capture.Observe(writer);
         return writer;
     }
 
     // CancellationToken.None: a write of a cancelled turn is the work it keeps.
-    private async Task WriteAsync(ConversationState started, IReadOnlyList<ChatMessage> messages, bool stewarded)
+    private async Task WriteAsync(ConversationState started, ThreadSnapshot snapshot)
     {
         await using var scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<SpecDialogThreadStore>()
-            .KeepGrowingAsync(started, messages, stewarded, CancellationToken.None);
+            .KeepGrowingAsync(started, snapshot, CancellationToken.None);
     }
 }
