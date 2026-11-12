@@ -229,7 +229,7 @@ public sealed class TicketPlanReviewTests
         var rig = new TicketPlanReviewRig();
         var loop = new Moq.Mock<AgentSmith.Application.Services.Loop.IAgenticLoopRunner>(Moq.MockBehavior.Strict).Object;
         var flow = new SpecDialogTurnFlow(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-            new TicketStewardPromptFactory(), AgentSmith.Tests.Handlers.MasterHandlerFixture.OutcomeGate(loop), new SpecDialogProposalReview(
+            new TicketStewardPromptFactory(), new SpecDialogProposalReview(
                 Moq.Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(), AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
                 ProposalEvidenceTestReview.Create(), ProposalReviewRig.Reader(() => rig.Settings), new ProposalReviewRig().Loop(),
                 rig.Review(), TurnActivityRecorder.Silent(),

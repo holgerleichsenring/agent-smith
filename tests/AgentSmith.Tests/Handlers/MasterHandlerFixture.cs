@@ -91,7 +91,6 @@ internal static class MasterHandlerFixture
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow(IAgenticLoopRunner loop) =>
         new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
-            OutcomeGate(loop),
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
                 Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
@@ -105,9 +104,6 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
-    internal static AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate OutcomeGate(IAgenticLoopRunner loop) =>
-        new(loop, NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
-
     /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks.</summary>
     internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites()
     {

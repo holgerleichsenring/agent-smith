@@ -28,23 +28,8 @@ internal static class MasterOutcomes
         return result;
     }
 
-    // A twice-invalid outcome degrades to an honest answer: the notice is the
-    // reply and nothing is proposed for routing.
-    internal static AgenticLoopResult FailOutcome(
-        PipelineContext pipeline, AgenticLoopResult result, string error)
-    {
-        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new AnswerOutcome());
-        pipeline.Set(ContextKeys.SpecDialogReplyKind, SpecDialogTurnKind.Notice);
-        return WithReplyText(result, OutcomeFailureNotice(error));
-    }
-
     internal static AgenticLoopResult WithReplyText(AgenticLoopResult result, string text) =>
         result with { Response = new ChatResponse(new ChatMessage(ChatRole.Assistant, text)) };
-
-    internal static string OutcomeFailureNotice(string error) =>
-        "I proposed an outcome for this design turn, but it did not pass validation "
-        + $"({error}), so I am not showing it. Refine the requirements or ask me to "
-        + "draft again.";
 
     // p0237: turn the master loop's exception into an operator-actionable reason.
     // An OperationCanceledException here (the run token was NOT cancelled — see

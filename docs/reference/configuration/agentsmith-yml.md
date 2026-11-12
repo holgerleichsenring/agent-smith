@@ -83,7 +83,7 @@ One entry per LLM configuration. A project names one with `agent:`.
 | `compaction` | `is_enabled` (true), `max_context_tokens` (200000), `max_context_tokens_trigger_ratio` (0.7), `keep_recent_iterations` (3). It summarizes with the `summarization` role |
 | loop tuning | `max_master_loop_iterations` (200), `max_sub_agent_loop_iterations` (100), `max_fix_iterations` (3), `ledger_reminder_every_n_iterations` (10), `reminder_drift_editless_iterations` (8), `verdict_owed_after_iterations` (3), `checkpoint_push_min_interval_seconds` (120), `supports_vision` (true) |
 | scan tuning | `scan_min_source_reads` (6), `scan_master_max_output_tokens` (32000), `scan_master_loop_iterations` (100), `scan_context_window_tokens` (200000) |
-| dialog tuning | `dialog_master_loop_iterations` (100), `dialog_master_max_output_tokens` (32000, used only to re-ask a turn whose reply was cut), `dialog_context_window_tokens` (200000; a design turn replays the previous turn's thread only when it can fold against a window) |
+| dialog tuning | `dialog_master_loop_iterations` (100), `dialog_context_window_tokens` (200000; a design turn replays the previous turn's thread only when it can fold against a window) |
 
 ### agents.catalog
 

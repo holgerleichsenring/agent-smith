@@ -47,6 +47,22 @@ public sealed partial class SpecDialogOutcomeTests
         result.Reply.Should().Be("Two questions first, then.");
     }
 
+    // 2026-11-12-cd4cb: the reply is prose; cut at the output limit it is published as it came, the draft stands.
+    [Fact]
+    public async Task DesignTurn_ReplyCutAtTheOutputLimit_PublishesTheStoreWithoutAReask()
+    {
+        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
+        harness.ChatClient.EnqueueSpecWrite(ValidDraftYaml).EnqueueDeferred(() =>
+            new Microsoft.Extensions.AI.ChatResponse(new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.Assistant, "Here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length });
+
+        var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
+
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "nothing re-asks a cut reply");
+        result.Outcome.Should().BeOfType<SpecOutcome>().Which.Draft.SpecId.Should().Be("p9999");
+        result.Reply.Should().Be("Here is the spec dr");
+    }
+
     /// <summary>The tool results the master read on its <paramref name="call"/>-th call.</summary>
     private static string ToolResults(RealCompositionHarness harness, int call) =>
         string.Join("\n", harness.ChatClient.CallMessages[call]

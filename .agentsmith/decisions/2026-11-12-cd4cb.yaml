@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-cd4cb
+
+decisions:
+  - category: Design
+    chose: "SpecDialogTurnFlow publishes the store's outcome directly; SpecDialogOutcomeGate, its cut-at-limit re-ask, MasterOutcomes.FailOutcome and DialogMasterMaxOutputTokens are deleted"
+    over: "Keeping the re-ask for a cut reply"
+    reason: "With the proposal in the store, a cut reply only loses prose; a second call under a raised budget would re-prompt the turn for text the operator can ask for. The per-call output cap stays the role's own."
+  - category: Implementation
+    chose: "The write checks shipped in 2026-11-12-cd4ca are the validation; this spec removes what validated after the loop"
+    over: "A second pass that re-validates the whole store at the end"
+    reason: "The store is fileable after every accepted write, so an end-of-turn check could find nothing."
