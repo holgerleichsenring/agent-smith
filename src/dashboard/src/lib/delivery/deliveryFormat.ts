@@ -108,6 +108,12 @@ export const causeOutcome = (cause: string): DeliveryOutcome => CAUSE_OUTCOME[ca
 /** A UTC instant as the page writes it: "10-25 18:00". */
 export const formatAt = (iso: string) => iso.slice(5, 16).replace("T", " ");
 
+/** 2026-11-12-aeddb: the span a period covers, "11-05 → 11-12"; a day's carries its hours, "11-11 14:00 → 11-12 14:00". */
+export function formatSpan(period: DeliveryPeriod, from: string, to: string): string {
+  const at = period === "day" ? formatAt : (iso: string) => iso.slice(5, 10);
+  return `${at(from)} → ${at(to)}`;
+}
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** What the newest attempt worked on: its specs, the repositories it changed and its first goal. */

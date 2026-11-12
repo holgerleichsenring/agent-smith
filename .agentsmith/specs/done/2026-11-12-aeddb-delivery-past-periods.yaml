@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-aeddb
+goal: "Delivery steps back and forth through past days, weeks and months: GET /api/delivery takes an offset in periods and the page shows previous / next with the span's dates."
+
+applies_to: "dashboard (/delivery: DeliveryScope, DeliveryView, useDelivery, deliveryApi) and default (DeliveryWindowFactory, DeliveryEndpoints)"
+
+requires: [2026-10-25-0099b, 2026-10-25-0099c]
+
+facts:
+  - claim: "The window always ends now; the request names only the period."
+    evidence: "src/backend/AgentSmith.Server/Services/Delivery/DeliveryWindowFactory.cs:16-33"
+  - claim: "The endpoint reads only period and project."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DeliveryEndpoints.cs:24-27"
+  - claim: "The page holds only a period; the switch offers Day, Week and Month and nothing to move in time."
+    evidence: "src/dashboard/src/components/delivery/DeliveryView.tsx:20"
+
+scope:
+  in: "An offset query parameter (whole periods back, 0 to 1000), the window shifted by it, the previous / next control with the span's dates."
+  out: "Calendar-aligned periods and a date picker; the window stays rolling as it is."
+
+steps:
+  - id: window
+    action: "DeliveryWindowFactory.Create takes an offset and ends the window that many periods before now; a negative or over-large offset is no window."
+  - id: endpoint
+    action: "GET /api/delivery reads offset; a bad one answers 400."
+  - id: client
+    action: "deliveryPath, fetchDelivery and useDelivery carry the offset; DeliveryPeriodNav draws previous, the span's dates and next, disabled at offset 0; a period change resets to 0."
+
+tests:
+  - "DeliveryComposeTests (offset window, bad offset)"
+  - "DeliveryView.test.tsx (previous / next)"
+  - "useDelivery.test.tsx (offset rereads)"
+
+done:
+  - "Previous reads the period before, next comes back, next is disabled at the current period, and the span's dates are shown."

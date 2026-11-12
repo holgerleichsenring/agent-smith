@@ -1,9 +1,12 @@
+using System.Security.Claims;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Delivery;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 
 namespace AgentSmith.Tests.Delivery;
 
@@ -154,9 +157,9 @@ public sealed class DeliveryComposeTests
     {
         var factory = new DeliveryWindowFactory(new StoppedClock(T.AddMilliseconds(400)));
 
-        var day = factory.Create("day")!;
-        var week = factory.Create(null)!;
-        var month = factory.Create("Month")!;
+        var day = factory.Create("day", 0)!;
+        var week = factory.Create(null, 0)!;
+        var month = factory.Create("Month", 0)!;
 
         day.Current.End.Should().Be(T.AddSeconds(1), "the window ends at the next whole second");
         (day.Current.End - day.Current.Start).Should().Be(TimeSpan.FromDays(1));
@@ -169,7 +172,38 @@ public sealed class DeliveryComposeTests
 
     [Fact]
     public void DeliveryWindowFactory_UnknownPeriod_IsNull() =>
-        new DeliveryWindowFactory(TimeProvider.System).Create("year").Should().BeNull();
+        new DeliveryWindowFactory(TimeProvider.System).Create("year", 0).Should().BeNull();
+
+    // 2026-11-12-aeddb: an offset steps back whole periods; offset 1 is the span the current one is compared with.
+    [Fact]
+    public void DeliveryWindowFactory_Offset_StepsBackWholePeriods()
+    {
+        var factory = new DeliveryWindowFactory(new StoppedClock(T));
+        var current = factory.Create("week", 0)!;
+
+        var back = factory.Create("week", 2)!;
+
+        back.Current.End.Should().Be(current.Current.End.AddDays(-14));
+        (back.Current.End - back.Current.Start).Should().Be(TimeSpan.FromDays(7));
+        back.Previous.End.Should().Be(back.Current.Start);
+        back.Slots.Should().HaveCount(7);
+        factory.Create("week", 1)!.Current.Should().Be(current.Previous);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(DeliveryWindowFactory.MaxOffset + 1)]
+    public void DeliveryWindowFactory_OffsetOutOfRange_IsNull(int offset) =>
+        new DeliveryWindowFactory(TimeProvider.System).Create("month", offset).Should().BeNull();
+
+    [Fact]
+    public async Task DeliveryEndpoint_NegativeOffset_IsABadRequest()
+    {
+        var answer = await DeliveryEndpoints.GetAsync(
+            "week", -1, null, new ClaimsPrincipal(), null!, null!, new DeliveryWindowFactory(TimeProvider.System), null!, CancellationToken.None);
+
+        answer.Should().BeAssignableTo<IStatusCodeHttpResult>().Which.StatusCode.Should().Be(400);
+    }
 
     [Fact]
     public void RunIdGenerator_TimestampOf_IsTheIdPrefix()

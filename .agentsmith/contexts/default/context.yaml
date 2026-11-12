@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-aeddb: "DELIVERY PAST PERIODS (dashboard /delivery, DeliveryPeriodNav, useDelivery, deliveryApi; DeliveryWindowFactory, DeliveryEndpoints). GET /api/delivery takes ?offset= in whole periods back; the page steps previous / next with the span's dates, next disabled at the current period. -> .agentsmith/specs/done/2026-11-12-aeddb-delivery-past-periods.yaml"
     2026-11-12-aedda: "TICKET LIST EVERY TICKET (dashboard /tickets, TicketSection, TicketList, useTicketBucketPage). Done and Closed draw their rows in the unfiltered list instead of a collapsed line, and the unfiltered list pages past the first fifty with Load more on the server's cursor. -> .agentsmith/specs/done/2026-11-12-aedda-tickets-list-every-ticket.yaml"
     2026-11-12-ecde: "COVERAGE LINE NOTES (design turn prompt, ReferenceCoverageText). The upload coverage line names read_notes as what carries earlier reading, since the per-upload note was retired. -> .agentsmith/specs/done/2026-11-12-ecde-coverage-line-notes.yaml"
     2026-11-12-0c24: "WORKER TOOL CALL ERRORS (external worker transport, WorkerReplyTranslator). A worker tool call with non-object arguments or an unoffered name reaches the model as that call's error and the turn goes on; only a refusal or an empty answer fails the call. -> .agentsmith/specs/done/2026-11-12-0c24-worker-tool-call-errors.yaml"

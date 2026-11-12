@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CAUSE_LABEL, KPIS, OUTCOME_LABEL, causeLabel, formatDelta, formatDuration, formatValue, formatWork,
+  CAUSE_LABEL, KPIS, OUTCOME_LABEL, causeLabel, formatDelta, formatDuration, formatSpan, formatValue, formatWork,
 } from "../deliveryFormat";
 
 // 2026-10-25-0099c: how the Delivery page writes its numbers and words.
@@ -8,6 +8,11 @@ import {
 const kpi = (label: string) => KPIS.find((k) => k.label === label)!;
 
 describe("deliveryFormat", () => {
+  it("Span_DatesForAWeekOrMonth_HoursForADay", () => {
+    expect(formatSpan("week", "2026-11-05T14:00:01Z", "2026-11-12T14:00:01Z")).toBe("11-05 → 11-12");
+    expect(formatSpan("day", "2026-11-11T14:00:01Z", "2026-11-12T14:00:01Z")).toBe("11-11 14:00 → 11-12 14:00");
+  });
+
   it("Duration_MinutesUnderAnHour_HoursUnderTwoDays_ElseDays", () => {
     expect(formatDuration(1500)).toBe("25 min");
     expect(formatDuration(5400)).toBe("1.5 h");
