@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-83ca
+goal: "Pin skills v5.29.1: the design reply is the analysis, each open question is one decision, and a larger proposal gets a second look."
+
+applies_to: "default (skills catalog pin)"
+
+requires: [2026-11-12-681f]
+
+facts:
+  - claim: "The catalog is pinned by version and checksum in the infrastructure project."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+
+scope:
+  in: "Version, checksum and embedded tarball; the version named in docs, the example yml and the validator test."
+  out: "Skill text (released in the skills repository as 5.29.1)."
+
+steps:
+  - id: pin
+    action: "Pin v5.29.1 and embed its tarball in place of v5.29.0."
+
+tests:
+  - "SkillsConfigValidatorTests (accepted versions)"
+
+done:
+  - "The embedded catalog is v5.29.1 and every skill-text test passes on it."

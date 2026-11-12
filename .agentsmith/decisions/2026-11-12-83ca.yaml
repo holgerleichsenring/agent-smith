@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-83ca
+
+decisions:
+  - category: Implementation
+    chose: "Pin the patch release that tells the design partner its reply is the analysis, each question is one decision, and a larger proposal is worth review_proposal"
+    over: "Waiting for a larger skills release"
+    reason: "A live gpt-5.6 turn repeated the card in prose, bundled up to seven decisions per question and never asked for a second look; the text change is small and independent."
