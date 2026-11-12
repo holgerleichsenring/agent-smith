@@ -42,7 +42,6 @@ const FIXTURES: Record<string, unknown> = {
     maxToolCallsPerVerifier: 20,
     maxLlmCallsPerSkill: 15,
     maxInputTokensPerSkillCall: 500000,
-    maxOutputTokensPerSkillCall: 16000,
     maxSecondsPerSkillCall: 300,
     maxConcurrentSkillCalls: 10,
     maxSkillsPerPhase: 5,

@@ -20,7 +20,7 @@ public sealed class ProposalWholeSetReview(
         ArgumentNullException.ThrowIfNull(turn);
         ArgumentNullException.ThrowIfNull(drafts);
         // The look owns none of the turn's repositories — the runner disposes them — so nothing is disposed.
-        var look = looks.ForProposalReview(turn.Pipeline);
+        var look = looks.ForProposalReview(turn.Pipeline, turn.Agent);
         var key = turn.Pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var jobId) && jobId is not null
             ? jobId
             : "spec-dialog";

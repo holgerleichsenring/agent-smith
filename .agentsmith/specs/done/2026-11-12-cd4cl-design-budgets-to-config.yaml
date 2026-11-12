@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4cl
+goal: "A design turn's transcript window, reviewer look allowance and loop ceilings are read from the agent block of agentsmith.yml at run-sized defaults; the unwired output cap goes; reviewer reads page."
+
+applies_to: "default (agent config, transcript window, derivation looks, loop limits)"
+
+invariants:
+  - "READ FROM CONFIG. agent.dialog_transcript (verbatim_chars, keep_recent_chars, min_recent_turns, max_fold_chars), agent.dialog_review_look_allowance, agent.dialog_sub_agent_loop_iterations and agent.dialog_master_loop_iterations are what the design turn, its digest writer and its proposal reviewers run under."
+  - "RUN-SIZED DEFAULTS. The dialog master's ceiling defaults to the run master's (200), a dialog child's to the run child's (100), the proposal reviewer's looks to the attack reviewer's floor (24). The window keeps today's numbers."
+  - "NO DEAD CAP. MaxOutputTokensPerSkillCall and the output arm of LimitEnforcer are gone; the input and cost caps stay."
+  - "READ ON. The reviewer's read_file takes start_line; a cut result names the line to continue at, and an evidence id admits only the lines it showed."
+
+facts:
+  - claim: "TranscriptWindow's bounds are constants."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TranscriptWindow.cs:14-17"
+  - claim: "The DI LoopLimitsConfig is a fresh default, so limits.max_dialog_sub_agent_loop_iterations in agentsmith.yml never reaches MasterToolComposition."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/AgentProviderExtensions.cs:59; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:114"
+  - claim: "The proposal review's look allowance is the cut review's constant 6; the plan reviewer's iteration ceiling is that constant plus 2."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:35,51-52; src/backend/AgentSmith.Application/Services/SpecDialog/TicketPlanReviewer.cs:28"
+  - claim: "MaxOutputTokensPerSkillCall is checked only in LimitEnforcer.RecordLlmCall, which the loop does not call (observational)."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:14-21; src/backend/AgentSmith.Application/Services/Loop/LimitEnforcer.cs:48-50"
+  - claim: "The design master's read_file already pages by start_line and line_count; the reviewer's read_file reads a whole file cut at 16,000 characters."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:225-229; src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:20,29-35"
+
+scope:
+  in: "TranscriptWindowConfig and the dialog fields of AgentConfig; TranscriptWindow, DialogTranscriptSection, the digest writer and turn seeds read it; DerivationLookTerms.ProposalReviewWith and the factory's proposal looks take the agent; TicketPlanReviewer's ceiling follows its look; LoopLimitsConfig loses MaxOutputTokensPerSkillCall and MaxDialogSubAgentLoopIterations; RepositoryFileReadTool start_line with EvidenceRecord.FirstLine; schema, example yml, docs, tests."
+  out: "The coding run's cut, premise and contradiction checks keep their constant allowance. The yaml limits block's binding to DI (a separate defect) is named, not fixed. MaxSubAgentsPerDialogTurn stays where it is."
+
+steps:
+  - id: config
+    action: "TranscriptWindowConfig; AgentConfig.Dialog gains DialogTranscript, DialogReviewLookAllowance, DialogSubAgentLoopIterations; DialogMasterLoopIterations defaults to 200."
+  - id: window
+    action: "TranscriptWindow.Render/Fold take the window; seeds carry the project agent's window; the digest writer reads it off the agent."
+  - id: looks
+    action: "ForProposalReview and ForReview take the AgentConfig; TicketPlanReviewer's ceiling is its look's allowance plus 2."
+  - id: limits
+    action: "Drop MaxOutputTokensPerSkillCall (config, enforcer, schema, yml, docs) and move the dialog child ceiling to AgentConfig."
+  - id: paging
+    action: "RepositoryFileReadTool takes start_line; numbered lines are absolute; EvidenceRecord/EvidenceLook carry FirstLine; OwnReadRule admits the shown range."
+
+tests:
+  - "TranscriptWindow_Window_FromConfig_FoldsAtItsBound"
+  - "DialogTranscriptSection_UsesTheSeededWindow"
+  - "ProposalReviewLook_AllowanceFromAgentConfig"
+  - "RepositoryFileReadTool_StartLine_ReturnsAbsoluteNumbersAndTheContinueLine"
+  - "OwnReadRule_PagedRead_AdmitsOnlyTheShownLines"
+  - "AgentConfig dialog defaults bind from yaml"
+
+done:
+  - "No TranscriptWindow constant, MaxOutputTokensPerSkillCall or MaxDialogSubAgentLoopIterations remains in src; the new keys are in the schema, the example yml and the configuration reference."
+  - "Build and full suite green at the spec gate."

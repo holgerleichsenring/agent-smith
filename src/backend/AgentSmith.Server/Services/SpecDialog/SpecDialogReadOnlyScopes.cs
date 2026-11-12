@@ -30,7 +30,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogReadOnlyScopes(
     ProjectTemplateScopes scopes, ReferenceSetRepository sets, IReferenceSetSandboxFactory references,
     ReferenceCoverageReader coverages, ReferenceReadRecorder reads,
-    ILogger<SpecDialogReadOnlyScopes> logger, ReferenceNoteRepository? notes = null)
+    ILogger<SpecDialogReadOnlyScopes> logger)
 {
     /// <summary>
     /// Every template the project declares, lazily — the same shape the scope's repos take,
@@ -51,12 +51,10 @@ public sealed class SpecDialogReadOnlyScopes(
         var opened = new Dictionary<string, ISourceScopeSandbox>(
             scopes.ForProject(project, conversationId), StringComparer.Ordinal);
         var uploaded = await sets.ListAsync(conversationId, cancellationToken);
-        // 2026-10-02-075dd: each upload's note rides on its sandbox into the turn's prompt.
-        var noted = notes is null ? new Dictionary<string, string>() : await notes.NotesAsync(conversationId, cancellationToken);
         var covered = await coverages.ForAsync(conversationId, uploaded, cancellationToken); // 2026-11-04-96a0c
         foreach (var (address, set) in ReferenceScopeName.For(uploaded.Select(s => s.Name)).Zip(uploaded))
             opened[address] = references.Create(
-                project, conversationId, address, set.SetId, noted.GetValueOrDefault(set.SetId), covered.GetValueOrDefault(set.SetId));
+                project, conversationId, address, set.SetId, covered.GetValueOrDefault(set.SetId));
         if (opened.Count > 0)
             logger.LogInformation(
                 "The design analysis may read {Count} read-only scope(s): {Names}",

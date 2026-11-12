@@ -24,7 +24,7 @@ public sealed class DialogSurfaceLimitsTests
 
         var request = DialogSurfaceLimits.Apply(Request(agent), Context(DesignMaster, agent, pipeline));
 
-        request.MaxIterations.Should().Be(100);
+        request.MaxIterations.Should().Be(200); // 2026-11-12-cd4cl: the run master's default
         request.Compaction.Should().BeSameAs(agent.Compaction);
         request.ContextWindowTokensOverride.Should().Be(200000);
         request.ThreadCapture.Should().BeSameAs(slot.Thread);

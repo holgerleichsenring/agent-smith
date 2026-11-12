@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
 using static AgentSmith.Tests.Specs.PremiseCheckTestDoubles;
 
@@ -209,7 +210,7 @@ public sealed class PremiseCheckPromptTests
         new[]
         {
             DerivationLookTerms.Derivation.EvidencePrefix,
-            DerivationLookTerms.ProposalReview.EvidencePrefix,
+            DerivationLookTerms.ProposalReviewWith(24).EvidencePrefix,
             terms.EvidencePrefix,
         }.Should().OnlyHaveUniqueItems("two holders under one letter resolve to the wrong look");
     }

@@ -47,7 +47,7 @@ public sealed class DerivationEvidence(string idPrefix = "L", string actor = "th
             _looks.Add(new EvidenceLook(
                 id, record.Repository, record.What, record.ExitCode, record.Ran,
                 $"[{id}] {record.Repository}: {actor} ran '{record.What}' exited {record.ExitCode}{clause}",
-                record.Kind, record.Path, record.LinesReturned, record.Pattern));
+                record.Kind, record.Path, record.LinesReturned, record.Pattern, record.FirstLine));
             return id;
         }
     }

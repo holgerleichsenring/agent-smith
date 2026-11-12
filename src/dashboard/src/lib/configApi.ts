@@ -880,7 +880,6 @@ export interface LimitsSetting {
   maxToolCallsPerVerifier: number;
   maxLlmCallsPerSkill: number;
   maxInputTokensPerSkillCall: number;
-  maxOutputTokensPerSkillCall: number;
   maxSecondsPerSkillCall: number;
   maxConcurrentSkillCalls: number;
   maxSkillsPerPhase: number;

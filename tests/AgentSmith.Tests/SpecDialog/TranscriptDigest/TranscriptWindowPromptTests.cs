@@ -32,8 +32,8 @@ public sealed class TranscriptWindowPromptTests
 
         var prompt = new SpecDialogPromptFactory().Build(With(Long), 0, 0);
 
-        prompt.Should().Contain(TranscriptWindow.Render(Long)).And.Contain("DIGEST-OF-THE-START").And.NotContain("FOLDED-");
-        prompt.Length.Should().BeLessThan(overhead + TranscriptWindow.VerbatimChars);
+        prompt.Should().Contain(RenderWindow(Long)).And.Contain("DIGEST-OF-THE-START").And.NotContain("FOLDED-");
+        prompt.Length.Should().BeLessThan(overhead + W.VerbatimChars);
     }
 
     [Fact]
@@ -43,6 +43,6 @@ public sealed class TranscriptWindowPromptTests
 
         prompt.Should().Contain("DIGEST-OF-THE-START").And.Contain("[user: Ada] require the ledger widget")
             .And.Contain("[user: Bob] recent question").And.NotContain("FOLDED-");
-        prompt.Length.Should().BeLessThan(TranscriptWindow.VerbatimChars);
+        prompt.Length.Should().BeLessThan(W.VerbatimChars);
     }
 }

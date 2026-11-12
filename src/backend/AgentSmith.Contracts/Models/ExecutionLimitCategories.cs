@@ -18,9 +18,8 @@ public static class ExecutionLimitCategories
     public const string ExecutionLimitToolCalls = "execution-limit-tool-calls";
 
     /// <summary>
-    /// Skill exhausted the per-call input or output token budget
-    /// (<c>limits.max_input_tokens_per_skill_call</c> /
-    /// <c>max_output_tokens_per_skill_call</c>). Operator response: raise
+    /// Skill exhausted the per-call input token budget
+    /// (<c>limits.max_input_tokens_per_skill_call</c>). Operator response: raise
     /// the budget, simplify the prompt, or split the work.
     /// </summary>
     public const string ExecutionLimitTokens = "execution-limit-tokens";

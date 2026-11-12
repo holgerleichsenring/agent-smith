@@ -105,8 +105,9 @@ public sealed class SpawnAgentToolHostTests
     [InlineData(2, 20)]
     public void SpawnAgents_DesignSurface_StatesConfiguredCountAndRounds(int children, int rounds)
     {
-        var limits = new LoopLimitsConfig { MaxSubAgentsPerDialogTurn = children, MaxDialogSubAgentLoopIterations = rounds };
-        var (host, _) = BuildHost(new CountingLoopRunner(), limits.MaxSubAgentsPerDialogTurn, limits.MaxDialogSubAgentLoopIterations);
+        var limits = new LoopLimitsConfig { MaxSubAgentsPerDialogTurn = children };
+        var agent = new AgentConfig { DialogSubAgentLoopIterations = rounds };
+        var (host, _) = BuildHost(new CountingLoopRunner(), limits.MaxSubAgentsPerDialogTurn, agent.DialogSubAgentLoopIterations);
 
         var description = host.GetTools(null, null).Single().Description;
 

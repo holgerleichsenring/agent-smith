@@ -12,12 +12,11 @@ namespace AgentSmith.Application.Services.Tools;
 /// <summary>
 /// 2026-10-02-075dc: the tools a design turn gets over its uploads, beyond reading and rendering
 /// them — run_in_reference, only where sandboxes are containers: the in-process backend would run
-/// the command inside the server. 2026-10-02-075dd: and note_reference, where a store keeps notes.
-/// Nothing on a turn without an upload.
+/// the command inside the server. Nothing on a turn without an upload. 2026-11-12-cd4ck: note_reference gave way to
+/// the conversation's notes (ConversationNotesToolHost).
 /// </summary>
 public sealed class ReferenceDesignTools(
-    SandboxContainerRuntime runtime, IReferenceNotes? notes = null,
-    IReferenceSetReader? sets = null, IToolImageDeposit? images = null)
+    SandboxContainerRuntime runtime, IReferenceSetReader? sets = null, IToolImageDeposit? images = null)
 {
     public IReadOnlyList<AITool> For(PipelineContext pipeline)
     {
@@ -34,8 +33,6 @@ public sealed class ReferenceDesignTools(
                 pipeline.TryGet<int>(ContextKeys.StepTimeoutSeconds, out var cap) ? cap : null)).GetTools(null, null));
         var held = references.Where(r => r.Value is ReferenceSetSandbox)
             .ToDictionary(r => r.Key, r => (ReferenceSetSandbox)r.Value, StringComparer.Ordinal);
-        if (notes is not null && held.Count > 0)
-            tools.AddRange(new ReferenceNoteToolHost(held, notes).GetTools(null, null));
         // 2026-10-08-e8b9j: an image inside an upload, shown as a picture — on any backend.
         if (sets is not null && images is not null && held.Count > 0)
             tools.AddRange(new ReferenceImageToolHost(held.ToDictionary(r => r.Key,
