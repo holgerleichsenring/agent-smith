@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-01b4
+
+decisions:
+  - category: Design
+    chose: "A pill says reviewed clean only when the spec's last review round answered build; no round, no finding and no mark shows no pill"
+    over: "Restoring a review-off finding, or a neutral 'reviewed when its run starts' pill on every row"
+    reason: "Absence of findings is not a review. The run reviews each spec before it builds it, so an unreviewed row needs no pill at all."
+  - category: Design
+    chose: "Anchor the awaiting proposal on the last kept turn whose own proposal serializes equal to it (SpecDialogTurnProposals)"
+    over: "Teaching the client to merge a trailing card into a reply by draft equality; or the last kept turn with any proposal"
+    reason: "The cause is server side: ProposalTurn was found by a draft block in reply text, which tool-written drafts (cd4ca) never leave. Both rows are written from one object by one serializer, so equality is exact; the last kept turn would mis-anchor after a turn that only drafted and then answered."
+  - category: Scope
+    chose: "Keep the text anchor as fallback and leave SpecDialogDecisionPath.AgentSpokeAfterTheCard on it"
+    over: "Moving the chat typed-approval check to the run anchor in this spec"
+    reason: "The chat path has the same blind spot (no draft block, so any agent reply counts as speaking after the card) but needs the turn store injected; it is reported as a follow-up, not built here."

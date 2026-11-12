@@ -26,6 +26,6 @@ public sealed class SpecReviewConfigTests
     }
 
     [Fact]
-    public void SpecReviewConfig_DesignTurn_DefaultsOff() =>
-        new AgentSmithConfig().SpecReview.DesignTurn.Should().BeFalse("2026-11-12-cd4ch: a design turn's review pass is opt-in");
+    public void SpecReviewConfig_DesignTurn_DefaultsOn() =>
+        new AgentSmithConfig().SpecReview.DesignTurn.Should().BeTrue("2026-11-12-7c1c: a design turn's advisory pass runs unless turned off");
 }

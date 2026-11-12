@@ -18,7 +18,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// still refuses a cut whose edges cannot be ordered, before any ticket exists. 2026-09-22-b6ad:
 /// the NOTES are created here and threaded into the filing arms, because that is where the ticket
 /// branch is written and a write that fails after the ticket exists is a note. 2026-11-04-df50b: the
-/// project is read off the configuration as it is NOW, so one created after startup is filed into.
+/// project is read off the configuration as it is NOW, so one created after startup is filed into. e2f5: open questions file as decided.
 /// </summary>
 public sealed class OutcomeTicketFiler(
     Tickets.TicketProjects projects,
@@ -44,7 +44,7 @@ public sealed class OutcomeTicketFiler(
                     provider, project, bug.Ticket, filed, mayStartRuns, cancellationToken),
                 // 2026-10-06-03c7c: the series is minted and re-id'd BEFORE anything renders.
                 SpecOutcome spec => FileSpecAsync(provider, state, project,
-                    seriesFiling.Mint([spec.Draft], proposal), filed, notes, mayStartRuns, cancellationToken),
+                    seriesFiling.Mint([spec.Draft], proposal), proposal.Questions, filed, notes, mayStartRuns, cancellationToken),
                 EpicOutcome epic => FileEpicAsync(
                     provider, state, project, epic, filed, notes, mayStartRuns, cancellationToken),
                 _ => throw new InvalidOperationException(
@@ -87,11 +87,11 @@ public sealed class OutcomeTicketFiler(
 
     private Task FileSpecAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
-        FiledSeries series, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
+        FiledSeries series, IReadOnlyList<OpenQuestion> questions, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
         CancellationToken ct) =>
         sets.FileAsync(
             provider, state, project, TicketFilingRole.Spec,
-            note => renderer.RenderSpec(series.Drafts[0], state.JobId, note), series, series.Drafts[0].Goal,
+            note => DecidedQuestionLines.Appended(renderer.RenderSpec(series.Drafts[0], state.JobId, note), questions), series, series.Drafts[0].Goal,
             filed, notes, mayStartRuns, ct);
 
     /// <summary>
@@ -112,8 +112,8 @@ public sealed class OutcomeTicketFiler(
         {
             var (series, goal) = (parts[i], parts.Count == 1 ? epic.Parent.Goal : $"{epic.Parent.Goal} (part {i + 1} of {parts.Count})");
             // 2026-09-13-ed5a: the work ticket records what the analysis read while it cut.
-            await sets.FileAsync(provider, state, project, TicketFilingRole.Work, note => renderer.RenderEpicParent(
-                epic.Parent, series.Drafts, epic.Templates, state.JobId, note, series.Id), series, goal, filed, notes, mayStartRuns && i == 0, ct);
+            await sets.FileAsync(provider, state, project, TicketFilingRole.Work, note => DecidedQuestionLines.Appended(renderer.RenderEpicParent(
+                epic.Parent, series.Drafts, epic.Templates, state.JobId, note, series.Id), epic.Questions), series, goal, filed, notes, mayStartRuns && i == 0, ct);
             if (i > 0) notes.Add($"Part {i + 1} ({series.Id}) continues part {i} ({parts[i - 1].Id}); start it once part {i} has merged.");
         }
     }

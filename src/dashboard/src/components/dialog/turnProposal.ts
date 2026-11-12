@@ -43,8 +43,8 @@ export const STATUS_LABEL: Record<SpecStatus, string> = {
   pending: "not reviewed",
 };
 
-// The marks a turn's review leaves on a draft it did not attack: a waiting draft, and review turned off.
-const NOT_REVIEWED_PROBLEMS = new Set(["not reviewed yet", "review is turned off (spec_review.rounds: 0)"]);
+// The mark a turn's review leaves on a draft it did not get to.
+const NOT_REVIEWED_PROBLEMS = new Set(["not reviewed yet"]);
 
 export function turnProposalOf(push: SpecDialogProposalPush): TurnProposal {
   const drafts = [push.parent, push.spec, ...push.children].flatMap((draft) => (draft ? [{
@@ -61,12 +61,16 @@ export function rowsOf(proposal: TurnProposal): TurnDraft[] {
   return proposal.kind === "epic" ? proposal.drafts.slice(1) : proposal.drafts;
 }
 
-/** The pill, from what the review left: not reviewed wins, then a finding, else a clean review. */
-export function statusOf(proposal: TurnProposal, specId: string): SpecStatus {
+/** The pill, from what the review left: not reviewed wins, then a finding, then a last round that answered build.
+ *  2026-11-12-01b4: no round, no finding and no mark is no review at all — no pill, never "reviewed clean". */
+export function statusOf(proposal: TurnProposal, specId: string): SpecStatus | null {
   if ((proposal.notReviewed ?? []).includes(specId)) return "pending";
   const mine = findingsOf(proposal, specId);
   if (mine.some((finding) => NOT_REVIEWED_PROBLEMS.has(finding.problem))) return "pending";
-  return mine.length > 0 ? "findings" : "clean";
+  if (mine.length > 0) return "findings";
+  const last = (proposal.reviewRounds ?? []).filter((round) => round.specId === specId).at(-1);
+  if (!last) return null;
+  return last.verdict.trim().toLowerCase() === "build" ? "clean" : "findings";
 }
 
 export function findingsOf(proposal: TurnProposal, specId: string): SpecDialogProposalFinding[] {
@@ -76,7 +80,10 @@ export function findingsOf(proposal: TurnProposal, specId: string): SpecDialogPr
 /** "1 clean · 2 with findings · 7 not reviewed", leaving out the states no row is in. */
 export function statusSummary(proposal: TurnProposal): string {
   const counts = { clean: 0, findings: 0, pending: 0 };
-  for (const row of rowsOf(proposal)) counts[statusOf(proposal, row.specId)] += 1;
+  for (const row of rowsOf(proposal)) {
+    const status = statusOf(proposal, row.specId);
+    if (status) counts[status] += 1;
+  }
   return [
     counts.clean > 0 ? `${counts.clean} clean` : null,
     counts.findings > 0 ? `${counts.findings} with findings` : null,
@@ -89,11 +96,6 @@ export function titleOf(proposal: TurnProposal): string {
   if (proposal.kind === "tickets") return `${proposal.tickets?.length ?? 0} tickets`;
   if (proposal.kind === "comment") return "A comment on the ticket";
   return proposal.bug?.title ?? proposal.drafts[0]?.goal ?? proposal.kind;
-}
-
-/** What "Take proposal" sends: the question and the proposal, readable without the card. */
-export function takeText(question: SpecDialogOpenQuestion): string {
-  return `${question.question} — ${question.proposal}`;
 }
 
 /** How many review rounds the turn ran — the highest round any draft reached. */

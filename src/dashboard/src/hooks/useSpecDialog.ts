@@ -742,7 +742,7 @@ function upsertReading(
  *  2026-09-20-3af8: the conversation's images take their place among the turns by their moment. */
 function seed(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
-  return withImages(turns(view), session?.images ?? [], session?.references ?? [], mocksOf(view));
+  return withImages(transcriptEntries(view), session?.images ?? [], session?.references ?? [], mocksOf(view));
 }
 
 /** 2026-10-13-8762r: the read's mock versions, each with the conversation its routes address. */
@@ -751,7 +751,8 @@ function mocksOf(view: SpecDialogView): TranscriptMock[] {
   return session ? (session.mocks ?? []).map((mock) => ({ ...mock, sessionId: session.sessionId })) : [];
 }
 
-function turns(view: SpecDialogView): DialogEntry[] {
+/** The read's transcript as entries, each proposing turn with its result and the awaiting proposal on its own turn. */
+export function transcriptEntries(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
   const transcript = session?.transcript ?? [];
   const held = transcript

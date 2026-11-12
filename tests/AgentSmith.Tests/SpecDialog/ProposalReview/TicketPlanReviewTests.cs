@@ -54,7 +54,7 @@ public sealed class TicketPlanReviewTests
 
         await rig.RunAsync(List(Ticket("order-api", "ticket:41"), Ticket("order-ui", "order-api")));
 
-        rig.ReviewerPrompts.Should().BeEmpty("spec_review.design_turn is off by default");
+        rig.ReviewerPrompts.Should().BeEmpty("spec_review.design_turn is switched off");
         rig.Outcome.Findings.Should().ContainSingle().Which.Problem.Should().Be("required ticket not found");
     }
 

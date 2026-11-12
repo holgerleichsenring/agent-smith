@@ -19,7 +19,8 @@ export function TurnSpecRow({
   extra,
 }: {
   draft: TurnDraft;
-  status: SpecStatus;
+  /** Null when no review touched the spec: the row then shows no pill. */
+  status: SpecStatus | null;
   findings: SpecDialogProposalFinding[];
   rounds: SpecDialogReviewRound[];
   /** The ticket page's own parts for this spec: its disposition and a ratified mock. */
@@ -29,14 +30,14 @@ export function TurnSpecRow({
   const [fold, setFold] = useState<Fold>(null);
   const toggle = (next: Fold) => setFold((was) => (was === next ? null : next));
   return (
-    <div className="d-turn-row" data-testid={`turn-row-${draft.specId}`} data-status={status}>
+    <div className="d-turn-row" data-testid={`turn-row-${draft.specId}`} data-status={status ?? "none"}>
       <button type="button" className="d-turn-toggle" aria-expanded={open} data-testid="turn-row-toggle"
         onClick={() => setOpen((was) => !was)}>
         <span aria-hidden="true" className="dsh-label font-mono text-body">{open ? "▾" : "▸"}</span>
         <span className="dsh-label font-mono text-body">{draft.specId}</span>
         <span className="dsh-body min-w-0 flex-[1_1_280px]">{draft.goal}</span>
         {draft.repos.map((repo) => <span key={repo} className="d-repo">{repo}</span>)}
-        <span className={`d-pill ${status}`} data-testid="turn-row-status">{STATUS_LABEL[status]}</span>
+        {status && <span className={`d-pill ${status}`} data-testid="turn-row-status">{STATUS_LABEL[status]}</span>}
       </button>
       {extra && <div className="px-3 pb-2">{extra}</div>}
       {open && (
