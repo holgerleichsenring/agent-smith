@@ -75,6 +75,23 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
+    public void ReviewProposalTool_FromTheRealServiceProvider_IsOnTheDesignPartnersSurface()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var context = new AgentSmith.Application.Models.AgenticMasterContext("design-partner-master",
+            new AgentSmith.Domain.Entities.Repository(new AgentSmith.Domain.Models.BranchName("main"), "/tmp"), string.Empty,
+            new AgentSmith.Contracts.Models.Configuration.AgentConfig { Type = "claude" }, new AgentSmith.Contracts.Commands.PipelineContext());
+        context.Pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.SpecDialogReplySlot, new AgentSmith.Contracts.Models.SpecDialogReplySlot());
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Tools.TicketActToolsFactory>().Tools(context)
+            .Select(t => t.Name).Should().Contain(AgentSmith.Application.Services.Tools.ReviewProposalToolHost.Name);
+    }
+
+    [Fact]
     public void AddSpecReview_ResolvesSeriesContractRound()
     {
         var services = new ServiceCollection();

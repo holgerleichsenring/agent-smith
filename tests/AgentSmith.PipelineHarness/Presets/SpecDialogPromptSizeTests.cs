@@ -37,8 +37,9 @@ public sealed partial class SpecDialogWorkPictureTests
         // Measured 2026-11-10 on this fixture: 45654 before the series (26 tools), 31857 after it (16 tools — the mock,
         // render and compare tools stay on every design turn, since a mock or a public URL needs no upload).
         // 2026-11-10-d854a: 33745 with state_open_questions (17 tools) — the questions' card needs the tool on every
-        // design turn, since a draft can come on the first.
+        // design turn, since a draft can come on the first. 2026-11-12-cd4cj: review_proposal (18 tools) — the master may ask
+        // for the advisory review on any turn that proposes.
         (system + user + tools).Should().BeLessThan(34500, "a first design turn carries only what it can use");
-        count.Should().BeLessThanOrEqualTo(17);
+        count.Should().BeLessThanOrEqualTo(18);
     }
 }
