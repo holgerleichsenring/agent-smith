@@ -25,9 +25,9 @@ using YamlDotNet.Serialization;
 namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
-/// 2026-10-13-8762i: a design turn's proposal review as the product composes it — the real loop, panel, gate,
-/// guard, re-prompt, resolver and residues — over a scripted attack reviewer, a scripted design partner and a
-/// scripted evidence check. The whole-set cut reviewer answers clean unless a test says otherwise.
+/// 2026-10-13-8762i: a design turn's proposal review as the product composes it — 2026-11-12-cd4ch: the one
+/// advisory pass, its panel and series round — over a scripted attack reviewer and a scripted evidence check. The
+/// whole-set cut reviewer answers clean unless a test says otherwise.
 /// </summary>
 internal sealed class ProposalReviewRig
 {
@@ -37,24 +37,16 @@ internal sealed class ProposalReviewRig
     public const string Lone = "2026-10-14-7000a";
     public const string Done = "Every order of the day lands in the export file.";
 
-    private readonly Queue<Func<string, string>> _replies = new();
     private readonly TaskCompletionSource _gathered = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _inFlight;
 
     public PipelineContext Pipeline { get; } = new();
 
-    /// <summary>2026-11-11-2bdfd: the turn's reply slot, seeded as the pipeline seeds it; a scripted reply writes its
-    /// Questions as state_open_questions would (<see cref="Asks"/>).</summary>
+    /// <summary>2026-11-11-2bdfd: the turn's reply slot, seeded as the pipeline seeds it; a test writes its
+    /// Questions as state_open_questions would.</summary>
     public SpecDialogReplySlot Slot { get; } = new();
 
     public ProposalReviewRig() => Pipeline.Set(ContextKeys.SpecDialogReplySlot, Slot);
-
-    /// <summary>A scripted reply that first states <paramref name="questions"/>, as the tool replaces the list.</summary>
-    public Func<string, string> Asks(Func<string, string> reply, params OpenQuestion[] questions) => nudge =>
-    {
-        Slot.Questions = questions;
-        return reply(nudge);
-    };
 
     public static OpenQuestion Question(string question, string proposal, params string[] specIds) =>
         new(question, proposal, specIds);
@@ -66,19 +58,21 @@ internal sealed class ProposalReviewRig
     public Func<SpecDraft, SpecRoundEvidenceResult> OnEvidence { get; set; } = _ => SpecRoundEvidenceResult.None;
     public SpecCutReview WholeSet { get; set; } = SpecCutReview.Clean;
     public ConcurrentQueue<SpecAttackInput> Reviewed { get; } = new();
-    public List<string> Nudges { get; } = [];
-    public List<int> ThreadLengths { get; } = [];
     public int WholeSetCalls { get; private set; }
     public int MaxInFlight { get; private set; }
     public bool RealEvidence { get; init; }
 
     /// <summary>When above 0, every reviewer call waits until this many are in flight at once.</summary>
     public int GatherInFlight { get; init; }
-    public Action? OnReprompt { get; set; }
     public AgenticLoopResult FirstReply { get; private set; } = Result("");
 
-    public static SpecReviewSettings Of(int rounds, int reviewers = 2, int maxConcurrent = 2, int share = 40, int wall = 1800) =>
-        new(new SpecReviewConfig { Rounds = rounds, Reviewers = reviewers, MaxConcurrent = maxConcurrent, BudgetSharePercent = share }, wall);
+    /// <summary>2026-11-12-cd4ch: <paramref name="designTurn"/> is on unless a test turns the design turn's pass off.</summary>
+    public static SpecReviewSettings Of(
+        int rounds, int reviewers = 2, int maxConcurrent = 2, int share = 40, int wall = 1800, bool designTurn = true) =>
+        new(new SpecReviewConfig
+        {
+            Rounds = rounds, Reviewers = reviewers, MaxConcurrent = maxConcurrent, BudgetSharePercent = share, DesignTurn = designTurn,
+        }, wall);
 
     public static SpecAttackResult Build() => new(SpecReviewVerdicts.Build, [], []);
 
@@ -163,15 +157,8 @@ internal sealed class ProposalReviewRig
         return proposal;
     }
 
-    /// <summary>The design partner's next reply, computed from the nudge it is sent.</summary>
-    public void Replies(params Func<string, string>[] replies)
-    {
-        foreach (var reply in replies) _replies.Enqueue(reply);
-    }
-
     public SpecDialogProposalReview Review(ISpecReviewSettingsReader? reader = null) =>
-        new(WholeSetReviewer(), DerivationTestLooks.Factory(), ProposalEvidenceTestReview.Create(),
-            reader ?? Reader(() => Settings), Loop(), TicketPlanReviewRig.Default(), TurnActivityRecorder.Silent(),
+        new(ProposalEvidenceTestReview.Create(), reader ?? Reader(() => Settings), Pass(), TicketPlanReviewRig.Default(),
             NullLogger<SpecDialogProposalReview>.Instance, Proposals);
 
     public async Task<AgenticLoopResult> RunAsync(ISpecReviewSettingsReader? reader = null)
@@ -200,18 +187,18 @@ internal sealed class ProposalReviewRig
     public static AgenticLoopResult Result(string text) =>
         new(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)), TimeSpan.Zero);
 
-    public ProposalReviewLoop Loop()
-    {
-        var resolver = MasterHandlerFixture.BuildOutcomeResolver();
-        var reprompt = new ProposalCutsReprompt(Partner(), resolver, TurnActivityRecorder.Silent(),
-            NullLogger<ProposalCutsReprompt>.Instance);
-        var revision = new ProposalRoundRevision(reprompt, new ProposalReProposalGuard(new SpecRevisionGuard()),
-            new SpecCutResidues(), Evidence(), NullLogger<ProposalRoundRevision>.Instance);
-        return new ProposalReviewLoop(
-            new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
-            revision, new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(),
-                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Proposals);
-    }
+    /// <summary>2026-11-12-cd4ch: the one advisory pass, as the post-turn review and the review tool run it.</summary>
+    public ProposalReviewPass Pass() => Pass(WholeSetReviewer());
+
+    /// <summary>The pass with <paramref name="wholeSet"/> as its whole-set reviewer, reporting to <paramref name="activity"/>.</summary>
+    public ProposalReviewPass Pass(ISpecCutReviewer wholeSet, ITurnActivityObserverAccessor? activity = null) =>
+        new(new ProposalWholeSetReview(wholeSet, DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
+                NullLogger<ProposalWholeSetReview>.Instance),
+            new ProposalAttackPass(
+                new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
+                Evidence(), new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(), NullLogger<ProposalSeriesRound>.Instance),
+                NullLogger<ProposalAttackPass>.Instance),
+            activity ?? TurnActivityRecorder.Silent());
 
     private ISeriesContractReviewer SeriesReviewer()
     {
@@ -255,21 +242,6 @@ internal sealed class ProposalReviewRig
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((PipelineContext _, SpecDraft draft, SpecSet _, CancellationToken _) => OnEvidence(draft));
         return evidence.Object;
-    }
-
-    private IAgenticLoopRunner Partner()
-    {
-        var runner = new Mock<IAgenticLoopRunner>();
-        runner.Setup(r => r.RunAsync(It.IsAny<AgenticLoopRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AgenticLoopRequest request, CancellationToken _) =>
-            {
-                Nudges.Add(request.UserPrompt);
-                ThreadLengths.Add(request.PriorMessages?.Count ?? 0);
-                OnReprompt?.Invoke();
-                if (_replies.Count == 0) throw new InvalidOperationException("the design partner has no scripted reply");
-                return Result(_replies.Dequeue()(request.UserPrompt));
-            });
-        return runner.Object;
     }
 
     private ISpecCutReviewer WholeSetReviewer()

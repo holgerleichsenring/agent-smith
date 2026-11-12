@@ -372,10 +372,11 @@ describe("SettingsStudio", () => {
     fireEvent.change(screen.getByTestId("setting-specreview-reviewers"), { target: { value: "3" } });
     fireEvent.change(screen.getByTestId("setting-specreview-concurrent"), { target: { value: "1" } });
     fireEvent.change(screen.getByTestId("setting-specreview-share"), { target: { value: "25" } });
+    fireEvent.click(screen.getByTestId("setting-specreview-designturn"));
     fireEvent.click(screen.getByTestId("settings-save"));
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
     expect(saveSetting).toHaveBeenCalledWith("spec_review",
-      { rounds: 0, reviewers: 3, maxConcurrent: 1, budgetSharePercent: 25 });
+      { rounds: 0, reviewers: 3, maxConcurrent: 1, budgetSharePercent: 25, designTurn: true });
   });
 
   it("SettingsStudio_SeriesForm_EditsCapsBudgetAndWallClock", async () => {

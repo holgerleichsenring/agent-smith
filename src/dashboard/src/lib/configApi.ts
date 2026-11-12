@@ -1000,6 +1000,8 @@ export interface SpecReviewSetting {
   reviewers: number;
   maxConcurrent: number;
   budgetSharePercent: number;
+  /** 2026-11-12-cd4ch: one advisory review pass after a design turn; off by default. */
+  designTurn?: boolean;
 }
 
 /** A ticket's spec series and its automatic continuation (agentsmith.yml series:). */

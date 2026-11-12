@@ -67,7 +67,7 @@ Before the coding master builds a spec, fresh reviewers attack it and their cuts
 - Max concurrent reviewers, 2.
 - Budget share (percent), 40: the share of the run's cost cap and wall clock a coding run's review may use. A spec the review didn't clear within it is left to the next attempt. A proposal in Work it out has no share and no time limit: every draft gets its rounds, and only the run's cost cap or a cancel stops them.
 
-The block is `spec_review:` (`rounds`, `reviewers`, `max_concurrent`, `budget_share_percent`), and every run reads it fresh. An invalid block is refused at validation: saving it, importing a file with it, and the startup check all name the problem (for example `spec_review.rounds is -1; it must be 0 or more`). A proposal in [Work it out](../how-it-works/work-it-out.md) goes through review rounds sized by the same block; if a turn still cannot read the block, it reviews nothing and marks its drafts with that reason, and the run reviews them before building.
+The block is `spec_review:` (`rounds`, `reviewers`, `max_concurrent`, `budget_share_percent`, `design_turn`), and every run reads it fresh. An invalid block is refused at validation: saving it, importing a file with it, and the startup check all name the problem (for example `spec_review.rounds is -1; it must be 0 or more`). With `design_turn` on (off by default), a proposal in [Work it out](../how-it-works/work-it-out.md) gets one advisory review pass with the same reviewers; if a turn still cannot read the block, it reviews nothing and marks its drafts with that reason, and the run reviews them before building.
 
 ### Series
 

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-cd4ch
+goal: "A design turn's spec or epic review is one advisory pass after the turn, behind spec_review.design_turn (default off); findings go on the card and nothing re-prompts the design partner."
+
+applies_to: "default (spec review: ProposalAttackPass, SpecDialogProposalReview, SpecReviewConfig; dashboard settings and rounds)"
+
+invariants:
+  - "NO RE-PROMPT. Nothing in a design turn's spec or epic review calls the design partner again; the proposal it publishes is the one the turn wrote."
+  - "ONE PASS. With spec_review.design_turn on, every open draft gets spec_review.reviewers fresh attack reviewers once, the whole-set cut review runs once, and an epic with a contract gets its series round once; each draft records one round."
+  - "DEFAULT OFF. spec_review.design_turn defaults to false; off, the turn runs only the mechanical evidence check and the run reviews every spec before it is built."
+  - "INPUTS KEPT. Reviewers still see an epic child's siblings and the operator's open questions; SpecAttackAdmission still admits their answers; the run's cost cap still stops the pass."
+
+facts:
+  - claim: "Review rounds end in one re-prompt of the design partner per round."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLoop.cs:37-43"
+  - claim: "The re-proposal is merged by a guard that voids or reverts the model's changes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalRoundRevision.cs:21-49"
+  - claim: "spec_review.rounds is shared by the coding run's review."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:11-12"
+
+scope:
+  in: "ProposalReviewLoop becomes ProposalAttackPass (one pass); ProposalRoundRevision, ProposalReProposalGuard, ProposalEpicRecut, ProposalCutsNudge, ProposalReplyText, ProposalDraftLicence, ProposalGuardResult, ProposalNudgeItem, ProposalChildMerge, SpecReviewStopRule and the snapshot/restore of ProposalOpenQuestions are deleted; ProposalReviewSummary loses the re-prompt texts and the reply splice; SpecReviewConfig.DesignTurn with schema, docs and dashboard checkbox."
+  out: "The ticket-plan review and ProposalCutsReprompt (2026-11-12-cd4ci); the review_proposal tool (2026-11-12-cd4cj); SpecRevisionGuard and SpecIdentityRule stay for the coding run; the outcome gate and TurnReply stay with the gate's owner."
+
+decisions:
+  - "A switch beside rounds, not rounds itself: rounds sizes the coding run's review, which stays; the design turn gets its own on/off."
+
+steps:
+  - id: config
+    action: "SpecReviewConfig.DesignTurn (false), schema, docs, dashboard checkbox."
+  - id: pass
+    action: "ProposalAttackPass replaces the loop; delete the re-prompt classes; trim session, draft review and summary."
+  - id: wire
+    action: "SpecDialogProposalReview reads the switch; dashboard rounds read as one review."
+  - id: tests
+    action: "Delete tests of removed behaviour; adapt the rig; tests below."
+
+tests:
+  - "ProposalReview_SwitchOff_RunsOnlyTheEvidenceCheck"
+  - "ProposalReview_SwitchOn_OnePassNoRePrompt"
+  - "ProposalReview_CutsAreAdvice_ProposalUnchangedFindingsStand"
+  - "SpecReviewConfig_DesignTurn_DefaultsOff"
+
+done:
+  - "No code path in the design turn's spec or epic review re-prompts the design partner (ProposalRoundRevision and ProposalCutsNudge are gone)."
+  - "With the switch on, the rig shows one round per draft and the proposal unchanged; with it off, no reviewer is called."
+  - "Build green, full suite green, dashboard tests green."

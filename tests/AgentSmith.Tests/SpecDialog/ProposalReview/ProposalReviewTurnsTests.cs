@@ -17,13 +17,10 @@ namespace AgentSmith.Tests.SpecDialog.ProposalReview;
 
 /// <summary>
 /// 2026-10-13-8762i: a later turn carries over what an earlier one cleared. 2026-11-10-18cf: no share bounds a design
-/// turn's review — every draft gets its round; only the run's cost cap stops it, and says so.
+/// turn's review — every draft gets its pass; only the run's cost cap stops it, and says so.
 /// </summary>
 public sealed class ProposalReviewTurnsTests
 {
-    private const string Step = "Write the orders through the buffered file writer.";
-    private const string NewStep = "Write the orders through the streaming file writer.";
-
     [Fact]
     public async Task ProposalReview_SevenDraftsWithTheShareLongSpent_EveryDraftGetsARound()
     {
@@ -41,59 +38,15 @@ public sealed class ProposalReviewTurnsTests
     }
 
     [Fact]
-    public async Task ProposalReview_TimeShareSpentAfterRoundOne_FurtherRoundsStillRun()
-    {
-        var rig = new ProposalReviewRig { Settings = Of(rounds: 4, wall: 1000) };
-        rig.Propose(Epic());
-        rig.OnReview = input => input.Round == 1 ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) : Build();
-        rig.OnReprompt = () => rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-500));
-        rig.Replies(_ => Epic(Yaml(First, step: NewStep), Yaml(Second, step: NewStep, requires: [First])));
-
-        await rig.RunAsync();
-
-        rig.Reviewed.Count(i => i.Draft.SpecId == Second).Should().Be(4, "two rounds of two reviewers, the share notwithstanding");
-        rig.Reviewed.Count(i => i.Draft.SpecId == First).Should().Be(4);
-        rig.Outcome.NotReviewed.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task ProposalReview_BudgetExhausted_StopsOnLastValidProposal_ListsNotReviewed()
-    {
-        var rig = new ProposalReviewRig();
-        rig.Propose(Epic());
-        rig.OnReview = input => input.Round == 1 ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) : Build();
-        rig.OnReprompt = () =>
-        {
-            var tracker = PipelineCostTracker.GetOrCreate(rig.Pipeline);
-            tracker.ApplyCostCap(new CostCapValues { Usd = 10m, Tokens = 10 });
-            tracker.Track(new ChatResponse(new ChatMessage(ChatRole.Assistant, "x"))
-            {
-                Usage = new UsageDetails { InputTokenCount = 1_000, OutputTokenCount = 10 },
-            });
-        };
-        rig.Replies(_ => Epic(Yaml(First, step: NewStep), Yaml(Second, step: NewStep, requires: [First])));
-
-        await rig.RunAsync();
-
-        rig.DraftOf(First).Yaml.Should().Contain(NewStep, "the last valid proposal is kept");
-        rig.Outcome.NotReviewed.Should().Equal(First, Second);
-        rig.Reviewed.Should().HaveCount(4, "no round starts once the run cap is spent");
-        rig.Outcome.Findings.Where(f => f.Problem == ProposalReviewSummary.NotReviewedYet)
-            .Should().OnlyContain(f => f.Why.Contains("cost cap") && !f.Why.Contains("share"));
-    }
-
-    [Fact]
-    public async Task ProposalReview_PastTheWallTimeCeiling_RoundsStillRunToTheirStop()
+    public async Task ProposalReview_PastTheWallTimeCeiling_ThePassStillRuns()
     {
         var rig = new ProposalReviewRig { Settings = Of(rounds: 4, wall: 1800) };
         rig.Pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-3000));
         rig.Propose(SpecReply(Yaml(Lone)));
-        rig.OnReview = input => input.Round == 1 ? RefuseCuts(Cut(SpecRegisterNames.Steps, Step, NewStep)) : Build();
-        rig.Replies(_ => SpecReply(Yaml(Lone, step: NewStep)));
 
         await rig.RunAsync();
 
-        rig.Outcome.ReviewRounds.Should().HaveCount(2, "time says nothing about a review; only the cost cap stops it");
+        rig.Outcome.ReviewRounds.Should().ContainSingle("time says nothing about a review; only the cost cap stops it");
         rig.Outcome.NotReviewed.Should().BeNull();
     }
 
@@ -144,7 +97,7 @@ public sealed class ProposalReviewTurnsTests
     }
 
     [Fact]
-    public async Task ProposalReview_StoreEditOfRounds_AppliesToTheNextTurn()
+    public async Task ProposalReview_StoreEditOfTheSwitch_AppliesToTheNextTurn()
     {
         var current = Of(rounds: 1);
         var reader = Reader(() => current);
@@ -152,7 +105,7 @@ public sealed class ProposalReviewTurnsTests
         first.Propose(SpecReply(Yaml(Lone)));
         await first.RunAsync(reader);
 
-        current = Of(rounds: 0);
+        current = Of(rounds: 1, designTurn: false);
         var second = new ProposalReviewRig();
         second.Propose(SpecReply(Yaml(Lone)));
         await second.RunAsync(reader);

@@ -58,7 +58,7 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
-    public void ProposalReviewRounds_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
+    public void ProposalReviewPass_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -66,8 +66,8 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ProposalReviewLoop>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ProposalReProposalGuard>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ProposalAttackPass>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.ProposalReviewPass>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>()
             .Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogDecisionPath>()

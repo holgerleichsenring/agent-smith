@@ -230,10 +230,8 @@ public sealed class TicketPlanReviewTests
         var loop = new Moq.Mock<AgentSmith.Application.Services.Loop.IAgenticLoopRunner>(Moq.MockBehavior.Strict).Object;
         var flow = new SpecDialogTurnFlow(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new TicketStewardPromptFactory(), AgentSmith.Tests.Handlers.MasterHandlerFixture.OutcomeGate(loop), new SpecDialogProposalReview(
-                Moq.Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(), AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
-                ProposalEvidenceTestReview.Create(), ProposalReviewRig.Reader(() => rig.Settings), new ProposalReviewRig().Loop(),
-                rig.Review(), TurnActivityRecorder.Silent(),
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<SpecDialogProposalReview>.Instance));
+                ProposalEvidenceTestReview.Create(), ProposalReviewRig.Reader(() => rig.Settings), new ProposalReviewRig().Pass(),
+                rig.Review(), Microsoft.Extensions.Logging.Abstractions.NullLogger<SpecDialogProposalReview>.Instance));
         var context = AgentSmith.Tests.Handlers.MasterHandlerFixture.BuildContext(PipelinePresets.TicketStewardMaster);
         var reply = ProposalReviewRig.Result(ListReply(("order-api", "[]"), ("order-ui", "[order-api]")));
 

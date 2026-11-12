@@ -265,7 +265,8 @@
           "minimum": 1,
           "maximum": 100,
           "description": "The share of the run's cost cap and wall clock the review may use; the specs it did not clear are left to the next attempt. The first reviewed spec always runs to its stop. Default 40."
-        }
+        },
+        "design_turn": { "type": "boolean", "description": "Whether a Work it out proposal gets one advisory review pass after its turn; findings go on the approval card and nothing is re-prompted. Off, the run reviews each spec before it is built. Default false." }
       }
     },
     "series": {

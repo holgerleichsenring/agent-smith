@@ -127,18 +127,6 @@ public sealed class SeriesContractFilingTests
         stored.Set.Goal.Should().Be("goal");
     }
 
-    [Fact]
-    public void ProposalReProposalGuard_ReplyChangesTheContract_KeepsTheLastValidOne()
-    {
-        var last = new EpicOutcome(Draft("parent"), [Draft("c-1"), Draft("c-2")], Contract());
-        var reply = last with { Contract = SeriesContractFixtures.Of(names: [new("Other", "event", 1, "c-2")]) };
-
-        var merged = new ProposalReProposalGuard(new SpecRevisionGuard()).Merge(
-            last, reply, new Dictionary<string, ProposalDraftLicence>(), parentNamed: false, lastRound: false);
-
-        ((EpicOutcome)merged!.Merged).Contract.Should().BeSameAs(last.Contract, "no draft's cut licenses the contract");
-    }
-
     private static OutcomeResolution Parse(string contract)
     {
         var validator = new SpecDraftValidator(new SpecSchemaProvider());

@@ -37,31 +37,6 @@ public sealed class ProposalReviewSurfacesTests
     };
 
     [Fact]
-    public void ProposalCutsNudge_NamesRegisterQuoteReplacementAndEvidence()
-    {
-        var nudge = ProposalCutsNudge.For(
-            [new ProposalNudgeItem(Draft, [Cut(SpecRegisterNames.Steps, "buffered", "streaming")], [], [])], [], lastRound: false);
-
-        nudge.Should().Contain("register: steps").And.Contain("quote: \"buffered\"").And.Contain("replacement: \"streaming\"")
-            .And.Contain("evidence: shop/src/Export/Writer.cs:9 [A1]").And.Contain(ProposalCutsNudge.ApplyExactly)
-            .And.NotContain(ProposalCutsNudge.MoveRule);
-    }
-
-    [Fact]
-    public void ProposalCutsNudge_LastRound_TellsTheMoveAndNamesRevertedDrafts()
-    {
-        var reverted = new SpecDraftReader().Read(Yaml(First));
-        var nudge = ProposalCutsNudge.For(
-            [new ProposalNudgeItem(Draft, [Cut(SpecRegisterNames.Steps, "buffered", null)], [],
-                [new SpecEvidenceProblem("the store pages", "src/Store.cs has 3 lines")])],
-            [reverted], lastRound: true);
-
-        nudge.Should().Contain(ProposalCutsNudge.MoveRule).And.Contain("- the store pages: src/Store.cs has 3 lines")
-            .And.Contain($"## {First} was reverted").And.Contain(reverted.Yaml.TrimEnd())
-            .And.Contain("none — remove the quoted words");
-    }
-
-    [Fact]
     public void ForProposalAttack_NoTurnRepositories_IsNull() =>
         DerivationTestLooks.Factory().ForProposalAttack(new PipelineContext(), Draft).Should().BeNull();
 

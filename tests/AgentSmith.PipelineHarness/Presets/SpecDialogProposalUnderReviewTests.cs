@@ -107,6 +107,7 @@ public sealed class SpecDialogProposalUnderReviewTests
             services.AddSingleton<IHubContext<JobsHub>>(_hub);
             services.RemoveAll<ISandboxHeartbeatProbe>();
             services.AddSingleton<ISandboxHeartbeatProbe>(new AliveSandboxHeartbeat());
+            DesignTurnReviewOn.Apply(services); // 2026-11-12-cd4ch
         });
 
     private static async Task<ConversationState> OpenAsync(RealCompositionHarness harness)
