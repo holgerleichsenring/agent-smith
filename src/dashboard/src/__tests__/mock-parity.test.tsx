@@ -496,7 +496,6 @@ describe("Mock parity", () => {
     } });
     const listView = render(<TicketListProvider client={fakeHub().client}><TicketsPage /></TicketListProvider>);
     await screen.findByTestId("ticket-list");
-    fireEvent.click(screen.getByTestId("ticket-closed-show"));
     drawn(screen.getByTestId("tickets-home"), "closed buckets",
       [".section-head", ".cnt.red", ".rows", ".trow-wrap", ".trow", ".trow-act", ".sd.bad", ".sd.closed", ".act", ".btn.sm"]);
     fireEvent.click(screen.getByTestId("ticket-close-7"));

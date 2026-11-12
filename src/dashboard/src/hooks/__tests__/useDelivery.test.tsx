@@ -22,7 +22,7 @@ afterEach(() => vi.useRealTimers());
 describe("useDelivery", () => {
   it("ABurstOfRunsChanged_CostsOneReadWithinFifteenSeconds", async () => {
     const { hub, client } = fakeHub();
-    renderHook(() => useDelivery("week", [], client));
+    renderHook(() => useDelivery("week", 0, [], client));
     await wait(0);
     expect(fetchDelivery).toHaveBeenCalledTimes(1);
 
@@ -35,7 +35,7 @@ describe("useDelivery", () => {
 
   it("TicketActivityChanged_ReadsWithinTwoSeconds", async () => {
     const { hub, client } = fakeHub();
-    renderHook(() => useDelivery("week", [], client));
+    renderHook(() => useDelivery("week", 0, [], client));
     await wait(0);
 
     act(() => hub.runsChanged.emit("r-1"));
@@ -46,16 +46,20 @@ describe("useDelivery", () => {
     expect(fetchDelivery).toHaveBeenCalledTimes(2);
   });
 
-  it("APeriodOrProjectChange_ReadsAgainWithIt", async () => {
+  it("APeriodOffsetOrProjectChange_ReadsAgainWithIt", async () => {
     const { client } = fakeHub();
-    const { result, rerender } = renderHook(({ period, projects }) => useDelivery(period, projects, client), {
-      initialProps: { period: "week" as const as "week" | "day", projects: [] as string[] },
+    const { result, rerender } = renderHook(({ period, offset, projects }) => useDelivery(period, offset, projects, client), {
+      initialProps: { period: "week" as const as "week" | "day", offset: 0, projects: [] as string[] },
     });
     await wait(0);
     expect(result.current.view?.period).toBe("week");
 
-    rerender({ period: "day", projects: ["web-shop"] });
+    rerender({ period: "day", offset: 0, projects: ["web-shop"] });
     await wait(0);
-    expect(fetchDelivery).toHaveBeenLastCalledWith("day", ["web-shop"], expect.any(AbortSignal));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("day", 0, ["web-shop"], expect.any(AbortSignal));
+
+    rerender({ period: "day", offset: 3, projects: ["web-shop"] });
+    await wait(0);
+    expect(fetchDelivery).toHaveBeenLastCalledWith("day", 3, ["web-shop"], expect.any(AbortSignal));
   });
 });

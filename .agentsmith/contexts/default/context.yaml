@@ -91,6 +91,8 @@ integrations:
 
 state:
   done:
+    2026-11-12-aeddb: "DELIVERY PAST PERIODS (dashboard /delivery, DeliveryPeriodNav, useDelivery, deliveryApi; DeliveryWindowFactory, DeliveryEndpoints). GET /api/delivery takes ?offset= in whole periods back; the page steps previous / next with the span's dates, next disabled at the current period. -> .agentsmith/specs/done/2026-11-12-aeddb-delivery-past-periods.yaml"
+    2026-11-12-aedda: "TICKET LIST EVERY TICKET (dashboard /tickets, TicketSection, TicketList, useTicketBucketPage). Done and Closed draw their rows in the unfiltered list instead of a collapsed line, and the unfiltered list pages past the first fifty with Load more on the server's cursor. -> .agentsmith/specs/done/2026-11-12-aedda-tickets-list-every-ticket.yaml"
     2026-11-12-83ca: "SKILLS PIN REPLY QUESTIONS (skills catalog pin v5.29.1). The design partner's reply is the analysis and leaves listing to the card, each open question is one decision, and a larger proposal takes a second look with review_proposal. -> .agentsmith/specs/done/2026-11-12-83ca-skills-pin-reply-questions.yaml"
     2026-11-12-5bfd: "DESIGN APPROVE HELD ANSWERS (Work it out turn result). While own answers to open questions are held, the approve bar steps aside and says to send or drop them first, so Approve cannot file past an answer. -> .agentsmith/specs/done/2026-11-12-5bfd-design-approve-held-answers.yaml"
     2026-11-12-7c1c: "DESIGN REVIEW DEFAULT ON (spec review config: SpecReviewConfig.DesignTurn; Settings → Spec review). spec_review.design_turn defaults to true, so a Work it out proposal gets its one advisory pass unless switched off; schema, docs and form say so. -> .agentsmith/specs/done/2026-11-12-7c1c-design-review-default-on.yaml"

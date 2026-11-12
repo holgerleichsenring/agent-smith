@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-aedda
+
+decisions:
+  - category: Design
+    chose: "Done and Closed draw their rows in the unfiltered list, with no collapse"
+    over: "Keeping the collapse with a remembered open state, or collapsing only Closed"
+    reason: "Tickets with no bucket chosen is every ticket, grouped. On a live list where 49 of 50 tickets are Done or Closed the collapse hid nearly the whole list; this month's merges are already in the metric strip."
+  - category: Design
+    chose: "The unfiltered list pages on from the shared first page with the server's cursor and Load more"
+    over: "Raising the page size, or only the per-section Show all links"
+    reason: "The server pages by fifty run-bearing tickets; past fifty the oldest left the unfiltered view and were reachable only bucket by bucket. The cursor already exists, so the bucket pager's hook serves the unfiltered list too."

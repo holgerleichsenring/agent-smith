@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-aeddb
+
+decisions:
+  - category: Design
+    chose: "An offset in whole periods back from now, on the existing rolling window"
+    over: "An anchor date, or calendar-aligned weeks and months"
+    reason: "The window is rolling and its previous span is the same length before it; an offset keeps that shape, so offset 1 is exactly the span the deltas already compare with, and the client needs no date arithmetic."
+  - category: Design
+    chose: "Bound the offset to 0..1000 and answer 400 outside it"
+    over: "Clamping, or no bound"
+    reason: "A huge offset overflows the date arithmetic into a 500; a refusal is honest, and a thousand months back is past any run."
+  - category: Design
+    chose: "Previous / next with the span's dates beside the period switch, reset to the current period on a period change"
+    over: "A picker of past months or weeks"
+    reason: "Smallest control that reaches every past period, drawn in the page's existing .seg style."

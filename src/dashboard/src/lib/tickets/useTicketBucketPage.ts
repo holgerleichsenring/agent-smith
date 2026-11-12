@@ -9,7 +9,8 @@ import { useTicketList } from "./TicketListProvider";
 // 2026-10-13-9a59p: a bucket view reads its own pages — the shared first page holds every bucket,
 // so a section filtered from it would show fewer rows than its count. The first page is reread
 // whenever the shared list lands (the shared store already coalesced the nudges); pages loaded
-// past it are kept and paged on with the server's cursor.
+// past it are kept and paged on with the server's cursor. 2026-11-12-aedda: the unfiltered list pages
+// too — its first page is the shared one, so only the pages past it are read here.
 
 export interface TicketBucketPage {
   first: TicketListView | null;
@@ -21,14 +22,14 @@ export interface TicketBucketPage {
 }
 
 export function useTicketBucketPage(bucket: TicketBucket | null): TicketBucketPage {
-  const { version } = useTicketList();
-  const [first, setFirst] = useState<TicketListView | null>(null);
+  const { version, list: shared } = useTicketList();
+  const [own, setOwn] = useState<TicketListView | null>(null);
   const [older, setOlder] = useState<{ rows: TicketSummary[]; next: string | null } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refusal, setRefusal] = useState<ApiRefusal | null>(null);
 
   useEffect(() => {
-    setFirst(null);
+    setOwn(null);
     setOlder(null);
   }, [bucket]);
 
@@ -37,7 +38,7 @@ export function useTicketBucketPage(bucket: TicketBucket | null): TicketBucketPa
     const ctrl = new AbortController();
     fetchTickets({ bucket: SERVER_BUCKET[bucket] }, ctrl.signal)
       .then((page) => {
-        setFirst(page);
+        setOwn(page);
         setRefusal(null);
       })
       .catch((thrown: unknown) => {
@@ -46,11 +47,12 @@ export function useTicketBucketPage(bucket: TicketBucket | null): TicketBucketPa
     return () => ctrl.abort();
   }, [bucket, version]);
 
+  const first = bucket === null ? shared : own;
   const next = older ? older.next : first?.nextCursor ?? null;
   const loadMore = useCallback(() => {
-    if (bucket === null || next === null || loadingMore) return;
+    if (next === null || loadingMore) return;
     setLoadingMore(true);
-    fetchTickets({ bucket: SERVER_BUCKET[bucket], cursor: next })
+    fetchTickets(bucket === null ? { cursor: next } : { bucket: SERVER_BUCKET[bucket], cursor: next })
       .then((page) => setOlder((prev) => ({ rows: [...(prev?.rows ?? []), ...page.tickets], next: page.nextCursor })))
       .catch(() => setOlder((prev) => ({ rows: prev?.rows ?? [], next: null })))
       .finally(() => setLoadingMore(false));

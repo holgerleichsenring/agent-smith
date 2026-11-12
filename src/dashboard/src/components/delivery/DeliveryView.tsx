@@ -5,7 +5,7 @@ import type { JobsHubClient } from "@/lib/JobsHubClient";
 import type { DeliveryPeriod } from "@/lib/deliveryApi";
 import { useDelivery } from "@/hooks/useDelivery";
 import { PageHead } from "@/components/system/PageHead";
-import { DeliveryChips, DeliveryPeriodSwitch } from "./DeliveryScope";
+import { DeliveryChips, DeliveryPeriodNav, DeliveryPeriodSwitch } from "./DeliveryScope";
 import { DeliveryKpis } from "./DeliveryKpis";
 import { DeliveryTimeline } from "./DeliveryTimeline";
 import { DeliveryEndCauses } from "./DeliveryEndCauses";
@@ -15,14 +15,20 @@ import { DeliveryTickets } from "./DeliveryTickets";
 // 2026-10-25-0099c: the Delivery page (design/mockups/delivery-overview.html) — what was worked on when, how long it
 // took, how it ended and the key figures, for a day, a week or a month, in the projects the caller may read. The
 // chips are the server's list of those projects; a chip switched off reads the period again without it.
+// 2026-11-12-aeddb: previous / next step through past periods; choosing a period returns to its current one.
 
 export function DeliveryView({ client }: { client?: JobsHubClient }) {
   const [period, setPeriod] = useState<DeliveryPeriod>("week");
+  const [offset, setOffset] = useState(0);
   const [off, setOff] = useState<ReadonlySet<string>>(new Set());
   const [chips, setChips] = useState<readonly string[]>([]);
   const chosen = off.size === 0 ? [] : chips.filter((p) => !off.has(p));
-  const { view, failed } = useDelivery(period, chosen, client);
+  const { view, failed } = useDelivery(period, offset, chosen, client);
   if (view && view.projects.join("\n") !== chips.join("\n")) setChips(view.projects);
+  const choosePeriod = (next: DeliveryPeriod) => {
+    setPeriod(next);
+    setOffset(0);
+  };
   const toggle = (project: string) => setOff((was) => {
     const next = new Set(was);
     if (!next.delete(project)) next.add(project);
@@ -35,7 +41,12 @@ export function DeliveryView({ client }: { client?: JobsHubClient }) {
         <PageHead
           title="Delivery"
           sub="The tickets the agent worked on in this period. Each row is a ticket and each bar is one attempt. Hover a bar for its duration, cost and why it ended."
-          right={<DeliveryPeriodSwitch period={period} onPeriod={setPeriod} />}
+          right={
+            <div className="head-right">
+              {view && <DeliveryPeriodNav period={view.period} offset={offset} from={view.from} to={view.to} onOffset={setOffset} />}
+              <DeliveryPeriodSwitch period={period} onPeriod={choosePeriod} />
+            </div>
+          }
         />
         {failed && !view && <p className="sub" data-testid="delivery-failed">The delivery overview could not be read.</p>}
         {!view && !failed && <p className="sub">Reading the period.</p>}

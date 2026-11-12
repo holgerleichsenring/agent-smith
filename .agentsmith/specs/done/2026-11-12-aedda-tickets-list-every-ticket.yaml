@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-aedda
+goal: "The unfiltered ticket list shows every ticket its counts name, Done and Closed open, and pages past the server's first fifty with Load more."
+
+applies_to: "dashboard (/tickets list: TicketSection, TicketList, useTicketBucketPage)"
+
+requires: [2026-10-13-9a59p, 2026-10-15-114fd]
+
+facts:
+  - claim: "Done and Closed sections render collapsed in the unfiltered view: Done as a this-month line, Closed as a count line, each behind a button."
+    evidence: "src/dashboard/src/components/tickets/TicketSection.tsx:34-35"
+  - claim: "The unfiltered view renders only the shared first page; it has no Load more, only a per-section Show all link."
+    evidence: "src/dashboard/src/components/tickets/TicketList.tsx:20-22"
+  - claim: "The server's page defaults to fifty run-bearing tickets, with a cursor for the rest."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketListRequest.cs:9"
+  - claim: "Live: the rail counts 50 tickets, 33 of them Done and 16 Closed, so the unfiltered list draws one ticket row and two collapsed lines."
+    evidence: "prod database read 2026-11-12: 33 LandedTickets rows, 20 ClosedTickets rows"
+
+scope:
+  in: "Done and Closed open in the unfiltered list; the unfiltered list pages on the shared list's cursor."
+  out: "Server paging, the page size and bucket views, which already page."
+
+steps:
+  - id: open
+    action: "TicketSection draws every bucket's rows; the collapsed Done and Closed lines and their buttons go."
+  - id: page
+    action: "useTicketBucketPage pages the unfiltered list from the shared first page's cursor; TicketList groups the loaded rows and ends with Load more while a cursor is left."
+
+tests:
+  - "TicketList.test.tsx (Done open, unfiltered Load more)"
+  - "TicketClosedList.test.tsx (Closed open)"
+  - "mock-parity.test.tsx (closed buckets)"
+
+done:
+  - "With no bucket chosen, every Done and Closed ticket on the loaded pages is a row."
+  - "An unfiltered list with a next cursor shows Load more, and the next page's rows land in their sections."

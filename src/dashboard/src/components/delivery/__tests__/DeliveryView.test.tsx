@@ -80,7 +80,7 @@ describe("DeliveryView", () => {
 
     await act(async () => fireEvent.click(screen.getByTestId("delivery-chip-billing-service")));
 
-    expect(fetchDelivery).toHaveBeenLastCalledWith("week", ["web-shop"], expect.any(AbortSignal));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("week", 0, ["web-shop"], expect.any(AbortSignal));
     expect(screen.getByTestId("delivery-chip-web-shop")).toBeDisabled();
   });
 
@@ -89,6 +89,28 @@ describe("DeliveryView", () => {
 
     await act(async () => fireEvent.click(screen.getByTestId("delivery-period-month")));
 
-    expect(fetchDelivery).toHaveBeenLastCalledWith("month", [], expect.any(AbortSignal));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("month", 0, [], expect.any(AbortSignal));
+  });
+
+  // 2026-11-12-aeddb: previous / next step through past periods, next stops at the current one.
+  it("PreviousAndNext_StepThroughPastPeriods_NextStopsAtTheCurrentOne_AndAPeriodChoiceReturns", async () => {
+    await shown();
+    expect(screen.getByTestId("delivery-span")).toHaveTextContent("10-18 → 10-25");
+    expect(screen.getByTestId("delivery-next")).toBeDisabled();
+
+    fetchDelivery.mockResolvedValue(delivery({ from: "2026-10-11T18:00:00Z", to: "2026-10-18T18:00:00Z" }));
+    await act(async () => fireEvent.click(screen.getByTestId("delivery-previous")));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("week", 1, [], expect.any(AbortSignal));
+    expect(screen.getByTestId("delivery-span")).toHaveTextContent("10-11 → 10-18");
+    expect(screen.getByTestId("delivery-next")).toBeEnabled();
+
+    await act(async () => fireEvent.click(screen.getByTestId("delivery-previous")));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("week", 2, [], expect.any(AbortSignal));
+    await act(async () => fireEvent.click(screen.getByTestId("delivery-next")));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("week", 1, [], expect.any(AbortSignal));
+
+    await act(async () => fireEvent.click(screen.getByTestId("delivery-period-month")));
+    expect(fetchDelivery).toHaveBeenLastCalledWith("month", 0, [], expect.any(AbortSignal));
+    expect(screen.getByTestId("delivery-next")).toBeDisabled();
   });
 });

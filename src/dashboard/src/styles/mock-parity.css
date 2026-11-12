@@ -357,9 +357,6 @@
 .mock-tickets .answer .hint-line { font-size: 11.5px; color: var(--ink-3); }
 .mock-tickets .answer .hint-line b { color: var(--ink-2); font-weight: 600; }
 .mock-tickets .answer a.btn { text-decoration: none; align-self: flex-start; }
-.mock-tickets .done-row { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px dashed var(--line); border-radius: var(--r); font-size: 12.5px; color: var(--ink-3); }
-.mock-tickets .done-row b { color: var(--ink-2); }
-.mock-tickets .done-row .btn { margin-left: auto; }
 /* deviation: a section that holds more tickets than were loaded, and the paged bucket view */
 .mock-tickets .show-all { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--ink-2); text-decoration: none; }
 .mock-tickets .show-all:hover { color: var(--ink); text-decoration: underline; }
@@ -2064,6 +2061,11 @@
 .mock-delivery .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
 .mock-delivery .seg button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--ink-2); padding: 6px 12px; cursor: pointer; }
 .mock-delivery .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+/* 2026-11-12-aeddb: previous / next beside the period switch, the span's dates between them. */
+.mock-delivery .head-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mock-delivery .seg.nav { align-items: center; }
+.mock-delivery .seg.nav .span { font-size: 12px; color: var(--ink); padding: 0 10px; white-space: nowrap; }
+.mock-delivery .seg button:disabled { color: var(--ink-3); cursor: default; }
 .mock-delivery .scope { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .mock-delivery .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .mock-delivery .chip { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); border-radius: 999px; padding: 4px 10px; cursor: pointer; }

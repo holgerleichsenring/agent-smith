@@ -12,6 +12,7 @@ import { TICKET_SECTIONS, totalTickets } from "./ticketSections";
 
 // 2026-10-13-9a59p: every ticket agent-smith has worked, grouped by who has to act next. The
 // unfiltered view reads the shared first page the rail reads too; a bucket view pages its own.
+// 2026-11-12-aedda: the unfiltered view pages on from the shared page with Load more.
 
 export function TicketList() {
   const { filter } = useTicketBucketFilter();
@@ -35,12 +36,12 @@ export function TicketList() {
           The list stopped at the server&apos;s read ceiling; older tickets are not counted.
         </div>
       )}
-      {bucket ? <BucketView bucket={bucket} list={list} page={page} /> : <AllSections list={list} />}
+      {bucket ? <BucketView bucket={bucket} list={list} page={page} /> : <AllSections list={list} page={page} />}
     </div>
   );
 }
 
-function AllSections({ list }: { list: TicketListView }) {
+function AllSections({ list, page }: { list: TicketListView; page: TicketBucketPage }) {
   const shown = TICKET_BUCKETS.filter((b) => b === "needs-you" || TICKET_SECTIONS[b].count(list.counts) > 0);
   return (
     <>
@@ -49,22 +50,27 @@ function AllSections({ list }: { list: TicketListView }) {
           key={b}
           bucket={b}
           counts={list.counts}
-          rows={list.tickets.filter((t) => t.bucket === SERVER_BUCKET[b])}
+          rows={page.rows.filter((t) => t.bucket === SERVER_BUCKET[b])}
           first={i === 0}
           chosen={false}
         />
       ))}
+      <LoadMore page={page} />
     </>
   );
 }
 
 function BucketView({ bucket, list, page }: { bucket: TicketBucket; list: TicketListView; page: TicketBucketPage }) {
-  const more = page.hasMore ? (
+  return <TicketSection bucket={bucket} counts={list.counts} rows={page.rows} first chosen footer={<LoadMore page={page} />} />;
+}
+
+function LoadMore({ page }: { page: TicketBucketPage }) {
+  if (!page.hasMore) return null;
+  return (
     <button type="button" className="btn load-more" onClick={page.loadMore} disabled={page.loadingMore} data-testid="tickets-load-more">
       {page.loadingMore ? "Loading…" : "Load more"}
     </button>
-  ) : null;
-  return <TicketSection bucket={bucket} counts={list.counts} rows={page.rows} first chosen footer={more} />;
+  );
 }
 
 function Loading() {

@@ -81,14 +81,16 @@ export interface DeliveryView {
   truncated: boolean;
 }
 
-export function deliveryPath(period: DeliveryPeriod, projects: readonly string[]): string {
+/** 2026-11-12-aeddb: offset is whole periods back from the current one; 0 is not sent. */
+export function deliveryPath(period: DeliveryPeriod, offset: number, projects: readonly string[]): string {
   const query = new URLSearchParams({ period });
+  if (offset > 0) query.set("offset", String(offset));
   for (const project of projects) query.append("project", project);
   return `/api/delivery?${query.toString()}`;
 }
 
 export async function fetchDelivery(
-  period: DeliveryPeriod, projects: readonly string[], signal?: AbortSignal,
+  period: DeliveryPeriod, offset: number, projects: readonly string[], signal?: AbortSignal,
 ): Promise<DeliveryView> {
-  return getJson<DeliveryView>(deliveryPath(period, projects), signal);
+  return getJson<DeliveryView>(deliveryPath(period, offset, projects), signal);
 }

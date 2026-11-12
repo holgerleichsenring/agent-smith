@@ -259,20 +259,36 @@ describe("TicketList", () => {
     expect(row).toHaveTextContent("approved by k.lead");
   });
 
-  it("Done_IsCollapsedToThisMonthsLine_UntilShowDone", async () => {
+  // 2026-11-12-aedda: Done is open in the unfiltered list; this month's merges stay in the strip.
+  it("Done_IsOpenInTheUnfilteredList", async () => {
     serve(list([ticket({ ticketId: "301", bucket: "done", status: "success" })], {
-      done: 40, doneThisMonth: { tickets: 14, attempts: 24 }, lastDone: { project: "shop", ticketId: "301", at: ago(120) },
+      done: 1, doneThisMonth: { tickets: 1, attempts: 2 }, lastDone: { project: "shop", ticketId: "301", at: ago(120) },
     }));
     renderTickets();
 
-    const line = await screen.findByTestId("ticket-done-line");
-    expect(line).toHaveTextContent("14 merged this month, last 2h ago (301)");
-    expect(screen.getByTestId("ticket-section-done-count")).toHaveTextContent("40");
-    expect(screen.queryByTestId("ticket-row-shop-301")).toBeNull();
-    expect(screen.getByTestId("ticket-metric-done")).toHaveTextContent("1.7 attempts each");
+    const section = await screen.findByTestId("ticket-section-done");
+    expect(within(section).getByTestId("ticket-row-shop-301")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-section-done-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("ticket-metric-done")).toHaveTextContent("2.0 attempts each");
+    expect(screen.queryByTestId("ticket-done-show")).toBeNull();
+  });
 
-    fireEvent.click(screen.getByTestId("ticket-done-show"));
-    expect(screen.getByTestId("ticket-row-shop-301")).toBeInTheDocument();
+  it("TheUnfilteredList_PagesOnFromTheSharedPage_IntoItsSections", async () => {
+    const done = (id: string, run: string) => ticket({ ticketId: id, bucket: "done", status: "success", newestRunId: run });
+    const tallies = { working: 1, done: 2 };
+    hoisted.fetch.mockImplementation((query: { bucket?: string; cursor?: string }) => Promise.resolve(
+      query.cursor ? list([done("2", "r-2")], tallies) : list([ticket({ newestRunId: "r-5" }), done("1", "r-3")], tallies, "r-3")));
+    renderTickets();
+
+    await screen.findByTestId("ticket-row-shop-1");
+    expect(screen.queryByTestId("ticket-row-shop-2")).toBeNull();
+    fireEvent.click(screen.getByTestId("tickets-load-more"));
+
+    const section = screen.getByTestId("ticket-section-done");
+    expect(await within(section).findByTestId("ticket-row-shop-2")).toBeInTheDocument();
+    expect(hoisted.fetch).toHaveBeenCalledWith({ cursor: "r-3" });
+    expect(screen.queryByTestId("tickets-load-more")).toBeNull();
+    expect(screen.queryByTestId("ticket-section-done-show-all")).toBeNull();
   });
 
   it("ACallerWithoutRunsRead_SeesTheRefusalSurface", async () => {

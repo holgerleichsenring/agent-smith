@@ -10,7 +10,7 @@ import { fetchDelivery, type DeliveryPeriod, type DeliveryView } from "@/lib/del
 // 2026-10-25-0099c: the Delivery page's one read — on mount and whenever the period or the chosen projects change.
 // The answer is a whole-window aggregate over up to 60 days of runs, and RunsChanged fires on every step and LLM
 // call, so a RunsChanged waits 15 s; a TicketActivityChanged (a merge, a landing) 2 s. A failed read keeps the
-// last answer.
+// last answer. 2026-11-12-aeddb: and whenever the offset (periods back) changes.
 
 export const DELIVERY_TICKET_NUDGE_MS = 2000;
 export const DELIVERY_RUNS_NUDGE_MS = 15000;
@@ -20,7 +20,9 @@ export interface DeliveryRead {
   failed: boolean;
 }
 
-export function useDelivery(period: DeliveryPeriod, projects: readonly string[], client?: JobsHubClient): DeliveryRead {
+export function useDelivery(
+  period: DeliveryPeriod, offset: number, projects: readonly string[], client?: JobsHubClient,
+): DeliveryRead {
   const hub = useMemo(() => client ?? getJobsHubClient(HUB_URL), [client]);
   const [read, setRead] = useState<DeliveryRead>({ view: null, failed: false });
   const key = projects.join("\n");
@@ -33,7 +35,7 @@ export function useDelivery(period: DeliveryPeriod, projects: readonly string[],
       inFlight?.abort();
       const ctrl = new AbortController();
       inFlight = ctrl;
-      fetchDelivery(period, chosen, ctrl.signal)
+      fetchDelivery(period, offset, chosen, ctrl.signal)
         .then((view) => { if (!cancelled) setRead({ view, failed: false }); })
         .catch(() => { if (!cancelled && !ctrl.signal.aborted) setRead((r) => ({ ...r, failed: true })); });
     };
@@ -55,7 +57,7 @@ export function useDelivery(period: DeliveryPeriod, projects: readonly string[],
       offConn();
       leave?.();
     };
-  }, [hub, period, key]);
+  }, [hub, period, offset, key]);
 
   return read;
 }
