@@ -429,7 +429,6 @@ public sealed partial class SpecDialogOutcomeTests
             services.AddSingleton<IPlatformAdapter>(adapter);
             services.RemoveAll<IChatThreadAdapter>();
             services.AddSingleton<IChatThreadAdapter>(adapter);
-            DesignTurnReviewOn.Apply(services); // 2026-11-12-cd4ch
             extra?.Invoke(services);
         });
 

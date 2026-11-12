@@ -71,6 +71,28 @@ describe("TurnResult", () => {
     expect(within(rows[9]).getByTestId("turn-row-status")).toHaveTextContent("reviewed clean");
   });
 
+  // 2026-11-12-01b4: with review off nothing reviewed the specs, so no row says reviewed clean and nothing counts clean.
+  it("TurnResult with no review shows no pill and no clean count", () => {
+    const unreviewed = { ...epic, findings: [], reviewRounds: [], notReviewed: null, spend: null };
+    render(<TurnResult proposal={turnProposalOf(unreviewed)} />);
+
+    expect(screen.getAllByTestId(/^turn-row-2026/)).toHaveLength(10);
+    expect(screen.queryByTestId("turn-row-status")).toBeNull();
+    expect(screen.getByTestId("turn-specs")).not.toHaveTextContent("clean");
+  });
+
+  it("TurnResult says reviewed clean only for the spec whose last round answered build", () => {
+    const rounds = [
+      { specId: draft(1).specId, round: 1, verdict: "build", reviewerVerdicts: ["build"], cuts: [], findings: [], residues: [] },
+      { specId: draft(2).specId, round: 1, verdict: "build", reviewerVerdicts: ["build"], cuts: [], findings: [], residues: [] },
+      { specId: draft(2).specId, round: 2, verdict: "refuse", reviewerVerdicts: ["refuse"], cuts: [], findings: [], residues: [] },
+    ];
+    render(<TurnResult proposal={turnProposalOf({ ...epic, findings: [], reviewRounds: rounds, notReviewed: null, spend: null })} />);
+
+    expect(screen.getAllByTestId("turn-row-status").map((pill) => pill.textContent)).toEqual(["reviewed clean", "findings"]);
+    expect(screen.getByTestId("turn-specs")).toHaveTextContent("1 clean · 1 with findings");
+  });
+
   it("TurnResult's activity line shows duration, steps and cost and pages the steps", async () => {
     render(<TurnResult proposal={turnProposalOf(epic)} runId="run-1" />);
     const line = screen.getByTestId("turn-activity-line");
@@ -92,16 +114,83 @@ describe("TurnResult", () => {
     expect(screen.getByTestId("turn-cap-banner")).toBeInTheDocument();
   });
 
-  it("Take proposal sends the question and the proposal; Answer hands the question to the composer", () => {
-    const onTake = vi.fn();
-    const onAnswer = vi.fn();
-    render(<TurnResult proposal={turnProposalOf(epic)} onTake={onTake} onAnswer={onAnswer} />);
+  // 2026-11-12-e2f5: no click on a question starts a turn; the held answers go back as one message.
+  it("TurnQuestions_Take_MarksTheQuestionAndSendsNothing", () => {
+    const onSend = vi.fn();
+    render(<TurnResult proposal={turnProposalOf(epic)} onSend={onSend} />);
 
     fireEvent.click(screen.getAllByTestId("turn-question-take")[1]);
-    fireEvent.click(screen.getAllByTestId("turn-question-answer")[0]);
 
-    expect(onTake).toHaveBeenCalledWith("Do notices expire? — No expiry");
-    expect(onAnswer).toHaveBeenCalledWith("Who may a recipient forward to?");
+    expect(onSend).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId("turn-question")[1]).toHaveAttribute("data-held", "taken");
+    fireEvent.click(screen.getByTestId("turn-question-undo"));
+    expect(screen.getAllByTestId("turn-question")[1]).toHaveAttribute("data-held", "open");
+  });
+
+  it("TurnQuestions_TakeAll_MarksEveryQuestionAndPointsAtApprove", () => {
+    const onSend = vi.fn();
+    render(<TurnResult proposal={turnProposalOf(epic)} onSend={onSend} />);
+
+    fireEvent.click(screen.getByTestId("turn-questions-take-all"));
+
+    expect(screen.getAllByTestId("turn-question").map((q) => q.getAttribute("data-held"))).toEqual(["taken", "taken", "taken"]);
+    expect(screen.getByTestId("turn-questions-actions")).toHaveTextContent("Approve & file decides every question on its proposal.");
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("TurnQuestions_SendAnswers_SendsOneMessageWithEveryAnswer", () => {
+    const onSend = vi.fn();
+    render(<TurnResult proposal={turnProposalOf(epic)} onSend={onSend} />);
+
+    fireEvent.click(screen.getAllByTestId("turn-question-answer")[0]);
+    fireEvent.change(screen.getByTestId("turn-question-field"), { target: { value: "Only their team" } });
+    fireEvent.click(screen.getAllByTestId("turn-question-take")[0]);
+    fireEvent.click(screen.getAllByTestId("turn-question-answer")[0]);
+    fireEvent.change(screen.getAllByTestId("turn-question-field")[1], { target: { value: "A plain queue" } });
+    expect(onSend).not.toHaveBeenCalled();
+    expect(screen.getByTestId("turn-questions-actions")).toHaveAttribute("data-state", "answers");
+    fireEvent.click(screen.getByTestId("turn-questions-send"));
+
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend).toHaveBeenCalledWith([
+      "My answers to the open questions:",
+      "1. Who may a recipient forward to? — Only their team",
+      "2. Do notices expire? — take your proposal (No expiry)",
+      "3. Which event contract? — A plain queue",
+    ].join("\n"));
+  });
+
+  it("TurnResult_HeldAnswer_KeepsApproveFromFilingPastIt", () => {
+    render(<TurnResult proposal={turnProposalOf(epic)} onSend={vi.fn()} approve={<button data-testid="approve-bar">Approve</button>} />);
+    expect(screen.getByTestId("approve-bar")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByTestId("turn-question-answer")[0]);
+    fireEvent.change(screen.getByTestId("turn-question-field"), { target: { value: "Only their team" } });
+
+    expect(screen.queryByTestId("approve-bar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("turn-approve-held")).toHaveTextContent("Send your answer first");
+    fireEvent.click(screen.getByTestId("turn-question-drop"));
+    expect(screen.getByTestId("approve-bar")).toBeInTheDocument();
+  });
+
+  it("TurnQuestions_HeldState_SurvivesARemountUnderItsProposalId", () => {
+    // This jsdom build ships no localStorage; a Map backs it here.
+    const backing = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => backing.get(key) ?? null,
+        setItem: (key: string, value: string) => void backing.set(key, value),
+        removeItem: (key: string) => void backing.delete(key),
+      },
+    });
+    const { unmount } = render(<TurnResult proposal={turnProposalOf(epic)} onSend={vi.fn()} heldKey="p-held" />);
+    fireEvent.click(screen.getAllByTestId("turn-question-take")[2]);
+    unmount();
+
+    render(<TurnResult proposal={turnProposalOf(epic)} onSend={vi.fn()} heldKey="p-held" />);
+
+    expect(screen.getAllByTestId("turn-question")[2]).toHaveAttribute("data-held", "taken");
   });
 
   it("A row opens to its findings, done criteria and links", () => {

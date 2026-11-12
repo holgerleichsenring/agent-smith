@@ -999,7 +999,7 @@ export interface SpecReviewSetting {
   reviewers: number;
   maxConcurrent: number;
   budgetSharePercent: number;
-  /** 2026-11-12-cd4ch: one advisory review pass after a design turn; off by default. */
+  /** 2026-11-12-cd4ch: one advisory review pass after a design turn; 2026-11-12-7c1c: on by default. */
   designTurn?: boolean;
 }
 

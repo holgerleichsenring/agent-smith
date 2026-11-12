@@ -69,7 +69,7 @@ public sealed class SpecDialogProposalReviewTests
         await Review(reviewer, designTurn: false)
             .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
-        reviewer.Calls.Should().Be(0, "spec_review.design_turn is off by default");
+        reviewer.Calls.Should().Be(0, "spec_review.design_turn is switched off");
         Outcome(pipeline).Findings.Should().ContainSingle().Which.Problem.Should().Be(ProposalEvidenceReview.Problem);
         Outcome(pipeline).ReviewRounds.Should().BeEmpty();
         Outcome(pipeline).NotReviewed.Should().BeNull("the run reviews every spec before it is built; the card promises nothing");

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { DialogProposalFindings } from "./DialogProposalFindings";
 import { notReviewedLabel } from "./DialogProposalRounds";
 import { TurnActivityLine } from "./TurnActivityLine";
@@ -18,8 +18,8 @@ export function TurnResult({
   proposal,
   summary,
   runId,
-  onTake,
-  onAnswer,
+  onSend,
+  heldKey,
   onInspect,
   approve,
   before,
@@ -28,8 +28,10 @@ export function TurnResult({
   proposal: TurnProposal;
   summary?: ReactNode;
   runId?: string | null;
-  onTake?: (text: string) => void;
-  onAnswer?: (question: string) => void;
+  /** 2026-11-12-e2f5: sends the operator's held answers as one reply. */
+  onSend?: (text: string) => void;
+  /** The proposal id the questions' held state is kept under. */
+  heldKey?: string;
   onInspect?: () => void;
   /** The approve bar — given only for the current awaiting proposal. */
   approve?: ReactNode;
@@ -37,6 +39,9 @@ export function TurnResult({
   before?: ReactNode;
   rowExtra?: (specId: string) => ReactNode;
 }) {
+  // 2026-11-12-01b4: while own answers are held, Approve would file the questions on their proposals and drop the
+  // answers; the bar steps aside until they are sent or dropped.
+  const [answersHeld, setAnswersHeld] = useState(0);
   const rows = rowsOf(proposal);
   const pending = rows.filter((row) => statusOf(proposal, row.specId) === "pending").length;
   const drafted = new Set(proposal.drafts.map((draft) => draft.specId));
@@ -62,7 +67,8 @@ export function TurnResult({
           <span>Nothing is lost: an unreviewed spec is reviewed before it is built.</span>
         </div>
       )}
-      <TurnQuestions questions={proposal.questions ?? []} onTake={onTake} onAnswer={onAnswer} />
+      <TurnQuestions key={heldKey ?? "turn"} questions={proposal.questions ?? []} heldKey={heldKey} onSend={onSend}
+        onAnswersHeld={setAnswersHeld} />
       {proposal.bug && (
         <div data-testid="turn-bug" className="d-turn-box px-3 py-2">
           <div className="dsh-body font-semibold text-ink">{proposal.bug.title}</div>
@@ -107,7 +113,11 @@ export function TurnResult({
       ))}
       <DialogProposalFindings findings={(proposal.findings ?? []).filter((finding) => !drafted.has(finding.specId)
         || (proposal.kind === "epic" && finding.specId === proposal.drafts[0]?.specId))} />
-      {approve}
+      {approve && answersHeld > 0 ? (
+        <p className="dsh-body text-body" data-testid="turn-approve-held">
+          Send your {answersHeld === 1 ? "answer" : `${answersHeld} answers`} first, or drop {answersHeld === 1 ? "it" : "them"}; approving now would file every question on its proposal.
+        </p>
+      ) : approve}
     </div>
   );
 }

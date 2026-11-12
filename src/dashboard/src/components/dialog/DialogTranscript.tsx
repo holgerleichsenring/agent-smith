@@ -41,10 +41,9 @@ export interface TurnApproval {
   node: ReactNode;
 }
 
-/** What a turn's result can do with the conversation: send a reply, or put a question into the composer. */
+/** What a turn's result can do with the conversation: send the operator's held answers as one reply (e2f5). */
 export interface TurnReplies {
-  onTake?: (text: string) => void;
-  onAnswer?: (question: string) => void;
+  onSend?: (text: string) => void;
 }
 
 export function DialogTranscript({
@@ -114,7 +113,7 @@ function Turn({
       ) : entry.proposal ? (
         <TurnResult proposal={turnProposalOf(entry.proposal)}
           summary={entry.interrupted ? <Interrupted state={entry.interrupted} /> : said ? <AgentText text={entry.text} /> : undefined}
-          runId={entry.runId} onTake={replies?.onTake} onAnswer={replies?.onAnswer}
+          runId={entry.runId} onSend={replies?.onSend} heldKey={entry.proposal.proposalId ?? undefined}
           onInspect={() => onInspect(entry.proposal!)} approve={approve} />
       ) : (
         said && <AgentText text={entry.text} />

@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-5bfd
+
+decisions:
+  - category: Design
+    chose: "Hide the approve bar while own answers are held, with a line saying to send or drop them"
+    over: "A confirmation dialog on Approve; or sending the answers with the approval"
+    reason: "An answer changes the draft, so it needs a turn before anything is filed; a dialog would still allow filing past it."

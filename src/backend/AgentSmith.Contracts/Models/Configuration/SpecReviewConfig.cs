@@ -19,8 +19,9 @@ public sealed class SpecReviewConfig
     public int BudgetSharePercent { get; set; } = 40;
 
     /// <summary>2026-11-12-cd4ch: whether a design turn's proposal gets one advisory review pass after the turn.
-    /// Off, only the mechanical evidence check runs there; the run reviews every spec before it is built.</summary>
-    public bool DesignTurn { get; set; }
+    /// Off, only the mechanical evidence check runs there; the run reviews every spec before it is built.
+    /// 2026-11-12-7c1c: on by default.</summary>
+    public bool DesignTurn { get; set; } = true;
 
     /// <summary>What is wrong with these values, one sentence each; empty when nothing is. The ONE rule —
     /// a run refuses what this names, never clamping it.</summary>

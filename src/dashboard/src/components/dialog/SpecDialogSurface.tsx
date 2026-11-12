@@ -200,7 +200,6 @@ export function SpecDialogSurface() {
   });
   const ticketEffect = bound && preview.data ? ticketApprovalEffect(preview.data) : null;
   // 2026-11-10-d854b: Answer on a turn result puts its question into the composer.
-  const [prefill, setPrefill] = useState<{ text: string; nonce: number } | null>(null);
   const {
     pending: pendingTicket,
     found: addressedTicket,
@@ -443,10 +442,7 @@ export function SpecDialogSurface() {
                       greeting={<DialogGreeting />}
                       onOpenUpload={openUpload}
                       approval={placedApproval ? { proposalId: placedApproval, node: approvalCard } : null}
-                      replies={{
-                        onTake: (text) => void dialog.send(text, project),
-                        onAnswer: (question) => setPrefill({ text: `${question}\n`, nonce: Date.now() }),
-                      }}
+                      replies={{ onSend: (text) => void dialog.send(text, project) }}
                     />
                     {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                         so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -479,7 +475,6 @@ export function SpecDialogSurface() {
                       pendingTicket?.ticketId ?? pickedTicket?.ticketId,
                     )
                   }
-                  prefill={prefill}
                   onAttach={(file) => dialog.attach(file, project)}
                   onAttachSite={(files, leftOut) => dialog.attachSite(files, project, leftOut)}
                   note={dialog.uploadNote}

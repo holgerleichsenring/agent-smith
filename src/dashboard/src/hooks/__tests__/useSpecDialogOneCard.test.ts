@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { trailingCard, withCard, type DialogEntry } from "@/hooks/useSpecDialog";
+import { trailingCard, transcriptEntries, withCard, type DialogEntry } from "@/hooks/useSpecDialog";
 import type { SpecDialogProposalPush, SpecDialogView } from "@/types/spec-dialog";
 
 // 2026-11-10-7da6: the conversation shows one card for the current proposal — live while a turn re-drafts it,
@@ -68,5 +68,24 @@ describe("one card per proposal", () => {
     (read.session as unknown as { runningProposal: SpecDialogProposalPush }).runningProposal = draft("p9");
     expect(trailingCard(read)).toEqual(draft("p9"));
     expect(trailingCard({ ...read, turn: { computing: true } as SpecDialogView["turn"] })).toBeNull();
+  });
+
+  // 2026-11-12-01b4: a tool-written proposal is carried by its reply's run (d854c). Unanchored, the awaiting proposal
+  // trailed as a second, text-less copy that took the approval; anchored on its reply, it is shown once, with its id.
+  it("useSpecDialog_AwaitingProposalOnItsKeptReply_RendersOnceWithItsId", () => {
+    const kept = draft("p1");
+    const awaiting = { ...kept, proposalId: "p-1" };
+    const read = (proposalTurn: number | null) => {
+      const shaped = view({ computing: false, proposal: awaiting, proposalTurn, turns: 2 });
+      const session = shaped.session as unknown as { transcript: Array<Record<string, unknown>> };
+      session.transcript[1] = { ...session.transcript[1], text: "Worked it out.", proposal: kept };
+      return shaped;
+    };
+
+    expect(cards(transcriptEntries(read(null)))).toHaveLength(2);
+    const anchored = cards(transcriptEntries(read(1)));
+    expect(anchored).toHaveLength(1);
+    expect(anchored[0].text).toBe("Worked it out.");
+    expect(anchored[0].proposal?.proposalId).toBe("p-1");
   });
 });

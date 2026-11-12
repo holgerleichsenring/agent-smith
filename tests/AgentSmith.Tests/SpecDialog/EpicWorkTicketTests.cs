@@ -426,6 +426,28 @@ public sealed class EpicWorkTicketTests
             SeriesIdFactory.Member(record.Set.Series!, 0), "a lone spec is the first member of its own series");
     }
 
+    // 2026-11-12-e2f5: a question still on the proposal at approval files on its proposal, as the owner's decision.
+    [Fact]
+    public async Task Filing_ProposalWithOpenQuestions_RecordsEachAsDecided()
+    {
+        var provider = new RecordingProvider();
+        OpenQuestion[] questions =
+        [
+            new("Do notices expire?", "No expiry", []),
+            new("Which event contract?", "Transactional outbox", ["p9000a"]),
+        ];
+
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")) with { Questions = questions });
+        await FileRawAsync(provider, new SpecOutcome(Slice("p9000c")) { Questions = questions[..1] });
+        await FileAsync(provider, Epic(Slice("p9000d")));
+
+        provider.Created[0].Body.Should().Contain(DecidedQuestionLines.Heading)
+            .And.Contain("- Do notices expire? — decided: No expiry")
+            .And.Contain("- Which event contract? (p9000a) — decided: Transactional outbox");
+        provider.Created[1].Body.Should().Contain("- Do notices expire? — decided: No expiry");
+        provider.Created[2].Body.Should().NotContain(DecidedQuestionLines.Heading, "a proposal with no question has none to record");
+    }
+
     private static async Task<FilingReport> FileAsync(
         RecordingProvider provider, EpicOutcome epic, ISpecApprovalStore? store = null,
         IReadOnlyDictionary<string, string>? kinds = null)

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-7c1c
+
+decisions:
+  - category: Design
+    chose: "spec_review.design_turn defaults to true"
+    over: "Keeping the advisory pass opt-in"
+    reason: "With it off every proposal reached the operator unreviewed; since 01b4 the turn result says so honestly, and the pass is one advisory read that re-prompts nothing, so on is the useful default and an operator can still switch it off."
+  - category: Design
+    chose: "Remove the harness's DesignTurnReviewOn helper"
+    over: "Keeping it as an explicit switch"
+    reason: "It mocked the settings reader only to turn the pass on; on the default the two harness classes pass through the real reader."
+  - category: Design
+    chose: "Tests that check the switched-off path set designTurn: false explicitly; their reasons say switched off, not off by default"
+    over: "Rewriting them around the new default"
+    reason: "The off path stays supported; only the wording of why it is off changed."

@@ -54,7 +54,6 @@ export function DialogComposer({
   left = null,
   loadHeld,
   inputRef,
-  prefill = null,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -71,13 +70,8 @@ export function DialogComposer({
   loadHeld?: () => Promise<SpecDialogHeldContent[]>;
   /** 2026-10-13-9a59r: the text field, for a surface whose own control focuses it (Ask for changes). */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
-  /** 2026-11-10-d854b: text a turn result's Answer puts into the field; a new `nonce` puts it there again. */
-  prefill?: { text: string; nonce: number } | null;
 }) {
   const [text, setText] = useState("");
-  useEffect(() => {
-    if (prefill) setText(prefill.text);
-  }, [prefill]);
   const [attaching, setAttaching] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const several = useRef<HTMLInputElement>(null);
