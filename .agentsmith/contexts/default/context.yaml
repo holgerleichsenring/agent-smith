@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-12-ecde: "COVERAGE LINE NOTES (design turn prompt, ReferenceCoverageText). The upload coverage line names read_notes as what carries earlier reading, since the per-upload note was retired. -> .agentsmith/specs/done/2026-11-12-ecde-coverage-line-notes.yaml"
     2026-11-12-0c24: "WORKER TOOL CALL ERRORS (external worker transport, WorkerReplyTranslator). A worker tool call with non-object arguments or an unoffered name reaches the model as that call's error and the turn goes on; only a refusal or an empty answer fails the call. -> .agentsmith/specs/done/2026-11-12-0c24-worker-tool-call-errors.yaml"
     2026-11-12-681f: "SKILLS PIN DESIGN WRITES (skills pin v5.29.0, skill-text tests). The design partner proposes by writing items with tools and keeps notes with read_notes/write_notes; tests of retired counts, fences, formats and re-propose rules are gone, the rest read the new prose. -> .agentsmith/specs/done/2026-11-12-681f-skills-pin-design-writes.yaml"
     2026-11-12-cd4cg: "DESIGN OUTCOME FORMAT REMOVED (design tools, loop hooks). outcome_format, TurnFolds and the OnFold hook are retired; write_spec, write_ticket and write_contract carry their schema in their descriptions. -> .agentsmith/specs/done/2026-11-12-cd4cg-design-outcome-format-removed.yaml"

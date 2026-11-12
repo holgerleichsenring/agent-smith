@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-ecde
+goal: "The upload coverage line points at the conversation notes, since the per-upload note it named was retired in cd4ck."
+
+applies_to: "default (design turn prompt: reference coverage)"
+
+requires: [2026-11-12-cd4ck]
+
+facts:
+  - claim: "The coverage line said only the note carries earlier reading forward."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferenceCoverageText.cs:20-22"
+
+scope:
+  in: "ReferenceCoverageText wording and its test."
+  out: "Everything else about coverage."
+
+steps:
+  - id: wording
+    action: "The line names read_notes as what carries earlier reading."
+
+tests:
+  - "ReferencePromptSectionTests (coverage line)"
+
+done:
+  - "No prompt text names the retired note."
