@@ -23,8 +23,8 @@ internal static class ReferenceFileExtensions
         // 2026-10-01-283dc: a design turn's reference sandbox reads its set from here.
         services.RemoveAll<IReferenceSetReader>();
         services.AddSingleton<IReferenceSetReader, DbReferenceSetReader>();
-        services.AddScoped<ReferenceNoteRepository>(); // 2026-10-02-075dd
-        services.AddSingleton<IReferenceNotes, DbReferenceNotes>();
+        services.AddScoped<ConversationNotesRepository>(); // 2026-11-12-cd4ck: the conversation's working notes
+        services.AddSingleton<IConversationNotes, DbConversationNotes>();
         services.AddScoped<ReferenceReadRepository>() // 2026-11-04-96a0c: what earlier turns opened of a set
             .AddSingleton<ReferenceCoverageReader>().AddSingleton<ReferenceReadRecorder>();
         services.AddScoped<ConversationMockRepository>().AddScoped<ConversationMockReadRepository>() // 2026-10-13-8762r

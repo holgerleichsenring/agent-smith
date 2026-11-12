@@ -65,7 +65,7 @@ An upload an approval cites can't be removed, because the run of the filed ticke
 Each set is a read-only address in the turn's sandbox map, `reference:<name>`, named after the upload. The design partner reads it with the same file tools it uses on the repositories: `read_file`, `grep`, listing. On top of that it has:
 
 - `run_in_reference`, a shell command in a disposable container that holds a copy of the set. It can install, start, request and inspect, and nothing it does changes the stored upload. This exists only where sandboxes are containers; the in-process backend would run the command inside the server, so it isn't offered there.
-- `note_reference`, a note about the set: what it is, the commands that run it, what it needs. The note is shown beside the address in every later turn and in the run, so the next turn doesn't work it out again.
+- `read_notes` and `write_notes`, the conversation's own notes file: what the material is, the commands that run it, what is settled. Every later turn's prompt carries the notes whole, and a run that carries one of the conversation's uploads shows them, so the next turn doesn't work it out again.
 - `view_reference_image`, which shows an image inside a set as a picture, on a model with vision.
 - `render_reference`, which renders a set, a page in a repository, or a public `http(s)` URL in a browser sandbox of its own and returns the exact computed styles of the elements it asks about, plus desktop and mobile screenshots.
 - `compare_reference`, which renders a reference and a candidate in one browser and lists every computed-style difference between the elements you map to each other, with a screenshot similarity and a diff image.

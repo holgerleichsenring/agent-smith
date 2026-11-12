@@ -6,7 +6,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 
 /// <summary>
 /// 2026-10-13-8762r: both mock ports for the singleton tool and the per-message view. It opens a
-/// scope per call and delegates to the scoped writer or reader repository, like <see cref="DbReferenceNotes"/>.
+/// scope per call and delegates to the scoped writer or reader repository, like <see cref="DbConversationNotes"/>.
 /// </summary>
 public sealed class DbConversationMocks(IServiceScopeFactory scopeFactory) : IConversationMocks, IConversationMockReader
 {

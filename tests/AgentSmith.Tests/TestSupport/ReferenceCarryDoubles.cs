@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.TestSupport;
 internal static class ReferenceCarryDoubles
 {
     internal static ReferenceMaterializer Materializer(
-        IReferenceSetReader? reader = null, IReferenceNotes? notes = null, ILogger<ReferenceMaterializer>? logger = null)
+        IReferenceSetReader? reader = null, IConversationNotes? notes = null, ILogger<ReferenceMaterializer>? logger = null)
     {
         var sets = reader ?? new NoReferenceSetReader();
         var files = new SandboxFileReaderFactory();

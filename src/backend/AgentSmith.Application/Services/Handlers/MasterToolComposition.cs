@@ -82,7 +82,8 @@ public sealed class MasterToolComposition(
         if (!isScanMaster) master = [.. master, .. renderReference.Tools(context.Pipeline, isSpecDialog)];
         // The bound-ticket acts (start_next_attempt, the series tools) join the design MASTER outside BaseSurface:
         // a child acts on no one's word, so no child surface carries them.
-        if (isSpecDialog) master = [.. master, .. ticketActs.Tools(context), .. designWork.Tools(context.Pipeline, records)];
+        if (isSpecDialog) master = [.. master, .. ticketActs.Tools(context), .. designWork.Tools(context.Pipeline, records),
+            .. ConversationNotesToolHost.For(context.Pipeline)?.GetTools(null, null) ?? []]; // 2026-11-12-cd4ck
         if (context.IsTicketSteward) master = TicketStewardTools.Of(master); // answers and acts, files nothing
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
         // counterpart to ScopeRepos' conservative narrowing. Scan masters read

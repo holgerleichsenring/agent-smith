@@ -141,7 +141,7 @@ public sealed class ConversationUploadStoreTests
         await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
         await using var db = store.Context();
         var set = await new ReferenceSetRepository(db).AddAsync(Session, [File("site/index.html", "<h1>")], CancellationToken.None);
-        await new ReferenceNoteRepository(db).SetAsync(Session, set.SetId, "run it with npx serve", CancellationToken.None);
+        await LegacyNoteAsync(db, set.SetId, "run it with npx serve");
 
         (await Deletion(db).DeleteSetAsync(Session, set.SetId, CancellationToken.None)).Should().Be(ReferenceUploadRemoval.Removed);
 
@@ -198,7 +198,7 @@ public sealed class ConversationUploadStoreTests
         await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
         await using var db = store.Context();
         var set = await new ReferenceSetRepository(db).AddAsync(Session, [File("brief.md", "# brief")], CancellationToken.None);
-        await new ReferenceNoteRepository(db).SetAsync(Session, set.SetId, "a brief", CancellationToken.None);
+        await LegacyNoteAsync(db, set.SetId, "a brief");
 
         (await Deletion(db).DeleteFileAsync(Session, set.SetId, "brief.md", CancellationToken.None))
             .Should().Be(ReferenceUploadRemoval.Removed);
@@ -287,6 +287,17 @@ public sealed class ConversationUploadStoreTests
     }
 
     private static ReferenceUploadDeletion Deletion(AgentSmithDbContext db) => new(db, new ApprovedSeriesRepository(db));
+
+    // 2026-11-12-cd4ck: a per-upload note written before the conversation's notes replaced it.
+    private static async Task LegacyNoteAsync(AgentSmithDbContext db, string setId, string text)
+    {
+        db.Add(new ReferenceFile
+        {
+            SessionId = Session, SetId = setId, Kind = ReferenceFileKind.Note, RelativePath = "NOTE.md",
+            MediaType = "text/markdown", Content = System.Text.Encoding.UTF8.GetBytes(text),
+        });
+        await db.SaveChangesAsync();
+    }
 
     private static ReferenceFile File(string path, string text) => new()
     {

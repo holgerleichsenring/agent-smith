@@ -34,9 +34,9 @@ internal static class ReferencePromptSection
     }
 
     /// <summary>
-    /// 2026-11-11-205fi: each upload's coverage and note, in the design turn's user prompt — both change when a turn
-    /// opens files or replaces a note, so in the system prompt they broke its cache on every such turn. Empty when the
-    /// turn carries no upload.
+    /// 2026-11-11-205fi: each upload's coverage, in the design turn's user prompt — it changes when a turn opens files,
+    /// so in the system prompt it broke its cache on every such turn. Empty when the turn carries no upload.
+    /// 2026-11-12-cd4ck: the per-upload note is gone; the conversation's notes render on their own.
     /// </summary>
     internal static string ThisTurn(IReadOnlyDictionary<string, ISandbox>? sandboxes)
     {
@@ -47,7 +47,7 @@ internal static class ReferencePromptSection
             .ToList();
         if (sets.Count == 0) return string.Empty;
         return "## Uploads at this turn\n" + string.Join("\n", sets.Select(s => $"- `{s.Address}`"
-            + ReferenceCoverageText.Under(s.Set?.Coverage) + ReferenceNoteText.Under(s.Set?.Note)));
+            + ReferenceCoverageText.Under(s.Set?.Coverage)));
     }
 
     /// <summary>
@@ -77,9 +77,10 @@ internal static class ReferencePromptSection
     {
         if (!pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var sets)
             || sets is null || sets.Count == 0) return string.Empty;
-        var bullets = string.Join("\n", sets.Select(s =>
+        // 2026-11-12-cd4ck: the notes are the conversation's, so they follow the first set of each conversation only.
+        var bullets = string.Join("\n", sets.Select((s, i) =>
             $"- {s.Name} (set {s.SetId}, {s.Files} files): `{(prefixed ? s.Repo + "/" : string.Empty)}{s.Path}/` — render it as `{s.Address}`"
-            + ReferenceNoteText.Carried(s.Note)));
+            + (sets.Take(i).Any(earlier => earlier.Session == s.Session) ? string.Empty : ReferenceNoteText.Carried(s.Note))));
         return "\n\n## Material the approval cites\n"
             + "The person who approved this work uploaded this material as the reference to build "
             + "against — a website, an application's source, documents. Each is in its own directory of the repository, NOT part of the commit — "

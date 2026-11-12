@@ -9,8 +9,7 @@ internal static class TestUploads
 {
     public static ConversationUploads Over(AgentSmithDbContext context) =>
         new(new ReferenceFileRepository(context), new ReferenceSetRepository(context),
-            new ReferenceUsageRepository(context), new ApprovedSeriesRepository(context),
-            new ReferenceNoteRepository(context));
+            new ReferenceUsageRepository(context), new ApprovedSeriesRepository(context));
 
     public static ConversationUploadAdmission Admission(AgentSmithDbContext context) =>
         new(new ReferenceUsageRepository(context));

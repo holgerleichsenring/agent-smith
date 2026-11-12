@@ -81,7 +81,6 @@ src/backend/AgentSmith.Application/Services/Tools/ProjectMemoryWriteToolHost.cs	
 src/backend/AgentSmith.Application/Services/Tools/ReadTicketToolHost.cs	phase	2
 src/backend/AgentSmith.Application/Services/Tools/ReferenceCommandToolHost.cs	phase	1
 src/backend/AgentSmith.Application/Services/Tools/ReferenceImageToolHost.cs	phase	1
-src/backend/AgentSmith.Application/Services/Tools/ReferenceNoteToolHost.cs	phase	1
 src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolHost.cs	phase	1
 src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs	phase	2
 src/backend/AgentSmith.Application/Services/Tools/TicketClarificationToolHost.cs	phase	2

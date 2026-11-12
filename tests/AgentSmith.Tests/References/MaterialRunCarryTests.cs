@@ -128,7 +128,7 @@ public sealed class MaterialRunCarryTests
     {
         var fixture = new BrowserRenderFixture();
         var factory = new RenderReferenceToolFactory(fixture.Services(), fixture.CompareServices(),
-            new ReferenceDesignTools(new SandboxContainerRuntime(true), null, fixture, fixture));
+            new ReferenceDesignTools(new SandboxContainerRuntime(true), fixture, fixture));
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets,
             [new CarriedReferenceSet("set-a", "site", "reference:site", "sample-api", ".agentsmith/reference/set-a", "s-1", 2)]);
