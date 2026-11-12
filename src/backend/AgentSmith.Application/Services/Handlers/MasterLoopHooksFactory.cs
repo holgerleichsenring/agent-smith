@@ -77,7 +77,6 @@ internal static class MasterLoopHooksFactory
             IsLedgerComplete: verdictOwed.IsLedgerComplete,
             RenderVerdictDemand: verdictOwed.RenderDemand,
             OnVerdictBrake: verdictOwed.Stopped,
-            VerdictOwedAfterIterations: context.AgentConfig.VerdictOwedAfterIterations,
-            OnFold: Tools.TurnFolds.Of(context.Pipeline).Fold); // 2026-11-10-85e2
+            VerdictOwedAfterIterations: context.AgentConfig.VerdictOwedAfterIterations);
     }
 }

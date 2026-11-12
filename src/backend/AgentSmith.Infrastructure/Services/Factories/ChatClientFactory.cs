@@ -196,7 +196,7 @@ public sealed class ChatClientFactory(
             loopInner = new CompactingChatClient(
                 loopInner, effective, masterLoopHooks,
                 BuildCompactionSummarizer(agent), loggerFactory.CreateLogger<CompactingChatClient>(), capture is not null);
-        if (masterLoopHooks is { Governs: true }) // 85e2: a design turn's hooks only carry OnFold for the compactor
+        if (masterLoopHooks is { Governs: true })
             loopInner = new MasterLoopGovernorChatClient(loopInner, masterLoopHooks);
 
         // 2026-10-01-283dd: the tool loop also places a tool's deposited image after the tool

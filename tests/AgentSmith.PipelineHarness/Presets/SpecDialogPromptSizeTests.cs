@@ -39,7 +39,9 @@ public sealed partial class SpecDialogWorkPictureTests
         // 2026-11-10-d854a: 33745 with state_open_questions (17 tools) — the questions' card needs the tool on every
         // design turn, since a draft can come on the first.
         // 2026-11-12-cd4ca: 35466 with the proposal write tools (22 tools) — the draft is written, not replied.
-        (system + user + tools).Should().BeLessThan(36000, "a first design turn carries only what it can use");
-        count.Should().BeLessThanOrEqualTo(22);
+        // 2026-11-12-cd4cg: 36329 with outcome_format gone (21 tools) and the schemas in the write tools' descriptions,
+        // which no turn fetches any more (an epic format alone was 12000 characters per fetch).
+        (system + user + tools).Should().BeLessThan(37000, "a first design turn carries only what it can use");
+        count.Should().BeLessThanOrEqualTo(21);
     }
 }

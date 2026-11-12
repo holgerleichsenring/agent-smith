@@ -63,7 +63,7 @@ public sealed class WorkPictureSurfaceTests
     [Fact]
     public void TicketActToolsFactory_DesignTurn_OffersStateWorkPicture()
     {
-        var factory = new TicketActToolsFactory(MasterHandlerFixture.Verification(), Moq.Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>(), MasterHandlerFixture.ProposalWrites());
+        var factory = new TicketActToolsFactory(MasterHandlerFixture.Verification(), MasterHandlerFixture.ProposalWrites());
         var seeded = Context();
         seeded.Pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot());
 

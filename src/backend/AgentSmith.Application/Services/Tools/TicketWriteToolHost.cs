@@ -20,13 +20,15 @@ public sealed class TicketWriteToolHost(ProposalStore store, TicketDraftWrite wr
 
     [Description(
         "Write one ticket into this turn's draft: a ticket text the run it starts derives its own specs from. A key "
-        + "already in the draft is replaced. Tickets file one ticket each, in the order their requires allow.")]
+        + "already in the draft is replaced. Tickets file one ticket each, in the order their requires allow, and each "
+        + "run drafts its own specs; keep a ticket small enough for one run to build, review and merge. English "
+        + "whatever the conversation's language. The answer is the exact check of this ticket.")]
     private string WriteTicket(
         [Description("Lower-case letter, then lower-case letters, digits or '-'; unique in the draft.")] string key,
         [Description("One line.")] string title,
         [Description("The ticket's scope in prose, against the code as it stands once its requires are merged.")] string requirement,
         [Description("Outcomes true once it has merged, one line each (a scenario as WHEN … THEN …).")] string[] done,
-        [Description("Keys of tickets in this draft that must merge first, or ticket:<tracker id> of a filed ticket.")] string[]? requires = null,
+        [Description("Keys of tickets already in this draft that must merge first, or ticket:<tracker id> of a filed ticket (ticket:41 for #41).")] string[]? requires = null,
         [Description("The configured repositories it changes.")] string[]? repos = null)
     {
         var ticket = new GraphTicket((key ?? string.Empty).Trim(), (title ?? string.Empty).Trim(),

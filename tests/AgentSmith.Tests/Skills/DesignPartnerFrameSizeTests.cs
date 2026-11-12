@@ -63,20 +63,6 @@ public sealed class DesignPartnerFrameSizeTests : IDisposable
         master.Should().NotContain("**Uploads first.**").And.Contain("## Work picture").And.Contain("`state_work_picture`");
     }
 
-    [Theory]
-    [InlineData("document", "The whole document stands inside ONE fence of four")]
-    [InlineData("epic", "## Drafting a spec")]
-    [InlineData("epic", "## Proposing an epic")]
-    [InlineData("tickets", "kind: tickets")]
-    public async Task OutcomeFormat_EmbeddedCatalog_ServesTheKindsReference(string kind, string expected)
-    {
-        var tool = new OutcomeFormatToolHost(await ReferencesAsync()).GetTools(null, null).Single();
-
-        var answer = (await tool.InvokeAsync(new AIFunctionArguments { ["kind"] = kind }))?.ToString();
-
-        answer.Should().Contain(expected).And.NotBe(OutcomeFormatToolHost.InOwnInstructions);
-    }
-
     private async Task<ISkillReferenceSource> ReferencesAsync()
     {
         var handler = new EmbeddedSourceHandler(

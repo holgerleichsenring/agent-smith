@@ -83,7 +83,7 @@ public sealed class DesignEffortCapTests
         var master = new AgenticMasterContext("design-partner-master", new Repository(new BranchName("main"), "/tmp"),
             string.Empty, new AgentConfig { Type = "claude" }, pipeline);
         var nextTurn = new TicketActToolsFactory(Handlers.MasterHandlerFixture.Verification(),
-                Mock.Of<AgentSmith.Contracts.Services.ISkillReferenceSource>(), Handlers.MasterHandlerFixture.ProposalWrites(), efforts)
+                Handlers.MasterHandlerFixture.ProposalWrites(), efforts)
             .Tools(master).OfType<AIFunction>().Single(t => t.Name == WorkPictureToolHost.Name);
         await nextTurn.InvokeAsync(Stated("small"));
 
