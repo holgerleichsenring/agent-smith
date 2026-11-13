@@ -10,6 +10,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// ticket texts and each ticket's run derives its specs. 2026-11-12-cd4ci: ONE advisory reviewer call, its findings on
 /// the card, nothing re-prompted; <see cref="CheckAsync"/> is the mechanical half alone. A conversation that belongs
 /// to a ticket is not reviewed: a list is filed from Work it out without a ticket. Nothing here blocks.
+/// 2026-11-13-67ae: a reviewer that gave no readable answer leaves one "not reviewed yet" finding on the list.
 /// </summary>
 public sealed class TicketPlanReview(
     TicketPlanReviewer reviewer, TicketExistenceFindings existence, ILogger<TicketPlanReview> logger)
@@ -20,13 +21,18 @@ public sealed class TicketPlanReview(
     public const string BoundWhy =
         "a list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket";
 
+    /// <summary>2026-11-13-67ae: why a list carries "not reviewed yet" when the plan reviewer failed or answered
+    /// unreadably — never read as a clean review.</summary>
+    public const string NoAnswerWhy = "the plan reviewer gave no answer";
+
     /// <summary>The list with the plan reviewer's findings and the existence check's.</summary>
     public async Task<OutcomeProposal> ReviewAsync(ProposalTurn turn, TicketGraphOutcome graph, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(turn);
         ArgumentNullException.ThrowIfNull(graph);
         if (Bound(turn.Pipeline, graph) is { } bound) return bound;
-        var findings = await reviewer.ReviewAsync(turn, graph, ct) ?? [];
+        var findings = await reviewer.ReviewAsync(turn, graph, ct)
+            ?? [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, NoAnswerWhy)];
         IReadOnlyList<ProposalFinding> all = [.. findings, .. await existence.FindingsAsync(turn.Pipeline, graph, ct)];
         logger.LogInformation("The plan review of the proposed list of {Count} ticket(s) reported {Findings} finding(s)",
             graph.Tickets.Count, all.Count);

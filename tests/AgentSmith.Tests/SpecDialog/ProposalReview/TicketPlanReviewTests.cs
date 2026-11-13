@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -93,7 +94,20 @@ public sealed class TicketPlanReviewTests
         await rig.RunAsync(list);
 
         rig.Outcome.Tickets.Should().Equal(list.Tickets);
-        rig.Outcome.Findings.Should().BeEmpty();
+        var finding = rig.Outcome.Findings.Should().ContainSingle().Subject;
+        finding.Should().Be(new ProposalFinding(
+            TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, TicketPlanReview.NoAnswerWhy));
+    }
+
+    [Fact]
+    public async Task ReviewerUnreadable_MarksListNotReviewed()
+    {
+        var rig = new TicketPlanReviewRig();
+        rig.ReviewerAnswers.Enqueue("not json at all");
+
+        await rig.RunAsync(Two());
+
+        rig.Outcome.Findings.Should().ContainSingle().Which.Problem.Should().Be(ProposalReviewSummary.NotReviewedYet);
     }
 
     [Fact]

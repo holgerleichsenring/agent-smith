@@ -39,6 +39,41 @@ public sealed class DesignTurnReviewReportTests
         DesignTurnReviewReport.For(carried, carried.ReviewRounds).Should().BeNull("every round was carried");
     }
 
+    [Fact]
+    public void ListPass_NothingFound_ReportsClean()
+    {
+        var report = DesignTurnReviewReport.For(new TicketGraphOutcome([Ticket("order-api")]), []);
+
+        report.Should().StartWith(DesignTurnReviewReport.Heading).And.Contain(DesignTurnReviewReport.CleanList);
+    }
+
+    [Fact]
+    public void ListPass_ReviewerFailed_ReportsNotReviewedLine_NoCleanLine()
+    {
+        var failed = new TicketGraphOutcome([Ticket("order-api")]) with
+        {
+            Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, TicketPlanReview.NoAnswerWhy)],
+        };
+
+        var report = DesignTurnReviewReport.For(failed, []);
+
+        report.Should().Contain($"[{ProposalReviewSummary.NotReviewedYet}]: {TicketPlanReview.NoAnswerWhy}")
+            .And.NotContain(DesignTurnReviewReport.CleanList);
+    }
+
+    [Fact]
+    public void ListPass_Bound_NoReport()
+    {
+        var bound = new TicketGraphOutcome([Ticket("order-api")]) with
+        {
+            Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, TicketPlanReview.BoundProblem, TicketPlanReview.BoundWhy)],
+        };
+
+        DesignTurnReviewReport.For(bound, []).Should().BeNull();
+    }
+
+    private static GraphTicket Ticket(string key) => new(key, $"Title of {key}", $"The scope of {key}.", ["done"], [], ["api"]);
+
     private static OutcomeProposal Refused(string id, string why) => new SpecOutcome(Draft(id)) with
     {
         Findings = [new ProposalFinding(id, SpecReviewVerdicts.Refuse, why)],

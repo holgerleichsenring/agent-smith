@@ -9,7 +9,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// its review is taken whole; otherwise each text brings its own part — a spec its findings, rounds, not-reviewed mark
 /// and clean text by its id, an epic's parent its findings and the series round. 2026-11-13-3f79: a settled text
 /// edited since (<c>Edited</c>) brings its settled rounds only — not the findings its cuts answered, never a clean
-/// text, since the text it was reviewed in is gone; an edited settled list keeps only the bound-conversation note.
+/// text, since the text it was reviewed in is gone; an edited settled list keeps only the bound-conversation note and (2026-11-13-67ae) a failed plan review's
+/// not-reviewed mark.
 /// </summary>
 internal static class ProposalReviewSlices
 {
@@ -39,7 +40,7 @@ internal static class ProposalReviewSlices
 
     private static OutcomeProposal EditedList(TicketGraphOutcome graph, OutcomeProposal result) => graph with
     {
-        Findings = [.. result.Findings.Where(f => f.Problem == TicketPlanReview.BoundProblem)],
+        Findings = [.. result.Findings.Where(f => f.Problem is TicketPlanReview.BoundProblem or ProposalReviewSummary.NotReviewedYet)],
         ReviewRounds = [], NotReviewed = null, ReviewedClean = [],
     };
 

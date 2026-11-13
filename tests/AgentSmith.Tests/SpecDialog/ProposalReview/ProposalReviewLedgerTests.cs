@@ -121,6 +121,20 @@ public sealed class ProposalReviewLedgerTests
     }
 
     [Fact]
+    public void TicketList_ReviewerFailed_ThenEdited_KeepsNotReviewed()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        ledger.Record(new TicketGraphOutcome([Ticket("order-api")]) with
+        {
+            Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, TicketPlanReview.NoAnswerWhy)],
+        });
+
+        var composed = ledger.Compose(new TicketGraphOutcome([Ticket("order-api"), Ticket("order-ui")]));
+
+        composed.Findings.Should().ContainSingle().Which.Problem.Should().Be(ProposalReviewSummary.NotReviewedYet);
+    }
+
+    [Fact]
     public void ParentNoContract_ThenEdited_StillCovered()
     {
         var ledger = ProposalReviewLedger.Of(new PipelineContext());

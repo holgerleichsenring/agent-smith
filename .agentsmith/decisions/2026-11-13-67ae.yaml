@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-13-67ae
+
+decisions:
+  - category: Design
+    chose: "A failed or unreadable plan review leaves one NotReviewedYet finding under the list key with the plain reason 'the plan reviewer gave no answer' (TicketPlanReview.NoAnswerWhy)"
+    over: "NotReviewedWhy's wording, or a flag on the outcome"
+    reason: "NotReviewedWhy promises a review before building that a list never gets; the unreadable-settings path already marks a list the same way, so the card and the ledger need nothing new."
+  - category: Design
+    chose: "A list pass is reported on its own path (ForList): bound -> no report; no finding -> heading plus one clean line; otherwise every finding, with the weigh-each-objection rule only when a reviewer or existence finding stands"
+    over: "Folding the clean case into the round-based report"
+    reason: "A list carries no rounds, so 'nothing new' was indistinguishable from 'reviewed clean'; a not-reviewed line alone is not an objection to weigh."
+  - category: Design
+    chose: "An edited settled list keeps the NotReviewedYet mark beside BoundProblem"
+    over: "Dropping it like the reviewers' answered objections"
+    reason: "Editing a list the reviewer never read does not make it reviewed."
+  - category: Scope
+    chose: "The harness design-turn test now scripts the plan reviewer's '[]' and the master's second stop after the clean report"
+    over: "Leaving its reviewer call to read the default '{}'"
+    reason: "That call was silently a failed review before; the clean report is now a further master call, which is the behaviour the spec asks for."
