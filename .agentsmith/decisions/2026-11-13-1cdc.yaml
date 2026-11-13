@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-13-1cdc
+
+decisions:
+  - category: Implementation
+    chose: "Pin skills v5.31.0 together with the owner-decision review"
+    over: "Shipping b3a2 on v5.30.0"
+    reason: "v5.30.0 tells the design partner to change the draft where an objection holds; with owner decisions in the review it must know such an item stays and the decision goes to the operator, or it reworks or removes it as run 2026-11-13T09-29-57-a375 did."

@@ -11,6 +11,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// only what the pass itself took — its own rounds and the findings on the drafts it attacked; a settled or carried
 /// round stays on the proposal but is not reported again. 2026-11-13-67ae: a list pass always reports — clean, its
 /// findings, or that the plan reviewer gave no answer — unless the conversation is bound to a ticket.
+/// 2026-11-13-b3a2: drafts refused on owner decisions only are listed apart as waiting on the owner.
 /// </summary>
 public static class DesignTurnReviewReport
 {
@@ -19,6 +20,14 @@ public static class DesignTurnReviewReport
     public const string Rule =
         "Your reply has not gone out yet. Weigh each objection: change the draft where it holds, and say in your "
         + "reply which objections stand and why.";
+
+    public const string WaitingHeading = "Waits on the owner:";
+
+    public const string WaitingRule =
+        "These drafts stay as written until the owner answers: each objection below is a decision only the owner can "
+        + "make. Put each decision in your open questions with your proposal for it.";
+
+    public const string OwnerQuestion = "the owner decides:";
 
     public const string CleanList = "The reviewers read the final list of tickets and found nothing to object to.";
 
@@ -31,18 +40,39 @@ public static class DesignTurnReviewReport
         if (reviewed is TicketGraphOutcome list) return ForList(list);
         var known = new HashSet<ProposalReviewRound>(carried, ReferenceEqualityComparer.Instance);
         var rounds = reviewed.ReviewRounds.Where(round => !known.Contains(round)).ToList();
+        var waiting = rounds.Where(ReviewOwnerDecision.Waits).Select(round => round.SpecId).ToHashSet(StringComparer.Ordinal);
         var findings = reviewed.Findings.Where(f => Reviewed(f) && Attacked(reviewed, rounds, f)).ToList();
         if (rounds.Count == 0 && findings.Count == 0) return null;
-        var sb = new StringBuilder().AppendLine(Heading).AppendLine(Rule);
-        foreach (var round in rounds)
+        var objections = findings.Where(f => !waiting.Contains(f.SpecId)).ToList();
+        var sb = new StringBuilder().AppendLine(Heading);
+        if (objections.Count > 0 || rounds.Any(round => !waiting.Contains(round.SpecId))) sb.AppendLine(Rule);
+        foreach (var round in rounds.Where(round => !waiting.Contains(round.SpecId)))
         {
             sb.AppendLine($"- {round.SpecId}: {round.Verdict}");
             foreach (var cut in round.Cuts)
                 sb.AppendLine($"  cut {cut.Register}: \"{cut.Quote}\" -> {(cut.Replacement is null ? "removed" : $"\"{cut.Replacement}\"")}");
         }
-        foreach (var finding in findings) sb.AppendLine($"- {finding.SpecId} [{finding.Problem}]: {finding.Why}");
+        foreach (var finding in objections)
+        {
+            sb.AppendLine($"- {finding.SpecId} [{finding.Problem}]: {finding.Why}");
+            if (!string.IsNullOrWhiteSpace(finding.Decision))
+                sb.AppendLine($"  {OwnerQuestion} {ReviewOwnerDecision.Question(finding.Decision)}");
+        }
+        if (waiting.Count > 0) AppendWaiting(sb, findings.Where(f => waiting.Contains(f.SpecId)).ToList(), waiting);
         if (reviewed.NotReviewed is { Count: > 0 } open) sb.AppendLine($"Not reviewed: {string.Join(", ", open)}");
         return sb.ToString();
+    }
+
+    /// <summary>2026-11-13-b3a2: drafts refused on owner decisions only, apart, each decision as a question.</summary>
+    private static void AppendWaiting(StringBuilder sb, IReadOnlyList<ProposalFinding> findings, IReadOnlySet<string> waiting)
+    {
+        sb.AppendLine(WaitingHeading).AppendLine(WaitingRule);
+        foreach (var specId in waiting)
+        {
+            sb.AppendLine($"- {specId}:");
+            foreach (var finding in findings.Where(f => f.SpecId == specId && !string.IsNullOrWhiteSpace(f.Decision)))
+                sb.AppendLine($"  {ReviewOwnerDecision.Question(finding.Decision!)} ({finding.Why})");
+        }
     }
 
     /// <summary>2026-11-13-67ae: a list pass with no finding is reported clean; a bound conversation's list is not.</summary>

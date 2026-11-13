@@ -18,9 +18,12 @@ namespace AgentSmith.Contracts.Models;
 /// The framework-minted line of the look the finding rests on, resolved from the id it cited.
 /// Null where the finding cites nothing — only a false premise does.
 /// </param>
+/// <param name="Decision">2026-11-13-b3a2: the question only the owner can answer, when the reviewer named the
+/// objection a decision for the owner; null otherwise.</param>
 public sealed record ProposalFinding(
     string SpecId,
     string Problem,
     string Why,
     string? Quote = null,
-    string? Evidence = null);
+    string? Evidence = null,
+    string? Decision = null);

@@ -15,6 +15,9 @@ public static class ReviewObjectionQuestion
     public const string BuildAsReviewed = "build the spec as reviewed; the objection stays on record";
     public const string ChangeAsAsked = "change the spec as the objection asks";
 
+    /// <summary>2026-11-13-b3a2: the lead of a finding's decision, asked on the ticket as the question it is.</summary>
+    public const string OwnerQuestion = "the owner decides:";
+
     public static SpecHandback For(IReadOnlyList<StandingObjection> objections)
     {
         ArgumentNullException.ThrowIfNull(objections);
@@ -33,7 +36,12 @@ public static class ReviewObjectionQuestion
             var subject = objection.SpecId is null ? " (the series)" : string.Empty;
             sb.Append($"\n{ReviewObjectionComment.MarkerFor(objection.MarkerKey)}{subject}:\n");
             if (objection.Findings.Count == 0) sb.Append("- the reviewer named no finding\n");
-            foreach (var finding in objection.Findings) sb.Append($"- {finding.Text} — {finding.Evidence}\n");
+            foreach (var finding in objection.Findings)
+            {
+                sb.Append($"- {finding.Text} — {finding.Evidence}\n");
+                if (ReviewOwnerDecision.Carries(finding))
+                    sb.Append($"  {OwnerQuestion} {ReviewOwnerDecision.Question(finding.Decision!)}\n");
+            }
         }
         return sb.ToString().TrimEnd();
     }

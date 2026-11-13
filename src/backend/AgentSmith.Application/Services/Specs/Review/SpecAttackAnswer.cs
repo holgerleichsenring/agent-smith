@@ -9,10 +9,11 @@ internal sealed record SpecAttackAnswer(
     string Verdict, IReadOnlyList<SpecAttackItem> Cuts, IReadOnlyList<SpecAttackItem> Findings);
 
 /// <summary>2026-10-13-8762e: one cut or finding as written. A cut carries its register, quote and
-/// replacement; a finding its text; both name where they looked and the id of that look.</summary>
+/// replacement; a finding its text; both name where they looked and the id of that look. 2026-11-13-b3a2: a finding
+/// may carry the decision only the owner can make, as a question.</summary>
 internal sealed record SpecAttackItem(
     string? Register, string? Quote, string? Replacement, string? Text,
-    string Repository, string? Path, int Line, string? Cites);
+    string Repository, string? Path, int Line, string? Cites, string? Decision = null);
 
 /// <summary>2026-10-13-8762e: the answer's wire shape. A line arrives as a number or a string and a
 /// citation as a string or a list, normalised as <see cref="SpecFindingWire"/> does.</summary>
@@ -37,9 +38,10 @@ internal sealed record SpecAttackWire(
 
 internal sealed record SpecAttackItemWire(
     string? Register, string? Quote, string? Replacement, string? Text, string? Repository, string? Path,
-    JsonElement? Line, JsonElement? Cites)
+    JsonElement? Line, JsonElement? Cites, string? Decision = null)
 {
     public SpecAttackItem ToItem() => new(
         Register?.Trim().ToLowerInvariant(), Quote, Replacement, Text, Repository ?? string.Empty, Path,
-        SpecFindingWire.LineNumber(Line), SpecFindingWire.CitationText(Cites));
+        SpecFindingWire.LineNumber(Line), SpecFindingWire.CitationText(Cites),
+        string.IsNullOrWhiteSpace(Decision) ? null : Decision.Trim());
 }

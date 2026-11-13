@@ -14,13 +14,15 @@ internal sealed record ProposalReviewText(string Key, string Id, string SettledK
     /// <summary>
     /// Whether <paramref name="result"/> passed this text: a draft whose last round there said build or build with
     /// cuts; a parent whose last series round did, or any recorded parent of an epic with no contract; any recorded list.
+    /// 2026-11-13-b3a2: a draft whose last round refused on owner decisions only waits on the owner and counts as passed.
     /// </summary>
     public bool PassedIn(OutcomeProposal result)
     {
         ArgumentNullException.ThrowIfNull(result);
         if (Id == ProposalReviewTexts.ListId) return true;
         if (Id == ProposalReviewTokens.Series && result is EpicOutcome { Contract: null or { IsEmpty: true } }) return true;
-        return result.ReviewRounds.LastOrDefault(round => round.SpecId == Id)?.Verdict
-            is SpecReviewVerdicts.Build or SpecReviewVerdicts.BuildWithCuts;
+        var last = result.ReviewRounds.LastOrDefault(round => round.SpecId == Id);
+        return last?.Verdict is SpecReviewVerdicts.Build or SpecReviewVerdicts.BuildWithCuts
+            || (last is not null && ReviewOwnerDecision.Waits(last));
     }
 }
