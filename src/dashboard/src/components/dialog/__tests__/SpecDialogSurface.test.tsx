@@ -2015,17 +2015,14 @@ describe("SpecDialogSurface", () => {
       activity.emit({ dialogId: "someone-else", kind: "tool", name: "read_file", detail: "foreign", at, seq: 1, turnStartedAt: TURN });
     });
 
+    // 2026-11-13-3dc8: the condensed lines, newest last, with nothing folded away.
     const shown = await screen.findByTestId("dialog-activity");
     expect(within(shown).getAllByTestId("dialog-activity-line").map((line) => line.textContent)).toEqual([
-      "grep_in_files Dispatch",
-      "thinking — Checking the router.",
-      "reviewing its own proposal against the code",
+      "1 read · 1 search",
+      "Checking the router.",
+      "reviewing its proposal",
     ]);
-    const folded = screen.getByTestId("dialog-activity-folded");
-    expect(folded).toHaveTextContent("1 earlier step");
-    expect(within(folded).getAllByTestId("dialog-activity-line").map((line) => line.textContent)).toEqual([
-      "read_file repo-a/src/A.cs",
-    ]);
+    expect(screen.queryByTestId("dialog-activity-folded")).toBeNull();
   });
 
   // 2026-09-18-2f8b: a page that did NOT post the message — opened on a second screen, or
@@ -2045,8 +2042,8 @@ describe("SpecDialogSurface", () => {
 
     const working = await screen.findByTestId("dialog-working");
     expect(within(working).getAllByTestId("dialog-activity-line").map((l) => l.textContent))
-      .toEqual(["read_file repo-a/src/A.cs"]);
-    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("12s · 1 step");
+      .toEqual(["1 read"]);
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent(/^0m 12s$/);
   });
 
   // The page that posted issues NO read until the reply lands, so a working line rendered
@@ -2060,7 +2057,7 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
     expect(await screen.findByTestId("dialog-working")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent(/^0m 0s$/);
   });
 
   it("SpecDialog_AStepThatWasReadAndThenPushed_IsShownOnce", async () => {
@@ -2073,8 +2070,7 @@ describe("SpecDialogSurface", () => {
     act(() => activity.emit({ ...step({ seq: 1 }), dialogId: heldDialogId() }));
 
     const lines = await screen.findAllByTestId("dialog-activity-line");
-    expect(lines).toHaveLength(1);
-    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("1 step");
+    expect(lines.map((line) => line.textContent)).toEqual(["1 read"]);
   });
 
   it("SpecDialog_AStepPushedWhileTheReadWasInFlight_IsNotLost", async () => {
@@ -2111,13 +2107,13 @@ describe("SpecDialogSurface", () => {
       activity.emit({ ...step({ seq: 2 }), dialogId: heldDialogId(), at });
     });
 
-    expect(await screen.findAllByTestId("dialog-activity-line")).toHaveLength(2);
-    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("2 steps");
+    const lines = await screen.findAllByTestId("dialog-activity-line");
+    expect(lines.map((line) => line.textContent)).toEqual(["2 reads"]);
   });
 
   // The ring is behind a motion variant, and under jsdom a media variant is not observable at
   // all — so what is asserted is that the RENDERED TEXT moves on its own.
-  it("SpecDialog_AdvancingTheClock_ChangesTheElapsedCounterAndTheStepCount", async () => {
+  it("SpecDialog_AdvancingTheClock_ChangesTheElapsedCounterAndTheLines", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       fetchSpecDialog.mockResolvedValue(view({
@@ -2125,15 +2121,16 @@ describe("SpecDialogSurface", () => {
       }));
       await renderSurface();
       const pulse = await screen.findByTestId("dialog-working-pulse");
-      expect(pulse).toHaveTextContent("5s · 1 step");
+      expect(pulse).toHaveTextContent("0m 5s");
 
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
-      expect(pulse).toHaveTextContent("8s · 1 step");
+      expect(pulse).toHaveTextContent("0m 8s");
 
-      act(() => activity.emit({ ...step({ seq: 2 }), dialogId: heldDialogId() }));
-      expect(pulse).toHaveTextContent("8s · 2 steps");
+      act(() => activity.emit({ ...step({ seq: 2, name: "write_spec", detail: "s.yaml" }), dialogId: heldDialogId() }));
+      expect(screen.getAllByTestId("dialog-activity-line").map((line) => line.textContent))
+        .toEqual(["1 read", "write_spec s.yaml"]);
     } finally {
       vi.useRealTimers();
     }
@@ -2176,9 +2173,9 @@ describe("SpecDialogSurface", () => {
       dialogId: heldDialogId(),
     }));
 
+    // 2026-11-13-3dc8: the dead turn's two steps are gone; the next turn's one read is the only line.
     const lines = await screen.findAllByTestId("dialog-activity-line");
-    expect(lines.map((line) => line.textContent)).toEqual(["read_file repo-b/src/B.cs"]);
-    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("1 step");
+    expect(lines.map((line) => line.textContent)).toEqual(["1 read"]);
   });
 
   it("SpecDialog_TheHubReconnecting_RereadsTheConversation", async () => {
@@ -2205,9 +2202,9 @@ describe("SpecDialogSurface", () => {
     expect(await screen.findByTestId("dialog-working")).toBeInTheDocument();
   });
 
-  // The kept list is bounded, so a count of what the PAGE holds freezes past that bound and
-  // one of the two liveness cues dies for the rest of the turn. The sequence is the true count.
-  it("SpecDialog_ATurnPastTheKeptBound_StillCountsEveryStepItTook", async () => {
+  // 2026-11-13-3dc8: no step count any more; a long burst still condenses to one counted line, and a step pushed
+  // after a reconnect joins the lines rather than replacing them.
+  it("SpecDialog_ALongTurnAcrossAReconnect_KeepsItsLines", async () => {
     await renderSurface();
     fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
@@ -2220,8 +2217,11 @@ describe("SpecDialogSurface", () => {
         activity.emit({ ...step({ seq }), dialogId: heldDialogId() });
       }
     });
+    act(() => connectionState.emit(HubConnectionState.Connected));
+    act(() => activity.emit({ ...step({ seq: 61, name: "write_spec", detail: "s.yaml" }), dialogId: heldDialogId() }));
 
-    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("60 steps");
+    expect(screen.getAllByTestId("dialog-activity-line").map((line) => line.textContent))
+      .toEqual(["60 reads", "write_spec s.yaml"]);
   });
 
   // The ring is behind a motion variant; the two cues beside it must not be. Under jsdom a
@@ -2722,7 +2722,7 @@ describe("SpecDialogSurface", () => {
 
     expect(working).toHaveTextContent("Opening the repositories it needs");
     expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("repo-a@v2");
-    expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
+    expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent(/^0m 0s$/);
   });
 
 

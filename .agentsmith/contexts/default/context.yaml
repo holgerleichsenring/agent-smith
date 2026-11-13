@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-13-3dc8: "DIALOG LIVE STEPS QUIET (DialogWorking, condenseSteps, ProposalReviewPass, SpecDialogOutcomeFlow). The working line shows condensed lines under an Xm Ys clock, no count or fold; reviewer steps run under a Review frame and their answers are no lines; an answer turn clears its reviewing draft and turn row. -> .agentsmith/specs/done/2026-11-13-3dc8-dialog-live-steps-quiet.yaml"
     2026-11-13-b3a2: "REVIEW OWNER DECISIONS (SpecAttackPrompt, SpecReviewFinding, ProposalReviewText, DesignTurnReviewReport, turnCourse). A finding may carry the decision only the owner can make; a draft refused on such decisions only waits on the owner, settled for the turn, reported apart as questions. -> .agentsmith/specs/done/2026-11-13-b3a2-review-owner-decisions.yaml"
     2026-11-13-1cdc: "SKILLS PIN OWNER DECISIONS (skills catalog pin v5.31.0). The design partner keeps an item whose review waits on an owner decision, puts the decision to the operator as an open question and does not rework or remove the item. -> .agentsmith/specs/done/2026-11-13-1cdc-skills-pin-owner-decisions.yaml"
     2026-11-13-67ae: "DESIGN REVIEW CLEAN REPORT (DesignTurnReviewReport, TicketPlanReview, ProposalReviewSlices). A list pass that finds nothing reports so to the master before its reply goes out; a failed or unreadable plan reviewer marks the list not reviewed and never reads as clean. -> .agentsmith/specs/done/2026-11-13-67ae-design-review-clean-report.yaml"

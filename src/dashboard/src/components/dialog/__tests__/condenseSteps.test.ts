@@ -36,4 +36,38 @@ describe("condenseSteps", () => {
     expect(lines.map((line) => line.key)).toEqual([1, 2, 6, 8, 9]);
     expect(condenseSteps(fetched)).toEqual(lines);
   });
+
+  // 2026-11-13-3dc8: a sub-agent's or reviewer's steps arrive as "Name › …".
+  it("PrefixedSubAgentReads_JoinBurst", () => {
+    const lines = condenseSteps([
+      { seq: 1, kind: "tool", name: "read_file", detail: "a.cs" },
+      { seq: 2, kind: "tool", name: "RepoScout › read_file", detail: "b.cs" },
+      { seq: 3, kind: "tool", name: "Review › grep", detail: "Store" },
+    ]);
+
+    expect(lines.map((line) => line.text)).toEqual(["2 reads · 1 search"]);
+  });
+
+  it("PrefixedModelStep_NotALine", () => {
+    const lines = condenseSteps([
+      { seq: 1, kind: "tool", name: "read_file", detail: "a.cs" },
+      { seq: 2, kind: "model", name: "Review › stub-model", detail: '{"verdict":"REFUSE","findings":[]}' },
+      { seq: 3, kind: "tool", name: "read_file", detail: "b.cs" },
+    ]);
+
+    expect(lines.map((line) => line.text)).toEqual(["2 reads"]);
+  });
+
+  it("MasterNarration_Kept", () => {
+    const lines = condenseSteps([
+      { seq: 1, kind: "model", name: "master-model", detail: "Checking the router." },
+      { seq: 2, kind: "reviewing", name: null, detail: null },
+      { seq: 3, kind: "model", name: "Review › stub-model", detail: "[]" },
+    ]);
+
+    expect(lines.map((line) => [line.kind, line.text])).toEqual([
+      ["said", "Checking the router."],
+      ["step", "reviewing its proposal"],
+    ]);
+  });
 });

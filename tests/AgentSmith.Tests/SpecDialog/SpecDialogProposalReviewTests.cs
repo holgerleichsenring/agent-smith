@@ -242,8 +242,8 @@ public sealed class SpecDialogProposalReviewTests
         await ReviewAsync(Review(reviewer, accessor), pipeline, CancellationToken.None);
 
         recorder.Lines.Should().Equal(
-            ["reviewing", $"tool read_file {Repo}/src/Api.cs"],
-            "the review says it started, and its look says what it read");
+            ["reviewing", $"tool Review › read_file {Repo}/src/Api.cs"],
+            "the review says it started, and its look says what it read under the Review frame (2026-11-13-3dc8)");
     }
 
     private static Task<object?> ReadThrough(DerivationLook look) =>

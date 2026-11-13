@@ -5,10 +5,9 @@ import type {
   SpecDialogReadingPush,
   SpecDialogReadingState,
 } from "@/types/spec-dialog";
-import { DialogActivityLines } from "./DialogActivityLines";
+import { condenseSteps } from "./condenseSteps";
 import { DialogElapsed } from "./DialogElapsed";
 import { DialogMessage } from "./DialogTranscript";
-import { earlierStepsLabel, stepCount } from "./turnSteps";
 
 // 2026-09-15-cb3e, found in use: a design turn materialises the scope's repositories and
 // reads them — a long silence is normal, and a page that shows nothing reads as broken.
@@ -25,6 +24,10 @@ import { earlierStepsLabel, stepCount } from "./turnSteps";
 // behind a motion variant, so a reader who asked for less motion was left with a static ring
 // and no sign of life at all; the convention is right and what was missing is a second cue.
 // Both render unconditionally.
+// 2026-11-13-3dc8: REVERSES 92e9c's raw live line. A long turn read "648s · 451 steps" over "448 earlier steps, the
+// last 47 listed" and three raw lines — a count nobody reads and a fold nobody opens. The line now shows the same
+// condensed lines the turn leaves behind, newest last, under a clock in minutes and seconds; the clock ticking is the
+// second cue beside the ring, and a new line arriving is the third.
 
 const READING_WORDS: Record<SpecDialogReadingState, string> = {
   opening: "opening",
@@ -39,9 +42,6 @@ const READING_MARK: Record<SpecDialogReadingState, string> = {
   failed: "before:content-['×_'] text-ink",
   reopening: "before:content-['›_'] text-body",
 };
-
-/** How many steps stay in the open; everything older folds into the disclosure above them. */
-const SHOWN = 3;
 
 export function DialogWorking({
   readings,
@@ -66,11 +66,7 @@ export function DialogWorking({
         : opening.some((reading) => reading.kind === "ticket")
           ? "Reading the ticket and the repositories it needs…"
           : "Opening the repositories it needs…";
-  // What the TURN has taken, not what this page still holds: the kept list is bounded, so a
-  // count of it would freeze past that bound and one of the two liveness cues would die.
-  const taken = stepCount(activity);
-  const folded = activity.slice(0, Math.max(0, activity.length - SHOWN));
-  const latest = activity.slice(folded.length);
+  const lines = condenseSteps(activity);
   return (
     <DialogMessage who="agent" testId="dialog-working">
       <div className="flex flex-col gap-1.5 dsh-body text-body">
@@ -81,13 +77,7 @@ export function DialogWorking({
           />
           {openingWhat}
           <span data-testid="dialog-working-pulse" className="font-mono dsh-mono text-mute">
-            {since !== null && (
-              <>
-                <DialogElapsed since={since} />
-                {" · "}
-              </>
-            )}
-            {taken} {taken === 1 ? "step" : "steps"}
+            {since !== null && <DialogElapsed since={since} />}
           </span>
         </span>
         {readings.length > 0 && (
@@ -104,15 +94,15 @@ export function DialogWorking({
             ))}
           </ul>
         )}
-        {folded.length > 0 && (
-          <details data-testid="dialog-activity-folded">
-            <summary className="fl cursor-pointer">
-              {earlierStepsLabel(taken - latest.length, folded.length)}
-            </summary>
-            <DialogActivityLines steps={folded} testId="dialog-activity-earlier" />
-          </details>
+        {lines.length > 0 && (
+          <ul data-testid="dialog-activity" className="flex flex-col gap-0.5 font-mono dsh-mono text-mute">
+            {lines.map((line) => (
+              <li key={line.key} data-testid="dialog-activity-line" data-kind={line.kind}>
+                {line.text}
+              </li>
+            ))}
+          </ul>
         )}
-        {latest.length > 0 && <DialogActivityLines steps={latest} testId="dialog-activity" />}
       </div>
     </DialogMessage>
   );

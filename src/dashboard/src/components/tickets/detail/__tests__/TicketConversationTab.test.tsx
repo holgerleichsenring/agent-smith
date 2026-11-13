@@ -221,8 +221,8 @@ describe("Ticket conversation tab", () => {
     await settle(3000);
     const working = within(screen.getByTestId("ticket-working"));
     expect(working.getByTestId("dialog-reading")).toHaveTextContent("portal-worker: ready");
-    expect(working.getByTestId("dialog-activity-line")).toHaveTextContent("RepoScout › read_file src/Consumer.cs");
-    expect(working.getByTestId("dialog-working-pulse")).toHaveTextContent(/^3s · 1 step$/);
+    expect(working.getByTestId("dialog-activity-line")).toHaveTextContent(/^1 read$/);
+    expect(working.getByTestId("dialog-working-pulse")).toHaveTextContent(/^0m 3s$/);
   });
 
   it("AJoinRefusedDuringAReconnect_IsReissuedOnConnected_AndTheQueuedSendThenGoesOut", async () => {

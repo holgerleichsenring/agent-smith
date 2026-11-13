@@ -39,6 +39,10 @@ public sealed class SpecDialogTurnProposalRepository(IUnitOfWork unitOfWork)
     public Task<int> DeleteBySessionAsync(string sessionId, CancellationToken ct) =>
         unitOfWork.Set<SpecDialogTurnProposal>().Where(p => p.SessionId == sessionId).ExecuteDeleteAsync(ct);
 
+    /// <summary>2026-11-13-3dc8: drops one run's row, written mid-turn for a draft the turn's reply removed.</summary>
+    public Task<int> DeleteByRunAsync(string runId, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogTurnProposal>().Where(p => p.RunId == runId).ExecuteDeleteAsync(ct);
+
     private Task<int> UpdateAsync(string runId, string proposalJson, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
