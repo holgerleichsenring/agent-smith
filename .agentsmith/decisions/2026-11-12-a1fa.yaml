@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-a1fa
+
+decisions:
+  - category: Design
+    chose: "The operator note is appended to the tool result's text after a blank line, under its own heading, and the result stays one string"
+    over: "Returning the result as a list of text parts (original plus note)"
+    reason: "Secret masking, the forwarded-view fit, compaction sizing and the thread codec all read a tool result as a string (ToolResultBound.TextOf); a multi-part result would pass every one of them unread and be replayed as JSON. The heading keeps the note visibly apart from the tool's output, and a cut by the view fit keeps the tail, where the note sits."
+  - category: Design
+    chose: "The gate entry records its hold (Other, DesignTurn, StewardTurn); the router enters as DesignTurn and the master's tool surface calls IMidTurnMessages.Lead with IsTicketSteward"
+    over: "Marking the steward in the turn runner from the bound ticket's Worked flag"
+    reason: "The builder falls back to the design master when no steward master is in the catalog, so only the handler knows who leads. A message that arrives before the handler leads is queued and run after the turn — never lost."
+  - category: Design
+    chose: "Drained indices live on the turn's ForwardedThreadCapture and become Delivered at its next Record; the sink's Offer and the keeper's final KeepAsync both carry them"
+    over: "A set held by SpecDialogThreadWriter alone"
+    reason: "The keeper replaces the row after the writer is closed, from result.Thread; a set only the writer held would be lost from the final row and the next turn would render the message again. Record runs only after a successful call, which is exactly when a drained message was read."
+  - category: Design
+    chose: "A queued turn takes every waiting message whose index the re-read state holds, and runs as the poster of the oldest one"
+    over: "One turn per waiting message or per poster"
+    reason: "The next turn's prompt renders every transcript turn it has not seen, so any message in the re-read state is in that prompt; leaving it queued would hand it over a second time with a tool result."
+  - category: Design
+    chose: "SpecDialogQueuedTurns owns the held-gate path (queue, re-enter, or busy reply) and the run-then-exit loop; SpecDialogTurnDelivery holds the old RunTurnAsync body"
+    over: "Growing SpecDialogRouter"
+    reason: "The router sat at 117 of 120 lines; the busy reply moved with the queue it decides against."
+  - category: Design
+    chose: "A thrown turn releases the gate through SpecDialogOperatorInbox.Abandon, dropping what waited"
+    over: "Running the queued turns from the finally block"
+    reason: "The dropped messages stay in the transcript and render as unseen in the next turn; running further turns while an exception unwinds would hide it."
+  - category: Persistence
+    chose: "Delivered is a nullable string column (JSON int array), generated with dotnet ef migrations add AddSpecDialogThreadDelivered for SQLite, SQL Server and PostgreSQL"
+    over: "SQL Server and PostgreSQL only"
+    reason: "The SQLite migration set is the one the tests and the default install run; leaving it out would fail the pending-model check there."

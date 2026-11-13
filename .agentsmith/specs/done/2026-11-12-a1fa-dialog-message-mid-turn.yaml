@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-a1fa
+goal: "A message the operator sends while a design turn runs reaches that turn's master with its next tool result, and the turn carries on with it; nothing stops or waits."
+
+applies_to: "default (SpecDialogRouter, SpecDialogTurnGate, design-turn tool invocation, SpecDialogThread); dashboard (useSpecDialog)"
+
+requires: [2026-11-12-92e9a]
+
+facts:
+  - claim: "A message during a running turn is stored, then answered with a turn-in-progress reply; the running loop never sees it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:73-86"
+  - claim: "The turn gate is per process and knows whether the session's turn is computing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-66"
+  - claim: "A message appended to a copy of the request list vanishes on the next tool iteration; the governor relies on that for a reminder."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/MasterLoopGovernorChatClient.cs:67-70"
+  - claim: "Answers to a live question, card decisions and mock ratifications are stored as user turns too."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:45-69"
+  - claim: "Load renders every transcript turn from TranscriptFrom on except ReplyAt as unseen."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogThreadStore.cs:31-33"
+  - claim: "A send clears the running turn's activity and restarts its clock on the page."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:317-319"
+  - claim: "The operator works this way with Claude Code: a message sent mid-turn arrives with the next tool result and the work continues."
+    evidence: "observed: 2026-11-12 operator statement in conversation"
+
+scope:
+  in: "Ordinary operator messages admitted on the replica that runs the design turn; the delivered marker; picking up a message that came after the last tool call."
+  out: "Cancelling a turn; the ticket steward (keeps the busy reply); answers to live questions, decisions and mock ratifications (their paths stay); a message admitted on another replica than the one running the turn (today's behaviour, unchanged)."
+
+steps:
+  - id: inbox
+    action: "A per-process inbox per session beside the turn gate; add, drain and the router's exit share one lock. While a router design turn holds the gate on this process (not only while computing; the gate entry records whether it is a steward turn), an ordinary operator message is queued with its transcript index, text and TurnPoster instead of the busy reply. Ordinary means: not an answer (already split off), and not a decision, where a decision is admitted.Decision with a card awaiting or a proposalId set; a decision word with no awaiting card is ordinary."
+  - id: with-tool-result
+    action: "The master's AIFunctions are wrapped at AgenticMasterHandler where design-turn tools are already wrapped (not in the shared FunctionInvokingChatClient, so sub-agents never drain), reaching the inbox through a Contracts port seeded into the pipeline like the reply slot; steward turns get no wrapper. After each tool call it drains the messages whose poster is the turn's poster and appends each to that call's result as a separate text part, headed 'The operator wrote while you were working (HH:MM)'. Messages from another poster stay queued for the next turn."
+  - id: delivered
+    action: "SpecDialogThread gains a Delivered column (transcript indices, JSON; EF migrations for SQL Server and Postgres). A drained index joins a per-turn set held by 92e9a's writer and is stored only in snapshots taken after a later successful model call; a message drained into a turn that fails before that stays undelivered. Load treats stored indices as seen."
+  - id: after-loop
+    action: "Inside the router's try, after a turn: while the inbox holds undelivered messages, re-read the session state and run the next turn as the queued message's poster; then exit under the inbox lock and fold once. The resumer and deletion endpoints never see a non-empty inbox; deletion still drops it as cleanup."
+  - id: page
+    action: "A send while the turn is computing keeps the running turn's activity and clock; the turn's own reply ends the wait."
+
+tests:
+  - "OperatorInboxTests: AdmittedWhileComputing_DeliveredWithNextToolResult_Once"
+  - "OperatorInboxTests: Answer_And_DecisionWithCardAwaiting_NotQueued; DecisionWordWithoutCard_Queued"
+  - "OperatorInboxTests: OtherPoster_NotDeliveredMidTurn_RunsNextTurnAsThatPoster"
+  - "OperatorInboxTests: QueuedAfterComputingBeforeExit_RunsNextTurn_DeliveredOnce"
+  - "SpecDialogRouterTests: ComputingDesignTurn_NoInProgressReply; Steward_KeepsInProgressReply"
+  - "SpecDialogThreadStoreTests: DeliveredTurn_NotRenderedAsUnseen; DrainedThenFailed_RenderedAgain"
+  - "SpecDialogRouterTests: MessageAfterLastToolCall_StartsNextTurnBeforeGateFree"
+  - "useSpecDialog.test.ts: SendWhileComputing_KeepsActivity"
+
+done:
+  - "An operator message sent mid-turn appears in that turn's thread and the turn's reply can answer it."
+  - "No operator message is lost or answered twice on the replica that runs the turn."

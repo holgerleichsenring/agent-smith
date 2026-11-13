@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-13-3f79
+goal: "Within a design turn, a draft the reviewers passed (build or build with cuts) is settled: applying its cuts does not send it back to review, as in the spec-first review loop."
+
+applies_to: "default (ProposalReviewLedger, ProposalReviewCarryOver, ProposalReviewSlices)"
+
+requires: [2026-11-12-92e9b]
+
+facts:
+  - claim: "The ledger keys results by exact text, so any edit makes a draft unreviewed again."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLedger.cs:30-42"
+  - claim: "The end pass returns without a report only when the ledger covers every text of the final draft."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:32-33"
+  - claim: "Carry-over keeps a draft's rounds only for a byte-identical text."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewCarryOver.cs:30-35"
+  - claim: "The spec-first review loop stops at BUILD, or at BUILD WITH CUTS once every cut is applied and the evidence script is clean; only a REFUSE sends the spec back to a fresh reviewer."
+    evidence: "observed: 2026-11-13 spec-first plugin 2.6.0 skills/review-spec/SKILL.md, section 3"
+  - claim: "Replay 20261113-003031-92e9b-1: 18 specs, every pass build-with-cuts for all 18 with about 140 cuts; the master applied them, the changed texts were attacked again, and turn 1 ran into the 120-minute timeout after five passes."
+    evidence: "observed: 2026-11-13 replay out/20261113-003031-92e9b-1 server.log and PromptBlocks"
+
+scope:
+  in: "When a draft counts as reviewed within one turn."
+  out: "The build-time review, which still attacks by exact text hash and runs the evidence check; any count of passes. Note: the published proposal holds the edited text with its settled rounds, so those rounds travel into the next turn's carry-over with that text."
+
+steps:
+  - id: settled
+    action: "The ledger also keeps, per draft id, the newest result whose last round for that id is build or build-with-cuts. A parent is settled when its last series round passed (its series round is not taken again this turn), or once any pass recorded it when the epic has no contract. A ticket list is settled once a pass recorded it, under the key 'list'. Settled holds for the rest of the turn whatever the text becomes; a refused or unreviewed draft still needs a pass over its new text. The evidence check of an edited settled text is left to the build-time review (recorded in decisions)."
+  - id: covers-compose
+    action: "Covers counts a settled draft as covered; Compose gives a settled draft whose current text has no exact entry the settled result's rounds as its record, without its uncleared findings (the cuts were applied) and never a ReviewedClean for the new text."
+  - id: carry
+    action: "Carry-over treats a settled draft as stopped with its settled rounds and never sets AttackedYaml on its changed text, so neither review_proposal nor the end pass attacks it again this turn."
+  - id: report-new-only
+    action: "The review report names only rounds the pass took and findings on drafts it attacked; settled and carried rounds stay on the proposal but are not reported again."
+
+tests:
+  - "ProposalReviewLedgerTests: BuildWithCuts_ThenEdited_StillCovered"
+  - "ProposalReviewLedgerTests: Refused_ThenEdited_NotCovered"
+  - "ProposalReviewLedgerTests: Compose_SettledEdited_CarriesSettledRounds"
+  - "ProposalReviewLedgerTests: Compose_SettledEdited_NoReviewedCleanForNewText; TicketList_ThenEdited_StillCovered; ParentNoContract_ThenEdited_StillCovered"
+  - "ProposalReviewCarryOverTests: SettledDraft_StoppedWithItsRounds; SettledEdited_AttackedYamlUnset"
+  - "ProposalSeriesRoundTests: SettledParent_SeriesRoundNotTakenAgain"
+  - "DesignTurnReviewReportTests: CarriedRounds_NotReported"
+  - "SpecDialogTurnFlowTests: CutsApplied_NoSecondPass_ReplyGoesOut"
+
+done:
+  - "A turn whose drafts all pass with cuts ends after the master applied them, without another pass."
+  - "A refused draft is reviewed again after the master rewrote it."

@@ -41,7 +41,7 @@ describe("a mock in the transcript", () => {
   });
 
   it("DialogTranscript_MockEntry_ShowsScreenshotWithVersion", async () => {
-    render(<DialogTranscript entries={withImages([said], [], [], [mock(), mock({ specId: "spec-b", name: "spec-b-mock-v1", hasShot: false })])} onInspect={() => {}} />);
+    render(<DialogTranscript entries={withImages([said], [], [], [mock(), mock({ specId: "spec-b", name: "spec-b-mock-v1", hasShot: false })])} />);
 
     expect(screen.getByTestId("dialog-mock-spec-a-v1")).toHaveTextContent("Mock v1 — spec-a");
     await waitFor(() => expect(screen.getByTestId("dialog-mock-shot-spec-a-v1").tagName).toBe("IMG"));
@@ -54,7 +54,7 @@ describe("a mock in the transcript", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
       clicked.push(this.download);
     });
-    render(<DialogTranscript entries={withImages([said], [], [], [mock({ version: 3, name: "spec-a-mock-v3" })])} onInspect={() => {}} />);
+    render(<DialogTranscript entries={withImages([said], [], [], [mock({ version: 3, name: "spec-a-mock-v3" })])} />);
 
     fireEvent.click(screen.getByTestId("dialog-mock-open-spec-a-v3"));
 

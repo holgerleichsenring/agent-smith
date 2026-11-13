@@ -199,7 +199,7 @@ public sealed class DialogImageUploadTests : IDisposable
         var elsewhere = await StoreAgainstAsync("another-conversation");
 
         await SpecDialogDeletionEndpoints.DeleteAsync(
-            session, Principal(Owner), _ownership, new SpecDialogTurnGate(TimeProvider.System),
+            session, Principal(Owner), _ownership, new SpecDialogTurnGate(TimeProvider.System), new SpecDialogOperatorInbox(new SpecDialogTurnGate(TimeProvider.System)),
             new SpecDialogConversationDeleter(_context, _repository, new DialogueAnswerRepository(
                 _context, new AgentSmith.Infrastructure.Persistence.Services.Translators.SqliteUniqueViolationTranslator()),
                 _attachments, new ApprovedSeriesRepository(_context), new SpecDialogThreadRepository(_context)),

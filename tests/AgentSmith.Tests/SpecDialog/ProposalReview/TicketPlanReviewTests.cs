@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -93,7 +94,20 @@ public sealed class TicketPlanReviewTests
         await rig.RunAsync(list);
 
         rig.Outcome.Tickets.Should().Equal(list.Tickets);
-        rig.Outcome.Findings.Should().BeEmpty();
+        var finding = rig.Outcome.Findings.Should().ContainSingle().Subject;
+        finding.Should().Be(new ProposalFinding(
+            TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, TicketPlanReview.NoAnswerWhy));
+    }
+
+    [Fact]
+    public async Task ReviewerUnreadable_MarksListNotReviewed()
+    {
+        var rig = new TicketPlanReviewRig();
+        rig.ReviewerAnswers.Enqueue("not json at all");
+
+        await rig.RunAsync(Two());
+
+        rig.Outcome.Findings.Should().ContainSingle().Which.Problem.Should().Be(ProposalReviewSummary.NotReviewedYet);
     }
 
     [Fact]
@@ -165,7 +179,8 @@ public sealed class TicketPlanReviewTests
         var rig = new TicketPlanReviewRig();
         var loop = new Moq.Mock<AgentSmith.Application.Services.Loop.IAgenticLoopRunner>(Moq.MockBehavior.Strict).Object;
         var flow = new SpecDialogTurnFlow(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-            new TicketStewardPromptFactory(), rig.Turn());
+            new TicketStewardPromptFactory(), new DesignTurnReviewDrive(rig.Turn(), loop,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<DesignTurnReviewDrive>.Instance));
         var context = AgentSmith.Tests.Handlers.MasterHandlerFixture.BuildContext(PipelinePresets.TicketStewardMaster);
         var reply = ProposalReviewRig.Result(ListReply(("order-api", "[]"), ("order-ui", "[order-api]")));
 

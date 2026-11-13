@@ -20,6 +20,7 @@ public static class DialogSurfaceLimits
         ArgumentNullException.ThrowIfNull(context);
         var config = context.AgentConfig;
         var slot = context.Pipeline.TryGet<SpecDialogReplySlot>(ContextKeys.SpecDialogReplySlot, out var s) ? s : null;
+        slot?.Thread.Lead(context.IsTicketSteward); // 2026-11-12-92e9a: travels with what the sink is offered
         return request with
         {
             MaxIterations = config.DialogMasterLoopIterations,

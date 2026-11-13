@@ -21,17 +21,22 @@ public sealed class SpecDialogTurnKeeperThreadTests : IDisposable
     private readonly DialogThreadStoreFixture _store = new();
 
     [Fact]
-    public async Task SpecDialogTurnKeeper_FailedTurn_DropsTheThread()
+    public async Task SpecDialogTurnKeeper_FailedTurn_KeepsThreadItsCallsWrote()
     {
         await using var context = _store.Context();
         var (keeper, state) = await OpenAsync(context);
         await keeper.KeepAsync(state, Result("a1", Capture("a1")), Platform, Dialog, CancellationToken.None);
-        (await Rows(context)).Should().Be(1, "an answered turn keeps its thread");
+        await DialogThreadStores.Over(context).KeepGrowingAsync(
+            state, new ThreadSnapshot(Capture("the failed turn's call").Messages!, false, []), CancellationToken.None);
 
-        await keeper.KeepAsync(state, Result("the turn failed", Capture("a2"), SpecDialogTurnKind.Failure),
+        // A Failure turn carries no thread (SpecDialogTurnEnding.OfAsync), so only what its calls wrote can be kept.
+        await keeper.KeepAsync(state, Result("the turn failed", null, SpecDialogTurnKind.Failure),
             Platform, Dialog, CancellationToken.None);
 
-        (await Rows(context)).Should().Be(0, "a failed turn's thread is never replayed");
+        var row = await context.Set<SpecDialogThread>().AsNoTracking().SingleAsync();
+        DialogThreadStores.Codec().Decode(row.MessagesJson).Select(m => m.Text)
+            .Should().Equal("the prompt", "the failed turn's call");
+        row.ReplyAt.Should().BeNull();
     }
 
     private static async Task<(SpecDialogTurnKeeper Keeper, ConversationState State)> OpenAsync(
@@ -45,9 +50,6 @@ public sealed class SpecDialogTurnKeeperThreadTests : IDisposable
         var state = await sessions.AppendTurnAsync(Platform, Dialog, TranscriptRole.User, "q1", null, null, CancellationToken.None);
         return (SilentTurnKeeper.Over(repository, sessions, context), state ?? opened);
     }
-
-    private static Task<int> Rows(AgentSmithDbContext context) =>
-        context.Set<SpecDialogThread>().AsNoTracking().CountAsync();
 
     public void Dispose() => _store.Dispose();
 }

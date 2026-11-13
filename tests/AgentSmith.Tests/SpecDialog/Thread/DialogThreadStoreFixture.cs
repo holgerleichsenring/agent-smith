@@ -38,7 +38,7 @@ internal sealed class DialogThreadStoreFixture : IDisposable
         return capture;
     }
 
-    public static SpecDialogTurnResult Result(string reply, ForwardedThreadCapture capture,
+    public static SpecDialogTurnResult Result(string reply, ForwardedThreadCapture? capture,
         SpecDialogTurnKind kind = SpecDialogTurnKind.Answer) =>
         new(reply, new AnswerOutcome(), reply, kind, Thread: capture);
 

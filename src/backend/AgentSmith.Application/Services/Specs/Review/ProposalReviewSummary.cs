@@ -53,7 +53,7 @@ internal static class ProposalReviewSummary
         specId is null ? [] : problems.Select(p => new ProposalFinding(specId, ProposalEvidenceReview.Problem, p.Problem, p.Claim));
 
     private static IEnumerable<ProposalFinding> Uncleared(ProposalDraftReview draft) =>
-        draft.Rounds is [.., var last] && last.Verdict != SpecReviewVerdicts.Build
+        !draft.Settled && draft.Rounds is [.., var last] && last.Verdict != SpecReviewVerdicts.Build
             ? last.Findings.Select(f => new ProposalFinding(draft.SpecId, last.Verdict, f.Text, null, f.Evidence))
             : [];
 

@@ -91,13 +91,6 @@ export function statusSummary(proposal: TurnProposal): string {
   ].filter(Boolean).join(" · ");
 }
 
-/** What the proposal is called: the bug's title, the epic's or the spec's goal, or a list's size. */
-export function titleOf(proposal: TurnProposal): string {
-  if (proposal.kind === "tickets") return `${proposal.tickets?.length ?? 0} tickets`;
-  if (proposal.kind === "comment") return "A comment on the ticket";
-  return proposal.bug?.title ?? proposal.drafts[0]?.goal ?? proposal.kind;
-}
-
 /** How many review rounds the turn ran — the highest round any draft reached. */
 export function roundsOf(proposal: TurnProposal): number {
   return (proposal.reviewRounds ?? []).reduce((most, round) => Math.max(most, round.round), 0);

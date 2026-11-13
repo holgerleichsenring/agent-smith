@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-13-d409
+
+decisions:
+  - category: Implementation
+    chose: "Pin skills v5.30.0 on the same branch as the design-turn flow series"
+    over: "Shipping the backend series on v5.29.1 and pinning later"
+    reason: "v5.29.1 tells the master the rest is settled on the way and that questions are answered on a card; the series removed the card and moved the review into the turn, so the old text describes a system that no longer exists. The replay final-3 ran on this exact skill text."

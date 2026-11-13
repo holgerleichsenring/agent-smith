@@ -53,6 +53,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     private readonly SpecDialogSessionRepository _repository;
     private readonly SpecDialogPendingQuestions _pendingQuestions = new(new SpecDialogTurnGate(TimeProvider.System));
     private readonly SpecDialogTurnGate _turnGate = new(TimeProvider.System);
+    private readonly SpecDialogOperatorInbox _inbox;
     private readonly SpecDialogResumer _resumer;
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner = new();
     private readonly Mock<IDialogueTransport> _dialogueTransport = new();
@@ -63,6 +64,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
     public DashboardDialogChannelTests()
     {
+        _inbox = new SpecDialogOperatorInbox(_turnGate);
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         _context = new AgentSmithDbContext(
@@ -404,8 +406,9 @@ public sealed class DashboardDialogChannelTests : IDisposable
     }
 
     [Fact]
-    public async Task Ingest_WhileATurnIsRunning_IsToldSoAndDoesNotQueueASecond()
+    public async Task Ingest_WhileATurnIsRunning_IsQueuedAndRunsTheNextTurnBeforeTheGateIsFree()
     {
+        // 2026-11-12-a1fa: a message the running turn's tools never handed on starts the next turn — no busy reply.
         await OpenAsync();
         var release = new TaskCompletionSource();
         var entered = new TaskCompletionSource();
@@ -421,14 +424,20 @@ public sealed class DashboardDialogChannelTests : IDisposable
         await Ingest("the first thought", Owner);
         await entered.Task.OrHang("the dispatched turn enters the runner");
 
-        await Ingest("and one more thing", Owner);
-        await Settle(opened + 1);
+        var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!.JobId;
 
-        LastText().Should().Contain("Still working on the previous turn");
+        await Ingest("and one more thing", Owner);
+        // 2026-11-12-92e9d: released once the message is queued — the test's one DbContext cannot take the admission
+        // and the first turn's keep at once, which per-request scopes never ask of it.
+        await WaitFor(() => _inbox.IsWaiting(sessionId));
         release.SetResult();
         await Settle(opened + 2);
-        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Once,
-            "the second message informs the next turn rather than starting one");
+        // The queued turn is dispatched after the first reply is pushed, so the count is waited on, not sampled.
+        await WaitFor(() => _turnRunner.Invocations.Count(call => call.Method.Name == nameof(ISpecDialogTurnRunner.RunTurnAsync)) >= 2);
+
+        AllTexts().Skip(opened).Should().NotContain(t => t.Contains("Still working on the previous turn"));
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Exactly(2),
+            "the queued message runs the next turn");
     }
 
     [Fact]
@@ -579,7 +588,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlowHarness = new AgentSmith.Tests.TestSupport.SpecDialogDecisionHarness(_context, new DashboardOutcomeChannel(new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), NullLogger<DashboardOutcomeChannel>.Instance, _hub), Mock.Of<IOutcomeSink>(), messenger);
         var outcomeFlow = outcomeFlowHarness.Flow();
-        return outcomeFlowHarness.Router(Commands(messenger), _turnRunner.Object, _turnGate, new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object), SilentTurnKeeper.Over(_repository, _sessions, _context));
+        return outcomeFlowHarness.Router(Commands(messenger), _turnRunner.Object, _turnGate, new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object), SilentTurnKeeper.Over(_repository, _sessions, _context), inbox: _inbox);
     }
 
     private ServiceProvider Services(DashboardDialogDispatcher dispatcher)

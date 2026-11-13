@@ -10,31 +10,41 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// <summary>
 /// 2026-09-17-042ed: reviews a design turn's proposal after the turn — the read-only scopes are disposed in the
 /// runner's finally — and hands what it found back on the proposal. 2026-11-12-cd4ch: with spec_review.design_turn
-/// on, ONE advisory pass (<see cref="ProposalReviewPass"/>); off, the mechanical checks only
-/// (<see cref="ProposalMechanicalChecks"/>). Nothing re-prompts the design partner, and the reply is the turn's own.
+/// on, ONE pass (<see cref="ProposalReviewPass"/>); off, the mechanical checks only
+/// (<see cref="ProposalMechanicalChecks"/>). 2026-11-12-92e9b: with the pass on, a draft whose every text this turn
+/// already reviewed takes the ledger's results and nothing runs; a pass that ran hands its report back to the master.
+/// 2026-11-13-3f79: a draft a pass passed counts as reviewed whatever its text became (<see cref="ProposalReviewLedger"/>),
+/// and the report names only what the pass took.
 /// </summary>
 public sealed class SpecDialogProposalReview(
     ProposalMechanicalChecks checks, ISpecReviewSettingsReader settings, ProposalReviewPass pass,
     ILogger<SpecDialogProposalReview> logger, ITurnProposalObserverAccessor? proposals = null)
 {
-    /// <summary>Sets the reviewed proposal on the pipeline; a turn without one is left as it is.</summary>
-    public async Task ReviewAsync(PipelineContext pipeline, AgentConfig agent, PipelineCostTracker costTracker, CancellationToken ct)
+    /// <summary>The reviewed proposal and the report for the master; a proposal with nothing to review comes back as it is.</summary>
+    public async Task<DesignTurnReview> ReviewAsync(ProposalTurn turn, OutcomeProposal proposal, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal) || proposal is null
-            || !ProposalReviewPass.Reviewable(proposal)) return;
+        ArgumentNullException.ThrowIfNull(turn);
+        ArgumentNullException.ThrowIfNull(proposal);
+        if (!ProposalReviewPass.Reviewable(proposal)) return new(proposal, null);
         // 2026-11-10-8e59: a block that cannot be used reviews nothing here; the review before building attacks it.
         var read = new ProposalReviewSettingsReader(settings, logger).Read();
-        OutcomeProposal reviewed;
-        if (read.Problem is { } problem) reviewed = Unread(proposal, problem);
-        else if (read.Settings is not { Review.DesignTurn: true } on) reviewed = await checks.CheckAsync(pipeline, proposal, ct);
-        else
-        {
-            await PublishUnderReviewAsync(pipeline, proposal, ct);
-            reviewed = await pass.ReviewAsync(new ProposalTurn(pipeline, agent, costTracker), on, proposal, ct);
-        }
-        pipeline.Set(ContextKeys.SpecDialogOutcome, reviewed);
+        if (read.Problem is { } problem) return new(Unread(proposal, problem), null);
+        if (read.Settings is not { Review.DesignTurn: true } on)
+            return new(await checks.CheckAsync(turn.Pipeline, proposal, ct), null);
+        var ledger = ProposalReviewLedger.Of(turn.Pipeline);
+        if (ledger.Covers(proposal)) return new(ledger.Compose(proposal), null);
+        await PublishUnderReviewAsync(turn.Pipeline, proposal, ct);
+        var carried = Carried(turn.Pipeline, ledger);
+        var reviewed = await pass.ReviewAsync(turn, on, proposal, ct);
+        return new(reviewed, DesignTurnReviewReport.For(reviewed, carried));
     }
+
+    /// <summary>2026-11-13-3f79: every round known before the pass — this turn's and the revised proposal's — which a
+    /// pass carries and its report does not name again.</summary>
+    private static IReadOnlyList<ProposalReviewRound> Carried(PipelineContext pipeline, ProposalReviewLedger ledger) =>
+        pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal, out var revised) && revised is not null
+            ? [.. ledger.Rounds(), .. revised.ReviewRounds]
+            : ledger.Rounds();
 
     private static OutcomeProposal Unread(OutcomeProposal proposal, string problem) => proposal is TicketGraphOutcome graph
         ? graph with { Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, problem)] }

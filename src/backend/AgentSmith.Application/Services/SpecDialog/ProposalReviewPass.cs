@@ -8,7 +8,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// 2026-11-12-cd4ch: the one advisory review pass over a design turn's proposal — a ticket list's plan review
 /// (2026-11-12-cd4ci), or the whole-set cut review and the attack pass of a spec or an epic. It never changes what was
 /// proposed: the proposal comes back with what the pass found, its rounds, the ids it could not review and the texts
-/// it called clean. The post-turn review and the review_proposal tool run this same pass.
+/// it called clean. The post-turn review and the review_proposal tool run this same pass. 2026-11-12-92e9b: every
+/// result is recorded in the turn's <see cref="ProposalReviewLedger"/> under the exact texts it reviewed.
 /// </summary>
 public sealed class ProposalReviewPass(
     ProposalWholeSetReview wholeSet, ProposalAttackPass attack, TicketPlanReview plans, ITurnActivityObserverAccessor turnActivity)
@@ -20,6 +21,14 @@ public sealed class ProposalReviewPass(
         ArgumentNullException.ThrowIfNull(proposal);
         if (!Reviewable(proposal)) return proposal;
         await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Reviewing), ct);
+        var reviewed = await RunAsync(turn, settings, proposal, ct);
+        ProposalReviewLedger.Of(turn.Pipeline).Record(reviewed);
+        return reviewed;
+    }
+
+    private async Task<OutcomeProposal> RunAsync(
+        ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, CancellationToken ct)
+    {
         if (proposal is TicketGraphOutcome graph) return await plans.ReviewAsync(turn, graph, ct);
         var whole = await wholeSet.FindingsAsync(turn, ProposalSpecSet.Drafts(proposal), ct) ?? [];
         var outcome = await attack.RunAsync(turn, settings, proposal, ct);

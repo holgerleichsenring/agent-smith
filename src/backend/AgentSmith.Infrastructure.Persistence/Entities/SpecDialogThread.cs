@@ -28,5 +28,9 @@ public sealed class SpecDialogThread : EntityBase
     /// null when the kept reply was substituted.</summary>
     public int? ReplyAt { get; set; }
 
+    /// <summary>2026-11-12-a1fa: the transcript indices the master was handed with a tool result while it ran, as a JSON
+    /// array — turns it has already seen; null when none were.</summary>
+    public string? Delivered { get; set; }
+
     public DateTimeOffset WrittenAt { get; set; }
 }

@@ -237,14 +237,9 @@ describe("The composer's glyph controls", () => {
 // matches no :focus-visible rule. Nothing here resolves a cascade; what is observable is the
 // declarations that were typed.
 describe("Inspecting is drawn", () => {
-  it("MockParity_TheDialogBlock_DrawsTheMarkAndAPlainFocusOutlineOnThePanel", () => {
+  // 2026-11-12-92e9c: the inspect mark left with Inspect; the panel's focus outline stays.
+  it("MockParity_TheDialogBlock_DrawsAPlainFocusOutlineOnThePanel", () => {
     const own = dialogRules.filter((r) => r.at >= ownFrom);
-
-    const mark = own.filter((r) => r.selector.includes('[data-inspected="true"]'));
-    expect(mark, "no rule draws the mark an inspect puts on the pane").toHaveLength(1);
-    expect(mark[0].selector).toContain(".d-pane");
-    expect(mark[0].body, "the mark must change something a person can see")
-      .toMatch(/(^|;)\s*(border-color|box-shadow|outline|background)\s*:/);
 
     const focused = own.filter((r) => /\.d-panel:focus(?![\w-])/.test(r.selector));
     expect(focused, "no rule draws the focus the inspect moves to the panel").toHaveLength(1);

@@ -23,32 +23,21 @@ function view(over: { computing: boolean; proposal?: SpecDialogProposalPush; rev
 }
 
 describe("one card per proposal", () => {
-  it("useSpecDialog_SeveralDraftsInOneLiveTurn_ShowOneCard", () => {
+  // 2026-11-12-92e9c: a turn already shown keeps its proposal; a later final proposal is a turn of its own.
+  it("useSpecDialog_ShownTurn_KeepsItsCard_ALaterProposalAddsItsOwn", () => {
     let held = [user("draft it"), agent("Here is the cut.")];
     held = withCard(held, draft("p1"), false);
-    held = withCard(held, draft("p12"), false);
-    held = withCard(held, draft("p123"), false);
-    expect(cards(held)).toHaveLength(1);
-    expect(cards(held)[0].proposal).toEqual(draft("p123"));
+    held = withCard(held, draft("p12"), true);
+    expect(cards(held).map((entry) => entry.proposal)).toEqual([draft("p1"), draft("p12")]);
+    expect(held[1].text).toBe("Here is the cut.");
   });
 
-  it("useSpecDialog_ReloadMidTurnFreshConversation_ShowsOneCardAtTheEnd", () => {
-    const reviewing = draft("p1");
-    expect(trailingCard(view({ computing: true, reviewing, proposalTurn: null, turns: 1 }))).toBe(reviewing);
-  });
-
-  it("useSpecDialog_ReloadMidTurnWithEarlierDraftTurn_CardAtTheEndOnly", () => {
-    const awaiting = draft("p1");
-    const reviewing = draft("p12");
-    const read = view({ computing: true, proposal: awaiting, reviewing, proposalTurn: 1, turns: 3 });
-    expect(trailingCard(read)).toBe(reviewing);
-  });
-
-  it("useSpecDialog_ReloadMidTurnThenLivePush_StillOneCard", () => {
-    const held = [user("go"), agent("", draft("p1"))];
-    const after = withCard(held, draft("p12"), true);
-    expect(cards(after)).toHaveLength(1);
-    expect(cards(after)[0].proposal).toEqual(draft("p12"));
+  // 2026-11-12-92e9c: the running turn's draft under review is the working line's, never a transcript entry.
+  it("useSpecDialog_ReloadMidTurn_ReviewingDraftIsNoCard", () => {
+    expect(trailingCard(view({ computing: true, reviewing: draft("p1"), proposalTurn: null, turns: 1 }))).toBeNull();
+    const read = view({ computing: true, proposal: draft("p1"), reviewing: draft("p12"), proposalTurn: 1, turns: 3 });
+    expect(trailingCard(read)).toBeNull();
+    expect(cards(transcriptEntries(read)).map((entry) => entry.proposal)).toEqual([draft("p1")]);
   });
 
   it("useSpecDialog_CardAnsweredByDecision_StaysAndNewTurnAddsItsOwn", () => {

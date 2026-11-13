@@ -44,6 +44,20 @@ public sealed class DialogSurfaceLimitsTests
     }
 
     [Fact]
+    public void DialogSurfaceLimits_StewardTurn_LeadsTheCaptureSoItsWritesAreStewarded()
+    {
+        var (pipeline, slot) = Seeded(new DialogThread(false, [], []));
+        var sink = new SpecDialogThreadWriterProbe();
+        slot.Thread.Observe(sink);
+        var agent = new AgentConfig();
+
+        DialogSurfaceLimits.Apply(Request(agent), Context(PipelinePresets.TicketStewardMaster, agent, pipeline));
+        slot.Thread.Record([new ChatMessage(ChatRole.User, "q")], new ChatResponse(new ChatMessage(ChatRole.Assistant, "a")));
+
+        sink.Stewarded.Should().BeTrue();
+    }
+
+    [Fact]
     public void MasterConversation_OpenedWithPriorMessages_ThreadStartsWithThem()
     {
         var prior = new ChatMessage(ChatRole.User, "turn 1");
@@ -69,4 +83,12 @@ public sealed class DialogSurfaceLimitsTests
 
     private static AgenticMasterContext Context(string master, AgentConfig agent, PipelineContext pipeline) =>
         new(master, new Repository(new BranchName("main"), "https://example.invalid/repo.git"), string.Empty, agent, pipeline);
+
+    private sealed class SpecDialogThreadWriterProbe : IForwardedThreadSink
+    {
+        public bool? Stewarded { get; private set; }
+
+        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded, IReadOnlyList<int> delivered) =>
+            Stewarded = stewarded;
+    }
 }

@@ -23,12 +23,13 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         ScriptSpec(harness.ChatClient);
+        harness.ChatClient.EnqueueText("Here is the spec draft; the reviewers said build.");
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
         string.Join("\n", harness.ChatClient.CallMessages[0].Select(m => m.Text)).Should()
             .NotContain("MAY NOT propose");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; nothing sends the draft back");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the write, the reply, and the reply after the review report (92e9b)");
         result.Outcome.Should().BeOfType<SpecOutcome>();
     }
 
@@ -54,13 +55,15 @@ public sealed partial class SpecDialogOutcomeTests
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient.EnqueueSpecWrite(ValidDraftYaml).EnqueueDeferred(() =>
             new Microsoft.Extensions.AI.ChatResponse(new Microsoft.Extensions.AI.ChatMessage(
-                Microsoft.Extensions.AI.ChatRole.Assistant, "Here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length });
+                Microsoft.Extensions.AI.ChatRole.Assistant, "Here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length })
+            .EnqueueDeferred(() => new Microsoft.Extensions.AI.ChatResponse(new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.Assistant, "The review holds; here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length });
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "nothing re-asks a cut reply");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the review report is a pass of its own (92e9b); nothing re-asks a cut reply");
         result.Outcome.Should().BeOfType<SpecOutcome>().Which.Draft.SpecId.Should().Be("p9999");
-        result.Reply.Should().Be("Here is the spec dr");
+        result.Reply.Should().Be("The review holds; here is the spec dr");
     }
 
     /// <summary>The tool results the master read on its <paramref name="call"/>-th call.</summary>

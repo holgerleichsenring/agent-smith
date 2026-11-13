@@ -68,8 +68,9 @@ internal sealed class TicketPlanReviewRig
 
     public async Task RunAsync(TicketGraphOutcome graph, SpecDialogProposalReview? review = null)
     {
-        Pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)graph);
-        await (review ?? Turn()).ReviewAsync(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
+        var reviewed = await (review ?? Turn()).ReviewAsync(
+            new ProposalTurn(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline)), graph, CancellationToken.None);
+        Pipeline.Set(ContextKeys.SpecDialogOutcome, reviewed.Reviewed);
     }
 
     public TicketGraphOutcome Outcome => (TicketGraphOutcome)Pipeline.Get<OutcomeProposal>(ContextKeys.SpecDialogOutcome);

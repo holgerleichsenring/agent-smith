@@ -105,6 +105,27 @@ public sealed class ProposalSeriesRoundTests
     }
 
     [Fact]
+    public async Task SettledParent_SeriesRoundNotTakenAgain()
+    {
+        var rig = new ProposalReviewRig
+        {
+            OnSeriesReview = CutOnSecond(),
+            OnReview = input => input.Draft.SpecId == Second && input.Draft.Yaml.Contains("buffered") ? Refuse("not buffered") : Build(),
+        };
+        rig.Propose(ContractEpic());
+        await rig.RunAsync();
+        var settled = rig.Outcome.ReviewRounds.Single(r => r.SpecId == ProposalReviewTokens.Series);
+        rig.Propose(ContractEpic(Yaml(Second, step: "Write the orders through the export queue.", requires: [First])));
+
+        await rig.RunAsync();
+
+        rig.SeriesReviewed.Should().ContainSingle("the series round passed this turn");
+        rig.Outcome.ReviewRounds.Where(r => r.SpecId == ProposalReviewTokens.Series).Should().ContainSingle()
+            .Which.Should().BeSameAs(settled);
+        rig.Outcome.ReviewRounds.Should().Contain(r => r.SpecId == Second && r.Verdict == SpecReviewVerdicts.Build);
+    }
+
+    [Fact]
     public async Task ProposalReview_LoneSpec_TakesNoSeriesRound()
     {
         var rig = new ProposalReviewRig();

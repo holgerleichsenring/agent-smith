@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import { AttachMenu } from "./AttachMenu";
 import { DialogReferenceSelection } from "./DialogReferenceSelection";
@@ -44,6 +44,8 @@ import type { UploadNote } from "./uploadNote";
 // selection card.
 // 2026-11-04-96a0b: Send waits while a pick is on screen or an upload is still going, and a line says
 // why: a message sent ahead of its files starts a turn that never reads them. The text is kept.
+// 2026-11-12-92e9d: a surface may put its own controls in the composer's row (Work it out's File and Discard); the
+// ticket composer passes none.
 
 export function DialogComposer({
   onSend,
@@ -54,6 +56,7 @@ export function DialogComposer({
   left = null,
   loadHeld,
   inputRef,
+  actions,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -70,6 +73,8 @@ export function DialogComposer({
   loadHeld?: () => Promise<SpecDialogHeldContent[]>;
   /** 2026-10-13-9a59r: the text field, for a surface whose own control focuses it (Ask for changes). */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
+  /** 2026-11-12-92e9d: controls shown above the text field, in the composer's row. */
+  actions?: ReactNode;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
@@ -148,6 +153,7 @@ export function DialogComposer({
 
   return (
     <div className="d-foot">
+      {actions && <div className="mb-2">{actions}</div>}
       <div className="flex items-end gap-2">
         <div className="d-attach" ref={attach}>
           {/* The input itself is never shown: a file control styled by the browser cannot be

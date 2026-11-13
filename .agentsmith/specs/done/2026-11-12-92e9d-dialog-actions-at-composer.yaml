@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-12-92e9d
+goal: "The only controls in Work it out sit at the composer: send, and File or Discard for the proposal awaiting a decision."
+
+applies_to: "dashboard (SpecDialogSurface, DialogComposer, DialogQuestionCard)"
+
+requires: [2026-11-12-92e9c]
+
+facts:
+  - claim: "The approval card with Approve, Reject and shape choices renders in the conversation column below the transcript, and also carries non-approval questions."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:309-317"
+  - claim: "The card hides Approve for a ticket list on a ticket-bound conversation and for a preview that is not approvable, and words its summary per kind."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:82-89"
+  - claim: "A typed reject names the proposal only when the latest agent turn is that card without open questions."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:884-890"
+  - claim: "The ticket composer already carries Approve and Discard at the composer."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketComposer.tsx:87-101"
+  - claim: "Filing leaves a decision entry in the history; filing and rejecting also leave a notice turn (Filed, Rejected)."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:153-171"
+  - claim: "The reject notice is composed for every platform."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:50-51"
+
+scope:
+  in: "Moving the decision to the composer; dropping shape choices; restyling the existing decision and Filed lines."
+  out: "The filing backend and decision API; chat platforms' cards; the ticket composer."
+
+steps:
+  - id: composer-file
+    action: "While a proposal awaits a decision, the composer shows File and Discard with the card's summary line. File and Discard send the existing approve and reject decisions. They are passed in from SpecDialogSurface (DialogComposer is shared with the ticket composer) and hidden under today's guards: no approvalProposal, expired, a ticket list on a bound conversation (boundList), a bound preview that is not approvable, and while a pending ask_human question replaces the approval question."
+  - id: gone-on-reply
+    action: "Sending a message removes neither; they follow the proposal awaiting a decision, which the next turn replaces."
+  - id: drop-card
+    action: "The card leaves the transcript only (the ticket composer keeps DialogQuestionCard); shape choices are not offered (the operator says so in words). On the dashboard ask_human questions already arrive as plain messages and need no card."
+  - id: history-lines
+    action: "The existing decision entry and Filed notice render as quiet history lines; nothing new is appended."
+
+tests:
+  - "SpecDialogSurface.test.tsx: AwaitingProposal_FileAndDiscardAtComposerOnly; NotApprovable_FileHidden; PendingAskHuman_HidesFileAndDiscard; Filed_HistoryShowsQuietLines; TicketComposer_HasNoFile"
+  - "SpecDialogSurface.test.tsx: approve/reject/shape/expired card cases rewritten for the composer"
+  - "DialogProposalGraph.test.tsx, DialogQuestionCardTicketEffect.test.tsx: guards hold on File"
+
+done:
+  - "No control is rendered inside the transcript."
+  - "File shows under exactly the conditions Approve showed, and Discard clears an awaiting proposal from the page."

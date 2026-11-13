@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-92e9c
+
+decisions:
+  - category: Design
+    chose: "A turn this page watched keeps the steps held when its reply arrived (DialogEntry.steps); only a turn read from the transcript fetches its run's pages, every page once"
+    over: "Fetching by run id for live turns too, or keeping TurnActivityLine's first page with a 'show more'"
+    reason: "The reply push carries no run id, and a fetch after the next read would swap lines under the reader; the condensed lines are few, so all pages inline replaces the paging control the spec removes."
+  - category: Design
+    chose: "withRunIds gives a watched reply its run id from a later read, matched by the reply's text, for the course line's run link only"
+    over: "No run link until a reload"
+    reason: "The course line names the run; matching adds the link without touching anything the turn already shows, and an unmatched reply simply keeps no link."
+  - category: Design
+    chose: "A model step without text is dropped and does not end a read burst; reviewing, revising and every other tool are lines of their own"
+    over: "Breaking a burst at every model step"
+    reason: "One model step sits between every two tool calls, so breaking on it would leave every burst one read long."
+  - category: Design
+    chose: "The working line keeps its raw step ticker; the condenser shapes the message the turn leaves"
+    over: "Condensing the working line too"
+    reason: "The working line is the liveness cue the 2f8b tests pin (step count, newest last, folded earlier steps); the condenser takes the same pushes the moment the reply keeps them."
+  - category: Design
+    chose: "A spec's mark is its last review round's verdict; refusals are specs refused in any round, open while the last round still refuses"
+    over: "Reusing TurnResult's statusOf pills"
+    reason: "The spec asks for passed, cuts, refused and not reviewed, which the pills (clean, findings, pending) cannot tell apart; review rounds are the spec's named source."
+  - category: Design
+    chose: "On a read that races a live final proposal, the seed leaves out its trailing stored card"
+    over: "Swapping the trailing card's proposal, as withCard's open-card swap did"
+    reason: "The swap is gone so a shown turn never changes; the seeded entries were not shown yet, so dropping the outrun card keeps one card without rewriting history."
+  - category: Design
+    chose: "Inspect, its pane mark (data-inspected) and the approval review line on the card are removed; approvalReviewLine.ts and turnQuestionsHeld.ts are deleted; TurnResult keeps only the props the ticket page passes"
+    over: "Leaving the unused props and helpers for 92e9d"
+    reason: "Nothing calls them once the transcript stops using TurnResult; the course line and spec marks carry the review, and 92e9d moves the decision to the composer."
+  - category: Design
+    chose: "The superseded notice is skipped with DialogTarget.IsDashboard at both call sites in SpecDialogOutcomeFlow"
+    over: "A flag on SpecDialogNotices"
+    reason: "The flow already decides per platform for the hub and the chat card; the rule stays beside the two lines it guards."

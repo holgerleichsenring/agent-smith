@@ -128,8 +128,8 @@ internal sealed class ProposalReviewRig
             [first ?? Yaml(First), second ?? Yaml(Second, requires: [First])]);
 
     /// <summary>2026-10-13-8762k: the two-child epic with a series contract — event 87 owned by the first child.</summary>
-    public static string ContractEpic() => EpicReply(Yaml(Parent, "The export is rebuilt in two slices."),
-        [Yaml(First), Yaml(Second, requires: [First])], contract: new Dictionary<object, object?>
+    public static string ContractEpic(string? second = null) => EpicReply(Yaml(Parent, "The export is rebuilt in two slices."),
+        [Yaml(First), second ?? Yaml(Second, requires: [First])], contract: new Dictionary<object, object?>
         {
             ["names"] = new List<object?>
             {
@@ -162,8 +162,14 @@ internal sealed class ProposalReviewRig
     public static ProposalMechanicalChecks Checks() =>
         new(ProposalEvidenceTestReview.Create(), TicketPlanReviewRig.Default(), NullLogger<ProposalMechanicalChecks>.Instance);
 
-    public async Task RunAsync(ISpecReviewSettingsReader? reader = null) =>
-        await Review(reader).ReviewAsync(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline), CancellationToken.None);
+    /// <summary>2026-11-12-92e9b: reviews the published outcome and publishes what came back, as the turn flow does.</summary>
+    public async Task<DesignTurnReview> RunAsync(ISpecReviewSettingsReader? reader = null)
+    {
+        var review = await Review(reader).ReviewAsync(
+            new ProposalTurn(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline)), Outcome, CancellationToken.None);
+        Pipeline.Set(ContextKeys.SpecDialogOutcome, review.Reviewed);
+        return review;
+    }
 
     /// <summary>2026-11-09-9a98: set by a test that watches what the review publishes as it goes.</summary>
     public ITurnProposalObserverAccessor? Proposals { get; init; }

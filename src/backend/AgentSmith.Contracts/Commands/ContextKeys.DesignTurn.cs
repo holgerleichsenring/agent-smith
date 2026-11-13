@@ -15,4 +15,8 @@ public static partial class ContextKeys
 
     /// <summary>2026-11-12-cd4cl: <c>TranscriptWindowConfig</c> — the project agent's transcript window.</summary>
     public const string SpecDialogTranscriptWindow = "SpecDialogTranscriptWindow";
+
+    /// <summary>2026-11-12-92e9b: <c>ProposalReviewLedger</c> — what each review pass of this turn found, keyed by the
+    /// exact text it reviewed; created by the first pass that records.</summary>
+    public const string ProposalReviewLedger = "ProposalReviewLedger";
 }

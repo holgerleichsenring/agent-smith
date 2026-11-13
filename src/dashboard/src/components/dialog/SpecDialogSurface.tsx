@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import type { SpecDialogHeldContent, SpecDialogProposalPush } from "@/types/spec-dialog";
+import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import { fetchHeldContent } from "@/lib/referenceFilesApi";
 import type { TicketProjectRead, TicketSearchFound } from "@/lib/specDialogApi";
 import {
@@ -15,6 +15,7 @@ import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
+import { approvalDecision } from "@/components/dialog/approvalDecision";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -23,9 +24,9 @@ import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
+import { DialogDecisionBar } from "./DialogDecisionBar";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
-import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogGreeting } from "./DialogGreeting";
 import { DialogTranscript } from "./DialogTranscript";
@@ -184,10 +185,6 @@ function whyNoProject(named: string[], unanswerable: string[], elsewhere: string
   return "No project's routing names this ticket. Choose one.";
 }
 
-/** How long the pane wears the mark an inspect puts on it. Long enough to be read as an answer
- *  to the click, short enough that it is gone before the operator reads what it selected. */
-const MARK_MS = 1400;
-
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
   useHandover(dialog.open);
@@ -265,30 +262,10 @@ export function SpecDialogSurface() {
   // it null, and a read that failed leaves the same null for ever with a failure beside it.
   const read: ProjectsRead = dialog.view ? "read" : dialog.failure ? "failed" : "pending";
   const [focus, setFocus] = useDialogPaneFocus(dialog.proposal, dialog.filed);
-  // 2026-09-20-4b0ae: INSPECT ACKNOWLEDGES ITSELF. The pane selects the proposal tab by
-  // fallback whenever nothing has been filed, so the commonest state is the pane already
-  // showing the very proposal the card is offering to inspect — setting the focus to it then
-  // renders identically and the control looks dead. The act fires the acknowledgement, not a
-  // change derived from it: a count of inspects, taken off again on a timer, and each click
-  // restarts that timer because the count it depends on moved.
+  // 2026-11-12-92e9c: Inspect left with the controls inside a turn (2026-09-20-4b0ae's acknowledgement with it); the
+  // pane is still scrolled to when an upload chip opens it.
   const pane = useRef<HTMLElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const [inspects, setInspects] = useState(0);
-  useEffect(() => {
-    if (inspects === 0) return;
-    const timer = window.setTimeout(() => setInspects(0), MARK_MS);
-    return () => window.clearTimeout(timer);
-  }, [inspects]);
-  const inspect = (proposal: SpecDialogProposalPush) => {
-    setFocus({ tab: "proposal", proposal });
-    setInspects((seen) => seen + 1);
-    // Nearest, and no behaviour: the page's scroll container is the main region and the pane's
-    // top is the top of the grid, so a start-aligned scroll would throw the page back to the top
-    // of a long transcript the operator was reading at the bottom of. A pane already in view is
-    // not moved at all.
-    pane.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    panel.current?.focus();
-  };
   // 2026-10-09-86e1: a transcript chip opens its upload in the pane — the tab, the row, its files
   // — the way an inspect lands the reader on a proposal; at narrow widths the pane is below.
   const openUpload = (setId: string) => {
@@ -327,23 +304,20 @@ export function SpecDialogSurface() {
   const boundTickets = new Set(
     dialog.conversations.map((held) => held.ticket).filter((id): id is string => id !== null),
   );
-  // 2026-11-10-d854b: the approve bar sits on the turn whose proposal it decides — the approval question's id is the
-  // awaiting proposal's id — and stands below the conversation only while no shown turn carries that proposal.
-  // 2026-11-10-ccd9 review: an approval card renders and sends only the awaiting proposal whose id it carries.
+  // 2026-11-12-92e9d: the decision sits at the composer, never in the conversation (92e9c had moved the card below
+  // it). File and Discard follow the proposal awaiting a decision, by its id (2026-11-10-ccd9 review), under the
+  // card's guards; a pending ask_human question stands in the approval's place, so neither shows beside it.
   const awaitingCard = approvalProposal(dialog.question, dialog.awaitingProposal);
-  const approvalCard = dialog.question && (dialog.question.kind !== "approval" || awaitingCard) ? (
-    <DialogQuestionCard
-      question={dialog.question}
-      proposal={awaitingCard}
-      ticketEffect={ticketEffect}
-      inTicket={bound !== null}
-      onAnswer={(answer, decision) =>
-        void dialog.send(answer, project, decision, undefined, awaitingCard?.proposalId ?? dialog.question?.questionId)}
+  const decision = dialog.question && awaitingCard
+    ? approvalDecision(dialog.question, awaitingCard, ticketEffect, bound !== null)
+    : null;
+  const decisionBar = decision ? (
+    <DialogDecisionBar
+      decision={decision}
+      onDecide={(answer) =>
+        void dialog.send(answer, project, answer === "approve" ? "approved" : "rejected", undefined, awaitingCard?.proposalId ?? undefined)}
     />
   ) : null;
-  const approvalId = dialog.question?.kind === "approval" ? dialog.question.questionId : null;
-  const placedApproval = approvalId && dialog.entries.some((entry) => entry.proposal?.proposalId === approvalId)
-    ? approvalId : null;
 
   return (
     <div className="mock-shell mock-dialog" data-testid="spec-dialog">
@@ -438,11 +412,8 @@ export function SpecDialogSurface() {
                   <>
                     <DialogTranscript
                       entries={dialog.entries}
-                      onInspect={inspect}
                       greeting={<DialogGreeting />}
                       onOpenUpload={openUpload}
-                      approval={placedApproval ? { proposalId: placedApproval, node: approvalCard } : null}
-                      replies={{ onSend: (text) => void dialog.send(text, project) }}
                     />
                     {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                         so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -453,7 +424,6 @@ export function SpecDialogSurface() {
                         since={dialog.workingSince}
                       />
                     )}
-                    {!placedApproval && approvalCard}
                   </>
                 )}
               </div>
@@ -480,6 +450,7 @@ export function SpecDialogSurface() {
                   note={dialog.uploadNote}
                   left={leftOf(session)}
                   loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}
+                  actions={decisionBar}
                 />
               )}
             </section>
@@ -494,7 +465,6 @@ export function SpecDialogSurface() {
               onFocus={setFocus}
               paneRef={pane}
               panelRef={panel}
-              marked={inspects > 0}
               dialogId={dialog.dialogId}
               onRefresh={dialog.refresh}
             />

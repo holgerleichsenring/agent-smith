@@ -16,6 +16,7 @@ public static class TurnActivityExtensions
         services.TryAddSingleton<ITurnRunRecorderAccessor, AsyncLocalTurnRunRecorderAccessor>(); // 2026-11-10-d854c
         services.TryAddSingleton<ITurnActivityObserverAccessor, AsyncLocalTurnActivityObserverAccessor>();
         services.TryAddSingleton<TurnActivityTools>();
+        services.TryAddSingleton<MidTurnMessageTools>(); // 2026-11-12-a1fa
         services.TryAddSingleton<SubAgentActivityFrame>();
         return services;
     }

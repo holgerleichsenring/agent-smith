@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
 import { specDialogImageUrl } from "@/lib/specDialogApi";
 import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
-import type { SpecDialogImage, SpecDialogProposalPush, SpecDialogReferenceSet } from "@/types/spec-dialog";
+import type { SpecDialogImage, SpecDialogReferenceSet } from "@/types/spec-dialog";
 import { AuthedImage } from "./AuthedImage";
 import { MockShot } from "./MockShot";
-import { TurnResult } from "./TurnResult";
+import { TurnMessage } from "./TurnMessage";
 import { turnProposalOf } from "./turnProposal";
 import { DialogDocumentCard } from "./DialogDocumentCard";
 import { documentBlocks } from "./documentBlocks";
@@ -34,30 +34,17 @@ import { sizeOf } from "./referenceSelection";
 // 2026-10-09-86e1: and the chip OPENS that upload in the Uploads tab, where its files are.
 // 2026-11-10-d854b: a turn that proposed something shows its reduced result (TurnResult) in place of the card, its
 // reply as the summary; only the proposal awaiting a decision carries the approve bar.
-
-/** The approve bar and the proposal it decides; placed on the turn whose proposal carries that id. */
-export interface TurnApproval {
-  proposalId: string;
-  node: ReactNode;
-}
-
-/** What a turn's result can do with the conversation: send the operator's held answers as one reply (e2f5). */
-export interface TurnReplies {
-  onSend?: (text: string) => void;
-}
+// 2026-11-12-92e9c: every agent turn is one TurnMessage — steps, reply, spec lines, questions and its course — with no
+// control inside it; the approval card stands below the conversation.
+// 2026-11-12-92e9d: the decision moved to the composer. A decision and the notice that answers it (Filed, Rejected)
+// are quiet history lines: no speaker mark, muted, nothing new appended.
 
 export function DialogTranscript({
   entries,
-  onInspect,
   greeting,
   onOpenUpload,
-  approval,
-  replies,
 }: {
   entries: DialogEntry[];
-  approval?: TurnApproval | null;
-  replies?: TurnReplies;
-  onInspect: (proposal: SpecDialogProposalPush) => void;
   /** 2026-10-09-86e1: show one upload's files — the pane's Uploads tab, opened on it. */
   onOpenUpload?: (setId: string) => void;
   /** 2026-09-27-481bd: what an empty conversation says. Computed by the surface, which is where
@@ -78,28 +65,18 @@ export function DialogTranscript({
 
   return (
     <div data-testid="dialog-transcript" className="flex flex-col gap-4">
-      {entries.map((entry) => (
-        <Turn key={entry.key} entry={entry} onInspect={onInspect} onOpenUpload={onOpenUpload}
-          approve={approval && entry.proposal?.proposalId === approval.proposalId ? approval.node : undefined}
-          replies={replies} />
-      ))}
+      {entries.map((entry, at) =>
+        answersDecision(entries, at) ? (
+          <Notice key={entry.key} text={entry.text} />
+        ) : (
+          <Turn key={entry.key} entry={entry} onOpenUpload={onOpenUpload} />
+        ),
+      )}
     </div>
   );
 }
 
-function Turn({
-  entry,
-  onInspect,
-  onOpenUpload,
-  approve,
-  replies,
-}: {
-  entry: DialogEntry;
-  onInspect: (proposal: SpecDialogProposalPush) => void;
-  onOpenUpload?: (setId: string) => void;
-  approve?: ReactNode;
-  replies?: TurnReplies;
-}) {
+function Turn({ entry, onOpenUpload }: { entry: DialogEntry; onOpenUpload?: (setId: string) => void }) {
   if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
   if (entry.kind === "image" && entry.image) return <Attached image={entry.image} />;
   if (entry.kind === "reference" && entry.reference) return <ReferenceSetChip set={entry.reference} onOpen={onOpenUpload} />;
@@ -110,13 +87,9 @@ function Turn({
     <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${mine ? "user" : "agent"}` : "dialog-turn-card"}>
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
-      ) : entry.proposal ? (
-        <TurnResult proposal={turnProposalOf(entry.proposal)}
-          summary={entry.interrupted ? <Interrupted state={entry.interrupted} /> : said ? <AgentText text={entry.text} /> : undefined}
-          runId={entry.runId} onSend={replies?.onSend} heldKey={entry.proposal.proposalId ?? undefined}
-          onInspect={() => onInspect(entry.proposal!)} approve={approve} />
       ) : (
-        said && <AgentText text={entry.text} />
+        <TurnMessage proposal={entry.proposal ? turnProposalOf(entry.proposal) : null} runId={entry.runId} live={entry.steps}
+          reply={entry.interrupted ? <Interrupted state={entry.interrupted} /> : said ? <AgentText text={entry.text} /> : undefined} />
       )}
     </DialogMessage>
   );
@@ -183,23 +156,32 @@ function ReferenceSetChip({ set, onOpen }: { set: SpecDialogReferenceSet; onOpen
   );
 }
 
+/** The framework's answer to a recorded decision: the agent entry right after it, proposing nothing. */
+function answersDecision(entries: DialogEntry[], at: number): boolean {
+  const entry = entries[at];
+  const before = at > 0 ? entries[at - 1] : null;
+  return entry.kind === "agent" && !entry.proposal && !entry.interrupted && entry.text.trim().length > 0
+    && before?.kind === "decision" && isDecision(before.decision) && !before.pending;
+}
+
+function Notice({ text }: { text: string }) {
+  return (
+    <div data-testid="dialog-turn-notice" className="dsh-body text-mute">
+      <Markdown>{text}</Markdown>
+    </div>
+  );
+}
+
 function Decision({ entry }: { entry: DialogEntry }) {
   const approved = entry.decision === "approved";
-  if (entry.pending)
-    return (
-      <DialogMessage who="user" testId="dialog-turn-decision">
-        <p data-decision={entry.decision} data-pending="true" className="dsh-body text-body">
-          <span className="fl">Sent</span>{" "}
-          {approved ? "Approve — waiting for it to be recorded" : "Reject — waiting for it to be recorded"}
-        </p>
-      </DialogMessage>
-    );
   return (
-    <DialogMessage who="user" testId="dialog-turn-decision">
-      <p data-decision={entry.decision} className="dsh-body font-semibold text-ink">
-        {approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
+    <div data-testid="dialog-turn-decision">
+      <p data-decision={entry.decision} data-pending={entry.pending ? "true" : undefined} className="dsh-body text-mute">
+        {entry.pending
+          ? approved ? "File sent — waiting for it to be recorded" : "Discard sent — waiting for it to be recorded"
+          : approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
       </p>
-    </DialogMessage>
+    </div>
   );
 }
 

@@ -199,7 +199,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             .ThrowsAsync(new InvalidOperationException("the transaction could not commit"));
 
         var thrown = async () => await SpecDialogDeletionEndpoints.DeleteAsync(
-            session, Principal(Owner), _ownership, _gate, failing.Object,
+            session, Principal(Owner), _ownership, _gate, new SpecDialogOperatorInbox(_gate), failing.Object,
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
         await thrown.Should().ThrowAsync<InvalidOperationException>();
@@ -275,7 +275,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
     private Task<IResult> DeleteAsync(
         string sessionId, string caller, ISpecDialogConversationDeleter? deleter = null) =>
         SpecDialogDeletionEndpoints.DeleteAsync(
-            sessionId, Principal(caller), _ownership, _gate,
+            sessionId, Principal(caller), _ownership, _gate, new SpecDialogOperatorInbox(_gate),
             deleter ?? new SpecDialogConversationDeleter(
                 _context, _repository, _answers, new ReferenceFileRepository(_context),
                 new ApprovedSeriesRepository(_context), new SpecDialogThreadRepository(_context)),

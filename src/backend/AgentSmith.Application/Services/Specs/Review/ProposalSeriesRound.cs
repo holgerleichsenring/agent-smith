@@ -22,6 +22,7 @@ public sealed class ProposalSeriesRound(
         ProposalReviewSession session, ProposalReviewOutcome outcome, CancellationToken ct)
     {
         if (outcome.Proposal is not EpicOutcome { Contract: { IsEmpty: false } contract } epic) return outcome;
+        if (Settled(session, epic) is { } settled) return outcome with { Rounds = [.. outcome.Rounds, .. settled] };
         var turn = session.Turn;
         var spent = session.CostCapReached();
         var review = spent is not null ? SeriesContractReview.Failed(spent) : await ReviewAsync(turn, epic, contract, ct);
@@ -47,6 +48,12 @@ public sealed class ProposalSeriesRound(
             Rounds = [.. outcome.Rounds, round], Standing = [.. outcome.Standing, .. Findings(result, parent)], ReviewedClean = clean,
         };
     }
+
+    /// <summary>2026-11-13-3f79: a series round that passed this turn is not taken again; its round is carried.</summary>
+    private static IReadOnlyList<ProposalReviewRound>? Settled(ProposalReviewSession session, EpicOutcome epic) =>
+        ProposalReviewLedger.Of(session.Turn.Pipeline).Settled(ProposalReviewTexts.SettledParent(epic)) is { } settled
+            ? [.. settled.ReviewRounds.Where(round => round.SpecId == ProposalReviewTokens.Series)]
+            : null;
 
     private async Task<SeriesContractReview> ReviewAsync(
         ProposalTurn turn, EpicOutcome epic, Contracts.Specs.SeriesContract contract, CancellationToken ct)

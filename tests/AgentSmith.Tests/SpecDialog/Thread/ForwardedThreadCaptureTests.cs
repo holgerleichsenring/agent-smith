@@ -38,6 +38,41 @@ public sealed class ForwardedThreadCaptureTests
     }
 
     [Fact]
+    public void ForwardedThreadCapture_Observe_OffersEachUsableThreadLedByTheLoopsMaster()
+    {
+        var capture = new ForwardedThreadCapture();
+        var sink = new RecordingSink();
+        var prompt = new ChatMessage(ChatRole.User, "the prompt");
+        capture.Observe(sink);
+        capture.Lead(true);
+
+        capture.Record([new(ChatRole.System, "system"), prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "first")));
+        capture.Record([prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "second")) { ConversationId = "s-1" });
+
+        sink.Offers.Should().ContainSingle();
+        sink.Offers[0].Messages.Select(m => m.Text).Should().Equal("the prompt", "first");
+        sink.Offers[0].Stewarded.Should().BeTrue();
+    }
+
+    // 2026-11-12-a1fa: a turn handed over with a tool result is delivered once a later call carried it, never before.
+    [Fact]
+    public void ForwardedThreadCapture_Drained_DeliveredOnlyWithTheNextRecordedCall()
+    {
+        var capture = new ForwardedThreadCapture();
+        var sink = new RecordingSink();
+        var prompt = new ChatMessage(ChatRole.User, "the prompt");
+        capture.Observe(sink);
+        capture.Record([prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "a tool call")));
+
+        capture.Drained(4);
+        capture.Delivered.Should().BeEmpty("the call that carries it has not answered yet");
+        capture.Record([prompt], new ChatResponse(new ChatMessage(ChatRole.Assistant, "the answer")));
+
+        capture.Delivered.Should().Equal(4);
+        sink.Offers.Select(o => o.Delivered.Count).Should().Equal(0, 1);
+    }
+
+    [Fact]
     public async Task AgenticLoopRunner_RequestWithCapture_RecordsTheResponseText()
     {
         var capture = new ForwardedThreadCapture();
@@ -52,5 +87,13 @@ public sealed class ForwardedThreadCaptureTests
         capture.AnsweredText.Should().Be(ToolLoopErrorToleranceSupport.Answer);
         capture.Messages!.Select(m => m.Role).Should().Equal(ChatRole.User, ChatRole.Assistant, ChatRole.Tool, ChatRole.Assistant);
         capture.Messages![2].Contents.OfType<FunctionResultContent>().Single().Result.Should().Be("file text");
+    }
+
+    private sealed class RecordingSink : IForwardedThreadSink
+    {
+        public List<(IReadOnlyList<ChatMessage> Messages, bool Stewarded, IReadOnlyList<int> Delivered)> Offers { get; } = [];
+
+        public void Offer(IReadOnlyList<ChatMessage> messages, bool stewarded, IReadOnlyList<int> delivered) =>
+            Offers.Add((messages, stewarded, delivered));
     }
 }

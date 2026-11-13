@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-92e9a
+
+decisions:
+  - category: Design
+    chose: "The sink is set directly on the turn's own capture (SpecDialogReplySlot.Thread) by SpecDialogThreadWriteLink.Observe, which returns the writer as the handle the runner closes"
+    over: "An AsyncLocal accessor as SpecDialogTurnRunLink uses"
+    reason: "The capture already belongs to exactly one turn, so there is nothing ambient to carry; the run link's pattern is kept where it matters, a write in a scope of its own."
+  - category: Design
+    chose: "Stewarded is set on the capture by DialogSurfaceLimits.Apply from AgenticMasterContext.IsTicketSteward and passed with every Offer"
+    over: "Reading slot.Stewarded, or a new AgenticLoopRequest field"
+    reason: "slot.Stewarded is written only when the reply is collected, after the writes it would have to label; Apply is where the dialog loop's request is built and the master is known."
+  - category: Design
+    chose: "SpecDialogThreadWriter takes its write as a delegate and drains newest-only on one Task.Run loop; close takes no snapshot more and awaits the one in flight plus the one waiting"
+    over: "Encoding on the call path, a channel, or dropping the waiting snapshot on close"
+    reason: "A delegate makes one-in-flight and newest-wins testable without a database; flushing the waiting snapshot is what makes a turn stopped after N calls keep N calls. Writes use CancellationToken.None so a cancelled turn keeps its work."
+  - category: Design
+    chose: "The runner awaits writer.CloseAsync first in its finally, before gate.Finish, the pump and the router's gate exit"
+    over: "await using on the handle"
+    reason: "await using would dispose after the finally, i.e. after the gate; the next turn's row and the keeper's final write must never race a dead turn's write."
+  - category: Design
+    chose: "The keeper always calls KeepAsync; a Failure turn carries no thread, so the row its calls wrote stays; DropAsync is removed"
+    over: "Keeping DropAsync for failures, or passing the failed turn's capture to the keeper"
+    reason: "The spec keeps a failed turn's work; the capture only records after an accepted call, so the kept row is one the provider took. With no caller left, DropAsync goes."
+  - category: Wiring
+    chose: "SpecDialogThreadWriteLink registered beside SpecDialogThreadStore in SpecDialogDigestExtensions"
+    over: "SpecDialogExtensions"
+    reason: "SpecDialogExtensions sits at the 120-line ratchet; the digest extensions already own the thread store."
