@@ -69,6 +69,8 @@ export interface DialogEntry {
   proposal?: SpecDialogProposalPush;
   /** 2026-11-10-d854c: the run an agent turn came from, read from the view; its steps are paged from it. */
   runId?: string;
+  /** 2026-11-12-92e9c: the steps this page watched the turn take, kept on its reply as they were when it arrived. */
+  steps?: SpecDialogActivityPush[];
   /** Set on a decision entry. */
   decision?: SpecDialogDecision;
   /** 2026-11-11-205ff: set on a turn no kept turn carries; it carries its last draft and said nothing. "running" while
@@ -193,6 +195,10 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   // 2026-09-17-042ee: and what it does with them. Kept in arrival order and bounded: a long
   // turn calls a tool many times, and a page that grows without limit is its own defect.
   const [activity, setActivity] = useState<SpecDialogActivityPush[]>([]);
+  // 2026-11-12-92e9c: the same, for the reply push to keep on its turn before the wait's end clears it.
+  const activityNow = useRef<SpecDialogActivityPush[]>([]);
+  useEffect(() => { activityNow.current = activity; }, [activity]);
+  const replySteps = useRef<SpecDialogActivityPush[]>([]);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
   // durable transcript does not hold. A session id means "re-seed once the read shows THAT
@@ -269,28 +275,28 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       // 2026-11-10-ccd9: the server's truth about the proposal awaiting a decision — the card's only source.
       if (awaitedAtRead.current === null || awaitedAtRead.current < issued) setAwaitingProposal(next.session?.proposal ?? null);
       turnsRead.current = next.session?.transcript.length ?? 0;
-      setEntries((held) => withMocks(settled(held, next, issued), mocksOf(next)));
+      setEntries((held) => withRunIds(withMocks(settled(held, next, issued), mocksOf(next)), next));
       const armed = reseed.current;
       const live = known.current;
       const learnedBefore = live !== null && live.read < issued;
       if (armed === false || (typeof armed === "string" && next.session?.sessionId !== armed)) {
+        // 2026-11-12-92e9c: the pane lets the proposal go; the turn that showed it keeps it.
         if (learnedBefore && !(next.session?.reviewing ?? next.session?.proposal)) {
           known.current = null;
           setProposal(null);
-          setEntries((held) => withoutCard(held, live.proposal));
         }
         return;
       }
       reseed.current = false;
-      // A proposal pushed while this read was out is newer than anything the read carries.
-      // The read may still have caught it stored, under a moment of its own: its card then
-      // gives way to the live one rather than standing beside it.
+      // A proposal pushed while this read was out is newer than anything the read carries. The read
+      // may still have caught it stored, under a moment of its own, and then already shows it on its
+      // turn. 2026-11-12-92e9c: a draft under review never joins the conversation.
       if (live !== null && !learnedBefore) {
-        const seeded = seed(next);
         const stored = next.session?.proposal ?? null;
-        const rest = stored && sameDraft(stored, live.proposal) ? withoutCard(seeded, stored) : seeded;
-        // The pane already holds it, and whatever was filed after it; only the entries were replaced.
-        setEntries(withCard(rest, live.proposal, live.ownTurn));
+        const placed = live.proposal.reviewing === true || (stored !== null && sameDraft(stored, live.proposal));
+        // The pane already holds it, and whatever was filed after it; only the entries were replaced. Nothing of
+        // this read was shown yet, so a stored card with no reply that the live proposal outran is not seeded.
+        setEntries(placed ? seed(next) : withCard(seed(next, false), live.proposal, live.ownTurn));
         return;
       }
       setEntries(seed(next));
@@ -474,7 +480,8 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       endWait();
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
       replyWasDraftOnly.current = message.text.trim().length === 0;
-      if (!replyWasDraftOnly.current) append("agent", message.text, message.at);
+      replySteps.current = activityNow.current;
+      if (!replyWasDraftOnly.current) append("agent", message.text, message.at, { steps: replySteps.current });
       // Asked BEFORE the dialog read below, which is what moves turnsRead on: the question is
       // whether the list is behind what the page already knew, not behind what it is about to learn.
       const behind = listIsBehind();
@@ -491,15 +498,16 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     const offProposal = client.specDialogProposals.add((proposed) => {
       if (proposed.dialogId !== dialogId) return;
       setProposal(proposed);
-      // 2026-11-10-ccd9: a draft under review is shown in the pane, never on the approval card.
-      if (!proposed.reviewing) {
-        awaitedAtRead.current = reads.current;
-        setAwaitingProposal(proposed);
-      }
       setFiled(null);
       const ownTurn = replyWasDraftOnly.current;
       known.current = { proposal: proposed, read: reads.current, ownTurn };
-      setEntries((held) => withCard(held, proposed, ownTurn));
+      // 2026-11-10-ccd9: a draft under review is shown in the pane, never on the approval card. 2026-11-12-92e9c: nor
+      // in the conversation — it may arrive several times a turn; only the final proposal joins its turn's reply.
+      if (proposed.reviewing) return;
+      awaitedAtRead.current = reads.current;
+      setAwaitingProposal(proposed);
+      const steps = replySteps.current;
+      setEntries((held) => withCard(held, proposed, ownTurn, steps));
     });
     const offReading = client.specDialogReadings.add((reading) => {
       if (reading.dialogId === dialogId) setReadings((held) => upsertReading(held, reading));
@@ -747,9 +755,9 @@ function upsertReading(
 
 /** A turn that was only a draft is kept when the card belongs on it, and dropped otherwise.
  *  2026-09-20-3af8: the conversation's images take their place among the turns by their moment. */
-function seed(view: SpecDialogView): DialogEntry[] {
+function seed(view: SpecDialogView, trailing = true): DialogEntry[] {
   const session = view.session;
-  return withImages(transcriptEntries(view), session?.images ?? [], session?.references ?? [], mocksOf(view));
+  return withImages(transcriptEntries(view, trailing), session?.images ?? [], session?.references ?? [], mocksOf(view));
 }
 
 /** 2026-10-13-8762r: the read's mock versions, each with the conversation its routes address. */
@@ -759,7 +767,8 @@ function mocksOf(view: SpecDialogView): TranscriptMock[] {
 }
 
 /** The read's transcript as entries, each proposing turn with its result and the awaiting proposal on its own turn. */
-export function transcriptEntries(view: SpecDialogView): DialogEntry[] {
+/** `withTrailing` false leaves out the card with no reply, for a read a newer live proposal already outran. */
+export function transcriptEntries(view: SpecDialogView, withTrailing = true): DialogEntry[] {
   const session = view.session;
   const transcript = session?.transcript ?? [];
   const held = transcript
@@ -775,7 +784,7 @@ export function transcriptEntries(view: SpecDialogView): DialogEntry[] {
         : turn.proposal ? { proposal: turn.proposal } : {}),
     }))
     .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
-  const trailing = trailingCard(view);
+  const trailing = withTrailing ? trailingCard(view) : null;
   const placed = withInterrupted(held, session?.interruptedTurns ?? []);
   return trailing
     ? [...placed, { key: `card-${trailing.at}-${placed.length}`, kind: "agent", text: "", at: trailing.at, proposal: trailing }]
@@ -795,12 +804,11 @@ export function withInterrupted(held: DialogEntry[], interrupted: SpecDialogInte
   }, held);
 }
 
-/** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — the running turn's draft under
- *  review (ccd9 keeps it beside the awaiting proposal), or a stored proposal whose turn is not in the transcript. */
+/** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — a stored proposal whose turn is not
+ *  in the transcript. 2026-11-12-92e9c: never the running turn's draft under review; that is the working line's. */
 export function trailingCard(view: SpecDialogView): SpecDialogProposalPush | null {
   const session = view.session;
   if (!session) return null;
-  if (view.turn?.computing && session.reviewing) return session.reviewing;
   const placed = session.proposalTurn !== null && session.proposalTurn !== undefined
     && session.proposalTurn < session.transcript.length;
   if (session.proposal && !placed) return session.proposal;
@@ -829,33 +837,37 @@ function settled(held: DialogEntry[], view: SpecDialogView, issued: number): Dia
 }
 
 /** A proposal follows the reply it came from, so its card goes on that reply — or on a turn of
- *  its own when the reply was nothing but the draft and so added no entry. */
+ *  its own when the reply was nothing but the draft and so added no entry. 2026-11-12-92e9c: a turn already shown
+ *  keeps the proposal it showed; a later one never takes its place. */
 export function withCard(
   held: DialogEntry[],
   proposal: SpecDialogProposalPush,
   ownTurn: boolean,
+  steps?: SpecDialogActivityPush[],
 ): DialogEntry[] {
-  // 2026-11-10-7da6: a card nobody answered yet — no message and no decision after it — takes the newer draft.
-  const answered = held.findLastIndex((entry) => entry.kind === "user" || entry.kind === "decision");
-  const open = held.findLastIndex((entry, index) => index > answered && entry.proposal !== undefined);
-  if (open >= 0) return held.map((entry, index) => (index === open ? { ...entry, proposal } : entry));
   const last = held.at(-1);
   if (!ownTurn && last?.kind === "agent" && !last.proposal) {
     return [...held.slice(0, -1), { ...last, proposal }];
   }
-  return [...held, { key: `card-${proposal.at}-${held.length}`, kind: "agent", text: "", at: proposal.at, proposal }];
+  return [...held, {
+    key: `card-${proposal.at}-${held.length}`, kind: "agent", text: "", at: proposal.at, proposal,
+    ...(steps ? { steps } : {}),
+  }];
 }
 
-/** The proposal the server let go takes its card with it; a turn that was only that card goes too. */
-function withoutCard(held: DialogEntry[], proposal: SpecDialogProposalPush): DialogEntry[] {
-  return held
-    .map((entry) => {
-      if (entry.proposal !== proposal) return entry;
-      const rest = { ...entry };
-      delete rest.proposal;
-      return rest;
-    })
-    .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
+/** 2026-11-12-92e9c: a reply this page watched arrives without its run; a read names it, by the reply's own text, so
+ *  the turn's course line can link the run. Nothing the turn shows changes with it. */
+export function withRunIds(held: DialogEntry[], view: SpecDialogView): DialogEntry[] {
+  const turns = (view.session?.transcript ?? []).filter((turn) => turn.role !== "user" && turn.runId);
+  if (!held.some((entry) => entry.kind === "agent" && !entry.runId && entry.text.trim())) return held;
+  const claimed = new Set(held.map((entry) => entry.runId).filter(Boolean));
+  return held.map((entry) => {
+    if (entry.kind !== "agent" || entry.runId || !entry.text.trim()) return entry;
+    const turn = turns.find((candidate) => !claimed.has(candidate.runId!) && candidate.text.trim() === entry.text.trim());
+    if (!turn) return entry;
+    claimed.add(turn.runId!);
+    return { ...entry, runId: turn.runId! };
+  });
 }
 
 /** The same draft, whichever moment it was stamped with — a push and a read stamp it differently. */

@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { INSTANCE_DIALOG_ID } from "@/lib/specDialogSession";
-import type { SpecDialogActivityPush, SpecDialogView } from "@/types/spec-dialog";
+import type { SpecDialogActivityPush, SpecDialogProposalPush, SpecDialogView } from "@/types/spec-dialog";
 
 // 2026-11-12-a1fa: a message sent while the turn computes reaches that turn with its next tool result,
 // and the turn carries on — so the page keeps the turn's steps and its clock, and the turn's own reply
@@ -88,5 +88,51 @@ describe("useSpecDialog, a send while the turn computes", () => {
     expect(result.current.activity).toEqual([step]);
     expect(result.current.workingSince).toBe(since);
     expect(result.current.working).toBe(true);
+  });
+});
+
+// 2026-11-12-92e9c: a written turn never changes. A draft under review stays out of the conversation; the final proposal
+// joins its turn's reply with the steps the page watched, and filing it later takes nothing from that turn.
+const draft = (dialogId: string, reviewing: boolean): SpecDialogProposalPush => ({
+  dialogId, kind: "spec", bug: null, parent: null, children: [], at: started, reviewing,
+  spec: { specId: "s-1", goal: "Retry the import", steps: [], tests: [], done: [], requires: [] },
+} as unknown as SpecDialogProposalPush);
+
+describe("useSpecDialog, a turn once shown", () => {
+  async function replied() {
+    const hook = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
+    await waitFor(() => expect(hook.result.current.activity).toHaveLength(1));
+    const dialogId = hook.result.current.dialogId!;
+    act(() => hub.specDialogProposals.emit(draft(dialogId, true)));
+    act(() => hub.specDialogProposals.emit(draft(dialogId, true)));
+    expect(hook.result.current.entries.filter((entry) => entry.proposal)).toHaveLength(0);
+    act(() => hub.specDialogMessages.emit({ dialogId, title: "t", text: "Here is the cut.", at: started }));
+    act(() => hub.specDialogProposals.emit(draft(dialogId, false)));
+    return { ...hook, dialogId };
+  }
+
+  it("ReviewingDraft_NotInTranscript_FinalAttachesToReply", async () => {
+    const { result } = await replied();
+
+    const shown = result.current.entries.filter((entry) => entry.proposal);
+    expect(shown).toHaveLength(1);
+    expect(shown[0].text).toBe("Here is the cut.");
+    expect(shown[0].proposal?.reviewing).toBe(false);
+    expect(shown[0].steps).toEqual([step]);
+  });
+
+  it("ShownTurn_KeepsItsProposal_AfterFiling", async () => {
+    const { result, dialogId } = await replied();
+    await waitFor(() => expect(api.fetch).toHaveBeenCalledTimes(2));
+    api.fetch.mockImplementation(async (id: string) => {
+      const read = view(id);
+      return { ...read, turn: null, session: { ...read.session!, filing: { dialogId: id, at: started, created: [] } } } as SpecDialogView;
+    });
+
+    act(() => hub.specDialogMessages.emit({ dialogId, title: "t", text: "Filed.", at: started }));
+
+    await waitFor(() => expect(result.current.proposal).toBeNull());
+    const turn = result.current.entries.find((entry) => entry.text === "Here is the cut.");
+    expect(turn?.proposal?.spec?.specId).toBe("s-1");
   });
 });

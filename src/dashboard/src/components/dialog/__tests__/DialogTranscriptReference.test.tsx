@@ -10,7 +10,7 @@ describe("DialogTranscript, with an uploaded website", () => {
   const set = { setId: "s1", name: "landing", files: 42, bytes: 3 * 1024 * 1024, at: "2026-10-01T10:01:00Z" };
 
   it("transcript renders a site set as a chip with file count", () => {
-    render(<DialogTranscript entries={withImages([said], [], [set])} onInspect={() => {}} />);
+    render(<DialogTranscript entries={withImages([said], [], [set])} />);
 
     const chip = screen.getByTestId("dialog-reference-s1");
     expect(chip).toHaveTextContent("landing");

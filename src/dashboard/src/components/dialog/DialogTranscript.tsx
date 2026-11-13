@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
 import { specDialogImageUrl } from "@/lib/specDialogApi";
 import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
-import type { SpecDialogImage, SpecDialogProposalPush, SpecDialogReferenceSet } from "@/types/spec-dialog";
+import type { SpecDialogImage, SpecDialogReferenceSet } from "@/types/spec-dialog";
 import { AuthedImage } from "./AuthedImage";
 import { MockShot } from "./MockShot";
-import { TurnResult } from "./TurnResult";
+import { TurnMessage } from "./TurnMessage";
 import { turnProposalOf } from "./turnProposal";
 import { DialogDocumentCard } from "./DialogDocumentCard";
 import { documentBlocks } from "./documentBlocks";
@@ -34,30 +34,15 @@ import { sizeOf } from "./referenceSelection";
 // 2026-10-09-86e1: and the chip OPENS that upload in the Uploads tab, where its files are.
 // 2026-11-10-d854b: a turn that proposed something shows its reduced result (TurnResult) in place of the card, its
 // reply as the summary; only the proposal awaiting a decision carries the approve bar.
-
-/** The approve bar and the proposal it decides; placed on the turn whose proposal carries that id. */
-export interface TurnApproval {
-  proposalId: string;
-  node: ReactNode;
-}
-
-/** What a turn's result can do with the conversation: send the operator's held answers as one reply (e2f5). */
-export interface TurnReplies {
-  onSend?: (text: string) => void;
-}
+// 2026-11-12-92e9c: every agent turn is one TurnMessage — steps, reply, spec lines, questions and its course — with no
+// control inside it; the approval card stands below the conversation.
 
 export function DialogTranscript({
   entries,
-  onInspect,
   greeting,
   onOpenUpload,
-  approval,
-  replies,
 }: {
   entries: DialogEntry[];
-  approval?: TurnApproval | null;
-  replies?: TurnReplies;
-  onInspect: (proposal: SpecDialogProposalPush) => void;
   /** 2026-10-09-86e1: show one upload's files — the pane's Uploads tab, opened on it. */
   onOpenUpload?: (setId: string) => void;
   /** 2026-09-27-481bd: what an empty conversation says. Computed by the surface, which is where
@@ -79,27 +64,13 @@ export function DialogTranscript({
   return (
     <div data-testid="dialog-transcript" className="flex flex-col gap-4">
       {entries.map((entry) => (
-        <Turn key={entry.key} entry={entry} onInspect={onInspect} onOpenUpload={onOpenUpload}
-          approve={approval && entry.proposal?.proposalId === approval.proposalId ? approval.node : undefined}
-          replies={replies} />
+        <Turn key={entry.key} entry={entry} onOpenUpload={onOpenUpload} />
       ))}
     </div>
   );
 }
 
-function Turn({
-  entry,
-  onInspect,
-  onOpenUpload,
-  approve,
-  replies,
-}: {
-  entry: DialogEntry;
-  onInspect: (proposal: SpecDialogProposalPush) => void;
-  onOpenUpload?: (setId: string) => void;
-  approve?: ReactNode;
-  replies?: TurnReplies;
-}) {
+function Turn({ entry, onOpenUpload }: { entry: DialogEntry; onOpenUpload?: (setId: string) => void }) {
   if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
   if (entry.kind === "image" && entry.image) return <Attached image={entry.image} />;
   if (entry.kind === "reference" && entry.reference) return <ReferenceSetChip set={entry.reference} onOpen={onOpenUpload} />;
@@ -110,13 +81,9 @@ function Turn({
     <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${mine ? "user" : "agent"}` : "dialog-turn-card"}>
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
-      ) : entry.proposal ? (
-        <TurnResult proposal={turnProposalOf(entry.proposal)}
-          summary={entry.interrupted ? <Interrupted state={entry.interrupted} /> : said ? <AgentText text={entry.text} /> : undefined}
-          runId={entry.runId} onSend={replies?.onSend} heldKey={entry.proposal.proposalId ?? undefined}
-          onInspect={() => onInspect(entry.proposal!)} approve={approve} />
       ) : (
-        said && <AgentText text={entry.text} />
+        <TurnMessage proposal={entry.proposal ? turnProposalOf(entry.proposal) : null} runId={entry.runId} live={entry.steps}
+          reply={entry.interrupted ? <Interrupted state={entry.interrupted} /> : said ? <AgentText text={entry.text} /> : undefined} />
       )}
     </DialogMessage>
   );

@@ -49,7 +49,6 @@ export function DialogPane({
   onFocus,
   paneRef,
   panelRef,
-  marked = false,
   dialogId = null,
   onRefresh,
 }: {
@@ -68,8 +67,6 @@ export function DialogPane({
   paneRef?: Ref<HTMLElement>;
   /** The panel, for the surface to move focus to. It is what an inspected proposal is read in. */
   panelRef?: Ref<HTMLDivElement>;
-  /** Whether the pane is wearing the mark an inspect just put on it. */
-  marked?: boolean;
   /** 2026-10-08-e8b9h: the dialog an upload is removed from, and the read that shows it gone. */
   dialogId?: string | null;
   onRefresh?: () => Promise<void>;
@@ -94,14 +91,11 @@ export function DialogPane({
   const panelId = `${ids}-panel`;
 
   return (
-    // 2026-09-20-4b0ae: an inspect from the exchange usually selects the proposal the pane is
-    // already showing, so the act leaves this card's contents identical. data-inspected is what
-    // says it happened, and the surface that set it takes it off again.
+    // 2026-11-12-92e9c: the inspect mark (2026-09-20-4b0ae) left with Inspect.
     <aside
       ref={paneRef}
       data-testid="dialog-pane"
       data-tab={tab}
-      data-inspected={marked ? "true" : undefined}
       className="ecard inert d-pane"
     >
       <DialogPaneTabs

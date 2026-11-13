@@ -17,7 +17,7 @@ describe("DialogTranscript, with a document in an agent turn", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
 
-    render(<DialogTranscript entries={[entry]} onInspect={() => {}} />);
+    render(<DialogTranscript entries={[entry]} />);
 
     expect(screen.getByTestId("dialog-document")).toHaveTextContent("Hand-off prompt");
     expect(screen.getByText("Here is the prompt.")).toBeInTheDocument();

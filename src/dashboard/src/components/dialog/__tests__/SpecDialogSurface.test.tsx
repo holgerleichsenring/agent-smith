@@ -2615,9 +2615,9 @@ describe("SpecDialogSurface", () => {
     })));
 
     const live = await screen.findByTestId("dialog-turn-card");
-    const card = within(live).getByTestId("turn-result");
+    const card = within(live).getByTestId("turn-message");
     expect(card).toHaveAttribute("data-kind", "epic");
-    expect(card).toHaveTextContent("goal of p9000");
+    expect(card).toHaveTextContent("goal of p9000a");
     expect(card).toHaveTextContent("p9000a");
     expect(card).toHaveTextContent("p9000b");
     expect(card).not.toHaveTextContent("step of p9000a");
@@ -2637,24 +2637,8 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
 
     const reloaded = await screen.findByTestId("dialog-turn-card");
-    expect(within(reloaded).getByTestId("turn-result")).toHaveTextContent("goal of p9001");
-    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("turn-result")).toBeNull();
-  });
-
-  it("SpecDialog_TheCard_MovesThePaneToTheProposal", async () => {
-    await renderSurface();
-    act(() => messages.emit({
-      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
-    }));
-    act(() => proposals.emit(proposal()));
-    act(() => filings.emit(filing()));
-    await screen.findByTestId("dialog-filed");
-
-    fireEvent.click(within(screen.getByTestId("dialog-turn-agent")).getByTestId("dialog-card-inspect"));
-
-    expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9001");
-    expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
-    expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+    expect(within(reloaded).getByTestId("turn-message")).toHaveTextContent("goal of p9001");
+    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("turn-spec-lines")).toBeNull();
   });
 
   // 2026-09-18-2f8b RETIRES 2026-09-17-c7aed's "and no duration, because nothing measures
@@ -2856,7 +2840,8 @@ describe("SpecDialogSurface", () => {
 
   // 2026-11-11-8714: the approval card counts the review in one line; the findings themselves sit under each spec
   // row of the turn result, so the card no longer lists them a second time.
-  it("SpecDialog_TheApprovalSurface_SaysTheReviewInOneLine", async () => {
+  // 2026-11-12-92e9c: the card counts nothing of the review; the turn's spec lines and course line say it.
+  it("SpecDialog_TheApprovalCard_LeavesTheReviewToTheTurn", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
       findings: [
@@ -2874,8 +2859,7 @@ describe("SpecDialogSurface", () => {
     act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
     const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getByTestId("dialog-approval-review"))
-      .toHaveTextContent(/^2 findings, each under its spec above\.$/);
+    expect(within(surface).queryByTestId("dialog-approval-review")).toBeNull();
     expect(within(surface).queryByTestId("dialog-proposal-finding")).toBeNull();
     expect(within(surface).queryByTestId("dialog-proposal-rounds")).toBeNull();
   });
@@ -2925,7 +2909,6 @@ describe("SpecDialogSurface", () => {
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    expect(within(surface).getByTestId("dialog-approval-review")).toHaveTextContent("1 finding, each under its spec above.");
     expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
     expect(within(surface).queryByTestId("markdown")).toBeNull();
@@ -2968,7 +2951,6 @@ describe("SpecDialogSurface", () => {
     const line = within(surface).getByTestId("dialog-approval-unsummarised");
     expect(line).toHaveTextContent("cannot count what it would file");
     expect(line).not.toHaveTextContent("Nothing was saved");
-    expect(within(surface).getByTestId("dialog-approval-review")).toHaveTextContent("1 finding, each under its spec above.");
   });
 
   // An expired approval has no summary, no findings and — since the server text went empty —
@@ -3005,28 +2987,27 @@ describe("SpecDialogSurface", () => {
   // Found by review: the server lets a proposal go on a rejection and on a timed-out approval,
   // and a reload showed it gone while the live page kept its tab and an inspectable card. The
   // page sees only the notice and the read after it; the two notices are told apart by nothing
-  // but their words, so each is proven the same way.
+  // but their words, so each is proven the same way. 2026-11-12-92e9c: the pane lets it go; the
+  // turn that showed it keeps it, because nothing already shown changes.
   async function proposalLetGoBy(notice: string) {
     await renderSurface();
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
-    await screen.findByTestId("dialog-card-inspect");
+    await screen.findByTestId("dialog-turn-card");
     expect(screen.getByTestId("dialog-tab-proposal")).toBeInTheDocument();
 
     reloadedWith({ proposal: null, proposalTurn: null });
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: notice, at: new Date().toISOString() }));
 
     await waitFor(() => expect(screen.queryByTestId("dialog-tab-proposal")).toBeNull());
-    expect(screen.queryByTestId("dialog-card-inspect")).toBeNull();
-    expect(screen.queryByTestId("dialog-turn-card")).toBeNull();
+    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("turn-spec-lines")).toHaveTextContent("goal of p9001");
 
     cleanup();
     __forgetDialogIdForTests();
     render(<SpecDialogSurface />);
     await screen.findByTestId("dialog-transcript-empty");
     expect(screen.queryByTestId("dialog-tab-proposal")).toBeNull();
-    expect(screen.queryByTestId("dialog-card-inspect")).toBeNull();
   }
 
   it("SpecDialog_ARejectedProposal_LeavesNoTabAndNoCard_LiveAsAfterAReload", async () => {
@@ -3064,7 +3045,7 @@ describe("SpecDialogSurface", () => {
     }));
 
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent("draft it");
-    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("turn-result")).toHaveAttribute("data-kind", "epic");
+    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("turn-message")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
     expect(screen.getByTestId("dialog-approval-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
@@ -3095,7 +3076,7 @@ describe("SpecDialogSurface", () => {
     }));
 
     await screen.findByTestId("dialog-turn-user");
-    expect(screen.getAllByTestId("turn-result")).toHaveLength(1);
+    expect(screen.getAllByTestId("turn-spec-lines")).toHaveLength(1);
   });
 
   // Found by review: the draft-only flag outlived the conversation it was set in, so a card on
@@ -3111,37 +3092,13 @@ describe("SpecDialogSurface", () => {
     await screen.findByTestId("dialog-turn-agent");
     act(() => proposals.emit(proposal()));
 
-    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("turn-result")).toBeInTheDocument();
+    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("turn-spec-lines")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-turn-card")).toBeNull();
   });
 
-  // Live every proposing turn keeps its card, and an earlier card shows its own draft, marked.
-  it("SpecDialog_InspectingAnEarlierCard_ShowsItsDraftMarkedSuperseded", async () => {
-    await renderSurface();
-    reloadedWith({ proposal: proposal() });
-    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a first cut", at: new Date().toISOString() }));
-    act(() => proposals.emit(proposal()));
-    // 2026-11-10-7da6: the person answers the first card, so the second turn's proposal gets a card of its own
-    // instead of replacing an unanswered one.
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "smaller please" } });
-    fireEvent.click(screen.getByTestId("dialog-composer-send"));
-    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
-    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a second cut", at: new Date().toISOString() }));
-    act(() => proposals.emit(proposal({ spec: draftSpec("p9002") })));
-
-    await waitFor(() => expect(screen.getAllByTestId("dialog-card-inspect")).toHaveLength(2));
-    expect(screen.getByTestId("dialog-pane")).toHaveTextContent("not filed yet");
-
-    fireEvent.click(screen.getAllByTestId("dialog-card-inspect")[0]);
-
-    const pane = screen.getByTestId("dialog-pane");
-    expect(within(pane).getByTestId("dialog-proposal")).toHaveTextContent("goal of p9001");
-    expect(pane).toHaveTextContent("superseded");
-  });
-
   // Found by review: the speaker was an aria-label on a div with no role, every card's link read
-  // "Inspect →", and the pane's tabs pointed at no panel.
-  it("SpecDialog_SpeakersCardsAndTabs_AreNamedForAssistiveTechnology", async () => {
+  // "Inspect →", and the pane's tabs pointed at no panel. 2026-11-12-92e9c: no Inspect is left in a turn.
+  it("SpecDialog_SpeakersAndTabs_AreNamedForAssistiveTechnology", async () => {
     await renderSurface();
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
@@ -3149,7 +3106,7 @@ describe("SpecDialogSurface", () => {
     const turn = await screen.findByTestId("dialog-turn-agent");
     expect(turn.querySelector(".sr-only")).toHaveTextContent("agent-smith:");
     expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent("AS");
-    expect(screen.getByRole("button", { name: "Inspect the spec proposal: goal of p9001" })).toBeInTheDocument();
+    expect(within(turn).queryAllByRole("button")).toHaveLength(0);
     const selected = screen.getByRole("tab", { selected: true });
     const panel = screen.getByRole("tabpanel");
     expect(selected).toHaveAttribute("aria-controls", panel.id);
@@ -3802,6 +3759,8 @@ describe("SpecDialogSurface", () => {
 // the proposal tab whenever nothing has been filed, so the commonest state is the pane ALREADY
 // showing the proposal being inspected and the click renders the same document twice. What the
 // act leaves behind is asserted here: a mark on the pane, a nearest scroll, and the focus.
+// 2026-11-12-92e9c: Inspect left with every control inside a turn; what stays is that nothing the operator did
+// not do scrolls or marks the pane.
 describe("Inspecting reaches the pane", () => {
   /** A conversation that has proposed and filed: the pane is on Filed, so the inspect moves it. */
   async function proposedAndFiled() {
@@ -3813,68 +3772,6 @@ describe("Inspecting reaches the pane", () => {
     act(() => filings.emit(filing()));
     await screen.findByTestId("dialog-filed");
   }
-
-  /** A conversation that has proposed and filed NOTHING: the pane is already on that proposal. */
-  async function proposedOnly() {
-    await renderSurface();
-    act(() => messages.emit({
-      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
-    }));
-    act(() => proposals.emit(proposal()));
-    await screen.findByTestId("dialog-proposal");
-  }
-
-  function inspectTheCard() {
-    fireEvent.click(within(screen.getByTestId("dialog-turn-agent")).getByTestId("dialog-card-inspect"));
-  }
-
-  it("SpecDialog_Inspecting_MarksThePane", async () => {
-    await proposedAndFiled();
-    expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
-
-    inspectTheCard();
-
-    expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
-  });
-
-  // The case the whole spec exists for, and the one an earlier cut would have missed: the pane
-  // is showing this very proposal already, so the click changes NOTHING inside it. The mark is
-  // outside it — on the card's own element — which is why it still says the click landed.
-  it("SpecDialog_InspectingTheProposalAlreadyShown_StillMarksThePane", async () => {
-    await proposedOnly();
-    const pane = screen.getByTestId("dialog-pane");
-    expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
-    const unchanged = pane.innerHTML;
-
-    inspectTheCard();
-
-    expect(pane.innerHTML, "the inspected proposal is the one already shown").toBe(unchanged);
-    expect(pane).toHaveAttribute("data-inspected", "true");
-  });
-
-  // Nearest, and no behaviour option. The page's scroll container is the main region and the
-  // pane's top is the top of the grid, so a default start-aligned scroll would throw the page
-  // back to the top when Inspect is clicked at the bottom of a long transcript. The equality is
-  // exact, so a behaviour added later fails here rather than being read as an improvement.
-  it("SpecDialog_Inspecting_ScrollsThePaneIntoViewWithNearestAlignment", async () => {
-    await proposedAndFiled();
-    const scrolled = vi.spyOn(screen.getByTestId("dialog-pane"), "scrollIntoView");
-
-    inspectTheCard();
-
-    expect(scrolled).toHaveBeenCalledTimes(1);
-    expect(scrolled).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
-  });
-
-  // Where the act leaves the reader, and the half that works with no viewport at all.
-  it("SpecDialog_Inspecting_MovesFocusToThePanePanel", async () => {
-    await proposedAndFiled();
-    expect(document.activeElement).not.toBe(screen.getByRole("tabpanel"));
-
-    inspectTheCard();
-
-    expect(document.activeElement).toBe(screen.getByRole("tabpanel"));
-  });
 
   // The routes into the pane that are NOT an act the operator just performed. A push moves the
   // pane on its own, and yanking the viewport under someone who is reading is worse than the
@@ -3917,23 +3814,6 @@ describe("Inspecting reaches the pane", () => {
     } finally {
       scrolled.mockRestore();
     }
-  });
-
-  // Found by reviewing this spec's own diff: every test above asserts the mark ARRIVES, and a
-  // mark that never leaves would pass all of them while ringing the pane for the rest of the
-  // session. It is an acknowledgement of one click, so it is over when the click is.
-  it("SpecDialog_TheMark_ClearsItselfWithoutAnotherAct", async () => {
-    await proposedAndFiled();
-
-    inspectTheCard();
-    expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
-
-    await waitFor(
-      () => expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected"),
-      { timeout: 4000 },
-    );
-    // The focus it moved is NOT transient: the reader is still where the act put them.
-    expect(document.activeElement).toBe(screen.getByRole("tabpanel"));
   });
 
   // Minus one and not zero: the panel is a destination for an act elsewhere on the page, not a
