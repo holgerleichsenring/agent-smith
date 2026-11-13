@@ -55,17 +55,3 @@ export function mergedSteps(
   }
   return kept;
 }
-
-/** How many steps the TURN has taken, which is not how many this page still holds: the list
- *  above is bounded, so past that bound a count of it freezes and one of the two liveness
- *  cues dies for the rest of the turn. The sequence is the true count. */
-export function stepCount(held: SpecDialogActivityPush[]): number {
-  return held.reduce((highest, step) => Math.max(highest, step.seq), 0);
-}
-
-/** 2026-11-09-9631c: the row over the folded steps counts what the turn took before the steps
- *  shown, and when the page holds fewer it says how many opening the row will list. */
-export function earlierStepsLabel(earlier: number, listed: number): string {
-  const count = `${earlier} earlier ${earlier === 1 ? "step" : "steps"}`;
-  return listed < earlier ? `${count}, the last ${listed} listed` : count;
-}

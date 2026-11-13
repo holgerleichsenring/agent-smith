@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-13-3dc8: "DIALOG LIVE STEPS QUIET (DialogWorking, condenseSteps, ProposalReviewPass, SpecDialogOutcomeFlow). The working line shows condensed lines under an Xm Ys clock, no count or fold; reviewer steps run under a Review frame and their answers are no lines; an answer turn clears its reviewing draft and turn row. -> .agentsmith/specs/done/2026-11-13-3dc8-dialog-live-steps-quiet.yaml"
     2026-11-13-67ae: "DESIGN REVIEW CLEAN REPORT (DesignTurnReviewReport, TicketPlanReview, ProposalReviewSlices). A list pass that finds nothing reports so to the master before its reply goes out; a failed or unreadable plan reviewer marks the list not reviewed and never reads as clean. -> .agentsmith/specs/done/2026-11-13-67ae-design-review-clean-report.yaml"
     2026-11-13-d409: "SKILLS PIN REVIEW IN TURN (skills catalog pin v5.30.0). The design partner reads its final review before replying, a passed text stays passed, it takes messages sent mid-turn and its reply is a short account; questions carry the detail. -> .agentsmith/specs/done/2026-11-13-d409-skills-pin-review-in-turn.yaml"
     2026-11-13-3f79: "DESIGN REVIEW SETTLED (ProposalReviewLedger, ProposalReviewText, ProposalReviewCarryOver, ProposalSeriesRound, DesignTurnReviewReport). Within a design turn a draft passed build or build-with-cuts is settled: its applied cuts are not reviewed again, only a refused draft is; the report names only rounds the pass took. -> .agentsmith/specs/done/2026-11-13-3f79-design-review-settled.yaml"

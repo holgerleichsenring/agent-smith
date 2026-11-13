@@ -2,6 +2,9 @@
 // turn ran and for the pages fetched from its run after a reload. Reads and searches in a row are one counted line;
 // a write is a line of its own; a model step that narrated something says it; a model step that said nothing is
 // dropped, and it does not break a burst of reads, because one sits between every two tool calls.
+// 2026-11-13-3dc8: the working line renders these too. A sub-agent's or reviewer's step arrives as "Name › tool": its
+// reads and searches join the burst by the tool after the prefix, and its model answers are no lines at all — a
+// reviewer's verdict JSON is not the master's narration.
 
 /** What both a pushed step and a fetched one carry. */
 export interface RawStep {
@@ -23,6 +26,13 @@ export interface StepLine {
 const SEARCH = /^(grep|search|find_)/;
 const READ = /^(read_|list_)/;
 const WRITE = /^(write_|edit_)/;
+const PREFIX = " › ";
+
+/** The tool a step called, after the name of the sub-agent that called it. */
+function toolOf(name: string): string {
+  const at = name.lastIndexOf(PREFIX);
+  return at < 0 ? name : name.slice(at + PREFIX.length);
+}
 
 interface Burst {
   key: number;
@@ -36,10 +46,11 @@ export function condenseSteps(steps: RawStep[]): StepLine[] {
   let burst: Burst | null = null;
   for (const step of steps) {
     const name = step.name ?? "";
-    if (step.kind === "model" && !step.detail?.trim()) continue;
-    if (step.kind === "tool" && (READ.test(name) || SEARCH.test(name))) {
+    if (step.kind === "model" && (!step.detail?.trim() || name.includes(PREFIX))) continue;
+    const tool = toolOf(name);
+    if (step.kind === "tool" && (READ.test(tool) || SEARCH.test(tool))) {
       burst ??= { key: step.seq, reads: 0, searches: 0 };
-      if (SEARCH.test(name)) burst.searches += 1;
+      if (SEARCH.test(tool)) burst.searches += 1;
       else burst.reads += 1;
       continue;
     }
@@ -64,5 +75,5 @@ function lineOf(step: RawStep, name: string): StepLine {
   if (step.kind === "reviewing") return { key: step.seq, kind: "step", text: "reviewing its proposal" };
   if (step.kind === "revising") return { key: step.seq, kind: "step", text: "revising its answer" };
   const text = [name || step.kind, step.detail].filter(Boolean).join(" ");
-  return { key: step.seq, kind: step.kind === "tool" && WRITE.test(name) ? "write" : "step", text };
+  return { key: step.seq, kind: step.kind === "tool" && WRITE.test(toolOf(name)) ? "write" : "step", text };
 }

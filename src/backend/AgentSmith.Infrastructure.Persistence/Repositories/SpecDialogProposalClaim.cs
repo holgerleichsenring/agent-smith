@@ -55,6 +55,15 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
     public async Task<int> SetReviewingAsync(string platform, string threadId, string json, CancellationToken ct) =>
         await (await NewestAsync(platform, threadId, ct)).ExecuteUpdateAsync(s => s.SetProperty(r => r.ReviewingProposalJson, json), ct);
 
+    /// <summary>2026-11-13-3dc8: a turn that ended without a proposal leaves no draft, nor a LatestProposalJson on a row with
+    /// no id, which a read would show as the legacy fallback.</summary>
+    public async Task ClearDraftAsync(string platform, string threadId, CancellationToken ct)
+    {
+        var newest = await NewestAsync(platform, threadId, ct);
+        await newest.ExecuteUpdateAsync(s => s.SetProperty(r => r.ReviewingProposalJson, (string?)null), ct);
+        await newest.Where(s => s.ProposalId == null).ExecuteUpdateAsync(s => s.SetProperty(r => r.LatestProposalJson, (string?)null), ct);
+    }
+
     /// <summary>Claims proposal <paramref name="id"/>: moves it into ConfirmedOutcomeJson under its id (205fe), frees the
     /// awaiting slot and returns its JSON — or null when it is no longer the awaiting proposal. Release and clear of the
     /// confirmed slot are <see cref="SpecDialogConfirmedSlot"/>'s.</summary>

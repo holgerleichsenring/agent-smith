@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-13-3dc8
+
+decisions:
+  - category: Design
+    chose: "The working line renders condenseSteps over the held steps under an 'Xm Ys' clock; the step count, the fold, stepCount, earlierStepsLabel and DialogActivityLines are gone"
+    over: "92e9c's raw live ticker (step count, last three raw steps, folded earlier steps), which this reverses"
+    reason: "In production it read '648s · 451 steps' over '448 earlier steps, the last 47 listed': a count nobody reads and a fold nobody opens. The ticking clock and each new line are the liveness cues; the reconnect tests now assert lines instead of counts."
+  - category: Design
+    chose: "Burst matching reads the tool after the last ' › '; a model step whose name carries that prefix is dropped"
+    over: "Matching bare names only, or dropping every model step under review"
+    reason: "Sub-agent and reviewer reads belong to the burst; their model answers (verdict JSON) are not the master's narration, which keeps its own unprefixed name."
+  - category: Design
+    chose: "ProposalReviewPass opens the frame inline (new SubAgentActivityFrame(turnActivity)) after its Reviewing report, named ProposalReviewPass.ReviewName"
+    over: "Injecting SubAgentActivityFrame through DI and every rig"
+    reason: "The pass already holds the accessor the frame wraps; constructing it inline changes no composition. Reviewing stays unprefixed, so its line is unchanged."
+  - category: Design
+    chose: "On an AnswerOutcome SpecDialogOutcomeFlow clears the draft: SpecDialogProposalClaim.ClearDraftAsync nulls ReviewingProposalJson and LatestProposalJson where ProposalId is null, the state nudges, and SpecDialogTurnProposalStore.DropAsync deletes the run's row; a failure is logged, not thrown"
+    over: "Clearing in the turn runner, or failing the turn when the clear fails"
+    reason: "The flow is where a normal end with no proposal is decided; a thrown turn never reaches it and keeps its draft for the next turn. The reply is already delivered, so a failed clear must not turn it into a failed turn."

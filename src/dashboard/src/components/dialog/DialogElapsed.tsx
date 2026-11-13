@@ -11,6 +11,13 @@ import { useEffect, useState } from "react";
 // says the turn has computed. Two clocks are never differenced, so a browser running behind
 // cannot render a turn that started in the future.
 
+// 2026-11-13-3dc8: in minutes and seconds — "648s" asks the reader to divide.
+
+/** Seconds as "Xm Ys". */
+export function minutesAndSeconds(seconds: number): string {
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
 /** How long the turn has been working, ticking once a second. */
 export function DialogElapsed({ since }: { since: number }) {
   const [now, setNow] = useState(() => Date.now());
@@ -18,5 +25,5 @@ export function DialogElapsed({ since }: { since: number }) {
     const ticker = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(ticker);
   }, []);
-  return <>{Math.max(0, Math.floor((now - since) / 1000))}s</>;
+  return <>{minutesAndSeconds(Math.max(0, Math.floor((now - since) / 1000)))}</>;
 }

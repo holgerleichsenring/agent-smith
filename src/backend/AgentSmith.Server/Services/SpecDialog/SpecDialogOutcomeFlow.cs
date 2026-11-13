@@ -17,6 +17,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// 2026-11-12-92e9c: only in a chat thread, whose card stays postable. On the dashboard a shown turn never changes, so
 /// a notice declaring an earlier turn void would be the one line that rewrites history; the composer shows what awaits.
 /// </para>
+/// <para>2026-11-13-3dc8: an answer clears the draft the turn reviewed before it.</para>
 /// </summary>
 public sealed class SpecDialogOutcomeFlow(
     SpecDialogProposalState proposals,
@@ -42,7 +43,11 @@ public sealed class SpecDialogOutcomeFlow(
             logger.LogInformation("The ticket steward leads spec-dialog session {SessionId}; its awaiting proposal is cleared", state.JobId);
             if (!DialogTarget.IsDashboard(state)) await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
         }
-        if (proposal is AnswerOutcome) return;
+        if (proposal is AnswerOutcome)
+        {
+            await ClearDraftAsync(state, runId, cancellationToken);
+            return;
+        }
         (string Id, string? Replaced) stored;
         try
         {
@@ -60,5 +65,20 @@ public sealed class SpecDialogOutcomeFlow(
         await chatCards.PostAsync(state, proposal, stored.Id, cancellationToken);
         logger.LogInformation("Outcome {Kind} for spec-dialog session {SessionId} awaits a decision as {ProposalId}",
             proposal.GetType().Name, state.JobId, stored.Id);
+    }
+
+    /// <summary>2026-11-13-3dc8: a turn that finished with an answer leaves no draft it reviewed mid-turn — not on the row
+    /// the pane and the next turn read, nor as the turn's own proposal. A thrown turn never reaches here and keeps it.</summary>
+    private async Task ClearDraftAsync(ConversationState state, string? runId, CancellationToken ct)
+    {
+        try
+        {
+            await proposals.ClearDraftAsync(state, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "The draft of spec-dialog session {SessionId} could not be cleared", state.JobId);
+        }
+        await (turnProposals?.DropAsync(state, runId, ct) ?? Task.CompletedTask);
     }
 }

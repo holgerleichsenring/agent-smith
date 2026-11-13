@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Specs.Review;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Turns;
 
@@ -10,10 +11,15 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// proposed: the proposal comes back with what the pass found, its rounds, the ids it could not review and the texts
 /// it called clean. The post-turn review and the review_proposal tool run this same pass. 2026-11-12-92e9b: every
 /// result is recorded in the turn's <see cref="ProposalReviewLedger"/> under the exact texts it reviewed.
+/// 2026-11-13-3dc8: after the Reviewing step, every step of the pass reaches the turn as "Review › …", so a reviewer's
+/// answer is never read as the master's narration.
 /// </summary>
 public sealed class ProposalReviewPass(
     ProposalWholeSetReview wholeSet, ProposalAttackPass attack, TicketPlanReview plans, ITurnActivityObserverAccessor turnActivity)
 {
+    /// <summary>The name the pass's steps are reported under.</summary>
+    public const string ReviewName = "Review";
+
     public async Task<OutcomeProposal> ReviewAsync(
         ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, CancellationToken ct)
     {
@@ -21,7 +27,9 @@ public sealed class ProposalReviewPass(
         ArgumentNullException.ThrowIfNull(proposal);
         if (!Reviewable(proposal)) return proposal;
         await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Reviewing), ct);
-        var reviewed = await RunAsync(turn, settings, proposal, ct);
+        OutcomeProposal reviewed;
+        using (new SubAgentActivityFrame(turnActivity).Open(ReviewName))
+            reviewed = await RunAsync(turn, settings, proposal, ct);
         ProposalReviewLedger.Of(turn.Pipeline).Record(reviewed);
         return reviewed;
     }
