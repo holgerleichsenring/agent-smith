@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.185.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.184.0...v0.185.0) (2026-11-13)
+
+
+### Features
+
+* a clean review of a ticket list is reported to the design partner before its reply goes out, and a plan reviewer that gave no answer marks the list not reviewed (2026-11-13-67ae) ([530667f](https://github.com/holgerleichsenring/agent-smith/commit/530667f974bb2d85d31b7a40b5e8fddb63746038))
+* a design turn's thread is stored as it grows and a failed turn keeps it (2026-11-12-92e9a) ([eb4c63d](https://github.com/holgerleichsenring/agent-smith/commit/eb4c63dd6516b3efa023bc25f9fb7e78d86aa1fc))
+* a message sent while a design turn runs reaches its master with the next tool result, and the turn carries on (2026-11-12-a1fa) ([324047d](https://github.com/holgerleichsenring/agent-smith/commit/324047db335635f0ca52f0202c7138b976deed0e))
+* each Work it out agent turn reads as one unchanging message - its steps as quiet lines, its reply, one marked line per spec, its questions as text and one course line, with no control inside; the dashboard no longer posts a superseded notice (2026-11-12-92e9c) ([45c1141](https://github.com/holgerleichsenring/agent-smith/commit/45c1141399167f340f45bf10e83762238be6375c))
+* pin skills v5.30.0, the design partner reads its final review before replying and takes messages sent mid-turn (2026-11-13-d409) ([f38bf13](https://github.com/holgerleichsenring/agent-smith/commit/f38bf13fc041aa42da38f722c59edb1117a8756d))
+* the design partner reads the review of its final draft before it answers, and spec reviewers read the operator's turns (2026-11-12-92e9b) ([258370b](https://github.com/holgerleichsenring/agent-smith/commit/258370b1cbbebb19d361e690585de01842d4a94e))
+* within a design turn a draft the reviewers passed (build or build with cuts) is settled - its applied cuts are not reviewed again, only a refused draft goes back to a fresh reviewer, and the review report names only the rounds the pass took (2026-11-13-3f79) ([960c177](https://github.com/holgerleichsenring/agent-smith/commit/960c177310c51354670a84072c494daf8f18d9f2))
+* Work it out decides at the composer - File and Discard with the proposal's summary line under the old Approve guards, no approval card in the transcript, decisions and Filed notices as quiet history lines (2026-11-12-92e9d) ([316659b](https://github.com/holgerleichsenring/agent-smith/commit/316659b6e7bd9f97bf585333f760f9a59a37e273))
+* Work it out works like a conversation - the design partner reads its review before replying, takes messages mid-turn, and each turn is one unchanging message ([e2d218b](https://github.com/holgerleichsenring/agent-smith/commit/e2d218ba50ff71b1f98a2dee444226d7641460c7))
+
 ## [0.184.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.183.0...v0.184.0) (2026-11-12)
 
 
