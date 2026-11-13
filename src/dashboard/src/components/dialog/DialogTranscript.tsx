@@ -36,6 +36,8 @@ import { sizeOf } from "./referenceSelection";
 // reply as the summary; only the proposal awaiting a decision carries the approve bar.
 // 2026-11-12-92e9c: every agent turn is one TurnMessage — steps, reply, spec lines, questions and its course — with no
 // control inside it; the approval card stands below the conversation.
+// 2026-11-12-92e9d: the decision moved to the composer. A decision and the notice that answers it (Filed, Rejected)
+// are quiet history lines: no speaker mark, muted, nothing new appended.
 
 export function DialogTranscript({
   entries,
@@ -63,9 +65,13 @@ export function DialogTranscript({
 
   return (
     <div data-testid="dialog-transcript" className="flex flex-col gap-4">
-      {entries.map((entry) => (
-        <Turn key={entry.key} entry={entry} onOpenUpload={onOpenUpload} />
-      ))}
+      {entries.map((entry, at) =>
+        answersDecision(entries, at) ? (
+          <Notice key={entry.key} text={entry.text} />
+        ) : (
+          <Turn key={entry.key} entry={entry} onOpenUpload={onOpenUpload} />
+        ),
+      )}
     </div>
   );
 }
@@ -150,23 +156,32 @@ function ReferenceSetChip({ set, onOpen }: { set: SpecDialogReferenceSet; onOpen
   );
 }
 
+/** The framework's answer to a recorded decision: the agent entry right after it, proposing nothing. */
+function answersDecision(entries: DialogEntry[], at: number): boolean {
+  const entry = entries[at];
+  const before = at > 0 ? entries[at - 1] : null;
+  return entry.kind === "agent" && !entry.proposal && !entry.interrupted && entry.text.trim().length > 0
+    && before?.kind === "decision" && isDecision(before.decision) && !before.pending;
+}
+
+function Notice({ text }: { text: string }) {
+  return (
+    <div data-testid="dialog-turn-notice" className="dsh-body text-mute">
+      <Markdown>{text}</Markdown>
+    </div>
+  );
+}
+
 function Decision({ entry }: { entry: DialogEntry }) {
   const approved = entry.decision === "approved";
-  if (entry.pending)
-    return (
-      <DialogMessage who="user" testId="dialog-turn-decision">
-        <p data-decision={entry.decision} data-pending="true" className="dsh-body text-body">
-          <span className="fl">Sent</span>{" "}
-          {approved ? "Approve — waiting for it to be recorded" : "Reject — waiting for it to be recorded"}
-        </p>
-      </DialogMessage>
-    );
   return (
-    <DialogMessage who="user" testId="dialog-turn-decision">
-      <p data-decision={entry.decision} className="dsh-body font-semibold text-ink">
-        {approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
+    <div data-testid="dialog-turn-decision">
+      <p data-decision={entry.decision} data-pending={entry.pending ? "true" : undefined} className="dsh-body text-mute">
+        {entry.pending
+          ? approved ? "File sent — waiting for it to be recorded" : "Discard sent — waiting for it to be recorded"
+          : approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
       </p>
-    </DialogMessage>
+    </div>
   );
 }
 

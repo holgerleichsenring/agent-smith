@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DialogQuestionCard } from "../DialogQuestionCard";
+import { DialogDecisionBar } from "../DialogDecisionBar";
+import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
 // 2026-10-13-9a59r: the approval card on a ticket-bound conversation says what approving does there, and
@@ -36,5 +38,17 @@ describe("DialogQuestionCard ticketEffect", () => {
       ticketEffect={{ summary: "x", approvable: false }} />);
     expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
     expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
+  });
+
+  // 2026-11-12-92e9d: the composer's File follows the same preview.
+  it("ANotApprovableEffect_DecisionBarOffersNoFile", () => {
+    const effect = { summary: "x", approvable: false };
+    render(<DialogDecisionBar decision={approvalDecision(question, proposal, effect)!} onDecide={vi.fn()} />);
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
+    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+  });
+
+  it("ApprovalDecision_OtherQuestionKind_IsNull", () => {
+    expect(approvalDecision({ ...question, kind: "choice" }, proposal)).toBeNull();
   });
 });

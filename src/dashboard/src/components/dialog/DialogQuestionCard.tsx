@@ -3,6 +3,7 @@
 import { DialogProposalUploads } from "@/components/dialog/DialogProposalUploads";
 import { Markdown } from "@/components/ui/Markdown";
 import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
+import { approvalDecision, hasExpired, type ApprovalDecision } from "./approvalDecision";
 import type {
   SpecDialogChoice,
   SpecDialogDecision,
@@ -39,13 +40,6 @@ import type {
 // state the studio's cards never have. An expired card keeps the plain card line, because
 // nothing is waiting any more. The two controls are the studio's buttons.
 
-// The server pushes nothing when a wait expires — the confirmer simply stops waiting and
-// clears its pending entry. So the deadline is what the card has, and a click past it is
-// not an answer: it posts the literal word as a message and buys a whole design turn.
-function hasExpired(question: SpecDialogQuestionPush): boolean {
-  return question.expiresAt !== null && Date.parse(question.expiresAt) <= Date.now();
-}
-
 // 2026-09-22-355b: an APPROVAL now carries choices too — the other shapes the proposal could
 // take, named by the server from the proposal's own kind. They ride BESIDE the approve/reject
 // pair rather than replacing it, because the pair, the recorded decision and the counted
@@ -79,14 +73,12 @@ export function DialogQuestionCard({
   inTicket?: boolean;
 }) {
   const expired = hasExpired(question);
-  const bound = question.kind === "approval" && ticketEffect ? ticketEffect : null;
-  // 2026-10-14-dbcek: the preview there answers a list with a plain refusal and no start arm, which would read as
-  // approvable — so the card hides Approve itself and says where a list is filed.
-  const boundList = question.kind === "approval" && proposal?.kind === "tickets" && (inTicket === true || bound !== null);
-  const controls = expired ? [] : controlsFor(question, bound, boundList); // 2026-11-10-8e59: review state never hides Approve
-  const decision = question.kind === "approval" && !expired;
+  // 2026-11-12-92e9d: the guards and the summary are the Work it out composer's too (approvalDecision).
+  const approval = approvalDecision(question, proposal, ticketEffect, inTicket);
+  const controls = expired ? [] : controlsFor(question, approval); // 2026-11-10-8e59: review state never hides Approve
+  const decision = approval !== null && !expired;
   const shapes = decision && question.choices.length > 0;
-  const summary = decision ? (boundList ? BOUND_LIST : bound ? bound.summary : proposal ? summaryOf(proposal) : null) : null;
+  const summary = decision ? approval.summary : null;
   // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
   // confirmation that still carries its text keeps that text, and shows no second line.
   const unsummarised = decision && !summary && question.text.trim().length === 0;
@@ -151,12 +143,10 @@ export function DialogQuestionCard({
   );
 }
 
-const BOUND_LIST = "A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.";
-
-function controlsFor(question: SpecDialogQuestionPush, bound: TicketApprovalEffect | null, withoutApprove: boolean): Control[] {
-  if (question.kind === "approval") {
-    const approve: Control[] = withoutApprove || (bound && !bound.approvable) ? []
-      : [{ label: bound ? "Approve" : "Approve & file", answer: "approve", primary: true, decision: "approved" }];
+function controlsFor(question: SpecDialogQuestionPush, approval: ApprovalDecision | null): Control[] {
+  if (approval) {
+    const approve: Control[] = !approval.approvable ? []
+      : [{ label: approval.bound ? "Approve" : "Approve & file", answer: "approve", primary: true, decision: "approved" }];
     return [
       ...approve,
       { label: "Reject", answer: "reject", primary: false, decision: "rejected" },
@@ -181,25 +171,4 @@ function asControl(choice: SpecDialogChoice): Control {
 function asShape(choice: SpecDialogChoice): Control {
   const { label, description } = choice;
   return { label, answer: label, primary: false, description };
-}
-
-/** What the proposal says would be filed, and nothing it does not say. */
-function summaryOf(proposal: SpecDialogProposalPush): string | null {
-  if (proposal.bug) return "File this bug? One bug ticket.";
-  if (proposal.kind === "comment") return "Post this comment on the ticket? Nothing starts.";
-  if (proposal.kind === "tickets") {
-    // Not "starts when filed": that depends on the landing of what it requires, read at filing.
-    const [count, roots] = [proposal.tickets?.length ?? 0, (proposal.tickets ?? []).filter((t) => t.requires.length === 0).length];
-    return `File these ${count} tickets? ${roots} ${roots === 1 ? "has" : "have"} nothing to wait for; the rest wait until what they require is merged.`;
-  }
-  if (proposal.parent) {
-    const slices = proposal.children.length;
-    // 2026-09-22-b3d7: the button files ONE ticket, whatever the slice count. The slices are
-    // what that ticket carries — its body lists them and the run works the set stored under it —
-    // so this line counts the one ticket and no records. It is the one line on the card that
-    // counts what the button files, so it has to count what is actually filed.
-    return `File this epic? One work ticket carrying ${slices} slice${slices === 1 ? "" : "s"}.`;
-  }
-  if (proposal.spec) return "File this spec? One ticket.";
-  return null;
 }

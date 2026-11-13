@@ -4,6 +4,8 @@ import { DialogProposalPanel } from "../DialogProposalPanel";
 import { TurnResult } from "../TurnResult";
 import { turnProposalOf } from "../turnProposal";
 import { DialogQuestionCard } from "../DialogQuestionCard";
+import { DialogDecisionBar } from "../DialogDecisionBar";
+import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogGraphTicket, SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
 // 2026-10-14-dbcek: a proposed list of tickets — the pane shows the ticket texts in merge order with what each waits
@@ -85,5 +87,23 @@ describe("A proposed list of tickets", () => {
     expect(screen.getByTestId("dialog-answer-Make it one ticket's series")).toBeInTheDocument();
     expect(screen.getByTestId("dialog-approval-summary")).toHaveTextContent(
       /^A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket\.$/);
+  });
+
+  // 2026-11-12-92e9d: the composer's File holds the same guard as the card's Approve.
+  it("DecisionBar_TicketsKindInBoundConversation_NoFileAndSaysWhereAListIsFiled", () => {
+    render(<DialogDecisionBar decision={approvalDecision(question, list, null, true)!} onDecide={vi.fn()} />);
+
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
+    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^A list of tickets is filed from Work it out/);
+  });
+
+  it("DecisionBar_UnboundList_FileSendsApprove", () => {
+    const onDecide = vi.fn();
+    render(<DialogDecisionBar decision={approvalDecision(question, list)!} onDecide={onDecide} />);
+
+    screen.getByTestId("dialog-file").click();
+    expect(onDecide).toHaveBeenCalledWith("approve");
+    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^File these 3 tickets\?/);
   });
 });

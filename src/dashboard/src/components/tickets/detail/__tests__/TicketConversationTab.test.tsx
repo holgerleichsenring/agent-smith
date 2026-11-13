@@ -423,6 +423,17 @@ describe("Ticket conversation tab", () => {
     expect(dialogApi.post).toHaveBeenCalledWith("d-open", "approve", "shop", undefined, "q-1"); // 2026-11-10-ccd9: the card shown
   });
 
+  // 2026-11-12-92e9d: File and Discard are passed in by Work it out alone; the ticket composer keeps its own row.
+  it("TicketComposer_HasNoFile", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
+    world.sessions["d-open"] = session("s-1");
+    world.questions["d-open"] = approvalQuestion("d-open");
+    await open();
+    expect(screen.getByTestId("ticket-approve")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+  });
+
   it("TicketComposer_QueuedDecision_CarriesTheShownId", async () => {
     world.conversation = {
       ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: { ...PROPOSAL, proposalId: "p-shown" },

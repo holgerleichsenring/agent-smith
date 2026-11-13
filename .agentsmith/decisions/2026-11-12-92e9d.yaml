@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-12-92e9d
+
+decisions:
+  - category: Design
+    chose: "approvalDecision.ts holds the approval guards (expired, boundList, bound && !approvable) and the per-kind summary; DialogQuestionCard and the new DialogDecisionBar both read it"
+    over: "Copying the guards into SpecDialogSurface, or keeping them private to the card"
+    reason: "File must show exactly where Approve showed; one rule read by both surfaces cannot drift, and the ticket composer keeps its card unchanged."
+  - category: Design
+    chose: "DialogComposer takes an optional actions slot rendered above its input row; only SpecDialogSurface passes File and Discard"
+    over: "File and Discard props on DialogComposer itself"
+    reason: "The composer is shared with the ticket composer, which has its own decision row; a slot keeps the decision rule out of the shared component."
+  - category: Design
+    chose: "A typed message keeps an approval question in the hook (setQuestion keeps it when the post is a plain message); a decision or an ask_human answer still clears it"
+    over: "Showing File from awaitingProposal alone, without the question"
+    reason: "The server keeps the proposal awaiting until a decision or the next proposal (ccd9), so a note decides nothing; keeping the question keeps approvalProposal's id guard and the ask_human guard as they were."
+  - category: Design
+    chose: "The agent entry right after a recorded decision, proposing nothing, renders as a quiet notice line; the decision itself is a quiet line without a speaker mark"
+    over: "Matching the Filed and Rejected notice texts"
+    reason: "The notice is the framework's answer to the decision and its position says so; matching words would break on the next wording change."
+  - category: Design
+    chose: "An expired wait shows one quiet line at the composer and no buttons; the proposal's upload list and the card's free-text question body are not carried to the composer"
+    over: "Keeping the card for expired or non-approval questions"
+    reason: "Nothing expires since ccd9 but the guard stays; ask_human questions already arrive as the turn's text, and the Proposal tab carries the uploads."
+  - category: Testing
+    chose: "DashboardDialogChannelTests' a1fa queued-turn case releases the first turn only once SpecDialogOperatorInbox.IsWaiting says the second message is queued, then waits for the second RunTurnAsync"
+    over: "Committing past a gate that failed it, or sampling the run count after the first reply"
+    reason: "Measured under load (4 of 8 namespace runs): the test's single DbContext took the second admission and the first turn's keep at once and threw, so the queued message never ran; per-request scopes never ask that of a context."

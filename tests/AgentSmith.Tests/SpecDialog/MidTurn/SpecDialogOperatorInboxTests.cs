@@ -36,6 +36,18 @@ public sealed class SpecDialogOperatorInboxTests
     }
 
     [Fact]
+    public void IsWaiting_WhileAMessageIsQueued_TrueUntilTaken()
+    {
+        _gate.TryEnterTurn(Session);
+        _inbox.IsWaiting(Session).Should().BeFalse();
+        _inbox.TryQueue(Session, Message(1, Owner));
+
+        _inbox.IsWaiting(Session).Should().BeTrue();
+        _inbox.Drain(Session, Owner);
+        _inbox.IsWaiting(Session).Should().BeFalse();
+    }
+
+    [Fact]
     public void Drain_TakesThePostersMessagesOnce_LeavesOthers()
     {
         _gate.TryEnterTurn(Session);

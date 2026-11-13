@@ -28,6 +28,12 @@ public sealed class SpecDialogOperatorInbox(SpecDialogTurnGate gate)
         }
     }
 
+    /// <summary>2026-11-12-92e9d: whether a message waits for the session's running turn.</summary>
+    public bool IsWaiting(string sessionId)
+    {
+        lock (_lock) return _queued.TryGetValue(sessionId, out var queue) && queue.Count > 0;
+    }
+
     /// <summary>The inbox as the turn about to run reads it: its poster's messages, recorded on its capture.</summary>
     public IMidTurnMessages For(string sessionId, TurnPoster poster, ForwardedThreadCapture capture) =>
         new SpecDialogTurnMessages(this, gate, sessionId, poster, capture);

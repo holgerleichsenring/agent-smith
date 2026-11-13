@@ -343,7 +343,9 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
           decision: echo,
           pending: { read: reads.current, fromTurn: turnsRead.current },
         });
-      setQuestion(null);
+      // 2026-11-12-92e9d: a message answers an ask_human question but decides no proposal — the approval question
+      // stays until a decision or the next turn's proposal replaces it, and File and Discard with it.
+      setQuestion((held) => (echo === true && held?.kind === "approval" ? held : null));
       awaitedReply.current = from;
       setAwaiting(true);
     } catch (thrown) {

@@ -545,18 +545,78 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-identity")).toHaveTextContent(first);
   });
 
-  it("SpecDialog_ATypedQuestion_RendersItsChoicesAndAnsweringPostsThem", async () => {
+  // 2026-11-12-92e9d: the decision sits at the composer; the conversation holds no control.
+  it("AwaitingProposal_FileAndDiscardAtComposerOnly", async () => {
     await renderSurface();
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString() }));
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
 
-    act(() => questions.emit(question({
-      kind: "choice",
-      choices: [{ label: "the reader" }, { label: "the writer" }],
-    })));
+    const file = await screen.findByTestId("dialog-file");
+    const composer = screen.getByTestId("dialog-composer-text").closest(".d-foot")!;
+    expect(composer).toContainElement(file);
+    expect(composer).toContainElement(screen.getByTestId("dialog-discard"));
+    expect(within(screen.getByTestId("dialog-decision")).getByTestId("dialog-decision-summary"))
+      .toHaveTextContent("File this spec? One ticket.");
+    expect(within(screen.getByTestId("dialog-transcript")).queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryByTestId("dialog-question")).toBeNull();
+    fireEvent.click(file);
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
+    expect(sentProposalIds.at(-1)).toBe("q-1");
+  });
 
-    fireEvent.click(await screen.findByTestId("dialog-answer-the reader"));
+  it("NotApprovable_FileHidden", async () => {
+    const bound = view().session!;
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...bound, ticket: { ticketId: "101", title: "Fix the login", text: "", readAt: "2026-09-15T10:00:00Z", truncated: false } },
+    }));
+    fetchApprovalPreview.mockReset();
+    fetchApprovalPreview.mockResolvedValue({
+      project: "sample", ticketId: "101", effect: "continue", reason: "", executed: 1, unstarted: 0,
+      basisRunId: null, specs: [], start: { kind: "refused-question-pending" },
+    });
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question({ text: "" })));
 
-    await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "the reader", "sample"));
+    await waitFor(() => expect(screen.getByTestId("dialog-decision-summary"))
+      .toHaveTextContent("Approving continues this ticket's series."));
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
+    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+  });
+
+  it("Filed_HistoryShowsQuietLines", async () => {
+    const held = view();
+    held.session!.transcript = [
+      { role: "user", text: "approve", at: "2026-09-15T10:02:00Z", decision: "approved" },
+      { role: "assistant", text: "Filed one spec:\n- #41 goal of p9001", at: "2026-09-15T10:02:05Z" },
+    ];
+    fetchSpecDialog.mockResolvedValue(held);
+
+    render(<SpecDialogSurface />);
+
+    const decision = await screen.findByTestId("dialog-turn-decision");
+    expect(decision).toHaveTextContent("Approved — file the proposal");
+    expect(decision.querySelector(".d-who")).toBeNull();
+    const notice = screen.getByTestId("dialog-turn-notice");
+    expect(notice).toHaveTextContent("Filed one spec");
+    expect(notice.querySelector(".d-who")).toBeNull();
+    expect(screen.queryByTestId("dialog-turn-agent")).toBeNull();
+    expect(screen.getByTestId("dialog-transcript").children).toHaveLength(2);
+  });
+
+  // 2026-11-12-92e9d: an ask_human question stands in the approval's place; the decision is not offered beside it.
+  it("PendingAskHuman_HidesFileAndDiscard", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+    expect(await screen.findByTestId("dialog-file")).toBeInTheDocument();
+
+    act(() => questions.emit(question({ questionId: "q-2", kind: "choice", choices: [{ label: "the reader" }] })));
+
+    await waitFor(() => expect(screen.queryByTestId("dialog-file")).toBeNull());
+    expect(screen.queryByTestId("dialog-discard")).toBeNull();
+    expect(screen.queryByTestId("dialog-question")).toBeNull();
   });
 
   it("SpecDialog_TheApprovalGate_OffersApproveAndRejectThoughItCarriesNoChoices", async () => {
@@ -565,9 +625,9 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question()));
 
-    fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
+    fireEvent.click(await screen.findByTestId("dialog-file"));
 
-    expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
     await waitFor(() =>
       expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
   });
@@ -579,7 +639,7 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
 
-    fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
+    fireEvent.click(await screen.findByTestId("dialog-file"));
 
     const pending = await screen.findByTestId("dialog-turn-decision");
     expect(pending.querySelector("[data-decision]")).toHaveAttribute("data-decision", "approved");
@@ -614,9 +674,9 @@ describe("SpecDialogSurface", () => {
     act(() => questions.emit(question()));
     act(() => proposals.emit(proposal({ spec: draftSpec("p9100"), proposalId: null, reviewing: true, at: "2026-09-15T10:05:00Z" })));
 
-    expect(await screen.findByTestId("dialog-approval-summary"))
+    expect(await screen.findByTestId("dialog-decision-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    fireEvent.click(screen.getByTestId("dialog-answer-approve"));
+    fireEvent.click(screen.getByTestId("dialog-file"));
 
     await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
     expect(sentProposalIds.at(-1)).toBe("q-1");
@@ -626,9 +686,9 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
-    fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
+    fireEvent.click(await screen.findByTestId("dialog-file"));
     await screen.findByTestId("dialog-turn-decision");
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
 
     const unrecorded = view({ question: question() });
     unrecorded.session!.proposal = proposal();
@@ -640,7 +700,7 @@ describe("SpecDialogSurface", () => {
       dialogId: heldDialogId(), title: "Spec dialog", text: "A turn is in progress.", at: new Date().toISOString(),
     }));
 
-    expect(await screen.findByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-file")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-turn-decision")).toBeNull();
   });
 
@@ -1833,9 +1893,9 @@ describe("SpecDialogSurface", () => {
       expiresAt: new Date(Date.now() - 1000).toISOString(),
     })));
 
-    const card = await screen.findByTestId("dialog-question");
-    expect(card).toHaveTextContent("no longer waiting");
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+    expect(await screen.findByTestId("dialog-decision-expired")).toHaveTextContent("No longer waiting");
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
+    expect(screen.queryByTestId("dialog-discard")).toBeNull();
   });
 
   it("SpecDialog_AQuestionWithTimeLeft_StillOffersItsControls", async () => {
@@ -1846,7 +1906,7 @@ describe("SpecDialogSurface", () => {
       expiresAt: new Date(Date.now() + 600_000).toISOString(),
     })));
 
-    expect(await screen.findByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-file")).toBeInTheDocument();
   });
 
   // The question reaches the page as a hub push and lives nowhere else, so before the read
@@ -1864,9 +1924,9 @@ describe("SpecDialogSurface", () => {
 
     render(<SpecDialogSurface />);
 
-    expect(await screen.findByTestId("dialog-question"))
-      .toHaveTextContent("File these two tickets?");
-    expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-decision-summary"))
+      .toHaveTextContent("File this spec? One ticket.");
+    expect(screen.getByTestId("dialog-file")).toBeInTheDocument();
   });
 
   // The hub refuses a dialog id the caller does not own. The page must say so rather than
@@ -2090,7 +2150,9 @@ describe("SpecDialogSurface", () => {
 
     await renderSurface();
 
-    expect(await screen.findByTestId("dialog-question")).toBeInTheDocument();
+    // 2026-11-12-92e9d: the question reads as the turn's text; no card stands for it.
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+    expect(screen.queryByTestId("dialog-question")).toBeNull();
     expect(screen.queryByTestId("dialog-working")).toBeNull();
   });
 
@@ -2716,7 +2778,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
 
-    const summary = await screen.findByTestId("dialog-approval-summary");
+    const summary = await screen.findByTestId("dialog-decision-summary");
     expect(summary).toHaveTextContent(/^File this epic\? One work ticket carrying 3 slices\.$/);
     expect(summary.textContent ?? "").not.toMatch(/record/i);
   });
@@ -2730,16 +2792,15 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getByTestId("dialog-approval-summary"))
+    const surface = await screen.findByTestId("dialog-decision");
+    expect(within(surface).getByTestId("dialog-decision-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    expect(surface).toHaveTextContent("Proposed outcome: epic p9000");
-    expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
+    expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^File$/);
 
     act(() => questions.emit(question({ kind: "confirmation", text: "Keep the scope?" })));
 
-    expect(await screen.findByTestId("dialog-answer-yes")).toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("dialog-decision")).toBeNull());
+    expect(screen.queryByTestId("dialog-answer-yes")).toBeNull();
   });
 
   // 2026-10-13-9a59r: on a TICKET-BOUND conversation "Approve & file … One ticket." is false — the approval
@@ -2758,17 +2819,18 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question({ text: "" })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    await waitFor(() => expect(within(surface).getByTestId("dialog-approval-summary"))
+    const surface = await screen.findByTestId("dialog-decision");
+    await waitFor(() => expect(within(surface).getByTestId("dialog-decision-summary"))
       .toHaveTextContent("Approving files a follow-up ticket linked to this closed one."));
-    expect(within(surface).getByTestId("dialog-answer-approve")).toHaveTextContent(/^Approve$/);
+    expect(within(surface).getByTestId("dialog-file")).toHaveTextContent(/^File$/);
     expect(fetchApprovalPreview).toHaveBeenCalledWith("sample", "101", expect.anything());
   });
 
   // 2026-09-22-355b: the server names the other SHAPES a proposal of this kind could take and
   // sends them as the approval's choices. They ride BESIDE the pair — the card used to return
   // the choices INSTEAD of it, which on an approval would have left no way to approve at all.
-  it("DialogCard_AnApprovalWithShapes_RendersThemBesideApproveAndReject", async () => {
+  // 2026-11-12-92e9d: shapes are no longer offered — the operator says a different shape in words.
+  it("DecisionBar_AnApprovalWithShapes_OffersOnlyFileAndDiscard", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
 
@@ -2777,54 +2839,47 @@ describe("SpecDialogSurface", () => {
       choices: [{ label: "Cut into several specs", description: "too big for one spec" }],
     })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
-    expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
-    const shape = within(surface).getByTestId("dialog-answer-Cut into several specs");
-    expect(shape).toHaveTextContent("Cut into several specs");
-    // The picked shape goes back as its own label, which the server reads as an edit note.
-    fireEvent.click(shape);
-    await waitFor(() =>
-      expect(postSpecDialogMessage.mock.calls.at(-1)![1]).toBe("Cut into several specs"));
-    // A button beside "Approve & file" that quietly spends a master loop is a surprise.
-    expect(surface).toHaveTextContent("Picking a shape files nothing — it starts a new turn");
+    const surface = await screen.findByTestId("dialog-decision");
+    expect(within(surface).getAllByRole("button").map((b) => b.textContent)).toEqual(["File", "Discard"]);
+    expect(screen.queryByTestId("dialog-answer-Cut into several specs")).toBeNull();
+    expect(screen.queryByTestId("dialog-shape-why")).toBeNull();
   });
 
-  it("DialogCard_AnApprovalWithNoShapes_IsUnchanged", async () => {
+  it("DecisionBar_DiscardSendsTheRejectAndClearsTheProposalFromThePage", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
-
     act(() => questions.emit(question({ text: "File these two tickets?", choices: [] })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getAllByRole("button")).toHaveLength(2);
-    expect(within(surface).getByTestId("dialog-answer-approve")).toBeInTheDocument();
-    expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
-    expect(surface).not.toHaveTextContent("Picking a shape");
+    fireEvent.click(await screen.findByTestId("dialog-discard"));
+
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "reject", "sample"));
+    expect(sentProposalIds.at(-1)).toBe("q-1");
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(screen.getByTestId("dialog-turn-decision").querySelector("[data-decision]"))
+      .toHaveAttribute("data-decision", "rejected");
   });
 
   // The wire has carried each choice's description all along and the card dropped it. A shape
   // is a redirection the operator has to be able to judge, so it says why it is offered.
-  it("DialogCard_AShape_ShowsItsExplanation", async () => {
+  // 2026-11-12-92e9d: a typed note decides nothing — File and Discard stay with the proposal awaiting a decision.
+  it("DecisionBar_SendingAMessage_KeepsFileAndDiscard", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+    await screen.findByTestId("dialog-file");
 
-    act(() => questions.emit(question({
-      text: "",
-      choices: [
-        { label: "Cut into several specs", description: "too big for one spec" },
-        { label: "Make it a bug ticket", description: "smaller than a spec" },
-      ],
-    })));
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "make it smaller" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getAllByTestId("dialog-shape-why").map((why) => why.textContent))
-      .toEqual(["too big for one spec", "smaller than a spec"]);
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "make it smaller", "sample"));
+    expect(screen.getByTestId("dialog-file")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
   });
 
   // A CHOICE question is a different question: it has no approve/reject pair to ride beside,
   // and its own branch is untouched by this spec.
-  it("DialogCard_AChoiceQuestion_IsUnchanged", async () => {
+  // 2026-11-12-92e9d: on this page an ask_human question arrives as the turn's text and needs no card.
+  it("SpecDialog_AChoiceQuestion_RendersNoCard", async () => {
     await renderSurface();
 
     act(() => questions.emit(question({
@@ -2832,10 +2887,9 @@ describe("SpecDialogSurface", () => {
       choices: [{ label: "the reader" }, { label: "the writer" }],
     })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getAllByRole("button").map((b) => b.textContent))
-      .toEqual(["the reader", "the writer"]);
-    expect(within(surface).queryByTestId("dialog-answer-approve")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("dialog-answer-the reader")).toBeNull());
+    expect(screen.queryByTestId("dialog-question")).toBeNull();
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
   });
 
   // 2026-11-11-8714: the approval card counts the review in one line; the findings themselves sit under each spec
@@ -2858,7 +2912,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
-    const surface = await screen.findByTestId("dialog-question");
+    const surface = await screen.findByTestId("dialog-decision");
     expect(within(surface).queryByTestId("dialog-approval-review")).toBeNull();
     expect(within(surface).queryByTestId("dialog-proposal-finding")).toBeNull();
     expect(within(surface).queryByTestId("dialog-proposal-rounds")).toBeNull();
@@ -2870,7 +2924,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
-    await screen.findByTestId("dialog-question");
+    await screen.findByTestId("dialog-decision");
     expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
   });
 
@@ -2885,8 +2939,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(surface).toHaveTextContent("Proposed outcome");
+    expect(await screen.findByTestId("dialog-decision-summary")).toHaveTextContent("File this spec? One ticket.");
     expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
   });
 
@@ -2906,11 +2959,10 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "" })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(within(surface).getByTestId("dialog-approval-summary"))
+    const surface = await screen.findByTestId("dialog-decision");
+    expect(within(surface).getByTestId("dialog-decision-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
+    expect(screen.getByTestId("dialog-file")).toBeInTheDocument();
     expect(within(surface).queryByTestId("markdown")).toBeNull();
   });
 
@@ -2929,7 +2981,7 @@ describe("SpecDialogSurface", () => {
 
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
     expect(screen.queryByTestId("dialog-question")).toBeNull();
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+    expect(screen.queryByTestId("dialog-file")).toBeNull();
   });
 
   // The other way the summary goes missing: a proposal DID arrive, of a kind this build cannot
@@ -2947,9 +2999,8 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "" })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    const line = within(surface).getByTestId("dialog-approval-unsummarised");
-    expect(line).toHaveTextContent("cannot count what it would file");
+    const line = await screen.findByTestId("dialog-decision-summary");
+    expect(line).toHaveTextContent("the Proposal tab has it in full");
     expect(line).not.toHaveTextContent("Nothing was saved");
   });
 
@@ -2964,11 +3015,9 @@ describe("SpecDialogSurface", () => {
       text: "", expiresAt: new Date(Date.now() - 1000).toISOString(),
     })));
 
-    const surface = await screen.findByTestId("dialog-question");
-    expect(surface).toHaveTextContent("no longer waiting");
-    expect(surface).toHaveTextContent("anything you write below starts a new turn");
-    expect(surface).not.toHaveTextContent("the proposal is revised with it");
-    expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
+    const line = await screen.findByTestId("dialog-decision-expired");
+    expect(line).toHaveTextContent("Anything you write starts a new turn");
+    expect(line).not.toHaveTextContent("revised");
   });
 
   it("SpecDialog_ATabWithNothingToShow_IsNotOffered", async () => {
@@ -3047,7 +3096,7 @@ describe("SpecDialogSurface", () => {
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent("draft it");
     expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("turn-message")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
-    expect(screen.getByTestId("dialog-approval-summary"))
+    expect(screen.getByTestId("dialog-decision-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
   });
 

@@ -15,6 +15,7 @@ import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
+import { approvalDecision } from "@/components/dialog/approvalDecision";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -23,9 +24,9 @@ import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
+import { DialogDecisionBar } from "./DialogDecisionBar";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
-import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogGreeting } from "./DialogGreeting";
 import { DialogTranscript } from "./DialogTranscript";
@@ -303,17 +304,18 @@ export function SpecDialogSurface() {
   const boundTickets = new Set(
     dialog.conversations.map((held) => held.ticket).filter((id): id is string => id !== null),
   );
-  // 2026-11-12-92e9c: the approval card stands below the conversation, never inside a turn (d854b placed it there).
-  // 2026-11-10-ccd9 review: an approval card renders and sends only the awaiting proposal whose id it carries.
+  // 2026-11-12-92e9d: the decision sits at the composer, never in the conversation (92e9c had moved the card below
+  // it). File and Discard follow the proposal awaiting a decision, by its id (2026-11-10-ccd9 review), under the
+  // card's guards; a pending ask_human question stands in the approval's place, so neither shows beside it.
   const awaitingCard = approvalProposal(dialog.question, dialog.awaitingProposal);
-  const approvalCard = dialog.question && (dialog.question.kind !== "approval" || awaitingCard) ? (
-    <DialogQuestionCard
-      question={dialog.question}
-      proposal={awaitingCard}
-      ticketEffect={ticketEffect}
-      inTicket={bound !== null}
-      onAnswer={(answer, decision) =>
-        void dialog.send(answer, project, decision, undefined, awaitingCard?.proposalId ?? dialog.question?.questionId)}
+  const decision = dialog.question && awaitingCard
+    ? approvalDecision(dialog.question, awaitingCard, ticketEffect, bound !== null)
+    : null;
+  const decisionBar = decision ? (
+    <DialogDecisionBar
+      decision={decision}
+      onDecide={(answer) =>
+        void dialog.send(answer, project, answer === "approve" ? "approved" : "rejected", undefined, awaitingCard?.proposalId ?? undefined)}
     />
   ) : null;
 
@@ -422,7 +424,6 @@ export function SpecDialogSurface() {
                         since={dialog.workingSince}
                       />
                     )}
-                    {approvalCard}
                   </>
                 )}
               </div>
@@ -449,6 +450,7 @@ export function SpecDialogSurface() {
                   note={dialog.uploadNote}
                   left={leftOf(session)}
                   loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}
+                  actions={decisionBar}
                 />
               )}
             </section>
