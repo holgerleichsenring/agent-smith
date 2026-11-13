@@ -38,6 +38,7 @@ public sealed class ProposalReviewQuestionsTests
         await rig.RunAsync();
 
         SpecAttackPrompt.For(rig.Reviewed.First(), null).Should().NotContain(SpecAttackQuestionsSection.Heading);
-        SpecAttackQuestionsSection.Render([]).Should().BeEmpty();
+        SpecAttackQuestionsSection.Render([]).Should().Contain(SpecAttackQuestionsSection.DecisionRule)
+            .And.NotContain(SpecAttackQuestionsSection.Heading);
     }
 }

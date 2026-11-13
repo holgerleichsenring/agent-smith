@@ -752,6 +752,8 @@ export interface SpecReviewCut {
 export interface SpecReviewFinding {
   text: string;
   evidence: string;
+  /** 2026-11-13-b3a2: the question only the owner can answer, when the objection is the owner's decision. */
+  decision?: string | null;
 }
 
 /** 2026-10-13-8762e: a fact whose cited evidence does not resolve. Mirrors C# SpecEvidenceProblem. */

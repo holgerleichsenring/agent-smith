@@ -56,7 +56,8 @@ public sealed class SpecAttackAdmission(ILogger<SpecAttackAdmission> logger)
         var evidence = ReadEvidence(finding, reads, names) ?? AbsenceEvidence(finding, looks, names);
         return evidence is null
             ? Discard<SpecReviewFinding>("finding", finding, $"no look of its own that proves it minted {finding.Cites ?? "nothing"}")
-            : new SpecReviewFinding(finding.Text.Trim(), evidence);
+            : new SpecReviewFinding(finding.Text.Trim(), evidence,
+                string.IsNullOrWhiteSpace(finding.Decision) ? null : finding.Decision.Trim());
     }
 
     private static string? ReadEvidence(

@@ -52,9 +52,11 @@ internal static class ProposalReviewSummary
     private static IEnumerable<ProposalFinding> Problems(string? specId, IReadOnlyList<SpecEvidenceProblem> problems) =>
         specId is null ? [] : problems.Select(p => new ProposalFinding(specId, ProposalEvidenceReview.Problem, p.Problem, p.Claim));
 
+    /// <summary>2026-11-13-b3a2: a settled draft keeps the findings carrying a decision — nothing answered them.</summary>
     private static IEnumerable<ProposalFinding> Uncleared(ProposalDraftReview draft) =>
-        !draft.Settled && draft.Rounds is [.., var last] && last.Verdict != SpecReviewVerdicts.Build
-            ? last.Findings.Select(f => new ProposalFinding(draft.SpecId, last.Verdict, f.Text, null, f.Evidence))
+        draft.Rounds is [.., var last] && last.Verdict != SpecReviewVerdicts.Build
+            ? last.Findings.Where(f => !draft.Settled || ReviewOwnerDecision.Carries(f))
+                .Select(f => new ProposalFinding(draft.SpecId, last.Verdict, f.Text, null, f.Evidence, f.Decision))
             : [];
 
     private static string? ParentId(OutcomeProposal proposal) => (proposal as EpicOutcome)?.Parent.SpecId;

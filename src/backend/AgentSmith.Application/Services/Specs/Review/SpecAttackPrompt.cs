@@ -59,7 +59,8 @@ public static class SpecAttackPrompt
                          "repository": "<repository>", "path": "<path>", "line": <line from your own read>,
                          "cites": "<the evidence id of that read>"}],
                "findings": [{"text": "<what is wrong, one or two sentences>", "repository": "<repository>",
-                             "path": "<path>", "line": <line>, "cites": "<the evidence id it rests on>"}]}
+                             "path": "<path>", "line": <line>, "cites": "<the evidence id it rests on>",
+                             "decision": "<the question only the owner can answer, or null>"}]}
 
             - Every quote is a run of at least {{QuoteWords}} consecutive words of the register it names, copied
               exactly. A cut whose quote is not in that register is discarded.

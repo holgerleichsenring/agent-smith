@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-13-b3a2
+goal: "A spec reviewer can mark an objection as a decision only the owner can make; such a draft waits on the operator instead of reading as wrong, and the design partner sees the difference."
+
+applies_to: "default (SpecAttackPrompt, SpecAttackQuestionsSection, SpecAttackAnswer, review rounds and findings, ProposalReviewText, ProposalReviewSlices, DesignTurnReviewReport, ReviewObjectionQuestion); dashboard (turnCourse, hub-events mirror); skills (design-partner-master)"
+
+requires: [2026-11-13-67ae]
+
+facts:
+  - claim: "The only owner-decision guidance for reviewers renders only when open questions exist, and a finding has no field for it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackQuestionsSection.cs:14-23"
+  - claim: "A finding is written as text, repository, path, line and cites."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:61-62"
+  - claim: "Within a turn only a build or build-with-cuts verdict settles a draft."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewText.cs:18-25"
+  - claim: "A finding reaches the proposal as spec id, problem, why, quote and evidence."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ProposalFinding.cs:21-26"
+  - claim: "The spec mark and the refusal count of a turn message are computed in turnCourse."
+    evidence: "src/dashboard/src/components/dialog/turnCourse.ts:8-60"
+  - claim: "Run 2026-11-13T09-29-57-a375 on 0.185.0 with gpt-5.6-terra: reviewers refused specs because the uploaded requirements forbid approving an implementation spec while a lower-level policy is only a proposal; the master removed every spec one by one and ended with no proposal."
+    evidence: "observed: 2026-11-13 SpecDialogSessions transcript of the run and its dialog activity"
+
+scope:
+  in: "The reviewer's answer shape and brief; carrying the decision through rounds and findings; when such a draft counts as reviewed in the turn; the report; the spec mark and refusal count; the build-time objection question; one descriptive sentence in the skill."
+  out: "A fourth verdict; parent and series rounds (they keep today's rules); any rule on what the master may remove."
+
+steps:
+  - id: answer
+    action: "Each finding may carry decision: the question only the owner can answer (a policy, value or trade-off the material leaves open or marks unapproved), worded as a question. An objection only the owner can settle is answered REFUSE with every finding carrying decision. This is the structured form of the rule SpecAttackQuestionsSection states, whose wording moves to name the field and now renders whether or not open questions exist. A decision cites the material's line, read under reference:<name>, like any finding."
+  - id: carry
+    action: "decision travels as an optional trailing field through SpecAttackWire/SpecAttackItem (default in SeriesContractAdmission), admission, merge, SpecReviewFinding, the round and ProposalFinding; the TypeScript mirror hub-events.ts SpecReviewFinding gets decision?: string | null by hand (gen:hub-events compares record names only). ProposalReviewSlices keeps a finding that carries a decision on an edited settled text (nothing answered it)."
+  - id: waits
+    action: "A refused round whose every finding carries a decision means the draft waits on the owner: ProposalReviewText treats it as passed, settled for the rest of the turn as a passed draft is under 2026-11-13-3f79. A mixed round (one reviewer's decision beside another's defect, or the synthesized done-deletion finding) is an ordinary refusal and is reviewed again."
+  - id: report
+    action: "The review report lists waiting drafts apart under 'waits on the owner', each decision as a question, saying the draft stays as written until the owner answers and the decision belongs in the open questions with the author's proposal. A decision on any verdict is printed as a question. Ordinary refusals and cuts stay as they are."
+  - id: mark
+    action: "turnCourse.markOf gives such a spec a pause mark with 'waits on your answer' (new SpecMark member); refusalsOf does not count it as an open refusal."
+  - id: build-time
+    action: "ReviewObjectionQuestion renders a finding's decision as the question asked on the ticket."
+  - id: skill
+    action: "design-partner-master 3.1.1 describes that a review may come back as a decision for the owner, which goes to the open questions while the item stays; released and pinned."
+
+tests:
+  - "SpecAttackAnswerTests: Finding_WithDecision_Parsed"
+  - "SpecAttackAdmissionTests: Decision_WithoutOwnRead_Discarded"
+  - "SpecReviewMergeTests: DecisionAndDefect_Mixed"
+  - "ProposalReviewTextTests: RefuseAllFindingsDecisions_Passed; RefuseMixed_NotPassed"
+  - "ProposalReviewLedgerTests: Compose_DecisionSettledEdited_KeepsDecision"
+  - "DesignTurnReviewReportTests: OwnerDecisions_ListedApartAsQuestions"
+  - "ReviewObjectionQuestionTests: Decision_RenderedAsQuestion"
+  - "turnCourse.test.ts: RefusedOnDecisionsOnly_WaitsMark_NotCountedAsRefusal"
+
+done:
+  - "A draft refused only on owner decisions stays in the proposal, its decisions reach the master as questions, and the turn ends without another pass over it."
+  - "A refusal with a real defect still sends the draft back to a fresh reviewer."
