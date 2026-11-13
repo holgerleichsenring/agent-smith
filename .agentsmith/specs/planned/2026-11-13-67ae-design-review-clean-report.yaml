@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-13-67ae
+goal: "A review pass over a ticket list that finds nothing tells the design partner so before its reply goes out, and a plan reviewer that gave no answer is told apart from a clean one."
+
+applies_to: "default (DesignTurnReviewReport, TicketPlanReview)"
+
+requires: [2026-11-13-3f79]
+
+facts:
+  - claim: "The report is null when the pass took no new round and found nothing, so a clean list review reaches the master as silence."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DesignTurnReviewReport.cs:24-31"
+  - claim: "A plan reviewer that failed or answered unreadably yields no findings, the same as a clean review."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketPlanReview.cs:29"
+  - claim: "Replay 20261113-024633-final-1: the turn-1 reply over a 44-ticket list said the review of the final draft was still running, though the pass had run before the reply went out."
+    evidence: "observed: 2026-11-13 replay out/20261113-024633-final-1 view-final.json transcript[1]"
+
+scope:
+  in: "The report for a list pass; a failed plan review's mark."
+  out: "Spec and epic passes, whose clean rounds are already reported as build; any change to when a pass runs."
+
+steps:
+  - id: failed-marked
+    action: "When the plan reviewer gives no readable answer, the list carries one NotReviewedYet finding under the list key with a plain reason (the plan reviewer gave no answer), as an unreadable settings block already does; not NotReviewedWhy, which promises a review before building that a list never gets. An edited settled list keeps that mark (ProposalReviewSlices.EditedList keeps NotReviewedYet beside BoundProblem)."
+  - id: clean-report
+    action: "A list pass with no finding at all (no reviewer finding, no existence finding, no BoundProblem, no NotReviewedYet) returns a report: the heading and one line saying the reviewers read the final list and found nothing to object to. A list pass whose reviewer failed reports its NotReviewedYet line and never the clean line; a bound conversation's list reports nothing."
+
+tests:
+  - "DesignTurnReviewReportTests: ListPass_NothingFound_ReportsClean"
+  - "DesignTurnReviewReportTests: ListPass_ReviewerFailed_ReportsNotReviewedLine_NoCleanLine; ListPass_Bound_NoReport"
+  - "ProposalReviewLedgerTests: TicketList_ReviewerFailed_ThenEdited_KeepsNotReviewed"
+  - "TicketPlanReviewTests: TicketPlanReview_ReviewerFails_ProposalUnchangedNothingBlocked rewritten to expect one NotReviewedYet finding under ListKey"
+  - "TicketPlanReviewTests: ReviewerUnreadable_MarksListNotReviewed"
+
+done:
+  - "After a clean list review the master receives a report saying so before its reply goes out."
+  - "A failed plan review never reads as clean."
