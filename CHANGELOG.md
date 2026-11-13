@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.186.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.185.0...v0.186.0) (2026-11-13)
+
+
+### Features
+
+* a review can name a decision only the owner can make, and the design partner keeps that item and asks instead of removing it ([814eb38](https://github.com/holgerleichsenring/agent-smith/commit/814eb387538996891b3b660ea203f564be780a21))
+* a running design turn shows condensed lines under a minutes-and-seconds clock, reviewer steps run under a Review frame and never show as raw text, and an answer turn clears its reviewing draft (2026-11-13-3dc8) ([65fef43](https://github.com/holgerleichsenring/agent-smith/commit/65fef4367c01f889874cd60a428b2007035fbce4))
+* a running design turn shows quiet condensed lines with a clock, reviewer answers never show as raw text, and an answer turn leaves no stale draft ([e9ef4da](https://github.com/holgerleichsenring/agent-smith/commit/e9ef4daf698c52f514b29f8711ae227b4526975e))
+* a spec reviewer can name an objection the owner's decision, and a draft refused on such decisions only waits on the owner instead of reading as wrong (2026-11-13-b3a2) ([9dba6c4](https://github.com/holgerleichsenring/agent-smith/commit/9dba6c4bb06f9601596cb154102cb6f6389f1654))
+* pin skills v5.31.0, the design partner keeps an item whose review waits on an owner decision (2026-11-13-1cdc) ([87a7855](https://github.com/holgerleichsenring/agent-smith/commit/87a785504663b72d0055a1fa56aebd698baf0447))
+
 ## [0.185.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.184.0...v0.185.0) (2026-11-13)
 
 
