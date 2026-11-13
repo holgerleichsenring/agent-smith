@@ -128,8 +128,8 @@ internal sealed class ProposalReviewRig
             [first ?? Yaml(First), second ?? Yaml(Second, requires: [First])]);
 
     /// <summary>2026-10-13-8762k: the two-child epic with a series contract — event 87 owned by the first child.</summary>
-    public static string ContractEpic() => EpicReply(Yaml(Parent, "The export is rebuilt in two slices."),
-        [Yaml(First), Yaml(Second, requires: [First])], contract: new Dictionary<object, object?>
+    public static string ContractEpic(string? second = null) => EpicReply(Yaml(Parent, "The export is rebuilt in two slices."),
+        [Yaml(First), second ?? Yaml(Second, requires: [First])], contract: new Dictionary<object, object?>
         {
             ["names"] = new List<object?>
             {

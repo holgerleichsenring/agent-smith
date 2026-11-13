@@ -13,6 +13,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// on, ONE pass (<see cref="ProposalReviewPass"/>); off, the mechanical checks only
 /// (<see cref="ProposalMechanicalChecks"/>). 2026-11-12-92e9b: with the pass on, a draft whose every text this turn
 /// already reviewed takes the ledger's results and nothing runs; a pass that ran hands its report back to the master.
+/// 2026-11-13-3f79: a draft a pass passed counts as reviewed whatever its text became (<see cref="ProposalReviewLedger"/>),
+/// and the report names only what the pass took.
 /// </summary>
 public sealed class SpecDialogProposalReview(
     ProposalMechanicalChecks checks, ISpecReviewSettingsReader settings, ProposalReviewPass pass,
@@ -32,9 +34,17 @@ public sealed class SpecDialogProposalReview(
         var ledger = ProposalReviewLedger.Of(turn.Pipeline);
         if (ledger.Covers(proposal)) return new(ledger.Compose(proposal), null);
         await PublishUnderReviewAsync(turn.Pipeline, proposal, ct);
+        var carried = Carried(turn.Pipeline, ledger);
         var reviewed = await pass.ReviewAsync(turn, on, proposal, ct);
-        return new(reviewed, DesignTurnReviewReport.For(reviewed));
+        return new(reviewed, DesignTurnReviewReport.For(reviewed, carried));
     }
+
+    /// <summary>2026-11-13-3f79: every round known before the pass — this turn's and the revised proposal's — which a
+    /// pass carries and its report does not name again.</summary>
+    private static IReadOnlyList<ProposalReviewRound> Carried(PipelineContext pipeline, ProposalReviewLedger ledger) =>
+        pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal, out var revised) && revised is not null
+            ? [.. ledger.Rounds(), .. revised.ReviewRounds]
+            : ledger.Rounds();
 
     private static OutcomeProposal Unread(OutcomeProposal proposal, string problem) => proposal is TicketGraphOutcome graph
         ? graph with { Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, problem)] }

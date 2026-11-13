@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-13-3f79
+
+decisions:
+  - category: Design
+    chose: "The ledger keeps a second map, settled key -> newest result that passed the text; each text names its exact key, the id its review sits under and its settled key (ProposalReviewText): a draft's spec id, 'series' plus the parent's id for an epic's parent, 'list' for a ticket list"
+    over: "Loosening the exact-text key, or a pass counter"
+    reason: "Exact keys still decide what a refused or unreviewed text needs; settled is a property of what the reviewers said, as in the spec-first review loop, and no count is involved. Keying the parent by its id keeps a different epic in the same turn from inheriting a settled series round."
+  - category: Design
+    chose: "Where a settled draft's current text also has an exact entry, the exact entry wins in Compose and carry-over"
+    over: "Settled always winning"
+    reason: "An exact entry is a result on exactly this text; settled drafts are never attacked again, so an exact entry after settling only arises from a carried record and holds the same rounds."
+  - category: Design
+    chose: "A settled draft whose text changed is composed with its settled rounds but without the findings the reviewers' verdicts and the series round raised (build, build-with-cuts, refuse, series-contract), no not-reviewed mark and no ReviewedClean; evidence and whole-set findings stay"
+    over: "Dropping every finding, or keeping them all"
+    reason: "The cuts were applied, so their objections are answered; a clean mark binds a hash of a text that no longer exists. An edited settled list keeps only the bound-conversation note."
+  - category: Scope
+    chose: "The evidence check of an edited settled text is left to the build-time review; a turn whose drafts are all settled runs no pass"
+    over: "Running the evidence script over every edited settled text before the reply"
+    reason: "The build-time review attacks by exact text hash and runs the evidence check anyway; within the turn the operator reads the draft, and a pass that runs for another draft still checks every draft's evidence."
+  - category: Design
+    chose: "The report tells the pass's own rounds from carried ones by reference against every round known before the pass (the ledger's and the revised proposal's), and names findings only on drafts with a fresh round, plus parent and series-contract findings with a fresh series round; a list pass reports all its findings"
+    over: "A carried flag on ProposalReviewRound"
+    reason: "Carry-over and composition pass the same round instances along, so identity is exact without widening a published contract; value equality could match a fresh round built from shared empty collections."
+  - category: Design
+    chose: "A settled parent's series round is carried into the pass outcome rather than omitted"
+    over: "Leaving the series round out of a later pass"
+    reason: "The published proposal keeps the round that settled it, and the recorded result keeps the parent settled."

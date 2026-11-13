@@ -55,22 +55,102 @@ public sealed class ProposalReviewLedgerTests
     }
 
     [Fact]
-    public void Report_NothingReviewed_IsNull_ReviewedFindings_AreReported()
+    public void BuildWithCuts_ThenEdited_StillCovered()
     {
-        var capped = new SpecOutcome(Draft("a", "spec: a")) with
-        {
-            Findings = [new ProposalFinding("a", ProposalReviewSummary.NotReviewedYet, "cost cap")], NotReviewed = ["a"],
-        };
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        ledger.Record(Passed(Draft("a", "spec: a"), SpecReviewVerdicts.BuildWithCuts));
 
-        DesignTurnReviewReport.For(capped).Should().BeNull();
-        DesignTurnReviewReport.For(Reviewed(Draft("a", "spec: a"), "objection")).Should()
-            .StartWith(DesignTurnReviewReport.Heading).And.Contain($"a: {SpecReviewVerdicts.Refuse}").And.Contain("objection");
+        ledger.Covers(new SpecOutcome(Draft("a", "spec: a, cuts applied"))).Should().BeTrue();
+        ledger.Settled("a").Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Refused_ThenEdited_NotCovered()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        ledger.Record(Reviewed(Draft("a", "spec: a"), "objection"));
+
+        ledger.Covers(new SpecOutcome(Draft("a", "spec: a, rewritten"))).Should().BeFalse();
+        ledger.Settled("a").Should().BeNull();
+    }
+
+    [Fact]
+    public void Compose_SettledEdited_CarriesSettledRounds()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        var passed = Passed(Draft("a", "spec: a"), SpecReviewVerdicts.BuildWithCuts) with
+        {
+            Findings = [new ProposalFinding("a", SpecReviewVerdicts.BuildWithCuts, "cut this"), new ProposalFinding("a", "evidence", "a path")],
+        };
+        ledger.Record(passed);
+
+        var composed = ledger.Compose(new SpecOutcome(Draft("a", "spec: a, cuts applied")));
+
+        composed.ReviewRounds.Should().ContainSingle().Which.Should().BeSameAs(passed.ReviewRounds[0]);
+        composed.Findings.Select(f => f.Why).Should().Equal("a path");
+    }
+
+    [Fact]
+    public void Compose_SettledEdited_NoReviewedCleanForNewText()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        ledger.Record(Passed(Draft("a", "spec: a"), SpecReviewVerdicts.Build) with
+        {
+            ReviewedClean = [Contracts.Specs.ReviewedText.Of("a", "spec: a")],
+        });
+
+        var composed = ledger.Compose(new SpecOutcome(Draft("a", "spec: a, edited")));
+
+        composed.ReviewedClean.Should().BeEmpty();
+        composed.NotReviewed.Should().BeNull();
+    }
+
+    [Fact]
+    public void TicketList_ThenEdited_StillCovered()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        ledger.Record(new TicketGraphOutcome([Ticket("order-api")]) with
+        {
+            Findings = [new ProposalFinding("order-api", "scope", "too wide")],
+        });
+
+        var edited = new TicketGraphOutcome([Ticket("order-api"), Ticket("order-ui")]);
+
+        ledger.Covers(edited).Should().BeTrue();
+        ledger.Compose(edited).Findings.Should().BeEmpty("the master answered the plan review");
+    }
+
+    [Fact]
+    public void ParentNoContract_ThenEdited_StillCovered()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        var child = Draft("c", "spec: c");
+        ledger.Record(new EpicOutcome(Draft("p", "spec: p"), [child]) with { ReviewRounds = [Pass("c", SpecReviewVerdicts.Build)] });
+
+        ledger.Covers(new EpicOutcome(Draft("p", "spec: p, edited"), [child])).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Rounds_EveryRecordedRound()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        var reviewed = Reviewed(Draft("a", "spec: a"), "objection");
+        ledger.Record(reviewed);
+
+        ledger.Rounds().Should().Contain(reviewed.ReviewRounds[0]);
     }
 
     private static OutcomeProposal Reviewed(SpecDraft draft, string why) => new SpecOutcome(draft) with
     {
         Findings = [new ProposalFinding(draft.SpecId, SpecReviewVerdicts.Refuse, why)], ReviewRounds = [Round(draft.SpecId)],
     };
+
+    private static OutcomeProposal Passed(SpecDraft draft, string verdict) =>
+        new SpecOutcome(draft) with { ReviewRounds = [Pass(draft.SpecId, verdict)] };
+
+    private static ProposalReviewRound Pass(string specId, string verdict) => new(specId, 1, verdict, [verdict], [], [], []);
+
+    private static GraphTicket Ticket(string key) => new(key, $"Title of {key}", $"The scope of {key}.", ["done"], [], ["api"]);
 
     private static ProposalReviewRound Round(string specId) =>
         new(specId, 1, SpecReviewVerdicts.Refuse, [SpecReviewVerdicts.Refuse], [], [], []);

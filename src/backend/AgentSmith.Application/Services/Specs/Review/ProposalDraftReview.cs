@@ -15,6 +15,10 @@ internal sealed class ProposalDraftReview(SpecDraft draft)
     public bool Stopped { get; set; }
     public bool NotReviewed { get; set; }
 
+    /// <summary>2026-11-13-3f79: a pass of this turn passed this draft in an earlier text; its rounds are that
+    /// pass's and its cuts are taken as applied.</summary>
+    public bool Settled { get; set; }
+
     /// <summary>2026-11-10-18cf: why this draft was not reviewed — the run's cost cap, no reviewer answered, or its
     /// reviewers could not read — or null.</summary>
     public string? StoppedBecause { get; set; }

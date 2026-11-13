@@ -105,6 +105,46 @@ public sealed class SpecDialogTurnFlowTests
     }
 
     [Fact]
+    public async Task CutsApplied_NoSecondPass_ReplyGoesOut()
+    {
+        var edited = new ProposalReviewRig().Propose(SpecReply(Yaml(Lone, step: "Write the orders through the export queue.")));
+        ProposalReviewRig? captured = null;
+        var (rig, loop) = Turn(_ => Cuts(Cut(SpecRegisterNames.Steps, "buffered file writer", "export queue")), _ =>
+        {
+            captured!.Slot.Proposal.Seed(Application.Services.SpecDialog.Writes.ProposalDraftSeed.Of(edited), true);
+            return Result("Cuts applied.");
+        });
+        captured = rig;
+
+        var reply = await ConcludeAsync(rig, loop);
+
+        loop.Requests.Should().ContainSingle("the report of the one pass; the applied cuts are not reviewed again");
+        reply.Response.Text.Should().Be("Cuts applied.");
+        rig.Reviewed.Should().HaveCount(2, "one pass");
+        rig.Outcome.Should().BeOfType<SpecOutcome>().Which.Draft.Yaml.Should().Contain("export queue");
+        rig.Outcome.ReviewRounds.Should().ContainSingle().Which.Verdict.Should().Be(SpecReviewVerdicts.BuildWithCuts);
+    }
+
+    [Fact]
+    public async Task RefusedRewritten_ReviewedAgain()
+    {
+        var rewritten = new ProposalReviewRig().Propose(SpecReply(Yaml(Lone, step: "Write the orders through the export queue.")));
+        ProposalReviewRig? captured = null;
+        var (rig, loop) = Turn(input => input.Draft.Yaml.Contains("buffered") ? Refuse("not buffered") : Build(), _ =>
+        {
+            captured!.Slot.Proposal.Seed(Application.Services.SpecDialog.Writes.ProposalDraftSeed.Of(rewritten), true);
+            return Result("Rewritten.");
+        });
+        captured = rig;
+
+        await ConcludeAsync(rig, loop);
+
+        rig.Reviewed.Should().HaveCount(4, "the rewritten text of a refused draft gets a pass of its own");
+        loop.Requests.Should().HaveCount(2);
+        loop.Requests[1].UserPrompt.Should().Contain($"{Lone}: {SpecReviewVerdicts.Build}").And.NotContain(SpecReviewVerdicts.Refuse);
+    }
+
+    [Fact]
     public async Task DesignTurnReviewOff_NoExtraPass()
     {
         var (rig, loop) = Turn(_ => Refuse("never asked"), _ => throw new InvalidOperationException("no pass expected"));
