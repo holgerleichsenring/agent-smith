@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Specs.Review;
@@ -26,6 +27,22 @@ public sealed class SpecReviewMergeTests
 
         merged.IsTaken.Should().BeFalse();
         merged.Blind.Should().BeTrue();
+    }
+
+    /// <summary>2026-11-13-b3a2: one reviewer's owner decision beside another's defect is an ordinary refusal.</summary>
+    [Fact]
+    public void DecisionAndDefect_Mixed()
+    {
+        var decision = new SpecReviewFinding("the policy is only proposed", "ref/policy.md:3 [A1]", "Is the policy approved?");
+        var defect = new SpecReviewFinding("the handler does not exist", "shop/src/H.cs [A2]");
+
+        var merged = SpecReviewMerge.Merge([
+            new SpecAttackResult(SpecReviewVerdicts.Refuse, [], [decision]),
+            new SpecAttackResult(SpecReviewVerdicts.Refuse, [], [defect])]);
+
+        merged.Findings.Should().Equal(decision, defect);
+        ReviewOwnerDecision.Waits(new ProposalReviewRound("a", 1, merged.Verdict!, [], [], merged.Findings, []))
+            .Should().BeFalse("a defect stands beside the decision");
     }
 
     [Fact]

@@ -72,6 +72,31 @@ public sealed class DesignTurnReviewReportTests
         DesignTurnReviewReport.For(bound, []).Should().BeNull();
     }
 
+    /// <summary>2026-11-13-b3a2: a draft refused on owner decisions only is listed apart, each decision as a question.</summary>
+    [Fact]
+    public void OwnerDecisions_ListedApartAsQuestions()
+    {
+        var decision = new SpecReviewFinding("the policy is only proposed", "ref/policy.md:3 [A1]", "is the retention policy approved");
+        var waiting = new SpecOutcome(Draft("a")) with
+        {
+            Findings = [new ProposalFinding("a", SpecReviewVerdicts.Refuse, decision.Text, null, decision.Evidence, decision.Decision)],
+            ReviewRounds = [new ProposalReviewRound("a", 1, SpecReviewVerdicts.Refuse, [SpecReviewVerdicts.Refuse], [], [decision], [])],
+        };
+        var defect = Refused("b", "the handler does not exist");
+        var reviewed = new EpicOutcome(Draft("p"), [Draft("a"), Draft("b")]) with
+        {
+            ReviewRounds = [.. waiting.ReviewRounds, .. defect.ReviewRounds], Findings = [.. waiting.Findings, .. defect.Findings],
+        };
+
+        var report = DesignTurnReviewReport.For(reviewed, [])!;
+
+        report.Should().Contain(DesignTurnReviewReport.WaitingHeading).And.Contain(DesignTurnReviewReport.WaitingRule)
+            .And.Contain("is the retention policy approved?").And.Contain($"b: {SpecReviewVerdicts.Refuse}");
+        report.Should().NotContain($"- a: {SpecReviewVerdicts.Refuse}").And.NotContain("- a [");
+        report.IndexOf("the handler does not exist", StringComparison.Ordinal).Should()
+            .BeLessThan(report.IndexOf(DesignTurnReviewReport.WaitingHeading, StringComparison.Ordinal));
+    }
+
     private static GraphTicket Ticket(string key) => new(key, $"Title of {key}", $"The scope of {key}.", ["done"], [], ["api"]);
 
     private static OutcomeProposal Refused(string id, string why) => new SpecOutcome(Draft(id)) with

@@ -129,6 +129,22 @@ public sealed class SpecAttackAdmissionTests
         result.Findings.Single().Evidence.Should().Be($"shop/{Handler}:5 [{id}]").And.NotContain(Key);
     }
 
+    /// <summary>2026-11-13-b3a2: a decision is a finding like any other — it rests on a read of its own.</summary>
+    [Fact]
+    public void Decision_WithoutOwnRead_Discarded()
+    {
+        var look = Look();
+        var id = Read(look, Handler, lines: 40);
+        var decided = """, "decision": "Is the policy approved?"}""";
+
+        var result = Admit(Answer("REFUSE", findings: string.Join(", ",
+            Finding("the policy is only proposed", Handler, 12, id).TrimEnd('}') + decided,
+            Finding("the other policy is only proposed", Handler, 12, "A9").TrimEnd('}') + decided)), look);
+
+        result.Findings.Should().ContainSingle().Which.Decision.Should().Be("Is the policy approved?");
+        result.Verdict.Should().Be(SpecReviewVerdicts.Refuse);
+    }
+
     private static string Answer(string verdict, string? cuts = null, string? findings = null) =>
         $$"""Here is my answer, citing [A1]: {"verdict": "{{verdict}}", "cuts": [{{cuts}}], "findings": [{{findings}}]}""";
 

@@ -48,11 +48,11 @@ internal static class ProposalReviewSlices
         OutcomeProposal proposal, ProposalReviewText text, OutcomeProposal result, bool edited)
     {
         var id = FindingId(proposal, text.Id);
-        return result.Findings.Where(f => f.SpecId == id && !(edited && Answered(f)));
+        return result.Findings.Where(f => f.SpecId == id && !(edited && Answered(f) && string.IsNullOrWhiteSpace(f.Decision)));
     }
 
     /// <summary>A reviewer's objection — a round's uncleared finding or a series-contract one — which the applied
-    /// cuts answered.</summary>
+    /// cuts answered. 2026-11-13-b3a2: one carrying an owner's decision is kept — no cut answers it.</summary>
     private static bool Answered(ProposalFinding finding) => finding.Problem
         is SpecReviewVerdicts.Build or SpecReviewVerdicts.BuildWithCuts or SpecReviewVerdicts.Refuse or ProposalSeriesRound.Problem;
 

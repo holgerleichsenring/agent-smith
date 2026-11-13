@@ -154,6 +154,24 @@ public sealed class ProposalReviewLedgerTests
         ledger.Rounds().Should().Contain(reviewed.ReviewRounds[0]);
     }
 
+    /// <summary>2026-11-13-b3a2: a draft refused on owner decisions only is settled, and its decision outlives an edit.</summary>
+    [Fact]
+    public void Compose_DecisionSettledEdited_KeepsDecision()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        var decision = new SpecReviewFinding("the policy is only proposed", "ref/policy.md:3 [A1]", "Is the policy approved?");
+        ledger.Record(new SpecOutcome(Draft("a", "spec: a")) with
+        {
+            Findings = [new ProposalFinding("a", SpecReviewVerdicts.Refuse, decision.Text, null, decision.Evidence, decision.Decision)],
+            ReviewRounds = [new ProposalReviewRound("a", 1, SpecReviewVerdicts.Refuse, [SpecReviewVerdicts.Refuse], [], [decision], [])],
+        });
+
+        var edited = new SpecOutcome(Draft("a", "spec: a, edited"));
+
+        ledger.Covers(edited).Should().BeTrue("a draft waiting on the owner is settled for the turn");
+        ledger.Compose(edited).Findings.Should().ContainSingle().Which.Decision.Should().Be("Is the policy approved?");
+    }
+
     private static OutcomeProposal Reviewed(SpecDraft draft, string why) => new SpecOutcome(draft) with
     {
         Findings = [new ProposalFinding(draft.SpecId, SpecReviewVerdicts.Refuse, why)], ReviewRounds = [Round(draft.SpecId)],

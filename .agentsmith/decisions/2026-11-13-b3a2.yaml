@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-13-b3a2
+
+decisions:
+  - category: Design
+    chose: "An optional trailing decision field on SpecReviewFinding, SpecAttackItem and ProposalFinding; a round waits on the owner when it refused and every finding carries a decision (ReviewOwnerDecision.Waits), never a series round"
+    over: "A fourth verdict, or a flag on the round"
+    reason: "The verdict set is the plugin's; a property of the findings needs no new contract value, and a mixed round (a defect, or the synthesized done-deletion finding, beside a decision) stays an ordinary refusal by construction."
+  - category: Design
+    chose: "ProposalReviewText.PassedIn counts a waiting draft as passed, so the ledger settles it for the turn; a settled draft's decision findings survive both Uncleared (ProposalReviewSummary) and an edited settled composition (ProposalReviewSlices)"
+    over: "Dropping them with the answered objections"
+    reason: "No cut answers an owner's decision; the master must still see and carry it to the open questions."
+  - category: Design
+    chose: "The reviewer's decision rule renders in its own section whether or not open questions exist; the questions section keeps its heading and renders only with questions"
+    over: "Rendering the whole questions section always"
+    reason: "The production failure had no open questions, so the rule must stand alone; the existing heading still means a list of questions."
+  - category: Design
+    chose: "The report lists waiting drafts under 'Waits on the owner:' after the objections, each decision as a question, and prints the weigh-each-objection rule only when another objection or round stands; a decision on any other finding is printed as 'the owner decides: <question>'"
+    over: "Reporting a waiting draft as a refusal with a note"
+    reason: "A refusal reads as wrong, which is what made the master delete every spec."
+  - category: Design
+    chose: "turnCourse leaves a spec whose last round waits out of the refusal count altogether"
+    over: "Counting it as a resolved refusal"
+    reason: "It was neither resolved nor wrong; 'resolved' would claim an answer nobody gave."
+  - category: Scope
+    chose: "The skill step (design-partner-master 3.1.1, pin) is built in the skills repository separately"
+    over: "Bundling the pin into this commit"
+    reason: "The operator split it; this commit carries the framework half only."

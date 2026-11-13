@@ -409,6 +409,8 @@ export interface SpecDialogProposalFinding {
   why: string;
   quote: string | null;
   evidence: string | null;
+  /** 2026-11-13-b3a2: the question only the owner can answer, when the reviewer named one. */
+  decision?: string | null;
 }
 
 /**

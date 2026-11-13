@@ -32,8 +32,9 @@ public sealed record SpecReviewCut(
     string Register, string Quote, string? Replacement, string Evidence, string? SpecId = null);
 
 /// <summary>2026-10-13-8762e: one finding, with the reviewer's own look it rests on — <c>repo/path:line [Aid]</c>
-/// for a read, <c>repo search:'pattern' [Aid]</c> for a search.</summary>
-public sealed record SpecReviewFinding(string Text, string Evidence);
+/// for a read, <c>repo search:'pattern' [Aid]</c> for a search. 2026-11-13-b3a2: <see cref="Decision"/> is the
+/// question only the owner can answer when the objection is a decision the material leaves open, or null.</summary>
+public sealed record SpecReviewFinding(string Text, string Evidence, string? Decision = null);
 
 /// <summary>2026-10-13-8762e: a fact whose cited evidence does not resolve, and why.</summary>
 public sealed record SpecEvidenceProblem(string Claim, string Problem);
