@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-13-3dc8
+goal: "A running design turn shows quiet condensed lines with a ticking clock, reviewer answers never show as raw text, and a turn that ends without a proposal leaves no stale draft behind."
+
+applies_to: "dashboard (DialogWorking, condenseSteps; also rendered by TicketComposer); default (ProposalReviewPass activity frame, reviewing draft on the session)"
+
+requires: []
+
+facts:
+  - claim: "The working line shows a step count, the last three raw steps and a fold labelled with how many earlier steps exist and how many it lists."
+    evidence: "src/dashboard/src/components/dialog/DialogWorking.tsx:44-110"
+  - claim: "A page that reloads mid-turn is seeded with the server's last 50 steps only."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RunningDialogTurn.cs:30"
+  - claim: "Read and search bursts match only bare tool names, so a sub-agent's prefixed 'Name › read_file' becomes a line of its own."
+    evidence: "src/dashboard/src/components/dialog/condenseSteps.ts:23-40"
+  - claim: "A sub-agent's activity reaches the turn under its name through an activity frame; reviewers open none, so their model answers look like the master's narration."
+    evidence: "src/backend/AgentSmith.Application/Services/Turns/SubAgentActivityFrame.cs:9-16"
+  - claim: "The reviewing draft is cleared only when a proposal takes the awaiting slot."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogProposalClaim.cs:46-56"
+  - claim: "Run 2026-11-13T09-29-57-a375: the page read '648s · 451 steps' over '448 earlier steps, the last 47 listed', the history listed reviewer verdict JSON, and the pane kept a spec the reply said was removed."
+    evidence: "observed: 2026-11-13 operator screenshots of dialog d-e321d1d975be4b96"
+
+scope:
+  in: "The live working line; burst matching; a reviewer activity frame; clearing the reviewing draft when a turn finishes normally without a proposal."
+  out: "The server's 50-step seed (a reload mid-turn condenses what it was given); the run viewer; a crashed turn, which keeps its reviewing draft for the next turn to continue."
+
+steps:
+  - id: live-condensed
+    action: "The working line renders condenseSteps over the held steps, newest last, under the existing opening words followed by 'Xm Ys' (DialogElapsed renders minutes and seconds instead of plain seconds; a ticking cue); no step count, no fold, no earlier-steps label. The liveness tests that counted steps assert the merged lines instead (same reconnect proof). stepCount and earlierStepsLabel go if unused. Logged as a decision reversing 92e9c's raw live line."
+  - id: prefixed-bursts
+    action: "Burst matching takes the tool name after a 'Name › ' prefix, so sub-agent reads and searches join a counted burst."
+  - id: reviewer-frame
+    action: "ProposalReviewPass opens a SubAgentActivityFrame named 'Review' after its Reviewing report and around the rest of the pass, so reviewer steps arrive as 'Review › …'; the condenser drops model steps whose name is prefixed (sub-agent or reviewer answers) and keeps the master's narration and the 'reviewing its proposal' line."
+  - id: clear-reviewing
+    action: "When a design turn finishes normally without a proposal (SpecDialogOutcomeFlow's AnswerOutcome return; a thrown turn returns earlier and keeps its draft), a new SpecDialogProposalClaim method behind SpecDialogProposalState clears ReviewingProposalJson, also LatestProposalJson where ProposalId is null (the legacy fallback), and drops that turn's own proposal row written mid-turn by DialogProposalObserver, then nudges like StoreReviewingAsync. The pane, a reload and the next turn's continuity hold no draft the reply removed."
+
+tests:
+  - "DialogWorking.test.tsx: Live_CondensedLinesAndClock_NoStepCount"
+  - "condenseSteps.test.ts: PrefixedSubAgentReads_JoinBurst; PrefixedModelStep_NotALine; MasterNarration_Kept"
+  - "SpecDialogSurface.test.tsx: liveness cases asserting step counts rewritten to assert lines across a reconnect; stepCount and earlierStepsLabel deleted"
+  - "SpecDialogTurnProposalsTests: AnswerTurnAfterDraft_ShowsNoDraftOnReload"
+  - "SpecDialogProposalClaimTests: ClearDraft_LegacyReviewingRow_Cleared"
+  - "ProposalReviewPassTests: ReviewerSteps_ReportedUnderReviewName"
+  - "SpecDialogProposalStateTests (or the turn ending): TurnEndsWithoutProposal_ClearsReviewingDraft"
+
+done:
+  - "A running turn shows condensed lines and a ticking clock, none of them raw JSON."
+  - "After a turn that removed its draft, the pane and the next turn hold no draft."
