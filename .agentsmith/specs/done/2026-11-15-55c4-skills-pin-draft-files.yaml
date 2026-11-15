@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-15-55c4
+goal: "Pin skills v5.32.0: the design partner writes its draft as files, offers filing itself, and its reply is the analysis again."
+
+applies_to: "default (skills catalog pin)"
+
+requires: [2026-11-15-06fc, 2026-11-15-bf77, 2026-11-15-67f1]
+
+facts:
+  - claim: "The catalog is pinned by version and checksum in the infrastructure project."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+  - claim: "Skill-text tests quote the design partner's retired write tools."
+    evidence: "tests/AgentSmith.Tests/Skills/SeriesSkillRulesTests.cs:34"
+
+scope:
+  in: "Version, checksum and embedded tarball; the version named in docs, the example yml and the validator test; the skill-text tests that quoted write_ticket, write_contract and write_comment."
+  out: "Skill text (released in the skills repository as 5.32.0, design-partner-master 3.3.0)."
+
+steps:
+  - id: pin
+    action: "Pin v5.32.0 and embed its tarball in place of v5.31.0."
+  - id: tests
+    action: "The ticket, contract and comment rules are read from the draft paths the master names."
+
+tests:
+  - "SkillsConfigValidatorTests (accepted versions)"
+  - "TicketGraphSkillRulesTests, SeriesSkillRulesTests, TicketCommentSkillRulesTests read draft:tickets/, draft:contract.yaml, draft:comment.md"
+
+done:
+  - "The embedded catalog is v5.32.0 and every skill-text test passes on it."

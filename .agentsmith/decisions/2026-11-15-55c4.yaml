@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-15-55c4
+
+decisions:
+  - category: Scope
+    chose: "The pin moves in the same branch as 06fc, bf77 and 67f1"
+    over: "A separate pin PR after the server ships"
+    reason: "The pinned 5.31.0 master names write_spec, write_ticket and the other retired tools; a server from 06fc with that pin offers tools its master never names. Server and pin ship together."

@@ -24,7 +24,7 @@ public sealed class TicketGraphSkillRulesTests
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_OffersTicketsAtMergeBoundaries() =>
-        DesignPartner().Should().Contain("`write_ticket`, one per piece that must merge before another can be built",
+        DesignPartner().Should().Contain("`draft:tickets/<key>.yaml`, one per piece that must merge before another can be built",
             Because("the tickets outcome"));
 
     [Fact]

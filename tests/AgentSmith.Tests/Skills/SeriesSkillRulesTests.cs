@@ -31,7 +31,7 @@ public sealed class SeriesSkillRulesTests
     /// <summary>2026-11-12-681f: the contract's shape is write_contract's schema; the master names the tool.</summary>
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_EmitsASeriesContract() =>
-        Folded().Should().Contain("`write_contract` for the names and data the children share",
+        Folded().Should().Contain("`draft:contract.yaml` for the names and data the children share",
             Because("the epic contract rule"));
 
     [Fact]

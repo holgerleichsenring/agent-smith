@@ -27,7 +27,7 @@ public sealed class TicketCommentSkillRulesTests
         // 2026-11-11-f874: the situation (whether it holds), not a scripted first answer.
         master.Should().Contain("the person wants to know whether the ticket holds", Because("judging the ticket first"));
         master.Should().NotContain("Your first reply is an **answer**", "the bound-ticket section states no reply order");
-        master.Should().Contain("`write_comment`, in a conversation bound to a ticket", Because("the comment tool"));
+        master.Should().Contain("`draft:comment.md`, in a conversation bound to a ticket", Because("the comment file"));
         master.Should().Contain("Approving it posts the comment and starts nothing.", Because("the comment outcome"));
     }
 }
