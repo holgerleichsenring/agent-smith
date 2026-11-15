@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.187.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.186.0...v0.187.0) (2026-11-15)
+
+
+### Features
+
+* approval record carries the operator's words to the run's derivation and reviewers (2026-11-15-53d0) ([66ce9c0](https://github.com/holgerleichsenring/agent-smith/commit/66ce9c0c9a20788a36953bcad02dad94c1eef906))
+* **dialog:** File follows the design partner's offer_filing (2026-11-15-bf77) ([f7104b0](https://github.com/holgerleichsenring/agent-smith/commit/f7104b07fa443bfe02e883d88d32ab941d5bc68f))
+* **dialog:** the design partner's draft is files it edits in place, it offers filing, and the operator's words travel with filed work (skills v5.32.0) ([dd39e74](https://github.com/holgerleichsenring/agent-smith/commit/dd39e747cc03a6459c6b7a23da356422098c593d))
+* **dialog:** the design partner's draft is files it writes, edits and deletes (2026-11-15-06fc) ([ef8da54](https://github.com/holgerleichsenring/agent-smith/commit/ef8da54d9b9ed256fb45fff74249f0c361cbb44a))
+* pin skills v5.32.0, the design partner writes its draft as files and offers filing (2026-11-15-55c4) ([e364143](https://github.com/holgerleichsenring/agent-smith/commit/e3641439dab2daff34c83269b2f58d7adf6f935e))
+
+
+### Bug Fixes
+
+* **dialog:** a draft's ticket, bug and contract files are the text the master wrote (2026-11-15-67f1) ([d20b378](https://github.com/holgerleichsenring/agent-smith/commit/d20b378232cebd2c1df1b7cdf8791aabfb1caffd))
+* **dialog:** draft specs are named by labels, and a write answer adds a line only when it matters (2026-11-15-06fc) ([45c66ff](https://github.com/holgerleichsenring/agent-smith/commit/45c66ff83cd381da2c73a9ccdec540a709c0fcad))
+
 ## [0.186.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.185.0...v0.186.0) (2026-11-13)
 
 
