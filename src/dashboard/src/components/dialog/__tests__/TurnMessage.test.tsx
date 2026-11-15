@@ -41,7 +41,7 @@ beforeEach(() => {
   fetchDialogActivity.mockReset();
   fetchDialogActivity.mockResolvedValue({
     count: 4, nextSeq: null, hasMore: false, firstAt: "2026-11-12T10:00:00Z", lastAt: "2026-11-12T10:12:00Z",
-    steps: [step(1, "tool", "read_file", "a.cs"), step(2, "tool", "grep", "Store"), step(3, "tool", "write_spec", "s1")],
+    steps: [step(1, "tool", "read_file", "a.cs"), step(2, "tool", "grep", "Store"), step(3, "tool", "write_file", "s1")],
   });
 });
 
@@ -50,7 +50,7 @@ describe("TurnMessage", () => {
     render(<TurnMessage reply={<p>Four slices.</p>} proposal={turnProposalOf(epic)} runId="run-1" />);
 
     await waitFor(() => expect(screen.getAllByTestId("turn-step").map((line) => line.textContent))
-      .toEqual(["1 read · 1 search", "write_spec s1"]));
+      .toEqual(["1 read · 1 search", "write_file s1"]));
     expect(screen.getByText("Four slices.")).toBeInTheDocument();
     expect(screen.getByTestId(`turn-spec-${draft(1).specId}`)).toHaveAttribute("data-mark", "passed");
     expect(screen.getByTestId(`turn-spec-${draft(2).specId}`)).toHaveTextContent("✂");

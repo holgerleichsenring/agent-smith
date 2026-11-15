@@ -97,7 +97,7 @@ public sealed class ProposalDraftOutcomeTests
         slot.Proposal.Seed(new ProposalDraft { Tickets = [DraftWriteRig.Ticket("a-one")] }, changed: false);
         pipeline.Set(ContextKeys.SpecDialogReplySlot, slot);
 
-        ProposalDraftSection.Render(pipeline).Should().Contain("## Your draft").And.Contain("### ticket a-one: Title of a-one");
+        ProposalDraftSection.Render(pipeline).Should().Contain("## Your draft").And.Contain("### draft:tickets/a-one.yaml").And.Contain("title: Title of a-one");
     }
 
     private static DraftSpec Spec(string id, bool parent) =>

@@ -1,6 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.SpecDialog.Writes;
-using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models;
 
@@ -18,11 +17,14 @@ internal static class DraftWriteRig
     }
 
     public static SpecDraftWrite Specs() => new(
-        new SpecDraftIds(new SeriesIdFactory(TimeProvider.System)),
+        new SpecDraftIds(),
         new SpecDraftValidator(new SpecSchemaProvider()), DialogTestRepos.Real(), new SpecDraftReader(),
         new SpecDraftShape(new RequiresEdgeChecker()));
 
     public static ContractDraftWrite Contracts() => new(TestSupport.SeriesContracts.Reader());
+
+    /// <summary>2026-11-15-06fc: the file write over the real checks.</summary>
+    public static DraftFileWrite Files() => new(Specs(), Tickets(), Contracts());
 
     public static GraphTicket Ticket(string key, params string[] requires) =>
         new(key, $"Title of {key}", $"Requirement of {key}.", ["it is done"], requires, []);

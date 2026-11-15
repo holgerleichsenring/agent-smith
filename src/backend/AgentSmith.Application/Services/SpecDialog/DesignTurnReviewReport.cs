@@ -12,6 +12,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// round stays on the proposal but is not reported again. 2026-11-13-67ae: a list pass always reports — clean, its
 /// findings, or that the plan reviewer gave no answer — unless the conversation is bound to a ticket.
 /// 2026-11-13-b3a2: drafts refused on owner decisions only are listed apart as waiting on the owner.
+/// 2026-11-15-06fc: each reviewed spec names its draft file, and a cut is a quote and its replacement ("" removes it).
 /// </summary>
 public static class DesignTurnReviewReport
 {
@@ -48,9 +49,9 @@ public static class DesignTurnReviewReport
         if (objections.Count > 0 || rounds.Any(round => !waiting.Contains(round.SpecId))) sb.AppendLine(Rule);
         foreach (var round in rounds.Where(round => !waiting.Contains(round.SpecId)))
         {
-            sb.AppendLine($"- {round.SpecId}: {round.Verdict}");
+            sb.AppendLine($"- {round.SpecId}{File(round.SpecId)}: {round.Verdict}");
             foreach (var cut in round.Cuts)
-                sb.AppendLine($"  cut {cut.Register}: \"{cut.Quote}\" -> {(cut.Replacement is null ? "removed" : $"\"{cut.Replacement}\"")}");
+                sb.AppendLine($"  cut {cut.Register}: \"{cut.Quote}\" -> \"{cut.Replacement}\"");
         }
         foreach (var finding in objections)
         {
@@ -62,6 +63,10 @@ public static class DesignTurnReviewReport
         if (reviewed.NotReviewed is { Count: > 0 } open) sb.AppendLine($"Not reviewed: {string.Join(", ", open)}");
         return sb.ToString();
     }
+
+    /// <summary>2026-11-15-06fc: the draft file a spec's round reviewed, which an edit_file of its cuts names.</summary>
+    private static string File(string specId) => specId == ProposalReviewTokens.Series ? string.Empty
+        : $" ({Writes.DraftPath.Shown(Writes.DraftPath.OfSpec(specId, parent: false))})";
 
     /// <summary>2026-11-13-b3a2: drafts refused on owner decisions only, apart, each decision as a question.</summary>
     private static void AppendWaiting(StringBuilder sb, IReadOnlyList<ProposalFinding> findings, IReadOnlySet<string> waiting)

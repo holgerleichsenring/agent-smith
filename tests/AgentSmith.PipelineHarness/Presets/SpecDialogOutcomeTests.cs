@@ -84,7 +84,7 @@ public sealed partial class SpecDialogOutcomeTests
           - "the endpoint returns a stored widget"
         """;
 
-    /// <summary>2026-11-12-cd4ca: the master writes the spec through write_spec and replies in prose.</summary>
+    /// <summary>2026-11-12-cd4ca: the master writes the spec (2026-11-15-06fc: through write_file) and replies in prose.</summary>
     private static void ScriptSpec(ScriptedChatClient client, string prose = "Here is the spec draft.") =>
         client.EnqueueSpecWrite(ValidDraftYaml).EnqueueText(prose);
 
@@ -166,7 +166,7 @@ public sealed partial class SpecDialogOutcomeTests
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now") with { Platform = "dashboard" });
 
         result.Outcome.Should().BeOfType<SpecOutcome>();
-        result.Reply.Should().Be("Here is the spec draft.", "the reply is prose; the draft is what write_spec stored");
+        result.Reply.Should().Be("Here is the spec draft.", "the reply is prose; the draft is what write_file stored");
         result.Shown.Should().Be("Here is the spec draft.", "the dashboard pane shows the draft");
     }
 

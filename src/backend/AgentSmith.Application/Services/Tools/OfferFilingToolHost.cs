@@ -28,8 +28,8 @@ public sealed class OfferFilingToolHost(SpecDialogReplySlot slot) : IToolHost
     [Description(
         "Offers the operator to file the draft as it stands now. The composer then shows File beside your line, and "
         + "one click files exactly this draft — its open questions decided on your proposals. Your line is the one "
-        + "sentence of what filing does, in the language you answer in. The offer belongs to this draft: a write after "
-        + "it withdraws the offer, and calling again offers the draft as it is then.")]
+        + "sentence of what filing does, in the language you answer in. The offer belongs to this draft: a change to "
+        + "the draft after it withdraws the offer, and calling again offers the draft as it is then.")]
     private string OfferFiling(
         [Description("One sentence in your words of what filing would do.")] string line)
     {

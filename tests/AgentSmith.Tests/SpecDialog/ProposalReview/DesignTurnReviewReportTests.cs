@@ -19,7 +19,7 @@ public sealed class DesignTurnReviewReportTests
 
         DesignTurnReviewReport.For(capped, []).Should().BeNull();
         DesignTurnReviewReport.For(Refused("a", "objection"), []).Should()
-            .StartWith(DesignTurnReviewReport.Heading).And.Contain($"a: {SpecReviewVerdicts.Refuse}").And.Contain("objection");
+            .StartWith(DesignTurnReviewReport.Heading).And.Contain($"a (draft:specs/a.yaml): {SpecReviewVerdicts.Refuse}").And.Contain("objection");
     }
 
     [Fact]
@@ -34,8 +34,8 @@ public sealed class DesignTurnReviewReportTests
 
         var report = DesignTurnReviewReport.For(reviewed, carried.ReviewRounds);
 
-        report.Should().Contain("fresh objection").And.Contain($"b: {SpecReviewVerdicts.Refuse}");
-        report.Should().NotContain("settled objection").And.NotContain($"- a: {SpecReviewVerdicts.Refuse}");
+        report.Should().Contain("fresh objection").And.Contain($"b (draft:specs/b.yaml): {SpecReviewVerdicts.Refuse}");
+        report.Should().NotContain("settled objection").And.NotContain($"- a (draft:specs/a.yaml): {SpecReviewVerdicts.Refuse}");
         DesignTurnReviewReport.For(carried, carried.ReviewRounds).Should().BeNull("every round was carried");
     }
 
@@ -91,10 +91,31 @@ public sealed class DesignTurnReviewReportTests
         var report = DesignTurnReviewReport.For(reviewed, [])!;
 
         report.Should().Contain(DesignTurnReviewReport.WaitingHeading).And.Contain(DesignTurnReviewReport.WaitingRule)
-            .And.Contain("is the retention policy approved?").And.Contain($"b: {SpecReviewVerdicts.Refuse}");
-        report.Should().NotContain($"- a: {SpecReviewVerdicts.Refuse}").And.NotContain("- a [");
+            .And.Contain("is the retention policy approved?").And.Contain($"b (draft:specs/b.yaml): {SpecReviewVerdicts.Refuse}");
+        report.Should().NotContain($"- a (draft:specs/a.yaml): {SpecReviewVerdicts.Refuse}").And.NotContain("- a [");
         report.IndexOf("the handler does not exist", StringComparison.Ordinal).Should()
             .BeLessThan(report.IndexOf(DesignTurnReviewReport.WaitingHeading, StringComparison.Ordinal));
+    }
+
+    /// <summary>2026-11-15-06fc: a cut is quoted as edit_file takes it, under the file its spec is.</summary>
+    [Fact]
+    public void Cuts_AreQuotedAsEditFileTakesThem()
+    {
+        var cuts = new[]
+        {
+            new SpecReviewCut("steps", "and logs it", "", "e"), new SpecReviewCut("done", "fast", null, "e"),
+            new SpecReviewCut("goal", "users", "operators", "e"),
+        };
+        var reviewed = new SpecOutcome(Draft("p1")) with
+        {
+            ReviewRounds = [new ProposalReviewRound("p1", 1, SpecReviewVerdicts.BuildWithCuts, [SpecReviewVerdicts.BuildWithCuts], cuts, [], [])],
+        };
+
+        var report = DesignTurnReviewReport.For(reviewed, [])!;
+
+        report.Should().Contain($"- p1 (draft:specs/p1.yaml): {SpecReviewVerdicts.BuildWithCuts}")
+            .And.Contain("cut steps: \"and logs it\" -> \"\"").And.Contain("cut done: \"fast\" -> \"\"")
+            .And.Contain("cut goal: \"users\" -> \"operators\"");
     }
 
     private static GraphTicket Ticket(string key) => new(key, $"Title of {key}", $"The scope of {key}.", ["done"], [], ["api"]);

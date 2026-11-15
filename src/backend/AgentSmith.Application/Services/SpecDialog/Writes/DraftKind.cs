@@ -21,6 +21,7 @@ internal static class DraftKind
         if (draft.Bug is not null && kind != Bug) held.Add("a bug");
         if (draft.Comment is not null && kind != Comment) held.Add("a comment");
         return held.Count == 0 ? null
-            : $"the draft holds {string.Join(" and ", held)}, and a proposal is one kind — remove_item them first";
+            : $"the draft holds {string.Join(" and ", held)}, and a proposal is one kind — delete those files first "
+                + $"({DraftPath.Prefix} deletes the whole draft)";
     }
 }

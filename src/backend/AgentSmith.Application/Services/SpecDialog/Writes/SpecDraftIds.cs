@@ -1,20 +1,21 @@
-using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using YamlDotNet.Core;
 
 namespace AgentSmith.Application.Services.SpecDialog.Writes;
 
 /// <summary>
-/// 2026-11-12-cd4ca: the id a written spec takes. A spec written without <c>spec:</c> gets a placeholder id the store
-/// mints, unique in the draft; one that states an id is that spec — rewritten when the draft holds it, new otherwise.
-/// Filing replaces every placeholder with its series member id.
+/// 2026-11-12-cd4ca: the id a written spec takes. 2026-11-15-06fc: the file name gives it — <c>specs/p0001.yaml</c> is
+/// spec <c>p0001</c> — so a spec rewritten at its path keeps its id. A text without <c>spec:</c> has it stated; one that
+/// states another id is refused. Ids are placeholders: filing replaces each with its series member id.
 /// </summary>
-public sealed class SpecDraftIds(SeriesIdFactory ids)
+public sealed class SpecDraftIds
 {
-    /// <summary>The spec's text with its id stated, and the id; or why it cannot be placed.</summary>
-    public (string? Yaml, string? Id, string? Error) Place(ProposalDraft draft, string yaml)
+    /// <summary>The spec's text with its id stated, or why it cannot be placed.</summary>
+    public (string? Yaml, string? Error) Place(string id, string yaml)
     {
-        ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(id);
+        if (!RequiresEdgeChecker.SpecIdRegex().IsMatch(id))
+            return (null, $"'{id}' is no spec id — a spec's file name is its id, such as p0001 or p0002-export");
         IReadOnlyDictionary<string, object?> map;
         try
         {
@@ -22,20 +23,12 @@ public sealed class SpecDraftIds(SeriesIdFactory ids)
         }
         catch (YamlException ex)
         {
-            return (null, null, $"the spec is not valid YAML: {ex.Message}");
+            return (null, $"the spec is not valid YAML: {ex.Message}");
         }
-        var taken = draft.Specs.Select(s => s.Draft.SpecId).ToHashSet(StringComparer.Ordinal);
-        if (!map.TryGetValue("spec", out var stated)) return Minted(yaml!, taken);
-        return stated is string id && RequiresEdgeChecker.SpecIdRegex().IsMatch(id.Trim())
-            ? (yaml, id.Trim(), null)
-            : (null, null, $"'spec: {stated}' is no spec id — leave 'spec' out to have one minted, or name a spec of "
-                + $"this draft to rewrite it ({(taken.Count == 0 ? "the draft holds no spec" : string.Join(", ", taken))})");
-    }
-
-    private (string Yaml, string Id, string? Error) Minted(string yaml, IReadOnlySet<string> taken)
-    {
-        var id = ids.Mint();
-        while (taken.Contains(id)) id = ids.Mint();
-        return ($"spec: {id}\n{yaml.TrimStart()}", id, null);
+        if (!map.TryGetValue("spec", out var stated)) return ($"spec: {id}\n{yaml!.TrimStart()}", null);
+        return stated is string named && named.Trim() == id
+            ? (yaml, null)
+            : (null, $"the file names spec '{id}' and its text states 'spec: {stated}' — leave 'spec' out, or state the "
+                + "id its file name gives");
     }
 }

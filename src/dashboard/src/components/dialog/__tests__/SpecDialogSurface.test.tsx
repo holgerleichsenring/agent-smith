@@ -2128,9 +2128,9 @@ describe("SpecDialogSurface", () => {
       });
       expect(pulse).toHaveTextContent("0m 8s");
 
-      act(() => activity.emit({ ...step({ seq: 2, name: "write_spec", detail: "s.yaml" }), dialogId: heldDialogId() }));
+      act(() => activity.emit({ ...step({ seq: 2, name: "write_file", detail: "s.yaml" }), dialogId: heldDialogId() }));
       expect(screen.getAllByTestId("dialog-activity-line").map((line) => line.textContent))
-        .toEqual(["1 read", "write_spec s.yaml"]);
+        .toEqual(["1 read", "write_file s.yaml"]);
     } finally {
       vi.useRealTimers();
     }
@@ -2218,10 +2218,10 @@ describe("SpecDialogSurface", () => {
       }
     });
     act(() => connectionState.emit(HubConnectionState.Connected));
-    act(() => activity.emit({ ...step({ seq: 61, name: "write_spec", detail: "s.yaml" }), dialogId: heldDialogId() }));
+    act(() => activity.emit({ ...step({ seq: 61, name: "write_file", detail: "s.yaml" }), dialogId: heldDialogId() }));
 
     expect(screen.getAllByTestId("dialog-activity-line").map((line) => line.textContent))
-      .toEqual(["60 reads", "write_spec s.yaml"]);
+      .toEqual(["60 reads", "write_file s.yaml"]);
   });
 
   // The ring is behind a motion variant; the two cues beside it must not be. Under jsdom a

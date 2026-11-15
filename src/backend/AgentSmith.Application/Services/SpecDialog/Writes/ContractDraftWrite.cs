@@ -14,11 +14,11 @@ public sealed class ContractDraftWrite(SeriesContractReader reader)
     {
         ArgumentNullException.ThrowIfNull(draft);
         if (!draft.Specs.Any(s => s.Parent))
-            return DraftWrite.Refused("a series contract belongs to an epic — write its parent with parent: true first");
+            return DraftWrite.Refused($"a series contract belongs to an epic — write its parent as {DraftPath.Prefix}{DraftPath.Epic}<id>.yaml first");
         var read = reader.FromDraft(contract, [.. draft.Specs.Where(s => !s.Parent).Select(s => s.Draft)]);
         if (read.Problem is { } problem) return DraftWrite.Refused(problem);
         return read.Contract is null
-            ? DraftWrite.Refused("the series contract is empty — remove_item contract to drop it")
+            ? DraftWrite.Refused($"the series contract is empty — delete {DraftPath.Prefix}{DraftPath.Contract} to drop it")
             : DraftWrite.To(draft with { Contract = read.Contract });
     }
 }

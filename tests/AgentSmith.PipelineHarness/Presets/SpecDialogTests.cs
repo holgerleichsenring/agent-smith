@@ -87,10 +87,10 @@ public sealed class SpecDialogTests
 
         var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        reply.Should().Be("Here is the spec draft.", "the reply is prose; the draft is what write_spec stored");
+        reply.Should().Be("Here is the spec draft.", "the reply is prose; the draft is what write_file stored");
         string.Join("\n", harness.ChatClient.CallMessages[1].SelectMany(m => m.Contents)
                 .OfType<Microsoft.Extensions.AI.FunctionResultContent>().Select(r => r.Result?.ToString()))
-            .Should().Contain("Stored spec 'p9999'", "a schema-valid draft is stored as written");
+            .Should().Contain("Stored draft:specs/p9999.yaml", "a schema-valid draft is stored under its file");
         harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the write, the reply, and the reply after the review report (92e9b)");
     }
 
