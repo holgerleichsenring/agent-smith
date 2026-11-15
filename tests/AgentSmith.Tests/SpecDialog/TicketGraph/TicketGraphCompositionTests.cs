@@ -2,6 +2,8 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -73,6 +75,39 @@ public sealed class TicketGraphCompositionTests : IDisposable
             It.Is<string>(t => t.Contains("Filed a list of 2 tickets") && t.Contains("held: waits for #101")),
             "th-1", It.IsAny<CancellationToken>()), Times.Once);
         rig.Links.Calls.Should().Equal([("102", "101")]);
+    }
+
+    [Fact]
+    public async Task TicketFilingOutcomeSink_FromRealServiceCollection_RecordCarriesTheOperatorsWords()
+    {
+        var rig = new TicketGraphRig();
+        var factory = new Mock<ITicketProviderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(rig.Tracker);
+        factory.Setup(f => f.CreateRequiresLink(It.IsAny<TrackerConnection>())).Returns(rig.Links);
+        var adapter = new Mock<IPlatformAdapter>();
+        adapter.SetupGet(a => a.Platform).Returns("graph-test");
+        var approvals = new InMemorySpecApprovalStore();
+        var services = Composition();
+        services.AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(rig.Config())).AddSingleton(factory.Object).AddSingleton(adapter.Object)
+            .AddSingleton<ITicketRequirementStore>(rig.Facts).AddSingleton<ITicketLandingStore>(rig.Facts)
+            .AddSingleton<ISpecApprovalStore>(approvals).AddSingleton<IReferenceSetReader, NoReferenceSetReader>()
+            .AddScoped(_ => new SpecDialogSessionRepository(_context));
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var sessions = scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>();
+        await sessions.OpenAsync("graph-test", "C1", "th-1", "U1", new ActiveScope { Project = "proj", Repos = ["sample-api"] }, CancellationToken.None);
+        await sessions.AppendTurnAsync("graph-test", "th-1", TranscriptRole.User, "I take all your proposals; file the tickets.",
+            null, null, CancellationToken.None, author: "Sample Operator");
+        var state = (await sessions.AppendTurnAsync("graph-test", "th-1", TranscriptRole.Assistant, "Proposal: page size 50.",
+            SpecDialogTurnKind.Answer, null, CancellationToken.None))!;
+
+        await scope.ServiceProvider.GetRequiredService<IOutcomeSink>().AcceptAsync(state,
+            List(Ticket("api")) with { Questions = [new OpenQuestion("Which page size?", "50", [])] }, true, CancellationToken.None);
+
+        var words = (await approvals.GetAsync("sample-tracker", rig.KeyOf("101"), CancellationToken.None))!.OwnerWords;
+        words.Should().ContainSingle("the design partner's turn is not the operator's").Which.Should()
+            .Match<OwnerWord>(w => w.Author == "Sample Operator" && w.Text == "I take all your proposals; file the tickets." && w.At != default);
+        rig.Tracker.Created.Single().Body.Should().Contain(DecidedQuestionLines.Heading).And.Contain("Which page size? — decided: 50");
     }
 
     [Theory]

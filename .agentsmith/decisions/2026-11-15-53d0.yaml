@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-15-53d0
+
+decisions:
+  - category: Design
+    chose: "The approval record carries the operator's messages (OwnerWords), snapshotted from the conversation state when the record is stored; the run reads them off the record it already publishes"
+    over: "A section in the ticket body; reading the conversation's transcript from the database at run start"
+    reason: "A ticket body is bounded by its tracker (Jira and GitHub cap a description), so a long conversation would need truncation, and twelve tickets would repeat it twelve times in the tracker. The record is unbounded JSON that every launcher already carries into the run, so no new reader, store or migration is needed and a deleted conversation still leaves its words."
+  - category: Design
+    chose: "One descriptive section (ApprovalOwnerWordsSection): what the messages are, where they come from, author and UTC time per message; no sentence on how to weigh them"
+    over: "Reusing the design turn's SpecAttackOwnerWordsSection, whose rule says a stated decision is made"
+    reason: "The operator asked for information, not a priority rule; the model weighs the words against the upload. The design turn's section keeps its wording; this spec does not change shipped design-turn behaviour."
+  - category: Scope
+    chose: "Rendered in the derivation opening, the refused spec's rewrite and every spec attack reviewer; not in the coding master's prompt"
+    over: "Also the coding master"
+    reason: "The derivation and review are where the production run refused; the master builds the reviewed specs, which already state what was decided."
+  - category: Design
+    chose: "Only the operator's turns, not the design partner's replies; the heading says the replies are not shown"
+    over: "The whole transcript"
+    reason: "The ask was the operator's own words; the replies are the design partner's proposals, and a list filing now carries the questions standing at approval on each ticket body (DecidedQuestionLines), as spec and epic filings already did."
+  - category: Design
+    chose: "Every operator turn verbatim, no count or length cap"
+    over: "A window or a cap"
+    reason: "Nothing on the path limits it; the conversation notes are carried whole on the same reasoning (2026-11-12-cd4ck)."

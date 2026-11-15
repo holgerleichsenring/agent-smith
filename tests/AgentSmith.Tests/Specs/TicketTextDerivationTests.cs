@@ -92,6 +92,18 @@ public sealed class TicketTextDerivationTests
     }
 
     [Fact]
+    public async Task SpecSetDeriver_TicketTextRecordWithOwnerWords_ShowsThemInTheOpening()
+    {
+        var client = new Capturing(() => true);
+        var record = TicketTextMaterialTests.Record([], ticketText: true, carrying: "sample-api")
+            with { OwnerWords = [ApprovalOwnerWordsSectionTests.Taken] }; // 2026-11-15-53d0
+
+        await DeriveAsync(client, record, ("sample-api", _api));
+
+        client.Opening.Should().Contain(ApprovalOwnerWordsSection.Heading).And.Contain(ApprovalOwnerWordsSectionTests.Taken.Text);
+    }
+
+    [Fact]
     public async Task SpecSetDeriver_FiledSpecRecord_CarriesNothingBeforeTheModel()
     {
         _held.Set("list", "set-a");

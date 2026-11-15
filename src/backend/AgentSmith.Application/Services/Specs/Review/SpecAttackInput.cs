@@ -48,4 +48,7 @@ public sealed record SpecAttackInput(
 
     /// <summary>2026-11-12-92e9b: the operator's own messages in the design conversation, oldest first; empty outside one.</summary>
     public IReadOnlyList<string> OperatorTurns { get; init; } = [];
+
+    /// <summary>2026-11-15-53d0: in a run, the operator's messages of the conversation its approval was given in; empty otherwise.</summary>
+    public IReadOnlyList<Contracts.Specs.OwnerWord> OwnerWords { get; init; } = [];
 }

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -174,6 +175,31 @@ public sealed class SpecReviewLoopTests
         rig.Evidence.Verify(e => e.CheckAsync(It.IsAny<Contracts.Commands.PipelineContext>(), It.IsAny<SpecDraft>(),
             It.IsAny<SpecSet>(), It.IsAny<CancellationToken>()), Times.Exactly(2),
             "once on the derived text and once on the one revision; the BUILD round changed nothing");
+    }
+
+    [Fact]
+    public async Task ReviewLoop_PublishedRecordWithOwnerWords_EveryReviewerReadsThem()
+    {
+        var rig = new ReviewLoopRig().Answers(Build());
+        var record = References.TicketTextMaterialTests.Record([], ticketText: true)
+            with { OwnerWords = [ApprovalOwnerWordsSectionTests.Taken] }; // 2026-11-15-53d0
+        rig.Pipeline.Set(Contracts.Commands.ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(record));
+
+        await RunAsync(rig);
+
+        rig.Inputs.Should().ContainSingle().Which.OwnerWords.Should().Equal(ApprovalOwnerWordsSectionTests.Taken);
+        SpecAttackPrompt.For(rig.Inputs[0], look: null).Should().Contain(ApprovalOwnerWordsSection.Heading)
+            .And.Contain(ApprovalOwnerWordsSectionTests.Taken.Text);
+    }
+
+    [Fact]
+    public async Task ReviewLoop_NoPublishedRecord_ReviewerPromptHasNoOwnerWords()
+    {
+        var rig = new ReviewLoopRig().Answers(Build());
+
+        await RunAsync(rig);
+
+        SpecAttackPrompt.For(rig.Inputs[0], look: null).Should().NotContain(ApprovalOwnerWordsSection.Heading);
     }
 
     private static void Rederives(ReviewLoopRig rig, SpecDraft rewrite) =>
