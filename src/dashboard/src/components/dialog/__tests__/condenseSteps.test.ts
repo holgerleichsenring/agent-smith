@@ -10,7 +10,7 @@ const raw: RawStep[] = [
   { seq: 3, kind: "model", name: "m", detail: null },
   { seq: 4, kind: "tool", name: "grep", detail: "Store" },
   { seq: 5, kind: "tool", name: "read_file", detail: "b.cs" },
-  { seq: 6, kind: "tool", name: "write_spec", detail: "2026-11-12-0001" },
+  { seq: 6, kind: "tool", name: "write_file", detail: "draft:specs/p0001.yaml" },
   { seq: 7, kind: "model", name: "m", detail: "  " },
   { seq: 8, kind: "tool", name: "find_files", detail: "*.ts" },
   { seq: 9, kind: "reviewing", name: null, detail: null },
@@ -29,12 +29,25 @@ describe("condenseSteps", () => {
     expect(lines.map((line) => [line.kind, line.text])).toEqual([
       ["said", "Looking at the import path first."],
       ["reads", "2 reads · 1 search"],
-      ["write", "write_spec 2026-11-12-0001"],
+      ["write", "write_file draft:specs/p0001.yaml"],
       ["reads", "1 search"],
       ["step", "reviewing its proposal"],
     ]);
     expect(lines.map((line) => line.key)).toEqual([1, 2, 6, 8, 9]);
     expect(condenseSteps(fetched)).toEqual(lines);
+  });
+
+  // 2026-11-15-06fc: the draft is files; deleting one changes the draft like writing or editing one.
+  it("DraftFileTools_AreWriteLines", () => {
+    const lines = condenseSteps([
+      { seq: 1, kind: "tool", name: "edit_file", detail: "draft:specs/p0001.yaml" },
+      { seq: 2, kind: "tool", name: "delete_file", detail: "draft:specs/p0002.yaml" },
+    ]);
+
+    expect(lines.map((line) => [line.kind, line.text])).toEqual([
+      ["write", "edit_file draft:specs/p0001.yaml"],
+      ["write", "delete_file draft:specs/p0002.yaml"],
+    ]);
   });
 
   // 2026-11-13-3dc8: a sub-agent's or reviewer's steps arrive as "Name › …".

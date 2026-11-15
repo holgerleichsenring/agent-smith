@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-15-06fc
+
+decisions:
+  - category: Architecture
+    chose: "The draft is files the master changes with write_file, edit_file and delete_file; read_file and directory_tree read it at draft:"
+    over: "Keeping write_spec/write_ticket/write_bug/write_comment/write_contract/remove_item, or adding an 'edit' flag to write_spec"
+    reason: "A GPT-class master rewrote every spec under a new id instead of 'spec: <id>', so every copy was unreviewed and the drive re-reviewed the whole draft. With the file name as the id, a rewrite at the same path keeps the id; exact-replacement edits are what models are trained on. Six tools become three."
+  - category: Architecture
+    chose: "Files are a view of the typed ProposalDraft: rendered on read, read back into the existing check on write"
+    over: "ProposalDraft carrying a Files list beside its typed fields"
+    reason: "Adversarial review: every existing check builds its result with 'draft with { … }', so a stored Files list goes stale and is a second store that can disagree. As a view there is one store, and the seed, offer_filing, the review-drive restore, review, cards and filing need no change."
+  - category: Architecture
+    chose: "A change that breaks the draft is not stored; the answer says exactly why and the draft stays as it was"
+    over: "Storing every file and reporting the draft's standing problems"
+    reason: "Review, offer, the card and filing all assume a fileable draft. Edits keep ids, so the delete juggling of new ids is gone; what remains (write a required spec first, the epic's parent first) is named in the refusal with the file to write. A directory delete (draft:, draft:specs/, draft:tickets/) makes a kind switch one call."
+  - category: Architecture
+    chose: "Layout: specs/<id>.yaml, epic/<id>.yaml (the parent), contract.yaml, tickets/<key>.yaml, bug.yaml, comment.md (bound conversations only)"
+    over: "A parent: true key in the spec text, or a fixed parent file name"
+    reason: "The file name is the id for every spec, the parent included, and nothing extra is written into a text that files. One id under both epic/ and specs/ is refused, so a file never silently moves."
+  - category: Architecture
+    chose: "A draft spec is named by a label, its file name (specs/server-foundation.yaml): lower-case letters, digits and '-', never spec-id shaped; filing mints its series id"
+    over: "Placeholders in the spec id shape (p0001, p0002-export), or a store-minted date id per new spec"
+    reason: "The counter namespace is closed to new ids, and a minted id per write is what produced copies under new ids. A label cannot be read as a real id, so SpecDraftIds tells them apart; the schema is checked with a stand-in id for the label, requires name siblings by label, and SeriesDraftIds rewrites spec: and requires at filing as before. A spec id already in a draft stays accepted, so a proposal written before labels can still be edited."
+  - category: Architecture
+    chose: "Edges between labelled specs are checked by sibling name: a requirement naming the parent or no spec of the draft is refused with the file to write, and EpicChildOrderer refuses a cycle"
+    over: "Leaving label requirements to RequiresEdgeChecker, which reads only spec-id-shaped entries as edges"
+    reason: "Labels are not spec-id shaped, so the regex would read them as free text and miss cycles until filing."
+  - category: Architecture
+    chose: "The stored text is the checked text; a write answer adds one line only when the stored file reads otherwise in substance: the repos the checks set on a spec, or that a ticket, bug or contract is stored in its rendered form"
+    over: "Returning the whole stored file whenever it differed from what was written"
+    reason: "Measured on the first terra replay: every write answered 'The checks changed what you wrote', mostly for the spec: line the store states, which reads like an error. Stating a spec's own name is no change worth a line."
+  - category: Architecture
+    chose: "A write or edit that leaves the file's text as it was stores nothing"
+    over: "Replacing the draft on every call"
+    reason: "offer_filing is bound to the draft object; a no-op edit must not withdraw an offer or mark the turn changed."
+  - category: Architecture
+    chose: "Tool names write_file, edit_file, delete_file; edit_file shares the exact-replacement rule extracted from FilesystemToolHost (ExactTextEdit)"
+    over: "Draft-specific names such as write_draft_file"
+    reason: "The operator asked for the generic names models know. The coding master's write sanity rules key on write_file but are inert on a design turn: UnnamedRepositoryWrite needs a current spec, and a draft never carries the secret placeholder."
+  - category: Architecture
+    chose: "FilesystemToolHost takes a narrow draft-file delegate (DraftReader), set on the existing line of AgenticMasterHandler"
+    over: "Passing the reply slot or store into FilesystemToolHost, or an in-memory ISandbox for draft:"
+    reason: "The host reads files and needs nothing else; AgenticMasterHandler is at its file-length baseline. An in-memory sandbox would re-implement step kinds for two reads."
+  - category: Architecture
+    chose: "The review report names each reviewed spec's draft: path and quotes a cut as \"quote\" -> \"replacement\" (\"\" removes)"
+    over: "Applying cuts automatically"
+    reason: "The master decides; the quote and replacement are what edit_file takes."
+  - category: Scope
+    chose: "The goal and label bounds of SpecNameRuleTests are not applied to draft specs"
+    over: "Refusing a draft goal over 200 characters"
+    reason: "Draft names are labels filing replaces with series ids, and the repository deliberately keeps the goal bound out of the schema the server evaluates on model drafts (SpecNameRuleTests.MaxGoalChars)."
+  - category: Scope
+    chose: "The skills pin moves in the next release PR, after the agent-smith-skills release that carries the file tools"
+    over: "Bumping the pin in this spec"
+    reason: "The pinned design-partner master names the old tools, so a server from this spec ships together with that pin bump; the skills commit is made beside this one, and a pin can only name a published release."

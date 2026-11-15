@@ -44,7 +44,7 @@ public sealed class TicketGraphFiler(
             foreach (var ticket in order.Tickets)
             {
                 if (created.Count > 0) ct.ThrowIfCancellationRequested();
-                await FileOneAsync(provider, state, project, ticket, labels, ids, mayStartRuns, filed, created, ct);
+                await FileOneAsync(provider, state, project, ticket, graph.Questions, labels, ids, mayStartRuns, filed, created, ct);
             }
         }
         // Before the first ticket the caller's cancellation escapes as it always did; after it, the filing reports.
@@ -63,13 +63,15 @@ public sealed class TicketGraphFiler(
 
     private async Task FileOneAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project, GraphTicket ticket,
-        IReadOnlyList<string> labels, Dictionary<string, (string Id, string Title)> ids, bool mayStartRuns,
+        IReadOnlyList<OpenQuestion> questions, IReadOnlyList<string> labels, Dictionary<string, (string Id, string Title)> ids, bool mayStartRuns,
         List<FiledTicket> filed, List<CreatedGraphTicket> created, CancellationToken ct)
     {
         var required = ticket.Requires.Distinct(StringComparer.Ordinal)
             .Select(r => GraphTicketRequire.ExistingId(r) is { } existing ? (Id: existing, Title: (string?)null) : ids[r]).ToList();
-        var content = GraphTicketBody.Render(ticket, [.. required.Select(r => (FiledTicketKey.Of(project.Tracker.Type, r.Id), r.Title))],
-            state.JobId, TicketLabelNote.For(labels, labels[0]));
+        // 2026-11-15-53d0: the questions standing at approval, as a spec's and an epic's filing carries them.
+        var content = DecidedQuestionLines.Appended(GraphTicketBody.Render(ticket,
+            [.. required.Select(r => (FiledTicketKey.Of(project.Tracker.Type, r.Id), r.Title))],
+            state.JobId, TicketLabelNote.For(labels, labels[0])), questions);
         var made = await provider.CreateAsync(content.Title, content.Body, labels, kinds.For(project, TicketFilingRole.Work), ct);
         filed.Add(FiledTicket.Of(made, content.Title, project));
         ids[ticket.Key] = (made.Id.Value, content.Title);

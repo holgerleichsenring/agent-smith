@@ -200,6 +200,33 @@ public sealed class ProposalDecisionTests : IDisposable
         (await TranscriptAsync()).Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text == SpecDialogApprovalRefusal.UnboundComment);
     }
 
+    // 2026-11-15-bf77: File follows the master's offer, and the API holds that for every surface.
+    [Fact]
+    public async Task Approve_OfferLedProposalNotOffered_RefusedBeforeTheClaim()
+    {
+        var state = await Harness().OpenAsync(Platform, Thread);
+        await Harness().Flow().HandleAsync(state, Spec("p1") with { OfferLed = true }, default);
+        var id = (await Harness().Outcomes.ReadAsync(Platform, Thread, default)).ProposalId!;
+
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
+
+        Filed().Should().Be(0);
+        (await RowAsync()).ProposalState.Should().Be(SpecDialogProposalClaim.Awaiting);
+        (await TranscriptAsync()).Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text == SpecDialogApprovalRefusal.NotOffered);
+    }
+
+    [Fact]
+    public async Task Approve_OfferLedProposalOffered_Files()
+    {
+        var state = await Harness().OpenAsync(Platform, Thread);
+        await Harness().Flow().HandleAsync(state, Spec("p1") with { OfferLed = true, FilingOffer = "Files one ticket." }, default);
+        var id = (await Harness().Outcomes.ReadAsync(Platform, Thread, default)).ProposalId!;
+
+        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Decided);
+
+        Filed().Should().Be(1);
+    }
+
     [Fact]
     public async Task Observer_MidReviewDraft_WritesOnlyTheReviewingColumn()
     {

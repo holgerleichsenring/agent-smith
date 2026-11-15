@@ -37,7 +37,7 @@ public sealed class ProposalItemRemovalTests
     public void Remove_UnknownHandle_NamesWhatTheDraftHolds()
     {
         ProposalItemRemoval.Remove(new ProposalDraft { Bug = new BugTicketDraft("t", "d", null) }, "x").Refusal
-            .Should().Contain("it holds bug");
+            .Should().Contain("it holds draft:bug.yaml");
     }
 
     [Fact]

@@ -141,7 +141,7 @@ public sealed class SpecDialogTurnFlowTests
 
         rig.Reviewed.Should().HaveCount(4, "the rewritten text of a refused draft gets a pass of its own");
         loop.Requests.Should().HaveCount(2);
-        loop.Requests[1].UserPrompt.Should().Contain($"{Lone}: {SpecReviewVerdicts.Build}").And.NotContain(SpecReviewVerdicts.Refuse);
+        loop.Requests[1].UserPrompt.Should().Contain($"{Lone} (draft:specs/{Lone}.yaml): {SpecReviewVerdicts.Build}").And.NotContain(SpecReviewVerdicts.Refuse);
     }
 
     [Fact]
@@ -155,6 +155,37 @@ public sealed class SpecDialogTurnFlowTests
         loop.Requests.Should().BeEmpty();
         rig.Reviewed.Should().BeEmpty();
         rig.Outcome.Should().BeOfType<SpecOutcome>().Which.ReviewRounds.Should().BeEmpty();
+    }
+
+    /// <summary>2026-11-15-06fc: the master edits the refused child at its draft path; only that text is attacked again.</summary>
+    [Fact]
+    public async Task RefusedChildEditedInPlace_OnlyItIsReviewedAgain()
+    {
+        var rig = new ProposalReviewRig
+        {
+            OnReview = input => input.Draft.SpecId == Second && input.Draft.Yaml.Contains("buffered") ? Refuse("not buffered") : Build(),
+        }.WithRepository();
+        var proposal = rig.Propose(Epic());
+        rig.Pipeline.Remove(ContextKeys.SpecDialogOutcome);
+        rig.Slot.Proposal.Seed(Application.Services.SpecDialog.Writes.ProposalDraftSeed.Of(proposal), true);
+        var edit = MasterHandlerFixture.ProposalWrites().For(rig.Pipeline, rig.Slot.Proposal).OfType<AIFunction>()
+            .Single(t => t.Name == DraftFileToolHost.EditName);
+        var loop = new ScriptedLoop(_ =>
+        {
+            var answer = edit.InvokeAsync(new AIFunctionArguments
+            {
+                ["path"] = $"draft:specs/{Second}.yaml", ["old_string"] = "buffered file writer", ["new_string"] = "export queue",
+            }).AsTask().GetAwaiter().GetResult();
+            answer!.ToString().Should().StartWith($"Stored draft:specs/{Second}.yaml");
+            return Result("Edited in place.");
+        });
+
+        await ConcludeAsync(rig, loop);
+
+        var attacked = rig.Reviewed.Select(r => r.Draft.SpecId).ToList();
+        attacked.Count(id => id == First).Should().Be(2, "the unchanged child keeps its review from the first pass");
+        attacked.Count(id => id == Second).Should().Be(4, "the edited child is attacked again, by both reviewers");
+        rig.Slot.Proposal.Current.Specs.Select(s => s.Draft.SpecId).Should().Equal(Parent, First, Second);
     }
 
     private static (ProposalReviewRig Rig, ScriptedLoop Loop) Turn(

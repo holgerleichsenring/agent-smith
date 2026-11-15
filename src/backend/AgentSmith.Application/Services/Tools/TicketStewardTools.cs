@@ -16,6 +16,7 @@ public static class TicketStewardTools
     [
         "withdraw_filed_ticket", "write_mock", "read_mock", WorkPictureToolHost.Name,
         OpenQuestionsToolHost.Name, // 2026-11-10-d854a: questions ride a design draft
+        OfferFilingToolHost.Name, // 2026-11-15-bf77: the steward drafts nothing to offer
         .. ProposalWriteTools.Names, // 2026-11-12-cd4ca: the steward proposes nothing
     ], StringComparer.Ordinal);
 

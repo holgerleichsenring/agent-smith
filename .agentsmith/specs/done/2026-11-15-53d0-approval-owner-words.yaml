@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-15-53d0
+goal: "A ticket filed from a design conversation carries the operator's own messages there, and the coding run's derivation and spec reviewers read them beside the upload."
+
+applies_to: "default (SpecApprovalRecord, GraphTicketApproval, ApprovedSpecSetRecorder, TicketGraphFiler, SpecDerivationMessages, SpecReviewLoop, SpecAttackPrompt)"
+
+requires: [2026-11-13-b3a2]
+
+facts:
+  - claim: "A list's ticket is recorded from the conversation state, citing the conversation's uploads, and nothing else of the conversation."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/GraphTicketApproval.cs:28-42"
+  - claim: "The operator's own messages reach only a design turn's reviewers, read off the turn's transcript key that a run never holds."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalOperatorTurns.cs:12-18"
+  - claim: "A coding run's reviewer input carries no conversation words."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewLoop.cs:113-119"
+  - claim: "A ticket text's derivation opening carries the cited material, nothing of the conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationMessages.cs:20-30"
+  - claim: "A transcript turn holds its role, text, time and author."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:16-19"
+  - claim: "Spec and epic filings append the questions standing at approval to the ticket body; a list's ticket body does not."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:94"
+  - claim: "Production 2026-11-13: an operator told the design partner to take every proposal and file; the first ticket's run derived three specs and every one was refused on objections that the owner decides, cited from the uploaded documents."
+    evidence: "observed: 2026-11-13 run on a ticket filed from a list"
+
+scope:
+  in: "The approval record carries the operator's messages (author, time, verbatim text) of the conversation it was approved in; the derivation opening and every spec attack reviewer render them under a descriptive heading; a list's ticket body appends the questions standing at approval, as spec and epic filings already do."
+  out: "Any rule on how the words weigh against the upload; the design partner's turns; the coding master's prompt; the ticket body text of the words (tracker body limits would force truncation); the design turn's own owner-words section, which keeps its wording."
+
+steps:
+  - id: record
+    action: "OwnerWord(Author, At, Text) in Contracts; SpecApprovalRecord.OwnerWords, null on an older record. GraphTicketApproval and ApprovedSpecSetRecorder set it from the state's user turns, oldest first, author falling back to the conversation's user."
+  - id: render
+    action: "ApprovalOwnerWordsSection renders them under a heading that says what they are and where from, each with author and UTC time; empty with none. No instruction on how to weigh them."
+  - id: derivation
+    action: "SpecDerivationMessages.Opening and the refused spec's rewrite (SpecRederiver) append the section read off the published record."
+  - id: review
+    action: "SpecAttackInput.OwnerWords, filled in SpecReviewLoop from the published record; SpecAttackPrompt renders the section after the design turn's owner-words section."
+  - id: questions
+    action: "TicketGraphFiler appends DecidedQuestionLines of the list's questions to each ticket body."
+
+tests:
+  - "TicketGraphCompositionTests: the real sink files a list; the stored record carries the operator's turns with author and time, and the body the decided question"
+  - "ConversationOwnerWordsTests: operator turns only, author fallback"
+  - "TicketTextDerivationTests: the opening carries the owner's words"
+  - "SpecReviewLoopTests: the reviewer prompt carries the owner's words of the published record"
+  - "ApprovalOwnerWordsSectionTests: render, empty"
+
+done:
+  - "A coding run on a ticket filed from a conversation shows the operator's messages there to its derivation and to every spec reviewer."
+  - "No new instruction tells a model how to weigh them."

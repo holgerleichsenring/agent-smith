@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-15-bf77
+goal: "File appears on an awaiting proposal only when the design partner offered to file that draft through offer_filing, with its line as the summary."
+
+applies_to: "default (design master tools, reply slot, outcome proposal, approval refusal) and dashboard (approvalDecision)"
+
+requires: [2026-11-12-92e9d, 2026-11-12-cd4ca]
+
+facts:
+  - claim: "The composer's File and Discard are derived from server state alone; nothing the master says can withhold File."
+    evidence: "src/dashboard/src/components/dialog/approvalDecision.ts:29-46"
+  - claim: "The ticket page's approval card shares the same decision function."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:77"
+  - claim: "Master tools record their acts on the turn's reply slot and the collect step stamps them onto the outcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:44"
+  - claim: "Every write to the draft replaces the store's current draft object."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ProposalStore.cs:25-35"
+  - claim: "Shape refusals of an approval are checked before the claim and again in the sink."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogApprovalRefusal.cs:16-21"
+
+scope:
+  in: "offer_filing tool, the offer on slot, proposal, store row and push; the approval refusal; approvalDecision for both surfaces."
+  out: "The design-partner-master skill text (another repository); chat platform card wording."
+
+steps:
+  - id: tool
+    action: "offer_filing(line) records the master's line against the draft as it stands and republishes that draft; an empty draft or an empty line is refused with what is missing."
+  - id: draft-bound
+    action: "The offer belongs to the draft object it was made on; any later write replaces the draft and so withdraws it."
+  - id: led
+    action: "A proposal is offer-led when the master's rendered skill names offer_filing; the reply slot records it and the outcome carries it with the offered line."
+  - id: wire
+    action: "OutcomeProposal, the stored JSON row and the proposal push carry offerLed and filingOffer."
+  - id: refusal
+    action: "An approve of an offer-led proposal without an offer is refused before the claim and in the sink, telling the operator to ask for filing in words."
+  - id: dashboard
+    action: "approvalDecision: an offer-led proposal without an offer is not approvable and says so; an offered one shows the master's line as its summary. Discard stays."
+
+tests:
+  - "OfferFilingToolHostTests, SpecDialogReplySlotOfferTests, CollectSpecDialogReplyHandler offer stamp, OutcomeProposalJson round trip, SpecDialogApprovalRefusal not-offered"
+  - "approvalDecision.test.ts and DialogDecisionBar vitest: unoffered hides File, offered shows the line, not offer-led keeps today's behaviour"
+
+done:
+  - "With a skill that names offer_filing, File shows only after the master offered the draft awaiting a decision, and the server refuses an approve without the offer."
+  - "With a skill that does not, Work it out and the ticket page behave as before."

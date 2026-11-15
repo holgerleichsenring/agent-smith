@@ -115,6 +115,6 @@ public sealed class SpecReviewLoop(
             SpecToday.Describes(state.Draft, run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet)),
             state.Evidence.Problems, state.Evidence.Unchecked, state.Evidence.Total, state.Residues, run.QuestionPin)
         {
-            RepositoryNames = SpecReviewRepositories.Names(run.Pipeline),
+            RepositoryNames = SpecReviewRepositories.Names(run.Pipeline), OwnerWords = run.OwnerWords, // 2026-11-15-53d0
         };
 }

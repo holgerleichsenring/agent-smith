@@ -12,4 +12,8 @@ public sealed record GraphTicket(
     string Requirement,
     IReadOnlyList<string> Done,
     IReadOnlyList<string> Requires,
-    IReadOnlyList<string> Repos);
+    IReadOnlyList<string> Repos)
+{
+    /// <summary>2026-11-15-67f1: the file text the design master wrote for this ticket; null when no draft file wrote it.</summary>
+    public string? Source { get; init; }
+}

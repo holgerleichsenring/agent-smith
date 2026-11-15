@@ -19,7 +19,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// 2026-11-05-862ec: the split design-partner frame through the REAL server composition over the EMBEDDED catalog,
 /// as the scan eval reads it — the real prompt catalog renders the pinned master and the real reference source serves
-/// the write tools. 2026-11-12-cd4cg: outcome_format is retired; a discussed turn writes its epic through write_spec.
+/// the write tools. 2026-11-12-cd4cg: outcome_format is retired; a discussed turn writes its epic through write_spec (2026-11-15-06fc: write_file).
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SpecDialogFrameSplitTests
@@ -44,7 +44,7 @@ public sealed class SpecDialogFrameSplitTests
         var result = await TurnAsync(harness, Discussed());
 
         harness.ChatClient.FirstOptions!.Tools!.Select(t => t.Name).Should().NotContain("outcome_format")
-            .And.Contain("write_spec");
+            .And.Contain("write_file");
         result.Outcome.Should().BeOfType<EpicOutcome>().Which.Children.Should().HaveCount(2);
     }
 

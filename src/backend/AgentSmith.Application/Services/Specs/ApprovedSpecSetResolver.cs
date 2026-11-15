@@ -47,7 +47,10 @@ public sealed class ApprovedSpecSetResolver(
     /// 2026-10-01-283df: the approval <see cref="ResolveAsync"/> already decided and published, for a
     /// later step that reads it — not decided again. Null when nothing was published.
     /// </summary>
-    public SpecApprovalRecord? Published(PipelineContext pipeline)
+    public SpecApprovalRecord? Published(PipelineContext pipeline) => PublishedIn(pipeline);
+
+    /// <summary>2026-11-15-53d0: <see cref="Published"/> for a static prompt section, which holds no resolver.</summary>
+    public static SpecApprovalRecord? PublishedIn(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         return SpecApprovalJson.Read(CarriedJson(pipeline));

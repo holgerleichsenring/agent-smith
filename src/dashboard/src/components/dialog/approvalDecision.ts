@@ -17,6 +17,9 @@ export interface ApprovalDecision {
   bound: boolean;
 }
 
+/** 2026-11-15-bf77: an offer-led proposal the design partner has not offered to file yet. */
+export const NOT_OFFERED = "Not offered for filing yet. When you want it filed, say so, and the design partner offers it or says what is still open.";
+
 export const BOUND_LIST = "A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.";
 
 // The server pushes nothing when a wait expires, so the deadline is what the page has: a click past it is not an
@@ -37,10 +40,14 @@ export function approvalDecision(
   // 2026-10-14-dbcek: the preview there answers a list with a plain refusal and no start arm, which would read as
   // approvable — so approving is withheld and the summary says where a list is filed.
   const boundList = proposal?.kind === "tickets" && (inTicket === true || effect !== null);
+  // 2026-11-15-bf77: a master that offers filing leads it — File waits for its offer on this draft and shows its line.
+  // A proposal from a master whose skill does not know offer_filing (offerLed absent) keeps the rule above alone.
+  const offer = proposal?.offerLed ? (proposal.filingOffer ?? null) : null;
+  const unoffered = proposal?.offerLed === true && offer === null;
   return {
     expired: hasExpired(question),
-    approvable: !boundList && !(effect && !effect.approvable),
-    summary: boundList ? BOUND_LIST : effect ? effect.summary : proposal ? summaryOf(proposal) : null,
+    approvable: !boundList && !unoffered && !(effect && !effect.approvable),
+    summary: boundList ? BOUND_LIST : unoffered ? NOT_OFFERED : offer ?? (effect ? effect.summary : proposal ? summaryOf(proposal) : null),
     bound: effect !== null,
   };
 }

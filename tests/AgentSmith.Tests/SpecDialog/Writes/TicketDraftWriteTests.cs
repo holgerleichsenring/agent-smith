@@ -42,7 +42,7 @@ public sealed class TicketDraftWriteTests
     [Fact]
     public void WriteTicket_DraftHoldsASpec_IsRefusedAsAnotherKind()
     {
-        var draft = DraftWriteRig.Specs().Write(ProposalDraft.Empty, DraftWriteRig.Spec("p9001"), false, []).Written();
+        var draft = DraftWriteRig.Specs().Write(ProposalDraft.Empty, "p9001", DraftWriteRig.Spec("p9001"), false, []).Written();
 
         DraftWriteRig.Tickets().Write(draft, DraftWriteRig.Ticket("a-one"), DraftWriteRig.Scope).Refusal
             .Should().Contain("a proposal is one kind");

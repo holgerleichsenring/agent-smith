@@ -26,7 +26,8 @@ internal static class SpecDerivationMessages
             SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline, series)
             + DerivationLookPromptSection.Render(look)
             + ScopeRepositoriesPromptSection.Render(scope)
-            + Handlers.ReferencePromptSection.Carried(pipeline, look?.Repositories.Count > 1, attached: false)), // 2026-10-14-dbcel
+            + Handlers.ReferencePromptSection.Carried(pipeline, look?.Repositories.Count > 1, attached: false) // 2026-10-14-dbcel
+            + ApprovalOwnerWordsSection.For(pipeline)), // 2026-11-15-53d0
     ];
 
     /// <summary>A rejection, in the shape the deriver already knows how to answer.</summary>

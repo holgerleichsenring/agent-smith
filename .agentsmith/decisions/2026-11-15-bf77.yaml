@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-15-bf77
+
+decisions:
+  - category: Design
+    chose: "offer_filing(line): the master offers the draft as it stands, with one sentence of what filing does"
+    over: "A flag the reply sets, or deriving readiness from open questions"
+    reason: "The master leads the conversation; File appears because it acted, as plan approval appears on ExitPlanMode. Open questions stay the master's call: it may offer a draft whose questions go in decided on its proposals."
+  - category: Design
+    chose: "The offer is bound to the draft object it was made on; any write after it withdraws it"
+    over: "Comparing draft text, or withdrawing on every new turn"
+    reason: "Every write replaces the store's draft whole, so reference identity is exactly 'this draft'. A turn that only answers leaves the awaiting proposal and its offer standing; a turn that writes must offer again."
+  - category: Design
+    chose: "Offering an unchanged draft publishes it again as a proposal"
+    over: "Only offering inside a turn that wrote"
+    reason: "The operator says 'file it' after the draft is settled; the offer must reach a proposal, and the store already re-publishes an unchanged draft through Seed(changed: true)."
+  - category: Design
+    chose: "Not offered: no File; Discard stays and the line says to ask for filing in words"
+    over: "Plain composer with no decision bar"
+    reason: "Discard still decides something real (drop the awaiting draft). Filing is asked for in words, which the master answers by offering or by naming what is open."
+  - category: Design
+    chose: "The server refuses an approve of an offer-led proposal without an offer, in SpecDialogApprovalRefusal"
+    over: "Hiding File in the dashboard only"
+    reason: "Safety in the API: chat cards and typed words reach the same decision path, and the refusal is one more deterministic case of the existing pre-claim check, not a new guard."
+  - category: Design
+    chose: "Transition: a proposal is offer-led when the master's skill body (IPromptCatalog.Get, read where TicketActToolsFactory adds the tool) names offer_filing; otherwise today's behaviour"
+    over: "Offer-led after the master's first offer in the conversation"
+    reason: "First-offer gating keeps today's File on the first proposal of every conversation, which is the observed case (a 12-ticket proposal with 6 open questions). The skill body is a fact about what the master was told, so a pin that predates the tool never strands the operator. Read beside the tool rather than in AgenticMasterHandler, which is over the file-length ratchet."
+  - category: Design
+    chose: "The ticket page's approval card follows the same rule through approvalDecision, and an offer's line wins over the bound preview's summary"
+    over: "Scoping the ticket page out"
+    reason: "Both surfaces decide the same awaiting proposal from one function; differing would reopen the contradiction there. The master knows the conversation is bound and says what filing does in it."
+  - category: Testing
+    chose: "Raise the first design turn's tool ceiling to 24 (37268 characters, under 39000)"
+    over: "Folding offer_filing into another tool"
+    reason: "The offer is its own act with its own effect on the UI; the size test exists to make such a change visible, and it is."

@@ -38,11 +38,11 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task Turn_InvalidSpecWrite_IsRefusedOnItsToolResult_AndNothingReprompts()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueSpecWrite("spec: not-a-valid-spec-id\ngoal: \"g\"").EnqueueText("Two questions first, then.");
+        harness.ChatClient.EnqueueSpecWrite("spec: Not_a_spec_name\ngoal: \"g\"").EnqueueText("Two questions first, then.");
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        ToolResults(harness, 1).Should().StartWith("Not stored:").And.Contain("is no spec id");
+        ToolResults(harness, 1).Should().StartWith("Not stored:").And.Contain("is no spec name");
         harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply, and no re-prompt");
         result.Outcome.Should().BeOfType<AnswerOutcome>("nothing was stored");
         result.Reply.Should().Be("Two questions first, then.");

@@ -41,6 +41,15 @@ public sealed class SpecDialogReplySlot
     /// <summary>2026-11-12-cd4ca: the items the turn's write tools stored; the turn's proposal is built from it.</summary>
     public ProposalStore Proposal { get; } = new();
 
+    /// <summary>2026-11-15-bf77: the master's skill describes offer_filing, so File waits for its offer.</summary>
+    public bool OfferLed { get; set; }
+
+    /// <summary>2026-11-15-bf77: the master's last offer to file, through offer_filing; null when it made none.</summary>
+    public FilingOffer? Offer { get; set; }
+
+    /// <summary>2026-11-15-bf77: the offer's line while the draft it was made on is still the current one.</summary>
+    public string? OfferedLine => Offer is { } offer && ReferenceEquals(offer.Draft, Proposal.Current) ? offer.Line : null;
+
     /// <summary>What the turn's master last forwarded and was answered, for the next turn to replay.</summary>
     public ForwardedThreadCapture Thread { get; } = new();
 }

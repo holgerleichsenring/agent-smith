@@ -25,7 +25,7 @@ export interface StepLine {
 
 const SEARCH = /^(grep|search|find_)/;
 const READ = /^(read_|list_)/;
-const WRITE = /^(write_|edit_)/;
+const WRITE = /^(write_|edit_|delete_)/; // 2026-11-15-06fc: delete_file changes the draft too
 const PREFIX = " › ";
 
 /** The tool a step called, after the name of the sub-agent that called it. */

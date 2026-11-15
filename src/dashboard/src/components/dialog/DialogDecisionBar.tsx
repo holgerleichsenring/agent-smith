@@ -5,6 +5,8 @@ import type { ApprovalDecision } from "./approvalDecision";
 // 2026-11-12-92e9d: the decision on the proposal awaiting one, at the composer — the only controls Work it out has
 // besides send. File and Discard send the approve and reject decisions the approval card sent; the line beside them
 // is the card's summary. No shapes are offered: the operator says a different shape in words.
+// 2026-11-15-bf77: when the design partner leads filing, File appears once it offered this draft, beside its line;
+// until then Discard stays and the line says to ask for filing in words.
 
 export function DialogDecisionBar({
   decision,

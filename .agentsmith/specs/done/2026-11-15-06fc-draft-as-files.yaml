@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-15-06fc
+goal: "A design turn's draft is a set of files the master changes with write_file, edit_file and delete_file, each change checked at once, so a spec revised in place keeps its id and its review."
+
+applies_to: "default (proposal store, draft write checks, design master tools, read_file on draft:, review report, turn seed) and dashboard (condenseSteps)"
+
+requires: [2026-11-12-cd4ca, 2026-11-13-3f79, 2026-11-15-bf77]
+
+facts:
+  - claim: "The draft is written through six tools: write_spec, write_contract, write_ticket, write_bug, write_comment, remove_item."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ProposalWriteTools.cs:18-38"
+  - claim: "write_spec without 'spec:' mints a new id; only 'spec: <id>' rewrites a spec in place."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/SpecDraftIds.cs:13-32"
+  - claim: "remove_item refuses an item another one requires, so replacing a spec under a new id needs remove juggling."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/ProposalItemRemoval.cs:30-45"
+  - claim: "A store write is checked against the current draft and either replaces it whole or leaves it standing."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ProposalStore.cs:24-35"
+  - claim: "The review ledger keys a spec's text by its id and yaml."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewTexts.cs:29"
+  - claim: "A text a pass passed stays settled under its id whatever its text becomes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLedger.cs:43-50"
+  - claim: "The spec, contract, ticket and bug formats live in the old tools' parameter descriptions."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpecWriteToolHost.cs:20-28"
+  - claim: "write_comment is offered only on a conversation bound to a ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ProposalWriteTools.cs:34-35"
+  - claim: "An offer is bound to the draft object it was made on."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDialogReplySlot.cs:51"
+  - claim: "Review, the turn outcome and the collect step read the draft through ProposalDraftOutcome over the store."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DesignTurnReviewDrive.cs:63-64"
+  - claim: "The next turn seeds the store from the proposal awaiting a decision."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:73"
+  - claim: "The exact-replacement edit the coding master uses is a private helper of FilesystemToolHost."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:358-384"
+  - claim: "A design turn's FilesystemToolHost is built in AgenticMasterHandler, which sits at its file-length baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:238"
+  - claim: "Draft spec ids are placeholders; filing re-ids every draft onto the series."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeriesDraftIds.cs:6-15"
+
+scope:
+  in: "Files as a view of ProposalDraft (render and read back per kind); write_file, edit_file, delete_file over the existing write checks; read_file and directory_tree on draft:; the formats in write_file; refusal texts, prompt section, write answers and review report in file terms; the old six tools and their tests removed; condenseSteps counts delete_ as a write."
+  out: "The design-partner-master skill text (agent-smith-skills, its own commit). The skills pin: the pinned skill names the old tools, so the server built from this spec ships together with the pin bump to the skills release carrying the file tools (the next release PR, after that skills release). Filing, cards and turn-proposal rows read the draft through ProposalDraftOutcome and need no change."
+
+steps:
+  - id: view
+    action: "DraftFiles renders a ProposalDraft as files in a fixed order: epic/<id>.yaml, specs/<id>.yaml (the stored yaml), contract.yaml, tickets/<key>.yaml, bug.yaml, comment.md. The typed draft stays the one store; files are never kept beside it."
+  - id: kinds
+    action: "One reader per kind turns a file's text into the input of the existing check: spec yaml with its id from the file name, GraphTicket, bug title/description/criteria, comment text, contract YAML as the JsonElement SeriesContractReader.FromDraft reads. Each renderer and reader round-trips."
+  - id: write
+    action: "DraftFileWrite.Put runs the existing check (SpecDraftWrite, TicketDraftWrite, BugDraftWrite, CommentDraftWrite, ContractDraftWrite); Delete runs ProposalItemRemoval for a file, and for a directory (draft:, specs/, tickets/) removes its items and checks what stays. A refused change stores nothing and says why. A change that leaves the file's text as it is stores nothing, so an offer stands."
+  - id: ids
+    action: "SpecDraftIds places the name the file gives, a label such as server-foundation that is never spec-id shaped (filing mints the series id): 'spec:' absent is stated, a different 'spec:' is refused, the schema is checked under a stand-in id. Requires name siblings by label; SpecDraftShape refuses a requirement on the parent or on no spec of the draft, and a cycle. One name under both epic/ and specs/ is refused."
+  - id: comment
+    action: "comment.md is a file of the draft only on a conversation bound to a ticket."
+  - id: tools
+    action: "DraftFileToolHost: write_file(path, content) with the formats per path in its description, edit_file(path, old_string, new_string, replace_all), delete_file(path). edit_file uses the exact-replacement rule extracted from FilesystemToolHost. The answer names the stored file and adds one line when the stored text reads otherwise in substance (repos set, a rendered ticket, bug or contract)."
+  - id: read
+    action: "FilesystemToolHost takes a draft-file delegate; read_file and directory_tree serve draft: paths from it before guards and routing. AgenticMasterHandler sets it on the existing line 238."
+  - id: texts
+    action: "Refusals, ProposalDraftSection and DraftWriteAnswer name files and the file tools; DesignTurnReviewReport names each reviewed spec's draft: path and quotes a cut's quote and replacement as edit_file takes them."
+  - id: remove
+    action: "Delete SpecWriteToolHost, TicketWriteToolHost, BugWriteToolHost, CommentWriteToolHost, ProposalItemToolHost; migrate DraftWriteScript, the presets and the tests to write_file."
+  - id: dashboard
+    action: "condenseSteps: delete_ joins write_ and edit_ as a write line."
+
+decisions:
+  - "Files are a view of the typed draft: one store, so seed, offer, review restore and filing stay as they are."
+  - "A change that breaks the draft is not stored: the draft stays fileable for review, offer and filing; ids come from file names, so a rewrite keeps its id and the delete juggling of new ids is gone."
+  - "The tools keep the generic names write_file, edit_file, delete_file; the coding master's write sanity rules do not apply on a design turn (no spec, no secret placeholder in a draft)."
+  - "The goal and label bounds of SpecNameRuleTests are not applied: draft names are labels filing replaces, and the goal bound is deliberately kept out of the server's schema."
+
+tests:
+  - "DraftFileToolHostTests: write_file stores a spec and answers what the draft holds; edit_file revises in place and keeps the id; an ambiguous or missing old_string stores nothing; delete_file of a required spec is refused; a directory delete switches kind; a file outside the layout is refused; an unchanged edit keeps the offer; the stored text is returned when the checks changed it."
+  - "DraftFileWriteTests: spec id from file name, mismatched spec: refused, one id under epic/ and specs/ refused, comment.md refused when unbound."
+  - "DraftFilesTests: ticket, bug, contract and spec files render and read back to the same draft."
+  - "DraftReviewInPlaceTests: an edit of one spec leaves the other spec's reviewed text covered and sends only the edited text back; a whole-file write_file of a passed spec at its path stays settled."
+  - "FilingOfferTests: an edit_file after offer_filing withdraws the offer."
+  - "FilesystemToolHost draft reads: read_file draft:specs/x.yaml returns numbered lines; directory_tree draft: lists the files."
+  - "Harness: the design-turn presets run through write_file."
+  - "condenseSteps.test.ts: delete_file is a write line."
+
+done:
+  - "The design master's tools hold write_file, edit_file and delete_file and none of write_spec, write_contract, write_ticket, write_bug, write_comment, remove_item."
+  - "A spec edited in place keeps its id; a text the review passed or saw unchanged is not reviewed again."
+  - "Every write, edit and delete answers with the check of the draft, and a refused one leaves the draft as it was."
+  - "offer_filing is withdrawn by any change to the draft, and the proposal the turn publishes is the parse of its files."

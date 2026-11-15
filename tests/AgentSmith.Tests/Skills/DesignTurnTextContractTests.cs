@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Skills;
 /// A release that brings back a contradiction the Fable review found fails here.
 /// <para>
 /// 2026-11-12-681f: v5.29.0 carries no outcome references; the `repos` key the scope check reads is pinned on
-/// write_spec's own schema (ProposalWriteToolsTests), and the master says one repository per spec.
+/// write_spec's own schema (2026-11-15-06fc: write_file's, DraftFileToolHostTests), and the master says one repository per spec.
 /// </para>
 /// </summary>
 public sealed class DesignTurnTextContractTests

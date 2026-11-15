@@ -39,14 +39,14 @@ describe("DialogWorking", () => {
     const activity = mergedSteps([], [
       ...steps(1, 448),
       { ...step(449), kind: "model", name: "Review › stub-model", detail: '{"verdict":"BUILD"}' },
-      { ...step(450), kind: "tool", name: "write_spec", detail: "s.yaml" },
+      { ...step(450), kind: "tool", name: "write_file", detail: "s.yaml" },
     ] as SpecDialogActivityPush[]);
 
     render(<DialogWorking readings={[]} activity={activity} since={Date.now() - 648_000} />);
 
     expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent(/^10m 48s$/);
     expect(within(screen.getByTestId("dialog-activity")).getAllByTestId("dialog-activity-line")
-      .map((line) => line.textContent)).toEqual(["448 reads", "write_spec s.yaml"]);
+      .map((line) => line.textContent)).toEqual(["448 reads", "write_file s.yaml"]);
     expect(screen.queryByTestId("dialog-activity-folded")).toBeNull();
     expect(screen.getByTestId("dialog-working")).not.toHaveTextContent(/steps?\b/);
   });

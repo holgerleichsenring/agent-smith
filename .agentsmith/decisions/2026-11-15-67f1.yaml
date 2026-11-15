@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-15-67f1
+
+decisions:
+  - category: Architecture
+    chose: "Source on GraphTicket, BugTicketDraft and SeriesContract: the file text written, served by the draft view when present"
+    over: "A path-to-text map on ProposalDraft beside its typed items, or rendering the written YAML so it round-trips byte for byte"
+    reason: "Every check returns 'draft with { … }', so a text kept on the item travels with its fields and cannot go stale against a sibling store; that is why 06fc made the files a view. Rendering cannot reproduce the model's quoting and folding, which is what its edit_file quotes: on the worker replay 5 of 6 ticket edits failed with old_string not found."
+  - category: Architecture
+    chose: "Review keys hash a contract and a ticket list without Source"
+    over: "Letting the written text join the key"
+    reason: "A pass reads the fields, and a contract read back from a manifest has no Source, so ReviewedText.Covers would miss a contract reviewed in the dialog."
+  - category: Architecture
+    chose: "SeriesContract.Within returns the contract itself when it removes nothing"
+    over: "Always building a narrowed copy"
+    reason: "The outcome narrows the contract to the children on every turn; a copy drops Source, so the next turn's seed would serve the rendered form again."
+  - category: Scope
+    chose: "No dashboard change"
+    over: "Adding source to SpecDialogGraphTicket"
+    reason: "The push projects tickets through SpecDialogGraphTicketView and the bug through SpecDialogBugView; only the stored proposal JSON gains the field, so a seeded draft keeps its text across turns."

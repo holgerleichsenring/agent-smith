@@ -153,6 +153,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     public Specs.SpecRunCommandLog Commands { get; init; } = new(); // p0452/p0469: spec-scoped
     public bool ResolvesUnprefixedReads { get; init; } // 2026-11-10-85e2: a design turn's host only
+    public Func<IReadOnlyList<SpecDialog.Writes.DraftFile>>? DraftReader { get; init; } // 2026-11-15-06fc: draft: paths
 
     /// <summary>p0331: registers a mid-run sandbox (ensure_repo_sandbox escalation)
     /// under its composite key AND its repo-name alias, mirroring the constructor's
@@ -230,6 +231,8 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: ReadFile path={Path} start={Start} count={Count}", path, start_line, line_count);
+        if (DraftReader is { } draft && SpecDialog.Writes.DraftPath.Names(path))
+            return DraftFileReads.Read(draft(), path, start_line, line_count, with_line_numbers);
         if (_guards.CheckRead(path) is { } error) return error;
         var (runner, bare, routeErr) = Route(path);
         if (routeErr is not null && !ResolvesUnprefixedReads) return routeErr;
@@ -295,6 +298,7 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: DirectoryTree root={Root} depth={Depth}", root, max_depth);
+        if (DraftReader is { } draft && SpecDialog.Writes.DraftPath.Names(root)) return Task.FromResult(DraftFileReads.Tree(draft(), root));
         if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
         var (runner, bare, routeErr) = Route(root);
         if (routeErr is not null) return Task.FromResult(routeErr);
@@ -345,42 +349,14 @@ public sealed class FilesystemToolHost : IToolHost
         if (content.StartsWith("Error", StringComparison.Ordinal)) return content;
 
         // A null new_string is a deletion of old_string — treat it as empty.
-        var (newContent, count, error) = ApplyEdit(content, old_string, new_string ?? string.Empty, replace_all, path);
-        if (error is not null) return error;
+        var (newContent, count, error) = ExactTextEdit.Apply(content, old_string, new_string ?? string.Empty, replace_all, path);
+        if (error is not null) return $"Error: {error}";
         var result = await runner.WriteAsync(bare, newContent, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))
             RecordChange(path, newContent);
         return replace_all
             ? $"{result}\nReplaced {count} occurrence(s)."
             : result;
-    }
-
-    private static (string Content, int Count, string? Error) ApplyEdit(
-        string content, string oldString, string newString, bool replaceAll, string path)
-    {
-        var idx = content.IndexOf(oldString, StringComparison.Ordinal);
-        if (idx < 0) return (content, 0, $"Error: old_string not found in {path}.");
-        if (!replaceAll && content.IndexOf(oldString, idx + 1, StringComparison.Ordinal) >= 0)
-            return (content, 0, $"Error: old_string appears multiple times in {path} — extend the snippet with surrounding context to make it unique, or pass replace_all=true.");
-        if (!replaceAll)
-        {
-            var single = string.Concat(content.AsSpan(0, idx), newString, content.AsSpan(idx + oldString.Length));
-            return (single, 1, null);
-        }
-        // Manual replace_all so we can count and avoid Regex pitfalls with special chars.
-        var sb = new StringBuilder(content.Length);
-        var pos = 0;
-        var count = 0;
-        while (pos < content.Length)
-        {
-            var next = content.IndexOf(oldString, pos, StringComparison.Ordinal);
-            if (next < 0) { sb.Append(content, pos, content.Length - pos); break; }
-            sb.Append(content, pos, next - pos);
-            sb.Append(newString);
-            pos = next + oldString.Length;
-            count++;
-        }
-        return (sb.ToString(), count, null);
     }
 
     [Description("Atomically applies multiple text edits to a single file. All edits succeed or none apply. Useful for a refactor or rename across one file in one round-trip. With dry_run=true, returns a per-edit summary and writes nothing.")]
@@ -407,8 +383,8 @@ public sealed class FilesystemToolHost : IToolHost
         {
             var op = edits[i];
             if (string.IsNullOrEmpty(op.old_string)) return $"Error: edit #{i + 1} old_string must not be empty.";
-            var (next, count, err) = ApplyEdit(content, op.old_string, op.new_string ?? string.Empty, op.replace_all, path);
-            if (err is not null) return $"Error in edit #{i + 1}: {err[7..]}";
+            var (next, count, err) = ExactTextEdit.Apply(content, op.old_string, op.new_string ?? string.Empty, op.replace_all, path);
+            if (err is not null) return $"Error in edit #{i + 1}: {err}";
             summary.AppendLine($"edit #{i + 1}: {count} replacement(s)");
             content = next;
         }

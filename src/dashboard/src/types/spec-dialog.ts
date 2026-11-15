@@ -463,6 +463,10 @@ export interface SpecDialogProposalPush {
   questions?: SpecDialogOpenQuestion[];
   /** 2026-11-10-d854a: the proposing turn's spend so far, its total on the final proposal; absent on an older one. */
   spend?: SpecDialogSpend | null;
+  /** 2026-11-15-bf77: the proposing master offers filing itself, so File waits for filingOffer; absent on an older one. */
+  offerLed?: boolean;
+  /** 2026-11-15-bf77: the master's line of what filing this draft does; null when it did not offer. */
+  filingOffer?: string | null;
 }
 
 /** 2026-11-10-d854a: a question only the operator can answer, the design partner's proposal, and the specs it touches. */
