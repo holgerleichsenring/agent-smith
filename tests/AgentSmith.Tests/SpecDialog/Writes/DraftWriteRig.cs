@@ -19,7 +19,7 @@ internal static class DraftWriteRig
     public static SpecDraftWrite Specs() => new(
         new SpecDraftIds(),
         new SpecDraftValidator(new SpecSchemaProvider()), DialogTestRepos.Real(), new SpecDraftReader(),
-        new SpecDraftShape(new RequiresEdgeChecker()));
+        new SpecDraftShape(new RequiresEdgeChecker(), new EpicChildOrderer()));
 
     public static ContractDraftWrite Contracts() => new(TestSupport.SeriesContracts.Reader());
 

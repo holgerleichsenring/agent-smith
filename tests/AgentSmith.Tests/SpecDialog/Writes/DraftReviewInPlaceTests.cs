@@ -18,14 +18,14 @@ public sealed class DraftReviewInPlaceTests
     public async Task EditFile_OneRefusedSpec_OnlyThatTextGoesBackToReview()
     {
         var (store, ledger) = await ReviewedEpicAsync(SpecReviewVerdicts.Refuse);
-        var p0102 = Child(store, "p0102");
+        var api = Child(store, "api");
 
-        await InvokeAsync(store, "edit_file", ("path", "draft:specs/p0101.yaml"), ("old_string", "One"), ("new_string", "One, revised"));
+        await InvokeAsync(store, "edit_file", ("path", "draft:specs/store.yaml"), ("old_string", "One"), ("new_string", "One, revised"));
 
-        ledger.For(Child(store, "p0102")).Should().NotBeNull("p0102's text is the one the pass reviewed");
-        Child(store, "p0102").Should().Be(p0102);
-        ledger.For(Child(store, "p0101")).Should().BeNull("p0101's text changed under its id");
-        ledger.Covers(ProposalDraftOutcome.For(store)).Should().BeFalse("p0101 was refused and its new text is unreviewed");
+        ledger.For(Child(store, "api")).Should().NotBeNull("api's text is the one the pass reviewed");
+        Child(store, "api").Should().Be(api);
+        ledger.For(Child(store, "store")).Should().BeNull("store's text changed under its id");
+        ledger.Covers(ProposalDraftOutcome.For(store)).Should().BeFalse("store was refused and its new text is unreviewed");
     }
 
     [Fact]
@@ -33,20 +33,20 @@ public sealed class DraftReviewInPlaceTests
     {
         var (store, ledger) = await ReviewedEpicAsync(SpecReviewVerdicts.BuildWithCuts);
 
-        await InvokeAsync(store, "write_file", ("path", "draft:specs/p0101.yaml"), ("content", "goal: \"One, cuts applied\""));
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"), ("content", "goal: \"One, cuts applied\""));
 
-        Child(store, "p0101").SpecId.Should().Be("p0101");
+        Child(store, "store").SpecId.Should().Be("store");
         ledger.Covers(ProposalDraftOutcome.For(store)).Should().BeTrue("a passed id is settled whatever its text becomes");
     }
 
     private static async Task<(ProposalStore Store, ProposalReviewLedger Ledger)> ReviewedEpicAsync(string verdict)
     {
         var store = new ProposalStore();
-        await InvokeAsync(store, "write_file", ("path", "draft:epic/p0100.yaml"), ("content", "goal: \"The epic\""));
-        await InvokeAsync(store, "write_file", ("path", "draft:specs/p0101.yaml"), ("content", "goal: \"One\""));
-        await InvokeAsync(store, "write_file", ("path", "draft:specs/p0102.yaml"), ("content", "goal: \"Two\""));
+        await InvokeAsync(store, "write_file", ("path", "draft:epic/platform.yaml"), ("content", "goal: \"The epic\""));
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"), ("content", "goal: \"One\""));
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/api.yaml"), ("content", "goal: \"Two\""));
         var ledger = ProposalReviewLedger.Of(new PipelineContext());
-        ledger.Record(ProposalDraftOutcome.For(store) with { ReviewRounds = [Round("p0101", verdict), Round("p0102", verdict)] });
+        ledger.Record(ProposalDraftOutcome.For(store) with { ReviewRounds = [Round("store", verdict), Round("api", verdict)] });
         ledger.Covers(ProposalDraftOutcome.For(store)).Should().BeTrue();
         return (store, ledger);
     }

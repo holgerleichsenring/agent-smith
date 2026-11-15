@@ -6,10 +6,10 @@ namespace AgentSmith.Application.Services.SpecDialog.Writes;
 /// 2026-11-12-cd4ca: whether the draft's specs still form one proposal once <c>spec</c> is placed — one spec, or one
 /// parent with children whose requires name siblings without a cycle. Several specs without a parent are refused,
 /// so the parent is written first; the refusal says how to go on. 2026-11-15-06fc: the parent is the file under
-/// epic/, a spec under specs/; one id is never both, and a requirement naming no file of the draft says which file
-/// to write.
+/// epic/, a spec under specs/; one id is never both, a requirement naming no file of the draft says which file
+/// to write, and the specs' requirements must leave an order to build them in.
 /// </summary>
-public sealed class SpecDraftShape(RequiresEdgeChecker edges)
+public sealed class SpecDraftShape(RequiresEdgeChecker edges, EpicChildOrderer orderer)
 {
     public DraftWrite Place(ProposalDraft draft, DraftSpec spec)
     {
@@ -40,18 +40,25 @@ public sealed class SpecDraftShape(RequiresEdgeChecker edges)
                     + $"{DraftPath.Prefix}{DraftPath.Epic}<id>.yaml first"
                 : null;
         var children = specs.Where(s => !s.Parent).Select(s => s.Draft).ToList();
-        return Missing(children, parent.Draft.SpecId) ?? edges.Check(parent.Draft, children);
+        return Unwritten(children, parent.Draft.SpecId) ?? edges.Check(parent.Draft, children) ?? orderer.Order(children).Error;
     }
 
-    private static string? Missing(IReadOnlyList<SpecDraft> children, string parentId)
+    // A requirement naming a spec — by label or id — is an edge: to the parent it is refused, to no spec of the draft
+    // it names the file to write; a sentence is an outside precondition.
+    private static string? Unwritten(IReadOnlyList<SpecDraft> children, string parentId)
     {
-        var ids = children.Select(c => c.SpecId).Append(parentId).ToHashSet(StringComparer.Ordinal);
+        var ids = children.Select(c => c.SpecId).ToHashSet(StringComparer.Ordinal);
         foreach (var child in children)
-            foreach (var id in child.Requires.Where(r => RequiresEdgeChecker.SpecIdRegex().IsMatch(r) && !ids.Contains(r)))
-                return $"'{child.SpecId}' requires '{id}', which no spec of this draft is — write "
-                    + $"{DraftPath.Prefix}{DraftPath.OfSpec(id, false)} first, or state an outside precondition as a sentence";
+            foreach (var id in child.Requires.Where(r => !ids.Contains(r) && Names(r)))
+                return id == parentId
+                    ? $"'{child.SpecId}' requires the epic's parent '{id}' — the parent aggregates its specs, it is no dependency"
+                    : $"'{child.SpecId}' requires '{id}', which no spec of this draft is — write "
+                        + $"{DraftPath.Prefix}{DraftPath.OfSpec(id, false)} first, or state an outside precondition as a sentence";
         return null;
     }
+
+    private static bool Names(string requirement) =>
+        SpecDraftIds.IsLabel(requirement) || RequiresEdgeChecker.SpecIdRegex().IsMatch(requirement);
 
     private static string Shown(DraftSpec spec) => DraftPath.Shown(DraftPath.OfSpec(spec.Draft.SpecId, spec.Parent));
 }

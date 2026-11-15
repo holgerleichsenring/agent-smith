@@ -33,8 +33,9 @@ public sealed class DraftFileToolHost(ProposalStore store, DraftFileWrite write,
         + "an epic, tickets, a bug or a comment. The answer is the check of the draft with this file: stored, or "
         + "exactly why not, and then the draft stays as it was.")]
     private string WriteFile(
-        [Description("The file's draft path, such as draft:specs/p0001.yaml. A spec's id is a placeholder of the spec "
-            + "id shape, such as p0001 or p0002-export; filing gives every spec its series id.")] string path,
+        [Description("The file's draft path, such as draft:specs/server-foundation.yaml. A spec's name is a short label "
+            + "of lower-case letters, digits and '-', and its requires name siblings by it; filing gives every spec its "
+            + "series id.")] string path,
         [Description(DraftFileFormats.Spec + DraftFileFormats.Others)] string content) =>
         Change(path, _ => (content ?? string.Empty, null));
 
@@ -43,7 +44,7 @@ public sealed class DraftFileToolHost(ProposalStore store, DraftFileWrite write,
         + "occurrence is replaced with replace_all. Revising a file in place keeps its id and every other file as it "
         + "is, so the review looks again only at what changed. The answer is the check of the draft with the edit.")]
     private string EditFile(
-        [Description("The file's draft path, such as draft:specs/p0001.yaml.")] string path,
+        [Description("The file's draft path, such as draft:specs/server-foundation.yaml.")] string path,
         [Description("The exact text to replace, with enough around it to be unique.")] string old_string,
         [Description("The text to put in its place.")] string new_string,
         [Description("True replaces every occurrence. Default false.")] bool replace_all = false) =>
@@ -70,21 +71,21 @@ public sealed class DraftFileToolHost(ProposalStore store, DraftFileWrite write,
     private string Change(string path, Func<string?, (string? Text, string? Error)> next)
     {
         var bare = DraftPath.Bare(path);
-        var (unchanged, written, stored) = (false, string.Empty, (string?)null);
+        var (unchanged, note) = (false, string.Empty);
         var refusal = store.Apply(draft =>
         {
             var before = DraftFiles.Find(draft, bare)?.Text;
             var (text, error) = next(before);
             if (text is null) return DraftWrite.Refused(error!);
-            written = text;
             var result = write.Put(draft, bare, text, scope);
-            stored = result.Next is { } after ? DraftFiles.Find(after, bare)?.Text : null;
-            unchanged = result.Next is not null && stored == before;
+            if (result.Next is not { } after) return result;
+            var stored = DraftFiles.Find(after, bare)?.Text;
+            unchanged = stored == before;
+            note = DraftStoredNote.Of(bare, text, stored, after);
             return unchanged ? DraftWrite.Refused("unchanged") : result;
         });
         if (unchanged) return $"{DraftPath.Shown(bare)} is unchanged: its text is as it was.";
-        return DraftWriteAnswer.Of(refusal, $"Stored {DraftPath.Shown(bare)}.", store)
-            + (refusal is null ? DraftWriteAnswer.Stored(written, stored) : string.Empty);
+        return DraftWriteAnswer.Of(refusal, $"Stored {DraftPath.Shown(bare)}.", store) + (refusal is null ? note : string.Empty);
     }
 
     private static (string? Text, string? Error) Replaced(string current, string oldString, string? newString, bool all, string path)

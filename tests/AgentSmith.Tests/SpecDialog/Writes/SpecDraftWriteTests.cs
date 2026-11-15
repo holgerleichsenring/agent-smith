@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog.Writes;
 using AgentSmith.Contracts.Models;
 using FluentAssertions;
 
@@ -8,17 +9,17 @@ public sealed class SpecDraftWriteTests
     [Fact]
     public void WriteSpec_WithoutStatedId_TakesTheFileNameId()
     {
-        var write = DraftWriteRig.Specs().Write(ProposalDraft.Empty, "p0101", "goal: \"Widgets are stored\"", false, []);
+        var write = DraftWriteRig.Specs().Write(ProposalDraft.Empty, "store", "goal: \"Widgets are stored\"", false, []);
 
-        write.Written().Specs.Should().ContainSingle().Which.Draft.SpecId.Should().Be("p0101");
-        write.Written().Specs[0].Draft.Yaml.Should().StartWith("spec: p0101");
+        write.Written().Specs.Should().ContainSingle().Which.Draft.SpecId.Should().Be("store");
+        write.Written().Specs[0].Draft.Yaml.Should().StartWith("spec: store");
     }
 
     [Fact]
     public void WriteSpec_StatedIdOtherThanTheFileName_IsRefused()
     {
-        DraftWriteRig.Specs().Write(ProposalDraft.Empty, "p0101", DraftWriteRig.Spec("p0102"), false, []).Refusal
-            .Should().Contain("the file names spec 'p0101'");
+        DraftWriteRig.Specs().Write(ProposalDraft.Empty, "store", DraftWriteRig.Spec("api"), false, []).Refusal
+            .Should().Contain("the file names spec 'store'");
     }
 
     [Fact]
@@ -85,16 +86,43 @@ public sealed class SpecDraftWriteTests
     }
 
     [Fact]
+    public void WriteSpec_LabelledEpic_OrdersByItsLabels()
+    {
+        var specs = DraftWriteRig.Specs();
+        var draft = specs.Write(ProposalDraft.Empty, "platform", "goal: \"Platform\"", true, []).Written();
+        draft = specs.Write(draft, "store", "goal: \"Store\"", false, []).Written();
+
+        var epic = specs.Write(draft, "api", "goal: \"Api\"\nrequires: [store]", false, []).Written();
+
+        epic.Specs.Select(s => s.Draft.SpecId).Should().Equal("platform", "store", "api");
+        epic.Specs[2].Draft.Yaml.Should().StartWith("spec: api", "the label is the name the text states until filing");
+        specs.Write(epic, "store", "goal: \"Store\"\nrequires: [api]", false, []).Refusal
+            .Should().Contain("cannot be put in an order");
+        specs.Write(epic, "store", "goal: \"Store\"\nrequires: [platform]", false, []).Refusal
+            .Should().Contain("requires the epic's parent 'platform'");
+    }
+
+    [Fact]
+    public void SpecDraftIds_IsLabel_TellsALabelFromASpecId()
+    {
+        SpecDraftIds.IsLabel("server-foundation").Should().BeTrue();
+        SpecDraftIds.IsLabel("p0001").Should().BeFalse();
+        SpecDraftIds.IsLabel("p0001-export").Should().BeFalse();
+        SpecDraftIds.IsLabel("2026-11-15-06fca").Should().BeFalse();
+        SpecDraftIds.IsLabel("Server Foundation").Should().BeFalse();
+    }
+
+    [Fact]
     public void WriteSpec_SchemaInvalid_IsRefusedWithTheSchemaError()
     {
-        DraftWriteRig.Specs().Write(ProposalDraft.Empty, "p0101", "goal: \"g\"\nscope:\n  invented: \"x\"", false, []).Refusal
+        DraftWriteRig.Specs().Write(ProposalDraft.Empty, "store", "goal: \"g\"\nscope:\n  invented: \"x\"", false, []).Refusal
             .Should().Contain("it allows in, out");
     }
 
     [Fact]
-    public void WriteSpec_FileNameThatIsNoSpecId_IsRefused()
+    public void WriteSpec_FileNameThatIsNoSpecName_IsRefused()
     {
-        DraftWriteRig.Specs().Write(ProposalDraft.Empty, "2026-xx-xx-0000", "goal: \"g\"", false, []).Refusal
-            .Should().Contain("is no spec id");
+        DraftWriteRig.Specs().Write(ProposalDraft.Empty, "Export Queue", "goal: \"g\"", false, []).Refusal
+            .Should().Contain("is no spec name");
     }
 }

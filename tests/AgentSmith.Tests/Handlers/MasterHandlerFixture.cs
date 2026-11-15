@@ -113,7 +113,8 @@ internal static class MasterHandlerFixture
                 validator, AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(),
                 new AgentSmith.Application.Services.SpecDialog.SpecDraftReader(),
                 new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftShape(
-                    new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker())),
+                    new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker(),
+                    new AgentSmith.Application.Services.SpecDialog.EpicChildOrderer())),
             new AgentSmith.Application.Services.SpecDialog.Writes.TicketDraftWrite(
                 new AgentSmith.Application.Services.SpecDialog.TicketGraphChecker(orderer), orderer),
             new AgentSmith.Application.Services.SpecDialog.Writes.ContractDraftWrite(AgentSmith.Tests.TestSupport.SeriesContracts.Reader())));

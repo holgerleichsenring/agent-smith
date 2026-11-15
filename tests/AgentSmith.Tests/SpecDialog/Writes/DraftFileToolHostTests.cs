@@ -21,42 +21,53 @@ public sealed class DraftFileToolHostTests
     }
 
     [Fact]
-    public async Task WriteFile_Spec_IsStoredUnderItsFileNameAndSaysWhatTheChecksAdded()
+    public async Task WriteFile_Spec_IsStoredUnderItsFileName()
     {
         var store = new ProposalStore();
 
-        var answer = await InvokeAsync(store, "write_file", ("path", "draft:specs/p0101.yaml"), ("content", Spec));
+        var answer = await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"), ("content", Spec));
 
-        answer.Should().StartWith("Stored draft:specs/p0101.yaml. The draft holds one spec.")
-            .And.Contain("The checks changed what you wrote").And.Contain("spec: p0101");
-        store.Current.Specs.Single().Draft.SpecId.Should().Be("p0101");
+        answer.Should().Be("Stored draft:specs/store.yaml. The draft holds one spec.", "stating the spec's own name is no change worth a line");
+        store.Current.Specs.Single().Draft.SpecId.Should().Be("store");
         store.Changed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WriteFile_Ticket_SaysInOneLineThatItIsStoredRendered()
+    {
+        var store = new ProposalStore();
+
+        var answer = await InvokeAsync(store, "write_file", ("path", "draft:tickets/a-one.yaml"),
+            ("content", "{\"title\": \"A\", \"requirement\": \"Do A.\", \"done\": [\"A is done\"]}"));
+
+        answer.Should().Be("Stored draft:tickets/a-one.yaml. The draft holds 1 ticket(s).\n"
+            + "Stored in its rendered form; read_file shows the text an edit_file quotes.");
     }
 
     [Fact]
     public async Task EditFile_Spec_RevisesInPlaceAndKeepsTheId()
     {
         var store = new ProposalStore();
-        await InvokeAsync(store, "write_file", ("path", "specs/p0101.yaml"), ("content", Spec));
+        await InvokeAsync(store, "write_file", ("path", "specs/store.yaml"), ("content", Spec));
 
-        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:specs/p0101.yaml"),
+        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:specs/store.yaml"),
             ("old_string", "Widgets are stored"), ("new_string", "Widgets are stored and listed"));
 
-        answer.Should().Be("Stored draft:specs/p0101.yaml. The draft holds one spec.");
-        store.Current.Specs.Single().Draft.Should().Match<SpecDraft>(d => d.SpecId == "p0101" && d.Goal == "Widgets are stored and listed");
+        answer.Should().Be("Stored draft:specs/store.yaml. The draft holds one spec.");
+        store.Current.Specs.Single().Draft.Should().Match<SpecDraft>(d => d.SpecId == "store" && d.Goal == "Widgets are stored and listed");
     }
 
     [Theory]
     [InlineData("a widget", "appears multiple times")]
-    [InlineData("no such text", "old_string not found in draft:specs/p0101.yaml")]
+    [InlineData("no such text", "old_string not found in draft:specs/store.yaml")]
     public async Task EditFile_OldStringNotOnceInTheFile_StoresNothing(string oldString, string reason)
     {
         var store = new ProposalStore();
-        await InvokeAsync(store, "write_file", ("path", "draft:specs/p0101.yaml"),
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"),
             ("content", Spec + "\nassumptions:\n  - \"a widget is small\""));
         var before = store.Current;
 
-        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:specs/p0101.yaml"), ("old_string", oldString), ("new_string", "x"));
+        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:specs/store.yaml"), ("old_string", oldString), ("new_string", "x"));
 
         answer.Should().StartWith("Not stored:").And.Contain(reason);
         store.Current.Should().BeSameAs(before);
@@ -66,10 +77,10 @@ public sealed class DraftFileToolHostTests
     public async Task EditFile_SameText_StoresNothingSoTheOfferStands()
     {
         var slot = new SpecDialogReplySlot();
-        await InvokeAsync(slot.Proposal, "write_file", ("path", "draft:specs/p0101.yaml"), ("content", Spec));
+        await InvokeAsync(slot.Proposal, "write_file", ("path", "draft:specs/store.yaml"), ("content", Spec));
         await new OfferFilingToolHost(slot).GetTools(null, null).Single().InvokeAsync(new AIFunctionArguments { ["line"] = "Files it." });
 
-        var answer = await InvokeAsync(slot.Proposal, "edit_file", ("path", "draft:specs/p0101.yaml"),
+        var answer = await InvokeAsync(slot.Proposal, "edit_file", ("path", "draft:specs/store.yaml"),
             ("old_string", "stored"), ("new_string", "stored"));
 
         answer.Should().Contain("is unchanged");
@@ -80,10 +91,10 @@ public sealed class DraftFileToolHostTests
     public async Task EditFile_AfterTheOffer_WithdrawsIt()
     {
         var slot = new SpecDialogReplySlot();
-        await InvokeAsync(slot.Proposal, "write_file", ("path", "draft:specs/p0101.yaml"), ("content", Spec));
+        await InvokeAsync(slot.Proposal, "write_file", ("path", "draft:specs/store.yaml"), ("content", Spec));
         await new OfferFilingToolHost(slot).GetTools(null, null).Single().InvokeAsync(new AIFunctionArguments { ["line"] = "Files it." });
 
-        await InvokeAsync(slot.Proposal, "edit_file", ("path", "draft:specs/p0101.yaml"), ("old_string", "stored"), ("new_string", "kept"));
+        await InvokeAsync(slot.Proposal, "edit_file", ("path", "draft:specs/store.yaml"), ("old_string", "stored"), ("new_string", "kept"));
 
         slot.OfferedLine.Should().BeNull("the offer named the draft before the edit");
     }
@@ -93,9 +104,9 @@ public sealed class DraftFileToolHostTests
     {
         var store = await EpicAsync();
 
-        var answer = await InvokeAsync(store, "delete_file", ("path", "draft:specs/p0101.yaml"));
+        var answer = await InvokeAsync(store, "delete_file", ("path", "draft:specs/store.yaml"));
 
-        answer.Should().StartWith("Not stored:").And.Contain("'p0102' require 'p0101' — edit or delete them first");
+        answer.Should().StartWith("Not stored:").And.Contain("'api' require 'store' — edit or delete them first");
         store.Current.Specs.Should().HaveCount(3);
     }
 
@@ -135,9 +146,9 @@ public sealed class DraftFileToolHostTests
     private static async Task<ProposalStore> EpicAsync()
     {
         var store = new ProposalStore();
-        await InvokeAsync(store, "write_file", ("path", "draft:epic/p0100.yaml"), ("content", "goal: \"The epic\""));
-        await InvokeAsync(store, "write_file", ("path", "draft:specs/p0101.yaml"), ("content", "goal: \"One\""));
-        await InvokeAsync(store, "write_file", ("path", "draft:specs/p0102.yaml"), ("content", "goal: \"Two\"\nrequires: [p0101]"));
+        await InvokeAsync(store, "write_file", ("path", "draft:epic/platform.yaml"), ("content", "goal: \"The epic\""));
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"), ("content", "goal: \"One\""));
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/api.yaml"), ("content", "goal: \"Two\"\nrequires: [store]"));
         store.Current.Specs.Should().HaveCount(3);
         return store;
     }

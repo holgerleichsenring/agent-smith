@@ -19,13 +19,17 @@ decisions:
     over: "A parent: true key in the spec text, or a fixed parent file name"
     reason: "The file name is the id for every spec, the parent included, and nothing extra is written into a text that files. One id under both epic/ and specs/ is refused, so a file never silently moves."
   - category: Architecture
-    chose: "A spec id is the file name and must pass the spec schema (p0001-style or date-minted); a stated 'spec:' must match it"
-    over: "Minting an id when 'spec:' is absent, or accepting any slug"
-    reason: "Minting is what produced new ids per rewrite. Draft ids stay placeholders that filing re-ids onto the series; requires entries are recognised by the spec id shape, so a file name outside it could not be required."
+    chose: "A draft spec is named by a label, its file name (specs/server-foundation.yaml): lower-case letters, digits and '-', never spec-id shaped; filing mints its series id"
+    over: "Placeholders in the spec id shape (p0001, p0002-export), or a store-minted date id per new spec"
+    reason: "The counter namespace is closed to new ids, and a minted id per write is what produced copies under new ids. A label cannot be read as a real id, so SpecDraftIds tells them apart; the schema is checked with a stand-in id for the label, requires name siblings by label, and SeriesDraftIds rewrites spec: and requires at filing as before. A spec id already in a draft stays accepted, so a proposal written before labels can still be edited."
   - category: Architecture
-    chose: "The stored text is the checked text; when the checks changed it (spec: stated, repos decided) the answer returns the file"
-    over: "Storing what the model wrote and deriving the filed text elsewhere"
-    reason: "The file is exactly what files and what the review keys on; returning it keeps the next edit_file's old_string quotable."
+    chose: "Edges between labelled specs are checked by sibling name: a requirement naming the parent or no spec of the draft is refused with the file to write, and EpicChildOrderer refuses a cycle"
+    over: "Leaving label requirements to RequiresEdgeChecker, which reads only spec-id-shaped entries as edges"
+    reason: "Labels are not spec-id shaped, so the regex would read them as free text and miss cycles until filing."
+  - category: Architecture
+    chose: "The stored text is the checked text; a write answer adds one line only when the stored file reads otherwise in substance: the repos the checks set on a spec, or that a ticket, bug or contract is stored in its rendered form"
+    over: "Returning the whole stored file whenever it differed from what was written"
+    reason: "Measured on the first terra replay: every write answered 'The checks changed what you wrote', mostly for the spec: line the store states, which reads like an error. Stating a spec's own name is no change worth a line."
   - category: Architecture
     chose: "A write or edit that leaves the file's text as it was stores nothing"
     over: "Replacing the draft on every call"
@@ -45,7 +49,7 @@ decisions:
   - category: Scope
     chose: "The goal and label bounds of SpecNameRuleTests are not applied to draft specs"
     over: "Refusing a draft goal over 200 characters"
-    reason: "Draft ids are placeholders without labels, and the repository deliberately keeps the goal bound out of the schema the server evaluates on model drafts (SpecNameRuleTests.MaxGoalChars)."
+    reason: "Draft names are labels filing replaces with series ids, and the repository deliberately keeps the goal bound out of the schema the server evaluates on model drafts (SpecNameRuleTests.MaxGoalChars)."
   - category: Scope
     chose: "The skills pin moves in the next release PR, after the agent-smith-skills release that carries the file tools"
     over: "Bumping the pin in this spec"

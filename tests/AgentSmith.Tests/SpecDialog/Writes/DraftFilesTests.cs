@@ -57,5 +57,21 @@ public sealed class DraftFilesTests
         read.Contract.Should().BeEquivalentTo(contract);
     }
 
+    [Fact]
+    public void SeriesDraftIds_LabelledDrafts_TakeTheirSeriesIdsInTextAndRequires()
+    {
+        var specs = DraftWriteRig.Specs();
+        var draft = specs.Write(ProposalDraft.Empty, "platform", "goal: \"Platform\"", true, []).Written();
+        draft = specs.Write(draft, "store", "goal: \"Store\"", false, []).Written();
+        draft = specs.Write(draft, "store-api", "goal: \"Api\"\nrequires: [store]", false, []).Written();
+
+        var filed = new Application.Services.SpecDialog.SeriesDraftIds(new Application.Services.SpecDialog.SpecDraftIdRewriter())
+            .Assign("2026-11-15-abcd", [.. draft.Specs.Where(s => !s.Parent).Select(s => s.Draft)]);
+
+        filed.Select(f => f.SpecId).Should().Equal("2026-11-15-abcda", "2026-11-15-abcdb");
+        filed[1].Requires.Should().Equal("2026-11-15-abcda");
+        filed[1].Yaml.Should().StartWith("spec: 2026-11-15-abcdb").And.Contain("requires: [2026-11-15-abcda]");
+    }
+
     private static DraftSpec Spec(string id, bool parent) => new(new SpecDraft(id, "g", $"spec: {id}", []), parent);
 }
