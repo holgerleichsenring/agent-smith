@@ -65,4 +65,10 @@ public sealed record SpecDialogProposalPush(
 
     /// <summary>2026-11-10-d854a: the proposing turn's spend so far, its total on the final push; null on an older proposal.</summary>
     public ProposalSpend? Spend { get; init; }
+
+    /// <summary>2026-11-15-bf77: the proposing master offers filing itself, so File waits for <see cref="FilingOffer"/>.</summary>
+    public bool OfferLed { get; init; }
+
+    /// <summary>2026-11-15-bf77: the master's line of what filing this draft does; null when it did not offer.</summary>
+    public string? FilingOffer { get; init; }
 }

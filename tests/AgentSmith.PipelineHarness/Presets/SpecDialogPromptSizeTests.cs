@@ -43,6 +43,7 @@ public sealed partial class SpecDialogWorkPictureTests
         // which no turn fetches any more (an epic format alone was 12000 characters per fetch).
         // 2026-11-12-cd4cj/cd4ck: review_proposal, and read_notes/write_notes in place of note_reference (23 tools).
         (system + user + tools).Should().BeLessThan(39000, "a first design turn carries only what it can use");
-        count.Should().BeLessThanOrEqualTo(23);
+        // 2026-11-15-bf77: offer_filing (24 tools, 37268) — File appears because the master offered the draft.
+        count.Should().BeLessThanOrEqualTo(24);
     }
 }

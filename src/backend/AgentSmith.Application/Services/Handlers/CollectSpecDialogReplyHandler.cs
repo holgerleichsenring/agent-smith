@@ -41,7 +41,11 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
 
         slot.Reply = answer;
         // 2026-11-10-d854a: every review path ends here, so the questions and the turn's total spend are set once.
-        slot.Outcome = outcome with { Questions = slot.Questions, Spend = TurnSpend.Of(context.Pipeline) };
+        slot.Outcome = outcome with
+        {
+            Questions = slot.Questions, Spend = TurnSpend.Of(context.Pipeline),
+            OfferLed = slot.OfferLed, FilingOffer = slot.OfferedLine, // 2026-11-15-bf77: only on the draft it offered
+        };
         slot.Kind = context.Pipeline.TryGet<SpecDialogTurnKind>(ContextKeys.SpecDialogReplyKind, out var kind)
             ? kind : null;
         slot.Stewarded = context.Pipeline.TryGet<string>(ContextKeys.MasterSkillName, out var master)

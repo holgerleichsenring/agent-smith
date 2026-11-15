@@ -15,12 +15,14 @@ namespace AgentSmith.Application.Services.Tools;
 /// for a conversation that has no subject yet, bound or not; and state_work_picture (2026-11-05-862ea) on every turn
 /// with a reply slot, beside the proposal write tools (2026-11-12-cd4ca). The MASTER only — a child acts on no one's word, so no
 /// child surface carries them. A turn seeded with none of their ports gets none of them. 2026-11-12-cd4cj:
-/// review_proposal on a design partner's turn, when the review pass is composed.
+/// review_proposal on a design partner's turn, when the review pass is composed. 2026-11-15-bf77: offer_filing, and
+/// whether the master's skill describes it, which makes File wait for its offer.
 /// </summary>
 public sealed class TicketActToolsFactory(
     SeriesVerification verification, ProposalWriteTools writes,
     Scope.DesignEffortCap? efforts = null,
-    ProposalReviewPass? review = null, Specs.Review.ISpecReviewSettingsReader? reviewSettings = null)
+    ProposalReviewPass? review = null, Specs.Review.ISpecReviewSettingsReader? reviewSettings = null,
+    IPromptCatalog? prompts = null)
 {
     public IReadOnlyList<AITool> Tools(AgenticMasterContext context)
     {
@@ -36,6 +38,8 @@ public sealed class TicketActToolsFactory(
             tools.AddRange(new WorkPictureToolHost(slot, efforts is null ? null // 862ea; 548f, 205fc: its effort sizes the cap
                 : (tier, ct) => efforts.ApplyAsync(pipeline, tier, ct), stored).GetTools(null, null));
             tools.AddRange(new OpenQuestionsToolHost(slot).GetTools(null, null)); // 2026-11-10-d854a
+            tools.AddRange(new OfferFilingToolHost(slot).GetTools(null, null)); // 2026-11-15-bf77
+            slot.OfferLed = OfferFilingToolHost.DescribedIn(MasterBody(context.MasterSkillName));
             tools.AddRange(writes.For(pipeline, slot.Proposal)); // 2026-11-12-cd4ca: the draft is written, not replied
             if (review is not null && reviewSettings is not null && !context.IsTicketSteward) // 2026-11-12-cd4cj
                 tools.AddRange(new ReviewProposalToolHost(review, reviewSettings, pipeline, context.AgentConfig).GetTools(null, null));
@@ -52,5 +56,12 @@ public sealed class TicketActToolsFactory(
                 tools.AddRange(new EditSeriesToolHost(edit).GetTools(null, null));
         }
         return tools;
+    }
+
+    // A catalog that holds no body for the master names no tool, so the master does not lead filing.
+    private string? MasterBody(string master)
+    {
+        try { return prompts?.Get(master); }
+        catch (InvalidOperationException) { return null; }
     }
 }

@@ -49,6 +49,12 @@ public abstract record OutcomeProposal
 
     /// <summary>2026-11-10-d854a: the turn's spend when this was pushed; the total on the final proposal.</summary>
     public ProposalSpend? Spend { get; init; }
+
+    /// <summary>2026-11-15-bf77: the proposing master offers filing through offer_filing, so approving waits for it.</summary>
+    public bool OfferLed { get; init; }
+
+    /// <summary>2026-11-15-bf77: the master's line of what filing this draft would do; null when it did not offer.</summary>
+    public string? FilingOffer { get; init; }
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>

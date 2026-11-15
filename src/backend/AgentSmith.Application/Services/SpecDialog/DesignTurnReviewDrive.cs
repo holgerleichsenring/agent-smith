@@ -41,7 +41,7 @@ public sealed class DesignTurnReviewDrive(
         AgenticLoopRequest request, string report, MasterConversation conversation, PipelineCostTracker costTracker,
         SpecDialogReplySlot slot, CancellationToken ct)
     {
-        var (draft, changed, questions) = (slot.Proposal.Current, slot.Proposal.Changed, slot.Questions);
+        var (draft, changed, questions, offer) = (slot.Proposal.Current, slot.Proposal.Changed, slot.Questions, slot.Offer);
         try
         {
             var next = await loopRunner.RunAsync(
@@ -55,6 +55,7 @@ public sealed class DesignTurnReviewDrive(
             logger.LogWarning(ex, "The design partner's pass over its review report failed — keeping the reply before it");
             slot.Proposal.Seed(draft, changed);
             slot.Questions = questions;
+            slot.Offer = offer; // 2026-11-15-bf77
             return null;
         }
     }

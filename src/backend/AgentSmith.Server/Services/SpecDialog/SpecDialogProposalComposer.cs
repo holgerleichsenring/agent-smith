@@ -46,6 +46,7 @@ public sealed class SpecDialogProposalComposer(
             Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
             Uploads = proposal.Uploads, UnderReview = proposal.UnderReview,
             Questions = KnownIds(proposal), Spend = proposal.Spend, // 2026-11-10-d854a
+            OfferLed = proposal.OfferLed, FilingOffer = proposal.FilingOffer, // 2026-11-15-bf77
         };
     }
 
