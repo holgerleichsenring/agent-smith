@@ -33,15 +33,58 @@ public sealed class DraftFileToolHostTests
     }
 
     [Fact]
-    public async Task WriteFile_Ticket_SaysInOneLineThatItIsStoredRendered()
+    public async Task WriteFile_Ticket_IsStoredAsWritten()
     {
         var store = new ProposalStore();
+        const string written = "{\"title\": \"A\", \"requirement\": \"Do A.\", \"done\": [\"A is done\"]}";
 
-        var answer = await InvokeAsync(store, "write_file", ("path", "draft:tickets/a-one.yaml"),
-            ("content", "{\"title\": \"A\", \"requirement\": \"Do A.\", \"done\": [\"A is done\"]}"));
+        var answer = await InvokeAsync(store, "write_file", ("path", "draft:tickets/a-one.yaml"), ("content", written));
 
-        answer.Should().Be("Stored draft:tickets/a-one.yaml. The draft holds 1 ticket(s).\n"
-            + "Stored in its rendered form; read_file shows the text an edit_file quotes.");
+        answer.Should().Be("Stored draft:tickets/a-one.yaml. The draft holds 1 ticket(s).");
+        DraftFiles.Find(store.Current, "tickets/a-one.yaml")!.Text.Should().Be(written + "\n");
+    }
+
+    /// <summary>2026-11-15-67f1: the replay's defect — five of six ticket edits quoted the text written and found nothing.</summary>
+    [Fact]
+    public async Task EditFile_Ticket_QuoteFromTheWrittenText_IsStored()
+    {
+        var store = new ProposalStore();
+        await InvokeAsync(store, "write_file", ("path", "draft:tickets/a-one.yaml"),
+            ("content", "title: \"Export: orders\"\nrequirement: >\n  Export the orders\n  as CSV.\ndone:\n  - \"WHEN export is clicked THEN a CSV downloads\"\n"));
+
+        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:tickets/a-one.yaml"),
+            ("old_string", "  Export the orders\n  as CSV."), ("new_string", "  Export the orders\n  as CSV and JSON."));
+
+        answer.Should().Be("Stored draft:tickets/a-one.yaml. The draft holds 1 ticket(s).");
+        store.Current.Tickets.Single().Requirement.Should().Be("Export the orders as CSV and JSON.");
+    }
+
+    [Fact]
+    public async Task EditFile_Bug_QuoteFromTheWrittenText_IsStored()
+    {
+        var store = new ProposalStore();
+        await InvokeAsync(store, "write_file", ("path", "draft:bug.yaml"),
+            ("content", "title: \"Null on empty\"\ndescription: |\n  It throws\n  when the list is empty.\nacceptance_criteria:\n  - \"an empty list shows nothing\"\n"));
+
+        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:bug.yaml"),
+            ("old_string", "  - \"an empty list shows nothing\""), ("new_string", "  - \"an empty list shows 'no items'\""));
+
+        answer.Should().StartWith("Stored draft:bug.yaml.");
+        store.Current.Bug!.AcceptanceCriteria.Should().Be("- an empty list shows 'no items'");
+    }
+
+    [Fact]
+    public async Task EditFile_Contract_QuoteFromTheWrittenText_IsStored()
+    {
+        var store = await EpicAsync();
+        await InvokeAsync(store, "write_file", ("path", "draft:contract.yaml"),
+            ("content", "areas:\n  - spec: store\n    paths: [\"src/store/\"]\n"));
+
+        var answer = await InvokeAsync(store, "edit_file", ("path", "draft:contract.yaml"),
+            ("old_string", "paths: [\"src/store/\"]"), ("new_string", "paths: [\"src/store/\", \"src/db/\"]"));
+
+        answer.Should().StartWith("Stored draft:contract.yaml.");
+        store.Current.Contract!.Areas.Single().Paths.Should().Equal("src/store/", "src/db/");
     }
 
     [Fact]

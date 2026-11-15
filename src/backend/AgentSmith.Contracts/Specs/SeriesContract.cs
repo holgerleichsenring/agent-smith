@@ -11,6 +11,12 @@ public sealed record SeriesContract(
     IReadOnlyList<SeriesContractArea> Areas,
     IReadOnlyList<SeriesContractBudget> Budgets)
 {
+    /// <summary>
+    /// 2026-11-15-67f1: the file text the design master wrote for this contract; null when no draft file wrote it.
+    /// A rekeyed or narrowed contract is built anew and drops it.
+    /// </summary>
+    public string? Source { get; init; }
+
     public bool IsEmpty => Names.Count == 0 && Data.Count == 0 && Areas.Count == 0 && Budgets.Count == 0;
 
     /// <summary>The contract with every spec id <paramref name="map"/> names replaced; an unmapped id stays.</summary>
@@ -28,7 +34,7 @@ public sealed record SeriesContract(
 
     /// <summary>
     /// The contract with every entry whose owner or member is not one of <paramref name="members"/> removed,
-    /// and every writer that is not one dropped from its entry.
+    /// and every writer that is not one dropped from its entry. A contract nothing is removed from is returned as it is.
     /// </summary>
     public SeriesContractWithin Within(IEnumerable<string> members)
     {
@@ -45,6 +51,6 @@ public sealed record SeriesContract(
                 .Select(d => d with { Writers = Writers(d.Writers, $"datum '{d.Datum}'") })],
             [.. Areas.Where(a => Keeps(a.Spec, "area"))],
             [.. Budgets.Where(b => Keeps(b.Spec, $"budget of {b.Path}"))]);
-        return new(narrowed.IsEmpty ? null : narrowed, removed);
+        return new(narrowed.IsEmpty ? null : removed.Count == 0 ? this : narrowed, removed);
     }
 }

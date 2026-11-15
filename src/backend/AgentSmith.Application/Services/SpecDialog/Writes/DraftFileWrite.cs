@@ -6,7 +6,8 @@ namespace AgentSmith.Application.Services.SpecDialog.Writes;
 /// 2026-11-15-06fc: one file of a design turn's draft written or deleted. The file's text is read into what the
 /// existing check of its kind takes — the spec, ticket, bug, comment or contract check the write tools always ran —
 /// and the draft with it either comes back whole or not at all, with the exact reason. A file is a view of its item,
-/// so nothing beside the typed draft is kept.
+/// so nothing beside the typed draft is kept. 2026-11-15-67f1: a ticket, bug or contract keeps the text written as its
+/// Source, as a spec keeps its yaml, so the file an edit quotes is the file that was written.
 /// </summary>
 public sealed class DraftFileWrite(SpecDraftWrite specs, TicketDraftWrite tickets, ContractDraftWrite contracts)
 {
@@ -41,19 +42,19 @@ public sealed class DraftFileWrite(SpecDraftWrite specs, TicketDraftWrite ticket
     private DraftWrite Ticket(ProposalDraft draft, string key, string text, DraftScope scope)
     {
         var (ticket, error) = DraftTicketText.Read(key, text);
-        return ticket is null ? DraftWrite.Refused(error!) : tickets.Write(draft, ticket, scope.Repos);
+        return ticket is null ? DraftWrite.Refused(error!) : tickets.Write(draft, ticket with { Source = text }, scope.Repos);
     }
 
     private static DraftWrite Bug(ProposalDraft draft, string text)
     {
         var (title, description, criteria, error) = DraftBugText.Read(text);
-        return error is not null ? DraftWrite.Refused(error) : BugDraftWrite.Write(draft, title, description, criteria);
+        return error is not null ? DraftWrite.Refused(error) : BugDraftWrite.Write(draft, title, description, criteria, text);
     }
 
     private DraftWrite Contract(ProposalDraft draft, string text)
     {
         var (contract, error) = DraftContractText.Read(text);
-        return contract is { } read ? contracts.Write(draft, read) : DraftWrite.Refused(error!);
+        return contract is { } read ? contracts.Write(draft, read, text) : DraftWrite.Refused(error!);
     }
 
     private static DraftWrite Outside(string bare) =>

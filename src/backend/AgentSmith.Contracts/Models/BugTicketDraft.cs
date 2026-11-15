@@ -8,4 +8,8 @@ namespace AgentSmith.Contracts.Models;
 public sealed record BugTicketDraft(
     string Title,
     string Description,
-    string? AcceptanceCriteria);
+    string? AcceptanceCriteria)
+{
+    /// <summary>2026-11-15-67f1: the file text the design master wrote for this bug; null when no draft file wrote it.</summary>
+    public string? Source { get; init; }
+}

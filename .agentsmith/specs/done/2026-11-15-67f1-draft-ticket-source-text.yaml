@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-15-67f1
+goal: "A draft's ticket, bug and contract files are the text the design master wrote, so edit_file with a quote from it applies, as it does for a spec."
+
+applies_to: "default (draft file view, draft file writes, GraphTicket, BugTicketDraft, SeriesContract, review keys)"
+
+requires: [2026-11-15-06fc]
+
+facts:
+  - claim: "A ticket, bug or contract file is rendered from the typed item, not the text written."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/DraftFiles.cs:19-21"
+  - claim: "A spec file is its stored yaml."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/DraftFiles.cs:18"
+  - claim: "edit_file replaces an exact string in the file the view serves."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DraftFileToolHost.cs:51-53"
+  - claim: "A write answer says a ticket, bug or contract is stored rendered."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DraftStoredNote.cs:16-17"
+  - claim: "The stored proposal JSON carries GraphTicket, BugTicketDraft and SeriesContract as they are; the dashboard reads views of them."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:79-95"
+  - claim: "A contract's review key is its JSON, which a manifest's round trip reproduces; a ticket list's key is its JSON."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/ReviewedText.cs:28-32"
+  - claim: "The outcome narrows the contract to the children, building a new contract."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SeriesContract.cs:33-49"
+
+scope:
+  in: "Source on GraphTicket, BugTicketDraft and SeriesContract set by a file write; the view serves it; review keys leave it out; Within keeps an unnarrowed contract as it is; the rendered-form note goes."
+  out: "The dashboard: the proposal push projects tickets and the bug through SpecDialogGraphTicketView and SpecDialogBugView, so no field reaches it. Specs, which already keep their text."
+
+steps:
+  - id: model
+    action: "GraphTicket, BugTicketDraft and SeriesContract carry Source: the file text the master wrote, null for an item no file write made."
+  - id: write
+    action: "DraftFileWrite passes the written text: the ticket with Source, BugDraftWrite and ContractDraftWrite take it and store it on the checked item."
+  - id: view
+    action: "DraftFiles serves Source when present, else the rendered form, as a spec serves its yaml."
+  - id: keys
+    action: "ReviewedText.Hash(contract) and ProposalReviewTexts hash the contract and the ticket list without Source, so a manifest's contract and a reformatted ticket keep their review."
+  - id: within
+    action: "SeriesContract.Within returns the contract itself when nothing is removed, so the outcome and the next turn's seed keep its Source."
+  - id: note
+    action: "DraftStoredNote keeps only the repos line for a spec; a ticket, bug or contract is stored as written."
+
+decisions:
+  - "Source lives on the item, so every 'draft with { … }' carries it with its fields; no text store beside the typed draft."
+  - "Review keys exclude Source: the review reads fields, and a contract from a manifest has no Source."
+
+tests:
+  - "DraftFileToolHostTests: a ticket written then edited with a quote from what was written is stored; the same for bug.yaml and contract.yaml; a ticket write answers without a rendered-form line."
+  - "DraftFilesTests: a ticket with Source serves it; one without renders."
+  - "ReviewedText: a contract with and without Source hash alike."
+  - "SeriesContract.Within: nothing removed returns the same contract."
+
+done:
+  - "edit_file on a ticket, bug or contract with a quote from the written text is stored."
+  - "A ticket list seeded from a stored proposal still serves its written text."
+  - "Review keys of a contract and a ticket list do not change with Source."

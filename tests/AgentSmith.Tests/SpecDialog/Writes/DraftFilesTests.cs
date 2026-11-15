@@ -28,6 +28,37 @@ public sealed class DraftFilesTests
         DraftTicketText.Read("b-two", DraftTicketText.Render(ticket)).Ticket.Should().BeEquivalentTo(ticket);
     }
 
+    /// <summary>2026-11-15-67f1: a ticket a file wrote is that text; one seeded from an older proposal is rendered.</summary>
+    [Fact]
+    public void Ticket_WithSource_ServesItAndWithoutRenders()
+    {
+        var ticket = new GraphTicket("a-one", "A", "Do A.", ["A is done"], [], []);
+        const string written = "title: A\nrequirement: >\n  Do A.\ndone: [\"A is done\"]";
+
+        DraftFiles.Find(new ProposalDraft { Tickets = [ticket with { Source = written }] }, "tickets/a-one.yaml")!
+            .Text.Should().Be(written + "\n");
+        DraftFiles.Find(new ProposalDraft { Tickets = [ticket] }, "tickets/a-one.yaml")!
+            .Text.Should().Be(DraftTicketText.Render(ticket));
+    }
+
+    /// <summary>2026-11-15-67f1: the review key of a contract is its fields, so a manifest's contract keeps its review.</summary>
+    [Fact]
+    public void ReviewedText_ContractHash_LeavesTheWrittenTextOut()
+    {
+        var contract = new SeriesContract([], [], [new SeriesContractArea("p1", ["a.cs"])], []);
+
+        ReviewedText.Hash(contract with { Source = "areas: []" }).Should().Be(ReviewedText.Hash(contract));
+    }
+
+    [Fact]
+    public void SeriesContract_WithinItsMembers_IsTheSameContract()
+    {
+        var contract = new SeriesContract([], [], [new SeriesContractArea("p1", ["a.cs"])], []) { Source = "x" };
+
+        contract.Within(["p1"]).Contract.Should().BeSameAs(contract);
+        contract.Within(["p2"]).Contract.Should().BeNull();
+    }
+
     [Fact]
     public void Bug_RendersAndReadsBack()
     {
@@ -36,7 +67,7 @@ public sealed class DraftFilesTests
         var draft = DraftWriteRig.Files().Put(ProposalDraft.Empty, "bug.yaml", DraftBugText.Render(bug),
             new DraftScope([], false)).Written();
 
-        draft.Bug.Should().Be(bug);
+        draft.Bug.Should().Be(bug with { Source = DraftBugText.Render(bug) });
     }
 
     [Fact]

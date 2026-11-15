@@ -24,11 +24,14 @@ public sealed record ReviewedText(string SpecId, string Sha256)
         return Sha(yaml.Trim());
     }
 
-    /// <summary>The hash of a series contract: its JSON, which a manifest's yaml round trip reproduces.</summary>
+    /// <summary>
+    /// The hash of a series contract: its JSON, which a manifest's yaml round trip reproduces. 2026-11-15-67f1: the
+    /// written text a draft keeps is no part of it — a manifest's contract has none.
+    /// </summary>
     public static string Hash(SeriesContract contract)
     {
         ArgumentNullException.ThrowIfNull(contract);
-        return Sha(JsonSerializer.Serialize(contract));
+        return Sha(JsonSerializer.Serialize(contract with { Source = null }));
     }
 
     /// <summary>Whether <paramref name="reviewed"/> holds a clean review of exactly this text under this id.</summary>

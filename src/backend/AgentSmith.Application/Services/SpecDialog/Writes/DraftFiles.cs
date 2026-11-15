@@ -6,7 +6,8 @@ namespace AgentSmith.Application.Services.SpecDialog.Writes;
 /// <summary>
 /// 2026-11-15-06fc: a draft as the files the design master reads and changes — a view of the one typed draft the
 /// store holds, never a second copy of it. An epic's parent comes first, then the specs, the series contract, the
-/// tickets, the bug and the comment. A spec's file is its stored text.
+/// tickets, the bug and the comment. A spec's file is its stored text; 2026-11-15-67f1: a ticket's, bug's or
+/// contract's is the text written, and an item no file wrote is rendered.
 /// </summary>
 public static class DraftFiles
 {
@@ -16,12 +17,15 @@ public static class DraftFiles
         var files = new List<DraftFile>();
         foreach (var spec in draft.Specs.OrderBy(s => s.Parent ? 0 : 1))
             files.Add(new(DraftPath.OfSpec(spec.Draft.SpecId, spec.Parent), spec.Draft.Yaml.TrimEnd() + "\n"));
-        if (draft.Contract is { } contract) files.Add(new(DraftPath.Contract, DraftContractText.Render(contract)));
-        files.AddRange(draft.Tickets.Select(t => new DraftFile(DraftPath.OfTicket(t.Key), DraftTicketText.Render(t))));
-        if (draft.Bug is { } bug) files.Add(new(DraftPath.Bug, DraftBugText.Render(bug)));
+        if (draft.Contract is { } contract)
+            files.Add(new(DraftPath.Contract, Written(contract.Source) ?? DraftContractText.Render(contract)));
+        files.AddRange(draft.Tickets.Select(t => new DraftFile(DraftPath.OfTicket(t.Key), Written(t.Source) ?? DraftTicketText.Render(t))));
+        if (draft.Bug is { } bug) files.Add(new(DraftPath.Bug, Written(bug.Source) ?? DraftBugText.Render(bug)));
         if (draft.Comment is { } comment) files.Add(new(DraftPath.Comment, comment.TrimEnd() + "\n"));
         return files;
     }
+
+    private static string? Written(string? source) => source is null ? null : source.TrimEnd() + "\n";
 
     /// <summary>The file at a bare path, or null.</summary>
     public static DraftFile? Find(ProposalDraft draft, string bare) =>

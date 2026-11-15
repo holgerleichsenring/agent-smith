@@ -12,11 +12,11 @@ public sealed class DraftFileWriteTests
     [Fact]
     public void Put_Ticket_ReadsTheFileIntoTheTicketCheck()
     {
-        var draft = DraftWriteRig.Files().Put(ProposalDraft.Empty, "draft:tickets/a-one.yaml",
-            "title: A\nrequirement: Do A.\ndone:\n  - A is done\nrepos: [api]\n", Unbound).Written();
+        const string written = "title: A\nrequirement: Do A.\ndone:\n  - A is done\nrepos: [api]\n";
+        var draft = DraftWriteRig.Files().Put(ProposalDraft.Empty, "draft:tickets/a-one.yaml", written, Unbound).Written();
 
         draft.Tickets.Should().ContainSingle().Which.Should().BeEquivalentTo(
-            new GraphTicket("a-one", "A", "Do A.", ["A is done"], [], ["api"]));
+            new GraphTicket("a-one", "A", "Do A.", ["A is done"], [], ["api"]) { Source = written });
     }
 
     [Fact]
@@ -29,10 +29,10 @@ public sealed class DraftFileWriteTests
     [Fact]
     public void Put_Bug_ReadsTitleDescriptionAndCriteria()
     {
-        var draft = DraftWriteRig.Files().Put(ProposalDraft.Empty, "bug.yaml",
-            "title: Fix the null\ndescription: It throws.\nacceptance_criteria:\n  - it no longer throws\n", Unbound).Written();
+        const string written = "title: Fix the null\ndescription: It throws.\nacceptance_criteria:\n  - it no longer throws\n";
+        var draft = DraftWriteRig.Files().Put(ProposalDraft.Empty, "bug.yaml", written, Unbound).Written();
 
-        draft.Bug.Should().Be(new BugTicketDraft("Fix the null", "It throws.", "- it no longer throws"));
+        draft.Bug.Should().Be(new BugTicketDraft("Fix the null", "It throws.", "- it no longer throws") { Source = written });
     }
 
     [Fact]
