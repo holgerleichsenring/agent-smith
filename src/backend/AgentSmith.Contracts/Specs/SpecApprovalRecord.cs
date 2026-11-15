@@ -89,5 +89,6 @@ public sealed record SpecApprovalRecord(
     public IReadOnlyList<ReviewedText>? ReviewedClean { get; init; } // 2026-11-10-8e59: filed id + yaml hash a review ended clean on; reaches the run
     public bool TicketText { get; init; } // 2026-10-14-dbcel: the approval filed a ticket text, and the run derives its specs
     public IReadOnlyDictionary<string, string>? CitedFrom { get; init; } // 2026-10-14-dbcel: a carried-forward set or image id -> the conversation it was uploaded in
+    public IReadOnlyList<OwnerWord>? OwnerWords { get; init; } // 2026-11-15-53d0: the operator's messages in the approving conversation, oldest first; null on an older record
     public string? ConversationOf(string id) => CitedFrom?.GetValueOrDefault(id) ?? Approval?.Conversation; // the approval's own unless carried forward
 }

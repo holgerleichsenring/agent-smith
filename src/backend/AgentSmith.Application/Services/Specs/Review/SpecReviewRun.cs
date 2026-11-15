@@ -11,4 +11,7 @@ public sealed record SpecReviewRun(
 {
     /// <summary>2026-10-13-8762h: the run's question pin, handed to every reviewer call.</summary>
     public string? QuestionPin => Pipeline.TryGet<string>(ContextKeys.SpecQuestionPin, out var pin) ? pin : null;
+
+    /// <summary>2026-11-15-53d0: the operator's messages the run's approval record carries, for every reviewer call.</summary>
+    public IReadOnlyList<Contracts.Specs.OwnerWord> OwnerWords => ApprovedSpecSetResolver.PublishedIn(Pipeline)?.OwnerWords ?? [];
 }

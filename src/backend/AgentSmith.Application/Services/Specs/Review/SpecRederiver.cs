@@ -34,7 +34,8 @@ public sealed class SpecRederiver(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(draft);
         await using var look = looks.OnTerms(pipeline, DerivationLookTerms.Derivation);
-        var reply = await AskAsync(SpecRederivePrompt.For(draft, findings, widerGoal, look), draft.SpecId, look,
+        var reply = await AskAsync(SpecRederivePrompt.For(draft, findings, widerGoal, look)
+            + ApprovalOwnerWordsSection.For(pipeline), draft.SpecId, look,
             agent, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
         if (reply is null || validator.Validate(reply) is not SpecDraftValid valid)
         {
