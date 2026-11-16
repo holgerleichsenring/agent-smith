@@ -91,13 +91,13 @@ A tracker owns the workflow for every project routed to it, and its drawer has f
 - **Intake**: which tickets are picked up. Trigger statuses, open states, extra ticket fields to fetch, the comment on a ticket no project matched, and polling.
 - **Outcomes**: where a ticket moves when a run ends. Done, failed, needs-clarification and not-implementable status sit in one table under "When a run ends, move the ticket to", and when two of them name the same status the tab says the board can't tell those outcomes apart. The Jira close transition name and the lifecycle status names live here too.
 - **Routing**: the label map ("Pipeline by label"), the "Default pipeline" for a ticket no label matched, and the label names the framework writes. Both pipeline fields are pick lists over the pipelines a ticket can actually be routed to, so you can't type a pipeline that doesn't exist.
-- **Filing**: the work-item or issue type a ticket Agent Smith files is created as (Azure DevOps and Jira).
+- **Filing**: the work-item or issue type a ticket codeably files is created as (Azure DevOps and Jira).
 
-Three of those maps change what Agent Smith writes onto your board:
+Three of those maps change what codeably writes onto your board:
 
 - **Label names** renames the labels the framework writes (`agent-smith:done` and friends, plus the approved-set stamp) for boards with their own vocabulary.
 - **Lifecycle status names** (Jira) moves issues through native workflow statuses instead of carrying the lifecycle only as labels.
-- **Work item kind by filing role** (Azure DevOps and Jira) sets which work-item or issue type a ticket Agent Smith files is created as.
+- **Work item kind by filing role** (Azure DevOps and Jira) sets which work-item or issue type a ticket codeably files is created as.
 
 The tracker pages under [Connect your stuff](../connect-your-stuff/tracker-jira.md) spell out the keys. One refusal worth knowing up front: a label the framework writes may not be the same word as one of your routing words (a key of the label map, or a project's resolution value). The studio refuses that save and names the word, because a ticket would otherwise route itself on the framework's own bookkeeping.
 

@@ -1,9 +1,9 @@
 # Concepts
 
-The core ideas behind Agent Smith.
+The core ideas behind codeably.
 
 - **[Pipeline system](pipeline-system.md)**: commands, handlers, presets, and how they chain together
-- **[Specs & runs](specs-and-runs.md)**: how Agent Smith tracks its own work, from planning to execution and results
+- **[Specs & runs](specs-and-runs.md)**: how codeably tracks its own work, from planning to execution and results
 - **[Self-documentation](self-documentation.md)**: specs, runs and decisions as an audit trail
 - **[Decision logging](decisions.md)**: why the agent made each choice, not just what it did
 - **[Cost tracking](cost-tracking.md)**: token usage, pricing, and result.md frontmatter

@@ -32,8 +32,8 @@ Walking through one full `code` run, end to end. The example uses the fictional 
 
 ### What you need
 
-- Agent Smith installed (see [Install](install.md)).
-- A repo Agent Smith can clone. For the walkthrough, anything works — a fresh `TodoList` repo with a couple of `.cs` files and a failing test is enough.
+- codeably installed (see [Install](install.md)).
+- A repo codeably can clone. For the walkthrough, anything works — a fresh `TodoList` repo with a couple of `.cs` files and a failing test is enough.
 - A ticket in your tracker that describes a bug. For the walkthrough, "Null reference in `UserService.GetById` when `id` is zero".
 - An API key for one AI provider. The example uses OpenAI; any of the providers on the [AI providers page](../connect-your-stuff/ai-providers.md) work.
 

@@ -1,6 +1,6 @@
 # Project Structure
 
-The layout of the Agent Smith repository.
+The layout of the codeably repository.
 
 ```
 agent-smith/

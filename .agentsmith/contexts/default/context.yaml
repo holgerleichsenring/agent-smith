@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-16-658cb: "DOCS CODEABLY (docs prose, mkdocs.yml, CNAME, overrides.css, partials/logo.html). The docs are codeably at docs.codeably.ai: brand renamed in prose with code and literal names kept, a formerly-Agent-Smith box on home and install, dark by default on the stage ground, a text wordmark, flat nav. -> .agentsmith/specs/done/2026-11-16-658cb-docs-codeably-rebrand.yaml"
     2026-11-16-658ca: "WEBSITE CODEABLY (website, DESIGN.md stage-accent, vercel.json). The site is codeably.ai: name, URL, meta and llms.txt renamed, a hero replaying a real run on a seven-node line, one warm accent token for brand colour with green kept for proven states, agent-smith.org redirecting with its path. -> .agentsmith/specs/done/2026-11-16-658ca-website-codeably-rebrand.yaml"
     2026-11-15-55c4: "SKILLS PIN DRAFT FILES (skills catalog pin v5.32.0, skill-text tests). The design partner writes its draft with write_file, edit_file and delete_file, offers filing with offer_filing, and its reply is the analysis again under the 3.0.1 bar. -> .agentsmith/specs/done/2026-11-15-55c4-skills-pin-draft-files.yaml"
     2026-11-15-67f1: "DRAFT TICKET SOURCE TEXT (GraphTicket, BugTicketDraft, SeriesContract Source, DraftFiles, DraftFileWrite). A draft's ticket, bug and contract files are the text the master wrote, so edit_file with its own quote applies; review keys leave the text out. -> .agentsmith/specs/done/2026-11-15-67f1-draft-ticket-source-text.yaml"

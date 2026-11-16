@@ -39,7 +39,7 @@ When the master needs a person mid-run, asking doesn't mean a process waiting on
 
 1. The run posts its question on the ticket, moves the ticket to `needs_clarification_status`, labels it `agent-smith:waiting`, and mentions the assignee (or the reporter when nobody is assigned, or says plainly that nobody was notified). With `dialogue.dashboard_url` set, the comment links to the run's page in the dashboard.
 2. The run serializes its pipeline context, releases its lease and its compute, and gets the status **`waiting_for_input`**. Pods gone, cost stopped. A mid-run question has no deadline.
-3. You answer. In the dashboard the question card has a **Send & resume run** button. On Azure DevOps, a comment on the ticket works too: the first comment after the question by anyone but Agent Smith is taken as the answer.
+3. You answer. In the dashboard the question card has a **Send & resume run** button. On Azure DevOps, a comment on the ticket works too: the first comment after the question by anyone but codeably is taken as the answer.
 4. A background sweeper (leader-elected, every 15 seconds) picks up answered checkpoints. The run re-enters at the asking step with your answer handed to the master, under the same run id. It queues through the normal capacity queue like any other run; nothing jumps the line.
 
 On GitHub, GitLab and Jira, answering on the ticket and moving it back to a trigger status starts a fresh run, which reads your reply as part of the ticket. The same move works on a ticket whose last run finished: moving it back into a trigger status is read as the rework act, so the run keeps the specs already done and appends new ones (see [Rework a finished ticket](../trigger-it/webhooks.md#rework-a-finished-ticket)).

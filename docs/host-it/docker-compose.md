@@ -1,6 +1,6 @@
 # Host it: docker-compose
 
-The middle ground. One host, a handful of containers — the server, Redis, a one-shot migrate job, optionally the dashboard — and your webhooks pointed at the server. Easiest path to a "real" Agent Smith deployment. The reference compose file ships in the repo as `deploy/docker-compose.example.yml`. Copy it to `deploy/docker-compose.yml` before you start, since that is the name every command below uses:
+The middle ground. One host, a handful of containers — the server, Redis, a one-shot migrate job, optionally the dashboard — and your webhooks pointed at the server. Easiest path to a "real" codeably deployment. The reference compose file ships in the repo as `deploy/docker-compose.example.yml`. Copy it to `deploy/docker-compose.yml` before you start, since that is the name every command below uses:
 
 ```bash
 cp deploy/docker-compose.example.yml deploy/docker-compose.yml

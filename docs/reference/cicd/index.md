@@ -1,6 +1,6 @@
 # CI/CD Integration
 
-Agent Smith can run inside your CI/CD pipeline to scan the code of every build (`security-scan`) or a running API against its OpenAPI description (`api-scan`). The CLI runs one scan, writes its reports and exits.
+codeably can run inside your CI/CD pipeline to scan the code of every build (`security-scan`) or a running API against its OpenAPI description (`api-scan`). The CLI runs one scan, writes its reports and exits.
 
 ## What a CI run needs
 

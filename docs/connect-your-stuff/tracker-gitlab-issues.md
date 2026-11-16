@@ -71,7 +71,7 @@ GitLab-specific things to notice:
 
 - **`project`** — the tracker is one GitLab project's issue list, named by its full path. A subgroup is just part of the path (`acme-org/team-platform/todolist-api`).
 - **Groups belong to connections** — to discover repos under a group or subgroup, add a `connections:` entry with `group: acme-org` (or `acme-org/team-platform`). A repo discovered there is named by its path relative to that group, so `team-platform/todolist-api` and `team-billing/todolist-api` stay two repos, and a wildcard like `acme/team-platform/*` matches against that path. See [Repos: multi-repo](repos-multi.md).
-- **`open_states: [opened]`** — GitLab uses `opened` (not `open`). The MR terminology likewise — pull requests are merge requests, and Agent Smith opens MRs when the tracker type is `gitlab`.
+- **`open_states: [opened]`** — GitLab uses `opened` (not `open`). The MR terminology likewise — pull requests are merge requests, and codeably opens MRs when the tracker type is `gitlab`.
 - **`work_item_kinds` does nothing here** — GitLab issues have no type this setting could pick, so the tracker ignores it.
 - **GitLab self-managed** — for repositories the API base URL is derived from each repo URL's own scheme and authority, so they need no extra config; a sub-path install (`https://tools.acme.com/gitlab`) sets `host:` on the repo or its connection. The issue tracker talks to its own `url` (default `https://gitlab.com`), so a self-managed instance sets `url: https://gitlab.acme.com` on the tracker. Two instances are two trackers or connections, each with its own `url`/`host` and its own `auth` secret. An older configuration that relied on the `GITLAB_URL` variable still loads: the empty fields are filled from it, and each fill is reported as an advisory finding.
 
@@ -94,7 +94,7 @@ The token reaches the tracker and the repos through the secret their `auth` name
 
 For org-scoped automation, prefer a Group Access Token instead of a personal one — it doesn't disappear when the user leaves.
 
-## How tickets reach Agent Smith
+## How tickets reach codeably
 
 - **Webhook** (preferred). GitLab posts on issue events. The server listens on port 8081; point the webhook at `POST /webhook/gitlab` (or the generic `POST /webhook` — the platform is auto-detected from the headers). Verification compares the `X-Gitlab-Token` header against the `GITLAB_WEBHOOK_TOKEN` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: GitLab](../trigger-it/webhooks.md#gitlab).
 - **Polling**. Set `polling.enabled: true` (per-tracker) for self-managed GitLab on a network where webhooks can't reach the orchestrator.
@@ -113,7 +113,7 @@ When a run finishes:
 
 When a run fails, the issue moves to `failed_status` if configured (otherwise it stays `opened`), the `agent-smith:failed` label gets added, and a comment carries the error. The run lifecycle (pending / enqueued / in-progress / done / failed, plus waiting and shortfall) is carried as `agent-smith:*` labels, the same as on every tracker. A `label_names:` map on the tracker renames them if your project already uses its own words.
 
-When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When an issue is too thin to act on (title-only, or the run needs a decision), codeably doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Next
 
