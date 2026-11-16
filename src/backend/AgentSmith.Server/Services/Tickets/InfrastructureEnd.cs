@@ -17,6 +17,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// on it, a sandbox of an earlier launch was relaunched past, and a row without a position cannot be placed.
 /// 'gone' is not an arm: it is what the release read when the sandbox was already gone or its exit could not be
 /// read, after the run had ended on its own terms.</para>
+/// <para>2026-11-16-f3fba: or it failed because the host could not say whether its repositories carry their
+/// bootstrap (readiness-unknown) — the repositories were never judged, so the work did not end it.</para>
 /// </summary>
 public sealed class InfrastructureEnd
 {
@@ -25,7 +27,8 @@ public sealed class InfrastructureEnd
 
     /// <param name="lastLaunch">The run's last segment and its sandbox ends; null reads the sandbox arm false.</param>
     public bool Holds(Run run, RunLastLaunch? lastLaunch = null) =>
-        (run.Status == TicketAttempts.Cancelled
+        (run.Status == RunStatuses.Failed && run.EndKind == RunEndKinds.ReadinessUnknown)
+        || (run.Status == TicketAttempts.Cancelled
             && run.CancelReason is RunLivenessReaper.InterruptedReason or StaleLeaseReaped)
         || (run.Status is RunStatuses.Failed or TicketAttempts.Cancelled
             && lastLaunch is not null && lastLaunch.SandboxEnds.Any(s => InLaunch(s, lastLaunch.Segment)));

@@ -1325,6 +1325,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("EndDetailJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("EndKind")
                         .HasColumnType("text");
 

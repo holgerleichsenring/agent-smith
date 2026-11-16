@@ -28,6 +28,8 @@ public sealed class RegistryCredentialCheck(AgentSmithConfig config) : IRunPrefl
 {
     public string Name => "registry-credentials";
 
+    public bool NeedsSandbox => false;
+
     public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {
         if (config.Registries.Count == 0)

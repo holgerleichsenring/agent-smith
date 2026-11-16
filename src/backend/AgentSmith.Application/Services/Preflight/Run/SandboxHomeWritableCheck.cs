@@ -34,6 +34,8 @@ public sealed class SandboxHomeWritableCheck(
 
     public string Name => "sandbox-home-writable";
 
+    public bool NeedsSandbox => true;
+
     public async Task<RunPreflightFinding> RunAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {

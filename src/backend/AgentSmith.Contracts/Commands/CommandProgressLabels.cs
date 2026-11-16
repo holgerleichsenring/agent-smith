@@ -26,6 +26,7 @@ public static partial class CommandNames
         [FetchTicket] = "Fetching ticket",
         [ScopeRepos] = "Scoping repositories", // p0331
         [CheckoutSource] = "Checking out source",
+        [RunConfigPreflight] = "Checking configuration", // 2026-11-16-f3fba
         [RunPreflight] = "Checking preconditions", // p0428
         [ProbeTarget] = "Asking the target", // 2026-09-01-379a
         [MaterializeReferenceSets] = "Carrying the uploaded websites", // 2026-10-01-283df

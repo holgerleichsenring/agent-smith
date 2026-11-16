@@ -74,26 +74,54 @@ function stateOf({ detail, liveEvents, series }: TicketStateInput): TicketStateV
 /** The act that fits why the head attempt failed, first match wins. */
 export function failureAct(head: TicketAttempt, project: string): { sentence: string; act: StateAct } {
   const n = head.number;
+  if (head.endKind === RUN_END_KINDS.readinessUnknown) {
+    const why = head.endDetail?.subject;
+    return { sentence: `Attempt ${n} could not read the repositories' bootstrap from the host${why ? `: ${why}` : "."}`,
+      act: { kind: "retry", attempt: head } };
+  }
   if (head.endedOnInfrastructure) {
     return { sentence: `Attempt ${n} ended on infrastructure: the sandbox or host was lost, not the work.`,
       act: { kind: "retry", attempt: head } };
   }
+  const told = detailSentence(head);
   switch (head.endKind) {
     case RUN_END_KINDS.imageUntrusted:
-      return { sentence: `Attempt ${n} stopped before any work: a context names a container image outside the trusted registries.`,
+      return { sentence: told ?? `Attempt ${n} stopped before any work: a context names a container image outside the trusted registries.`,
         act: { kind: "link", label: "Trust the registry in Settings", href: SANDBOX_SETTINGS_PATH,
           note: "Add the image's registry to the sandbox's trusted registries, then start the next attempt." } };
     case RUN_END_KINDS.bootstrapMissing:
-      return { sentence: `Attempt ${n} stopped before any work: a repository has no agent-smith bootstrap.`,
+      return { sentence: told ?? `Attempt ${n} stopped before any work: a repository has no agent-smith bootstrap.`,
         act: { kind: "init", project } };
     case RUN_END_KINDS.criteriaUnmet:
       return { sentence: `Attempt ${n} failed: the acceptance gate did not accept a criterion.`,
         act: { kind: "link", label: "Overrule in the run", href: runPath(head.runId),
           note: "Records your verdict on the criterion; the gate is not re-run." } };
     case RUN_END_KINDS.preflight:
-      return { sentence: `Attempt ${n} stopped before any work: a precondition did not hold.`, act: CONTINUE };
+      return { sentence: told ?? `Attempt ${n} stopped before any work: a precondition did not hold.`, act: CONTINUE };
     default:
       return { sentence: `Attempt ${n} failed.`, act: CONTINUE };
+  }
+}
+
+/**
+ * 2026-11-16-f3fba: the headline a recorded EndDetail gives — what the refusal is about and the setting that
+ * lifts it, e.g. "Image node:22-bookworm (context default) is not trusted: set Docker Hub official library
+ * images to Trust." Null without a detail, so the kind's own sentence stands.
+ */
+export function detailSentence(head: TicketAttempt): string | null {
+  const d = head.endDetail;
+  if (!d) return null;
+  const lever = d.control && d.setTo ? `: set ${d.control} to ${d.setTo}` : "";
+  switch (head.endKind) {
+    case RUN_END_KINDS.imageUntrusted:
+      return `${d.subject} is not trusted${lever}.`;
+    case RUN_END_KINDS.bootstrapMissing: {
+      const repos = d.repos.join(", ");
+      const lift = d.control && d.setTo ? `: ${d.control} project ${d.setTo}` : "";
+      return `${repos} ${d.repos.length === 1 ? "has" : "have"} no agent-smith bootstrap${lift}.`;
+    }
+    default:
+      return lever ? `${d.subject}${lever}.` : null;
   }
 }
 

@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Preflight.Run;
 
@@ -27,7 +28,13 @@ public sealed class DeclaredSecretCheck : IRunPreflightCheck
         + "every sandbox.secrets.files entry its own absolute mount, secret and key — the "
         + "values stay in the operator's Kubernetes Secrets and are never read from here";
 
+    // 2026-11-16-f3fba: the key the operator sets and the value it expects.
+    private static readonly EndDetail Detail = new(
+        "The project's declared credentials", [], "sandbox.secrets.env.<NAME>", "'<secretName>:<key>'", "/config/projects");
+
     public string Name => "declared-secrets";
+
+    public bool NeedsSandbox => false;
 
     public Task<RunPreflightFinding> RunAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
@@ -41,7 +48,7 @@ public sealed class DeclaredSecretCheck : IRunPreflightCheck
         var problems = SandboxSecretDeclarationReview.Problems(declared);
         return Task.FromResult(problems.Count == 0
             ? RunPreflightFinding.Pass(Name, $"{count} declared credential reference(s) well-formed")
-            : RunPreflightFinding.Fail(Name, string.Join("; ", problems), Lever));
+            : RunPreflightFinding.Fail(Name, string.Join("; ", problems), Lever) with { Detail = Detail });
     }
 
     private static SandboxSecrets? Declared(PipelineContext pipeline) =>

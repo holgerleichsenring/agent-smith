@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Models.Sandbox;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
@@ -41,6 +42,35 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
             $"stack.image '{trimmed}' is outside the trusted image registries "
             + $"[{boundary.Description}], so a sandbox will not run it",
             ReferenceEquals(boundary, RegistryTrustBoundary.Closed) ? UnreadLever : Lever(trimmed));
+    }
+
+    /// <summary>
+    /// 2026-11-16-f3fba: the refusal of <paramref name="image"/> as data — the control on the Sandbox
+    /// settings page and the value that lets the image in. A library image is let in by trusting the
+    /// library shape; any other by the list with its registry prefix added, the defaults kept, because
+    /// naming one entry replaces them. A boundary that could not be read names no control.
+    /// </summary>
+    public EndDetail Detail(string image, string context, string repo)
+    {
+        var subject = $"Image {image} (context {context})";
+        var boundary = trust.InForce();
+        if (ReferenceEquals(boundary, RegistryTrustBoundary.Closed)) return new EndDetail(subject, [repo]);
+        var prefix = Prefix(image);
+        return prefix is null
+            ? new EndDetail(subject, [repo], LibraryControl, "Trust", SettingsPath)
+            : new EndDetail(subject, [repo], RegistriesControl,
+                string.Join(", ", boundary.Registries.Append(prefix).Distinct(StringComparer.Ordinal)), SettingsPath);
+    }
+
+    private const string LibraryControl = "Docker Hub official library images";
+    private const string RegistriesControl = "Trusted image registries";
+    private const string SettingsPath = "/config/settings/sandbox";
+
+    private static string? Prefix(string image)
+    {
+        var repository = Repository(image.Trim());
+        var slash = repository.LastIndexOf('/');
+        return slash < 0 ? null : repository[..(slash + 1)];
     }
 
     private static string Lever(string image)

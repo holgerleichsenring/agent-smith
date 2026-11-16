@@ -39,13 +39,15 @@ public static partial class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket,
         CommandNames.ScopeRepos, // p0331: narrow to ticket-affected repos before any sandbox
+        // 2026-11-16-f3fba: every precondition that needs no sandbox — config, image trust, the
+        // toolchain fallback and the bootstrap as the host serves it — before the first sandbox.
+        // It replaces BootstrapCheck + BootstrapGate, which asked the bootstrap question in it.
+        CommandNames.RunConfigPreflight,
         CommandNames.CheckoutSource,
-        // p0428: the preconditions are proven here — after checkout, because the
-        // sandboxes and the branch have to exist to be inspected, and before the
-        // credential staging that an unwritable sandbox home kills.
+        // p0428: the preconditions that inspect the sandboxes and the branch — after checkout,
+        // and before the credential staging that an unwritable sandbox home kills.
         CommandNames.RunPreflight,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
-        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
         CommandNames.LoadDesignSystem, // 2026-10-01-283dg
         CommandNames.LoadContext,

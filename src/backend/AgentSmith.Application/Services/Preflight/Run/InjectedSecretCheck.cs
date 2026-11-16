@@ -25,6 +25,8 @@ public sealed class InjectedSecretCheck(ISandboxSecretPresenceProbe probe) : IRu
 
     public string Name => "injected-secrets";
 
+    public bool NeedsSandbox => true;
+
     public async Task<RunPreflightFinding> RunAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {

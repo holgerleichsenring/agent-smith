@@ -65,6 +65,12 @@ internal sealed class PipelineE2EHarness : IAsyncDisposable
         services.AddSingleton<IPromptCatalog, StubPromptCatalog>();
         services.RemoveAll<ISwaggerProvider>();
         services.AddSingleton<ISwaggerProvider, StubSwaggerProvider>();
+        // 2026-11-16-f3fba: security-scan now runs the config preflight, which refuses an empty configuration.
+        services.RemoveAll<AgentSmithConfig>();
+        services.AddSingleton(new AgentSmithConfig
+        {
+            Agents = new() { ["claude"] = new AgentConfig { Type = "claude", Model = "sonnet" } },
+        });
 
         Services = services.BuildServiceProvider();
     }

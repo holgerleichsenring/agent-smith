@@ -34,10 +34,10 @@ public static partial class PipelinePresets
         CommandNames.LoadCatalog,
         CommandNames.FetchTicket,
         CommandNames.ScopeRepos,
+        CommandNames.RunConfigPreflight, // 2026-11-16-f3fba
         CommandNames.CheckoutSource,
         CommandNames.RunPreflight,
         CommandNames.SetupRegistryAuth,
-        CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex,
         CommandNames.LoadDesignSystem,
         CommandNames.LoadContext,

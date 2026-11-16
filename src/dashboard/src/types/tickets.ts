@@ -1,4 +1,4 @@
-import type { PendingQuestionInfo, SpecEvidenceProblem, SpecReviewResidue } from "@/types/hub-events";
+import type { EndDetail, PendingQuestionInfo, SpecEvidenceProblem, SpecReviewResidue } from "@/types/hub-events";
 import type { SpecDialogOpenQuestion, SpecDialogProposalFinding, SpecDialogReviewRound, SpecDialogSpend } from "@/types/spec-dialog";
 
 // 2026-10-13-9a59p: the ticket list as GET /api/tickets serves it (TicketListView and the records
@@ -238,6 +238,8 @@ export interface TicketAttempt {
   summary?: string | null;
   /** 2026-10-16-86e6a: why it ended, as its producer recorded it (RUN_END_KINDS); null when unclassified */
   endKind?: string | null;
+  /** 2026-11-16-f3fba: the refusal's subject and the setting that lifts it; null when the end named none */
+  endDetail?: EndDetail | null;
 }
 
 /** 2026-10-16-86e6a: the server's RunEndKinds, as the attempt's endKind spells them. */
@@ -247,6 +249,7 @@ export const RUN_END_KINDS = {
   bootstrapMissing: "bootstrap-missing",
   criteriaUnmet: "criteria-unmet",
   superseded: "superseded",
+  readinessUnknown: "readiness-unknown",
 } as const;
 
 export interface TicketOtherRun {

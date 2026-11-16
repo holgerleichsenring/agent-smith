@@ -30,6 +30,11 @@ public static partial class CommandStepClasses
             // A warning renders as "Preflight reported: …", which deliberately misses.
             "precondition(s) hold",
         ],
+        [CommandNames.RunConfigPreflight] =
+        [
+            // RunPreflightHandler under RunConfigPreflight: the same sentence as RunPreflight.
+            "precondition(s) hold",
+        ],
         [CommandNames.ProbeTarget] =
         [
             // ProbeTargetHandler: every declared probe came back with exit 0. This is the

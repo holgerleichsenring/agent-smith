@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Commands;
 /// p0167a: shape of the pr-review preset. Note the drift from the original
 /// spec's step names: FetchPullRequest folded into AnalyzePrDiff (the handler
 /// reads IPrDiffProvider itself), BootstrapProject (retired p0131b) replaced
-/// by BootstrapCheck + BootstrapGate, AnalyzeProject == AnalyzeCode.
+/// by RunConfigPreflight (2026-11-16-f3fba), AnalyzeProject == AnalyzeCode.
 /// p0312c: LoadSkills + Triage + RunReviewPhase gave way to AgenticMaster +
 /// MergeMasterFindings — the p0179d shape every other pipeline already had.
 /// </summary>
@@ -21,8 +21,8 @@ public sealed class PrReviewPresetTests
         [
             CommandNames.LoadCatalog,
             CommandNames.PipelineNameInitializer,
+            CommandNames.RunConfigPreflight,
             CommandNames.CheckoutSource,
-            CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
             CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
             CommandNames.LoadContext,
             CommandNames.AnalyzeCode,

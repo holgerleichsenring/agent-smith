@@ -10,6 +10,10 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// p0428: the precondition gate and the checks it runs, in the order they are reported.
 /// Cheapest and most explanatory first: an empty configuration is the cause of half the
 /// findings below it, so it should be the first line the operator reads.
+/// <para>
+/// 2026-11-16-f3fba: each check says whether it needs a sandbox; RunConfigPreflight runs the ones that
+/// do not before CheckoutSource, RunPreflight the rest after it. The first failure is the run's end.
+/// </para>
 /// </summary>
 public static class RunPreflightServiceCollectionExtensions
 {
@@ -22,6 +26,11 @@ public static class RunPreflightServiceCollectionExtensions
         // before anything that touches a sandbox; the presence assertion needs the sandbox
         // that carries the value and therefore follows the probe that proves it usable.
         services.AddTransient<IRunPreflightCheck, DeclaredSecretCheck>();
+        // 2026-11-16-f3fba: the host's answer on the bootstrap, ahead of the image checks that read
+        // the contexts an uninitialised repository does not have.
+        services.AddTransient<Sandbox.RepoReadiness>();
+        services.AddTransient<IRunPreflightCheck, BootstrapPresenceCheck>();
+        services.AddTransient<RunContextInventory>();
         // 2026-10-12-6bfac: decidable from the run's own context discoveries, before any probe.
         services.AddTransient<IRunPreflightCheck, ContextImageTrustCheck>();
         services.AddTransient<IRunPreflightCheck, SandboxHomeWritableCheck>();

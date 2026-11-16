@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
@@ -19,7 +20,7 @@ namespace AgentSmith.Tests.Services.Preflight.Run;
 public sealed class ContextImageTrustCheckTests
 {
     private const string Refused = "sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18";
-    private const string SandboxKey = "app";
+    private const string Repo = "app";
 
     [Fact]
     public async Task ContextImageTrustCheck_RefusedImage_FailsWithLever()
@@ -60,10 +61,63 @@ public sealed class ContextImageTrustCheckTests
             .Verdict.Should().Be(RunPreflightVerdict.Pass);
 
     [Fact]
-    public async Task ContextImageTrustCheck_HostBackendRecordsNoImage_Passes() =>
-        (await RunAsync(Refused, new ResolvedProject(), recordImage: false))
+    public async Task ContextImageTrustCheck_HostBackend_Passes() =>
+        (await RunAsync(Refused, new ResolvedProject(), containers: false))
             .Verdict.Should().Be(RunPreflightVerdict.Pass,
-                "a sandbox that runs on the host runs no image, so nothing was refused");
+                "a backend that runs on the host runs no image, so nothing was refused");
+
+    [Fact]
+    public async Task ContextImageTrustCheck_RefusedImage_CarriesKindAndDetail()
+    {
+        var finding = await RunAsync(Refused, new ResolvedProject());
+
+        finding.Kind.Should().Be(RunEndKinds.ImageUntrusted);
+        finding.Detail!.Subject.Should().Be($"Image {Refused} (context backend)");
+        finding.Detail.Repos.Should().Equal(Repo);
+        finding.Detail.Control.Should().Be("Trusted image registries");
+        finding.Detail.SetTo.Should().Be("mcr.microsoft.com/, ghcr.io/, sbtscala/",
+            "naming one registry replaces the defaults, so the value keeps them");
+        finding.Detail.SettingsPath.Should().Be("/config/settings/sandbox");
+    }
+
+    [Fact]
+    public async Task ContextImageTrustCheck_RefusedLibraryImage_SetsTheLibraryToTrust()
+    {
+        var trust = new Mock<IImageRegistryTrust>();
+        trust.Setup(t => t.InForce()).Returns(RegistryTrustBoundary.From(
+            new SandboxGlobalConfig { AllowedRegistries = ["ghcr.io/"] }));
+
+        var detail = (await RunAsync("node:22-bookworm", new ResolvedProject(), trust: trust.Object, boundaryTrust: trust.Object)).Detail;
+
+        detail!.Subject.Should().Be("Image node:22-bookworm (context backend)");
+        detail.Control.Should().Be("Docker Hub official library images");
+        detail.SetTo.Should().Be("Trust");
+    }
+
+    [Fact]
+    public async Task ContextImageTrustCheck_ScopedContexts_JudgesOnlyTheKeptOnes()
+    {
+        var pipeline = new PipelineContext();
+        PreflightInventories.Seed(pipeline, Repo,
+            new RemoteContextDiscovery("backend", ".", "scala", ToolchainImage: Refused),
+            new RemoteContextDiscovery("web", "web", "node"));
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<string>>>(ContextKeys.ScopedContexts,
+            new Dictionary<string, IReadOnlyList<string>> { [Repo] = ["web"] });
+
+        var finding = await Check().RunAsync(pipeline, CancellationToken.None);
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Pass, "the scoped-out context gets no sandbox");
+    }
+
+    [Fact]
+    public async Task ContextImageTrustCheck_RepoScopedOut_IsNotJudged()
+    {
+        var pipeline = new PipelineContext();
+        PreflightInventories.Seed(pipeline, Repo, new RemoteContextDiscovery("backend", ".", "scala", ToolchainImage: Refused));
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection { Name = "other" }]);
+
+        (await Check().RunAsync(pipeline, CancellationToken.None)).Verdict.Should().Be(RunPreflightVerdict.Pass);
+    }
 
     [Fact]
     public async Task ContextImageTrustCheck_RefusedImageTheChainRunsAnyway_Passes()
@@ -79,23 +133,18 @@ public sealed class ContextImageTrustCheckTests
     }
 
     private static Task<RunPreflightFinding> RunAsync(
-        string contextImage, ResolvedProject project, bool recordImage = true,
-        IImageRegistryTrust? trust = null)
+        string contextImage, ResolvedProject project, bool containers = true,
+        IImageRegistryTrust? trust = null, IImageRegistryTrust? boundaryTrust = null)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-            ContextKeys.SandboxContexts,
-            new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>
-            {
-                [SandboxKey] = [new RemoteContextDiscovery("backend", ".", "scala", ToolchainImage: contextImage)],
-            });
-        pipeline.Set<IReadOnlyDictionary<string, string>>(
-            ContextKeys.SandboxImages,
-            recordImage
-                ? new Dictionary<string, string> { [SandboxKey] = "buildpack-deps:bookworm-scm" }
-                : new Dictionary<string, string>());
+        PreflightInventories.Seed(pipeline, Repo,
+            new RemoteContextDiscovery("backend", ".", "scala", ToolchainImage: contextImage));
         pipeline.Set(ContextKeys.ProjectConfig, project);
-        return new ContextImageTrustCheck(ContextGates.ImageBoundary(), new SandboxImageChain(trust))
-            .RunAsync(pipeline, CancellationToken.None);
+        return Check(trust, containers, boundaryTrust).RunAsync(pipeline, CancellationToken.None);
     }
+
+    private static ContextImageTrustCheck Check(
+        IImageRegistryTrust? trust = null, bool containers = true, IImageRegistryTrust? boundaryTrust = null) =>
+        new(boundaryTrust is null ? ContextGates.ImageBoundary() : new ContextImageBoundary(boundaryTrust), new SandboxImageChain(trust),
+            PreflightInventories.Over(), new SandboxContainerRuntime(containers));
 }

@@ -15,6 +15,10 @@ public static class RunEndKinds
     /// <summary>The bootstrap gate found a repository without its agent-smith bootstrap.</summary>
     public const string BootstrapMissing = "bootstrap-missing";
 
+    /// <summary>2026-11-16-f3fba: the host could not say whether a repository carries its bootstrap — an
+    /// unreachable host or an unreadable branch, not a verdict on the repository.</summary>
+    public const string ReadinessUnknown = "readiness-unknown";
+
     /// <summary>The acceptance gate left a criterion of the ratified spec outstanding.</summary>
     public const string CriteriaUnmet = "criteria-unmet";
 

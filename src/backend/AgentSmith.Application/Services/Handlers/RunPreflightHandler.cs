@@ -23,6 +23,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// not a verdict on the run, and a preflight that fails a healthy run is worse than no
 /// preflight at all.
 /// </para>
+/// <para>
+/// 2026-11-16-f3fba: two steps share this handler. RunConfigPreflight runs the checks that need no
+/// sandbox before CheckoutSource; RunPreflight runs the ones that read a sandbox after it. The first
+/// failing check's kind and detail are what the run ends on.
+/// </para>
 /// </summary>
 public sealed class RunPreflightHandler(
     IEnumerable<IRunPreflightCheck> checks,
@@ -35,7 +40,7 @@ public sealed class RunPreflightHandler(
         RunPreflightContext context, CancellationToken cancellationToken)
     {
         var findings = new List<RunPreflightFinding>();
-        foreach (var check in checks)
+        foreach (var check in checks.Where(c => c.NeedsSandbox == context.NeedsSandbox))
             findings.Add(await RunGuardedAsync(check, context.Pipeline, cancellationToken));
 
         foreach (var warning in findings.Where(f => f.Verdict == RunPreflightVerdict.Warn))
@@ -69,14 +74,15 @@ public sealed class RunPreflightHandler(
             + string.Join("\n", failures.Select(f => "  - " + f.Describe()));
         logger.LogError("{Message}", message);
         await PublishGateAsync(runId, passed: false, string.Join("; ", failures.Select(f => f.Check)), ct);
-        return CommandResult.Fail(message) with { FailureKind = KindOf(failures) };
+        // 2026-11-16-f3fba: the first failing check names the kind and the detail; a check that names no
+        // kind is a preflight refusal (2026-10-16-86e6a named the image's apart, now by the check itself).
+        var first = failures[0];
+        return CommandResult.Fail(message) with
+        {
+            FailureKind = first.Kind ?? RunEndKinds.Preflight,
+            EndDetail = first.Detail,
+        };
     }
-
-    // 2026-10-16-86e6a: an untrusted image is named apart — its lever is a registry setting, not the run.
-    private static string KindOf(IReadOnlyList<RunPreflightFinding> failures) =>
-        failures.Any(f => f.Check == Preflight.Run.ContextImageTrustCheck.CheckName)
-            ? RunEndKinds.ImageUntrusted
-            : RunEndKinds.Preflight;
 
     private async Task<RunPreflightFinding> RunGuardedAsync(
         IRunPreflightCheck check, PipelineContext pipeline, CancellationToken ct)

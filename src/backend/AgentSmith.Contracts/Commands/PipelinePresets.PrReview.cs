@@ -30,8 +30,10 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
+        // 2026-11-16-f3fba: the config preflight before any sandbox, the bootstrap read on the host
+        // in place of BootstrapCheck + BootstrapGate. pr-review gains the config checks with it.
+        CommandNames.RunConfigPreflight,
         CommandNames.CheckoutSource,
-        CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,

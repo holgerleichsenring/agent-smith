@@ -12,6 +12,7 @@ const END_KIND_WORDS: Record<string, string> = {
   [RUN_END_KINDS.bootstrapMissing]: "bootstrap missing",
   [RUN_END_KINDS.criteriaUnmet]: "criterion not accepted",
   [RUN_END_KINDS.superseded]: "superseded",
+  [RUN_END_KINDS.readinessUnknown]: "host did not answer",
 };
 
 export interface AttemptChip {

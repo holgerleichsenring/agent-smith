@@ -18,9 +18,11 @@ public static partial class PipelinePresets
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.RatifyScanContract, // p0429: the scan states its targets before it looks
+        // 2026-11-16-f3fba: the config preflight before any sandbox, the bootstrap read on the host
+        // in place of BootstrapCheck + BootstrapGate. security-scan gains the config checks with it.
+        CommandNames.RunConfigPreflight,
         CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials (DependencyAudit restores)
-        CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
         CommandNames.LoadCodingPrinciples,
         CommandNames.LoadMemoryIndex, // p0380: recalled dismissals must be visible to the scan master

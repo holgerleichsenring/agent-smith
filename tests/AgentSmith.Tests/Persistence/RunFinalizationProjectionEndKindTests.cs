@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Services;
@@ -39,6 +40,31 @@ public sealed class RunFinalizationProjectionEndKindTests : IDisposable
         var run = await check.Runs.SingleAsync(r => r.Id == "run-1");
         run.EndKind.Should().Be(RunEndKinds.BootstrapMissing);
         run.Summary.Should().Be("Pipeline aborted: missing bootstrap");
+    }
+
+    [Fact]
+    public async Task RunFinalizationProjection_EndDetail_IsWrittenOnTheRunRowAndReadsBack()
+    {
+        using (var seed = Context())
+        {
+            seed.Runs.Add(new Run
+            {
+                Id = "run-2", Project = "p", Pipeline = "code", TicketId = "42", Status = "running",
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            });
+            await seed.SaveChangesAsync();
+        }
+        var detail = new EndDetail("Image node:22 (context default)", ["web"],
+            "Docker Hub official library images", "Trust", "/config/settings/sandbox");
+
+        using (var ctx = Context())
+            await new RunFinalizationProjection(new QueuedRunProjection()).ApplyAsync(ctx,
+                new RunFinishedEvent("run-2", "failed", null, "Preflight failed", DateTimeOffset.UtcNow, 0m,
+                    RunEndKinds.ImageUntrusted, detail), CancellationToken.None);
+
+        using var check = Context();
+        var read = EndDetailJson.Read((await check.Runs.SingleAsync(r => r.Id == "run-2")).EndDetailJson);
+        read.Should().BeEquivalentTo(detail);
     }
 
     private AgentSmithDbContext Context() =>

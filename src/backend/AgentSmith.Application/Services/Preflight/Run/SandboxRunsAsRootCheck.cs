@@ -20,6 +20,8 @@ public sealed class SandboxRunsAsRootCheck(IOptions<SandboxGlobalConfig> sandbox
 
     public string Name => "sandbox-runs-as-root";
 
+    public bool NeedsSandbox => true;
+
     public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);

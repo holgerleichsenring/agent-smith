@@ -9,7 +9,8 @@ namespace AgentSmith.Contracts.Services;
 /// Distinct from <see cref="IPreflightCheck"/> on purpose: p0324's checks probe global
 /// dependencies from a singleton with no run in hand, and pay network round-trips to do
 /// it. These read the run's own config, sandboxes and branch, so they take the
-/// <see cref="PipelineContext"/> and must never reach the network.
+/// <see cref="PipelineContext"/>. 2026-11-16-f3fba: a check that runs before the sandbox may read
+/// the repository host (its contexts and bootstrap), as ScopeRepos already does; none calls a model.
 /// </para>
 /// <para>
 /// A check with nothing to look at PASSES rather than failing on absence, and an
@@ -21,6 +22,13 @@ public interface IRunPreflightCheck
 {
     /// <summary>Stable kebab-case identity, e.g. "sandbox-home-writable".</summary>
     string Name { get; }
+
+    /// <summary>
+    /// 2026-11-16-f3fba: true when the check reads a sandbox or the checked-out branch and therefore
+    /// runs in RunPreflight, after CheckoutSource; false when config and the host decide it, so it runs
+    /// in RunConfigPreflight before any sandbox exists.
+    /// </summary>
+    bool NeedsSandbox { get; }
 
     Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken);
 }

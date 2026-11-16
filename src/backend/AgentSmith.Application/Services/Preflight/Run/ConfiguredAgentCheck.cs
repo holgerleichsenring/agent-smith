@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Preflight.Run;
 
@@ -23,11 +24,13 @@ public sealed class ConfiguredAgentCheck(AgentSmithConfig config) : IRunPrefligh
 
     public string Name => "config-loaded";
 
+    public bool NeedsSandbox => false;
+
     public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {
         if (config.Agents.Count == 0)
             return Task.FromResult(RunPreflightFinding.Fail(
-                Name, "no agents are configured at all", ConfigLever));
+                Name, "no agents are configured at all", ConfigLever) with { Detail = NoAgents });
 
         var agent = pipeline.Resolved().Agent;
         var model = ResolvedModel(agent);
@@ -40,8 +43,18 @@ public sealed class ConfiguredAgentCheck(AgentSmithConfig config) : IRunPrefligh
                 "name a provider type on the agent this pipeline resolves to "
                 + "(agents.<name>.type), and a model either as agents.<name>.model or as "
                 + "agents.<name>.models.primary.model, or a declared catalog entry as "
-                + "agents.<name>.models.primary.use"));
+                + "agents.<name>.models.primary.use") with { Detail = Missing(missing) });
     }
+
+    // 2026-11-16-f3fba: the key the operator sets and the value it expects.
+    private static readonly EndDetail NoAgents =
+        new("The configuration", [], "agents", "at least one agent with a provider type and a model", AgentsPath);
+
+    private const string AgentsPath = "/config/agents";
+
+    private static EndDetail Missing(IReadOnlyList<string> missing) =>
+        new("The pipeline's agent", [], "agents.<name>.type and agents.<name>.model",
+            string.Join(" and ", missing).Replace("its ", "a "), AgentsPath);
 
     /// <summary>
     /// p0436: an agent carries its model as <c>model</c>, as <c>models.primary.model</c>, or
