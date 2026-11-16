@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-0440c
+
+decisions:
+  - category: Scope
+    chose: "Your move links to the tickets' Needs you pill and counts that bucket"
+    over: "A cross-entity Your move list over tickets and runs"
+    reason: "No server read says what waits on a person across tickets and runs; a ticket's question is answered on the ticket list already. A cross-entity list needs backend data and is a follow-up spec (your-move list)."
+  - category: Scope
+    chose: "The top bar field goes to a page by name: its suggestions are the places table (a native datalist), ⌘K or Ctrl K focuses it, and the placeholder says 'Go to a page'"
+    over: "A command palette, or wiring Work it out's ticket search"
+    reason: "The palette's behaviour is another agent's work; the ticket search sweeps every tracker and is held by the spec-dialog permission. The places table already names every destination, so the field does something true now. Searching tickets and runs is a follow-up spec (top-bar search)."
+  - category: Scope
+    chose: "The bell links to the Needs you pill with a dot while a ticket needs you"
+    over: "A notification feed"
+    reason: "No notification store exists; the bell is honest about what it opens. A feed is a follow-up spec (notifications feed)."
+  - category: Scope
+    chose: "No Projects group and no Cost entry"
+    over: "Rendering them from the approved mock"
+    reason: "No list page filters by project (GET /api/projects names projects, nothing shows one), and cost is a section of the Overview, not a page. An item with no true destination would be invented. Follow-up spec: project-scoped lists."
+  - category: Architecture
+    chose: "Configuration and the system pages carry their own section list (app/config/layout.tsx, app/system/layout.tsx) with a 'Back to work' link; the profile menu is their way in"
+    over: "Keeping a mode switch in the sidebar that turns into the catalog on /config"
+    reason: "The approved design keeps settings out of the sidebar. The old rail sections moved whole, as ConfigSectionNav and SystemSectionNav over the renamed SectionNavItem row, so every entry and its count survived."
+  - category: Architecture
+    chose: "ProfileMenu absorbs HeaderIdentity: no authority shows 'This installation' and mounts no identity hook; an ended session says why"
+    over: "Keeping a separate header account beside the sidebar profile"
+    reason: "One place for the account, as in the mock; the two properties 2026-08-25-4530 and 2026-08-28-0f46 gave the header account are kept and tested."
+  - category: Implementation
+    chose: "Recent lists the last five ticket and run pages this browser opened, from localStorage, labelled from the URL"
+    over: "A server-side recent list, or fetching titles"
+    reason: "It is a per-viewer convenience; the URL carries the ticket id, project and run id, so nothing is fetched or invented. Blocked storage leaves the group empty."
+  - category: Implementation
+    chose: "Runs counts the runs in flight (waiting for input, running, queued) from the same bucketing the runs list renders"
+    over: "Every run in the hub's window"
+    reason: "A count beside a nav item reads as 'what is going on'; finished runs are history, still one pill away."
+  - category: Implementation
+    chose: "IBM Plex Mono is loaded through next/font beside Inter"
+    over: "Relying on a locally installed Plex Mono"
+    reason: "The design names Plex Mono for ids and code; without loading it the dashboard fell back to the system monospace."

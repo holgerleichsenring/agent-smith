@@ -75,7 +75,7 @@
   --idle: #4a4a52;
   --r: 12px;
   --r-s: 6px;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --shadow: none;
   --scrim: rgba(6, 6, 7, 0.62);

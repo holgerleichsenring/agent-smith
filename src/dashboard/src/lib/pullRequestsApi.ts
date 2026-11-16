@@ -2,7 +2,7 @@
 // PR outcomes are projected durably onto the run row (per repo, so multi-repo
 // runs keep every PR); GET /api/pull-requests flattens them across runs and
 // joins the run/ticket facts, newest-first. The list is the source for both the
-// Pull Requests page and the AppRail's live open-PR count.
+// Pull Requests page and the sidebar's live open-PR count.
 
 import type { PullRequest } from "@/types/hub-events";
 import { getJson } from "@/lib/apiResponse";

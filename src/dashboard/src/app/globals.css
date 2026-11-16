@@ -146,7 +146,7 @@
   --color-terminal-string: #e8c46d;
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
   --radius-sm: 6px;
   --radius-md: 12px;
@@ -157,7 +157,7 @@
 /* 2026-08-27-1ed6: the shell's header row height. Read by the layout's scroll container
    and by the rail's full height, so the three can never disagree by a few pixels. */
 :root {
-  --topbar-h: 52px;
+  --topbar-h: 56px;
 }
 
 /* 2026-10-09-724c: the scroll container is also the containing block. Without it an absolute
