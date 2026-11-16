@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { useLiveAttempt, useTicketRequires } from "@/lib/tickets/TicketPageStore";
 import { EventType } from "@/types/hub-events";
@@ -12,16 +13,11 @@ import { TicketCloseAct } from "../closing/TicketCloseAct";
 import { TicketReopenAct } from "../closing/TicketReopenAct";
 import { DeriveSpecsAct } from "./DeriveSpecsAct";
 
-// 2026-10-13-9a59q: the mock's .t-head — key and title, then a subline of what is recorded: the
-// tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt, how the
-// pull requests ended and the branch, each only when present. The dot is the list row's dot. Cancel ends the live attempt; its cancelling state comes from a
-// RunCancelRequested in that attempt's stream. 2026-10-14-dbcen: a ticket with no run says when it was filed and
-// offers no conversation tab to continue in; every ticket not yet landed can be marked done by hand.
-// 2026-10-15-114fd: Close ticket, or Reopen on a ticket closed here; the closed line follows the BUCKET, so a ticket
-// that came back draws none though its mark is still stored.
-// 2026-10-26-bdd0f: Derive specs on every ticket not closed — the specs derived and reviewed without an attempt.
-// 2026-10-16-86e6c: the attempt's state, a run-bearing ticket's closed line and the primary act moved into the state
-// block under the header; a never-run closed ticket draws no block and keeps its closed line here.
+// 2026-10-13-9a59q: the mock's .t-head — key and title, then one line of what is recorded.
+// 2026-11-16-6877a: that line reads project, tracker, the tracker status as the newest attempt read it, the branch
+// and how the pull requests ended, each only when present. Every act that is not the next step sits behind "···":
+// open in the tracker, Done by hand, Close or Reopen, Derive specs with where the specs go, and Cancel for a live
+// attempt. The menu stays open until "···" or Escape closes it, so a dialog an act opens is not torn down.
 
 export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const { summary, attempts, branch } = detail;
@@ -30,13 +26,11 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const neverRun = attempts.length === 0 && isNeverRun(summary);
   const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
   const cancelling = live.events.some((e) => e.type === EventType.RunCancelRequested);
-  const parts: React.ReactNode[] = [];
-  if (summary.webUrl) {
-    const platform = summary.platform ? platformWords(summary.platform) : "tracker";
-    parts.push(<a key="tracker" href={summary.webUrl} target="_blank" rel="noreferrer">{platform} ↗</a>);
-  }
+  const tracker = platformWords(summary.platform);
+  const parts: ReactNode[] = [<span key="project">{summary.project}</span>];
+  if (summary.platform || summary.ticketKey) parts.push(<span key="tracker">{summary.platform ? `${tracker} ` : ""}{ticketLabel(summary)}</span>);
   if (summary.trackerState && newest) {
-    parts.push(<span key="state">tracker status <b>{summary.trackerState}</b> at attempt {newest.number}</span>);
+    parts.push(<span key="state">{summary.platform ? tracker : "tracker"} status <b>{summary.trackerState}</b> at attempt {newest.number}</span>);
   }
   if (neverRun) parts.push(<span key="filed">{filedWords(summary.since)}</span>);
   const fate = pullRequestFate(summary.pullRequests ?? []);
@@ -56,7 +50,12 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
         </div>
         {neverRun && summary.bucket === "closed" && <div className="closed-line" data-testid="ticket-closed-line">{capitalized(closedWords(summary))}</div>}
       </div>
-      <div className="t-act">
+      <MoreMenu>
+        {summary.webUrl && (
+          <a className="tk-menu-item" href={summary.webUrl} target="_blank" rel="noreferrer" data-testid="ticket-open-tracker">
+            Open in {tracker} ↗
+          </a>
+        )}
         <DoneByHandAct project={summary.project} ticketId={summary.ticketId} label={ticketLabel(summary)}
           landed={summary.bucket === "done"} onLanded={requires.landed} />
         <TicketCloseAct ticket={summary} onClosed={requires.landed} />
@@ -69,6 +68,30 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
             label={`Cancel attempt ${live.attempt.number}`}
           />
         )}
+      </MoreMenu>
+    </div>
+  );
+}
+
+function MoreMenu({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      button.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div className="t-act tk-more">
+      <button ref={button} type="button" className="tk-more-btn" aria-label="More actions" aria-expanded={open}
+        aria-controls="ticket-more" onClick={() => setOpen(!open)} data-testid="ticket-more">···</button>
+      <div className="tk-menu" id="ticket-more" role="group" aria-label="More actions" hidden={!open} data-testid="ticket-more-menu">
+        {children}
       </div>
     </div>
   );

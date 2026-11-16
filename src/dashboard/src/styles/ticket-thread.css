@@ -1,0 +1,88 @@
+/* 2026-11-16-6877a: the conversation-first ticket page. Text first, one column, colour only for state: amber needs
+   you (--run), blue a person or a review (--person), green passed (--ok), red stopped (--bad). Every value is a
+   .mock-shell custom property, so the page follows whatever theme those properties carry. */
+
+.mock-tickets .tk-page { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100%; }
+.mock-tickets .tk-page .t-head { margin-bottom: 18px; }
+
+/* the ··· menu */
+.mock-tickets .tk-more { position: relative; flex: none; }
+.mock-tickets .tk-more-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.mock-tickets .tk-more-btn[aria-expanded="true"] { background: var(--panel-2); }
+.mock-tickets .tk-menu { position: absolute; right: 0; top: 40px; z-index: 6; min-width: 260px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 6px; box-shadow: var(--shadow); }
+.mock-tickets .tk-menu[hidden] { display: none; }
+.mock-tickets .tk-menu > * { align-self: flex-start; }
+.mock-tickets .tk-menu-item { font-size: 12.5px; font-weight: 600; color: var(--ink); text-decoration: none; padding: 6px 2px; }
+.mock-tickets .tk-menu .derive-act { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* the thread */
+.mock-tickets .thread { display: flex; flex-direction: column; gap: 10px; }
+.mock-tickets .tk-msg .mb.tk-said { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.mock-tickets .tk-msg.stopped .mb.tk-said { color: var(--bad); }
+.mock-tickets .tk-msg .mb.tk-short { max-height: calc(4 * 1.5em); overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, var(--ink) calc(100% - 1.5em), transparent); mask-image: linear-gradient(to bottom, var(--ink) calc(100% - 1.5em), transparent); }
+.mock-tickets .tk-ac { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.mock-tickets .tk-link { font: inherit; font-size: 12.5px; color: var(--ink-2); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; align-self: flex-start; }
+.mock-tickets .tk-runline { display: inline-block; margin-top: 6px; font-size: 12.5px; color: var(--ink-2); }
+.mock-tickets .tk-dim { color: var(--ink-3); }
+.mock-tickets .tk-prs { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12.5px; }
+.mock-tickets .tk-prs a { color: var(--ink); }
+.mock-tickets .tk-msg .q-head { margin: 8px 0 4px; }
+.mock-tickets .tk-chev { display: inline-block; width: 12px; color: var(--ink-3); }
+
+/* the spec card inside a report */
+.mock-tickets .tk-spec { margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; max-width: 70ch; }
+.mock-tickets .tk-spec-head { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.mock-tickets .tk-spec-name { font-weight: 600; }
+.mock-tickets .tk-spec-tally { flex: 1; text-align: right; font-size: 12.5px; color: var(--ink-3); }
+.mock-tickets .tk-spec-tally.ok { color: var(--ok); }
+.mock-tickets .tk-spec-tally.amber { color: var(--run); }
+.mock-tickets .tk-spec-body { border-top: 1px solid var(--line); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.5; }
+.mock-tickets .tk-spec-goal { color: var(--ink-2); }
+.mock-tickets .tk-crit { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; }
+.mock-tickets .tk-mark { font-weight: 700; }
+.mock-tickets .tk-mark.ok { color: var(--ok); }
+.mock-tickets .tk-mark.bad { color: var(--bad); }
+.mock-tickets .tk-mark.q { color: var(--ink-3); }
+.mock-tickets .tk-decided { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.mock-tickets .tk-decided > div { flex: 1 1 280px; }
+.mock-tickets .tk-decided-acts { display: inline-flex; gap: 6px; }
+
+/* a folded run of equal messages */
+.mock-tickets .tk-repeat { padding: 4px 0 4px 42px; }
+.mock-tickets .tk-repeat-head { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 4px 0; cursor: pointer; text-align: left; }
+.mock-tickets .tk-repeat-body { margin-left: -42px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Details, folded at the end of the thread */
+.mock-tickets .tk-details { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 10px; }
+.mock-tickets .tk-details-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: none; border: 0; padding: 6px 0; cursor: pointer; text-align: left; }
+.mock-tickets .tk-details-head .tk-dim { font-weight: 400; font-size: 12px; }
+
+/* the Your move box, docked above the composer */
+.mock-tickets .tk-page .conv-dock { max-width: none; display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
+.mock-tickets .tk-page .conv-dock .composer { margin-top: 0; max-width: none; }
+.mock-tickets .tk-move { --tone: var(--ink-3); --wash: var(--panel); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 12px; background: var(--wash); border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--line)); }
+.mock-tickets .tk-move.amber { --tone: var(--run); --wash: var(--run-wash); }
+.mock-tickets .tk-move.person { --tone: var(--person); --wash: var(--person-wash); }
+.mock-tickets .tk-move.ok { --tone: var(--ok); --wash: var(--ok-wash); }
+.mock-tickets .tk-move.bad { --tone: var(--bad); --wash: var(--bad-wash); }
+.mock-tickets .tk-move-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
+.mock-tickets .tk-move-say { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mock-tickets .tk-move-title { font-weight: 600; }
+.mock-tickets .tk-move-text { color: var(--ink-2); font-size: 13px; }
+.mock-tickets .tk-move-detail { margin-top: 4px; font-size: 13px; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow-y: auto; }
+.mock-tickets .tk-move-detail.md { white-space: normal; }
+.mock-tickets .tk-move-detail.md p { margin: 4px 0; }
+.mock-tickets .tk-move-act { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mock-tickets .tk-move-act .tk-dim { font-size: 12px; max-width: 40ch; }
+.mock-tickets .tk-move-prs { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12.5px; }
+.mock-tickets .tk-move-prs a { color: var(--ink); }
+.mock-tickets .tk-move-why { flex: 1 1 100%; border-top: 1px solid color-mix(in srgb, var(--tone) 25%, var(--line)); padding-top: 8px; }
+.mock-tickets .tk-move-why > summary { cursor: pointer; font-size: 12.5px; color: var(--ink-2); }
+.mock-tickets .tk-move-why-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.mock-tickets .tk-move-why .ts-cause { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14em; overflow-y: auto; }
+.mock-tickets .tk-move-why .ts-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .mock-tickets .tk-repeat { padding-left: 0; }
+  .mock-tickets .tk-repeat-body { margin-left: 0; }
+}

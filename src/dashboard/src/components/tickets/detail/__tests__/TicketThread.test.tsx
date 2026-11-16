@@ -12,6 +12,8 @@ import type {
 // 2026-10-13-9a59r: the Conversation tab as an operator meets it — the thread grouped as 9a59h placed it,
 // the composer that is the ticket's Work it out session (moving nothing until the first act), the
 // approval effect from the preview, Retry unchanged and the pending run question.
+// 2026-11-16-6877a: the conversation is the page itself now — every entry in time order, each attempt's report in
+// place, repeats folded into one line with a count; no filter chips, no folded attempt markers.
 
 const NONE: RunEvent[] = [];
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => NONE }));
@@ -170,7 +172,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-describe("Ticket conversation tab", () => {
+describe("Ticket thread", () => {
   it("OpeningTheTab_IssuesNoResumeNoMessageAndNoWrite_TheClosedSessionReadsFromTheTranscript", async () => {
     world.conversation = { ...conversation([entry({ id: "conversation:s-1:0", source: "conversation", kind: "turn", role: "person", group: "now", attemptRunId: null, text: "Add the import consumer" })]), sessionId: "s-1" };
     await open();
@@ -300,27 +302,30 @@ describe("Ticket conversation tab", () => {
     expect(screen.getByTestId("ticket-composer")).toBeInTheDocument();
   });
 
-  it("Entries_GroupUnderTheAttemptMarkersAndTheBeforeNowGroups_InTheReadsOrder", async () => {
-    world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", status: "failed" })]);
+  it("Thread_TicketFirst_ThenBefore_EachAttemptsEntriesAndReport_ThenNow", async () => {
+    world.detail = detail([
+      attempt({ startedAt: "2026-09-04T13:00:00Z", finishedAt: "2026-09-04T13:30:00Z", summary: "Done on the branch." }),
+      attempt({ number: 2, runId: "r-2", status: "failed", startedAt: "2026-09-04T14:00:00Z", finishedAt: "2026-09-04T14:30:00Z", summary: "Stopped at the token cap." }),
+    ]);
     world.conversation = {
       ...conversation([
-        entry({ id: "a", group: "before", attemptRunId: null, text: "before one" }),
-        entry({ id: "b", attemptRunId: "r-1", text: "first attempt" }),
-        entry({ id: "c", attemptRunId: "r-2", text: "second attempt" }),
-        entry({ id: "d", attemptRunId: "r-2", text: "second attempt later" }),
+        entry({ id: "a", group: "before", attemptRunId: null, text: "before one", at: "2026-09-04T12:00:00Z" }),
+        entry({ id: "b", attemptRunId: "r-1", text: "first attempt", at: "2026-09-04T13:10:00Z" }),
+        entry({ id: "c", attemptRunId: "r-2", text: "second attempt", at: "2026-09-04T14:10:00Z" }),
+        entry({ id: "d", attemptRunId: "r-2", text: "second attempt later", at: "2026-09-04T14:40:00Z" }),
         entry({ id: "e", source: "conversation", kind: "turn", role: "person", group: "now", attemptRunId: null, text: "now one" }),
       ]),
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
     };
     await open();
-    const groups = [...screen.getByTestId("conv").querySelectorAll("[data-testid^=conv-group-]")].map((g) => g.getAttribute("data-testid"));
-    expect(groups).toEqual(["conv-group-before", "conv-group-r-1", "conv-group-r-2", "conv-group-now"]);
-    const second = within(screen.getByTestId("conv-group-r-2"));
-    expect(second.getByText("Attempt 2")).toBeInTheDocument();
-    expect(second.getAllByTestId("conv-entry").map((e) => e.getAttribute("data-entry-id"))).toEqual(["c", "d"]);
-    expect(screen.getByTestId("conv-group-now")).toHaveTextContent("in the ticket conversation");
+    const log = screen.getByRole("log", { name: "Conversation" });
+    const order = [...log.querySelectorAll("[data-entry-id], [data-testid^=thread-report-]:not([data-testid=thread-report-text]), [data-testid=thread-ticket]")]
+      .map((n) => n.getAttribute("data-entry-id") ?? n.getAttribute("data-testid"));
+    expect(order).toEqual(["thread-ticket", "a", "b", "thread-report-1", "c", "thread-report-2", "d", "e"]);
+    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Done on the branch.");
+    expect(screen.getByTestId("thread-report-2")).toHaveClass("stopped");
+    expect(screen.queryByTestId("conv-filter-all")).toBeNull();
   });
-
   it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItOpensAtTheNewest", async () => {
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
@@ -349,24 +354,20 @@ describe("Ticket conversation tab", () => {
     expect(screen.queryAllByTestId("conv-entry").some((e) => e.getAttribute("data-target") === "true")).toBe(false);
   });
 
-  it("AWorkersLaterAnswerComment_ShowsUnderTheTicketChip_AsAnAgentEntry", async () => {
+  it("AWorkersLaterAnswerComment_ShowsAsAnAgentEntry", async () => {
     world.conversation = {
       ...conversation([
         entry({ id: "ticket:55", source: "ticket", kind: "comment", sourceId: "55", role: "agent", isOurs: true, text: "Not a rework: the comment asks nothing of the code." }),
-        entry({ id: "q", text: "Keep the outbox?" }),
       ]),
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }],
     };
     await open();
-    fireEvent.click(screen.getByTestId("conv-filter-ticket"));
     const shown = screen.getAllByTestId("conv-entry");
     expect(shown).toHaveLength(1);
     expect(shown[0]).toHaveTextContent("Not a rework");
     expect(shown[0].querySelector(".av.agent")).not.toBeNull();
-    expect(screen.getByTestId("conv-filter-ticket")).toHaveAttribute("aria-pressed", "true");
   });
-
-  it("ThePrReviewsChip_ShowsOnlyReviewEntries_AReviewCommentShowsFileAndLine_ATicketEditShowsItsDiffAndNoEditor", async () => {
+  it("AReviewCommentShowsFileAndLine_ATicketEditShowsItsDiffAndNoEditor", async () => {
     world.conversation = {
       ...conversation([
         entry({ id: "t", source: "ticket", kind: "comment", sourceId: "9", role: "person", author: "h.operator", text: "Ready." }),
@@ -376,21 +377,17 @@ describe("Ticket conversation tab", () => {
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }],
     };
     await open();
-    fireEvent.click(screen.getByTestId("conv-filter-review"));
-    const reviews = screen.getAllByTestId("conv-entry");
-    expect(reviews.map((e) => e.getAttribute("data-source"))).toEqual(["pr-review"]);
-    expect(within(reviews[0]).getByTestId("conv-file")).toHaveTextContent("Messaging/RetryPolicy.cs · line 18");
-    expect(reviews[0]).toHaveTextContent("PR #813 · comment");
-    expect(reviews[0]).toHaveTextContent("changes requested");
+    const review = screen.getAllByTestId("conv-entry").find((e) => e.getAttribute("data-source") === "pr-review")!;
+    expect(within(review).getByTestId("conv-file")).toHaveTextContent("Messaging/RetryPolicy.cs · line 18");
+    expect(review).toHaveTextContent("PR #813 · comment");
+    expect(review).toHaveTextContent("changes requested");
 
-    fireEvent.click(screen.getByTestId("conv-filter-all"));
     const edit = screen.getAllByTestId("conv-entry").find((e) => e.getAttribute("data-entry-id") === "e")!;
     expect(edit).toHaveTextContent("Ticket text changed");
     expect(within(edit).getByTestId("conv-detail")).toHaveTextContent("− Retries back off.");
     expect(within(edit).getByTestId("conv-detail")).toHaveTextContent("+ Retries back off: base 2 s.");
     expect(edit).not.toHaveTextContent("h.operator");
   });
-
   it("AStartedAttemptFooter_AppearsOnlyOnTheEntryCauseEntryMatchJoinsToThatAttemptsCause", async () => {
     world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", cause: prCause })]);
     world.conversation = {
@@ -401,7 +398,6 @@ describe("Ticket conversation tab", () => {
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: prCause, revision: null }],
     };
     await open();
-    fireEvent.click(screen.getByTestId("conv-toggle-r-1"));
     const footers = screen.getAllByTestId("conv-started");
     expect(footers).toHaveLength(1);
     expect(footers[0]).toHaveTextContent("started attempt 2");
@@ -497,7 +493,7 @@ describe("Ticket conversation tab", () => {
     expect(screen.getByTestId("conv-question-text")).toHaveTextContent("Keep the Postgres outbox?");
     expect(screen.getByTestId("conv-question-text")).toHaveTextContent("answering needs runs.control");
     expect(screen.queryByTestId("pending-question-card")).toBeNull();
-    expect(screen.getByTestId("ticket-tab-conversation").querySelector(".tc.hot")).not.toBeNull();
+    expect(screen.getByTestId("thread-report-1")).toContainElement(screen.getByTestId("conv-question-text"));
   });
 
   it("PendingQuestion_ProjectGrant_ShowsTheAnswerCard", async () => {
@@ -521,7 +517,7 @@ describe("Ticket conversation tab", () => {
 
 // 2026-10-17-e730a..f: reading a long conversation — the docked composer, opening at the newest, folded attempts,
 // clamped entries, the repeated cause and the jump to the newest.
-describe("Ticket conversation reading", () => {
+describe("Ticket thread reading", () => {
   it("ConversationDock_HoldsTheComposer_AsTheTabsLastBlockBeforeTheEndAnchor", async () => {
     await open();
     const dock = screen.getByTestId("conv-dock");
@@ -574,86 +570,49 @@ describe("Ticket conversation reading", () => {
     expect(screen.queryByTestId("ticket-composer")).toBeNull();
   });
 
-  it("ConversationList_ClosedAttempt_ReadsOneLineWithPillCauseAndCount_AndAClickOpensIt", async () => {
+  it("Thread_FailedAttemptsWithTheSameCause_FoldIntoOneLineWithACount_AndOpenOnAClick", async () => {
+    const cause = { status: "failed", summary: "Pipeline aborted: missing bootstrap\nin portal-api", endKind: "bootstrap-missing" };
     world.detail = detail([
-      attempt({ status: "failed", summary: "Preflight failed: context-image-trust\nthe registry is not trusted" }),
-      attempt({ number: 2, runId: "r-2", status: "failed" }),
+      attempt({ ...cause, startedAt: "2026-09-04T10:00:00Z" }),
+      attempt({ number: 2, runId: "r-2", ...cause, startedAt: "2026-09-04T11:00:00Z" }),
+      attempt({ number: 3, runId: "r-3", ...cause, startedAt: "2026-09-04T12:00:00Z" }),
+      attempt({ number: 4, runId: "r-4", status: "failed", summary: "Pod did not start", startedAt: "2026-09-04T13:00:00Z" }),
     ]);
-    world.conversation = {
-      ...conversation([entry({ id: "a", attemptRunId: "r-1", text: "first words" }), entry({ id: "b", attemptRunId: "r-2", text: "second words" })]),
-      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
-    };
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
-    const toggle = screen.getByTestId("conv-toggle-r-1");
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).toHaveTextContent("Attempt 1failed· Preflight failed: context-image-trust· 1 entry");
-    expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
-    expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
-    expect(screen.getByTestId("conv-toggle-r-2")).toHaveAttribute("aria-expanded", "true");
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(toggle).not.toHaveTextContent("1 entry");
-    expect(within(screen.getByTestId("conv-group-r-1")).getByTestId("conv-entry")).toHaveTextContent("first words");
+    const line = screen.getByTestId("thread-repeat-attempts-r-1");
+    expect(line).toHaveTextContent("3 runs stopped: Pipeline aborted: missing bootstrap");
+    expect(screen.queryByTestId("thread-report-2")).toBeNull();
+    expect(screen.getByTestId("thread-report-4")).toHaveTextContent("Pod did not start");
+    fireEvent.click(within(line).getByRole("button"));
+    expect(within(line).getByTestId("thread-report-1")).toBeInTheDocument();
+    expect(within(line).getByTestId("thread-report-3")).toBeInTheDocument();
   });
-
-  it("ConversationList_FilterChange_ClearsTheReadersToggles", async () => {
-    world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed" })]);
-    world.conversation = {
-      ...conversation([
-        entry({ id: "a", attemptRunId: "r-1" }),
-        entry({ id: "t", source: "ticket", kind: "comment", role: "person", attemptRunId: "r-1", text: "A comment" }),
-        entry({ id: "b", attemptRunId: "r-2" }),
-      ]),
-      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
-    };
-    await open();
-    fireEvent.click(screen.getByTestId("conv-toggle-r-2"));
-    expect(within(screen.getByTestId("conv-group-r-2")).queryAllByTestId("conv-entry")).toHaveLength(0);
-
-    fireEvent.click(screen.getByTestId("conv-filter-ticket"));
-    expect(screen.getAllByTestId("conv-entry").map((e) => e.getAttribute("data-entry-id"))).toEqual(["t"]);
-    expect(screen.getByTestId("conv-line-r-2")).toHaveTextContent("no entries");
-
-    fireEvent.click(screen.getByTestId("conv-filter-all"));
-    expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
-    expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
-  });
-
-  it("ConversationList_SameCause_ReadsSameCauseAsA1_AndTheLinkOpensA1_SmoothOrInstantUnderReducedMotion", async () => {
+  it("Thread_AnAttemptWithEntries_NeverFolds_SoNoPersonsWordsAreHidden", async () => {
     const cause = { status: "failed", summary: "Preflight failed: context-image-trust", endKind: "image-untrusted" };
-    world.detail = detail([
-      attempt({ ...cause }), attempt({ number: 2, runId: "r-2", ...cause }), attempt({ number: 3, runId: "r-3", ...cause }),
-    ]);
+    world.detail = detail([attempt({ ...cause }), attempt({ number: 2, runId: "r-2", ...cause })]);
     world.conversation = {
-      ...conversation([entry({ id: "a", attemptRunId: "r-1", text: "first words" }), entry({ id: "b", attemptRunId: "r-2" }), entry({ id: "c", attemptRunId: "r-3" })]),
-      attempts: [1, 2, 3].map((n) => ({ runId: `r-${n}`, number: n, cause: null, revision: null })),
+      ...conversation([entry({ id: "t", source: "ticket", kind: "comment", role: "person", attemptRunId: "r-2", text: "A comment" })]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
     };
-    let reduced = false;
-    window.matchMedia = vi.fn((query: string) => ({ matches: reduced && query.includes("reduce") }) as MediaQueryList);
     await open();
-    expect(screen.getByTestId("conv-toggle-r-1")).toHaveTextContent("Preflight failed: context-image-trust");
-    expect(screen.getByTestId("conv-toggle-r-2")).not.toHaveTextContent("Preflight failed");
-    expect(screen.getByTestId("conv-same-r-2")).toHaveTextContent("Same cause as A1");
-    expect(screen.queryByTestId("conv-same-r-3")).toBeNull();
-
-    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
-    fireEvent.click(screen.getByTestId("conv-same-r-2"));
-    await settle();
-    expect(screen.getByTestId("conv-toggle-r-1")).toHaveAttribute("aria-expanded", "true");
-    expect(within(screen.getByTestId("conv-group-r-1")).getByTestId("conv-entry")).toHaveTextContent("first words");
-    expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-group-r-1"));
-    expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "start", behavior: "smooth" });
-
-    reduced = true;
-    fireEvent.click(screen.getByTestId("conv-toggle-r-1"));
-    fireEvent.click(screen.getByTestId("conv-same-r-2"));
-    await settle();
-    expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "start", behavior: "auto" });
-    scrolled.mockRestore();
-    delete (window as { matchMedia?: unknown }).matchMedia;
+    expect(screen.queryByTestId("thread-repeat-attempts-r-1")).toBeNull();
+    expect(screen.getByTestId("thread-report-1")).toBeInTheDocument();
+    expect(screen.getByTestId("thread-report-2")).toBeInTheDocument();
+    expect(screen.getByText("A comment")).toBeInTheDocument();
   });
-
+  it("Thread_SpecDerivationsWithTheSameWords_FoldIntoOneLine", async () => {
+    const stopped = (runId: string, at: string) => ({
+      runId, status: "failed", startedAt: at, finishedAt: at, cost: 0.1, outcome: "not-finished" as const,
+      specCount: 0, pullRequests: [], summary: "Pipeline aborted: missing bootstrap",
+    });
+    world.detail = detail([attempt({ startedAt: "2026-09-04T15:00:00Z" })], {
+      derivations: [stopped("d-1", "2026-09-04T10:00:00Z"), stopped("d-2", "2026-09-04T11:00:00Z"), stopped("d-3", "2026-09-04T12:00:00Z")],
+    });
+    await open();
+    expect(screen.getByTestId("thread-repeat-derivations-d-1")).toHaveTextContent("3 derivations stopped: Pipeline aborted: missing bootstrap");
+    expect(screen.queryByTestId("spec-derivation-d-2")).toBeNull();
+  });
   describe("newest button", () => {
     // jsdom lays nothing out: the list's end sits at `listEnd`, the dock's top at 600.
     const layout = { listEnd: 500 };

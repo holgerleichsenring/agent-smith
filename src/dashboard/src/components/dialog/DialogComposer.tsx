@@ -57,6 +57,7 @@ export function DialogComposer({
   loadHeld,
   inputRef,
   actions,
+  placeholder = "Keep talking, or answer above…",
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -75,6 +76,8 @@ export function DialogComposer({
   inputRef?: RefObject<HTMLTextAreaElement | null>;
   /** 2026-11-12-92e9d: controls shown above the text field, in the composer's row. */
   actions?: ReactNode;
+  /** 2026-11-16-6877a: the empty field's hint, where a surface says what sending does. */
+  placeholder?: string;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
@@ -229,7 +232,7 @@ export function DialogComposer({
           value={text}
           rows={3}
           disabled={disabled}
-          placeholder="Keep talking, or answer above…"
+          placeholder={placeholder}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             // Enter sends, shift+enter keeps writing: a design message is often several

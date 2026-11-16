@@ -5,22 +5,6 @@ import { statusWords } from "./flowWords";
 // name it shows (the author only where 9a59h recorded one, else its role) and the where-label — from the
 // entry's own source, kind and detail. Nothing here is inferred from text.
 
-export interface ConversationFilter {
-  id: string;
-  label: string;
-  /** The 9a59h source this chip shows; null shows all. */
-  source: string | null;
-}
-
-export const CONVERSATION_FILTERS: ConversationFilter[] = [
-  { id: "all", label: "All", source: null },
-  { id: "ticket", label: "Ticket", source: "ticket" },
-  { id: "question", label: "Questions", source: "question" },
-  { id: "review", label: "PR reviews", source: "pr-review" },
-  { id: "cut", label: "Spec cut", source: "spec-cut" },
-  { id: "dialog", label: "Ticket conversation", source: "conversation" },
-];
-
 const AVATAR_CLASS: Record<string, string> = { person: "op", agent: "agent", system: "sys", reviewer: "rv" };
 
 const ROLE_NAMES: Record<string, string> = { person: "person", agent: "Agent Smith", system: "system", reviewer: "reviewer" };

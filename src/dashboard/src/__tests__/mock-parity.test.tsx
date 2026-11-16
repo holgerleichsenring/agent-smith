@@ -266,6 +266,7 @@ describe("Mock parity", () => {
       defaults: () => Promise.resolve(defaults()),
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
+    search.current = "tab=summary"; // 2026-11-16-6877a: the Summary pane is in the Details fold
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
         <TicketPage />
@@ -274,11 +275,12 @@ describe("Mock parity", () => {
     const pageRoot = screen.getByTestId("ticket-page");
     expect(pageRoot.className).toContain("mock-shell");
     expect(pageRoot.className).toContain("mock-tickets");
-    await screen.findByTestId("attempt-flow");
+    await screen.findByTestId("attempt-flow", {}, { timeout: 5000 }); // the whole thread renders first; slow under a loaded gate
     for (const cls of [".t-head", ".ticon", ".tsub", ".tabs", ".tab", ".sum", ".sg", ".banner", ".graph", ".g-top", ".gt", ".g-sub", ".lm", ".canvas", ".edge", ".node", ".g-legend", ".sdet", ".sd-h", ".sd-b"]) {
       expect(pageRoot.querySelector(cls), `ticket detail missing ${cls}`).not.toBeNull();
     }
     ticketPage.unmount();
+    search.current = "";
 
     // ---- run viewer (run-viewer.html) ----
     const viewer = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
@@ -336,7 +338,8 @@ describe("Mock parity", () => {
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string[]]> = [
-      ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
+      // 2026-11-16-6877a: the conversation is the page (no tab): its thread, the Your move box and the composer.
+      ["", [".thread", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".tk-move", ".composer", ".cp-actions", ".cp-input"]],
       ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
         // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
         ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],
@@ -350,10 +353,10 @@ describe("Mock parity", () => {
         </TicketPageStore>,
       );
       const root = screen.getByTestId("ticket-page");
-      await screen.findByTestId(`ticket-tab-${tab}`);
-      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb [data-testid='tracker-text']" : "h2" });
+      if (tab) await screen.findByTestId(`ticket-tab-${tab}`);
+      await screen.findByText(tab === "" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "" ? ".mb [data-testid='tracker-text']" : "h2" });
       for (const cls of classes) {
-        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+        expect(root.querySelector(cls), `ticket ${tab || "thread"} missing ${cls}`).not.toBeNull();
       }
       page.unmount();
     }
