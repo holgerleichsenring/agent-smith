@@ -91,3 +91,32 @@ export function relaunchPlace(snapshot: RelaunchReadable | null | undefined): nu
 export function toRunNodeStatus(snapshot: RelaunchReadable | null | undefined): NodeStatus {
   return isRelaunching(snapshot) ? "queued" : toNodeStatus(snapshot?.status);
 }
+
+// 2026-11-16-6877b: moved here from RunDetailHeader, which the sectioned run page replaced; the graph view
+// still themes its wrapper with it.
+// 2026-09-22-7c41c: `relaunching` is the parked run whose relaunch is already under way —
+// it wears the QUEUED look (the same `is-prov` class themes the page wrapper), because the
+// answer is in and what it waits for now is a slot, not the operator.
+export function statusSpill(
+  status: string | null, relaunching: boolean = false,
+): { cls: string; label: string } {
+  if (relaunching) return { cls: "is-prov", label: "Resuming" };
+  switch ((status ?? "").toLowerCase()) {
+    case "running":
+      return { cls: "is-run", label: "Running" };
+    case "waiting_for_input":
+      return { cls: "is-blocked", label: "Needs you" };
+    case "queued":
+      return { cls: "is-prov", label: "Queued" };
+    case "success":
+      return { cls: "is-done", label: "Done" };
+    case "shortfall":
+      return { cls: "is-done", label: "Done, with a shortfall" };
+    case "cancelled":
+      return { cls: "", label: "Cancelled" };
+    case "":
+      return { cls: "", label: "…" };
+    default:
+      return { cls: "is-failed", label: "Failed" };
+  }
+}

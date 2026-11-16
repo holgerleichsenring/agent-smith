@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-6877b
+
+decisions:
+  - category: Architecture
+    chose: "Sections are derived on the client from RunStepRow.commandName (suffix 'Command' and ':param' stripped) through one table in runSections.ts"
+    over: "Serving sections from the server, or reusing the server's five beats"
+    reason: "The brief forbids new backend data, and the beats have five buckets where the approved mock has seven. The table mirrors CommandBeats.Map.cs and splits it finer."
+  - category: Behaviour
+    chose: "Mapping: Got ready = fetch, scope, checkout, preflight, registry auth, prerequisites, probe, bootstrap*, Load*, catalog, grounding; Derived the spec = Triage, DeriveSpec, SpecHandback, ReviewSpecs, SpecSequence, SelectSpec, EmptyPlanCheck, Approval, CheckSpecPremises, SpecGate, Ask, retired GeneratePlan/PlanOpenQuestions, RatifyScanContract; Built it = AnalyzeCode, AgenticExecute, AgenticMaster, MasterOpenQuestions, skill/filter rounds, RunFinalPhase, GenerateTests/Docs, CompileDiscussion, CommitSpecWork; Verified the build = VerifySpec, RunVerifyPhase, ConvergenceCheck; Reviewed and fixed = ReviewSpecDiff, RunReviewPhase, plus any build or verify step after a review in the same spec until the next SelectSpec; Checked against the spec = the run's acceptance verdicts (no steps); Delivered = WriteSpecRecord, WriteRunResult, CommitAndPR, PrCrossLink, PersistWorkBranch, DeliverOutput, InitCommit, InitComplete, PostPrComments, WriteTickets, DeliverFindings"
+    over: "A section per server beat"
+    reason: "Matches the seven sections of the approved run mock with what each command does today."
+  - category: Behaviour
+    chose: "A command the table does not name joins the section of the step before it; the first step of a run joins Got ready"
+    over: "An 'Other' section"
+    reason: "A new command lands in context rather than in an eighth section the mock does not have, and is never dropped."
+  - category: Behaviour
+    chose: "Section state: a failed step makes it red, then running (amber), then a finding (amber); only unreached steps leave it hollow; the check section is red on an unmet criterion and amber on an unproven one"
+    over: "Green or hollow only"
+    reason: "Colour only for state: amber needs a look, red stopped, green done."
+  - category: Behaviour
+    chose: "A log line's time is the StepStarted event's timestamp when the page holds it, else blank"
+    over: "Times computed from the run start and step durations"
+    reason: "RunStepRow carries no start time; an invented time would be a wrong fact on a long run."
+  - category: Behaviour
+    chose: "The story view (storybar, stage, side rail, banner, dialogue drawer) moves behind 'Show as graph'; the trace drawer opens from 'Show all N steps and the raw trace'; /why stays linked"
+    over: "Deleting the story view"
+    reason: "The brief keeps every deep view reachable; only the default changes."
+  - category: Behaviour
+    chose: "A waiting run's question card sits in the status box; the dialogue drawer stays for the graph view"
+    over: "Only the drawer"
+    reason: "The status box answers 'what do I do' in place, as the approved Question mock shows."
+  - category: Architecture
+    chose: "RunDetailHeader is deleted; statusSpill moves to runStatus.ts; its cancel, delete, cancel-requested and reserved-capacity rules are carried into RunPageHead and its tests"
+    over: "Keeping the old header beside the new one"
+    reason: "An unused header is dead code; the rules it enforced are kept where the acts now live."
+  - category: Behaviour
+    chose: "The breadcrumb reads the ticket detail once to say 'Run n of m'; without a readable ticket it keeps the link and shows the short run id"
+    over: "A new run-to-ticket endpoint"
+    reason: "The ticket page's detail endpoint already lists the attempts by run id."
