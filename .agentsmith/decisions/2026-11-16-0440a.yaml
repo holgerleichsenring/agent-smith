@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-0440a
+
+decisions:
+  - category: Architecture
+    chose: "Remap Tailwind's palette variables (stone, slate, gray, zinc, neutral inverted; amber, rose, emerald, sky, violet and their kin as dark washes and light inks) in globals.css @theme"
+    over: "Rewriting the raw palette classes in 89 component files to semantic tokens"
+    reason: "Tailwind v4 utilities read var(--color-*), so one block turns every page dark, including the ticket and run detail pages this slice may not edit. The inversion is consistent (a white-on-stone-900 chip becomes dark-on-light), so contrast pairs survive. A codemod to semantic names is the cleaner long-term shape and stays open as its own spec."
+  - category: Architecture
+    chose: "app-* colours in DESIGN.md, hand-mirrored into globals.css, held equal by theme-tokens.test.ts"
+    over: "Generating a dashboard CSS file from build-tokens.mjs and importing it"
+    reason: "The generated tokens.json is gitignored and written only by the build; a generated stylesheet would break a fresh `pnpm dev` and the test run, which comes before the build in the gate. The mirror is how the theme was kept already; the new test makes drift fail instead of trusting it."
+  - category: Architecture
+    chose: "The light role names (canvas, ink, body, mute, primary) point at the app-* set; primary is the bright near-white button, primary-deep the green accent text"
+    over: "New role names and a sweep of their users"
+    reason: "Every component reading the role names follows without a change. The approved look has one bright button per screen and colour only for state, so green stops being the button colour in the dashboard; DESIGN.md says so in its new Dashboard section and in the Do list."
+  - category: Architecture
+    chose: "The mock-parity tokens (--bg, --ink, --line, --accent, --run, --ok, --bad, --person) on :root as well as .mock-shell"
+    over: "Keeping them scoped to .mock-shell"
+    reason: "Components outside a parity page already read var(--bad) and var(--line) (with light fallbacks); on :root they get the dark answer everywhere."
+  - category: Implementation
+    chose: "@theme static"
+    over: "@theme"
+    reason: "Tailwind v4 emits only the theme variables a utility uses; mock-parity.css and inline styles read app-* variables by name, so every one has to be emitted."
+  - category: Implementation
+    chose: "app-faint #85858d for group labels instead of the mock's #6f6f77"
+    over: "The mock value"
+    reason: "#6f6f77 is 3.9:1 on the sidebar ground; #85858d passes 4.5:1 on ground, sidebar, panel and raised, and still reads as the quietest text."
+  - category: Scope
+    chose: "LedgerPanel's stroke=\"#fff\" stays"
+    over: "Editing it"
+    reason: "components/jobs/story/** belongs to the run detail work in parallel; a white tick on the green dot is still legible."

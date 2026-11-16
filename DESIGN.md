@@ -38,6 +38,23 @@ colors:
   stage-text-soft: "#c2c8d3"
   stage-mute: "#8b94a7"
   stage-faint: "#5a6375"
+  app-ground: "#0f0f10"
+  app-side: "#131314"
+  app-panel: "#161618"
+  app-raised: "#1a1a1c"
+  app-hover: "#232326"
+  app-line: "#222225"
+  app-line-strong: "#2e2e33"
+  app-text: "#ececec"
+  app-text-soft: "#b4b4b8"
+  app-mute: "#8c8c93"
+  app-faint: "#85858d"
+  app-bright: "#ececec"
+  app-on-bright: "#0f0f10"
+  app-needs: "#e5b450"
+  app-person: "#7ab8ff"
+  app-proven: "#3ddc84"
+  app-stopped: "#ef7b6c"
 
 typography:
   display-xl:
@@ -590,7 +607,7 @@ Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are 
 
 ## Website stage
 
-The marketing site (agent-smith.org) runs on a dark stage of its own. The dashboard and the docs stay on the light system above: they are read for hours, the site is seen for seconds. The stage borrows the system's faces, accent and state palette and adds only its ground.
+The marketing site (agent-smith.org) runs on a dark stage of its own. The docs stay on the light system above: they are read for hours, the site is seen for seconds. The stage borrows the system's faces, accent and state palette and adds only its ground.
 
 - **Ground**: `{colors.stage-bg}` `#090c12`, panels `{colors.stage-panel}` and `{colors.stage-panel-raised}`, hairlines `{colors.stage-line}`. Text `{colors.stage-text}`, running text `{colors.stage-text-soft}`, labels `{colors.stage-mute}`, fine print `{colors.stage-faint}`. Neutrals lean blue, toward the person colour.
 - **Accent**: Smith Green stays the one colour a button carries. `{colors.state-person-terminal}` `#5eb1ff` marks Azure DevOps and the words a headline stresses; the state palette's terminal variants mark state on drawn panels.
@@ -599,10 +616,21 @@ The marketing site (agent-smith.org) runs on a dark stage of its own. The dashbo
 - **Panels**: product surfaces on the site are drawn in HTML on `{colors.stage-panel}`, one mechanism per panel, labelled as an example. Screenshots belong to the docs.
 - **Radius**: `{rounded.md}` 12 px on buttons and panels, as everywhere; no pills.
 
+## Dashboard
+
+The operator dashboard is dark and text-first. People read it for hours, so it stays quiet: neutral greys, hairlines, no decoration.
+
+- **Ground**: `{colors.app-ground}` `#0f0f10`, sidebar `{colors.app-side}`, panels `{colors.app-panel}` and `{colors.app-raised}`, hover and the selected item `{colors.app-hover}`. Hairlines `{colors.app-line}`, field and card borders `{colors.app-line-strong}`.
+- **Text**: `{colors.app-text}` for titles and rows, `{colors.app-text-soft}` for running text, `{colors.app-mute}` for meta lines, `{colors.app-faint}` for group labels. Each passes 4.5:1 on every ground above except the hover fill, where only text and soft are used.
+- **One bright button per screen**: `{colors.app-bright}` with `{colors.app-on-bright}` text. Everything else is outlined or plain text.
+- **Colour means state**, never decoration: `{colors.app-needs}` amber for what needs a person's answer, `{colors.app-person}` blue for in review or waiting on a person, `{colors.app-proven}` green for passed, `{colors.app-stopped}` red for stopped or failed. Washes are these mixed into the ground.
+- **Faces**: Inter for the interface, IBM Plex Mono for ids, branches and code. Long text in a list row is cut with an ellipsis; the full text is on the page it links to.
+- **Navigation**: one flat sidebar (New work, Your move, Tickets, Runs, Pull requests, then small uppercase groups) that collapses to icons. Settings sit behind the profile at its foot. A list's states are filter pills above the list.
+
 ## Do's and Don'ts
 
 ### Do
-- Reserve `{colors.primary}` Smith green for every primary CTA. One filled green button per band.
+- Reserve `{colors.primary}` Smith green for every primary CTA on the site and the docs. One filled green button per band. The dashboard's one bright button is `{colors.app-bright}` (see Dashboard).
 - Keep canvas WARM — `{colors.canvas}` `#fffefb` cream, not pure white. The temperature is the brand voice.
 - Set hero headlines in `{typography.display-xl}` Inter weight 500. Sentence-case, no uppercase.
 - Use `{rounded.md}` 12 px for buttons + cards. The middle radius is the brand's signature.
