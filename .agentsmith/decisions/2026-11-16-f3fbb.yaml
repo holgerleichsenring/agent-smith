@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-f3fbb
+
+decisions:
+  - category: Implementation
+    chose: "Only the step-failure path (HandleStepFailureAsync) reads FailureKind and comments instead of finalizing; the fatal and dressed-as-cancellation paths finalize as before"
+    over: "Classifying thrown exceptions or cancellations as precondition stops too"
+    reason: "A precondition end kind exists only on a CommandResult (RunPreflightHandler, BootstrapGateHandler); the other paths carry no kind, and guessing one from an exception would be a heuristic for missing data."
+  - category: Implementation
+    chose: "PreviousAttempt carries EndKind and EndDetail beside StoppedOnPrecondition, and PreconditionHeadline (Contracts.Runs) words the headline as the dashboard's detailSentence does, without its closing period"
+    over: "Passing only the flag and a generic sentence"
+    reason: "The spec's sentence names the EndDetail headline; the gate reads the same row the reader already loads, so the detail costs two columns in the existing projection and no extra query. Without a detail the kind's own words stand, as on the ticket page."
+  - category: Implementation
+    chose: "A boundary stop wins over a precondition stop in BoundaryStopGate"
+    over: "Checking the precondition first"
+    reason: "They cannot both hold on one row (a boundary end is success or a watchdog cancel, a precondition end is failed); boundary first keeps its existing branch and sentence untouched."
+  - category: Implementation
+    chose: "TicketBucketRule.Ended reads Run.EndKind itself (failed head with a precondition kind is Stuck), after the tracker-closed arm and before PR-closed"
+    over: "Folding the precondition into the stuck flag TicketStuckRule passes in"
+    reason: "The stuck flag is the between-attempts observation and its null/false semantics feed the list's 'checked' words; the precondition hold is a fact of the row, not an observation, so it sits beside the flag in the one place the bucket is decided. A person's tracker close still answers closed."
+  - category: Scope
+    chose: "The refusal sentence keeps the spec's 'It starts by itself once that holds' although this spec admits no automatic release"
+    over: "Shortening it to the reply clause until the release exists"
+    reason: "The release run is the next spec in the series (f3fbc, scope.out 'Release'); the sentence is the spec's verbatim text and becomes true with it. Until then only a person's start or a series start passes, as the admit list is unchanged."
+  - category: Scope
+    chose: "No dashboard change"
+    over: "Rewording the stuck row on the ticket list"
+    reason: "The detail page already renders the 'stuck' bucket through failureAct, which names the setting from EndDetail; the ticket page is being redesigned in a parallel session, so layout and copy there stay as they are."

@@ -24,4 +24,13 @@ public static class RunEndKinds
 
     /// <summary>A parked attempt closed because a newer attempt of the ticket started past it.</summary>
     public const string Superseded = "superseded";
+
+    /// <summary>2026-11-16-f3fbb: the ends a precondition decided — the ticket keeps its tracker status and is
+    /// held Stuck until the precondition holds or a person starts it. <see cref="ReadinessUnknown"/> is not one:
+    /// an unreachable host is infrastructure, retried.</summary>
+    public static readonly IReadOnlySet<string> Preconditions =
+        new HashSet<string>(StringComparer.Ordinal) { Preflight, ImageUntrusted, BootstrapMissing };
+
+    /// <summary>True when <paramref name="kind"/> is one of <see cref="Preconditions"/>.</summary>
+    public static bool IsPrecondition(string? kind) => kind is not null && Preconditions.Contains(kind);
 }

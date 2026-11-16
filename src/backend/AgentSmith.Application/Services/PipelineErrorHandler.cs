@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -37,8 +38,11 @@ public sealed class PipelineErrorHandler(
         // stays a comment-only UpdateStatus; only this terminal failure moves the status.
         // 2026-09-07-f420: this is the ticket's ONE comment on a failed run, so it also
         // says what the finalizer tail kept and where (the draft PR, the branch).
-        await FinalizeFailureAsync(projectConfig, context,
-            failureComment.ForStep(failure, context), cancellationToken);
+        // 2026-11-16-f3fbb: a precondition stop comments and keeps the ticket's status (no unmoved record).
+        var comment = failureComment.ForStep(failure, context);
+        await (RunEndKinds.IsPrecondition(failure.FailureKind)
+            ? PostTicketStatusAsync(projectConfig, context, comment, cancellationToken)
+            : FinalizeFailureAsync(projectConfig, context, comment, cancellationToken));
 
         await TryPersistWorkBranchAsync(commandNames, projectConfig, context, failure, cancellationToken);
         lifecycle.MarkFailed();

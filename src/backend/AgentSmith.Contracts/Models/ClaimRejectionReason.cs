@@ -21,6 +21,10 @@ public enum ClaimRejectionReason
     /// person's start picks it up again.</summary>
     TicketStoppedAtBoundary,
 
+    /// <summary>2026-11-16-f3fbb: the ticket's last attempt stopped on a precondition (preflight, image trust, bootstrap);
+    /// a person's start picks it up again.</summary>
+    TicketStuckOnPrecondition,
+
     /// <summary>2026-10-14-dbceh: a ticket it requires has not landed, or its filing did not finish. Unlike the
     /// reasons above, this refusal lifts by itself once the required tickets land.</summary>
     TicketRequiresUnmet
