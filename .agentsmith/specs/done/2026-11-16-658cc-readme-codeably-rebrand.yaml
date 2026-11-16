@@ -11,8 +11,8 @@ facts:
     evidence: "README.md:3, README.md:13, README.md:23"
 
 scope:
-  in: "Brand in prose, website and docs links, one 'formerly Agent Smith' line."
-  out: "CLI commands, agentsmith.yml, env vars, image names, repo URLs, badges, the banner SVG."
+  in: "Brand in prose, website and docs links, one formerly-Agent-Smith line, the banner SVG wordmark."
+  out: "CLI commands, agentsmith.yml, env vars, image names, repo URLs, badges."
 
 steps:
   - id: rename
