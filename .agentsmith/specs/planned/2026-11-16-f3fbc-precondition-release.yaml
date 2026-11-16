@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-f3fbc
+goal: "A ticket stuck on a precondition starts by itself once it holds: when a settings save makes its image trusted or its config whole, or within an interval after its init lands."
+
+applies_to: "default (rework nudge and handler, LeaderEpochLoop, rework launch, attempt cause, config)"
+
+requires: [2026-11-16-f3fbb]
+
+facts:
+  - claim: "ConfigChangedEvent reaches the dashboard stream only; leaders follow config saves through LeaderEpochLoop, which restarts a subsystem when the epoch advances."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigStudioWriteGuard.cs:72-81, src/backend/AgentSmith.Server/Services/Hosting/LeaderEpochLoop.cs:14-41"
+  - claim: "Rework nudges carry an origin, merge keeping the highest, and are served under the worker's lock; with a previous attempt the handler reads acts and otherwise only continues a series, which a failed head holds."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:10-24, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:39-52"
+  - claim: "An init merge raises no event: the PR sweep nudges only branches that name a ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-59"
+  - claim: "ReworkLaunch starts through ChatTicketRunLauncher with a series flag; RequirementsMetStart holds the closed-mark, landing and tracker-closed checks."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkLaunch.cs:20, src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:44-70"
+  - claim: "The attempt cause is read inside the run, series above requested-by-name above retrigger; the spawn request seeds markers."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:38-43, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:73-74"
+  - claim: "The image judge reads the boundary live, so it answers whether a stored refusal still holds."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ContextImageBoundary.cs:33-44"
+  - claim: "Config durations are integer *_seconds keys."
+    evidence: "config/agentsmith.example.yml:104-109"
+
+scope:
+  in: "ReworkNudgeOrigin.PreconditionsMet = 7; a 'preconditions' subsystem run by LeaderEpochLoop that, on each start (every config epoch) and then every preconditions.recheck_interval_seconds, lists stuck tickets and enqueues PreconditionsMet for those whose precondition now holds; the handler arm; ReworkLaunch's start kind; marker and attempt channel 'precondition'."
+  out: "Repo-side fixes (a stack.image changed in context.yaml, a toolchain-fallback refusal): no epoch reports them, so the path is a reply in the ticket conversation, which f3fbb admits. Re-running config checks on the server beyond the image judge and the probe: the run's own RunConfigPreflight answers before any sandbox."
+
+steps:
+  - id: read
+    action: "IStuckOnPreconditionReader lists (project, ticket, end kind, EndDetail) for tickets whose newest code attempt StoppedOnPrecondition."
+  - id: holds
+    action: "Per listed ticket: image-untrusted holds when ContextImageBoundary.Judge(EndDetail.Subject image) is null; bootstrap-missing when RepoReadiness on each EndDetail.Repos base branch (default_branch, else host default) is Complete, one probe per repo per pass; preflight on each epoch start only (a saved config is the only thing that changes it)."
+  - id: subsystem
+    action: "LeaderEpochLoop.RunAsync('preconditions', …) runs the pass at start and every recheck_interval_seconds; registered beside the other leader subsystems."
+  - id: handler
+    action: "ReworkNudgeHandler, after the queued check: origin PreconditionsMet with a pending act goes through the rework entry as today; otherwise PreconditionRelease.StartAsync, which skips a ticket the RequirementsMetStart checks hold or whose newest attempt is no longer stuck, else starts through ReworkLaunch with start kind PreconditionRelease and logs a Refused outcome."
+  - id: launch
+    action: "ReworkLaunch's bool seriesAutoStart becomes a start-kind enum (Act, Series, PreconditionRelease); IncomingTicketEnvelope.PreconditionRelease seeds ContextKeys.PreconditionRelease in SpawnRequestBuilder."
+  - id: channel
+    action: "AttemptChannels.Precondition = 'precondition'; AttemptCauseReader's arm sits directly above the series arm; ticketFormat names it 'restarted once the precondition held'."
+  - id: config
+    action: "PreconditionsConfig on AgentSmithConfig with recheck_interval_seconds, default 300, in config/agentsmith.schema.json and config/agentsmith.example.yml with its reason (an init lands by a person or a pipeline and nothing reports it); under 60 refused at load with a message naming the value, the reason (each pass probes stuck tickets' repos over the host API, which rate-limits) and the key."
+
+tests:
+  - "Pass: image now trusted enqueues, still untrusted does not; repos ready enqueue, incomplete and unknown do not; preflight only on epoch start; one probe per repo"
+  - "Handler: pending act served as rework; release started once; held or no-longer-stuck skipped; refused logged"
+  - "ReworkLaunch start kinds; AttemptCauseReaderTests: marker reads precondition"
+  - "Config validation: under 60 refused with value, reason and key"
+
+done:
+  - "Trusting the image's registry restarts the ticket stuck on it without anyone replying; merging its init restarts it within one interval."

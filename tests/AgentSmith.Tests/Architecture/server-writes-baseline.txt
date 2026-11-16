@@ -1,0 +1,30 @@
+# 2026-11-16-3596: server files that write to a tracker or a repository directly, measured when the
+# ratchet was installed. No file may join; a file that stops writing must leave. Paths are relative
+# to src/backend. Blocks 3 and 4 of the consolidation plan move these writes into pipeline steps.
+AgentSmith.Server/Extensions/QueuedRunCancel.cs
+AgentSmith.Server/Extensions/RunControlEndpoints.cs
+AgentSmith.Server/Services/CapacityQueueDrop.cs
+AgentSmith.Server/Services/Handlers/CreateTicketIntentHandler.cs
+AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs
+AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs
+AgentSmith.Server/Services/Lifecycle/ParkedTicketDialogue.cs
+AgentSmith.Server/Services/Lifecycle/RunDeleter.cs
+AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs
+AgentSmith.Server/Services/Rework/ReworkParkCheck.cs
+AgentSmith.Server/Services/Rework/ReworkSpeech.cs
+AgentSmith.Server/Services/Rework/WaitingRunCloser.cs
+AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs
+AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs
+AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs
+AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs
+AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs
+AgentSmith.Server/Services/SpecDialog/FiledWorkMove.cs
+AgentSmith.Server/Services/SpecDialog/FiledWorkTagger.cs
+AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs
+AgentSmith.Server/Services/SpecDialog/TicketDescriptionRewrite.cs
+AgentSmith.Server/Services/SpecDialog/TicketGraphFiler.cs
+AgentSmith.Server/Services/SpecDialog/TicketGraphLinks.cs
+AgentSmith.Server/Services/SpecDialog/TicketGraphStarts.cs
+AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs
+AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs
+AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs

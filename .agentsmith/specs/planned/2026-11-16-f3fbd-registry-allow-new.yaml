@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-f3fbd
+goal: "With new registries allowed, a ticket run adds an untrusted image's registry to the trusted list and records it; the Docker Hub library becomes an ordinary list entry, not a switch."
+
+applies_to: "default (sandbox settings, registry trust, image trust check, config load migration, settings page field, docs)"
+
+requires: [2026-11-16-f3fba]
+
+facts:
+  - claim: "Library images are matched in canonical form as docker.io/library/<name>, so a list entry docker.io/library/ trusts them."
+    evidence: "src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:13-15, src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:70-79"
+  - claim: "allow_docker_hub_library is three-way; left at follow it trusts the library only while no registry is named, and naming any registry replaces the defaults mcr.microsoft.com/ and ghcr.io/."
+    evidence: "src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:25, src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:42-44, src/dashboard/src/components/config/SandboxImageTrustFields.tsx:89-93"
+  - claim: "ConfigStudioWriteGuard is an HTTP helper over HttpContext, not callable from a run."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigStudioWriteGuard.cs:20-45"
+  - claim: "The boundary is read live at each decision, so a write the check makes is seen by the sandbox image chain."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ImageRegistryTrust.cs:26-31"
+  - claim: "Config migrations are applied on every load, which covers file mode too."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/LegacyCredentialMigration.cs:14"
+  - claim: "The lever already computes the registry prefix: the repository up to its last slash."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ContextImageBoundary.cs:46-55"
+
+scope:
+  in: "sandbox.allow_new_registries (bool, default false); ContextImageTrustCheck, in code and spec-derive runs only, writing the prefix through an Application port ISandboxRegistryTrustWriter inside its step, re-reading the boundary and passing only if it now accepts the image, and recording a run decision; the Server implementation using the settings store write and IConfigReloadSignal.BumpAsync with actor 'run <id>', retrying on a stale version; the CLI implementation refusing; allow_docker_hub_library replaced by the entry docker.io/library/ through a load-time migration; DefaultRegistries gaining docker.io/library/; the settings field; every place that names the old switch."
+  out: "pr-review and security-scan never add a registry: they read branches a contributor wrote, and trust is installation-wide. Narrowing stays a person's act. Project image overrides."
+
+steps:
+  - id: setting
+    action: "SandboxGlobalConfig.AllowNewRegistries; schema, example and the settings field 'Allow new registries: a ticket run adds the registry of an untrusted image to this list and records it'."
+  - id: accept
+    action: "ContextImageTrustCheck, when AllowNewRegistries is on and the pipeline is code or spec-derive, writes the prefix Lever computes (docker.io/library/ for a library image) through ISandboxRegistryTrustWriter, re-reads the boundary, passes only if it now accepts the image, and records the decision 'trusted <prefix> for <image> (context <c>)'."
+  - id: writer
+    action: "ISandboxRegistryTrustWriter in Application; Server implementation appends once per prefix through the store write the settings endpoint uses, bumps the config epoch, UpdatedBy 'run <id>', retries a stale version; the entity version history is the log. CLI implementation refuses with a sentence naming the setting."
+  - id: library
+    action: "Remove allow_docker_hub_library from config, schema, boundary and page. DefaultRegistries = [mcr.microsoft.com/, ghcr.io/, docker.io/library/]. A load-time migration beside LegacyCredentialMigration keeps each effective boundary: (true, named) append docker.io/library/; (false, empty) write [mcr.microsoft.com/, ghcr.io/]; (follow, any), (true, empty) and (false, named) drop the key."
+  - id: words
+    action: "Update RegistryTrustBoundary.Description, ContextImageBoundary's lever texts, docs/configure-it/settings.md, docs/host-it/kubernetes.md, docs/reference/host-it/docker-k8s-troubleshooting.md and config/agentsmith.schema.json; f3fba's SetTo for a library image becomes the docker.io/library/ entry."
+
+tests:
+  - "RegistryTrustBoundaryTests: docker.io/library/ entry trusts node:22-bookworm; defaults trust it"
+  - "Migration: the six (switch, list) cases keep their effective verdicts"
+  - "ContextImageTrustCheckTests: allow-new on in code passes after the write and records the decision; on in pr-review refuses; off refuses"
+  - "Server writer: prefix appended once with run actor; stale version retried"
+  - "SandboxImageTrustFields.test.tsx: allow-new field; no library selector"
+
+done:
+  - "With new registries allowed, a ticket run on node:22-bookworm proceeds, docker.io/library/ appears in the trusted list with the run as its author, and the run's decisions name it."

@@ -245,3 +245,7 @@ or the commit is blocked. Read this before a definition of done leans on it.
 - **No over-engineering** — only build what the spec requires, nothing more.
 - **Tests** — every new public method gets at least one test.
 - **Follow each context's principles.md** — these are constraints, not suggestions.
+- **Everything is a pipeline** — work that writes to a tracker or a repository is a step of a run with a run id; the server accepts requests and starts runs. `ServerWritesRatchetTests` holds the server's existing direct writes as debt that may only shrink.
+- **No second path** — a spec that adds an outcome kind, a filer, a storage location, a label meaning or a trigger names the existing one it replaces; a second one needs the operator's approval, recorded in the spec's `decisions/{id}.yaml` with the operator as decider.
+- **No unratified decision ships** — an open choice is asked before the commit, never merged as pending ratification. `PendingRatificationRatchetTests` holds the existing markers as debt that may only shrink.
+- **A new limit earns its place** — it has a reason the operator would accept, lives in config, and its message names the value, the reason and the config key; the limits that predate this rule are listed debt.

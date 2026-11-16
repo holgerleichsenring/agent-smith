@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-f3fba
+goal: "Every run precondition that needs no sandbox, init included, is checked before the first sandbox, and its refusal carries the concrete value and the setting that fixes it."
+
+applies_to: "default (run preflight and its checks, pipeline presets, RemoteBootstrapProbe, command result, run end event and row, ticket attempt view)"
+
+requires: [2026-11-16-3596]
+
+facts:
+  - claim: "RunPreflight runs after CheckoutSource in code and spec-derive because some checks inspect the sandbox; CheckoutSource is the first step that creates one."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:42-46, src/backend/AgentSmith.Application/Services/Sandbox/SandboxRequiringCommands.cs:14"
+  - claim: "The config checks are already described as decidable from config alone, before anything touches a sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Preflight/Run/RunPreflightServiceCollectionExtensions.cs:18-32"
+  - claim: "ContextKeys.ProjectConfig is set only when sandboxes are ensured, so a check moved before checkout would read none."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:133"
+  - claim: "The remote context inventory ScopeRepos builds covers every repo before narrowing; scoping later drops repos and contexts."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/RemoteContextInventoryBuilder.cs:23-44, src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:93-101"
+  - claim: "SandboxHomeWritable, SandboxRunsAsRoot, InjectedSecret and BranchState read the sandboxes and cannot move."
+    evidence: "src/backend/AgentSmith.Application/Services/Preflight/Run/SandboxHomeWritableCheck.cs:58-66, src/backend/AgentSmith.Application/Services/Preflight/Run/SandboxRunsAsRootCheck.cs:27-35, src/backend/AgentSmith.Application/Services/Preflight/Run/InjectedSecretCheck.cs:31-58, src/backend/AgentSmith.Application/Services/Preflight/Run/BranchStateCheck.cs:83-91"
+  - claim: "A check is a name and RunAsync over the pipeline; the handler maps image trust to image-untrusted and every other failure to preflight; the kind travels on CommandResult.FailureKind to the run end."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRunPreflightCheck.cs:20-25, src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:65-79, src/backend/AgentSmith.Domain/Models/CommandResult.cs:38"
+  - claim: "The image refusal holds the image and a lever with the registry prefix; the value reaches the ticket only as summary text, and the ticket page reads the attempt's end kind alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ContextImageBoundary.cs:33-55, src/dashboard/src/components/tickets/detail/ticketState.ts:75-97"
+  - claim: "Naming any registry replaces the built-in defaults mcr.microsoft.com/ and ghcr.io/."
+    evidence: "src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:25, src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:44"
+  - claim: "Bootstrap is checked in the sandbox by BootstrapCheck and BootstrapGate, while RemoteBootstrapProbe answers the same question over the host API, Unknown on an absent branch or an error."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs:61-67, src/backend/AgentSmith.Application/Services/Sandbox/RemoteBootstrapProbe.cs:23-43"
+  - claim: "An existing ticket branch gets its base merged at checkout."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ContextBranchLocator.cs:14-15"
+  - claim: "PrCommandBootstrapCheck refuses a ticketless PR command on the PR itself, keyed on BootstrapGate being in the preset."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommandBootstrapCheck.cs:15-30"
+  - claim: "The ticket page maps the run's end kind into the attempt view."
+    evidence: "src/dashboard/src/types/tickets.ts:237-249"
+
+scope:
+  in: "IRunPreflightCheck.NeedsSandbox; a new step RunConfigPreflight (sandbox-free checks, same handler) before CheckoutSource, RunPreflight keeping the sandbox checks at its place; ProjectConfig set by the executor before the first step; image trust and toolchain fallback reading the scoped remote inventory; BootstrapPresenceCheck replacing BootstrapCheck and BootstrapGate in code, spec-derive, pr-review and security-scan; PrCommandBootstrapCheck reading RepoReadiness; EndDetail from the finding through CommandResult, the finish event, the Run row and the attempt view; readiness-unknown as an infrastructure end. Behaviour change named: pr-review and security-scan gain the config preflight."
+  out: "api-security-scan keeps BootstrapCheck and BootstrapGate (its source is optional, decided at checkout). Holding, release, registries: f3fbb, f3fbc, f3fbd. The ticket page layout (another session's redesign); only the sentence failureAct renders changes."
+
+steps:
+  - id: split
+    action: "IRunPreflightCheck gains bool NeedsSandbox: SandboxHomeWritable, SandboxRunsAsRoot, InjectedSecret and BranchState true, the rest false. RunConfigPreflight is a second command name on RunPreflightHandler (precedent: CheckoutSource and TryCheckoutSource share one) and runs the false ones; RunPreflight runs the true ones. Both names are in every metadata map, NoOpSummaries included. Stored checkpoints holding RunPreflight keep their meaning."
+  - id: project
+    action: "PipelineExecutor sets ContextKeys.ProjectConfig from its project config before the first step; the coordinator's later Set stays."
+  - id: inputs
+    action: "ContextImageTrustCheck and ToolchainImageFallbackCheck read ContextKeys.RemoteContextInventory restricted to ContextKeys.Repos and ContextKeys.ScopedContexts (the coordinator's ApplyScopedContexts rule); where the inventory is absent (--context, pr-review, security-scan) they build it with RemoteContextInventoryBuilder.BuildAsync. The in-process exemption reads the configured sandbox backend."
+  - id: bootstrap
+    action: "RepoReadiness (Application) per repo: probe the base (the PR target for pr-review, the parent branch ContextReadBranches names for a slice, else the repo's default_branch, else the host default) and the run's branch only when BranchExistsAsync; ready if either is Complete, else Incomplete if either is, else Unknown. BootstrapPresenceCheck applies it to ContextKeys.Repos: Incomplete fails with kind bootstrap-missing, Unknown with readiness-unknown. PrCommandBootstrapCheck uses RepoReadiness and keys on RunConfigPreflight in the preset."
+  - id: detail
+    action: "EndDetail(Subject, Repos, Control, SetTo, SettingsPath), a record in AgentSmith.Domain: image trust → (image and context, [], 'Trusted image registries', the prefix ContextImageBoundary.Lever computes, or 'Docker Hub official library images: Trust' for a library image until f3fbd, /config/settings/sandbox); bootstrap → (project, repos, 'Initialise', the project, the project page); config checks → the key and the value expected. RunPreflightFinding and CommandResult carry it; the handler takes the first failing check's kind and detail; PublishRunFinishedAsync passes it; RunFinishedEvent and its TypeScript mirror gain it; RunFinalizationProjection stores it in Run.EndDetailJson (migrations for Sqlite, SqlServer and Postgresql); TicketDetailReader maps it into TicketAttemptView and types/tickets.ts."
+  - id: presets
+    action: "Code and spec-derive: RunConfigPreflight after ScopeRepos, RunPreflight where it is, no BootstrapCheck or BootstrapGate. pr-review and security-scan: RunConfigPreflight before CheckoutSource, no BootstrapCheck or BootstrapGate."
+  - id: infra
+    action: "InfrastructureEnd.Holds gains Status Failed with EndKind readiness-unknown; RUN_END_KINDS and deliveryFormat learn it; failureAct renders it 'Attempt n could not read the repositories' bootstrap from the host: <detail>' with Retry, ahead of the generic infrastructure sentence."
+  - id: sentence
+    action: "failureAct renders the headline from EndDetail when present, e.g. \"Image node:22-bookworm (context default) is not trusted: set Docker Hub official library images to Trust\", keeping its act; without EndDetail it renders as today."
+  - id: fixtures
+    action: "Harness stub-tier fixture repos carry a bootstrap the remote probe reads."
+
+tests:
+  - "RunPreflightHandlerTests: each phase runs its checks; first failure's kind and detail carried"
+  - "ContextImageTrustCheck and ToolchainImageFallbackCheck: before any sandbox, scoped inventory only, project overrides honoured, inventory built when absent"
+  - "RepoReadinessTests, BootstrapPresenceCheckTests, PrCommandBootstrapCheck tests"
+  - "BootstrapGatePipelinePresetsTests: four presets hold RunConfigPreflight before CheckoutSource and no BootstrapGate; api-security-scan keeps it"
+  - "InfrastructureEndTests; RunFinalizationProjection and TicketDetailReader carry EndDetail"
+  - "ticketState.test.ts: EndDetail headlines; readiness-unknown sentence"
+  - "CommandStepClassesCoverageTests, PipelinePresetSmokeTests, stub harness, pnpm gen:hub-events"
+
+done:
+  - "A run with an untrusted image or an uninitialised repo stops before any sandbox, and the ticket's headline names the image or repos and the setting that fixes it."

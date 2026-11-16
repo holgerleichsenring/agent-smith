@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-3596
+
+decisions:
+  - category: Architecture
+    chose: "Both rules are enforced by ratchets over a baseline, beside the rule text in CLAUDE.md and the default principles"
+    over: "Rule text only"
+    reason: "The operator found three parallel paths and 43 decisions merged pending ratification within ten days; a request in prose had already died against the next spec. A number that fails a build survives (the p0512 precedent)."
+  - category: Implementation
+    chose: "The write scan matches member names, with CreateAsync and CloseAsync counted only beside the interface they belong to"
+    over: "A Roslyn semantic scan"
+    reason: "Name matching needs no compilation in the test and the ratchet tolerates a false positive in the baseline; the two common names would otherwise flag database and stream calls."
+  - category: Scope
+    chose: "The write ratchet judges direct calls in the server project only"
+    over: "Also judging Application services the server calls"
+    reason: "An Application service may be a pipeline step's helper or a server-only writer; the file alone cannot tell. The rule text covers indirect writes; blocks 3 and 4 remove the listed debt."
+  - category: Implementation
+    chose: "'default pending' is not a marker"
+    over: "Counting it as the spec first proposed"
+    reason: "It also names column defaults ('verdicts: pending | ratified | overruled, default pending'); every real case also says 'pending operator ratification'."
