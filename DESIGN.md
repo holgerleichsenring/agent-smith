@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: AgentSmith-design-system
-description: Agent Smith's design language — workflow-automation aesthetics tuned for a self-hosted developer-infrastructure tool. Warm-cream canvas (`{colors.canvas}` `#fffefb`), deep coffee ink (`{colors.ink}` `#201515`), and a single saturated brand-green (`{colors.primary}` `#22c55e`) as the sole CTA accent. Typography ladders Inter exclusively — display weight 500 at hero scale, 400 / 500 / 600 / 700 for everything else. Mono surfaces use IBM Plex Mono. Buttons and cards share `{rounded.md}` (12 px) — neither pills nor squares. A polarity-flipped dark variant ships in-system: every hero, card, and pricing tier has a `*-dark` sibling so dark surfaces are content choices, not separate-stylesheet contortions. Plus one Smith-specific component the source pattern doesn't carry — `card-terminal-panel`, a dark-ink monospace panel for CLI output, YAML snippets, and code samples that the rest of the system passes over silently.
+description: codeably's design language — workflow-automation aesthetics tuned for a self-hosted developer-infrastructure tool. Warm-cream canvas (`{colors.canvas}` `#fffefb`), deep coffee ink (`{colors.ink}` `#201515`), and a single saturated brand-green (`{colors.primary}` `#22c55e`) as the sole CTA accent. Typography ladders Inter exclusively — display weight 500 at hero scale, 400 / 500 / 600 / 700 for everything else. Mono surfaces use IBM Plex Mono. Buttons and cards share `{rounded.md}` (12 px) — neither pills nor squares. A polarity-flipped dark variant ships in-system: every hero, card, and pricing tier has a `*-dark` sibling so dark surfaces are content choices, not separate-stylesheet contortions. Plus one Smith-specific component the source pattern doesn't carry — `card-terminal-panel`, a dark-ink monospace panel for CLI output, YAML snippets, and code samples that the rest of the system passes over silently.
 
 colors:
   primary: "#22c55e"
@@ -38,6 +38,7 @@ colors:
   stage-text-soft: "#c2c8d3"
   stage-mute: "#8b94a7"
   stage-faint: "#5a6375"
+  stage-accent: "#ff7a3d"
 
 typography:
   display-xl:
@@ -285,7 +286,7 @@ components:
     typography: "{typography.body-sm}"
     padding: "{spacing.3xl} {spacing.xl}"
 
-  # ─── Pipeline-taxonomy tint mapping (Agent Smith) ───
+  # ─── Pipeline-taxonomy tint mapping (codeably) ───
   pipeline-code:
     description: "code pipeline card. Cream chrome — the default pipeline."
     backgroundColor: "{colors.canvas-soft}"
@@ -311,7 +312,7 @@ components:
     backgroundColor: "{colors.canvas-soft}"
     textColor: "{colors.ink}"
 
-  # ─── Illustrative kit-mirror surfaces (re-purposed for Agent Smith) ───
+  # ─── Illustrative kit-mirror surfaces (re-purposed for codeably) ───
   ex-pricing-tier:
     description: "Deployment-mode card (self-host / Docker / Kubernetes). Re-uses pricing-card chrome."
     backgroundColor: "{colors.canvas-soft}"
@@ -375,7 +376,7 @@ components:
 
 ## Overview
 
-Agent Smith is a self-hosted, multi-repo CI for AI pipelines. The brand voice the design system carries is *confident-warm*: a workflow-automation tool that treats developers as adults. Cream canvas (`{colors.canvas}` `#fffefb`) with deep coffee ink (`{colors.ink}` `#201515`) plus a single saturated `{colors.primary}` (`#22c55e`) CTA accent. The warmth in the neutrals — cream rather than pure white — is the brand's defining temperature signal.
+codeably is a self-hosted, multi-repo CI for AI pipelines. The brand voice the design system carries is *confident-warm*: a workflow-automation tool that treats developers as adults. Cream canvas (`{colors.canvas}` `#fffefb`) with deep coffee ink (`{colors.ink}` `#201515`) plus a single saturated `{colors.primary}` (`#22c55e`) CTA accent. The warmth in the neutrals — cream rather than pure white — is the brand's defining temperature signal.
 
 Type carries the second voice. Inter at weight 500 carries hero displays; 400 / 500 / 600 / 700 ladder body, button, eyebrow, and emphasis. IBM Plex Mono carries every code / CLI / YAML surface — the brand's other typographic signal, and the visual signal that this is a tool for people who write code.
 
@@ -537,7 +538,7 @@ The brand's geometry is sober-editorial — `{rounded.md}` 12 px buttons disting
 
 **`card-feature-dark`** — polarity-flipped dark coffee card. Background `{colors.ink}`, text `{colors.on-primary}`.
 
-**`card-terminal-panel`** — *Agent Smith specific*. Dark-ink monospace surface for CLI output, YAML snippets, code samples. Background `{colors.terminal-bg}`, text `{colors.terminal-text}`, typography `{typography.mono-code}`, padding `{spacing.xl}`, shape `{rounded.md}`. Carries an accent (`{colors.terminal-accent}` Smith green) for prompt glyphs and an emphasis tone, and a mute (`{colors.terminal-mute}`) for comments. No syntax highlighting beyond these two accents — by design; the one exception is the state palette's terminal variants, which mark the state of a node or an edge drawn on the panel and never colour code.
+**`card-terminal-panel`** — *codeably specific*. Dark-ink monospace surface for CLI output, YAML snippets, code samples. Background `{colors.terminal-bg}`, text `{colors.terminal-text}`, typography `{typography.mono-code}`, padding `{spacing.xl}`, shape `{rounded.md}`. Carries an accent (`{colors.terminal-accent}` Smith green) for prompt glyphs and an emphasis tone, and a mute (`{colors.terminal-mute}`) for comments. No syntax highlighting beyond these two accents — by design; the one exception is the state palette's terminal variants, which mark the state of a node or an edge drawn on the panel and never colour code.
 
 **`pricing-card`** — the default pricing tier card. Background `{colors.canvas}`, 1 px solid `{colors.ink}` border, padding `{spacing.xl}`, shape `{rounded.md}`.
 
@@ -590,12 +591,13 @@ Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are 
 
 ## Website stage
 
-The marketing site (agent-smith.org) runs on a dark stage of its own. The dashboard and the docs stay on the light system above: they are read for hours, the site is seen for seconds. The stage borrows the system's faces, accent and state palette and adds only its ground.
+The marketing site (codeably.ai) runs on a dark stage of its own, and the docs default to the same ground. The dashboard stays on the light system above. The stage borrows the system's faces and state palette and adds its ground and one accent.
 
 - **Ground**: `{colors.stage-bg}` `#090c12`, panels `{colors.stage-panel}` and `{colors.stage-panel-raised}`, hairlines `{colors.stage-line}`. Text `{colors.stage-text}`, running text `{colors.stage-text-soft}`, labels `{colors.stage-mute}`, fine print `{colors.stage-faint}`. Neutrals lean blue, toward the person colour.
-- **Accent**: Smith Green stays the one colour a button carries. `{colors.state-person-terminal}` `#5eb1ff` marks Azure DevOps and the words a headline stresses; the state palette's terminal variants mark state on drawn panels.
+- **Accent**: `{colors.stage-accent}` `#ff7a3d`, a warm orange, is the brand accent on the stage and in the docs: primary buttons, the "ably" of the wordmark, the stressed words of a headline, links and the active nav item. It is the one place to change the brand colour. Text on it is `{colors.stage-bg}` (7.5:1); as text on the ground it reaches 7.5:1, on panels 6.7:1. On a light surface (the docs' light scheme) it is mixed 68 % with black, 5.2:1 on white. Green is not a brand colour on the stage: `{colors.state-proven-terminal}` marks only a proven or passed state. `{colors.state-person-terminal}` `#5eb1ff` marks Azure DevOps and state on drawn panels.
 - **Display**: IBM Plex Mono 700, uppercase, tracking -0.05 em. This is the one place the brand uppercases a display: the monospace reads as a terminal line, not as shouting. Body stays Inter. Dot-matrix and pixel faces were tried and dropped: their period reads as a plus.
-- **Motion**: one ambient layer (green code rain behind the header, dimmed where text sits), one entrance (the headline lands line by line and decodes from random characters, with a rare chromatic glitch), and reveals as sections enter. Everything pauses off screen and stops under `prefers-reduced-motion`, where every element is visible at rest.
+- **Wordmark**: "codeably.ai" in Plex Mono 700, tracking -0.04 em: "code" in `{colors.stage-text}`, "ably" in `{colors.stage-accent}`, ".ai" in `{colors.stage-mute}`.
+- **Motion**: one entrance (the headline lands line by line with a thud) and one replay (the hero's run line: seven steps light up in turn while a console types the run's log, then the run's time, and loop). Sections reveal as they enter. Everything pauses off screen and stops under `prefers-reduced-motion`, where the run line shows its finished state.
 - **Panels**: product surfaces on the site are drawn in HTML on `{colors.stage-panel}`, one mechanism per panel, labelled as an example. Screenshots belong to the docs.
 - **Radius**: `{rounded.md}` 12 px on buttons and panels, as everywhere; no pills.
 
