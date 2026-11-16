@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-0440b
+goal: "The ticket list and the runs list choose their state with filter pills above the list, each with its live count, so the sidebar can drop its state sub-items."
+
+applies_to: "dashboard (TicketsHome, ticketSections, MissionControl, StatePills)"
+
+requires: [2026-11-16-0440a]
+
+facts:
+  - claim: "Ticket buckets and their counts come from the shared ticket list response."
+    evidence: "src/dashboard/src/components/shell/WorkRailSection.tsx:32-34"
+  - claim: "Run buckets are derived by bucketRuns from the hub overview."
+    evidence: "src/dashboard/src/components/jobs/mission/missionBuckets.ts:21"
+  - claim: "Both lists already read the chosen bucket from the URL through their filter providers."
+    evidence: "src/dashboard/src/lib/TicketBucketFilter.tsx:28-31"
+
+scope:
+  in: "A shared StatePills component; pills on /tickets (All, Needs you, Working, In review, Stuck, Waits on another, Done, Closed, plus Filed, PR closed, Failed and Ended while they hold tickets) and on / (All, Waiting for input, Running, Queued, Finished)."
+  out: "New buckets or backend data; the ticket graph view."
+
+steps:
+  - id: pills
+    action: "StatePills renders a tablist of links with a tone dot and count; a plain click selects through the filter provider, a modified click opens the href."
+  - id: tickets
+    action: "TicketsHome renders the ticket pills above the list; 'Waiting on review' and 'Waits for another ticket' are titled 'In review' and 'Waits on another'."
+  - id: runs
+    action: "MissionControl renders the run pills above its sections."
+
+decisions:
+  - "Rarely used ticket buckets show as pills only while they hold tickets or are chosen — alternatives: always show eleven pills (crowded), or drop them (unreachable)."
+
+tests:
+  - "StatePills.test.tsx: selected pill, counts, plain click selects, modified click does not."
+  - "TicketList/TicketsHome and MissionControl filter tests choose a bucket by pill."
+
+done:
+  - "Every ticket and run bucket is reachable from its list's pills with the same count the list shows."

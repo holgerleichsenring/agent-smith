@@ -1,0 +1,21 @@
+/* 2026-11-16-0440: the dark app's own pieces, plain CSS beside mock-parity.css and in its
+   vocabulary (its :root tokens). Source: the approved NavRail mock. */
+
+/* ===== state pills (2026-11-16-0440b) ====================================== */
+.st-pills { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin: 0 0 18px; scrollbar-width: thin; }
+.st-pill {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--color-app-hover); background: transparent;
+  color: var(--ink-2); font-size: 14px; text-decoration: none; white-space: nowrap;
+}
+.st-pill:hover { color: var(--ink); border-color: var(--color-app-line-strong); }
+.st-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.st-pill.on { background: var(--color-app-hover); border-color: #3a3a40; color: var(--ink); }
+.st-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--idle); flex: none; }
+.st-n { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.st-dot.needs, .st-n.needs { --tone: var(--run); }
+.st-dot.person, .st-n.person { --tone: var(--person); }
+.st-dot.proven, .st-n.proven { --tone: var(--ok); }
+.st-dot.stopped, .st-n.stopped { --tone: var(--bad); }
+.st-dot.needs, .st-dot.person, .st-dot.proven, .st-dot.stopped { background: var(--tone); }
+.st-n.needs, .st-n.person, .st-n.proven, .st-n.stopped { color: var(--tone); }

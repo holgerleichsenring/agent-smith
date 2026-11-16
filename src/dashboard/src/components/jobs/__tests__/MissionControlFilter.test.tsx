@@ -1,9 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 
-// p0458: the rail's monitor items promise to SHOW a bucket. These pin what the
+// p0458: the state pills (2026-11-16-0440b, the rail's monitor items before) promise to SHOW a bucket. These pin what the
 // list does with that promise — one bucket at a time, an empty one named rather
 // than blank, and the live list still live while a filter is on.
 
@@ -46,7 +46,7 @@ function renderAt(search: string) {
   return render(tree());
 }
 
-describe("the rail's bucket filters the run list", () => {
+describe("the state pills filter the run list", () => {
   beforeEach(() => {
     mockOverview = {
       active: [snap("r-run", "running"), snap("r-queued", "queued")],
@@ -61,6 +61,22 @@ describe("the rail's bucket filters the run list", () => {
     for (const id of ["section-queued", "section-finished", "section-needs-you"]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument();
     }
+  });
+
+  it("Pills_CountEachBucket_AndMarkTheChosenOne", () => {
+    renderAt("?bucket=queued");
+    expect(screen.getByTestId("run-pills-all-count")).toHaveTextContent("3");
+    expect(screen.getByTestId("run-pills-running-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("run-pills-needs-you-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("run-pills-queued")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("ChoosingAPill_PutsItsBucketInTheUrl_AndShowsOnlyThatBucket", () => {
+    renderAt("");
+    fireEvent.click(screen.getByTestId("run-pills-finished"));
+    expect(window.location.search).toBe("?bucket=finished");
+    expect(screen.getByTestId("section-finished")).toBeInTheDocument();
+    expect(screen.queryByTestId("section-running")).not.toBeInTheDocument();
   });
 
   it("AllRuns_ShowsEveryBucket", () => {

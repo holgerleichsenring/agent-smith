@@ -3,6 +3,8 @@
    scoped under .mock-shell. Unlayered, so inside the redesigned surfaces the
    mock look wins over the Tailwind utility layers by cascade-layer rules. */
 @import "../styles/mock-parity.css";
+/* 2026-11-16-0440: the dark app's shell and state pills, in the same plain-CSS vocabulary. */
+@import "../styles/app-shell.css";
 
 /* The dashboard is dark. The app-* colours mirror DESIGN.md's frontmatter (theme-tokens.test.ts
    holds the two equal); every other colour below is defined in their terms. `static` emits every

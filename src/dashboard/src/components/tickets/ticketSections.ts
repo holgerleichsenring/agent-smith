@@ -29,7 +29,7 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
     count: (c) => c.working,
   },
   "waiting-on-review": {
-    title: "Waiting on review",
+    title: "In review",
     sub: "agent-smith is done; a person owns the next move",
     empty: "No pull request waits on a review.",
     count: (c) => c.waitingOnReview,
@@ -43,7 +43,7 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
   },
   // 2026-10-14-dbcen: filed tickets with no run on record (ticket-graph.html, list-buckets).
   blocked: {
-    title: "Waits for another ticket",
+    title: "Waits on another",
     sub: "filed, held until what it requires is merged or marked done by hand",
     tone: "person",
     empty: "No filed ticket waits for another.",
