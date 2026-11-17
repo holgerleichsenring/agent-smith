@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-b6e4b
+
+decisions:
+  - category: Implementation
+    chose: "PlanFiling and RunConfigPreflight read under Got ready, FileTickets under Delivered"
+    over: "A section of its own for filing"
+    reason: "Planning a filing prepares the run and filing tickets is what it delivers; a new section would be a new visual element for two steps, and the existing seven read correctly once the steps are named."
