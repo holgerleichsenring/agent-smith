@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-7c9bc
+
+decisions:
+  - category: Architecture
+    chose: "An in-process RecordedCallLedger per run, fed by EventPublishingChatClient right after it publishes each LlmCallFinished and reached through an ambient frame beside the run id"
+    over: "Reading the run's RunLlmCalls rows from the database, or a process-wide dictionary keyed by run id"
+    reason: "The rows are written by an asynchronous projection on the leader replica, so a reader inside the run can be behind, and the CLI composition has no such reader. The publisher is the one place every call passes with its final figures, and LlmCallFinished is only published under the run-id frame, so a frame opened beside it sees every call; the frame ends with the run, so nothing outlives it."
+  - category: Scope
+    chose: "The proposal's usd reads the ledger; its cap and 'exhausted' stay the tracker's"
+    over: "Moving the budget fence onto the ledger"
+    reason: "b0d7 keeps the USD fence unbound on worker spend so a subscription run is not stopped on money it is not charged; 166ab kept that. A worker-mode card can therefore show usd above the cap without 'exhausted' — the spend is reported truthfully and the fence's rule is unchanged."
+  - category: Implementation
+    chose: "A resumed segment's ledger carries the earlier segments' spend from the same PriorSpendSnapshot the tracker is seeded from, priced and worker buckets added"
+    over: "Starting each segment's ledger at zero"
+    reason: "A resumed design turn would otherwise show only its last segment. The snapshot is the tracker's view and may undercount the earlier worker calls; it is the only figure that crosses the park."

@@ -36,7 +36,8 @@ public sealed record WorkerCliEnvelope(
         return TryReadResult(text, out envelope) || WorkerCliStream.TryRead(text, out envelope);
     }
 
-    internal static bool TryReadResult(string text, out WorkerCliEnvelope envelope)
+    /// <param name="sessionModel">2026-11-17-7c9bf: the model a stream's init event names, null for json output.</param>
+    internal static bool TryReadResult(string text, out WorkerCliEnvelope envelope, string? sessionModel = null)
     {
         envelope = null!;
         if (text.Length == 0 || text[0] != '{') return false;
@@ -45,7 +46,7 @@ public sealed record WorkerCliEnvelope(
             using var document = JsonDocument.Parse(text);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || Text(root, "type") != "result") return false;
-            envelope = Read(root);
+            envelope = Read(root, sessionModel);
             return true;
         }
         catch (JsonException)
@@ -54,26 +55,27 @@ public sealed record WorkerCliEnvelope(
         }
     }
 
-    private static WorkerCliEnvelope Read(JsonElement root)
+    private static WorkerCliEnvelope Read(JsonElement root, string? sessionModel)
     {
         // Tokens come from the snake_case top-level "usage"; the model id comes from the
         // camelCase "modelUsage" keys, because the alias an agent is configured with
         // ("sonnet") is not a model the rest of the system can attribute anything to.
         var usage = Child(root, "usage");
         var turns = (int)Number(root, "num_turns");
+        var (primary, secondary) = WorkerModelUsages.Split(Child(root, "modelUsage"), sessionModel);
         return new WorkerCliEnvelope(
             Text(root, "result") ?? string.Empty,
             FailureOf(root),
             Text(root, "terminal_reason"),
             turns,
             new WorkerCallAccounting(
-                ModelOf(root),
+                primary,
                 Number(usage, "input_tokens"),
                 Number(usage, "output_tokens"),
                 Number(usage, "cache_read_input_tokens"),
                 Number(usage, "cache_creation_input_tokens"),
                 Cost(root),
-                turns));
+                turns) { Secondary = secondary });
     }
 
     /// <summary>
@@ -91,15 +93,6 @@ public sealed record WorkerCliEnvelope(
             + (string.IsNullOrWhiteSpace(said) ? string.Empty : $": {said}");
     }
 
-    private static string ModelOf(JsonElement root)
-    {
-        var models = Child(root, "modelUsage");
-        if (models.ValueKind != JsonValueKind.Object) return string.Empty;
-        return string.Join("+", models.EnumerateObject()
-            .Select(property => property.Name)
-            .OrderBy(name => name, StringComparer.Ordinal));
-    }
-
     // Kind-checked accessors throughout: a field the CLI omits, or writes as null, must
     // read as absent rather than throw inside the transport.
     private static string? Text(JsonElement parent, string name) =>
@@ -110,7 +103,7 @@ public sealed record WorkerCliEnvelope(
         parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var value)
             ? value : default;
 
-    private static long Number(JsonElement parent, string name) =>
+    internal static long Number(JsonElement parent, string name) =>
         parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var value)
         && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number) ? number : 0;
 

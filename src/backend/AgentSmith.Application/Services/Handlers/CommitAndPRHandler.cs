@@ -386,20 +386,20 @@ public sealed class CommitAndPRHandler(
         return matches.Count == 0 ? null : $"line {matches[0].Line} ({matches[0].Pattern})";
     }
 
-    private Task FinalizeTicketAsync(
+    private async Task FinalizeTicketAsync(
         CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, RunShortfall? shortfall,
         CancellationToken ct)
     {
-        if (!opened.Any(o => o.Status == OpenStatus.Opened)) return Task.CompletedTask;
+        if (!opened.Any(o => o.Status == OpenStatus.Opened)) return;
 
         // p0326: an inline ticket exists only on this run — there is no tracker
         // item to comment on or transition, so skip instead of a doomed provider call.
-        if (context.Pipeline.Has(ContextKeys.InlineTicket)) return Task.CompletedTask;
+        if (context.Pipeline.Has(ContextKeys.InlineTicket)) return;
 
-        var summary = completedSummary.Build(
-            context.Pipeline, context.Configs.Count, opened, context.Changes, shortfall);
+        var summary = await completedSummary.BuildAsync(
+            context.Pipeline, context.Configs, opened, context.Changes, shortfall, ct);
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
-        return ticketLifecycle.FinalizeAsync(
+        await ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,
             doneStatus, summary, logger, ct);
     }

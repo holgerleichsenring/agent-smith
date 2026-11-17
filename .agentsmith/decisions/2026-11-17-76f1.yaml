@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-76f1
+
+decisions:
+  - category: Architecture
+    chose: "Split HomeComposer into NewWorkComposer (state and markup, onStart) and a thin HomeComposer (project read and navigation); export NewWorkHead from HomeView"
+    over: "Rendering HomeComposer unchanged on /spec-dialog, or copying its markup into SpecDialogSurface"
+    reason: "HomeComposer navigates to /spec-dialog and reads the projects with its own request. Work it out already holds the projects in its view and starts the conversation in place, so only the start differs. One component serves both pages."
+  - category: Architecture
+    chose: "useComposerHandover returns start(handover) and started; the page sends its own new-work message through the same effect a home hand-over uses (files first, then text)"
+    over: "A second send path in SpecDialogSurface"
+    reason: "A conversation starts one way, whichever page it starts on. started ends when the dialog id changes, so a new conversation or an opened one needs no reset call."
+  - category: UX
+    chose: "Files picked in a new conversation are held until send, as on the home page"
+    over: "Uploading them at once, which opened the conversation on the first pick"
+    reason: "The operator asked for the home page's behaviour. The first upload no longer opens a conversation before anything was said."
+  - category: UX
+    chose: "No right pane while the conversation is new; the shell drops its column (dl-fresh)"
+    over: "The pane listing every project as a candidate"
+    reason: "Nothing has been read, proposed or filed yet. The project is picked beside the plus, so a list of candidates in the pane would repeat it. The page then matches the home page's one column."
+  - category: UX
+    chose: "The ticket search stays, beneath the composer where the home page lists its tickets; picking a ticket, a ticket address or a which-project question keeps the d762 exchange"
+    over: "Dropping the search from a new conversation"
+    reason: "Starting a conversation on an existing ticket is a feature with its own binding rules. The exchange already shows the picked ticket and its project, so that path did not change."
+  - category: UX
+    chose: "The new state shows neither the New conversation heading nor the dialog id line"
+    over: "Keeping the id line under the home heading"
+    reason: "Until a message is sent, no session exists to compare across tabs. Once one exists, the id line comes back with the exchange."

@@ -24,4 +24,7 @@ public sealed record ExternalWorkerCliOptions(
     /// the prompt's input blocks, under <c>--session-id</c> of the conversation — the CLI then reads from cache what
     /// the conversation's previous call wrote.</summary>
     public bool InputAsBlocks { get; init; }
+
+    /// <summary>2026-11-17-cb32b: variables set on the worker process, over what it inherits from the server.</summary>
+    public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
 }

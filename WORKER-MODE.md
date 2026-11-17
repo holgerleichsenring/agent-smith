@@ -104,7 +104,10 @@ A Claude Code CLI — the default `claude` binary, or any binary an agent sets
 `worker_structured_result: true` for — is also started with `--tools ""`,
 `--strict-mcp-config` and `--no-session-persistence`: no built-in file tools, no MCP
 servers, no session saved per call. Measured on CLI 2.1.285, that took a one-word call from
-32,852 input tokens to 953 (2026-11-17-166ac).
+32,852 input tokens to 953 (2026-11-17-166ac). It also runs with
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`: without it the CLI sent every call's whole
+input, uncached, to a second model (`claude-haiku-4-5` in the result's `modelUsage`), 8 % of
+a replay's cost (2026-11-17-cb32b).
 
 ## What goes over the wire
 

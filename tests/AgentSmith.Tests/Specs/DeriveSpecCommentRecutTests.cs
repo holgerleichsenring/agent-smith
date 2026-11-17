@@ -74,8 +74,9 @@ public sealed class DeriveSpecCommentRecutTests
         await Handler(deriver, published, pointerSha: MarkerSha).ExecuteAsync(Context([OurCut()]), default);
 
         deriver.Calls.Should().Be(0, "nothing new: the ticket is unchanged and nobody commented");
-        published.Set!.Current.Cause.Should().Be(SpecRevisionCause.Retrigger,
-            "the marker's commit is this system's own — the pointer names it");
+        published.Kept.Should().BeTrue(
+            "the marker's commit is this system's own — the pointer names it, so nothing arrived (2026-11-17-7c9ba)");
+        published.Set!.Current.Cause.Should().Be(SpecRevisionCause.Initial, "no revision is appended to a kept set");
         published.Set.Specs.Select(p => p.Draft.Goal).Should().Equal($"Goal {HeadId}", $"Goal {TailId}");
     }
 
@@ -150,6 +151,7 @@ public sealed class DeriveSpecCommentRecutTests
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -258,6 +260,15 @@ public sealed class DeriveSpecCommentRecutTests
         {
             Set = set;
             return Task.FromResult(CommandResult.Ok("published"));
+        }
+
+        public bool Kept { get; private set; }
+
+        public Task<CommandResult> KeepAsync(
+            PipelineContext pipeline, SeriesScope scope, SpecSet set, string revisionSha, CancellationToken ct)
+        {
+            (Set, Kept) = (set, true);
+            return Task.FromResult(CommandResult.Ok("kept"));
         }
     }
 

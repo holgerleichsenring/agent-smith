@@ -17,7 +17,8 @@ namespace AgentSmith.Application.Services.Prompts;
 /// <para>
 /// 2026-09-07-bd7a: "answered" is mechanical and read from the thread the run already
 /// carries — the last of our comments carrying a marker, followed by any comment that is
-/// not ours. The branch is never the signal: every derivation commits a fresh revision.
+/// not ours. The branch is never the signal: a derivation commits a revision whenever its set changes
+/// (2026-11-17-7c9ba: a plain re-trigger over an unchanged set commits none).
 /// A thread holding comments by others but none of ours carrying the marker reads as
 /// answered — the safe direction, since the model then sees the thread and decides again
 /// at the cost of one park rather than the work.

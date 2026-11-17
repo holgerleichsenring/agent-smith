@@ -102,7 +102,8 @@ public sealed class HandbackExpiryTests
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
-            HandbackTestDoubles.Probe(), NullLogger<DeriveSpecHandler>.Instance);
+            HandbackTestDoubles.Probe(), new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
+            NullLogger<DeriveSpecHandler>.Instance);
     }
 
     private static DeriveSpecContext Context(string author)
@@ -194,6 +195,15 @@ public sealed class HandbackExpiryTests
         {
             Set = set;
             return Task.FromResult(CommandResult.Ok("published"));
+        }
+
+        public bool Kept { get; private set; }
+
+        public Task<CommandResult> KeepAsync(
+            PipelineContext pipeline, SeriesScope scope, SpecSet set, string revisionSha, CancellationToken ct)
+        {
+            (Set, Kept) = (set, true);
+            return Task.FromResult(CommandResult.Ok("kept"));
         }
     }
 }

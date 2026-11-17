@@ -6,8 +6,9 @@ namespace AgentSmith.Contracts.Specs;
 /// the UI), and only what nobody reads by hand lives in the database: which repo
 /// carries the set, the sha of the last revision this system wrote, and the
 /// per-ticket hand-back case and counter. Whether a repeat ends the loop is read from
-/// the ticket thread, not from a sha: every derivation commits a fresh revision, so
-/// the sha this slot once carried never matched (2026-09-07-bd7a).
+/// the ticket thread, not from a sha: a derivation that changes the set commits a fresh revision,
+/// so the sha this slot once carried never matched (2026-09-07-bd7a; 2026-11-17-7c9ba: an unchanged
+/// re-trigger commits none).
 /// <para>
 /// 2026-10-06-03c7c: <see cref="Key"/> is the TICKET key, and the pointer also caches the
 /// series' base id. The branch is the source of that id; this copy is read only when the branch

@@ -97,6 +97,7 @@ internal sealed class ApprovedSetHarness
             new UnansweredQuestionNotice(cuts, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -107,7 +108,7 @@ internal sealed class ApprovedSetHarness
         new SpecSetPointerRecorder(Pointers, NullLogger<SpecSetPointerRecorder>.Instance),
         PullRequests,
         new SpecRefusalReporter(new NoOpEventPublisher(), NullLogger<SpecRefusalReporter>.Instance),
-        Mock.Of<Contracts.Persistence.IRunArtifactStore>(),
+        new SpecSetContextPublication(Mock.Of<Contracts.Persistence.IRunArtifactStore>(), NullLogger<SpecSetContextPublication>.Instance),
         new SpecSetAnnouncer(new NoOpEventPublisher(), NullLogger<SpecSetAnnouncer>.Instance),
         NullLogger<SpecSetPublisher>.Instance);
 

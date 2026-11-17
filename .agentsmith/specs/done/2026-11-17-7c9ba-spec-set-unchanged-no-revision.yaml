@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-7c9ba
+goal: "A run that finds the set on its branch unchanged writes no revision and posts no derived-specs comment; it works the set as it is and still finds or opens the draft spec pull request."
+
+applies_to: "default (DeriveSpecHandler, SpecSetPublisher, SpecRevisionHeader)"
+
+facts:
+  - claim: "With a set on the branch, no model run and no input, the cause is a re-trigger."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:87"
+  - claim: "The handler always appends a revision, publishes it and posts the cut comment once a set came off the branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:87-92"
+  - claim: "Filing writes revision 1 onto the ticket branch and records the pointer; it opens no pull request."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:93-99, src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:108"
+  - claim: "The draft spec pull request is opened (find-or-create) only by the publish, after the commit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:54-60"
+  - claim: "The draft spec pull request is read later: a series repository without code keeps it as the run's work, and hand-back comments link it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecOnlyPullRequests.cs:31-48, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:42"
+  - claim: "In the replay the first run after filing committed 'revision 2 (re-trigger on the ticket)' and posted a Derived specs comment with no model call."
+    evidence: "observed: 2026-11-17 final replay, server.log 18:37:25-26 (SpecSourceResolver 'using it unchanged', SeriesMemberCommit 'revision 2', DeriveSpecCommand 'revision 2 (re-trigger on the ticket)')"
+
+scope:
+  in: "A set that came off the branch is UNCHANGED when the cause is a plain re-trigger, no model ran, no question was pinned, the approval merge discarded nothing, the set is not handed back, it is not a preview, and the series files it renders equal those the branch set renders (both rendered with the resolved series and the branch set's revisions). Then no revision is appended, nothing is committed or pushed, the pointer stays, and no cut comment or question notice is posted; the set is placed and put on the run context as the branch holds it, cached for the run view, announced WITHOUT a revision number (the attempt records no revision of its own), SpecRevisionSha is the branch's last spec commit, and the draft spec pull request is found or opened as today. Every other case is unchanged. The doc comments that say every derivation commits a revision (OwnTicketComment, SpecSetPointer) are corrected."
+  out: "Resume keeps writing its revision: a run that died between its revision and its cut comment needs the resume to post the comment that anchors the thread. Kept-input causes (comment, ticket edit, reviewer edit, demand, rework, status back, overrule) still write their revision: it clears the input or moves the pointer. Filing does not open the pull request or post a comment, so a filed ticket carries no cut comment until a run changes its set."
+
+steps:
+  - id: unchanged
+    action: "SpecSetUnchanged (Application/Services/Specs): Holds(candidate, previous, decision, questionPinned) per the rule above, comparing SeriesFiles.Render of both."
+  - id: keep
+    action: "ISpecSetPublisher.KeepAsync(pipeline, scope, set, revisionSha, ct): place, context, viewer cache, announce with no revision number, SpecRevisionSha, prOpener.OpenAsync; no write, no pointer record. The context and viewer-cache helpers move to SpecSetContextPublication so the publisher stays under 120 lines."
+  - id: handler
+    action: "DeriveSpecHandler: after the kept notice, an unchanged set goes to KeepAsync with the branch set's revisions and LastCommitSha, and AnnounceAsync is skipped."
+
+tests:
+  - "SpecSetUnchangedTests: re-trigger over an identical set holds; a changed spec yaml, a model run, a resume, a comment cause, a discarded merge, a handed-back set and a pinned question do not"
+  - "DeriveSpecHandlerTests: a re-trigger over the branch set calls KeepAsync with revision 1 and posts no ticket comment; a ticket edit on an unapproved set still publishes a revision"
+  - "SpecSetPublisherTests: KeepAsync writes nothing, records no pointer, sets SpecRevisionSha, announces no revision number and opens the draft pull request"
+  - "Real composition (harness): a filed set on the branch, then a re-trigger through DeriveSpecHandler: the branch keeps one revision commit, no ticket comment, the spec PR is found or opened"
+
+done:
+  - "The first run on a filed ticket leaves the branch at revision 1 with no new commit, no Derived specs comment, and the draft spec pull request open."

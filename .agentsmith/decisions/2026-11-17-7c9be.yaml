@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-7c9be
+
+decisions:
+  - category: Implementation
+    chose: "The completion comment's Changes are RunResultChanges' coverage: the branch against its base for a code pipeline, the tool writes otherwise, repository-prefixed"
+    over: "A second branch-diff reader for the comment, or keeping context.Changes"
+    reason: "result.md already answers which files a run changed from the branch (2026-10-13-3890b); the comment reading the same way is one reader, not two. context.Changes is the last master pass's tool writes, which in a spec series named only plan.md for a branch of 45 files."
+  - category: Scope
+    chose: "The branch is read after CommitAndPR's commits, so the comment also lists the run-record files; a single-repository run's paths now carry the repository name"
+    over: "Filtering .agentsmith/runs/ out, or stripping the prefix for one repository"
+    reason: "Both are what the branch carries and what the pull request shows; the coverage form is the one result.md's ledger coverage already uses."

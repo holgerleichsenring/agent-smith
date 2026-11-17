@@ -213,25 +213,43 @@ or the commit is blocked. Read this before a definition of done leans on it.
   steps aside in one line and the checks above run once per spec commit.
 - **One copy serves everyone.** `$CLAUDE_PROJECT_DIR` is the launching session's project
   directory, so a subagent in its own worktree runs the *shared checkout's* script — an
-  edit to the gate takes effect only once it lands in that working tree. It still gates
-  the tree the commit runs in, resolved from the call's `cwd`, a leading `cd` and git's
-  own `-C` — one reading of the command decides both which tree is built and which
-  message is read.
-- **Gated command shapes:** `git commit`, after a leading `cd` or a shell separator, and
-  with git's global options in between — `git -C <tree> commit`, `git -c <name>=<value>
-  commit`, `git --git-dir=<dir> commit`. Until 2026-09-21-9ae2 only `commit` straight
-  after `git` was recognised, so the path-addressed form an agent naturally writes was
-  skipped in silence. Still NOT gated: a command that merely mentions the shape
-  (`echo`, `grep`), and another subcommand — `git … log`, `git commit-graph write`.
-- **Gated message forms:** `-m`, repeated `-m`, a heredoc, `-F <file>`, `-t <template>`,
-  `-C`/`-c <rev>`, `--amend --no-edit`.
+  edit to the gate takes effect only once it lands in that working tree.
+- **It gates the tree git commits in** (2026-11-17-f270). `commit-message.py` reads the
+  command the way the shell does — quotes, heredoc bodies, here-strings, `$( )`, comments,
+  newlines, `;`, `&&`, `||`, `|` and `( )` — and walks it up to the commit, following every
+  `cd`/`pushd`/`popd` (a subshell's `cd` ends with the subshell), variables and exports,
+  `GIT_DIR`/`GIT_WORK_TREE`, git's `-C`, `--git-dir` and `--work-tree`, and `bash -c '…'`.
+  Git names the top level (`rev-parse --show-toplevel`). The call's `cwd` is only where the
+  walk starts. A spec commit whose tree the gate cannot name (`cd "$X"` with `X=$(…)`,
+  `cd -`) is **blocked**: write the path literally. `if`/`fi` branches and shell functions
+  are read in text order, not evaluated; `cd <dir> || …` skips the alternative when <dir>
+  exists. Before this, a heredoc body with one
+  apostrophe made the command unreadable and the gate built the main checkout instead.
+- **Gated command shapes:** `git commit` anywhere a command starts — after any separator,
+  in a subshell or `{ }`, behind `NAME=value`, `env`, `command`, `exec`, `time`, `timeout`,
+  `if`/`then` — with git's global options in between (`git -C <tree> commit`, `git -c
+  <name>=<value> commit`, `git --git-dir=<dir> commit`). NOT gated: a command that only
+  mentions the shape (`echo`, `grep`, a heredoc body, a comment, a `gh pr create --body`),
+  another subcommand (`git add commit.txt`, `git commit-graph write`), and a commit inside a
+  `$( )`. A command the reader cannot read at all, carrying a spec marker, is blocked.
+- **Gated message forms:** `-m`, repeated `-m`, `-m "$(cat <<'EOF' … EOF)"` (read as the
+  body), `-F <file>`, `-t <template>`, `-C`/`-c <rev>`, `--amend --no-edit`, and stdin
+  from the command's own heredoc or here-string: `-F - <<'EOF'`, `-F /dev/stdin <<EOF`,
+  `-F - <<< "…"`, or a pipe from `cat <<'EOF'`, `echo` or a `printf` without `%`. A file
+  the same command writes first (`cat > msg <<'EOF' … EOF; git commit -F msg`, `tee`,
+  `echo … > msg`) is read from the command, never from disk, where it is missing or stale.
 - **Passed through, loudly:** a bare commit or an editor amend (no message exists yet),
-  `-F -`, and a message the shell builds from a command substitution such as
-  `-m "$(cat message.txt)"` — its text never reaches the gate. Run the checks by hand.
-- **Not covered at all:** a commit made outside the Bash tool.
+  `-F -` fed by nothing or by a pipe from any other command, a `-F` file the same command
+  writes any other way, and a message the shell builds from a command substitution such
+  as `-m "$(cat message.txt)"` — their text exists only at run time.
+  Each leaves a `not-gated` line naming the spec when the command text carries one. Run
+  the checks by hand.
+- **Not covered at all:** a commit made outside the Bash tool, and a gate killed by the
+  hook timeout (900 s) — it leaves no line.
 - **Afterwards:** every recognised spec commit leaves one line in `.claude/spec-gate.log`
-  of the shared checkout — verdict (`passed`/`blocked`/`not-gated`), spec id, the tree, and
-  the commit's parent. A spec commit with no line never met the gate.
+  of the shared checkout — verdict (`passed`/`blocked`/`not-gated`), spec id, the tree git
+  commits in (the call's `cwd` only when that tree is unknown) and that tree's HEAD. A spec
+  commit with no line never met the gate, or its gate never finished.
 - **Joining a line to a commit:** that last field is the tree's HEAD when the hook ran, not
   the resulting commit's parent. For an ordinary commit they are the same sha; for an
   `--amend` they are not — the amended commit's parent is one older. Any check that pairs

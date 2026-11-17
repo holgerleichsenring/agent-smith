@@ -121,6 +121,7 @@ public sealed class DeriveSpecAppendTests
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -230,6 +231,15 @@ public sealed class DeriveSpecAppendTests
         {
             Set = set;
             return Task.FromResult(CommandResult.Ok("published"));
+        }
+
+        public bool Kept { get; private set; }
+
+        public Task<CommandResult> KeepAsync(
+            PipelineContext pipeline, SeriesScope scope, SpecSet set, string revisionSha, CancellationToken ct)
+        {
+            (Set, Kept) = (set, true);
+            return Task.FromResult(CommandResult.Ok("kept"));
         }
     }
 

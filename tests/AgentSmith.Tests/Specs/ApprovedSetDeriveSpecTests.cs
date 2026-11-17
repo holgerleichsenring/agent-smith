@@ -305,10 +305,11 @@ public sealed class ApprovedSetDeriveSpecTests
         });
         await harness.Approvals.SaveAsync(
             ApprovedSets.Record(Key, ApprovedSets.Noon.AddHours(1), ["p19106z"]), default);
+        var context = harness.Context(Ticket());
 
-        await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
+        await harness.Handler().ExecuteAsync(context, default);
 
-        harness.Writer.Written!.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p19106a",
+        context.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Specs.Should().ContainSingle().Which.SpecId.Should().Be("p19106a",
             "the branch answered, so the record is not consulted at all");
     }
 

@@ -9,9 +9,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// <summary>
 /// In-loop context compaction below UseFunctionInvocation, provider-agnostic. The function-invoking client re-sends
 /// its growing list every iteration; once the forwarded VIEW crosses MaxContextTokens × ratio, the middle is folded
-/// into an incremental summary and the watermark frozen, so between folds the view [head | summary | pin | tail]
+/// into a summary segment and the watermark frozen, so between folds the view [head | segments | pin | tail]
 /// grows append-only with a byte-stable prefix the provider cache holds. The pinned head is the system message(s)
 /// plus the first user message, kept verbatim.
+/// <para>
+/// 2026-11-17-cb32a: a fold shrinks the view below <see cref="CompactionConfig.FoldTargetRatio"/>, so many calls
+/// pass before the next one; it appends its summary as a new segment, leaving the earlier ones as they were, and
+/// renders the pin once — the state at that fold — kept until the next fold.
+/// </para>
 /// <para>
 /// A loop that replays an earlier turn's thread starts with THAT turn's prompt as its first user message, so built
 /// with <c>pinsCurrentPrompt</c> it also pins, by reference, the message its first call ended with — this turn's
@@ -30,11 +35,12 @@ public sealed class CompactingChatClient : DelegatingChatClient
     private readonly bool _pinsCurrentPrompt;
     private ChatMessage? _currentPrompt;
 
-    // p0341d/p0362: the incremental summary + the absolute raw index up to which history
-    // is folded into it. FIC hands us the full append-only history each call; we summarize
-    // only [_foldedUpTo .. tailStart) at fold events and extend — never re-summarize.
-    // _foldedUpTo == 0 means no fold event has happened yet.
-    private string _summary = string.Empty;
+    // p0341d/p0362: the summary segments + the absolute raw index up to which history is folded into them. FIC hands
+    // us the full append-only history each call; we summarize only [_foldedUpTo .. tailStart) at fold events.
+    // _foldedUpTo == 0 means no fold event has happened yet. 2026-11-17-cb32a: one segment per fold, and the pin
+    // rendered at that fold.
+    private readonly List<string> _segments = [];
+    private string _pin = string.Empty;
     private int _foldedUpTo;
     private int _foldEvents;
 
@@ -87,64 +93,82 @@ public sealed class CompactingChatClient : DelegatingChatClient
     }
 
     /// <summary>
-    /// p0362: a fold event — summarize the not-yet-folded middle up to the recent-tail
-    /// boundary, advance the watermark, and return the refreshed view. Between fold
-    /// events <see cref="BuildView"/> reuses the frozen watermark, so the forwarded
-    /// prefix stays byte-stable and the provider prompt cache holds.
+    /// p0362: a fold event — summarize the not-yet-folded middle up to the tail, advance the watermark, and return
+    /// the refreshed view. 2026-11-17-cb32a: the tail is sized so the view lands under the fold target; the summary
+    /// becomes a new segment, or — when the segments would pass their budget — one segment for all of them.
     /// </summary>
     private async Task<IEnumerable<ChatMessage>> FoldAsync(
         IList<ChatMessage> messages, CancellationToken ct)
     {
-        var headCount = PinnedHeadCount(messages);
+        var headCount = CompactionTail.PinnedHeadCount(messages);
+        var prompt = CurrentPromptIndex(messages, headCount);
         var foldFrom = Math.Max(_foldedUpTo, headCount);
-        var tailStart = Math.Max(foldFrom, ComputeTailStart(messages, headCount));
+        var pin = BuildPinText();
+        var consolidates = Consolidates();
+        var fixedTokens = EstimateTokens(messages.Take(headCount)) + (prompt >= 0 ? EstimateTokens([messages[prompt]]) : 0)
+            + (consolidates ? 0 : SegmentTokens()) + pin.Length / CharsPerTokenEstimate;
+        var budget = (int)(_config.MaxContextTokens * _config.FoldTargetRatio) - fixedTokens;
+        var tailStart = Math.Max(foldFrom,
+            CompactionTail.Start(messages, headCount, Math.Max(4, _config.KeepRecentIterations * 2), budget, prompt));
         // Nothing worth summarizing (short middle, or the kept tail already reaches the
         // watermark). Forward the current view — it cannot be reduced further.
         if (tailStart - foldFrom <= 1)
             return BuildView(messages);
 
-        var newMiddle = Slice(messages, foldFrom, tailStart, CurrentPromptIndex(messages, headCount));
+        var newMiddle = Slice(messages, foldFrom, tailStart, prompt);
+        if (consolidates)
+            newMiddle.InsertRange(0, _segments.Select(s => new ChatMessage(ChatRole.User, "[Earlier summary]\n" + s)));
         var addition = await SafeSummarizeAsync(newMiddle, ct);
         if (addition is null) return BuildView(messages); // summarizer failed => fail-open
-        _summary = string.IsNullOrEmpty(_summary) ? addition : _summary + "\n" + addition;
+        if (consolidates) _segments.Clear();
+        _segments.Add(addition);
+        _pin = pin;
         _foldedUpTo = tailStart;
         _foldEvents++;
 
         var result = BuildView(messages);
         _logger?.LogInformation(
-            "Compaction fold #{Fold}: {Old} -> {New} messages (watermark {Watermark}, folded {Count} new)",
-            _foldEvents, messages.Count, result.Count, _foldedUpTo, newMiddle.Count);
+            "Compaction fold #{Fold}: {Old} -> {New} messages (watermark {Watermark}, folded {Count} new, {Segments} summary segment(s){Consolidated})",
+            _foldEvents, messages.Count, result.Count, _foldedUpTo, newMiddle.Count, _segments.Count,
+            consolidates ? ", earlier segments consolidated" : "");
         return result;
     }
 
+    // The segments would pass their budget with one more of their average size.
+    private bool Consolidates()
+    {
+        if (_segments.Count == 0) return false;
+        var tokens = SegmentTokens();
+        return tokens + tokens / _segments.Count > _config.MaxContextTokens * _config.SummaryBudgetRatio;
+    }
+
+    private int SegmentTokens() => _segments.Sum(s => s.Length) / CharsPerTokenEstimate;
+
     /// <summary>
     /// p0362: the forwarded view. Before the first fold: the raw list. After:
-    /// [head | summary | pin | raw[watermark..]] — cache-side-first ordering. The big
-    /// append-only summary sits directly behind the byte-stable head so provider prefix
-    /// caches cover it; the small pin (ledger + working state, re-rendered CURRENT from
-    /// PipelineContext on every call) sits next to the tail, where it also has the
-    /// highest model recency. Authority is semantic: the framing text names the ticket
-    /// and the pin as overriding the summary.
+    /// [head | current prompt | segments | pin | raw[watermark..]] — cache-side-first ordering. The segments sit
+    /// directly behind the byte-stable head, each left as its fold wrote it; the pin, rendered at the last fold, sits
+    /// next to the tail. Authority is semantic: the framing text names the ticket and the pin as overriding the
+    /// summary, and the messages after the pin as newer than it.
     /// </summary>
     private IList<ChatMessage> BuildView(IList<ChatMessage> messages)
     {
         if (_foldedUpTo == 0) return messages;
 
-        var headCount = PinnedHeadCount(messages);
-        var result = new List<ChatMessage>(headCount + 2 + messages.Count - _foldedUpTo);
+        var headCount = CompactionTail.PinnedHeadCount(messages);
+        var result = new List<ChatMessage>(headCount + _segments.Count + 2 + messages.Count - _foldedUpTo);
         for (var i = 0; i < headCount; i++) result.Add(messages[i]);
         if (CurrentPromptIndex(messages, headCount) is var prompt and >= 0 && prompt < _foldedUpTo)
             result.Add(messages[prompt]);
 
-        if (!string.IsNullOrEmpty(_summary))
+        for (var k = 0; k < _segments.Count; k++)
             result.Add(new ChatMessage(ChatRole.User,
-                "[Context summary of earlier iterations — where it conflicts, the ticket above "
-                + "and the current-state block below are authoritative]\n" + _summary));
+                $"[Context summary of earlier iterations, part {k + 1} — where it conflicts, the ticket above "
+                + "and the state block below are authoritative]\n" + _segments[k]));
 
-        var pin = BuildPinText();
-        if (!string.IsNullOrWhiteSpace(pin))
+        if (!string.IsNullOrWhiteSpace(_pin))
             result.Add(new ChatMessage(ChatRole.User,
-                "[Current state — authoritative over the summary above]\n" + pin));
+                "[State at the latest summary — authoritative over the summary above; the messages below are newer]\n" + _pin));
 
         for (var i = _foldedUpTo; i < messages.Count; i++) result.Add(messages[i]);
         return result;
@@ -172,33 +196,6 @@ public sealed class CompactingChatClient : DelegatingChatClient
             return null;
         }
     }
-
-    // p0357: the pinned head is the leading system message(s) PLUS the initial user
-    // message. That first user message carries the ticket, the conversation and the
-    // attachment sections — the operator-authored instruction manual. It must survive
-    // every compaction verbatim; a summarized paraphrase of it is how the master ends
-    // up re-deriving APIs the ticket spells out.
-    private static int PinnedHeadCount(IList<ChatMessage> messages)
-    {
-        var n = 0;
-        while (n < messages.Count && messages[n].Role == ChatRole.System) n++;
-        if (n < messages.Count && messages[n].Role == ChatRole.User) n++;
-        return n;
-    }
-
-    // Keep the last ~KeepRecentIterations rounds verbatim, but never START the tail on an
-    // orphan tool RESULT (its call would have been evicted) — advance past leading Tool
-    // messages so the forwarded list stays a valid call/result transcript for every provider.
-    private int ComputeTailStart(IList<ChatMessage> messages, int headCount)
-    {
-        var keep = Math.Max(4, _config.KeepRecentIterations * 2);
-        var start = Math.Max(headCount, messages.Count - keep);
-        while (start < messages.Count && IsToolResult(messages[start])) start++;
-        return start;
-    }
-
-    private static bool IsToolResult(ChatMessage m) =>
-        m.Role == ChatRole.Tool || m.Contents.OfType<FunctionResultContent>().Any();
 
     // The pinned current prompt's index past the head, by reference, or -1 when none is pinned or it is gone.
     private int CurrentPromptIndex(IList<ChatMessage> messages, int headCount)

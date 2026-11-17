@@ -6,10 +6,9 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// 2026-09-01-b0d7: renders what an external agent CLI reported for the calls it answered,
-/// as its OWN block under <c>cost:</c>. Separate from the priced sections because it is a
-/// separate claim: it is not part of <c>total_usd</c> — that transport spends no money
-/// against an agent budget — and its cache-creation tokens are the CLI's own system prompt
-/// and tool schemas, charged per call, not this run's context.
+/// as its OWN block under <c>cost:</c>: the worker share of the run. 2026-11-17-7c9bd: it is
+/// part of <c>total_usd</c> since result.md sums the recorded calls (as the run row does); its
+/// cache-creation tokens are the CLI's own system prompt and tool schemas, charged per call.
 /// </summary>
 internal static class WorkerSpendSectionWriter
 {
@@ -24,5 +23,9 @@ internal static class WorkerSpendSectionWriter
         sb.AppendLine($"    cache_read: {spend.CacheReadTokens}");
         sb.AppendLine($"    cache_create: {spend.CacheCreationTokens}");
         sb.AppendLine(string.Format(ci, "    reported_usd: {0:F4}", spend.ReportedCostUsd));
+        // 2026-11-17-7c9bf: models the CLI used beside the calls' own; their usd is inside reported_usd.
+        foreach (var side in spend.Secondary ?? [])
+            sb.AppendLine(string.Format(ci, "    secondary: {0} ({1} in, {2} out, {3} cache read, {4:F4} usd)",
+                side.Model, side.InputTokens, side.OutputTokens, side.CacheReadTokens, side.CostUsd));
     }
 }

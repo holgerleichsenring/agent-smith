@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-cb32b
+goal: "A Claude Code worker call runs with the CLI's nonessential traffic off, so no side request sends the call's whole input uncached to a second model."
+
+applies_to: "default (ExternalWorkerCliOptionsFactory, ExternalWorkerCliOptions, AgentCliWorkerProcessRunner)"
+
+requires: [2026-11-17-d6f5]
+
+facts:
+  - claim: "Every Claude Code worker call in the replay of 2026-11-17 reported a second model in modelUsage: claude-haiku-4-5 with inputTokens close to the stdin size, no cache reads, and 15 to 24 output tokens. 385 calls carried one; they cost $13.51 of $167.13 by the CLI's figures."
+    evidence: "observed: 2026-11-17, replay .out files, modelUsage summed per model"
+  - claim: "With CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 the side request is gone (one sonnet call on a 3,000-word input: haiku 11,897 input tokens without it, no haiku entry with it); DISABLE_NON_ESSENTIAL_MODEL_CALLS=1 leaves it in place."
+    evidence: "observed: 2026-11-17, CLI 2.1.285"
+  - claim: "Haiku probe, five calls of one growing conversation, history as blocks under --session-id: $0.166 with the side request, $0.092 without it."
+    evidence: "observed: 2026-11-17, CLI 2.1.285"
+  - claim: "The runner starts the process with the server's environment and sets no variable of its own."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/AgentCliWorkerProcessRunner.cs:96-109"
+
+scope:
+  in: "ExternalWorkerCliOptions gains Environment (variables set on the worker process). The factory sets CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 wherever it adds the isolation arguments; the runner applies Environment to the start info. WORKER-MODE.md says so. The decision file carries the evaluation of resumable sessions (--resume with only the new messages on stdin), not built."
+  out: "Resumable CLI sessions: evaluated in the decision file with the probe numbers and not built."
+
+steps:
+  - id: options
+    action: "ExternalWorkerCliOptions.Environment; ExternalWorkerCliOptionsFactory sets the variable for a Claude Code binary."
+  - id: runner
+    action: "AgentCliWorkerProcessRunner sets Environment on the process start info."
+  - id: docs
+    action: "WORKER-MODE.md names the variable and why."
+
+tests:
+  - "WorkerSpendChannelTests: a Claude Code binary's options carry CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; a plain binary's carry none"
+  - "AgentCliWorkerProcessRunnerTests: a variable in the options reaches the process (sh prints it)"
+
+done:
+  - "A haiku probe through AgentCliWorkerProcessRunner reports one model in modelUsage."
+  - "The tests above are green."

@@ -52,12 +52,37 @@ public sealed class ApprovedSetNotRecutTests
     public async Task ApprovedSet_RetriggerWithNoExecutedSpec_IsNotRecut()
     {
         var harness = Harness(approved: true);
+        var context = harness.Context(Ticket());
 
-        await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
+        await harness.Handler().ExecuteAsync(context, default);
 
-        harness.Writer.Written!.Current.Cause.Should().Be(SpecRevisionCause.Retrigger,
-            "the pointer names the branch's own commit, so nothing else arrived");
+        harness.Writer.Written.Should().BeNull(
+            "the pointer names the branch's own commit, so nothing arrived and no revision is written (2026-11-17-7c9ba)");
+        context.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Specs.Should().HaveCount(2);
         harness.Deriver.Calls.Should().Be(0);
+    }
+
+    /// <summary>
+    /// 2026-11-17-7c9ba: the first run after filing — the set on the branch as filed, nothing arrived. No
+    /// revision, no cut comment; the run works the set, the draft spec pull request is found or opened and
+    /// the spec revision sha is the branch's.
+    /// </summary>
+    [Fact]
+    public async Task ApprovedSet_FirstRunAfterFiling_KeepsTheSetWithoutRevisionOrComment()
+    {
+        var harness = Harness(approved: true);
+        harness.Tracker = harness.Notices.Tracker;
+        var context = harness.Context(Ticket());
+
+        var result = await harness.Handler().ExecuteAsync(context, default);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        harness.Writer.Written.Should().BeNull("an unchanged set is not committed again");
+        harness.Cuts.Comments.Should().BeEmpty("nothing changed, so there is nothing to tell the ticket");
+        harness.Notices.Comments.Should().BeEmpty();
+        harness.PullRequests.Opened.Should().Be(1, "the draft spec pull request is still found or opened");
+        context.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Revisions.Should().HaveCount(1);
+        context.Pipeline.Has(ContextKeys.SpecRevisionSha).Should().BeTrue();
     }
 
     /// <summary>
@@ -276,12 +301,14 @@ public sealed class ApprovedSetNotRecutTests
             [],
             ApprovedSets.Tracker);
         await harness.Approvals.SaveAsync(edited, default);
+        var context = harness.Context(Ticket());
 
-        await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
+        await harness.Handler().ExecuteAsync(context, default);
 
         harness.Deriver.Calls.Should().Be(0, "an approved set is read, never generated");
-        harness.Writer.Written!.Source.Should().Be(SpecSource.BranchArtifact);
-        harness.Writer.Written.Specs[0].Draft.Goal.Should().Be("Goal p19106a",
+        var set = context.Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
+        set.Source.Should().Be(SpecSource.BranchArtifact);
+        set.Specs[0].Draft.Goal.Should().Be("Goal p19106a",
             "the branch answered, so the record's edit never reached the set");
     }
 
