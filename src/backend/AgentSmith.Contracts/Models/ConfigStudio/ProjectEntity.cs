@@ -36,7 +36,10 @@ public sealed record ProjectEntity(
     ProjectSandbox? Sandbox = null,
     // 2026-10-01-7f7aa: names from the design-sources catalog. Nullable for the same reason
     // Templates is — absent leaves the stored list alone.
-    IReadOnlyList<string>? DesignSources = null)
+    IReadOnlyList<string>? DesignSources = null,
+    // 2026-11-17-9a39a: on_green_push or on_merge. Nullable for the same reason Templates is — absent leaves
+    // the stored value alone; blank clears it back to the default.
+    string? RequiresStart = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }

@@ -32,13 +32,13 @@ public sealed class ReworkNudgeHandler(
     IRunCheckpointStore checkpoints,
     ClosedTicketActFollowUp followUps,
     ReworkNoActTail tail,
-    RequirementsMetStart start, PreconditionRelease release) // 2026-11-16-f3fbc: a held precondition releases the ticket
+    RequirementsMetStart start, PreconditionRelease release, StackedDependentsWake stacked) // 2026-11-16-f3fbc, 2026-11-17-9a39a
 {
     public async Task<ReworkNudgeDisposition> HandleAsync(ResolvedProject project, ClaimedReworkNudge nudge, CancellationToken ct)
     {
         var attempt = await attempts.LatestAsync(project.Name, nudge.TicketId, null, ct);
-        if (attempt is null)
-            return nudge.Origin == ReworkNudgeOrigin.RequirementsMet ? await start.StartAsync(project, nudge, ct) : ReworkNudgeDisposition.Finish;
+        if (attempt is null) return nudge.Origin == ReworkNudgeOrigin.RequirementsMet ? await start.StartAsync(project, nudge, ct) : ReworkNudgeDisposition.Finish;
+        await stacked.WakeAsync(project, nudge.TicketId, attempt, ct); // 2026-11-17-9a39a: before any return a live run takes
         var live = await leases.GetByTicketAsync(project.Name, new TicketId(nudge.TicketId), ct);
         if (live is null && await HandbackActAsync(project, nudge, attempt, ct) is { } answer)
             return await AnswerAsync(project, nudge, attempt, answer,

@@ -59,4 +59,7 @@ public sealed class RawProjectEntry
 
     public PollingConfig Polling { get; set; } = new();
     public SandboxConfig? Sandbox { get; set; }
+
+    /// <summary>2026-11-17-9a39a: <c>on_green_push</c> (absent) or <c>on_merge</c>.</summary>
+    public string? RequiresStart { get; set; }
 }
