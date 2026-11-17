@@ -45,16 +45,18 @@ public sealed class RepoReadinessTests
         if (principles) _files[(branch, ".agentsmith/contexts/api/principles.md")] = "# principles";
     }
 
-    private Task<RemoteBootstrapVerdict> ReadAsync()
+    private RepoReadiness Readiness()
     {
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(_provider.Object);
         var resolver = TestSandboxLanguageResolver.Create(factory.Object,
             new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())));
         var probe = new RemoteBootstrapProbe(factory.Object, resolver, NullLogger<RemoteBootstrapProbe>.Instance);
-        return new RepoReadiness(probe, factory.Object, NullLogger<RepoReadiness>.Instance)
-            .ReadAsync(Repo, new BranchName(Base), new BranchName(Run), CancellationToken.None);
+        return new RepoReadiness(probe, factory.Object, NullLogger<RepoReadiness>.Instance);
     }
+
+    private Task<RemoteBootstrapVerdict> ReadAsync() =>
+        Readiness().ReadAsync(Repo, new BranchName(Base), new BranchName(Run), CancellationToken.None);
 
     [Fact]
     public async Task ReadAsync_BaseComplete_Ready()
@@ -110,5 +112,23 @@ public sealed class RepoReadinessTests
 
         (await ReadAsync()).State.Should().Be(RemoteBootstrapState.Incomplete);
         _provider.Verify(p => p.TryReadFileAsync(It.IsAny<string>(), new BranchName(Run), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SliceBaseAsync_RungNotPublishedYet_IsTheDefaultBranch()
+    {
+        var repo = new RepoConnection { Name = "r", Url = Repo.Url, Type = RepoType.GitHub, DefaultBranch = Base };
+
+        (await Readiness().SliceBaseAsync(repo, new BranchName("agent-smith/7"), CancellationToken.None))
+            .Should().Be(new BranchName(Base), "the first slice's checkout publishes the rung at the default branch");
+    }
+
+    [Fact]
+    public async Task SliceBaseAsync_RungPublished_IsTheRung()
+    {
+        Branch("agent-smith/7", principles: true);
+
+        (await Readiness().SliceBaseAsync(Repo, new BranchName("agent-smith/7"), CancellationToken.None))
+            .Should().Be(new BranchName("agent-smith/7"));
     }
 }

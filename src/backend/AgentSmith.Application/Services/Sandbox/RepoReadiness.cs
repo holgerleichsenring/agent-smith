@@ -32,6 +32,18 @@ public sealed class RepoReadiness(
         return onRun?.State == RemoteBootstrapState.Incomplete ? onRun : onBase;
     }
 
+    /// <summary>
+    /// The base a slice is cut from: its parent's rung once the host has it, otherwise the repository's
+    /// default branch — the first slice's checkout publishes the rung at that branch (SandboxRungPublisher),
+    /// so before it does there is no rung to read and reading one would answer Unknown for every first slice.
+    /// </summary>
+    public async Task<BranchName?> SliceBaseAsync(RepoConnection repo, BranchName rung, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(repo);
+        if (await ExistsAsync(repo, rung, ct)) return rung;
+        return string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : new BranchName(repo.DefaultBranch);
+    }
+
     private async Task<bool> ExistsAsync(RepoConnection repo, BranchName branch, CancellationToken ct)
     {
         if (!repo.HasLocation) return false;

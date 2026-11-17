@@ -1,12 +1,14 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Preflight.Run;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,7 +35,7 @@ public sealed class BootstrapPresenceCheckTests
         _host.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string path, CancellationToken _) => path.EndsWith("/principles.md") && !principles ? null : "content");
 
-    private Task<RunPreflightFinding> RunAsync()
+    private Task<RunPreflightFinding> RunAsync(Ticket? ticket = null)
     {
         var hosts = new Mock<ISourceProviderFactory>();
         hosts.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(_host.Object);
@@ -42,6 +44,7 @@ public sealed class BootstrapPresenceCheckTests
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
             [new RepoConnection { Name = "web-api", Url = "https://github.com/o/web-api", Type = RepoType.GitHub }]);
         pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "demo" });
+        if (ticket is not null) pipeline.Set(ContextKeys.Ticket, ticket);
         return new BootstrapPresenceCheck(new RepoReadiness(probe, hosts.Object, NullLogger<RepoReadiness>.Instance))
             .RunAsync(pipeline, CancellationToken.None);
     }
@@ -80,6 +83,18 @@ public sealed class BootstrapPresenceCheckTests
         finding.Kind.Should().Be(RunEndKinds.ReadinessUnknown);
         finding.Detail!.Subject.Should().Contain("host down");
         finding.Detail.Control.Should().BeNull("no setting lifts an unreachable host");
+    }
+
+    [Fact]
+    public async Task RunAsync_SliceBeforeItsRungIsPublished_ReadsTheDefaultBranch()
+    {
+        Serves(principles: true);
+        _host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var slice = new Ticket(new TicketId("43"), "Slice", "", null, "New", "test",
+            labels: [FiledTicketLabels.ParentStamp("42")]);
+
+        (await RunAsync(slice)).Verdict.Should().Be(RunPreflightVerdict.Pass,
+            "the first slice's checkout publishes the parent's rung, so before it there is none to read");
     }
 
     [Fact]

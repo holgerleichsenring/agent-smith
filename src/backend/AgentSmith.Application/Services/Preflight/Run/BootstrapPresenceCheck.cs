@@ -29,7 +29,8 @@ public sealed class BootstrapPresenceCheck(RepoReadiness readiness) : IRunPrefli
         var run = RunBranchResolver.Resolve(pipeline);
         var verdicts = new List<(string Repo, RemoteBootstrapVerdict Verdict)>();
         foreach (var repo in repos)
-            verdicts.Add((repo.Name, await readiness.ReadAsync(repo, BaseOf(run, repo), run?.Name, cancellationToken)));
+            verdicts.Add((repo.Name, await readiness.ReadAsync(
+                repo, await BaseOfAsync(run, repo, cancellationToken), run?.Name, cancellationToken)));
         var incomplete = verdicts.Where(v => v.Verdict.State == RemoteBootstrapState.Incomplete).ToList();
         if (incomplete.Count > 0) return Missing(pipeline, incomplete);
         var unknown = verdicts.Where(v => v.Verdict.State == RemoteBootstrapState.Unknown).ToList();
@@ -38,12 +39,12 @@ public sealed class BootstrapPresenceCheck(RepoReadiness readiness) : IRunPrefli
             : RunPreflightFinding.Pass(Name, $"{verdicts.Count} repository(ies) carry their bootstrap");
     }
 
-    // A slice starts from its parent's rung, every other run from the repository's default branch.
-    private static BranchName? BaseOf(RunBranch? run, RepoConnection repo)
+    // A slice starts from its parent's rung once it is published, every other run from the repository's default branch.
+    private Task<BranchName?> BaseOfAsync(RunBranch? run, RepoConnection repo, CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(run?.ParentTicketId))
-            return TicketBranchNamer.Compose(new TicketId(run.ParentTicketId.Trim()));
-        return string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : new BranchName(repo.DefaultBranch);
+            return readiness.SliceBaseAsync(repo, TicketBranchNamer.Compose(new TicketId(run.ParentTicketId.Trim())), ct);
+        return Task.FromResult<BranchName?>(string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : new BranchName(repo.DefaultBranch));
     }
 
     private RunPreflightFinding Missing(PipelineContext pipeline, List<(string Repo, RemoteBootstrapVerdict Verdict)> incomplete)

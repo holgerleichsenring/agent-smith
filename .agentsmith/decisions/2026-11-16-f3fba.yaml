@@ -54,3 +54,7 @@ decisions:
     chose: "PipelineE2EHarness registers an AgentSmithConfig with one agent; PrReviewPresetTests and the control-flow SVG follow the new presets"
     over: "Exempting security-scan from the config checks"
     reason: "The spec names the behaviour change: pr-review and security-scan gain the config preflight, which refuses the empty placeholder configuration the E2E harness used."
+  - category: Implementation
+    chose: "A slice's bootstrap base is its parent's rung once the host has it, else the repository's default branch (RepoReadiness.SliceBaseAsync)"
+    over: "Always reading the rung, as the first cut did"
+    reason: "The first slice's checkout publishes the rung (SandboxRungPublisher); read before any sandbox, an unpublished rung answered Unknown, so every first slice ended readiness-unknown and the rung was never published. Found in review."
