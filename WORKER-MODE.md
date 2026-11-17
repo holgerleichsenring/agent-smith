@@ -66,17 +66,21 @@ handed an unknown flag exits non-zero, which the bridge treats as a dead call.
 
 Two things the reported figure is not:
 
-- **It is not this run's spend.** No money is charged against an agent budget on this
-  transport. The figure is carried in its own channel with its own label, never added to
-  `total_usd` and never reported as an unpriced model — pricing it from the model table
-  would invent money the run never paid, and leaving it unpriced would raise a pricing
-  alarm for a call that has no price by design.
+- **It is not money charged here.** No money is charged against an agent budget on this
+  transport. In `result.md` the figure is carried in its own channel with its own label,
+  never added to `total_usd` and never reported as an unpriced model — pricing it from the
+  model table would invent money the run never paid.
 - **It is not comparable to a provider call.** A trivial probe reported a third of a cent
   on twenty-six thousand cache-creation tokens: the CLI's own system prompt and tool
   schemas, charged per call, not this run's context.
 
 Token VOLUME is real on any transport, so the token arm of the per-pipeline budget cap
 counts worker calls. The USD arm does not.
+
+The run's RECORDED cost — the figure on the run, the ticket and the delivery pages, and the
+one a series budget is read against — is the sum of its recorded calls, and a worker call
+records the figure its CLI reported (2026-11-17-166ab). It is what the work would cost at the
+CLI's own prices, labelled as the CLI's on every call row.
 
 The answer is unwrapped at the transport, before anything else reads it. That matters more
 than it sounds: a structured result is never empty, so the retry-on-silence check and the
@@ -89,16 +93,23 @@ an empty answer would become a failed run where it used to be a nudge.
 | --- | --- | --- |
 | `AGENTSMITH_WORKER_CLI` | CLI binary; wins over `agent.endpoint` | `claude` |
 | `AGENTSMITH_WORKER_CLI_ARGS` | extra CLI arguments, space-separated | – |
-| `AGENTSMITH_WORKER_CWD` | working directory of the CLI process | the temp dir |
+| `AGENTSMITH_WORKER_CWD` | working directory of the CLI process | `<temp>/agentsmith-worker` |
 
-The working directory defaults to a neutral temp directory on purpose: the worker answers
-a model call, so it must not pick up the project instructions or the source tree of the
-repo the run is changing.
+The working directory defaults to its own empty directory under the temp directory on
+purpose: the worker answers a model call, so it must not pick up the project instructions,
+the source tree of the repo the run is changing, or the sandbox clones that live in the
+temp directory itself.
+
+A Claude Code CLI — the default `claude` binary, or any binary an agent sets
+`worker_structured_result: true` for — is also started with `--tools ""`,
+`--strict-mcp-config` and `--no-session-persistence`: no built-in file tools, no MCP
+servers, no session saved per call. Measured on CLI 2.1.285, that took a one-word call from
+32,852 input tokens to 953 (2026-11-17-166ac).
 
 ## What goes over the wire
 
 There are no request/reply files. Each call renders one JSON envelope
-(`protocol: agentsmith.worker/1`) into the CLI prompt on stdin:
+(`protocol: agentsmith.worker/1`) for the CLI, shown here whole:
 
 ```json
 {
@@ -134,6 +145,17 @@ The CLI answers with one JSON object and nothing else:
 
 `options.not_rendered` names every sampling option that was set but has no field in the
 envelope — the payload declares its own gaps rather than leaving them to a comment.
+
+The CLI receives the envelope in two parts (2026-11-17-166ae). `CONVERSATION HEAD` holds
+the instructions, `protocol`, `agent_type`, `model`, the conversation's leading system
+messages (as `system`) and `tools` — the same on every call of a conversation. `REQUEST`
+holds the call's identity, the rest of the `messages` and `options`. A Claude Code CLI
+reads the head from `--system-prompt-file` (a file because Linux caps one argument at
+128 KB), which its prompt cache serves on the next call; only the request goes on stdin.
+Any other binary reads both parts on stdin, head first. Measured on the replay of
+2026-11-17: 164 of 172 calls read only the CLI's own prompt from cache and wrote the
+whole conversation as new cache — a stdin text is one content block, and no cache entry
+ever matches a prefix inside one.
 
 This envelope is deliberately the payload p0166e's MCP worker mode will carry. When that
 lands, the CLI subprocess is replaced by a JSON-RPC method; the payload does not change.

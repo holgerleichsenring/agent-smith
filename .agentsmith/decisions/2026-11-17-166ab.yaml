@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-166ab
+
+decisions:
+  - category: Implementation
+    chose: "The run's CostTotalUsd is the sum of its RunLlmCall rows at the finish, and a call projected after the finish still adds; the live snapshot keeps its folded per-call total on RunFinished"
+    over: "Letting RunFinished.CostUsd override (as p0176b did), or adding the worker ledger's figure to it"
+    reason: "The event publisher wraps every provider round trip, while the tracker sees only the responses call sites hand it: in the replay 172 calls were recorded and the tracker counted 102 worker calls. Rows are written once by trail position since 2026-08-25-61f1, so the sum no longer inflates on replay."
+  - category: Implementation
+    chose: "A worker call's per-call CostUsd is WorkerCallAccounting.ReportedCostUsd"
+    over: "The model-table price, or zero"
+    reason: "The table priced the CLI's joined model id 'claude-haiku-4-5-20251001+claude-opus-5-5' at the first matching entry ($18.07 for 172 calls), a figure nobody reported; zero hides the work. The CLI's own figure is the only number that exists for the call."
+  - category: Scope
+    chose: "Supersede b0d7 for the recorded cost only: the run, ticket, delivery pages and the series runway budget now read worker spend; result.md and the pipeline tracker's USD budget arm keep it apart"
+    over: "Keeping worker spend out of every recorded total"
+    reason: "The operator compared the run row against the CLI's $91.74 and read $0 as a defect. A series budget in USD is a statement about how much work to allow; the CLI's figure is that work's cost at its prices. The per-pipeline USD fence stays unbound so a subscription run is not stopped on money it is not charged."
+  - category: Scope
+    chose: "RunFinishedEvent.CostUsd stays on the contract, read by no projection"
+    over: "Removing it"
+    reason: "26 test files construct the event positionally and stored trails carry the field; removing it changes the hub-event mirror for no behaviour. It remains the producer's tracker figure on the trail."
+  - category: Scope
+    chose: "A live snapshot rebuilt from the capped run stream may miss early calls"
+    over: "Seeding the snapshot from the database row"
+    reason: "The database row is the record every page reads after the run; the live figure is a convenience during it. Seeding would add a database read to the broadcaster for a gap only seen on very long runs after a restart."

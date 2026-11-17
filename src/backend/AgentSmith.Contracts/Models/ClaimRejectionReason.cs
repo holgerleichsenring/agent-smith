@@ -25,6 +25,10 @@ public enum ClaimRejectionReason
     /// a person's start picks it up again.</summary>
     TicketStuckOnPrecondition,
 
+    /// <summary>2026-11-17-166aa: the ticket's last attempt failed or was cancelled on a project with no failed_status, so
+    /// its tracker status was left as it was; a person's start (Retry, a reply) picks it up again.</summary>
+    TicketLeftInPlace,
+
     /// <summary>2026-10-14-dbceh: a ticket it requires has not landed, or its filing did not finish. Unlike the
     /// reasons above, this refusal lifts by itself once the required tickets land.</summary>
     TicketRequiresUnmet

@@ -8,19 +8,32 @@ namespace AgentSmith.Infrastructure.Services.Workers;
 /// text or tool calls and stops. Anything else — using its own tools, doing the work
 /// itself — bypasses the master loop, the ledger, the nudges and the acceptance gate,
 /// which are the machinery a worker-driven run exists to exercise.
+/// <para>2026-11-17-166ae: in two parts. The system part — these instructions, the protocol, the conversation's leading
+/// system messages and the tools — is the same on every call of a conversation; the input part carries the rest of the
+/// conversation and the call's identity. A Claude Code CLI reads the system part as its system prompt, which its cache
+/// serves on the next call; one stdin text is one content block, which no cache entry ever matches a prefix of.</para>
 /// </summary>
 public sealed class WorkerPromptRenderer(WorkerJsonFormat json)
 {
-    public string Render(WorkerRequest request) =>
-        Instructions + Environment.NewLine + json.Serialize(request) + Environment.NewLine;
+    public const string HeadMarker = "CONVERSATION HEAD";
+    public const string RequestMarker = "REQUEST";
+
+    public WorkerPrompt Render(WorkerRequest request)
+    {
+        var (head, input) = WorkerPromptSections.Split(request);
+        var nl = Environment.NewLine;
+        return new(Instructions + nl + HeadMarker + nl + json.Serialize(head) + nl,
+            RequestMarker + nl + json.Serialize(input) + nl);
+    }
 
     private const string Instructions =
         """
         You are answering ONE model call for the agent-smith framework. You occupy the
-        position the provider model occupies inside a running agent loop: the request
-        below is verbatim what the provider would have received — the system prompt, the
-        full conversation including previous tool calls and their results, and the tools
-        you may call with their JSON schemas.
+        position the provider model occupies inside a running agent loop: CONVERSATION
+        HEAD and REQUEST together are verbatim what the provider would have received. The
+        head holds the conversation's system prompt ("system") and the tools you may call
+        with their JSON schemas; the request holds the rest of the conversation, including
+        previous tool calls and their results.
 
         YOU HAVE NO TOOLS AND NO FILESYSTEM HERE. The paths in this request name files
         inside a sandbox the framework operates — not on any disk you can reach, and not
@@ -61,7 +74,5 @@ public sealed class WorkerPromptRenderer(WorkerJsonFormat json)
         - Never emit an empty envelope and then keep talking: an envelope means you are
           acting, plain output means you are answering. One or the other, never both.
         - If you cannot answer this call at all, emit {"error": "<why>"}.
-
-        REQUEST
         """;
 }

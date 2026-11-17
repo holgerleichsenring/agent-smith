@@ -41,6 +41,9 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// <inheritdoc cref="EndKind"/>
     public EndDetail? EndDetail { get; init; }
 
+    /// <summary>2026-11-17-166aa: why the attempt was cancelled, as its row records it; null when it was not.</summary>
+    public string? CancelReason { get; init; }
+
     /// <summary>2026-10-13-8762p: the overruled defaults of the ticket's code runs — the stored verdict is the act.</summary>
     public IReadOnlyList<DecidedDefault> Overrules { get; init; } = [];
 

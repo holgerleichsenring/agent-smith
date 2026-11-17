@@ -17,6 +17,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// joins the spec objections in the same decision, so one question lists both.
 /// 2026-11-10-8e59: a spec is spared only when a review ended clean on its exact text (<see cref="ReviewedText"/>);
 /// approved but never reviewed, rewritten after its review, or interrupted, it is attacked before it is built.
+/// 2026-11-17-5701e: the record's reviewed texts include each filed text the approving turn reviewed and passed, so a
+/// spec that turn passed is spared; one it never passed, left unreviewed or refused is attacked.
 /// </summary>
 public sealed class ReviewSpecsHandler(
     ISpecReviewSettingsReader settings, ISeriesSettingsReader attempt, ApprovedSpecSetResolver approvals, SpecReviewLoop loop,
@@ -32,7 +34,7 @@ public sealed class ReviewSpecsHandler(
         // 2026-10-13-8762u: only what this attempt can build — never a spec its chunk defers.
         var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !ReviewedText.Covers(approved?.ReviewedClean, spec.SpecId, spec.Draft.Yaml)
             && !ReviewStepOutcomes.AnsweredBuild(context.Pipeline, spec)).ToList() ?? [];
-        // 2026-11-10-8e59: the series contract is attacked too, unless a review ended clean on exactly this contract.
+        // 2026-11-10-8e59: the series contract is attacked too, unless exactly this contract was reviewed and passed.
         var contractClean = set?.Contract is not { IsEmpty: false } contract || ReviewedText.Covers(approved?.ReviewedClean, contract);
         if (Skip(current, set, tail, contractClean) is { } skip) return Done($"spec review skipped: {skip}");
         var run = new SpecReviewRun(context.Pipeline, current, context.AgentConfig, SpecReviewWiderGoal.Of(context.Ticket, set!));
@@ -59,7 +61,7 @@ public sealed class ReviewSpecsHandler(
         : set is null ? "the run has no spec set"
         : set.IsHandedBack ? "the derivation handed the ticket back"
         : set.UnexecutedTail.Count == 0 ? "every spec of the set is built"
-        : tail.Count == 0 && contractClean ? "every unbuilt spec's exact text was reviewed clean or answered build by a person, and so was the contract"
+        : tail.Count == 0 && contractClean ? "every unbuilt spec's exact text was reviewed and passed in the approving turn or answered build by a person, and so was the contract"
         : null;
 
     private async Task<CommandResult> WalkAsync(SpecReviewRun run, IReadOnlyList<DerivedSpec> tail, bool contractClean, CancellationToken ct)

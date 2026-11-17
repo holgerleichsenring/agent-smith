@@ -21,7 +21,19 @@ internal sealed record ProposalReviewText(string Key, string Id, string SettledK
         ArgumentNullException.ThrowIfNull(result);
         if (Id == ProposalReviewTexts.ListId) return true;
         if (Id == ProposalReviewTokens.Series && result is EpicOutcome { Contract: null or { IsEmpty: true } }) return true;
-        var last = result.ReviewRounds.LastOrDefault(round => round.SpecId == Id);
+        return LastRoundPassed(result.ReviewRounds, Id);
+    }
+
+    /// <summary>
+    /// 2026-11-17-5701e: whether the last of <paramref name="rounds"/> under <paramref name="id"/> passed — build,
+    /// build with cuts, or a refusal waiting only on an owner decision. No round under the id is no pass. Filing reads
+    /// the same rule to carry a turn's pass to the coding run.
+    /// </summary>
+    public static bool LastRoundPassed(IReadOnlyList<ProposalReviewRound> rounds, string id)
+    {
+        ArgumentNullException.ThrowIfNull(rounds);
+        ArgumentNullException.ThrowIfNull(id);
+        var last = rounds.LastOrDefault(round => round.SpecId == id);
         return last?.Verdict is SpecReviewVerdicts.Build or SpecReviewVerdicts.BuildWithCuts
             || (last is not null && ReviewOwnerDecision.Waits(last));
     }

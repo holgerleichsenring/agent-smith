@@ -22,14 +22,12 @@ public static class RunSnapshotFold
             // before any TicketFetchedEvent (and for runs that never fetch one).
             TicketId = e.TicketId ?? snapshot.TicketId, Project = e.Project ?? snapshot.Project, // 2026-10-15-4a4dc
         },
-        // p0176b: RunFinished.CostUsd, when present, overrides the per-call
-        // accumulation. Defence in depth: even if a producer leaked LLM
-        // calls past the factory wrap, the run-end truth lands here.
+        // 2026-11-17-166ab: the cost stays the folded per-call total — RunFinished.CostUsd is the
+        // tracker's priced estimate, which misses worker calls and loop iterations.
         RunFinishedEvent e => snapshot with
         {
             Status = e.Status, PrUrl = e.PrUrl, Summary = e.Summary,
             FinishedAt = e.FinishedAt,
-            CostUsd = e.CostUsd ?? snapshot.CostUsd,
             LastEventType = e.Type.ToString()
         },
         SandboxCreatedEvent => snapshot with

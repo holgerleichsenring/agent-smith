@@ -26,7 +26,9 @@ public sealed class TicketParkStatusesTests
             new JiraTriggerConfig { DoneStatus = "Done", NeedsClarificationStatus = "Ask", NotImplementableStatus = "Won't do" },
             clarification: "Tracker ask", notImplementable: "Tracker won't do"));
 
-        parks.Should().Be(new TicketParkStatuses("Done", "Done", "Ask", "Won't do"), "failed_status unset falls back to done, as the spawn seeds it");
+        parks.Should().Be(new TicketParkStatuses("Done", null, "Ask", "Won't do"),
+            "2026-11-17-166aa: failed_status unset is no failed status — a failure never moves a ticket to done");
+        parks.IsRunEnd("done").Should().BeTrue("done is its own run end");
         parks.Own("tracker ask").Should().BeFalse();
         parks.Own("won't DO").Should().BeTrue();
     }
