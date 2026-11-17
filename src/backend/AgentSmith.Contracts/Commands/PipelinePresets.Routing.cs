@@ -26,7 +26,7 @@ public static partial class PipelinePresets
     public static bool NeedsHostContext(string pipelineName) =>
         string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
         || string.Equals(pipelineName, FileName, StringComparison.OrdinalIgnoreCase)
-        || HostActSteps.ContainsKey(pipelineName);
+        || HostActSteps.ContainsKey(pipelineName) || InstallationSteps.ContainsKey(pipelineName);
 
     // 2026-11-17-e061a: the runs that act on a filed ticket, launched by the server with a request and an outcome slot.
     private const string HostActReason = "its run acts on a filed ticket with a request only the server's act supplies "
@@ -35,7 +35,8 @@ public static partial class PipelinePresets
     /// <summary>Why a label cannot start this preset, in the words a configuration finding uses;
     /// null for a preset a ticket can be routed to.</summary>
     public static string? NotRoutableBecause(string pipelineName) =>
-        NotRoutable.GetValueOrDefault(pipelineName) ?? (HostActSteps.ContainsKey(pipelineName) ? HostActReason : null);
+        NotRoutable.GetValueOrDefault(pipelineName) ?? (HostActSteps.ContainsKey(pipelineName) ? HostActReason : null)
+        ?? (InstallationSteps.ContainsKey(pipelineName) ? InstallationReason : null); // 2026-11-17-f3a8a
 
     private static readonly Dictionary<string, string> NotRoutable = new(StringComparer.OrdinalIgnoreCase)
     {

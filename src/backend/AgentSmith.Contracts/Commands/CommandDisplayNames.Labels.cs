@@ -40,7 +40,7 @@ public static partial class CommandDisplayNames
         ["PlanOpenQuestionsCommand"] = "Post Plan open questions",
         [CommandNames.Approval] = "Await approval",
         [CommandNames.AgenticExecute] = "Execute plan",
-        [CommandNames.AgenticMaster] = "Run master skill",
+        [CommandNames.AgenticMaster] = "Run master skill", [CommandNames.AdminAssistantTurn] = "Run the admin assistant", // f3a8a
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
         [CommandNames.GroundSpecDialog] = "Ground the design conversation",
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",

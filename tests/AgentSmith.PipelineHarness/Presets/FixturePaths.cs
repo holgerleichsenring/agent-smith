@@ -13,6 +13,7 @@ internal static class FixturePaths
 
     public const string Default = "agentsmith.yml";
     public const string Filing = "agentsmith-filing.yml"; // 2026-11-17-5701b
+    public const string Admin = "agentsmith-admin.yml"; // 2026-11-17-f3a8a
     public const string NoRegistries = "agentsmith-no-registries.yml";
     public const string Docker = "agentsmith-docker.yml";
     public const string DockerNoRegistries = "agentsmith-docker-no-registries.yml";

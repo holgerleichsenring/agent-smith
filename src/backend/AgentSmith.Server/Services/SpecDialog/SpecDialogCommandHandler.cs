@@ -36,7 +36,7 @@ public sealed class SpecDialogCommandHandler(
             return;
         }
 
-        var resolution = scopeResolver.Resolve(project);
+        var resolution = scopeResolver.Resolve(project, platform == DispatcherDefaults.PlatformDashboard);
         // 2026-09-28-1da5b: opening is announced on CHAT only. There a command opens the dialog,
         // nothing renders a scope beside the thread, and the line is the sole acknowledgement that
         // anything happened. On the dashboard the first MESSAGE opens the conversation — so the

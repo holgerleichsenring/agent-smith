@@ -399,6 +399,7 @@ public sealed class ExecutePipelineUseCase(
     {
         if (!string.IsNullOrEmpty(request.AgentName))
             return BuildEphemeralProject(request, config);
+        if (InstallationScope.Is(request.ProjectName)) return Admin.InstallationProject.Build(config, request.PipelineName); // f3a8a
 
         // p0515: looked up AS CONFIGURED. This lowercased, while the catalog is keyed by
         // ConfigNames.Comparer — two rules for one name, and the launcher used the other one.

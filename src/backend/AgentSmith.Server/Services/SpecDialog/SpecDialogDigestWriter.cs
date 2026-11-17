@@ -95,7 +95,9 @@ public sealed class SpecDialogDigestWriter(
     /// <summary>The project's OWN agent configuration, so the digest runs on the provider, model registry and pricing
     /// this conversation's turns run on, rather than on a bare fabricated one.</summary>
     private AgentConfig AgentOf(string projectName) =>
-        configLoader.LoadConfig(serverContext.ConfigPath).Projects.TryGetValue(projectName, out var project)
+        InstallationScope.Is(projectName) // 2026-11-17-f3a8a: the admin conversation runs on the admin agent
+            ? Application.Services.Admin.InstallationProject.AdminAgent(configLoader.LoadConfig(serverContext.ConfigPath))
+            : configLoader.LoadConfig(serverContext.ConfigPath).Projects.TryGetValue(projectName, out var project)
             ? project.Agent
             : throw new InvalidOperationException(
                 $"Spec-dialog session is scoped to project '{projectName}', which is not in the config catalog.");

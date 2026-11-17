@@ -67,12 +67,16 @@ internal static class Permissions
     // per dialog rather than per capability.
     internal const string DialogWrite = "dialog.write";
 
+    // 2026-11-17-f3a8a: the admin assistant reads every run, prompt and setting of the installation and drafts
+    // configuration changes, so holding its conversation is its own grant — the admin role's, never a project's.
+    internal const string AdminAssistant = "admin.assistant";
+
     internal static IReadOnlyList<string> All { get; } =
     [
         RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
         DiagnosticsRead, DiagnosticsProbe, ConfigRead, ConfigWrite, ConfigExport,
         ConfigImport, SecretsRead, SecretsWrite, IdentityRead, AccessRead, AccessWrite,
-        ArchiveExport, ArchiveImport, DialogWrite,
+        ArchiveExport, ArchiveImport, DialogWrite, AdminAssistant,
     ];
 
     // 2026-10-15-4a4da: what a project binding may grant — the acts on a run, a project's

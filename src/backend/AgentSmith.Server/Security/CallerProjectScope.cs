@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using System.Security.Claims;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 
@@ -10,11 +11,14 @@ namespace AgentSmith.Server.Security;
 /// </summary>
 internal sealed class CallerProjectScope(ProjectAccess access)
 {
+    /// <summary>2026-11-17-f3a8a: whether the installation's own conversation and runs exist for this caller.</summary>
+    public bool SeesInstallation(ClaimsPrincipal user) => access.SeesInstallation(user);
+
     public ProjectScope For(ClaimsPrincipal user, string permission, IEnumerable<string>? configured = null)
     {
         if (!access.Enforcing) return ProjectScope.Everything;
-        return access.ProjectsHolding(user, permission, configured) is { } projects
-            ? ProjectScope.Of(projects)
-            : ProjectScope.Everything;
+        if (access.ProjectsHolding(user, permission, configured) is { } projects) return ProjectScope.Of(projects);
+        // 2026-11-17-f3a8a: a global holder without the admin assistant's grant reads every project but the installation.
+        return access.SeesInstallation(user) ? ProjectScope.Everything : ProjectScope.EverythingBut(InstallationScope.Name);
     }
 }

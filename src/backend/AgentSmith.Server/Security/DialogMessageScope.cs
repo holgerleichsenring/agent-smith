@@ -23,6 +23,7 @@ internal sealed class DialogMessageScope(ProjectAccess access, ResourceProjectRe
         if (!access.Enforcing) return new DialogAdmission(true, true);
         var typed = parser.Parse(text) is SpecOpenCommand open ? open.Project : string.Empty;
         var projects = await ProjectsAsync(dialogId, [project, typed], ct);
+        if (projects.Any(InstallationScope.Is) && !access.SeesInstallation(user)) return DialogAdmission.Installation; // f3a8a
         if (!access.HoldsEverywhere(user, Write)
             && (typed is null || projects.Any(name => !access.HoldsIn(user, Write, name))))
             return DialogAdmission.Refused;
@@ -42,8 +43,10 @@ internal sealed class DialogMessageScope(ProjectAccess access, ResourceProjectRe
     /// <summary>Whether the conversation open on this thread may be entered — the resume route's target.</summary>
     public async Task<bool> MayEnterAsync(ClaimsPrincipal user, string dialogId, CancellationToken ct)
     {
-        if (!access.Enforcing || access.HoldsEverywhere(user, Write)) return true;
+        if (!access.Enforcing) return true;
         var projects = await ProjectsAsync(dialogId, [], ct);
+        if (projects.Any(InstallationScope.Is) && !access.SeesInstallation(user)) return false; // 2026-11-17-f3a8a
+        if (access.HoldsEverywhere(user, Write)) return true;
         return projects.All(name => access.HoldsIn(user, Write, name));
     }
 

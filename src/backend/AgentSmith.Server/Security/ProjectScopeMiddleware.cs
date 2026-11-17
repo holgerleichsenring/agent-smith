@@ -25,7 +25,7 @@ internal sealed class ProjectScopeMiddleware(RequestDelegate next)
         var metadata = http.GetEndpoint()?.Metadata;
         if (metadata?.GetMetadata<ProjectFrom>() is not { IsCheckedAtTheRoute: true } source
             || metadata.GetMetadata<RequiresPermission>() is not { } required
-            || access.HoldsEverywhere(http.User, required.Names))
+            || (access.HoldsEverywhere(http.User, required.Names) && access.SeesInstallation(http.User))) // f3a8a
             return false;
         var projects = await resolver.ResolveAsync(source, http);
         return !projects.Exists || projects.Names.Any(project => !access.HoldsIn(http.User, required.Names, project));

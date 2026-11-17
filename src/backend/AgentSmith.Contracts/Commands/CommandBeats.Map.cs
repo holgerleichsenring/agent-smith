@@ -71,6 +71,7 @@ public static partial class CommandBeats
             [CommandNames.AnalyzeCode] = RunBeat.Building,
             [CommandNames.AgenticExecute] = RunBeat.Building,
             [CommandNames.AgenticMaster] = RunBeat.Building,
+            [CommandNames.AdminAssistantTurn] = RunBeat.Building, // 2026-11-17-f3a8a
             [CommandNames.MasterOpenQuestions] = RunBeat.Building,
             [CommandNames.SkillRound] = RunBeat.Building,
             [CommandNames.FilterRound] = RunBeat.Building,

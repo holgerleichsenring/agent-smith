@@ -27,4 +27,10 @@ public sealed class DialogueGlobalConfig
     /// means the comment carries no link at all.
     /// </summary>
     public string? DashboardUrl { get; set; }
+
+    /// <summary>
+    /// 2026-11-17-f3a8a: the agent the admin assistant runs on — the installation's own conversation has no project to
+    /// take one from. Unset means an admin's "Agent Smith" conversation answers that it names none.
+    /// </summary>
+    public string? AdminAgent { get; set; }
 }

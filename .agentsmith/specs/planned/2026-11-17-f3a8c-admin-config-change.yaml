@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f3a8c
+goal: "The admin assistant drafts configuration changes as a reviewable diff, and Apply runs them as a config pipeline run through the Config studio's store and validators, attributed and audited."
+
+applies_to: "default (admin tools, outcome proposal kind, decision sink, config preset), dashboard (proposal pane, Apply)"
+
+requires: [2026-11-17-f3a8b]
+
+facts:
+  - claim: "The Config studio writes through IConfigStore Upsert/Delete per kind and SaveSetting; every validator throws ConfigurationException; each write is an attributed, revertible ConfigEntityVersion row read by GetChanges and undone by Revert."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IConfigStore.cs, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs, src/backend/AgentSmith.Server/Services/Config/ConfigStudioWriteGuard.cs"
+  - claim: "A turn's outcome is stored as an awaiting proposal (OutcomeProposalJson kinds) and approved by a message carrying its proposalId; TicketFilingOutcomeSink then starts the file run through IActRun."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs, src/backend/AgentSmith.Server/Services/Acts/ActRun.cs"
+  - claim: "ServerWritesRatchetTests holds only tracker and repository writes; config writes from the studio are not runs."
+    evidence: "tests/AgentSmith.Tests/Architecture/ServerWritesRatchetTests.cs"
+
+scope:
+  in: "Tools read_config_entity(kind,id) and draft_config_change(operation upsert|delete, kind, id, document) / drop_config_change; kinds are the studio's (agents, trackers, repos, projects, mcp-servers, secrets, connections, design-sources, settings/<type>); duplicate, move and cleanup are drafts of these; ConfigChangeOutcome (items with before/after) stored and shown as kind 'config'; approving it runs the 'config' preset [ApplyConfigChanges] on the installation; items apply in order through IConfigStore with actor '<person> via admin assistant (run <id>)'; each item is refused when the stored entity no longer matches the before the draft showed; the first refusal stops the run and the earlier items of this run are reverted in reverse order (compensation, not a transaction; a revert that fails is named); the report names item, kind, id and the store's message; reload bumped and ConfigChanged published; the pane shows the diff and 'Apply'."
+  out: "Secret values (f3a8d). role_mapping (access.write surface; the tool refuses it). A dry-run validator: the store's validators decide at apply. The file-backed store (read-only; the tool says so)."
+
+steps:
+  - id: model
+    action: "Contracts ConfigChangeItem(Operation, Kind, Id, DocumentJson, BeforeJson) and ConfigChangeOutcome; OutcomeProposalJson kind 'config'; SpecDialogProposalComposer view; SpecDialogTurnKind.ConfigChange with TranscriptWindow.IsProposal and SpecDialogTurnResult.KindOf; SpecDialogOutcomeComposer Describe/Summarize; SpecDialogApprovalRefusal refuses a config outcome outside the installation and a ticket outcome inside it."
+  - id: tools
+    action: "AdminConfigDraft (seeded per turn, continued from the awaiting proposal), AdminConfigToolHost: read_config_entity, draft_config_change (kind known, JSON parses to the entity type, id matches, before taken from the store), drop_config_change; the handler publishes ConfigChangeOutcome when the draft holds items."
+  - id: apply
+    action: "ConfigChangeApplier (Application) maps kind to the store call; PipelinePresets.Config ('config') [ApplyConfigChanges]; handler applies, reverts on refusal, fills an ActSlot report; IConfigApplyRun (Server) runs it through IActRun; OutcomeSinkRouter (IOutcomeSink) sends ConfigChangeOutcome to ConfigOutcomeSink and the rest to TicketFilingOutcomeSink; the config sink clears the confirmed slot on success, returns Refused on refusal and keeps an applied/refused turn with the run id. ConfigChangedSignal (Application) does the reload bump and ConfigChanged event for the studio guard and the handler alike."
+  - id: dashboard
+    action: "Proposal kind 'config': DialogConfigChange lists each item with before/after; the decision bar says Apply; approvalDecision question for config."
+
+tests:
+  - "ConfigChangeApplier: each kind maps to its store call; a refused second item reverts the first and the report names it; a drifted before refuses the item; role_mapping is refused."
+  - "OutcomeProposalJson round-trips a config outcome."
+  - "Harness: admin asks to duplicate a tracker; scripted read_config_entity + draft_config_change; the proposal is a config outcome; approving runs 'config', the new tracker is in the store, the change row's actor names the person and the run."
+  - "Dashboard: a config proposal renders its items and an Apply button."
+
+done:
+  - "An admin can have the assistant create, duplicate, move or clean up configuration, sees the diff, presses Apply, and a config run applies it through the studio's validators with an audit row naming who, when and the run; a refusal names the item and the store's reason and the earlier items of the run are reverted."

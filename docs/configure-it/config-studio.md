@@ -146,6 +146,5 @@ Each row has a revert, which is the part a mounted ConfigMap could never give yo
 ## What the studio does not carry
 
 - `pipeline_triggers:`, the global label to pipeline map. It's stored in the database and the server serves it, but there's no catalog screen for it. To change it: export, edit the block, import with `--force`.
-- `dialogue.dashboard_url`, the dashboard address a question comment links to. Set it through import.
 
 Everything else you'd want to change day to day is here or under [Settings](settings.md).

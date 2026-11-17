@@ -442,6 +442,10 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label="Approval timeout (seconds)" value={value.approvalTimeoutSeconds}
         onChange={(v) => set({ approvalTimeoutSeconds: keep(v, value.approvalTimeoutSeconds) })} testId="setting-dialogue-approval"
         help="when it elapses on a parked run, the persisted default answer applies" />
+      <TextField label="Dashboard address" value={value.dashboardUrl ?? ""} onChange={(v) => set({ dashboardUrl: v || null })}
+        mono testId="setting-dialogue-dashboard-url" help="a ticket comment that asks a question links to the run here" />
+      <TextField label="Admin assistant agent" value={value.adminAgent ?? ""} onChange={(v) => set({ adminAgent: v || null })}
+        mono testId="setting-dialogue-admin-agent" help="the configured agent the Agent Smith conversation runs on" />
     </>
   );
 }

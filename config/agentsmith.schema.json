@@ -313,6 +313,10 @@
         "dashboard_url": {
           "type": "string",
           "description": "This deployment's dashboard address. A ticket comment that asks a question links to the run's page here; unset, it carries no link."
+        },
+        "admin_agent": {
+          "type": "string",
+          "description": "The agent the admin assistant (Work it out > Agent Smith, admins only) runs on. Unset, the conversation says it names none."
         }
       }
     },

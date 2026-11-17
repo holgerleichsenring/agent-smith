@@ -34,6 +34,10 @@ public static class PromptOwnership
             // carries the cut-sizing rule, ships_code is gone from the model entirely
             // (p0421), and the pin moved — so NoPromptName_HasTwoOwners failed at
             // exactly the moment it was written to, and ownership moves.
+
+            // 2026-11-17-f3a8a: the admin assistant's master is the server's own — its tools read and change this
+            // server's records, so it changes with the server rather than with a skills release.
+            ["admin-assistant-master"] = PromptOwner.Embedded,
         };
 
     /// <summary>

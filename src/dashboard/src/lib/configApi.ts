@@ -955,6 +955,9 @@ export interface QueueSetting {
 export interface DialogueSetting {
   hotWaitSeconds: number;
   approvalTimeoutSeconds: number;
+  dashboardUrl?: string | null;
+  // 2026-11-17-f3a8a: the agent the admin assistant runs on.
+  adminAgent?: string | null;
 }
 
 export interface DeploymentSetting {
