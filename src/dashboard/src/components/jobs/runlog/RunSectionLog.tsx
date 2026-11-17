@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { sectionDuration, type RunSection, type SectionId } from "./runSections";
+import { VerifyPassLines } from "./VerifyPassLines";
 
 // 2026-11-16-6877b: the run as text. A thin strip with one node per section (green done, amber a finding or running,
 // red a stop, hollow not reached) above seven sections that all start closed; a node opens its section. An open
@@ -49,10 +50,17 @@ export function RunSectionLog({ sections, open, onToggle, slots }: Props) {
                 {slots[s.id] !== undefined ? <div className="rl-slot">{slots[s.id]}</div> : s.lines.length === 0 ? <div className="rl-line rl-dim">Nothing ran here.</div> : s.lines.map((l) => (
                   <div key={l.stepIndex} className={`rl-line ${l.state}`} data-testid="run-log-line">
                     <span className="rl-at">{l.at ?? ""}</span>
-                    <span>
-                      {l.text}
-                      {l.detail && <span className="rl-dim">: {l.detail}</span>}
-                    </span>
+                    {l.verify ? (
+                      <div>
+                        {l.text} <span className="rl-dim">{l.verify.result}</span>
+                        <VerifyPassLines pass={l.verify} />
+                      </div>
+                    ) : (
+                      <span>
+                        {l.text}
+                        {l.detail && <span className="rl-dim">: {l.detail}</span>}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

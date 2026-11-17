@@ -50,6 +50,7 @@ public sealed class VerifySpecHandlerTests
         new SpecProgressRecorder(events ?? new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
         AgentSmith.Tests.TestHelpers.TestSpecReview.Revert(),
+        new VerifyPassReporter(new NoOpEventPublisher(), TimeProvider.System, NullLogger<VerifyPassReporter>.Instance),
         NullLogger<VerifySpecHandler>.Instance);
 
     private static ProjectMap Map(string language, CiConfig ci) => new(

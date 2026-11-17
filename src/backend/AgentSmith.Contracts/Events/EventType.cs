@@ -47,8 +47,7 @@ public enum EventType
     SubAgentCompleted = 65,
     // p0200: operator-initiated or watchdog-initiated cancel signal.
     // Landed on the run stream so late-subscribing dashboards see the
-    // cancellation request was made; RunFinished follows once the
-    // executor returns.
+    // cancellation request was made; RunFinished follows once the executor returns.
     RunCancelRequested = 70,
     // p0201: sandbox container died unexpectedly (docker daemon lost it,
     // OOM kill, manual rm, network partition). SandboxLivenessWatcher
@@ -116,4 +115,6 @@ public enum EventType
     MemoryUseRecorded = 89,
     // 2026-11-10-d854c: one step a design turn reported, kept on its run so it is readable after the turn.
     DialogActivity = 90,
+    // 2026-11-17-d6fbc: one verify pass as data — stages per repository, stale derivations.
+    VerifyPassRecorded = 91,
 }

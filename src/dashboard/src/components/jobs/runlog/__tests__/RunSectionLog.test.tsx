@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { RunSnapshot } from "@/types/hub-events";
+import { EventType, type RunEvent, type RunSnapshot, type VerifyPassRecordedEvent } from "@/types/hub-events";
+import { staleWords, stageWords } from "../VerifyPassLines";
 import { RunProgressStrip, RunSectionLog } from "../RunSectionLog";
 import { runSections, type SectionId } from "../runSections";
 import { RunStatusBox, runStatusWords } from "../RunStatusBox";
@@ -92,5 +93,57 @@ describe("RunStatusBox", () => {
     rerender(<RunStatusBox snapshot={snap({ status: "success", pullRequests: [{ repo: "server", url: "https://example.test/pr/1", status: "opened", isDraft: false }] })} />);
     expect(screen.queryByTestId("run-question")).toBeNull();
     expect(screen.getByTestId("run-status-pr")).toHaveAttribute("href", "https://example.test/pr/1");
+  });
+});
+
+// 2026-11-17-d6fbc: a verify pass reads as a line per repository under its Build and test line, the stale derivations
+// as one muted line with the files behind a disclosure, and the prose detail is not drawn.
+describe("RunSectionLog verify pass", () => {
+  const verifyStep = {
+    stepIndex: 3, stepName: "VerifySpec", displayName: "Build and test", commandName: "VerifySpec", status: "success",
+    durationSeconds: 40, resultMessage: "Verified: server [install+build+test] green\n(default): context 'default' derived its verify block from ...",
+    llmCalls: 0, costUsd: 0, sandboxCommands: 3, subAgents: 0,
+  };
+  const pass = {
+    runId: "r1", type: EventType.VerifyPassRecorded, timestamp: "2026-11-17T09:00:00Z", originStepIndex: 3, result: "passed",
+    repositories: [{ repository: "server", result: "passed", stages: [
+      { stage: "install", command: "dotnet restore", exitCode: 0, skipped: false },
+      { stage: "build", command: "dotnet build", exitCode: 0, skipped: false },
+      { stage: "test", command: "dotnet test", exitCode: 0, skipped: false }] }],
+    staleDerivations: [
+      { repository: "server", context: "default", files: [".github/workflows/ci.yml"] },
+      { repository: "server", context: "web", files: ["package.json"] }],
+  } as VerifyPassRecordedEvent;
+
+  function VerifyLog({ events }: { events: RunEvent[] }) {
+    const sections = runSections([verifyStep], events, "pending", "");
+    return <RunSectionLog sections={sections} open={new Set<SectionId>(["verify"])} onToggle={() => {}} slots={{}} />;
+  }
+
+  it("VerifyLine_WithItsPass_ShowsARepositoryLineAndOneStaleLine_NotTheProse", () => {
+    render(<VerifyLog events={[pass]} />);
+    const line = screen.getByTestId("run-log-line");
+    expect(line).toHaveTextContent("Build and test passed");
+    expect(line).not.toHaveTextContent("Verified: server");
+    expect(screen.getByTestId("verify-pass-repo")).toHaveTextContent("✓serverinstall · build · test");
+    const stale = screen.getByTestId("verify-pass-stale");
+    expect(stale).not.toHaveAttribute("open");
+    expect(stale.querySelector("summary")).toHaveTextContent(
+      "2 contexts derived their verify steps from files that changed since; the stages ran as declared");
+    expect(screen.getAllByTestId("verify-pass-stale-context")[1]).toHaveTextContent("server / web: package.json");
+  });
+
+  it("VerifyLine_WithoutItsPass_KeepsTheProse", () => {
+    render(<VerifyLog events={[]} />);
+    expect(screen.getByTestId("run-log-line")).toHaveTextContent("Build and test: Verified: server [install+build+test] green");
+    expect(screen.queryByTestId("verify-pass")).not.toBeInTheDocument();
+  });
+
+  it("stageWords_MarksSkippedAndRedStages", () => {
+    expect(stageWords({ repository: "client", result: "failed", stages: [
+      { stage: "build", command: "b", exitCode: 0, skipped: false },
+      { stage: "test", command: "t", exitCode: 1, skipped: false },
+      { stage: "lint", command: "l", exitCode: 0, skipped: true }] })).toBe("build · test exited 1 · lint skipped");
+    expect(staleWords(1)).toBe("1 context derived its verify steps from files that changed since; the stages ran as declared");
   });
 });

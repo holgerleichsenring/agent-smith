@@ -24,20 +24,20 @@ scope:
 
 steps:
   - id: contract
-    action: "VerifyPassRecordedEvent, VerifyRepositoryPass, VerifyStageRun and VerifyStaleDerivation in Contracts; EventType.VerifyPassRecorded; EventTypeResolver."
+    action: "VerifyPassRecordedEvent in Contracts/Events; VerifyRepositoryPass, VerifyStageRun, VerifyStaleDerivation and VerifyPassResults in Contracts/Verify; EventType.VerifyPassRecorded; EventTypeResolver."
   - id: notes
     action: "VerifyResolutionNotes.DerivationMoved also records a VerifyStaleDerivation."
   - id: publish
     action: "VerifyPassReporter builds the event from the outcomes and notes and publishes it; VerifySpecHandler calls it once the pass is decided."
   - id: mirror
-    action: "hub-events.ts mirrors the event; FilterRail names it."
+    action: "hub-events.ts mirrors the event and originStepIndex on the event base; FilterRail and eventFilterQuery name it."
   - id: render
-    action: "runSections attaches the step's VerifyPassRecorded event to its line; RunSectionLog draws a line per repository and one muted stale line with the per-context files behind a disclosure, and drops the prose detail when the event is there."
+    action: "runSections attaches the VerifyPassRecorded event whose originStepIndex is the step's to its line; VerifyPassLines draws a line per repository and one muted stale line with the per-context files behind a disclosure; the prose detail is not drawn when the event is there."
 
 tests:
-  - "VerifyPassReporterTests: green, failed and stale passes map to the event."
-  - "VerifyResolutionNotesTests: DerivationMoved records the data and keeps the prose."
-  - "runSections.test.ts: a verify line carries its event; RunSectionLog test: repository lines, the stale line and its disclosure."
+  - "VerifyPassReporterTests: green, failed and stale passes map to the event; no run id publishes nothing; DerivationMoved records the data and keeps the prose."
+  - "EventEnvelopeRoundTripTests cover the new event through SampleEventFactory."
+  - "RunSectionLog test: a verify line with its event shows repository lines and one closed stale line, without the prose; without the event the prose stays."
 
 done:
   - "A green pass shows '✓ <repo>  install · build · test' per repository."

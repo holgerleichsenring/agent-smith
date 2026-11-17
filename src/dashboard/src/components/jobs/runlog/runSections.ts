@@ -1,6 +1,6 @@
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { splitSpecPrefix } from "@/lib/runStepRail";
-import { EventType, type RunAcceptance, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
+import { EventType, type RunAcceptance, type RunEvent, type StepStartedEvent, type VerifyPassRecordedEvent } from "@/types/hub-events";
 import type { StorySectionId } from "./storySections";
 
 // 2026-11-16-6877b: a run read as seven sections of text instead of a graph. Every step row the server projects is
@@ -61,6 +61,8 @@ export interface LogLine {
   text: string;
   detail: string | null;
   state: SectionState;
+  /** 2026-11-17-d6fbc: a verify step's pass as data, when the page holds its event; its prose detail is then not drawn. */
+  verify?: VerifyPassRecordedEvent | null;
 }
 
 export interface RunSection {
@@ -75,12 +77,16 @@ export interface RunSection {
 
 export function runSections(steps: RunStepRow[], events: RunEvent[], checkState: SectionState, checkSummary: string): RunSection[] {
   const started = new Map<number, string>();
-  for (const e of events) if (e.type === EventType.StepStarted) started.set((e as StepStartedEvent).stepIndex, e.timestamp);
+  const passes = new Map<number, VerifyPassRecordedEvent>();
+  for (const e of events) {
+    if (e.type === EventType.StepStarted) started.set((e as StepStartedEvent).stepIndex, e.timestamp);
+    else if (e.type === EventType.VerifyPassRecorded && e.originStepIndex != null) passes.set(e.originStepIndex, e as VerifyPassRecordedEvent);
+  }
   const placed = placeSteps(steps);
   return SECTIONS.map(({ id, title, short }) => {
     if (id === "check") return { id, title, short, state: checkState, summary: checkSummary, seconds: 0, lines: [] };
     const rows = placed.filter((p) => p.section === id).map((p) => p.row);
-    const lines = rows.map((row) => line(row, started.get(row.stepIndex) ?? null));
+    const lines = rows.map((row) => line(row, started.get(row.stepIndex) ?? null, passes.get(row.stepIndex) ?? null));
     return { id, title, short, state: sectionState(rows), summary: sectionSummary(rows), seconds: rows.reduce((n, r) => n + (r.durationSeconds ?? 0), 0), lines };
   });
 }
@@ -102,13 +108,14 @@ function placeSteps(steps: RunStepRow[]): Array<{ row: RunStepRow; section: Step
   return out;
 }
 
-function line(row: RunStepRow, startedAt: string | null): LogLine {
+function line(row: RunStepRow, startedAt: string | null, verify: VerifyPassRecordedEvent | null): LogLine {
   return {
     stepIndex: row.stepIndex,
     at: startedAt ? clockTime(startedAt) : null,
     text: splitSpecPrefix(row.displayName ?? row.stepName).label,
     detail: row.resultMessage,
     state: row.planned ? "pending" : stepState(row),
+    verify,
   };
 }
 

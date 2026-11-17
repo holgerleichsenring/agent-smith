@@ -76,3 +76,13 @@
 .mock-viewer .rl-slot .card-h { padding: 0 0 6px; border: 0; background: none; }
 .mock-viewer .rl-slot .card-h h3 { font-size: 12px; font-weight: 500; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-3); }
 .mock-viewer .rl-slot .card-b { padding: 0; }
+
+/* 2026-11-17-d6fbc: a verify pass under its Build and test line — a line per repository, the stale derivations as one
+   muted line with the files behind a disclosure. */
+.mock-viewer .rl-pass { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.mock-viewer .rl-pass-repo { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; color: var(--ink-2); }
+.mock-viewer .rl-pass-repo.done .rl-pass-mark { color: var(--ok); }
+.mock-viewer .rl-pass-repo.bad, .mock-viewer .rl-pass-repo.bad .rl-pass-mark { color: var(--bad); }
+.mock-viewer .rl-pass-name { min-width: 8ch; }
+.mock-viewer .rl-pass-stale { color: var(--ink-3); }
+.mock-viewer .rl-pass-stale > summary { cursor: pointer; }
