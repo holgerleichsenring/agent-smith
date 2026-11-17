@@ -100,6 +100,29 @@ public sealed class FilingPlanTests
         _rig.Tracker.Created.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task Plan_FollowUpOfAPersonsAct_OneWorkTicketWithNoSeriesAndNoLabel()
+    {
+        var request = new FilingRequest(string.Empty, "carol", [], [], Proposal: null, MayStartRuns: true)
+            { FollowUp = new FilingFollowUp("Follow-up: Widget drops", "also cover the archive view") };
+
+        var plan = await FilingDoubles.Planner(Mock.Of<ITicketProviderFactory>()).PlanAsync(request, _rig.Project, CancellationToken.None);
+
+        var ticket = plan.Tickets.Should().ContainSingle().Subject;
+        (ticket.Role, ticket.Series, ticket.Labels.Count).Should().Be((AgentSmith.Contracts.Tickets.TicketFilingRole.Work, null, 0));
+        ticket.Render([]).Body.Should().Be("also cover the archive view");
+    }
+
+    [Fact]
+    public async Task Plan_NeitherProposalNorFollowUp_IsRefused()
+    {
+        var request = new FilingRequest(string.Empty, "carol", [], [], Proposal: null, MayStartRuns: true);
+
+        var act = () => FilingDoubles.Planner(Mock.Of<ITicketProviderFactory>()).PlanAsync(request, _rig.Project, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain("neither a proposal nor a follow-up");
+    }
+
     private Task<FilingPlan> PlanAsync(OutcomeProposal proposal, SeriesConfig? settings = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
