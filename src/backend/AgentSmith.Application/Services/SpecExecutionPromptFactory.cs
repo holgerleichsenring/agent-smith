@@ -22,6 +22,8 @@ namespace AgentSmith.Application.Services;
 /// rendered authoritative.
 /// <para>2026-10-13-8762m: the build notes of the specs that already ran and the memory index, in code —
 /// no master carries the index placeholder, so the user prompt is where the master reads it.</para>
+/// <para>2026-11-17-5701c: the operator's messages the approval record carries follow the memory index, outside the
+/// ticket delimiters, as the derivation and the spec reviewers read them.</para>
 /// </summary>
 public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
 {
@@ -63,7 +65,7 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
             {SpecExecutionPromptBlocks.StaleCitations(pipeline)}
             {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
-            {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}
+            {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}{Specs.ApprovalOwnerWordsSection.For(pipeline)}
 
             ## Spec contract
             You are implementing SPEC {draft.SpecId} — this spec and nothing after it.

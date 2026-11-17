@@ -63,6 +63,18 @@ public sealed class ApprovedSpecSetResolverTests
             .Should().Be(ApprovedSets.Noon.AddHours(2), "the winner is published back for the next step");
     }
 
+    /// <summary>2026-11-17-5701c: a carried record of another ticket is removed, so no later step reads it.</summary>
+    [Fact]
+    public async Task ApprovedSet_CarriedRecordOfAnotherTicketNothingStored_LeavesNoPublishedRecord()
+    {
+        var pipeline = Carrying(SpecApprovalJson.Write(ApprovedSets.Record("azdo-999", ApprovedSets.Noon)));
+
+        await Resolver(ApprovedSetDoubles.Store()).ResolveAsync(pipeline, new TicketKey(Key), default);
+
+        pipeline.Has(ContextKeys.ApprovedSpecSet).Should().BeFalse();
+        ApprovedSpecSetResolver.PublishedIn(pipeline).Should().BeNull();
+    }
+
     /// <summary>The run then has no set; that a FILED ticket fails loudly on it is
     /// ApprovedSetDeriveSpecTests.ApprovedSet_CarriedRecordForAnotherTicket_FailsLoudly.</summary>
     [Fact]

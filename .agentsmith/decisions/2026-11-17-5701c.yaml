@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-5701c
+
+decisions:
+  - category: Implementation
+    chose: "SpecExecutionPromptFactory appends ApprovalOwnerWordsSection.For(pipeline) directly after the memory index section, before the spec contract"
+    over: "Rendering the operator's words inside the ticket block, or at the end of the prompt"
+    reason: "The spec places it after the memory index and outside the ticket delimiters, as the derivation renders it; the section brings its own leading blank lines and is empty without words, so the prompt of a run without a record is unchanged."
+  - category: Implementation
+    chose: "ApprovedSpecSetResolver.ResolveAsync removes ContextKeys.ApprovedSpecSet when neither the carried nor the stored record wins"
+    over: "Leaving the ignored carried record on the context and filtering it in every reader"
+    reason: "PublishedIn reads the key without the run's own ticket key, so a carried record of another ticket would reach the derivation, the reviewers and now the coding master; removing it at the one place that decides keeps every reader correct."
+  - category: Scope
+    chose: "Built ahead of 5701b, which the spec requires"
+    over: "Waiting for the filing pipeline"
+    reason: "Neither change depends on how a ticket is filed: the prompt reads whatever record the run publishes, and the resolver change only narrows what is published."

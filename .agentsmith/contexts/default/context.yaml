@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-5701c: "MASTER READS OPERATOR TURNS (SpecExecutionPromptFactory, ApprovedSpecSetResolver). The coding master's spec prompt renders the approval record's owner words after the memory index; a carried record no resolution keeps is removed from the context. -> .agentsmith/specs/done/2026-11-17-5701c-master-operator-turns.yaml"
     2026-11-17-5701a: "DRAFT TICKET SPECS (GraphTicket.Specs, TicketSpecDraftWrite, TicketSpecRemoval, DesignTurnSpecReport). A draft ticket carries its specs as draft:tickets/<key>/<label>.yaml; the turn attacks them beside the plan review, keyed per spec; offer_filing needs one per ticket; the pane lists them. -> .agentsmith/specs/done/2026-11-17-5701a-draft-ticket-specs.yaml"
     2026-11-16-f3fba: "PREFLIGHT BEFORE SANDBOX (RunConfigPreflight, NeedsSandbox, BootstrapPresenceCheck, RepoReadiness, EndDetail, Run.EndDetailJson). Config, image trust, toolchain and host-read bootstrap refuse before CheckoutSource; the ticket headline names the subject and the setting; readiness-unknown is infrastructure. -> .agentsmith/specs/done/2026-11-16-f3fba-preflight-before-sandbox.yaml"
     2026-11-16-f3fbb: "PRECONDITION STUCK HOLD (RunEndKinds.Preconditions, PreviousAttempt.StoppedOnPrecondition, BoundaryStopGate, TicketBucketRule). A preflight, image or bootstrap stop comments without moving the tracker status, reads Stuck past 24 hours and refuses automatic claims; a person's or series start passes. -> .agentsmith/specs/done/2026-11-16-f3fbb-precondition-stuck-hold.yaml"
