@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f270
+
+decisions:
+  - category: Implementation
+    chose: "commit-message.py reads the command with its own small shell reader (quotes, escapes, comments, $( ) and backticks kept raw, operators incl. newline and ( ), heredoc bodies, here-strings) and walks the simple commands up to the commit"
+    over: "Keeping shlex and stripping heredoc bodies with a regex before splitting"
+    reason: "shlex treats newlines as whitespace and cannot read a heredoc; one apostrophe in a body made 15 of 112 spec commit commands on 2026-11-17 unsplittable, and the fallback gated the main checkout. A regex pre-pass would still leave newlines, ( ), here-strings and a heredoc inside $( ) unread. The reader is about 250 lines and the walk needs its separators anyway."
+  - category: Implementation
+    chose: "Git names the tree: `git -C <walked dir> [--git-dir] [--work-tree] rev-parse --show-toplevel`, with GIT_DIR/GIT_WORK_TREE from the command applied as options and the hook's own copies removed"
+    over: "Deriving the top level from the walked directory in python"
+    reason: "A worktree's .git is a file, --git-dir without --work-tree makes the cwd the top level, and a subdirectory resolves upward; git already answers all three the way the commit will."
+  - category: Implementation
+    chose: "A spec commit whose tree the walk cannot name is blocked, and a command the reader cannot read that carries a marker is blocked"
+    over: "Falling back to the hook's cwd, or passing through as not-gated"
+    reason: "The cwd fallback is the reported bug: it built the main checkout and recorded it as passed. A not-gated pass-through is what agents used to get past a red gate. Both cases are rare (no command in today's 112 hits them) and the fix for the agent is one literal path."
+  - category: Implementation
+    chose: "-F - reads stdin when the command itself supplies it: the commit's heredoc or here-string, or a pipe from `cat <<EOF`, `echo` or a printf without a directive; -F <file> written earlier by the same command is read from that command, never from disk"
+    over: "Keeping every -F - as a loud pass-through"
+    reason: "The text is in the command, so the gate can read exactly what git will. On disk a same-command file is missing or holds the previous attempt's message, which could gate under the wrong spec."
+  - category: Implementation
+    chose: "The walk is linear: `if`/`fi` branches and functions are read in text order; only `cd <dir> || …` is special-cased, skipping the alternative when <dir> exists; a subshell's cd, variables and pushd stack end at its `)`"
+    over: "Evaluating conditions"
+    reason: "Agents chain with ; && || and occasionally ( ); conditional cds were not seen in the transcripts. The adversarial review named them; a wrong tree from one is still recorded under its path, so it is visible in the ledger."
+  - category: Implementation
+    chose: "PWD, OLDPWD, $(pwd) and $(git rev-parse --show-toplevel) are computed from the walk"
+    over: "Reading them from the hook's environment, or treating them as unknown"
+    reason: "The hook process runs in the main checkout, so its PWD sent `git -C \"$PWD\" commit` back there (review finding). Unknown would block a common idiom."
+  - category: Implementation
+    chose: "One resolver call per Bash command that contains git…commit; spec-gate.sh reads its four parts with read, not parameter expansion"
+    over: "Two calls (message, then --work-dir) and the regex prefilter"
+    reason: "One reading of the command decides commit, tree and message, so they cannot disagree. $(…) strips trailing newlines, which shifted the header fields when the message was empty (review finding)."
+  - category: Scope
+    chose: "No `started` ledger line for a gate killed by the 900 s hook timeout"
+    over: "Writing a line at entry and the verdict at exit"
+    reason: "Out of the task's scope (load flakes and lanes belong to 2026-10-09-7f48). The one spec commit of 2026-11-16/17 with no line (8d1cd) was resolved correctly by the old resolver, so its gate never finished; CLAUDE.md now says a missing line can mean that."

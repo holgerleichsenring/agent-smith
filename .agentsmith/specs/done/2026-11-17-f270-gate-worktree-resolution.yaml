@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f270
+goal: "The spec gate reads the commit command the way the shell does, so it checks the worktree git commits in and reads a heredoc message instead of passing it through."
+
+applies_to: "default (repo tooling: .claude/hooks/spec-gate.sh, commit-message.py and their tests; CLAUDE.md Spec Gate section)"
+
+requires: [2026-09-21-9ae2, 2026-10-09-7f48]
+
+facts:
+  - claim: "Of 112 spec commit commands agents wrote between 2026-11-16 and 2026-11-17, 15 could not be split by shlex — a heredoc body with an apostrophe or a quote — and for every one the resolver fell back to the session cwd, the main checkout, while the commit ran in a worktree. Those 15 are the main-checkout ledger lines."
+    evidence: "observed: 2026-11-17, every Bash tool_use naming git commit in ~/.claude/projects transcripts replayed through commit-message.py --work-dir"
+  - claim: "Only a cd in the FIRST segment moves the directory; `pkill …; cd <wt> && git commit` gates the cwd."
+    evidence: ".claude/hooks/commit-message.py:114-124"
+  - claim: "The commit segment is the first segment starting with git that contains the word commit anywhere, and newlines are whitespace to shlex, so `git add x\\ngit commit` is one segment."
+    evidence: ".claude/hooks/commit-message.py:82-100"
+  - claim: "`-F -` is always unresolvable, even when the command carries the heredoc that feeds stdin; `-F <file>` written by `cat > <file> <<EOF` earlier in the same command does not exist yet when the hook runs."
+    evidence: ".claude/hooks/commit-message.py:194-197, 209-215"
+  - claim: "Command detection is a regex anchored on start or `; & |`; `(cd wt && git commit)`, `GIT_DIR=… git commit` and `env … git commit` never reach the resolver, so they leave no ledger line."
+    evidence: ".claude/hooks/spec-gate.sh:99-104"
+
+scope:
+  in: "commit-message.py reads the command with its own shell reader: quotes, escapes, comments, $( ) and backticks kept raw, operators incl. newline and ( ), heredoc bodies, here-strings, `NAME=value` prefixes, env/command/exec/time/nohup/timeout wrappers and `bash -c` scripts. Walking the commands up to `git … commit` it tracks cd/pushd/popd (scoped to a subshell), assignments and exports, GIT_DIR/GIT_WORK_TREE, git's -C/--git-dir/--work-tree, and files a heredoc wrote. The tree is what `git rev-parse --show-toplevel` answers with those applied. `-F -`/`-F /dev/stdin` reads the commit's heredoc or here-string, or a pipe from `cat <<EOF`, `echo` or a directive-free `printf`; `-F <file>` reads a body the same command wrote (cat/tee heredoc, echo, printf). PWD, `$(pwd)` and `$(git rev-parse --show-toplevel)` follow the walk; `cd <dir> || …` skips the alternative when <dir> exists. One `--gate <cwd>` call gives the gate kind, tree, tree problem and message. A spec commit whose tree cannot be resolved is blocked. Every ledger line names the resolved tree and its HEAD."
+  out: "Timing flakes under parallel load and the lane layout (2026-10-09-7f48 owns it). A `started` ledger line for a gate killed by the hook timeout. Messages piped from any other command or built by a substitution other than `$(cat <<EOF)` stay passed through loudly: their text is produced at run time. Branches the walk cannot evaluate (`if [ … ]; then cd …; fi`, shell functions) are applied in text order; `xargs git commit` is not recognised."
+
+steps:
+  - id: reader
+    action: "commit-message.py: shell reader producing simple commands with words, assignments, stdin source, stdout targets and subshell depth."
+  - id: walk
+    action: "commit-message.py: walk to the first git commit, tracking directory, variables, git env and written files; resolve the tree through git; resolve the message incl. heredoc stdin and same-command files; `--gate` output mode."
+  - id: gate
+    action: "spec-gate.sh: drop the regex prefilter for a substring check plus the resolver's verdict; one resolver call; block a spec commit with an unresolvable tree; record the resolved tree everywhere."
+  - id: tests
+    action: "Resolve_/Gate_ cases for every command shape below; replay of today's transcript commands as a measurement, not a test."
+  - id: docs
+    action: "CLAUDE.md Spec Gate section lists the gated and passed-through shapes."
+
+tests:
+  - "Tree: `cd <wt>; git commit`, `cd <wt> && git add && git status && git commit`, newline-separated, `pkill …; cd <wt> && …`, `(cd <wt> && git commit)`, `git -C <wt> commit`, `git --git-dir=<wt>/.git --work-tree=<wt> commit`, `GIT_DIR=… GIT_WORK_TREE=… git commit`, `export GIT_WORK_TREE=…`, `WT=<wt>; cd \"$WT\"`, `bash -c 'cd <wt> && git commit …'`, a heredoc body with an apostrophe before the commit — each resolves to the worktree"
+  - "Tree: `cd \"$UNSET\" && git commit` with a marker is blocked and names the problem"
+  - "Message: `-F - <<'EOF'`, `-F- <<EOF`, `<<-EOF`, `<<< \"…\"`, `-F /dev/stdin`, `cat > msg <<EOF …; git commit -F msg` read the body; `cat msg.txt | git commit -F -` stays unreadable; `cat <<EOF |`, `echo … |`, `echo … > m.txt` and `$'…'` are read; `-S<key>` is not a message"
+  - "Detection: `git add commit.txt`, `echo git commit`, a heredoc body or comment naming `git commit` are not commits; `env X=1 git commit`, `GIT_DIR=x git commit`, `(git commit …)` are"
+  - "Ledger: a not-gated and a passed line from a worktree name the worktree and its HEAD"
+
+done:
+  - "python3 .claude/hooks/test_commit_message.py and test_spec_gate_marker.py green; the transcript replay resolves every one of the 15 to its worktree."
+  - "Full suite and dashboard tests green by hand (the gate that runs is the main checkout's old copy)."
