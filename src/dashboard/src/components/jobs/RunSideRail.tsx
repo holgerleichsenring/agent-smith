@@ -242,7 +242,7 @@ export function RunSideRail({
               <span
                 style={{
                   display: "block", height: "4px", borderRadius: "2px",
-                  background: "var(--line, #e7e5e4)", overflow: "hidden",
+                  background: "var(--line)", overflow: "hidden",
                 }}
               >
                 <span

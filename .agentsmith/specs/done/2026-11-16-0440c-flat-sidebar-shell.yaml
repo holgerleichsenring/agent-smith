@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-0440c
+goal: "The dashboard shell is a flat, collapsible sidebar and a top bar with search and a bell; settings, access, system and identity live behind the profile menu."
+
+applies_to: "dashboard (layout.tsx, components/shell, app/config and app/system layouts)"
+
+requires: [2026-11-16-0440a, 2026-11-16-0440b]
+
+facts:
+  - claim: "AppRail lists run buckets, ticket buckets, Work it out, five system pages and Insight; on /config it switches to the catalog, settings and installation entries."
+    evidence: "src/dashboard/src/components/shell/AppRail.tsx:130-262"
+  - claim: "AppHeader shows the place name, a gear into /config and the signed-in account."
+    evidence: "src/dashboard/src/components/shell/AppHeader.tsx:16-39"
+  - claim: "GET /api/projects lists readable projects, but no list page filters by project."
+    evidence: "src/dashboard/src/lib/readableProjectsApi.ts:6"
+
+scope:
+  in: "Sidebar: New work, Your move, Tickets, Runs, Pull requests, Insight (Overview, Delivery), Recent; collapse to icons; profile menu with Settings, Access, Installation, System, Your identity, sign in/out. Top bar: search field with ⌘K over the places table, bell for what needs you. Config and system pages carry their own section list."
+  out: "Projects group and Cost entry (no destination exists); a command palette; a notification feed; ticket and run detail pages."
+
+steps:
+  - id: sidebar
+    action: "AppSidebar replaces AppRail, AppRailItem and WorkRailSection; counts come from the ticket list, the hub overview and the open pull requests."
+  - id: topbar
+    action: "AppTopBar replaces AppHeader: a search field whose suggestions are the places table, ⌘K focuses it; a bell linking to Needs you with a dot while anything waits."
+  - id: profile
+    action: "ProfileMenu at the sidebar foot holds the account (from HeaderIdentity), settings and system links and the hub connection dot."
+  - id: sections
+    action: "app/config/layout.tsx and app/system/layout.tsx render ConfigSectionNav and SystemSectionNav (the old rail sections) beside the page."
+  - id: recent
+    action: "useRecentPlaces keeps the last five ticket and run pages this browser opened; the sidebar lists them under Recent."
+  - id: layout
+    action: "layout.tsx puts the sidebar beside a column of top bar and scrolling main."
+
+decisions:
+  - "Your move links to the tickets Needs you pill — alternatives: a cross-entity list (needs backend data that does not exist)."
+  - "Search suggests places only — alternatives: ticket search over trackers (Work it out's search, slow and permission-bound); full palette is a follow-up."
+  - "Projects group omitted — alternatives: project links with no project-scoped page behind them."
+
+tests:
+  - "AppSidebar.test.tsx: every destination, counts, active item, collapse, Recent."
+  - "AppTopBar.test.tsx: search jumps to a place, ⌘K focuses, bell dot."
+  - "ProfileMenu.test.tsx: menu links, sign in/out, no identity without an authority."
+  - "places.test.tsx: every sidebar, profile and section-nav href resolves to a place."
+
+done:
+  - "Every former rail and header destination is reachable from the sidebar, the profile menu or a section list."
+  - "The sidebar collapses to icons and remembers it."

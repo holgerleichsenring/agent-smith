@@ -20,7 +20,7 @@ function tilesOf(c: TicketCounts): Tile[] {
   return [
     { label: "Needs you", value: c.needsYou, small: oldest ? `oldest ${oldest}` : null, hot: c.needsYou > 0, testId: "ticket-metric-needs-you" },
     { label: "Working", value: c.working, small: `${c.running} running · ${c.queued} queued`, testId: "ticket-metric-working" },
-    { label: "Waiting on review", value: c.waitingOnReview, small: `${c.openPullRequests} PRs open`, testId: "ticket-metric-review" },
+    { label: "In review", value: c.waitingOnReview, small: `${c.openPullRequests} PRs open`, testId: "ticket-metric-review" },
     { label: "Stuck", value: c.stuck, small: "no one acted since", testId: "ticket-metric-stuck" },
     {
       label: "Done this month",

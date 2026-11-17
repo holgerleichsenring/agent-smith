@@ -1,18 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { placeForPath, PLACES } from "../places";
-import { AppRail } from "@/components/shell/AppRail";
+import { AppSidebar } from "@/components/shell/AppSidebar";
+import { ConfigSectionNav } from "@/components/config/ConfigSectionNav";
+import { SystemSectionNav } from "@/components/system/SystemSectionNav";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 
-// 2026-08-27-1ed6: the header names the place from one table, and the rail is what walks
-// the operator to those places. A rail destination the table cannot name would render a
-// header with a blank left half, so the two are asserted against each other rather than
-// kept in step by hand.
+// 2026-08-27-1ed6: one table names every place. 2026-11-16-0440c: the top bar's search goes to a
+// place by that name, so every destination the shell links — the sidebar, the profile menu and
+// the configuration and system section lists — must be one the table can name.
 
 const usePathname = vi.fn(() => "/");
-vi.mock("next/navigation", () => ({ usePathname: () => usePathname() }));
+vi.mock("next/navigation", () => ({ usePathname: () => usePathname(), useRouter: () => ({ push: vi.fn() }) }));
 
 const HUB = {
   client: {
@@ -49,17 +50,20 @@ vi.mock("@/lib/configApi", () => {
   };
 });
 
-function railHrefs(pathname: string): string[] {
-  usePathname.mockReturnValue(pathname);
+/** Every href the shell links: the sidebar with its profile menu open, and both section lists. */
+function shellHrefs(): string[] {
+  usePathname.mockReturnValue("/");
   const view = render(
     <EventStoreProvider store={silentEventStore()}>
       <ConfigCatalogProvider>
-        <AppRail />
+        <AppSidebar />
+        <ConfigSectionNav />
+        <SystemSectionNav />
       </ConfigCatalogProvider>
     </EventStoreProvider>,
   );
-  const links = [...screen.getByTestId("app-rail").querySelectorAll("a[href]")];
-  const hrefs = links.map((link) => link.getAttribute("href") ?? "");
+  fireEvent.click(screen.getByTestId("profile-button"));
+  const hrefs = [...document.querySelectorAll("a[href]")].map((link) => link.getAttribute("href") ?? "");
   view.unmount();
   return hrefs;
 }
@@ -67,67 +71,46 @@ function railHrefs(pathname: string): string[] {
 beforeEach(() => usePathname.mockReturnValue("/"));
 
 describe("Places", () => {
-  it("Places_EveryRailHref_ResolvesToAPlace", () => {
-    // Both rail modes — the runs rail and the configuration rail are one component
-    // showing two sets of destinations.
-    const hrefs = [...railHrefs("/"), ...railHrefs("/config")];
-    expect(hrefs.length).toBeGreaterThan(20);
+  it("Places_EveryShellHref_ResolvesToAPlace", () => {
+    const hrefs = shellHrefs();
+    expect(hrefs.length).toBeGreaterThan(30);
 
     const unnamed = hrefs.filter((href) => placeForPath(href) === null);
-    expect(unnamed, `rail destinations the places table cannot name: ${unnamed.join(", ")}`)
-      .toEqual([]);
+    expect(unnamed, `shell destinations the places table cannot name: ${unnamed.join(", ")}`).toEqual([]);
   });
 
-  // 2026-10-25-0099c: the Delivery page is a place of its own, linked from the rail's Insight section.
+  it("Places_EveryFormerRailDestination_IsStillLinked", () => {
+    const hrefs = shellHrefs();
+    for (const href of [
+      "/", "/tickets", "/tickets?bucket=needs-you", "/pull-requests", "/spec-dialog", "/overview", "/delivery",
+      "/system/tracker", "/system/webhooks", "/system/chat", "/system/config", "/system/catalog",
+      "/config", "/config/projects", "/config/access", "/config/installation", "/config/connection-check",
+      "/config/changes", "/config/settings/orchestrator", "/system",
+    ]) {
+      expect(hrefs, href).toContain(href);
+    }
+  });
+
   it("Places_Delivery_IsDelivery", () => {
-    expect(railHrefs("/")).toContain("/delivery");
     expect(placeForPath("/delivery")).toBe("Delivery");
   });
 
-  // 2026-10-13-9a59p: the Work section links the ticket list and its six buckets; a bucket is a
-  // query of one place, and a ticket's own page is matched like a run's.
+  // 2026-10-13-9a59p: a bucket is a query of one place, and a ticket's own page is matched like a run's.
   it("Places_TicketList_AndItsBuckets_AreOnePlace_AndATicketIsAPlace", () => {
-    const hrefs = railHrefs("/");
     for (const bucket of ["needs-you", "working", "waiting-on-review", "stuck", "ended", "done"]) {
-      expect(hrefs).toContain(`/tickets?bucket=${bucket}`);
       expect(placeForPath(`/tickets?bucket=${bucket}`)).toBe("Tickets");
     }
-    expect(hrefs).toContain("/tickets");
     expect(placeForPath("/tickets")).toBe("Tickets");
     expect(placeForPath("/tickets/shop/GH-101")).toBe("Ticket");
     expect(placeForPath("/tickets/shop")).toBeNull();
-    expect(railHrefs("/config")).not.toContain("/tickets");
   });
 
   it("Places_WorkItOut_IsATopLevelDestination", () => {
-    // 2026-09-15-cb3e: designing the work is a peer of watching it, not a diagnostic
-    // under /system — and the table is closed, so the route lives in it or nowhere.
     expect(placeForPath("/spec-dialog")).toBe("Work it out");
-    expect(railHrefs("/")).toContain("/spec-dialog");
-  });
-
-  // 2026-09-17-c7aed: the parity test above compares hrefs, so a rail still reading the old
-  // name passed it. This one reads the link's own text — and the name appears once, on the
-  // entry, not again as the section label above it.
-  it("Places_WorkItOut_TheRailRendersTheSameLabel", () => {
-    usePathname.mockReturnValue("/");
-    const view = render(
-      <EventStoreProvider store={silentEventStore()}>
-        <ConfigCatalogProvider>
-          <AppRail />
-        </ConfigCatalogProvider>
-      </EventStoreProvider>,
-    );
-    const rail = screen.getByTestId("app-rail");
-    const link = rail.querySelector('a[href="/spec-dialog"]');
-
-    expect(link).toHaveTextContent(placeForPath("/spec-dialog")!);
-    expect(rail.textContent?.split("Work it out")).toHaveLength(2);
-    view.unmount();
   });
 
   it("Places_TheHomePath_IsOnePlaceNotFiveBuckets", () => {
-    // The five monitor entries differ only by a query the root layout may not read, so
+    // The five run buckets differ only by a query the root layout may not read, so
     // they are one place — and the table holds one row for them, not five.
     for (const bucket of ["all", "needs-you", "running", "queued", "finished"]) {
       const href = bucket === "all" ? "/" : `/?bucket=${bucket}`;
