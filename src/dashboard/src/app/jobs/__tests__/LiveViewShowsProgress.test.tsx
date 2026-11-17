@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -95,11 +95,13 @@ describe("The live view", () => {
   it("LiveView_ShowsProgress_AndNoStatistics", async () => {
     renderLiveView();
 
-    // What is happening: how far the run has got, and what it is on right now.
-    const progress = await screen.findByTestId("side-rail-progress");
-    expect(progress).toHaveTextContent("2");
-    expect(progress).toHaveTextContent("of 2 steps");
-    expect(screen.getByTestId("run-viewer-root")).toHaveTextContent("on Implement");
+    // 2026-11-16-6877b: what is happening, in one sentence, and where in the seven sections the run is.
+    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Working: Implement. Nothing for you to do.");
+    await waitFor(() => expect(screen.getByTestId("run-section-build")).toHaveAttribute("data-state", "running"));
+    expect(screen.getByTestId("run-section-ready")).toHaveAttribute("data-state", "done");
+    expect(screen.getByTestId("run-section-deliver")).toHaveAttribute("data-state", "pending");
+    expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();
+    expect(screen.getByTestId("run-open-trace")).toHaveTextContent("Show all 2 steps and the raw trace");
 
     // None of the story view's statistics are on this screen.
     expect(screen.queryByTestId("call-size-plot")).not.toBeInTheDocument();
@@ -122,8 +124,11 @@ describe("The live view", () => {
   it("LiveView_OffersTheStoryView_AsADeliberateStep", async () => {
     renderLiveView();
 
+    expect(await screen.findByTestId("run-open-why")).toHaveAttribute("href", "/jobs/r1/why");
+    fireEvent.click(screen.getByTestId("run-show-graph"));
     const link = await screen.findByTestId("side-rail-why");
     expect(link).toHaveTextContent("Why this run did that");
     expect(link).toHaveAttribute("href", "/jobs/r1/why");
+    expect(within(screen.getByTestId("run-viewer-root")).getByTestId("side-rail-progress")).toHaveTextContent("of 2 steps");
   });
 });

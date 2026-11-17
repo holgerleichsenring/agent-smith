@@ -2,35 +2,28 @@
 
 import Link from "next/link";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
-import { useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
-import { SeriesRunway } from "./SeriesRunway";
+import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
+import "@/styles/ticket-thread.css";
 import { isNeverRun } from "../ticketFormat";
+import { TicketDetails } from "./TicketDetails";
 import { TicketHeader } from "./TicketHeader";
 import { TicketNeverRun } from "./TicketNeverRun";
-import { TicketStateBlock } from "./TicketStateBlock";
-import { TicketTabs } from "./TicketTabs";
+import { TicketThread } from "./TicketThread";
 import { TicketWaitsFor } from "./TicketWaitsFor";
 import { SpecDerivations } from "./SpecDerivations";
-import { TAB_PARAM, ticketTab } from "./ticketTabTable";
-import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
-// 2026-10-13-9a59q: the ticket detail — header, tab bar, the selected tab's pane — under
-// .mock-shell.mock-tickets like the list. ?tab= is read here, under the route's Suspense boundary.
-// 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no runway and no tabs:
+// 2026-10-13-9a59q: the ticket detail under .mock-shell.mock-tickets like the list.
+// 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no thread:
 // its header, what it waits for, what waits for it and the filed line (ticket-graph.html, never-run-page).
-// 2026-10-16-86e6c: a ticket with a run gets the state block under its header, on every tab.
-// 2026-10-26-bdd0f: and its spec derivations, apart from the attempts, in both layouts.
+// 2026-11-16-6877a: a ticket with a run is its conversation — header, what it waits for, the thread with the
+// Details fold at its end, and the Your move box with the composer docked at the bottom.
 
 export function TicketPage() {
   const detail = useTicketDetail();
-  const budget = useTicketSeries().data?.budget; // 2026-10-13-8762w: the series strip above the tabs
-  const address = useTicketTabGo();
-  const tab = ticketTab(address.param(TAB_PARAM));
-  const select = (id: string) => address.go(id, { [CAUSE_PARAM]: null });
 
   return (
     <div className="mock-shell mock-tickets" data-testid="ticket-page">
-      <main className="main">
+      <main className="main tk-page">
         {detail.data && detail.data.attempts.length === 0 && isNeverRun(detail.data.summary) ? (
           <>
             <TicketHeader detail={detail.data} />
@@ -41,14 +34,8 @@ export function TicketPage() {
         ) : detail.data ? (
           <>
             <TicketHeader detail={detail.data} />
-            <TicketStateBlock detail={detail.data} />
-            <SeriesRunway budget={budget} attempts={detail.data.attempts} onDefaults={() => select("defaults")} />
             <TicketWaitsFor project={detail.project} />
-            <SpecDerivations />
-            <TicketTabs detail={detail.data} selected={tab} onSelect={select} />
-            <section className="tabpane" id={`tab-${tab.id}`} role="tabpanel" aria-labelledby={`t-${tab.id}`}>
-              <tab.Pane />
-            </section>
+            <TicketThread after={<TicketDetails detail={detail.data} />} />
           </>
         ) : (
           <TicketUnread notFound={detail.notFound === true} failed={detail.failed || detail.refusal !== null} />

@@ -26,6 +26,12 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/tickets/shop/101",
 }));
 
+// 2026-11-16-6877a: the composer is on every ticket page now; its conversation list reads nothing here.
+vi.mock("@/lib/specDialogApi", async (original) => ({
+  ...(await original<typeof import("@/lib/specDialogApi")>()),
+  fetchSpecDialogConversations: async () => ({ conversations: [], total: 0 }),
+}));
+
 const { TicketPageStore } = await import("@/lib/tickets/TicketPageStore");
 const { TicketPage } = await import("../TicketPage");
 
@@ -67,7 +73,7 @@ const detailText = () => screen.getByTestId("node-detail").textContent ?? "";
 beforeEach(() => {
   vi.useFakeTimers();
   stream.events = [];
-  nav.search = "";
+  nav.search = "tab=summary"; // 2026-11-16-6877a: the Summary pane lives in the Details fold
   for (const fn of Object.values(api)) fn.mockClear();
   world.series = {};
   world.passes = {};
@@ -92,16 +98,20 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("cell-this-attempt")).toHaveTextContent("portal-api, portal-worker · run r-1");
   });
 
-  it("Header_LinksTheTracker_AndNamesTheStatusAtTheNewestAttempt", async () => {
+  it("Header_MetaLineNamesProjectTrackerStatusAndBranch_TheTrackerLinkIsInTheMoreMenu", async () => {
     world.detail = detail([attempt()]);
     world.detail.summary = { ...world.detail.summary, webUrl: "https://example.test/101", trackerState: "Active", platform: "github" };
     await open();
     const head = screen.getByTestId("ticket-head");
-    expect(within(head).getByRole("link")).toHaveAttribute("href", "https://example.test/101");
-    expect(head).toHaveTextContent("tracker status Active at attempt 1");
+    expect(head.querySelector(".tsub")).toHaveTextContent("shop·GitHub GH-101·GitHub status Active at attempt 1");
     expect(head).toHaveTextContent("branch agent-smith/GH-101");
+    expect(screen.getByTestId("ticket-more-menu")).not.toBeVisible();
+    fireEvent.click(screen.getByTestId("ticket-more"));
+    expect(screen.getByTestId("ticket-more-menu")).toBeVisible();
+    expect(screen.getByTestId("ticket-open-tracker")).toHaveAttribute("href", "https://example.test/101");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByTestId("ticket-more-menu")).not.toBeVisible();
   });
-
   it("Header_FailedAttemptWithMergedPullRequests_IsOk_AndNamesBothFates", async () => {
     world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "done", landing: "merged",
@@ -129,42 +139,49 @@ describe("Ticket page", () => {
     expect(screen.queryByText("Other options")).toBeNull();
   });
 
-  it("TicketStateBlock_Why_HoldsTheVerbatimSummaryAndTheTraceLink", async () => {
+  it("YourMove_Why_HoldsTheVerbatimSummaryRunAndTraceLink_TheActFocusesTheComposer", async () => {
     const cause = "Sandbox pod agentsmith-sandbox-1 could not start: ";
     world.detail = detail([attempt({ status: "failed", summary: cause })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
     expect(screen.getByTestId("ticket-state-cause").textContent).toBe(cause);
+    expect(screen.getByTestId("ticket-state-run")).toHaveAttribute("href", "/jobs/r-1");
     expect(screen.getByTestId("ticket-state-trace")).toHaveAttribute("href", "/jobs/r-1/why");
-    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Continue in conversation");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Stopped");
+    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Reply below");
   });
-
-  it("TicketPage_EveryTab_DrawsTheStateBlockUnderTheHeader", async () => {
+  it("TicketPage_EveryDetailsTab_KeepsTheThreadAndTheYourMoveBoxAboveTheComposer", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
-    for (const tab of ["summary", "specs", "acceptance", "attempts", "cost"]) {
+    for (const tab of ["summary", "specs", "acceptance", "attempts", "cost", "defaults"]) {
       nav.search = `tab=${tab}`;
       await open();
-      expect(screen.getByTestId("ticket-head").nextElementSibling).toBe(screen.getByTestId("ticket-state"));
+      expect(screen.getByRole("log", { name: "Conversation" })).toBeInTheDocument();
+      expect(screen.getByTestId(`ticket-tab-${tab}`)).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("conv-dock").firstElementChild).toBe(screen.getByTestId("ticket-state"));
       cleanup();
     }
   });
 
-  it("TicketStateBlock_Chips_LinkEachRunAndMarkTheHead", async () => {
-    world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted" }),
+  it("TicketPage_NoTab_TheDetailsFoldIsClosed_AndItsToggleOpensTheSummary", async () => {
+    nav.search = "";
+    await open();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByTestId("ticket-tab-conversation")).toBeNull();
+    fireEvent.click(screen.getByTestId("ticket-details-toggle"));
+    expect(nav.replace).toHaveBeenCalledWith(expect.stringContaining("tab=summary"), { scroll: false });
+  });
+  it("Thread_EveryAttemptReports_WithItsRunLine", async () => {
+    world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted", summary: "Image not trusted" }),
       attempt({ number: 2, runId: "r-2", status: "cancelled", endKind: "superseded" }),
-      attempt({ number: 3, runId: "r-3", status: "failed" })]);
+      attempt({ number: 3, runId: "r-3", status: "failed", summary: "Pod did not start" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
-    expect(screen.queryByTestId("ticket-state-earlier")).toBeNull();
-    const first = screen.getByTestId("ticket-state-chip-1");
-    expect(first).toHaveAttribute("href", "/jobs/r-1");
-    expect(first).toHaveAttribute("title", "A1 · failed · image not trusted");
-    expect(screen.getByTestId("ticket-state-chip-2")).toHaveClass("q");
-    expect(screen.getByTestId("ticket-state-chip-3")).toHaveAttribute("aria-current", "true");
-    expect(screen.getAllByTestId("ticket-state-run")).toHaveLength(1);
+    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Image not trusted");
+    expect(screen.getByTestId("thread-report-2")).toHaveTextContent("Run 2 was cancelled.");
+    expect(screen.getByTestId("thread-run-3")).toHaveAttribute("href", "/jobs/r-3");
+    expect(screen.getByTestId("thread-run-3")).toHaveTextContent(/^Run 3 · .* · \$\d+\.\d\d · see what it did$/);
   });
-
   it("TicketStateBlock_PullRequests_AreRowsWithShortRepoNumberStateAndLink", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed", pullRequests: [
@@ -172,11 +189,78 @@ describe("Ticket page", () => {
       pr({ number: "13", url: "https://dev.example/org/_git/Sample.App.Client/pullrequest/13", repo: "Sample.App.Client", state: "merged", decision: "approved" })] };
     await open();
     const rows = within(screen.getByTestId("ticket-state-prs")).getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("Server #12open");
-    expect(rows[1]).toHaveTextContent("Client #13merged · approved");
+    expect(rows[0]).toHaveTextContent("Server #12 open");
+    expect(rows[1]).toHaveTextContent("Client #13 merged · approved");
     expect(within(rows[0]).getByRole("link")).toHaveAttribute("href", "https://dev.example/org/_git/Sample.App.Server/pullrequest/12");
     expect(within(rows[0]).getByRole("link")).toHaveAttribute("title", "Sample.App.Server");
     expect(screen.getAllByTestId("ticket-state-act")).toHaveLength(1);
+  });
+
+  // 2026-11-16-6877a: every secondary act sits behind "···".
+  it("MoreMenu_HoldsDoneByHandCloseAndDeriveSpecsWithWhereTheSpecsGo", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    const menu = screen.getByTestId("ticket-more-menu");
+    expect(screen.getByTestId("ticket-more")).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByTestId("ticket-more"));
+    expect(screen.getByTestId("ticket-more")).toHaveAttribute("aria-expanded", "true");
+    expect(within(menu).getByTestId("done-by-hand-101")).toBeVisible();
+    expect(within(menu).getByTestId("ticket-close-101")).toBeVisible();
+    expect(within(menu).getByTestId("derive-specs-mode")).toHaveDisplayValue("Store on the branch");
+    expect(within(menu).getByTestId("derive-specs-start")).toBeVisible();
+    fireEvent.click(screen.getByTestId("ticket-more"));
+    expect(menu).not.toBeVisible();
+  });
+
+  it("MoreMenu_AClosedTicket_OffersReopen_AndNoDeriveSpecs", async () => {
+    world.detail = detail([attempt()]);
+    world.detail.summary = { ...world.detail.summary, bucket: "closed", kind: "by-hand",
+      closed: { by: "h.operator", at: "2026-09-04T15:00:00Z", note: null, closedPullRequests: [], trackerClosed: false } };
+    await open();
+    const menu = screen.getByTestId("ticket-more-menu");
+    expect(within(menu).queryByTestId("derive-specs")).toBeNull();
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "quiet");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Closed");
+  });
+
+  it("YourMove_AQuestionWaits_IsAmber_AndItsActBringsTheQuestionCardIntoView", async () => {
+    const question = { questionId: "q", type: "FreeText", text: "Keep the outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
+    world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "question", pendingQuestion: { runId: "r-1", question } };
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    await open();
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "amber");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: answer the question");
+    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Run 1 is waiting for your answer.");
+    scrolled.mockClear();
+    fireEvent.click(screen.getByTestId("ticket-state-act"));
+    expect(screen.getByTestId("ticket-state-act")).toHaveClass("primary");
+    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-question").parentElement);
+  });
+
+  it("YourMove_InReviewWithOneOpenPullRequest_ItsBrightActOpensThePullRequest", async () => {
+    world.detail = detail([attempt()]);
+    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "open" })] };
+    await open();
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "person");
+    expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "https://example.test/pr/809");
+    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Review the pull request");
+  });
+
+  it("YourMove_Done_IsGreenWithNoAct_Running_IsQuiet", async () => {
+    world.detail = detail([attempt()]);
+    world.detail.summary = { ...world.detail.summary, bucket: "done", landing: "merged", pullRequests: [pr({ state: "merged" })] };
+    await open();
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "ok");
+    expect(screen.queryByTestId("ticket-state-act")).toBeNull();
+    cleanup();
+    world.detail = detail([attempt({ status: "running", finishedAt: null })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "working" };
+    await open();
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "quiet");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Working. Nothing for you to do.");
   });
 
   it("TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue", async () => {
@@ -421,7 +505,6 @@ describe("Ticket page", () => {
     world.series.default = defaultSeries({ next: "start" });
     const hub = await open();
     const strip = screen.getByTestId("series-runway");
-    expect(strip.previousElementSibling).toBe(screen.getByTestId("ticket-state"));
     expect(strip.nextElementSibling).toHaveAttribute("role", "tablist");
     expect(screen.getByTestId("series-next")).toHaveTextContent("starts by itself");
 

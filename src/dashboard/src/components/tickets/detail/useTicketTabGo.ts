@@ -14,8 +14,8 @@ export const CAUSE_PARAM = "causeOf";
 
 export interface TicketAddress {
   param: (name: string) => string | null;
-  /** Selects a tab; `extra` sets (a string) or clears (null) further parameters. */
-  go: (tab: string, extra?: Record<string, string | null>) => void;
+  /** Selects a tab, or clears it (null); `extra` sets (a string) or clears (null) further parameters. */
+  go: (tab: string | null, extra?: Record<string, string | null>) => void;
 }
 
 export function useTicketTabGo(): TicketAddress {
@@ -23,9 +23,10 @@ export function useTicketTabGo(): TicketAddress {
   const router = useRouter();
   const pathname = usePathname() ?? TICKETS_PATH;
   const search = params?.toString() ?? "";
-  const go = useCallback((tab: string, extra: Record<string, string | null> = {}) => {
+  const go = useCallback((tab: string | null, extra: Record<string, string | null> = {}) => {
     const next = new URLSearchParams(search);
-    next.set(TAB_PARAM, tab);
+    if (tab === null) next.delete(TAB_PARAM);
+    else next.set(TAB_PARAM, tab);
     for (const [name, value] of Object.entries(extra)) {
       if (value === null) next.delete(name);
       else next.set(name, value);

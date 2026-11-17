@@ -266,6 +266,7 @@ describe("Mock parity", () => {
       defaults: () => Promise.resolve(defaults()),
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
+    search.current = "tab=summary"; // 2026-11-16-6877a: the Summary pane is in the Details fold
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
         <TicketPage />
@@ -274,20 +275,28 @@ describe("Mock parity", () => {
     const pageRoot = screen.getByTestId("ticket-page");
     expect(pageRoot.className).toContain("mock-shell");
     expect(pageRoot.className).toContain("mock-tickets");
-    await screen.findByTestId("attempt-flow");
+    await screen.findByTestId("attempt-flow", {}, { timeout: 5000 }); // the whole thread renders first; slow under a loaded gate
     for (const cls of [".t-head", ".ticon", ".tsub", ".tabs", ".tab", ".sum", ".sg", ".banner", ".graph", ".g-top", ".gt", ".g-sub", ".lm", ".canvas", ".edge", ".node", ".g-legend", ".sdet", ".sd-h", ".sd-b"]) {
       expect(pageRoot.querySelector(cls), `ticket detail missing ${cls}`).not.toBeNull();
     }
     ticketPage.unmount();
+    search.current = "";
 
     // ---- run viewer (run-viewer.html) ----
     const viewer = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
+    // 2026-11-16-6877b: the default view is the sectioned log; the story view is behind "Show as graph".
+    const logRoot = await screen.findByTestId("run-log");
+    expect(logRoot.closest(".mock-viewer")).not.toBeNull();
+    for (const cls of [".rl-head", ".rl-crumb", ".rl-meta", ".rl-status", ".rl-strip", ".rl-node", ".rl-sections", ".rl-sec", ".rl-sec-head", ".rl-more"]) {
+      expect(logRoot.querySelector(cls), `run log missing ${cls}`).not.toBeNull();
+    }
+    fireEvent.click(screen.getByTestId("run-show-graph"));
     const viewerRoot = await screen.findByTestId("run-viewer-root");
     expect(viewerRoot.closest(".mock-shell")).not.toBeNull();
     expect(viewerRoot.closest(".mock-viewer")).not.toBeNull();
     expect(viewerRoot.className).toContain("wrap");
     expect(viewerRoot.className).toContain("is-run");
-    for (const cls of [".back", ".head-row", ".ident", ".spill", ".storybar", ".beat", ".marker", ".section-head", ".stage", ".grid", ".sidebox", ".trace-btn", ".metric"]) {
+    for (const cls of [".storybar", ".beat", ".marker", ".section-head", ".stage", ".grid", ".sidebox", ".trace-btn", ".metric"]) {
       expect(viewerRoot.querySelector(cls), `run viewer missing ${cls}`).not.toBeNull();
     }
     viewer.unmount();
@@ -336,7 +345,8 @@ describe("Mock parity", () => {
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string[]]> = [
-      ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
+      // 2026-11-16-6877a: the conversation is the page (no tab): its thread, the Your move box and the composer.
+      ["", [".thread", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".tk-move", ".composer", ".cp-actions", ".cp-input"]],
       ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
         // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
         ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],
@@ -350,10 +360,10 @@ describe("Mock parity", () => {
         </TicketPageStore>,
       );
       const root = screen.getByTestId("ticket-page");
-      await screen.findByTestId(`ticket-tab-${tab}`);
-      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb [data-testid='tracker-text']" : "h2" });
+      if (tab) await screen.findByTestId(`ticket-tab-${tab}`);
+      await screen.findByText(tab === "" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "" ? ".mb [data-testid='tracker-text']" : "h2" });
       for (const cls of classes) {
-        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+        expect(root.querySelector(cls), `ticket ${tab || "thread"} missing ${cls}`).not.toBeNull();
       }
       page.unmount();
     }
@@ -561,7 +571,7 @@ describe("Mock parity", () => {
       systemActivity: null,
     };
     render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
-    await screen.findByTestId("run-viewer-root");
+    await screen.findByTestId("run-log");
 
     // The mock's right drawer exists in mock chrome and hosts the EXISTING
     // NavRail + DetailPane master/detail — nothing lost, mock look gained.
@@ -571,17 +581,21 @@ describe("Mock parity", () => {
     expect(within(drawer).getByTestId("nav-rail")).toBeInTheDocument();
     expect(within(drawer).getByTestId("trace-master-detail")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("side-rail-pipeline-jump"));
+    fireEvent.click(screen.getByTestId("run-open-trace"));
     expect(screen.getByTestId("trace-drawer").className).toContain("open");
     fireEvent.click(screen.getByTestId("trace-drawer-close"));
     expect(screen.getByTestId("trace-drawer").className).not.toContain("open");
+    fireEvent.click(screen.getByTestId("run-show-graph"));
+    fireEvent.click(await screen.findByTestId("side-rail-pipeline-jump"));
+    expect(screen.getByTestId("trace-drawer").className).toContain("open");
   });
 
   it("DialogueDrawer_ExistsOnlyForARealPendingQuestion", async () => {
     // Running run, no question → no dialogue affordance anywhere.
     overviewRef.current = { active: [snap()], recent: [], systemActivity: null };
     const noQ = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
-    await screen.findByTestId("run-viewer-root");
+    await screen.findByTestId("run-log");
+    expect(screen.queryByTestId("run-question")).not.toBeInTheDocument();
     expect(screen.queryByTestId("dialogue-drawer")).not.toBeInTheDocument();
     expect(screen.queryByTestId("side-rail-dialogue")).not.toBeInTheDocument();
     noQ.unmount();
@@ -608,6 +622,9 @@ describe("Mock parity", () => {
       systemActivity: null,
     };
     render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
+    // 2026-11-16-6877b: the question card is in the status box; the graph view keeps its banner and drawer.
+    expect(within(await screen.findByTestId("run-question")).getByTestId("pending-question-card")).toHaveTextContent("Keep the outbox?");
+    fireEvent.click(screen.getByTestId("run-show-graph"));
     const banner = await screen.findByTestId("run-banner");
     expect(banner.className).toContain("wait");
     const drawer = screen.getByTestId("dialogue-drawer");

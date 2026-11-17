@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-6877b
+goal: "The run page reads as a status sentence, a progress strip and a sectioned text log, all collapsed; the story graph and the raw trace stay one click away."
+
+applies_to: "dashboard (app/jobs/[id] page, RunPageHead, RunStatusBox, RunProgressStrip, RunSectionLog and its pure runSections mapping, run-log.css)"
+
+requires: [2026-11-16-6877a]
+
+facts:
+  - claim: "The run page draws RunDetailHeader, then RunStory (storybar, stage, side rail) with a banner, plus a dialogue and a trace drawer."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:148-202"
+  - claim: "A step row carries stepName, displayName, commandName, stepClass, hasFinding, planned, status, durationSeconds and resultMessage, but no start time."
+    evidence: "src/dashboard/src/lib/runStepsApi.ts:10-41"
+  - claim: "StepStarted events carry a timestamp and the step index."
+    evidence: "src/dashboard/src/types/hub-events.ts:57-61, src/dashboard/src/types/hub-events.ts:113-124"
+  - claim: "The server maps commands to five beats; the client has no such map."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/CommandBeats.Map.cs:12-80"
+  - claim: "VerifySummary lists the criteria with CriterionJudgementControl."
+    evidence: "src/dashboard/src/components/jobs/story/RunStory.tsx:166-174"
+
+scope:
+  in: "Header (breadcrumb to the ticket with Run n of m, title, meta line, cancel, delete, PR); status box (one sentence, or the PendingQuestionCard while waiting); progress strip; seven sections from commandName; Checked against the spec hosts VerifySummary; links to all steps and the raw trace, to Why, and Show as graph (RunStory)."
+  out: "New backend data; removing the trace drawer, /why, the sub-agent tree or the sandbox views."
+
+steps:
+  - id: map
+    action: "runSections.ts groups step rows into Got ready, Derived the spec, Built it, Verified the build, Reviewed and fixed, Checked against the spec, Delivered by commandName; a build or verify step after a review in the same spec counts as a fix; an unknown command joins the section before it."
+  - id: views
+    action: "RunPageHead, RunStatusBox, RunProgressStrip and RunSectionLog; sections start collapsed, a strip node opens its section."
+  - id: page
+    action: "The page draws the new view; Show as graph reveals RunStory; Show all steps and the raw trace opens the trace drawer."
+  - id: retire
+    action: "RunDetailHeader goes; statusSpill moves to runStatus.ts."
+
+decisions:
+  - "Sections from commandName on the client — alternatives: serve sections from the server (new backend data, out of scope)."
+  - "A log line's time is its StepStarted timestamp when the event is held, else none — alternatives: times invented from durations."
+
+tests:
+  - "runSections.test.ts: mapping, fix pass after review, unknown command, section state."
+  - "Run page suites: collapsed by default, a strip node opens its section, a waiting run shows the question card, the graph behind Show as graph."
+
+done:
+  - "The run page's default view is header, status sentence, strip and collapsed sections."
+  - "Trace drawer, Why, cancel, delete and PR stay reachable."
+  - "pnpm test, build and gen:hub-events are green."
