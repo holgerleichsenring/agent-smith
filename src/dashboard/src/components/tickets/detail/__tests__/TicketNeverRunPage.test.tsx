@@ -79,12 +79,14 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("TicketPage, never run", () => {
-  // 2026-11-17-dd05c: a filed ticket's specs are on its branch before any run — shown, and editable, on its page.
-  it("TicketPage_AFiledTicketWithNoRun_ShowsItsBranchSpecsWithEdit", async () => {
+  // 2026-11-17-dd05c: a filed ticket's specs are on its branch before any run — shown on its page. 2026-11-17-4860a: read-only,
+  // and with no conversation on the page there is nothing to discuss them in.
+  it("TicketPage_AFiledTicketWithNoRun_ShowsItsBranchSpecsReadOnly", async () => {
     world.series = series("", [spec({ specId: "s1", state: "pending", executedBy: null, executedByAttempt: null })], { runId: null });
     await open();
     expect(screen.getByTestId("specs-list")).toHaveTextContent("Port the publishers");
-    expect(screen.getByTestId("spec-edit")).toBeInTheDocument();
+    expect(screen.queryByTestId("spec-edit")).toBeNull();
+    expect(screen.queryByTestId("spec-discuss")).toBeNull();
   });
 
   it("TicketPage_ATicketWithNoAttempt_ShowsHeaderWaitsForRequiredByTheFiledLineAndTheWorkItOutLink", async () => {

@@ -7,22 +7,21 @@ import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { BuildNote } from "./BuildNote";
 import { CriterionRejection } from "./CriterionRejection";
 import { ReviewRounds } from "./ReviewRounds";
-import { SpecEdit } from "./SpecEdit";
 import { criterionRow, overruleWords, recordNoteWords, specStatePill } from "./specWords";
 
 // 2026-10-13-9a59r: one spec as a document — spec n, state, repository, the attempt that executed it, the
 // goal as heading (no separate title is served), the file stem, steps as worked (9a59f: the attempt and
 // pass that completed each), done when, the build note (8762m), the review rounds (8762l) and the read-only
 // note. 2026-10-16-86e6d: "executed in A{n}" opens that attempt's run. A spec read from the run record has no file stem and nothing to discuss, and one without a readable
-// record says only its goal was kept. 2026-11-17-dd05c: a spec not executed is edited in place (SpecEdit); one that ran
-// keeps the read-only note.
+// record says only its goal was kept. 2026-11-17-4860a: every spec is read-only again — a change is discussed with the
+// agent in the ticket conversation, which edits the spec on the branch; a page with no conversation offers no Discuss.
 
 interface Props {
   spec: TicketSeriesSpec;
   attempts: TicketAttempt[];
   /** True for a spec of a run-record series. */
   runRecord?: boolean;
-  onDiscuss: () => void;
+  onDiscuss?: () => void;
 }
 
 export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: Props) {
@@ -86,11 +85,10 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
         </div>
         {spec.buildNote && <BuildNote note={spec.buildNote} />}
         <ReviewRounds specId={spec.specId} />
-        {!runRecord && spec.executedBy == null && <SpecEdit spec={spec} />}
-        {!runRecord && spec.executedBy != null && (
+        {!runRecord && (
           <div className="ro-note">
-            <span>This spec ran, and a spec that ran never changes: a correction becomes a new spec.</span>
-            <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">Discuss in conversation</button>
+            <span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span>
+            {onDiscuss && <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">Discuss in conversation</button>}
           </div>
         )}
       </div>

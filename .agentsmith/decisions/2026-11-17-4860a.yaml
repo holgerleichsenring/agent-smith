@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-4860a
+
+decisions:
+  - category: Architecture
+    chose: "Remove the dashboard spec edit (button, PUT endpoint, TicketSpecEdit) and revert TicketAmendment and SeriesEditAct to their single conversation entries"
+    over: "Keeping the edit, or keeping the ticket-keyed entries private"
+    reason: "Operator decision 2026-11-17: specs are not edited by hand; a change is discussed with the agent, who edits the spec on the branch with a review of exactly that spec. The ticket-keyed entries existed only for the edit, and the files had no change since dd05c, so the pre-dd05c bodies are restored as they were."
+  - category: Implementation
+    chose: "The tracker-divergence notice's first action scrolls to and focuses the conversation composer, and is shown only on a ticket with a run"
+    over: "Navigating to What happened, or showing it on the never-run page"
+    reason: "The notice already sits inside What happened, so a section change would do nothing; a never-run ticket's page carries no conversation, so the button would be dead. The same rule hides the Specs section's Discuss button there."

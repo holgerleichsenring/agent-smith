@@ -172,7 +172,7 @@ export function useTicketDerivations(): { derivations: TicketDerivation[]; start
   return { derivations: snapshot.detail.data?.derivations ?? [], started: () => reads.derivationStarted() };
 }
 
-/** 2026-11-17-dd05c: this page edited the ticket's specs — everything re-reads, as on the ticket's own nudge. */
+/** 2026-11-17-dd05c: this page changed the ticket (the tracker overwrite) — everything re-reads, as on the ticket's own nudge. */
 export function useTicketEdited(): () => void {
   const { reads } = useStore();
   return () => reads.ticketChanged();

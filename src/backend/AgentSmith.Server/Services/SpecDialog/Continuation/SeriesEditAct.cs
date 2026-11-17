@@ -24,51 +24,36 @@ public sealed class SeriesEditAct(
     public async Task<string> EditAsync(ResolvedProject project, string ticketId, string conversation, string principal,
         IReadOnlyList<SeriesEdit> edits, CancellationToken ct)
     {
-        var session = await sessions.GetBySessionIdAsync(conversation, ct);
-        var source = session is null ? null : ConversationApproval.Of(SpecDialogSessionMapper.ToState(session) with { UserId = principal });
-        return (await EditAsync(project, ticketId, source, edits, ct)).Message;
-    }
-
-    /// <summary>2026-11-17-dd05c: the same edit keyed by the ticket — the entry a conversation and a dashboard edit share.
-    /// <paramref name="source"/> is who approved it; null when the conversation it was asked in is no longer stored.</summary>
-    public async Task<SeriesEditAnswer> EditAsync(ResolvedProject project, string ticketId, ApprovalSource? source,
-        IReadOnlyList<SeriesEdit> edits, CancellationToken ct)
-    {
         ArgumentNullException.ThrowIfNull(project);
         var next = await series.ReadAsync(project, ticketId, mayStartRuns: true, ct);
-        if (next.Read.State is not { } state) return new(false, next.Read.Failure!);
-        if (Refusal(state) is { } refused) return new(false, refused);
+        if (next.Read.State is not { } state) return next.Read.Failure!;
+        if (Refusal(state) is { } refused) return refused;
         var (drafts, error) = list.Apply(next.Specs, edits);
-        if (error is not null) return new(false, $"Nothing was recorded: {error}.");
+        if (error is not null) return $"Nothing was recorded: {error}.";
         var goal = state.Record?.Set.Goal ?? drafts.FirstOrDefault()?.Goal ?? string.Empty;
         // The edited list is the whole series, so the previous record's ids need not stay reserved: an id it
         // appended is minted the same again.
         var decision = TicketContinuation.Decide(state with { Record = null },
             new EpicOutcome(new SpecDraft(state.Series ?? ticketId, goal, string.Empty, []), drafts), settings.Current());
-        if (decision.Effect != TicketContinuationEffects.Continue) return new(false, decision.Reason);
+        if (decision.Effect != TicketContinuationEffects.Continue) return decision.Reason;
         if (decision.Start is { Kind: TicketStartArms.QuestionPending } waiting)
-            return new(false, $"Run {waiting.RunId} is waiting for an answer to its question, so nothing was recorded: answer it first, then edit again.");
-        if (source is null)
-            return new(false, "This conversation is no longer stored, so the edit has no approval to record. Nothing was recorded.");
-        return await RecordAsync(project, ticketId, source, state, decision with { Start = null }, goal, ct);
-    }
-
-    private async Task<SeriesEditAnswer> RecordAsync(ResolvedProject project, string ticketId, ApprovalSource source,
-        TicketContinuationState state, TicketContinuationDecision edited, string goal, CancellationToken ct)
-    {
+            return $"Run {waiting.RunId} is waiting for an answer to its question, so nothing was recorded: answer it first, then edit again.";
+        if (await sessions.GetBySessionIdAsync(conversation, ct) is not { } session)
+            return "This conversation is no longer stored, so the edit has no approval to record. Nothing was recorded.";
+        var edited = decision with { Start = null };
         try
         {
-            await approvals.RecordAsync(source, project, ticketId,
+            await approvals.RecordAsync(ConversationApproval.Of(SpecDialogSessionMapper.ToState(session) with { UserId = principal }), project, ticketId,
                 new FiledSeries(state.Series ?? string.Empty, edited.Drafts), goal, ct, edited.Continuation, state.Scope);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogError(ex, "Recording the series edit of ticket {Ticket} failed", ticketId);
-            return new(false, $"The edit of ticket {ticketId}'s series was not recorded: {ex.Message}.");
+            return $"The edit of ticket {ticketId}'s series was not recorded: {ex.Message}.";
         }
-        logger.LogInformation("Ticket {Ticket}'s series edited by {Principal} in conversation {Conversation}", ticketId, source.Principal, source.Conversation);
+        logger.LogInformation("Ticket {Ticket}'s series edited by {Principal} in conversation {Conversation}", ticketId, principal, conversation);
         await activity.ChangedAsync(project.Name, TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value, ct);
-        return new(true, Answer(edited));
+        return Answer(edited);
     }
 
     private static string? Refusal(TicketContinuationState state)

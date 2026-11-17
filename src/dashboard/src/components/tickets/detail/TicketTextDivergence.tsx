@@ -4,17 +4,24 @@ import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
 import { overwriteTicketBody } from "@/lib/ticketBodyApi";
 import { useTicketDetail, useTicketEdited, useTicketText } from "@/lib/tickets/TicketPageStore";
-import { useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-11-17-dd05d: the ticket's text in its tracker no longer states goals of its approved specs — someone edited
-// it there. One plain line says which, and the two ways to settle it: take the change into the specs (the Specs
-// section's edit) or have the tracker say the specs again (a 'ticket-body' run). Nothing when the two agree.
+// it there. One plain line says which, and the two ways to settle it: discuss the change with the agent in the ticket
+// conversation (2026-11-17-4860a: the composer under the thread, which only a ticket with a run has) or have the tracker
+// say the specs again (a 'ticket-body' run). Nothing when the two agree.
+
+// The conversation's composer sits under the thread this notice leads; the action brings it into view and focuses it.
+function discuss() {
+  const composer = document.querySelector<HTMLElement>('[data-testid="ticket-composer"]');
+  composer?.scrollIntoView?.({ block: "center" });
+  composer?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+}
 
 export function TicketTextDivergence() {
   const text = useTicketText();
-  const { project, ticketId } = useTicketDetail();
+  const { project, ticketId, data } = useTicketDetail();
   const edited = useTicketEdited();
-  const address = useTicketTabGo();
+  const conversation = (data?.attempts.length ?? 0) > 0;
   const lacks = useLacksPermission("runs.control", project);
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
@@ -43,7 +50,9 @@ export function TicketTextDivergence() {
       </span>
       {!lacks && (
         <>
-          <button className="btn sm" type="button" onClick={() => address.go("specs")} data-testid="divergence-edit">Edit the specs</button>
+          {conversation && (
+            <button className="btn sm" type="button" onClick={discuss} data-testid="divergence-discuss">Discuss in the conversation</button>
+          )}
           <button className="btn sm" type="button" onClick={overwrite} disabled={busy} data-testid="divergence-overwrite">
             {busy ? "Overwriting…" : "Overwrite the tracker from the specs"}
           </button>

@@ -48,42 +48,27 @@ public sealed class TicketAmendment(
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId })
             return new("This conversation never recorded which ticket it belongs to, so there is "
                 + "nothing to record the approval under. The approval was not recorded.", false);
-        return await ApplyAsync(project, ticketId, ConversationApproval.Of(state), proposal, ct, continuation);
-    }
-
-    /// <summary>
-    /// 2026-11-17-dd05c: the same amendment keyed by the ticket — the entry a conversation's approval and a dashboard
-    /// edit share. <paramref name="source"/> is who approved it, in which conversation, over which repositories.
-    /// </summary>
-    public async Task<TicketAmendmentResult> ApplyAsync(ResolvedProject project, string ticketId, ApprovalSource source,
-        OutcomeProposal proposal, CancellationToken ct, SeriesContinuation? continuation = null)
-    {
-        ArgumentNullException.ThrowIfNull(project);
-        ArgumentNullException.ThrowIfNull(source);
         // 2026-10-06-03c7c: the ticket keeps the series base its filing minted.
         var previous = await approvals.LoadAsync(project, ticketId, ct);
-        var amended = AmendedSpecification.Of(proposal, seriesFiling.KeptOrMinted(previous), source.Conversation,
-            new AmendmentRendering(renderer, orderer, seriesFiling), TicketLabelVocabulary.For(project.Tracker));
+        var series = seriesFiling.KeptOrMinted(previous);
+        var amended = AmendedSpecification.Of(
+            proposal, series, state.JobId, new AmendmentRendering(renderer, orderer, seriesFiling),
+            TicketLabelVocabulary.For(project.Tracker));
         if (amended.Error is { } refused) return new($"{refused} The approval was not recorded.", false);
-        using (var scope = scopeFactory.CreateScope())
-        {
-            if (await FiledWorkClaims.LeaseOnAsync(scope, trackerProjects.SharingTrackerWith(project.Name), ticketId, ct) is { } claimed)
-                return new($"Ticket {ticketId} {claimed} The approval was not recorded: the series a run works "
-                    + "from is not replaced under a run that holds the ticket — approve again when no run holds it.", false);
-        }
-        return await RunAsync(project, new AmendTicketRequest(source, ticketId, amended.Set, amended.Goal, amended.Region, previous, continuation));
-    }
 
-    // 2026-11-17-e061c: the writes are an 'amend' run's step; the run answers what the thread is told.
-    private async Task<TicketAmendmentResult> RunAsync(ResolvedProject project, AmendTicketRequest request)
-    {
+        using var scope = scopeFactory.CreateScope();
+        if (await FiledWorkClaims.LeaseOnAsync(scope, trackerProjects.SharingTrackerWith(name), ticketId, ct) is { } claimed)
+            return new($"Ticket {ticketId} {claimed} The approval was not recorded: the series a run works "
+                + "from is not replaced under a run that holds the ticket — approve again when no run holds it.", false);
+        // 2026-11-17-e061c: the writes are an 'amend' run's step; the run answers what the thread is told.
         var slot = new ActSlot<TicketAmendmentResult>();
         var result = await acts.RunAsync(project.Name, PipelinePresets.AmendName, new Dictionary<string, object>
         {
-            [ContextKeys.AmendTicketRequest] = request,
+            [ContextKeys.AmendTicketRequest] = new AmendTicketRequest(ConversationApproval.Of(state), ticketId, amended.Set,
+                amended.Goal, amended.Region, previous, continuation),
             [ContextKeys.ActOutcome] = slot,
         });
-        return slot.Value ?? new($"The approval under ticket {request.TicketId} did not complete: the amend run ended first "
+        return slot.Value ?? new($"The approval under ticket {ticketId} did not complete: the amend run ended first "
             + $"({result.Message}). Check the ticket's approved series before triggering it, and approve again.", false);
     }
 }
