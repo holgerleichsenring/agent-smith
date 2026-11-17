@@ -38,12 +38,26 @@ describe("RunPageHead", () => {
   it("RunPageHead_MetaLine_SaysTimeDurationModelReposContainersAndCost", () => {
     const parts = metaLine(snap(), ["server"]);
     expect(parts[1]).toBe("5 min 55 s");
-    expect(parts.slice(2)).toEqual(["anthropic/sonnet, 29 model calls", "server", "1 container", "$0.42"]);
+    expect(parts.slice(2)).toEqual(["anthropic/sonnet, 29 model calls", "server", "1 container", "$0.42", "pipeline fix-bug", "run run-abc"]);
   });
 
   it("RunPageHead_ReservedCapacity_LabeledAsReserved_NeverMoney", () => {
     const parts = metaLine(snap({ reservedGiMinutes: 6.2 }), []);
-    expect(parts.at(-1)).toBe("reserved 6.2 Gi·min");
+    expect(parts).toContain("reserved 6.2 Gi·min");
+  });
+
+  // 2026-11-17-d6fbb: the side rail's facts moved into the meta line.
+  it("RunPageHead_MetaLine_CarriesBudgetComputeShapePipelineAndRunId", () => {
+    const parts = metaLine(snap({
+      budgetCapUsd: 5, budgetTier: "medium", workShape: "judgement",
+      liveCompute: { pods: [{ repo: "server", image: "node:20", mem: "2Gi", endReason: null, exitCode: null, oomKilled: null }], totalMem: "2Gi" },
+    }), []);
+    expect(parts).toContain("1 pod, 2Gi");
+    expect(parts).toContain("$0.42 of $5.00 cap, tier medium");
+    expect(parts).toContain("shape judgement");
+    expect(parts).toContain("pipeline fix-bug");
+    expect(parts.at(-1)).toBe("run run-abc");
+    expect(parts).not.toContain("1 container");
   });
 
   it("RunPageHead_Cancel_ShownForRunningQueuedWaiting_NotTerminal_DeleteAlways", () => {

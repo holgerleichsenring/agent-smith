@@ -9,6 +9,7 @@ import { DeleteRunButton } from "@/components/jobs/DeleteRunButton";
 import { RUNS_PATH } from "@/lib/RunBucketFilter";
 import { shortRunId } from "@/lib/runId";
 import type { RunSnapshot } from "@/types/hub-events";
+import { computeOf, costWords } from "./runFactWords";
 import { sectionDuration } from "./runSections";
 import type { RunTicket } from "./useRunTicket";
 
@@ -63,7 +64,8 @@ export function RunPageHead({ runId, snapshot, ticket, repoNames, connectionStat
   );
 }
 
-/** When, how long, the model, the repositories and containers, and the cost; each only when recorded. */
+/** When, how long, the model, the repositories and compute, the cost against its cap, the shape, the pipeline and
+ *  the run id; each only when recorded. */
 export function metaLine(snapshot: RunSnapshot | null, repoNames: string[]): string[] {
   if (!snapshot) return [];
   const parts: string[] = [];
@@ -78,8 +80,16 @@ export function metaLine(snapshot: RunSnapshot | null, repoNames: string[]): str
   }
   if (snapshot.agentName) parts.push(snapshot.llmCalls > 0 ? `${snapshot.agentName}, ${snapshot.llmCalls} model calls` : snapshot.agentName);
   if (repoNames.length > 0) parts.push(repoNames.join(", "));
-  if (snapshot.sandboxes > 0) parts.push(snapshot.sandboxes === 1 ? "1 container" : `${snapshot.sandboxes} containers`);
-  if (snapshot.costUsd > 0) parts.push(`$${snapshot.costUsd.toFixed(2)}`);
+  const compute = computeOf(snapshot);
+  if (compute) parts.push(compute.words);
+  else if (snapshot.sandboxes > 0) parts.push(snapshot.sandboxes === 1 ? "1 container" : `${snapshot.sandboxes} containers`);
+  const cost = costWords(snapshot);
+  if (cost) parts.push(cost);
   if (snapshot.reservedGiMinutes != null) parts.push(`reserved ${snapshot.reservedGiMinutes.toFixed(1)} Gi·min`);
+  // 2026-11-17-d6fbb: what the graph view's side rail carried — the shape that decided the process, the pipeline
+  // and the full run id.
+  if (snapshot.workShape) parts.push(`shape ${snapshot.workShape}`);
+  if (snapshot.pipeline) parts.push(`pipeline ${snapshot.pipeline}`);
+  parts.push(`run ${snapshot.runId}`);
   return parts;
 }

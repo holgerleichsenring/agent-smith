@@ -1,6 +1,7 @@
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { splitSpecPrefix } from "@/lib/runStepRail";
 import { EventType, type RunAcceptance, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
+import type { StorySectionId } from "./storySections";
 
 // 2026-11-16-6877b: a run read as seven sections of text instead of a graph. Every step row the server projects is
 // placed in one section by its command name; nothing here asks the server for new data. A build or verify step that
@@ -8,9 +9,11 @@ import { EventType, type RunAcceptance, type RunEvent, type StepStartedEvent } f
 // not name joins the section of the step before it (the first one joins "Got ready"), so a new command is never lost.
 // "Checked against the spec" holds the run's acceptance verdicts, not steps.
 
-export type SectionId = "ready" | "spec" | "build" | "verify" | "review" | "check" | "deliver";
+export type StepSectionId = "ready" | "spec" | "build" | "verify" | "review" | "check" | "deliver";
+/** 2026-11-17-d6fbb: the seven step sections and the three story sections (storySections.ts). */
+export type SectionId = StepSectionId | StorySectionId;
 
-export const SECTIONS: ReadonlyArray<{ id: SectionId; title: string; short: string }> = [
+export const SECTIONS: ReadonlyArray<{ id: StepSectionId; title: string; short: string }> = [
   { id: "ready", title: "Got ready", short: "Ready" },
   { id: "spec", title: "Derived the spec", short: "Spec" },
   { id: "build", title: "Built it", short: "Build" },
@@ -20,7 +23,7 @@ export const SECTIONS: ReadonlyArray<{ id: SectionId; title: string; short: stri
   { id: "deliver", title: "Delivered", short: "Deliver" },
 ];
 
-const SECTION_OF: Record<string, SectionId> = {
+const SECTION_OF: Record<string, StepSectionId> = {
   LoadCatalog: "ready", PipelineNameInitializer: "ready", FetchTicket: "ready", ScopeRepos: "ready",
   CheckoutSource: "ready", TryCheckoutSource: "ready", RunPreflight: "ready", SetupRegistryAuth: "ready",
   EnsurePrerequisites: "ready", ProbeTarget: "ready", MaterializeReferenceSets: "ready", BootstrapProject: "ready",
@@ -82,14 +85,14 @@ export function runSections(steps: RunStepRow[], events: RunEvent[], checkState:
   });
 }
 
-function placeSteps(steps: RunStepRow[]): Array<{ row: RunStepRow; section: SectionId }> {
-  const out: Array<{ row: RunStepRow; section: SectionId }> = [];
-  let previous: SectionId = "ready";
+function placeSteps(steps: RunStepRow[]): Array<{ row: RunStepRow; section: StepSectionId }> {
+  const out: Array<{ row: RunStepRow; section: StepSectionId }> = [];
+  let previous: StepSectionId = "ready";
   let reviewedSpec: string | null | undefined = undefined;
   for (const row of [...steps].sort((l, r) => l.stepIndex - r.stepIndex)) {
     const key = commandKey(row);
     const spec = row.specId ?? splitSpecPrefix(row.displayName ?? row.stepName).specId;
-    let section: SectionId = SECTION_OF[key] ?? previous;
+    let section: StepSectionId = SECTION_OF[key] ?? previous;
     if (section === "spec" && key === "SelectSpec") reviewedSpec = undefined;
     if (section === "review") reviewedSpec = spec;
     else if ((section === "build" || section === "verify") && reviewedSpec !== undefined && reviewedSpec === spec) section = "review";

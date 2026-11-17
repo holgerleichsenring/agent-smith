@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RunStory } from "../RunStory";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 
+// 2026-11-17-d6fbb: the page owns the judgements read; the story is handed it.
+const NO_JUDGEMENTS = { judgements: [], busy: false, error: null, record: () => {}, withdraw: () => {} };
+
 // p0388b: the Building beat's decision notes come from the durable
 // RunDecision projection (GET /api/runs/{id}/decisions), not from whatever
 // decision events happen to still be in the client's live buffer.
@@ -94,6 +97,7 @@ describe("RunStory · a parked run whose relaunch is under way", () => {
   it("RunStory_AWaitingRunWithAQueuePlace_SaysNeitherNeedsYouNorInProgress", () => {
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({ status: "waiting_for_input", queuePosition: 1, beats: BEATS })}
         events={[]}
@@ -114,7 +118,7 @@ describe("RunStory · a parked run whose relaunch is under way", () => {
 
   it("RunStory_AWaitingRunWithNoQueuePlace_StillSaysNeedsYou", () => {
     render(
-      <RunStory runId="r1" snapshot={snap({ status: "waiting_for_input", beats: BEATS })} events={[]} />,
+      <RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap({ status: "waiting_for_input", beats: BEATS })} events={[]} />,
     );
 
     expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("paused · needs you");
@@ -122,7 +126,7 @@ describe("RunStory · a parked run whose relaunch is under way", () => {
   });
 
   it("RunStory_ARunningRun_IsStillInProgress", () => {
-    render(<RunStory runId="r1" snapshot={snap({ beats: BEATS })} events={[]} />);
+    render(<RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap({ beats: BEATS })} events={[]} />);
 
     expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("in progress");
     expect(screen.getByTestId("story-beat-building-caption")).toHaveTextContent("Step 3 of 9");
@@ -131,20 +135,20 @@ describe("RunStory · a parked run whose relaunch is under way", () => {
 
 describe("RunStory", () => {
   it("RunStory_ServerBeats_RendersStoryBarFromSnapshot", () => {
-    render(<RunStory runId="r1" snapshot={snap({ beats: BEATS })} events={[]} />);
+    render(<RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap({ beats: BEATS })} events={[]} />);
     expect(screen.getByTestId("story-bar")).toBeInTheDocument();
     expect(screen.getByTestId("story-beat-building")).toHaveAttribute("data-status", "active");
   });
 
   it("RunStory_BeatsNull_RendersNoStoryBarAtAll", () => {
     // An old run has beats=null — no storybar, no keyword guessing.
-    render(<RunStory runId="r1" snapshot={snap({ beats: null })} events={[]} />);
+    render(<RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap({ beats: null })} events={[]} />);
     expect(screen.queryByTestId("story-bar")).not.toBeInTheDocument();
     expect(screen.getByTestId("story-no-beats")).toBeInTheDocument();
   });
 
   it("RunStory_NoSnapshot_RendersNoStoryBar_KeepsHonestVerifyEmptyState", () => {
-    render(<RunStory runId="r1" snapshot={null} events={[]} />);
+    render(<RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={null} events={[]} />);
     expect(screen.queryByTestId("story-bar")).not.toBeInTheDocument();
     expect(screen.getByTestId("verify-empty")).toBeInTheDocument();
   });
@@ -154,6 +158,7 @@ describe("RunStory", () => {
     // the PERSISTED ledger + the decisions card from real stream events.
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({
           beats: BEATS,
@@ -196,6 +201,7 @@ describe("RunStory", () => {
   it("RunStory_TicketBeat_NoEvent_HonestEmptyState", () => {
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({ beats: BEATS, ticketId: "T-9" })}
         events={[]}
@@ -207,7 +213,7 @@ describe("RunStory", () => {
 
   it("RunStory_PreBeatsRun_StillRendersPersistedLedgerAndVerify", () => {
     render(
-      <RunStory runId="r1" snapshot={snap({ progressLedger: LEDGER })} events={[]} />,
+      <RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap({ progressLedger: LEDGER })} events={[]} />,
     );
     const panel = screen.getByTestId("ledger-panel");
     expect(panel).toBeInTheDocument();
@@ -220,6 +226,7 @@ describe("RunStory", () => {
     // Server sent Building "done" while The plan is still "active" — impossible.
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({
           beats: { ticket: "done", plan: "active", building: "done", verify: "pending", outcome: "pending" },
@@ -244,6 +251,7 @@ describe("RunStory", () => {
     };
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({ beats: BEATS, progressLedger: null })}
         events={[storyEvent]}
@@ -256,7 +264,7 @@ describe("RunStory", () => {
 
   it("RunStory_NoLedger_RendersHonestLedgerEmptyState", () => {
     render(
-      <RunStory runId="r1" snapshot={snap({ beats: BEATS, progressLedger: null })} events={[]} />,
+      <RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap({ beats: BEATS, progressLedger: null })} events={[]} />,
     );
     expect(screen.queryByTestId("ledger-panel")).not.toBeInTheDocument();
     expect(screen.getByTestId("ledger-empty")).toBeInTheDocument();
@@ -265,6 +273,7 @@ describe("RunStory", () => {
   it("RunStory_PersistedAcceptance_PreferredOverEventFallback", () => {
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({
           beats: { ...BEATS, building: "done", verify: "active" },
@@ -295,6 +304,7 @@ describe("RunStory", () => {
   it("RunStory_UnmeasuredAccount_VerifySaysNotMeasuredAndTheIconFollowsTheFailure", () => {
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({
           status: "failed",
@@ -315,6 +325,7 @@ describe("RunStory", () => {
   it("RunStory_CriteriaAndAnUnmeasuredAccount_CountsOnlyTheCriteria", () => {
     render(
       <RunStory
+        judged={NO_JUDGEMENTS}
         runId="r1"
         snapshot={snap({
           beats: { ...BEATS, building: "done", verify: "done" },

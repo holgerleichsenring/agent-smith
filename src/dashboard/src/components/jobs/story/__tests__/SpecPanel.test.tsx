@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RunStory } from "../RunStory";
 import type { RunSnapshot } from "@/types/hub-events";
 
+// 2026-11-17-d6fbb: the page owns the judgements read; the story is handed it.
+const NO_JUDGEMENTS = { judgements: [], busy: false, error: null, record: () => {}, withdraw: () => {} };
+
 // p0390: the Plan beat shows the WORK SPEC above the plan — what this run must
 // make true, and every revision with the cause that produced it. A run that
 // derived no spec must look exactly as it did before, so the panel is absent
@@ -55,7 +58,7 @@ describe("the Plan beat's work spec", () => {
       "# Reject empty payloads\n\n## Requirements\n- An empty body returns 400.\n\n"
       + "## Revisions\n- **1** — initial derivation\n- **2** — reviewer edit on the ticket branch\n";
 
-    render(<RunStory runId="r1" snapshot={snap()} events={[]} />);
+    render(<RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap()} events={[]} />);
     fireEvent.click(screen.getByTestId("story-beat-plan"));
 
     await waitFor(() => expect(screen.getByTestId("spec-panel")).toBeInTheDocument());
@@ -65,7 +68,7 @@ describe("the Plan beat's work spec", () => {
   });
 
   it("shows no spec card at all when the run derived none", async () => {
-    render(<RunStory runId="r1" snapshot={snap()} events={[]} />);
+    render(<RunStory judged={NO_JUDGEMENTS} runId="r1" snapshot={snap()} events={[]} />);
     fireEvent.click(screen.getByTestId("story-beat-plan"));
 
     await waitFor(() => expect(screen.getByTestId("plan-panel")).toBeInTheDocument());

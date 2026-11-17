@@ -79,6 +79,8 @@ function renderLiveView() {
 }
 
 beforeEach(() => {
+  // 2026-11-17-d6fbb: the graph view is an address now; a case that opened it must not hand it to the next.
+  window.history.replaceState(null, "", "/");
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string) => {
     if (String(url).includes("/steps/")) {

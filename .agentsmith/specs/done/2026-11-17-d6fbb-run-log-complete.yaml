@@ -2,7 +2,7 @@
 spec: 2026-11-17-d6fbb
 goal: "The run page's default log carries every fact the graph view had: budget, compute, shape, pipeline and run id in the meta, and Ticket, Spec and plan, and Outcome sections."
 
-applies_to: "dashboard (app/jobs/[id] page, RunLogView, RunPageHead, a RunFacts line, RunSectionLog, RunStatusBox, RunStory)"
+applies_to: "dashboard (app/jobs/[id] page, RunLogView, RunPageHead, RunFacts, runFactWords, storySections, RunSectionLog, RunStatusBox, RunStory, SpecPlanPanels, runLedger)"
 
 requires: [2026-11-16-6877b]
 
@@ -28,9 +28,9 @@ steps:
   - id: view
     action: "The page reads ?view=graph and the switch replaces the address."
   - id: meta
-    action: "metaLine adds cost of cap, compute, shape, pipeline and run id; RunFacts draws progress, time split, sandbox beat, shape reason, pods and the budget bar."
+    action: "metaLine adds cost of cap, compute, shape, pipeline and run id; runFactWords.ts says each fact; RunFacts draws progress, time split, sandbox beat, shape reason, pods and the budget bar."
   - id: sections
-    action: "runSections gains ticket, spec-plan and outcome sections; RunSectionLog renders their content from slots; the strip shows them too."
+    action: "storySections.ts adds Ticket, Spec and plan, and Outcome around the step sections; RunSectionLog draws a section's slot instead of its lines; the strip keeps its seven step nodes."
   - id: status
     action: "RunStatusBox adds the held-compute sentence while waiting and 'No pull request opened' on a finished run without one."
 

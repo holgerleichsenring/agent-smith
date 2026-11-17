@@ -27,7 +27,7 @@ function Log() {
   return (
     <>
       <RunProgressStrip sections={sections} open={open} onToggle={toggle} />
-      <RunSectionLog sections={sections} open={open} onToggle={toggle} check={<div data-testid="criteria-here">criteria</div>} />
+      <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{ check: <div data-testid="criteria-here">criteria</div> }} />
     </>
   );
 }
