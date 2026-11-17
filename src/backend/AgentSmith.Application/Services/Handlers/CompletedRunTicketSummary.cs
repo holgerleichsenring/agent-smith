@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -13,19 +14,22 @@ namespace AgentSmith.Application.Services.Handlers;
 /// path's failure comment (FailureTicketComment); this text is never posted there.
 /// p0439: a run that delivered with a shortfall is a completed run that says so — the
 /// heading names the shortfall and the "Not delivered" section names what it lacks.
+/// 2026-11-17-7c9be: the Changes are what the branch changed against its base, read the way result.md
+/// reads them (<see cref="RunResultChanges"/>), not the tool writes the last master pass published.
 /// </summary>
-public sealed class CompletedRunTicketSummary
+public sealed class CompletedRunTicketSummary(RunResultChanges branchChanges)
 {
-    public string Build(
-        PipelineContext pipeline, int repoCount, IReadOnlyList<OpenedPullRequest> opened,
-        IReadOnlyList<CodeChange> changes, RunShortfall? shortfall = null)
+    public async Task<string> BuildAsync(
+        PipelineContext pipeline, IReadOnlyList<RepoConnection> repos, IReadOnlyList<OpenedPullRequest> opened,
+        IReadOnlyList<CodeChange> toolWrites, RunShortfall? shortfall, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(opened);
-        ArgumentNullException.ThrowIfNull(changes);
+        ArgumentNullException.ThrowIfNull(toolWrites);
+        var changes = (await branchChanges.ResolveAsync(pipeline, repos, toolWrites, ct)).Coverage;
         var changeLines = string.Join("\n", changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
         return $"""
-            {Heading(repoCount, shortfall)}
+            {Heading(repos.Count, shortfall)}
 
             ### Pull requests
             {RenderPullRequestList(opened)}
