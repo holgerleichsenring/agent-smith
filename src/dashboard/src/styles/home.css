@@ -1,0 +1,42 @@
+/* 2026-11-17-d6fba: the home page — a question, Work it out's composer, Your move and recent tickets in one column.
+   Colour only for state: the dot is the ticket's (amber waits on you, blue a person's review, green done, red
+   stopped). Every value is a .mock-shell custom property. */
+
+.mock-home .home { width: 100%; max-width: 760px; margin: 0 auto; padding: 56px 24px 48px; display: flex; flex-direction: column; gap: 32px; box-sizing: border-box; }
+@media (max-width: 640px) { .mock-home .home { padding: 28px 16px 32px; gap: 24px; } }
+
+.mock-home .home-head { display: flex; flex-direction: column; gap: 6px; }
+.mock-home .home-head h1 { margin: 0; font-size: 28px; line-height: 34px; font-weight: 500; letter-spacing: -0.3px; }
+.mock-home .home-sub { margin: 0; color: var(--ink-3); }
+
+.mock-home .home-composer { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+.mock-home .home-composer .d-foot { padding: 12px 14px; border-top: 0; }
+.mock-home .home-composer textarea.d-input { border: 0; background: transparent; font-size: 15px; line-height: 22px; min-height: 66px; resize: none; box-shadow: none; }
+.mock-home .home-composer-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.mock-home .home-project { font: inherit; font-size: 13px; min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); display: inline-flex; align-items: center; }
+.mock-home .home-files { color: var(--ink-2); display: inline-flex; gap: 8px; align-items: baseline; }
+.mock-home .home-link { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.mock-home .home-dim { color: var(--ink-3); }
+
+.mock-home .home-sec { display: flex; flex-direction: column; }
+.mock-home .home-sec h2 { margin: 0 0 6px; font-size: 12px; font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-3); }
+.mock-home .home-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line-2); color: var(--ink); text-decoration: none; min-width: 0; }
+.mock-home .home-row.link:hover .home-title { text-decoration: underline; }
+.mock-home .home-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mock-home .home-row-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.mock-home .home-key { color: var(--ink-3); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.mock-home .home-title { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.mock-home .home-title.grow { flex: 1; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-home .home-ask { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-home .home-state { color: var(--ink-2); white-space: nowrap; }
+.mock-home .home-age { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.mock-home .home-act { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 8px; background: var(--accent); color: var(--on-fill); font-weight: 500; text-decoration: none; white-space: nowrap; }
+.mock-home .home-more { margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+
+.mock-home .home-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--idle); }
+.mock-home .home-dot.need, .mock-home .home-dot.run, .mock-home .home-dot.queued { background: var(--run); }
+.mock-home .home-dot.human, .mock-home .home-dot.blocked { background: var(--person); }
+.mock-home .home-dot.ok { background: var(--ok); }
+.mock-home .home-dot.bad { background: var(--bad); }
+.mock-home .home-dot.filed, .mock-home .home-dot.closed { background: transparent; border: 1.5px solid var(--idle); box-sizing: border-box; }
+@media (max-width: 640px) { .mock-home .home-state, .mock-home .home-age { display: none; } }

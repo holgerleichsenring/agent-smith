@@ -31,7 +31,7 @@ describe("RunPageHead", () => {
   it("RunPageHead_NoTicket_LeadsBackToTheRuns_AndFallsBackToThePipeline", () => {
     head({ ticketTitle: null }, null);
     expect(screen.getByTestId("run-crumb-run")).toHaveTextContent(/^Run /);
-    expect(screen.getByRole("link", { name: "Runs" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Runs" })).toHaveAttribute("href", "/runs");
     expect(screen.getByTestId("run-heading")).toHaveTextContent("fix-bug");
   });
 

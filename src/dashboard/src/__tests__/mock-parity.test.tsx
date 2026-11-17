@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Suspense } from "react";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import JobsPage from "@/app/page";
+import RunsPage from "@/app/runs/page";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { ConfigStudio } from "@/components/config/ConfigStudio";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
@@ -215,7 +215,7 @@ describe("Mock parity", () => {
       recent: [snap({ runId: "r3", status: "success", finishedAt: "2026-07-17T10:30:00Z" })],
       systemActivity: null,
     };
-    const home = render(withStore(<JobsPage />));
+    const home = render(withStore(<RunsPage />));
     const homeRoot = screen.getByTestId("runs-home");
     expect(homeRoot.className).toContain("mock-shell");
     expect(homeRoot.className).toContain("mock-runs");

@@ -31,6 +31,7 @@ import { isRelaunching, statusSpill } from "@/components/jobs/runStatus";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { usePersistedPaneWidth } from "@/hooks/usePersistedPaneWidth";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
+import { RUNS_PATH } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -174,7 +175,7 @@ function RunDetail({ runId }: { runId: string }) {
         graph={graph}
         onGraph={() => setGraph(!graph)}
         onOpenTrace={() => setTraceOpen(true)}
-        onDeleted={() => router.push("/")}
+        onDeleted={() => router.push(RUNS_PATH)}
       />
 
       {graph && (

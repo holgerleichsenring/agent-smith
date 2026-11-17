@@ -76,7 +76,7 @@ describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
   });
@@ -110,7 +110,14 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-your-move")).not.toHaveAttribute("aria-current");
   });
 
-  it("Sidebar_RunsIsMarkedOnTheHomeAndARun_NewWorkOnWorkItOut", () => {
+  it("Sidebar_RunsIsMarkedOnTheRunsListAndARun_NewWorkOnWorkItOut", () => {
+    const list = renderAt("/runs");
+    expect(screen.getByTestId("sidebar-runs")).toHaveAttribute("aria-current", "page");
+    list.unmount();
+    // 2026-11-17-d6fba: / is the input page, not the runs list.
+    const home = renderAt("/");
+    expect(screen.getByTestId("sidebar-runs")).not.toHaveAttribute("aria-current");
+    home.unmount();
     const view = renderAt("/jobs/2026-08-17T21-30-46-a98c");
     expect(screen.getByTestId("sidebar-runs")).toHaveAttribute("aria-current", "page");
     view.unmount();

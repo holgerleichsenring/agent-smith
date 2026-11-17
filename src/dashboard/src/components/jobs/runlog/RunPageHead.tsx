@@ -6,6 +6,7 @@ import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { DeleteRunButton } from "@/components/jobs/DeleteRunButton";
+import { RUNS_PATH } from "@/lib/RunBucketFilter";
 import { shortRunId } from "@/lib/runId";
 import type { RunSnapshot } from "@/types/hub-events";
 import { sectionDuration } from "./runSections";
@@ -41,7 +42,7 @@ export function RunPageHead({ runId, snapshot, ticket, repoNames, connectionStat
           </>
         ) : (
           <>
-            <Link href="/">Runs</Link>
+            <Link href={RUNS_PATH}>Runs</Link>
             <span aria-hidden="true">/</span>
             <span data-testid="run-crumb-run" title={runId}>Run {shortRunId(runId)}</span>
           </>
