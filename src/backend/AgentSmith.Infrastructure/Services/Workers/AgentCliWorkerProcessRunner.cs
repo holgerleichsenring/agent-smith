@@ -105,6 +105,7 @@ public sealed class AgentCliWorkerProcessRunner(ILogger<AgentCliWorkerProcessRun
             UseShellExecute = false,
         };
         foreach (var argument in options.Arguments.Concat(extra)) info.ArgumentList.Add(argument);
+        foreach (var (name, value) in options.Environment) info.Environment[name] = value;
         return info;
     }
 }

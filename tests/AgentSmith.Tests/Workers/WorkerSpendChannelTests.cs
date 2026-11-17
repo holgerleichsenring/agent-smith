@@ -108,6 +108,22 @@ public sealed class WorkerSpendChannelTests
             .Should().NotContain("--tools").And.NotContain("--strict-mcp-config").And.NotContain("--no-session-persistence");
     }
 
+    // 2026-11-17-cb32b: without the switch, every call also sent its whole input, uncached, to a second model.
+    [Fact]
+    public void WorkerAgent_OnAClaudeCodeCli_RunsWithItsNonessentialTrafficOff()
+    {
+        using var _ = new ClearedWorkerEnvironment();
+
+        WorkerEnvironment(new AgentConfig()).Should().Contain("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1");
+        WorkerEnvironment(new AgentConfig { Endpoint = "/opt/e2e/claude-tee.sh", WorkerStructuredResult = true })
+            .Should().ContainKey("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "a wrapper that opted in is Claude Code");
+        WorkerEnvironment(new AgentConfig { Endpoint = "/opt/bin/my-own-worker" }).Should().BeEmpty();
+    }
+
+    private static IReadOnlyDictionary<string, string> WorkerEnvironment(AgentConfig agent) =>
+        new ExternalWorkerCliOptionsFactory()
+            .Create(agent, new ModelAssignment { Model = "sonnet" }).Environment;
+
     private static IReadOnlyList<string> Arguments(AgentConfig agent) =>
         new ExternalWorkerCliOptionsFactory()
             .Create(agent, new ModelAssignment { Model = "sonnet" }).Arguments;
