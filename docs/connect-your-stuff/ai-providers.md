@@ -1,16 +1,16 @@
 # Connect your AI provider
 
-Agent Smith calls the AI provider directly from your infrastructure — no SaaS in between, no proxy. Pick the one you have an API key for (or run Ollama for fully local).
+codeably calls the AI provider directly from your infrastructure — no SaaS in between, no proxy. Pick the one you have an API key for (or run Ollama for fully local).
 
 An agent is a provider, a catalog of the models it may call, and a pick from that catalog per role. It gets an id that projects reference. You can register several (a Claude one and a local Ollama one for cost sensitive runs, say) and pick per project.
 
-Where you create it depends on how you run Agent Smith. On a server it's the **Agents** catalog in the [Config studio](../configure-it/config-studio.md): New agent, pick the provider, and the form asks for exactly the fields that provider needs. The provider list comes from the server's own registry, so anything you can pick is something the runtime can actually construct.
+Where you create it depends on how you run codeably. On a server it's the **Agents** catalog in the [Config studio](../configure-it/config-studio.md): New agent, pick the provider, and the form asks for exactly the fields that provider needs. The provider list comes from the server's own registry, so anything you can pick is something the runtime can actually construct.
 
 For the CLI, and for `agent-smith config import`, the same thing is an entry under `agents:` in `agentsmith.yml`. Every block below is that YAML form. The drawer has four tabs, Models, Activities, Provider and Tuning; [The Config studio](../configure-it/config-studio.md#agents) walks through them.
 
 ## Model roles
 
-Agent Smith uses different models at different points in a run. Each agent block has a `models:` map with one entry per role:
+codeably uses different models at different points in a run. Each agent block has a `models:` map with one entry per role:
 
 | Role | What it does | Model size that makes sense |
 |---|---|---|
@@ -203,7 +203,7 @@ A 70B model on a 24GB GPU does the job. Smaller models (8B) work for scout / sum
 
 ## GitHub Copilot
 
-`type: copilot` answers model calls on a person's Copilot seat through the GitHub Copilot SDK, instead of a per-provider API key. It runs every role, the tool-bearing ones included: the Copilot runtime is told the tools by declaration only and hands each call back, so the tool loop, approvals and sandbox routing stay Agent Smith's own.
+`type: copilot` answers model calls on a person's Copilot seat through the GitHub Copilot SDK, instead of a per-provider API key. It runs every role, the tool-bearing ones included: the Copilot runtime is told the tools by declaration only and hands each call back, so the tool loop, approvals and sandbox routing stay codeably's own.
 
 ```yaml
 agents:
@@ -226,7 +226,7 @@ The runtime's own context management and tool search are switched off, so compac
 
 ## External worker (no provider key)
 
-`type: external_worker` hands every model call to an agent CLI on the host instead of a provider API. The CLI gets the system prompt, the conversation and the tool schemas on stdin, answers with text or tool calls on stdout, and Agent Smith executes the tools itself. The rest of the run is real: sandboxes, repos, gates, pull request. It exists to run a whole ticket end to end without a provider bill.
+`type: external_worker` hands every model call to an agent CLI on the host instead of a provider API. The CLI gets the system prompt, the conversation and the tool schemas on stdin, answers with text or tool calls on stdout, and codeably executes the tools itself. The rest of the run is real: sandboxes, repos, gates, pull request. It exists to run a whole ticket end to end without a provider bill.
 
 ```yaml
 agents:

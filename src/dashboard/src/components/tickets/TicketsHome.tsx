@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useTicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { TicketGraph } from "./graph/TicketGraph";
 import { TicketList } from "./TicketList";
+import { TicketStatePills } from "./TicketStatePills";
 
 // 2026-10-14-dbcen: /tickets with its List | Graph switch (ticket-graph.html). The view is in the URL (?view=graph)
 // so the graph is linkable, read after mount through the History API like the bucket filter; choosing a bucket
-// in the rail drops the parameter and shows the list.
+// drops the parameter and shows the list. 2026-11-16-0440b: the buckets are pills above the list.
 
 export const VIEW_PARAM = "view";
 type View = "list" | "graph";
@@ -49,7 +50,12 @@ export function TicketsHome() {
           ))}
         </div>
       </div>
-      {view === "graph" ? <TicketGraph /> : <TicketList />}
+      {view === "graph" ? <TicketGraph /> : (
+        <>
+          <TicketStatePills />
+          <TicketList />
+        </>
+      )}
     </>
   );
 }

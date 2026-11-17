@@ -1,6 +1,9 @@
 # Install
 
-Three ways to get Agent Smith on a machine. Pick the one that matches how you plan to run it.
+!!! info "Formerly Agent Smith"
+    codeably was called Agent Smith until November 2026. The CLI, the config file `agentsmith.yml` and the images still carry that name; their rename follows.
+
+Three ways to get codeably on a machine. Pick the one that matches how you plan to run it.
 
 - **CLI single-binary** — fastest path. Good for trying things out on your laptop, good for cron jobs and short-lived runs. Single download, no daemon.
 - **Docker / docker-compose** — good for a small team setup or a long-lived server on one host. The server, a Redis, a one-shot database-migrate job and (optionally) the dashboard come up together with one `docker compose up`.
@@ -107,4 +110,4 @@ deployment:
 
 ## Next
 
-Once Agent Smith is installed, read [where configuration lives](../configure-it/index.md) if you're running a server. It's the one thing to read before you start wiring. Then [do your first run](first-run.md) — `agent-smith demo` proves the whole loop with nothing but an LLM key. Then [connect a tracker](../connect-your-stuff/tracker-azure-devops.md).
+Once codeably is installed, read [where configuration lives](../configure-it/index.md) if you're running a server. It's the one thing to read before you start wiring. Then [do your first run](first-run.md) — `agent-smith demo` proves the whole loop with nothing but an LLM key. Then [connect a tracker](../connect-your-stuff/tracker-azure-devops.md).

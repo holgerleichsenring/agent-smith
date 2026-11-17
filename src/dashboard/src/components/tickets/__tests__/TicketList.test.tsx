@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TicketListView } from "@/types/tickets";
 import { counts, fakeHub, list, pr, ticket } from "./ticketFixtures";
 
-// 2026-10-13-9a59p: the ticket list against the server's JSON — sections and rail from one read,
+// 2026-10-13-9a59p: the ticket list against the server's JSON — sections and state pills from one read,
 // bucket views paging their own, the row anatomy, and answering from the list.
 
 const hoisted = vi.hoisted(() => ({
@@ -32,7 +32,6 @@ import { ApiRefusal } from "@/lib/apiResponse";
 import TicketsPage from "@/app/tickets/page";
 import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
 import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
-import { WorkRailSection } from "@/components/shell/WorkRailSection";
 
 function serve(all: TicketListView, buckets: Record<string, TicketListView[]> = {}) {
   hoisted.fetch.mockImplementation((query: { bucket?: string; cursor?: string }) => {
@@ -47,7 +46,6 @@ function renderTickets(search = "") {
   return render(
     <TicketBucketFilterProvider>
       <TicketListProvider client={fakeHub().client}>
-        <nav data-testid="rail"><WorkRailSection /></nav>
         <TicketsPage />
       </TicketListProvider>
     </TicketBucketFilterProvider>,
@@ -76,14 +74,14 @@ describe("TicketList", () => {
     renderTickets();
 
     const blocked = await screen.findByTestId("ticket-section-blocked");
-    expect(blocked).toHaveTextContent("Waits for another ticket");
+    expect(blocked).toHaveTextContent("Waits on another");
     expect(screen.getByTestId("ticket-section-blocked-count")).toHaveTextContent("1");
     expect(within(blocked).getByTestId("ticket-dot").className).toBe("sd blocked");
     expect(within(blocked).getByTestId("ticket-norun")).toHaveTextContent("waits for DPG-12, #41");
     const filed = screen.getByTestId("ticket-section-filed");
     expect(filed).toHaveTextContent("Filed, no run on record");
     expect(within(filed).getByTestId("ticket-dot").className).toBe("sd filed");
-    expect(within(screen.getByTestId("rail")).getByTestId("app-rail-count-Tickets")).toHaveTextContent("2");
+    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("2");
   });
 
   it("TicketRow_NeverRunRow_ShowsWaitsForAndNoStripMarksAttemptsOrCost", async () => {
@@ -100,19 +98,19 @@ describe("TicketList", () => {
     expect(screen.getByTestId("ticket-row-shop-61")).toHaveTextContent("no run on record");
   });
 
-  it("RailAndSections_CountsComeFromOneResponse", async () => {
+  it("PillsAndSections_CountsComeFromOneResponse", async () => {
     serve(list([ticket()], { needsYou: 0, working: 3, running: 2, queued: 1, waitingOnReview: 2, stuck: 1, idle: 4, done: 14 }));
     renderTickets();
     await screen.findByTestId("ticket-list");
 
     expect(hoisted.fetch).toHaveBeenCalledTimes(1);
-    const rail = screen.getByTestId("rail");
-    expect(within(rail).getByTestId("app-rail-count-Tickets")).toHaveTextContent("24");
-    for (const [label, section, n] of [["Working", "working", "3"], ["Waiting on review", "waiting-on-review", "2"], ["Stuck", "stuck", "1"], ["Ended", "ended", "4"], ["Done", "done", "14"]]) {
-      expect(within(rail).getByTestId(`app-rail-count-${label}`)).toHaveTextContent(n);
+    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("24");
+    for (const [section, n] of [["working", "3"], ["waiting-on-review", "2"], ["stuck", "1"], ["ended", "4"], ["done", "14"]]) {
+      expect(screen.getByTestId(`ticket-pills-${section}-count`)).toHaveTextContent(n);
       expect(screen.getByTestId(`ticket-section-${section}-count`)).toHaveTextContent(n);
     }
-    expect(within(rail).getByTestId("app-rail-item-Needs you")).toHaveAttribute("data-hot", "false");
+    expect(screen.getByTestId("ticket-pills-waiting-on-review")).toHaveTextContent("In review");
+    expect(screen.getByTestId("ticket-pills-needs-you-count").className).not.toContain("needs");
     expect(screen.getByTestId("ticket-metric-working")).toHaveTextContent("2 running · 1 queued");
   });
 
@@ -122,7 +120,7 @@ describe("TicketList", () => {
     expect(await screen.findByTestId("ticket-row-shop-101")).toHaveAttribute("href", "/tickets/shop/101");
   });
 
-  it("StuckBucket_FetchesItsBucket_ShowsOnlyStuck_MarksItsRailEntry_AndPages", async () => {
+  it("StuckBucket_FetchesItsBucket_ShowsOnlyStuck_MarksItsPill_AndPages", async () => {
     const stuck = (id: string) => ticket({ ticketId: id, bucket: "stuck", status: "failed", unchangedSinceLastAttempt: true });
     serve(list([ticket()], { working: 1, stuck: 2 }), {
       stuck: [list([stuck("1")], { working: 1, stuck: 2 }, "r-1"), list([stuck("2")], { working: 1, stuck: 2 })],
@@ -132,7 +130,7 @@ describe("TicketList", () => {
     await screen.findByTestId("ticket-row-shop-1");
     expect(hoisted.fetch).toHaveBeenCalledWith({ bucket: "stuck" }, expect.anything());
     expect([...document.querySelectorAll("section[data-testid]")].map((s) => (s as HTMLElement).dataset.testid)).toEqual(["ticket-section-stuck"]);
-    expect(within(screen.getByTestId("rail")).getByTestId("app-rail-item-Stuck")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("ticket-pills-stuck")).toHaveAttribute("aria-current", "page");
 
     fireEvent.click(screen.getByTestId("tickets-load-more"));
     expect(await screen.findByTestId("ticket-row-shop-2")).toBeInTheDocument();

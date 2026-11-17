@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import { AppHeader } from "@/components/shell/AppHeader";
-import { AppRail } from "@/components/shell/AppRail";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
+import { AppSidebar } from "@/components/shell/AppSidebar";
+import { AppTopBar } from "@/components/shell/AppTopBar";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { DegradedBanner } from "@/components/shell/DegradedBanner";
 import { BuildMismatchBanner } from "@/components/shell/BuildMismatchBanner";
@@ -23,6 +23,13 @@ const inter = Inter({
   variable: "--font-sans",
   display: "swap",
 });
+// 2026-11-16-0440c: IBM Plex Mono for ids, branches and code, self-hosted the same way.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "agent-smith",
@@ -31,69 +38,63 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${plexMono.variable}`}>
       <body className="bg-[var(--color-canvas)] text-[var(--color-ink)] font-sans">
-        {/* p0209a: persistent left app rail + scrollable full-height main.
-            [248px 1fr] grid replaces the topbar; every route renders inside. */}
         {/* p0218: the shared EventStore lives above every route so the system
             backlog survives navigation and one subscription feeds all views. */}
-        {/* p0343c: the mock shell — 230px rail per the ratified mockups' .app grid. */}
-        {/* p0353: the config catalog is a SINGLE shared instance above both the
-            rail and the config page, so an import/save/revert's reload() refreshes
-            the rail's count badges and the studio pane in one shot. */}
-        {/* p0458: the monitor bucket the rail selects is shared by the rail and
-            the run list below it, so the highlighted item and the visible
-            sections are always the same answer. */}
+        {/* p0353: the config catalog is a SINGLE shared instance above the config
+            section list and the config page, so an import/save/revert's reload()
+            refreshes the counts and the studio pane in one shot. */}
+        {/* p0458: the run bucket and the ticket bucket are shared by the sidebar and
+            the lists' state pills, so the marked item and the shown list agree. */}
         {/* 2026-08-25-21ae: the settings the container was started with, read
             once above every route. Two reads would be two answers. */}
         <RuntimeSettingsProvider>
           <EventStoreProvider>
             <ConfigCatalogProvider>
               <RunBucketFilterProvider>
-                {/* 2026-10-13-9a59p: the ticket bucket and the ticket list are shared by the
-                  rail and the list for the same reason as the run bucket above. */}
                 <TicketBucketFilterProvider>
                 <TicketListProvider>
                 {/* 2026-08-25-39ab: the layout sits ABOVE the route boundary, so a
-                  throw in the rail or the banner escapes error.tsx and blanks the
-                  document. Each gets its own boundary: the rail failing must not
-                  cost the operator the run they were reading. */}
-                {/* 2026-08-27-1ed6: two ROWS — the header spans both columns above the
-                  rail and the scroll container, so it never scrolls away and the rail's
-                  full height is the viewport minus the header rather than all of it. */}
-                <div className="grid min-h-screen grid-cols-[230px_1fr] grid-rows-[auto_1fr]">
-                  <RenderBoundary surface="app header">
-                    <AppHeader />
+                  throw in the sidebar or a banner escapes error.tsx and blanks the
+                  document. Each gets its own boundary. */}
+                {/* 2026-11-16-0440c: the flat sidebar runs the full height on the left;
+                  the top bar and the scrolling main share the column beside it. */}
+                <div className="app-shell">
+                  <RenderBoundary surface="navigation sidebar">
+                    <AppSidebar />
                   </RenderBoundary>
-                  <RenderBoundary surface="navigation rail">
-                    <AppRail />
-                  </RenderBoundary>
-                  {/* p0391a: the server always starts, so "it came up" no longer means
-                    "it is fine" — the banner names what is down, above every route. */}
-                  <main className="shell-main">
-                    <RenderBoundary surface="installation health banner">
-                      <DegradedBanner />
+                  <div className="app-column">
+                    <RenderBoundary surface="top bar">
+                      <AppTopBar />
                     </RenderBoundary>
-                    {/* 2026-08-25-8c97: the same findings document, read for the one
-                      finding whose remedy is a reload rather than an operator. */}
-                    <RenderBoundary surface="build identity banner">
-                      <BuildMismatchBanner />
-                    </RenderBoundary>
-                    {/* 2026-08-25-4530: the two halves of sign-in live on two
-                      machines and neither can diagnose the other. This is the
-                      only place that holds both, and a half-configured
-                      installation otherwise renders nothing at all. */}
-                    <RenderBoundary surface="sign-in configuration banner">
-                      <AuthMisconfigurationBanner />
-                    </RenderBoundary>
-                    {/* 2026-09-21-291b: the routes, and only the routes. The header
-                      keeps its own sign-in button and the banners keep explaining a
-                      half-configured installation — a gate that took those with it
-                      would remove the two surfaces that say WHY nothing is visible. */}
-                    <RenderBoundary surface="sign-in gate">
-                      <SignInGate>{children}</SignInGate>
-                    </RenderBoundary>
-                  </main>
+                    {/* p0391a: the server always starts, so "it came up" no longer means
+                      "it is fine" — the banner names what is down, above every route. */}
+                    <main className="shell-main">
+                      <RenderBoundary surface="installation health banner">
+                        <DegradedBanner />
+                      </RenderBoundary>
+                      {/* 2026-08-25-8c97: the same findings document, read for the one
+                        finding whose remedy is a reload rather than an operator. */}
+                      <RenderBoundary surface="build identity banner">
+                        <BuildMismatchBanner />
+                      </RenderBoundary>
+                      {/* 2026-08-25-4530: the two halves of sign-in live on two
+                        machines and neither can diagnose the other. This is the
+                        only place that holds both, and a half-configured
+                        installation otherwise renders nothing at all. */}
+                      <RenderBoundary surface="sign-in configuration banner">
+                        <AuthMisconfigurationBanner />
+                      </RenderBoundary>
+                      {/* 2026-09-21-291b: the routes, and only the routes. The profile
+                        keeps its own sign-in and the banners keep explaining a
+                        half-configured installation — a gate that took those with it
+                        would remove the two surfaces that say WHY nothing is visible. */}
+                      <RenderBoundary surface="sign-in gate">
+                        <SignInGate>{children}</SignInGate>
+                      </RenderBoundary>
+                    </main>
+                  </div>
                 </div>
                 </TicketListProvider>
                 </TicketBucketFilterProvider>

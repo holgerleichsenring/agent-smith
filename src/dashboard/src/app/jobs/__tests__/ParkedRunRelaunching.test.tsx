@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -85,12 +85,14 @@ describe("The run page of a parked run", () => {
   it("RunPage_AWaitingRunWithAQueuePlace_SaysNeedsYouInNoneOfTheFivePlaces", async () => {
     renderPage(parked({ queuePosition: 3 }));
 
-    // 1. the header's status spill — and with it the wrapper class that themes the page.
-    expect(await screen.findByTestId("run-status-spill")).toHaveTextContent("Resuming");
+    // 1. the status sentence — 2026-11-16-6877b: the default view's one line, no question card.
+    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Resuming, place 3 in line. Nothing for you to do.");
+    expect(screen.getByTestId("run-status")).toHaveAttribute("data-tone", "run");
+    expect(screen.queryByTestId("run-question")).not.toBeInTheDocument();
+    // 2. the graph view's wrapper class that themes it.
+    fireEvent.click(screen.getByTestId("run-show-graph"));
     expect(screen.getByTestId("run-viewer-root").className).toContain("is-prov");
     expect(screen.getByTestId("run-viewer-root").className).not.toContain("is-blocked");
-    // 2. the phrase beside it — a different file from the header.
-    expect(screen.getByTestId("run-viewer-root")).toHaveTextContent("resuming — place 3 in line");
     // 3. the full-width banner, which renders with or without a question attached.
     expect(screen.queryByTestId("run-banner")).not.toBeInTheDocument();
     // 4. the side rail's state label.
@@ -104,9 +106,10 @@ describe("The run page of a parked run", () => {
   it("RunPage_AWaitingRunWithNoQueuePlace_StillSaysNeedsYou", async () => {
     renderPage(parked());
 
-    expect(await screen.findByTestId("run-status-spill")).toHaveTextContent("Needs you");
+    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Waiting for your answer.");
+    expect(screen.getByTestId("run-status")).toHaveAttribute("data-tone", "amber");
+    fireEvent.click(screen.getByTestId("run-show-graph"));
     expect(screen.getByTestId("run-viewer-root").className).toContain("is-blocked");
-    expect(screen.getByTestId("run-viewer-root")).toHaveTextContent("paused on an open question");
     expect(screen.getByTestId("run-banner")).toBeInTheDocument();
     expect(screen.getByTestId("side-rail-state")).toHaveTextContent("Needs you");
     expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("paused · needs you");

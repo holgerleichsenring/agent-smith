@@ -3,20 +3,141 @@
    scoped under .mock-shell. Unlayered, so inside the redesigned surfaces the
    mock look wins over the Tailwind utility layers by cascade-layer rules. */
 @import "../styles/mock-parity.css";
+/* 2026-11-16-0440: the dark app's shell and state pills, in the same plain-CSS vocabulary. */
+@import "../styles/app-shell.css";
 
-@theme {
-  --color-primary: #22c55e;
-  --color-primary-pressed: #16a34a;
-  --color-primary-deep: #15803d;
-  --color-on-primary: #fffefb;
-  --color-ink: #201515;
-  --color-ink-soft: #2f2a26;
-  --color-ink-mid: #36342e;
-  --color-body: #605d52;
-  --color-body-mid: #939084;
-  --color-mute: #c5c0b1;
-  --color-canvas: #fffefb;
-  --color-canvas-soft: #f8f4f0;
+/* The dashboard is dark. The app-* colours mirror DESIGN.md's frontmatter (theme-tokens.test.ts
+   holds the two equal); every other colour below is defined in their terms. `static` emits every
+   variable, because the mock-parity layer and inline styles read them by name. */
+@theme static {
+  --color-app-ground: #0f0f10;
+  --color-app-side: #131314;
+  --color-app-panel: #161618;
+  --color-app-raised: #1a1a1c;
+  --color-app-hover: #232326;
+  --color-app-line: #222225;
+  --color-app-line-strong: #2e2e33;
+  --color-app-text: #ececec;
+  --color-app-text-soft: #b4b4b8;
+  --color-app-mute: #8c8c93;
+  --color-app-faint: #85858d;
+  --color-app-bright: #ececec;
+  --color-app-on-bright: #0f0f10;
+  --color-app-needs: #e5b450;
+  --color-app-person: #7ab8ff;
+  --color-app-proven: #3ddc84;
+  --color-app-stopped: #ef7b6c;
+
+  /* The light system's role names, pointed at the dark set, so every component that reads
+     them follows without a change of its own. */
+  --color-primary: var(--color-app-bright);
+  --color-primary-pressed: #ffffff;
+  --color-primary-deep: var(--color-app-proven);
+  --color-on-primary: var(--color-app-on-bright);
+  --color-ink: var(--color-app-text);
+  --color-ink-soft: var(--color-app-text);
+  --color-ink-mid: var(--color-app-text-soft);
+  --color-body: var(--color-app-text-soft);
+  --color-body-mid: var(--color-app-mute);
+  --color-mute: var(--color-app-faint);
+  --color-canvas: var(--color-app-ground);
+  --color-canvas-soft: var(--color-app-panel);
+  --color-state-proven: var(--color-app-proven);
+  --color-state-working: var(--color-app-needs);
+  --color-state-stopped: var(--color-app-stopped);
+  --color-state-person: var(--color-app-person);
+
+  /* Tailwind's palette, remapped so the raw classes components still carry read dark. White is a
+     surface. Neutral families are inverted: 50-300 are surfaces and lines, 400-950 text from faint
+     to bright. State families: 50-300 are washes and borders mixed into the ground, 400-700 the
+     state colour, 800-950 lighter text for a wash. */
+  --color-white: var(--color-app-panel);
+  --color-stone-50: var(--color-app-panel);
+  --color-stone-100: #1c1c1f;
+  --color-stone-200: #26262a;
+  --color-stone-300: #34343a;
+  --color-stone-400: var(--color-app-faint);
+  --color-stone-500: var(--color-app-mute);
+  --color-stone-600: var(--color-app-text-soft);
+  --color-stone-700: #c9c9ce;
+  --color-stone-800: #dcdce0;
+  --color-stone-900: var(--color-app-text);
+  --color-stone-950: #f5f5f7;
+  --color-slate-50: var(--color-stone-50); --color-slate-100: var(--color-stone-100); --color-slate-200: var(--color-stone-200); --color-slate-300: var(--color-stone-300); --color-slate-400: var(--color-stone-400); --color-slate-500: var(--color-stone-500); --color-slate-600: var(--color-stone-600); --color-slate-700: var(--color-stone-700); --color-slate-800: var(--color-stone-800); --color-slate-900: var(--color-stone-900); --color-slate-950: var(--color-stone-950);
+  --color-gray-50: var(--color-stone-50); --color-gray-100: var(--color-stone-100); --color-gray-200: var(--color-stone-200); --color-gray-300: var(--color-stone-300); --color-gray-400: var(--color-stone-400); --color-gray-500: var(--color-stone-500); --color-gray-600: var(--color-stone-600); --color-gray-700: var(--color-stone-700); --color-gray-800: var(--color-stone-800); --color-gray-900: var(--color-stone-900); --color-gray-950: var(--color-stone-950);
+  --color-zinc-50: var(--color-stone-50); --color-zinc-100: var(--color-stone-100); --color-zinc-200: var(--color-stone-200); --color-zinc-300: var(--color-stone-300); --color-zinc-400: var(--color-stone-400); --color-zinc-500: var(--color-stone-500); --color-zinc-600: var(--color-stone-600); --color-zinc-700: var(--color-stone-700); --color-zinc-800: var(--color-stone-800); --color-zinc-900: var(--color-stone-900); --color-zinc-950: var(--color-stone-950);
+  --color-neutral-50: var(--color-stone-50); --color-neutral-100: var(--color-stone-100); --color-neutral-200: var(--color-stone-200); --color-neutral-300: var(--color-stone-300); --color-neutral-400: var(--color-stone-400); --color-neutral-500: var(--color-stone-500); --color-neutral-600: var(--color-stone-600); --color-neutral-700: var(--color-stone-700); --color-neutral-800: var(--color-stone-800); --color-neutral-900: var(--color-stone-900); --color-neutral-950: var(--color-stone-950);
+
+  --color-amber-50: color-mix(in srgb, var(--color-app-needs) 9%, var(--color-app-ground));
+  --color-amber-100: color-mix(in srgb, var(--color-app-needs) 14%, var(--color-app-ground));
+  --color-amber-200: color-mix(in srgb, var(--color-app-needs) 22%, var(--color-app-ground));
+  --color-amber-300: color-mix(in srgb, var(--color-app-needs) 36%, var(--color-app-ground));
+  --color-amber-400: var(--color-app-needs);
+  --color-amber-500: var(--color-app-needs);
+  --color-amber-600: var(--color-app-needs);
+  --color-amber-700: var(--color-app-needs);
+  --color-amber-800: color-mix(in srgb, var(--color-app-needs) 70%, var(--color-app-text));
+  --color-amber-900: color-mix(in srgb, var(--color-app-needs) 55%, var(--color-app-text));
+  --color-amber-950: color-mix(in srgb, var(--color-app-needs) 40%, var(--color-app-text));
+  --color-rose-50: color-mix(in srgb, var(--color-app-stopped) 9%, var(--color-app-ground));
+  --color-rose-100: color-mix(in srgb, var(--color-app-stopped) 14%, var(--color-app-ground));
+  --color-rose-200: color-mix(in srgb, var(--color-app-stopped) 22%, var(--color-app-ground));
+  --color-rose-300: color-mix(in srgb, var(--color-app-stopped) 36%, var(--color-app-ground));
+  --color-rose-400: var(--color-app-stopped);
+  --color-rose-500: var(--color-app-stopped);
+  --color-rose-600: var(--color-app-stopped);
+  --color-rose-700: var(--color-app-stopped);
+  --color-rose-800: color-mix(in srgb, var(--color-app-stopped) 70%, var(--color-app-text));
+  --color-rose-900: color-mix(in srgb, var(--color-app-stopped) 55%, var(--color-app-text));
+  --color-rose-950: color-mix(in srgb, var(--color-app-stopped) 40%, var(--color-app-text));
+  --color-emerald-50: color-mix(in srgb, var(--color-app-proven) 9%, var(--color-app-ground));
+  --color-emerald-100: color-mix(in srgb, var(--color-app-proven) 14%, var(--color-app-ground));
+  --color-emerald-200: color-mix(in srgb, var(--color-app-proven) 22%, var(--color-app-ground));
+  --color-emerald-300: color-mix(in srgb, var(--color-app-proven) 36%, var(--color-app-ground));
+  --color-emerald-400: var(--color-app-proven);
+  --color-emerald-500: var(--color-app-proven);
+  --color-emerald-600: var(--color-app-proven);
+  --color-emerald-700: var(--color-app-proven);
+  --color-emerald-800: color-mix(in srgb, var(--color-app-proven) 70%, var(--color-app-text));
+  --color-emerald-900: color-mix(in srgb, var(--color-app-proven) 55%, var(--color-app-text));
+  --color-emerald-950: color-mix(in srgb, var(--color-app-proven) 40%, var(--color-app-text));
+  --color-sky-50: color-mix(in srgb, var(--color-app-person) 9%, var(--color-app-ground));
+  --color-sky-100: color-mix(in srgb, var(--color-app-person) 14%, var(--color-app-ground));
+  --color-sky-200: color-mix(in srgb, var(--color-app-person) 22%, var(--color-app-ground));
+  --color-sky-300: color-mix(in srgb, var(--color-app-person) 36%, var(--color-app-ground));
+  --color-sky-400: var(--color-app-person);
+  --color-sky-500: var(--color-app-person);
+  --color-sky-600: var(--color-app-person);
+  --color-sky-700: var(--color-app-person);
+  --color-sky-800: color-mix(in srgb, var(--color-app-person) 70%, var(--color-app-text));
+  --color-sky-900: color-mix(in srgb, var(--color-app-person) 55%, var(--color-app-text));
+  --color-sky-950: color-mix(in srgb, var(--color-app-person) 40%, var(--color-app-text));
+  /* Violet marks a permission granted by a directory group. It is not a state, so its one
+     value is a literal here rather than an app token. */
+  --color-violet-50: color-mix(in srgb, #b4a5f5 9%, var(--color-app-ground));
+  --color-violet-100: color-mix(in srgb, #b4a5f5 14%, var(--color-app-ground));
+  --color-violet-200: color-mix(in srgb, #b4a5f5 22%, var(--color-app-ground));
+  --color-violet-300: color-mix(in srgb, #b4a5f5 36%, var(--color-app-ground));
+  --color-violet-400: #b4a5f5;
+  --color-violet-500: #b4a5f5;
+  --color-violet-600: #b4a5f5;
+  --color-violet-700: #b4a5f5;
+  --color-violet-800: color-mix(in srgb, #b4a5f5 70%, var(--color-app-text));
+  --color-violet-900: color-mix(in srgb, #b4a5f5 55%, var(--color-app-text));
+  --color-violet-950: color-mix(in srgb, #b4a5f5 40%, var(--color-app-text));
+  --color-yellow-50: var(--color-amber-50); --color-yellow-100: var(--color-amber-100); --color-yellow-200: var(--color-amber-200); --color-yellow-300: var(--color-amber-300); --color-yellow-400: var(--color-amber-400); --color-yellow-500: var(--color-amber-500); --color-yellow-600: var(--color-amber-600); --color-yellow-700: var(--color-amber-700); --color-yellow-800: var(--color-amber-800); --color-yellow-900: var(--color-amber-900); --color-yellow-950: var(--color-amber-950);
+  --color-orange-50: var(--color-amber-50); --color-orange-100: var(--color-amber-100); --color-orange-200: var(--color-amber-200); --color-orange-300: var(--color-amber-300); --color-orange-400: var(--color-amber-400); --color-orange-500: var(--color-amber-500); --color-orange-600: var(--color-amber-600); --color-orange-700: var(--color-amber-700); --color-orange-800: var(--color-amber-800); --color-orange-900: var(--color-amber-900); --color-orange-950: var(--color-amber-950);
+  --color-red-50: var(--color-rose-50); --color-red-100: var(--color-rose-100); --color-red-200: var(--color-rose-200); --color-red-300: var(--color-rose-300); --color-red-400: var(--color-rose-400); --color-red-500: var(--color-rose-500); --color-red-600: var(--color-rose-600); --color-red-700: var(--color-rose-700); --color-red-800: var(--color-rose-800); --color-red-900: var(--color-rose-900); --color-red-950: var(--color-rose-950);
+  --color-pink-50: var(--color-rose-50); --color-pink-100: var(--color-rose-100); --color-pink-200: var(--color-rose-200); --color-pink-300: var(--color-rose-300); --color-pink-400: var(--color-rose-400); --color-pink-500: var(--color-rose-500); --color-pink-600: var(--color-rose-600); --color-pink-700: var(--color-rose-700); --color-pink-800: var(--color-rose-800); --color-pink-900: var(--color-rose-900); --color-pink-950: var(--color-rose-950);
+  --color-green-50: var(--color-emerald-50); --color-green-100: var(--color-emerald-100); --color-green-200: var(--color-emerald-200); --color-green-300: var(--color-emerald-300); --color-green-400: var(--color-emerald-400); --color-green-500: var(--color-emerald-500); --color-green-600: var(--color-emerald-600); --color-green-700: var(--color-emerald-700); --color-green-800: var(--color-emerald-800); --color-green-900: var(--color-emerald-900); --color-green-950: var(--color-emerald-950);
+  --color-teal-50: var(--color-emerald-50); --color-teal-100: var(--color-emerald-100); --color-teal-200: var(--color-emerald-200); --color-teal-300: var(--color-emerald-300); --color-teal-400: var(--color-emerald-400); --color-teal-500: var(--color-emerald-500); --color-teal-600: var(--color-emerald-600); --color-teal-700: var(--color-emerald-700); --color-teal-800: var(--color-emerald-800); --color-teal-900: var(--color-emerald-900); --color-teal-950: var(--color-emerald-950);
+  --color-lime-50: var(--color-emerald-50); --color-lime-100: var(--color-emerald-100); --color-lime-200: var(--color-emerald-200); --color-lime-300: var(--color-emerald-300); --color-lime-400: var(--color-emerald-400); --color-lime-500: var(--color-emerald-500); --color-lime-600: var(--color-emerald-600); --color-lime-700: var(--color-emerald-700); --color-lime-800: var(--color-emerald-800); --color-lime-900: var(--color-emerald-900); --color-lime-950: var(--color-emerald-950);
+  --color-blue-50: var(--color-sky-50); --color-blue-100: var(--color-sky-100); --color-blue-200: var(--color-sky-200); --color-blue-300: var(--color-sky-300); --color-blue-400: var(--color-sky-400); --color-blue-500: var(--color-sky-500); --color-blue-600: var(--color-sky-600); --color-blue-700: var(--color-sky-700); --color-blue-800: var(--color-sky-800); --color-blue-900: var(--color-sky-900); --color-blue-950: var(--color-sky-950);
+  --color-indigo-50: var(--color-sky-50); --color-indigo-100: var(--color-sky-100); --color-indigo-200: var(--color-sky-200); --color-indigo-300: var(--color-sky-300); --color-indigo-400: var(--color-sky-400); --color-indigo-500: var(--color-sky-500); --color-indigo-600: var(--color-sky-600); --color-indigo-700: var(--color-sky-700); --color-indigo-800: var(--color-sky-800); --color-indigo-900: var(--color-sky-900); --color-indigo-950: var(--color-sky-950);
+  --color-cyan-50: var(--color-sky-50); --color-cyan-100: var(--color-sky-100); --color-cyan-200: var(--color-sky-200); --color-cyan-300: var(--color-sky-300); --color-cyan-400: var(--color-sky-400); --color-cyan-500: var(--color-sky-500); --color-cyan-600: var(--color-sky-600); --color-cyan-700: var(--color-sky-700); --color-cyan-800: var(--color-sky-800); --color-cyan-900: var(--color-sky-900); --color-cyan-950: var(--color-sky-950);
+  --color-purple-50: var(--color-violet-50); --color-purple-100: var(--color-violet-100); --color-purple-200: var(--color-violet-200); --color-purple-300: var(--color-violet-300); --color-purple-400: var(--color-violet-400); --color-purple-500: var(--color-violet-500); --color-purple-600: var(--color-violet-600); --color-purple-700: var(--color-violet-700); --color-purple-800: var(--color-violet-800); --color-purple-900: var(--color-violet-900); --color-purple-950: var(--color-violet-950);
+  --color-fuchsia-50: var(--color-violet-50); --color-fuchsia-100: var(--color-violet-100); --color-fuchsia-200: var(--color-violet-200); --color-fuchsia-300: var(--color-violet-300); --color-fuchsia-400: var(--color-violet-400); --color-fuchsia-500: var(--color-violet-500); --color-fuchsia-600: var(--color-violet-600); --color-fuchsia-700: var(--color-violet-700); --color-fuchsia-800: var(--color-violet-800); --color-fuchsia-900: var(--color-violet-900); --color-fuchsia-950: var(--color-violet-950);
+
   --color-terminal-bg: #1c1e22;
   --color-terminal-text: #d8d4cc;
   --color-terminal-accent: #22c55e;
@@ -25,7 +146,7 @@
   --color-terminal-string: #e8c46d;
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
   --radius-sm: 6px;
   --radius-md: 12px;
@@ -36,7 +157,7 @@
 /* 2026-08-27-1ed6: the shell's header row height. Read by the layout's scroll container
    and by the rail's full height, so the three can never disagree by a few pixels. */
 :root {
-  --topbar-h: 52px;
+  --topbar-h: 56px;
 }
 
 /* 2026-10-09-724c: the scroll container is also the containing block. Without it an absolute
@@ -50,6 +171,8 @@
 
 @layer base {
   html {
+    /* Native controls, scrollbars and <dialog> follow the dark ground. */
+    color-scheme: dark;
     background: var(--color-canvas);
     color: var(--color-ink);
     /* p0174: --font-sans is bound to Inter via next/font in layout.tsx;
@@ -68,10 +191,6 @@
   p, li, dd, blockquote, td, h1, h2, h3, h4, h5, h6 {
     overflow-wrap: break-word;
   }
-  /* p0174: dashboard surface stays light in dark-mode UA too — operator
-     surface is content-bright by design (DESIGN.md ships dark variants
-     for marketing surfaces, not the dashboard). Code/terminal panels
-     get their own dark surface via card-terminal-panel classes. */
 }
 
 /* p0169j-d: subtle pulse for "running" sandbox nodes in the topology
@@ -126,7 +245,7 @@
    once instead of re-derived per component. */
 @utility card-content {
   background: var(--color-canvas-soft);
-  border: 1px solid var(--color-mute);
+  border: 1px solid var(--color-app-line-strong);
   border-radius: var(--radius-md);
 }
 @utility card-terminal-panel {

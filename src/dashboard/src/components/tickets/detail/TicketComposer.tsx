@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { DialogComposer } from "@/components/dialog/DialogComposer";
 import { DialogQuestionCard } from "@/components/dialog/DialogQuestionCard";
 import { DialogWorking } from "@/components/dialog/DialogWorking";
@@ -11,6 +11,7 @@ import type { TicketApprovalPreview, TicketAttempt, TicketConversation } from "@
 import { RetryUnchanged } from "./RetryUnchanged";
 import { useTicketComposer, type ResumeRefusal } from "./useTicketComposer";
 
+// 2026-11-16-6877a: no heading of its own; it sits under the Your move box and its placeholder says what a reply does.
 // 2026-10-13-9a59r: "Continue on this ticket" — the ticket's Work it out session, the same hook, composer
 // and approval question as Work it out. The effect line renders the preview's effect and start arm, one
 // label each; with no open approval question it is a plain composer. Approve answers the approval question
@@ -23,6 +24,8 @@ interface Props {
   ticketId: string;
   preview: Read<TicketApprovalPreview>;
   newest: TicketAttempt | null;
+  /** 2026-11-16-6877a: the text field, focused by the page's Your move box. */
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 const REFUSAL_WORDS: Record<ResumeRefusal["kind"], string> = {
@@ -32,10 +35,11 @@ const REFUSAL_WORDS: Record<ResumeRefusal["kind"], string> = {
   "not-found": "",
 };
 
-export function TicketComposer({ conversation, project, ticketId, preview, newest }: Props) {
+export function TicketComposer({ conversation, project, ticketId, preview, newest, inputRef }: Props) {
   const composer = useTicketComposer(conversation, project, ticketId);
   const { dialog, engaged, approval, refusal } = composer;
-  const input = useRef<HTMLTextAreaElement>(null);
+  const own = useRef<HTMLTextAreaElement>(null);
+  const input = inputRef ?? own;
   const [attachFirst, setAttachFirst] = useState(false);
   // Before the first act the approval question is not watched yet: an open session with a proposal is
   // one whose approval waits there, so the line shows from the preview and the click is the act.
@@ -47,10 +51,6 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
 
   return (
     <div className="composer" data-testid="ticket-composer">
-      <div className="cp-head">
-        <h3>Continue on this ticket</h3>
-        <span className="sh-sub">The ticket&apos;s conversation in Work it out: one per ticket, the same thread every attempt reads.</span>
-      </div>
       {(label || refusal || composer.missed) && (
         <div className="cp-body">
           {label && (
@@ -110,6 +110,7 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
             ? { tone: "refused", text: "Send a message first: it is what binds the conversation to this ticket." }
             : dialog.uploadNote}
           disabled={refusal !== null}
+          placeholder="Reply to ask for a change. A reply starts the next run."
         />
       </div>
     </div>

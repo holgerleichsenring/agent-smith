@@ -1,10 +1,10 @@
 # Specs & Runs
 
-Agent Smith tracks its own development through a structured workflow of **specs** and **runs**. This is the meta-workflow — how the project itself is planned, executed, and documented.
+codeably tracks its own development through a structured workflow of **specs** and **runs**. This is the meta-workflow — how the project itself is planned, executed, and documented.
 
 ## The .agentsmith/ Directory
 
-Every project that Agent Smith works on gets an `.agentsmith/` directory:
+Every project that codeably works on gets an `.agentsmith/` directory:
 
 ```
 .agentsmith/
@@ -203,9 +203,9 @@ Display sites render the timestamp with seconds plus the suffix (`Run 2026-05-20
 
 Directories in the old `r{NN}` format are invisible to wiki compilation; document them in `CHANGELOG.md` if you have any.
 
-## Agent Smith Evolution
+## codeably Evolution
 
-Agent Smith itself is built using this spec workflow. The timeline below shows how the project grew from core infrastructure to a full multi-agent orchestration system:
+codeably itself is built using this spec workflow. The timeline below shows how the project grew from core infrastructure to a full multi-agent orchestration system:
 
 ```mermaid
 timeline
@@ -243,7 +243,7 @@ Real numbers from actual pipeline runs. Costs depend on model choice, codebase s
 
 ## The Complete Workflow
 
-When Agent Smith processes a ticket:
+When codeably processes a ticket:
 
 1. **Specify** — cuts the ticket into specs on the ticket branch and posts the cut to the ticket
 2. **Execute** — works one spec at a time, after checking the spec's premises

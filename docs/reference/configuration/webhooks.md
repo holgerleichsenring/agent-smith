@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Agent Smith receives platform events via webhooks. Two distinct flows go through the receiver:
+codeably receives platform events via webhooks. Two distinct flows go through the receiver:
 
 - **Ticket triggers** (issue or work item labelled, moved, assigned): these go through project resolution and the claim, and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms.
 - **Pull request events and PR comment commands**: GitHub, GitLab and Azure DevOps.
@@ -123,7 +123,7 @@ Per-platform walkthroughs (payload URLs, events to subscribe, secret placement i
 
 Webhook redelivery is safe. The claim is a lease in the database: the first delivery wins it, and a second delivery for the same ticket finds it held and starts nothing. One ticket never has two live runs.
 
-This makes Agent Smith's webhook receiver tolerant of platform retry policies, network glitches, and operator-triggered redeliveries.
+This makes codeably's webhook receiver tolerant of platform retry policies, network glitches, and operator-triggered redeliveries.
 
 ## Related
 

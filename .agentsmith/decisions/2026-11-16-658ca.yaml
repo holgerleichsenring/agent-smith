@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-658ca
+
+decisions:
+  - category: Architecture
+    chose: "A new stage-accent token (#ff7a3d) in DESIGN.md, read by the site as --accent; primary stays green"
+    over: "Changing colors.primary"
+    reason: "primary also feeds the dashboard's tokens.json, which another session owns. The stage token changes the site and the docs only and is the one place to retune the brand colour."
+  - category: Accessibility
+    chose: "Text on the accent is stage-bg; on light surfaces the accent is mixed 68 % with black in CSS"
+    over: "A second, deeper accent token"
+    reason: "stage-bg on #ff7a3d is 7.5:1 and #ff7a3d on stage-bg 7.5:1 (AA). The derived light variant is 5.2:1 on white, so one token still decides the hue."
+  - category: TradeOff
+    chose: "The h1 keeps slam and thud; the decode and chromatic glitch effects go with the code rain"
+    over: "Keeping every headline effect"
+    reason: "The operator asked to keep the font treatment and the wobble and to drop the Matrix theme; decoding from random characters and the glitch are Matrix effects."
+  - category: Implementation
+    chose: "The run line's finished state is the HTML; main.js reads the log lines from it and replays them"
+    over: "Log data held in JavaScript"
+    reason: "One copy of the run data; reduced motion and a page without script show the finished run as-is."
+  - category: Scope
+    chose: "'formerly Agent Smith' in the landing eyebrow, plus llms.txt and the JSON-LD alternateName"
+    over: "Also in the footer of every page"
+    reason: "The brief asked for one honest line; the machine-readable mentions keep search and assistants able to join the two names."
+  - category: Implementation
+    chose: "A new og.png wordmark card served from codeably.ai and an SVG favicon in the accent"
+    over: "Keeping the old green logo PNG on docs.agent-smith.org as the OG image"
+    reason: "The old image carries the old name and the old domain, which stops serving once the docs move."
+  - category: Implementation
+    chose: "Host-based redirects in vercel.json for agent-smith.org and www.agent-smith.org, /:path* to https://codeably.ai/:path*, permanent"
+    over: "Redirects at Cloudflare only"
+    reason: "Both domains attach to the same Vercel project, so the rule lives with the site and is reviewed with it."

@@ -11,6 +11,7 @@ import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
+import { RunStatePills } from "./mission/RunStatePills";
 import { Section } from "./mission/Section";
 import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
@@ -26,7 +27,7 @@ import { NoProjectReach } from "@/components/shell/NoProjectReach";
 // p0343c (pixel identity): emits the runs-list.html DOM verbatim — .health
 // strip, .section-head slim rules with .cnt pills and .sh-sub hints, .need
 // cards, .rows of .rrow rows.
-// p0458: the rail can narrow this to ONE bucket. A chosen bucket always renders,
+// p0458: the state pills (2026-11-16-0440b) narrow this to ONE bucket. A chosen bucket always renders,
 // empty or not — omitting it would answer the operator's click with a blank page.
 
 // What each bucket says when the operator asked for it and it holds nothing.
@@ -115,6 +116,7 @@ export function MissionControl() {
 
   return (
     <div data-testid="mission-control" data-bucket={filter}>
+      <RunStatePills buckets={buckets} />
       <MetricStrip metrics={metrics} />
 
       {shows("needs-you") && (

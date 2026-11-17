@@ -9,7 +9,7 @@ import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { useRunSteps } from "@/hooks/useRunSteps";
 import { useRunStepEvents } from "@/hooks/useRunStepEvents";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
-import { RunDetailHeader, statusSpill } from "@/components/jobs/RunDetailHeader";
+import { RunLogView } from "@/components/jobs/runlog/RunLogView";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { RunSideRail } from "@/components/jobs/RunSideRail";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
@@ -27,13 +27,16 @@ import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { deriveRunRepoNames } from "@/lib/runRepoNames";
 import { isRunLive } from "@/lib/runLiveness";
 import { formatRunSummary } from "@/lib/formatRunSummary";
-import { isRelaunching, relaunchPlace } from "@/components/jobs/runStatus";
+import { isRelaunching, statusSpill } from "@/components/jobs/runStatus";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { usePersistedPaneWidth } from "@/hooks/usePersistedPaneWidth";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
+// 2026-11-16-6877b: the default view is the sectioned text log (RunLogView): header, one status sentence, a
+// progress strip and seven closed sections. Everything below stays and is one click away: the story view with its
+// storybar and side rail behind "Show as graph", the trace drawer behind "Show all steps and the raw trace".
 // p0343c (pixel identity): the run detail IS the run-viewer.html mock — the
 // calm header (h1 + spill + .ident strip), the horizontal storybar with the
 // beat-switched stage (RunStory), the sticky .sidebox, and the mock's right
@@ -81,6 +84,7 @@ function RunDetail({ runId }: { runId: string }) {
   const events = useRunEvents(runId);
   const [traceOpen, setTraceOpen] = useState(false);
   const [dialogueOpen, setDialogueOpen] = useState(false);
+  const [graph, setGraph] = useState(false);
   // p0395: the trace drawer resizes on two axes — its own width (left-edge
   // handle) and the master/detail split (handle on the rail's edge) — and both
   // survive a reload. p0395a: both persist as fractions of their basis (the
@@ -157,28 +161,24 @@ function RunDetail({ runId }: { runId: string }) {
   // have to agree about whether this run is still asking the operator for something.
   const relaunching = isRelaunching(snapshot);
   const spill = statusSpill(snapshot?.status ?? null, relaunching);
-  const phrase = spillPhrase(snapshot);
 
   return (
     <div className="mock-shell mock-viewer">
-      <div className={cn("wrap", spill.cls)} data-testid="run-viewer-root">
-        <RunDetailHeader
-          pipeline={snapshot?.pipeline ?? null}
-          ticketId={snapshot?.ticketId ?? null}
-          ticketTitle={snapshot?.ticketTitle ?? null}
-          runId={runId}
-          phrase={phrase}
-          agentName={snapshot?.agentName ?? null}
-          repoNames={repoNames}
-          connectionState={connectionState}
-          status={snapshot?.status ?? null}
-          relaunching={relaunching}
-          cancelRequested={snapshot?.cancelRequested ?? false}
-          costUsd={snapshot?.costUsd ?? null}
-          reservedGiMinutes={snapshot?.reservedGiMinutes ?? null}
-          onDeleted={() => router.push("/")}
-        />
+      <RunLogView
+        runId={runId}
+        snapshot={snapshot}
+        events={events}
+        steps={steps}
+        repoNames={repoNames}
+        connectionState={connectionState}
+        graph={graph}
+        onGraph={() => setGraph(!graph)}
+        onOpenTrace={() => setTraceOpen(true)}
+        onDeleted={() => router.push("/")}
+      />
 
+      {graph && (
+      <div className={cn("wrap", spill.cls)} data-testid="run-viewer-root">
         <RunStory
           runId={runId}
           snapshot={snapshot}
@@ -205,6 +205,7 @@ function RunDetail({ runId }: { runId: string }) {
           }
         />
       </div>
+      )}
 
       {/* ===== dialogue drawer: the run's REAL pending question ===== */}
       {pendingQuestion && (
@@ -384,22 +385,6 @@ function RunBanner({
     );
   }
 
-  return null;
-}
-
-// The spill phrase — real facts only: the current step while running, the
-// waiting state while parked; nothing otherwise.
-function spillPhrase(snapshot: RunSnapshot | null): string | null {
-  if (!snapshot) return null;
-  if (snapshot.status === "running" && snapshot.stepName) return `on ${snapshot.stepName}`;
-  // 2026-09-22-7c41c: before the park phrase — the answer is in, and what the run waits for
-  // now is a slot. A place in line is reported when it still holds one.
-  if (isRelaunching(snapshot)) {
-    const place = relaunchPlace(snapshot);
-    return place != null ? `resuming — place ${place} in line` : "resuming";
-  }
-  if (snapshot.status === "waiting_for_input") return "paused on an open question";
-  if (snapshot.status === "queued") return "waiting for capacity";
   return null;
 }
 

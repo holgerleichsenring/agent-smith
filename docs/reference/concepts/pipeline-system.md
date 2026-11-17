@@ -1,6 +1,6 @@
 # Pipeline system
 
-Everything Agent Smith does is a pipeline: an ordered list of commands executed in sequence.
+Everything codeably does is a pipeline: an ordered list of commands executed in sequence.
 
 ## Commands and handlers
 

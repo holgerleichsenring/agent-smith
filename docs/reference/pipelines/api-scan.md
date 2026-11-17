@@ -47,7 +47,7 @@ The **api-security-scan** pipeline scans a running API against its OpenAPI descr
 
 ## Automated scanners
 
-All three run as containers through the tool runner. Docker must be available where Agent Smith runs; images are pulled on first use.
+All three run as containers through the tool runner. Docker must be available where codeably runs; images are pulled on first use.
 
 ### Nuclei
 

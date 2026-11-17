@@ -4,7 +4,6 @@ import { money, ticketCost } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
 import { TicketAcceptanceTab } from "./TicketAcceptanceTab";
 import { TicketAttemptsTab } from "./TicketAttemptsTab";
-import { TicketConversationTab } from "./TicketConversationTab";
 import { TicketCostTab } from "./TicketCostTab";
 import { TicketDefaultsTab } from "./TicketDefaultsTab";
 import { TicketSpecsTab } from "./TicketSpecsTab";
@@ -14,6 +13,7 @@ export { TAB_PARAM } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the ticket page's tabs, ONE table. 2026-10-13-9a59r and 2026-10-13-9a59s append
 // their tabs and counters here, so the bar never shows a tab without its pane.
+// 2026-11-16-6877a: the conversation is the page itself now; these are the panes the Details fold holds.
 
 export interface TicketTabCounter {
   text: string;
@@ -38,12 +38,6 @@ export interface TicketTab {
 
 export const ticketTabs: TicketTab[] = [
   { id: "summary", label: "Summary", Pane: TicketSummaryTab },
-  {
-    id: "conversation", label: "Conversation", Pane: TicketConversationTab,
-    counter: (detail, { conversation }) => conversation
-      ? { text: String(conversation.entries.length), hot: detail.attempts.some((a) => a.pendingQuestion) }
-      : null,
-  },
   {
     id: "specs", label: "Specs", Pane: TicketSpecsTab,
     counter: (detail, { series }) => {
@@ -72,6 +66,7 @@ export const ticketTabs: TicketTab[] = [
   },
 ];
 
-export function ticketTab(id: string | null): TicketTab {
-  return ticketTabs.find((t) => t.id === id) ?? ticketTabs[0];
+/** The Details pane ?tab= names; null when it names none (the fold is closed). */
+export function ticketTab(id: string | null): TicketTab | null {
+  return ticketTabs.find((t) => t.id === id) ?? null;
 }

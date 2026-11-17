@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 580" role="img" aria-labelledby="lc-title lc-desc">
-  <title id="lc-title">A ticket becomes pull requests — Agent Smith</title>
-  <desc id="lc-desc">A ticket comes in from your source system (Azure DevOps, Jira, GitHub or GitLab). Agent Smith spawns one sandbox per repository, clones each repo, then drives a tool-calling loop with every sandbox while the code is written. When the work is done the orchestrator opens one pull request per repo against your git host (Azure DevOps, GitHub or GitLab — Jira has no repos) and writes the ticket update back to wherever it came from.</desc>
+  <title id="lc-title">A ticket becomes pull requests, codeably</title>
+  <desc id="lc-desc">A ticket comes in from your source system (Azure DevOps, Jira, GitHub or GitLab). codeably spawns one sandbox per repository, clones each repo, then drives a tool-calling loop with every sandbox while the code is written. When the work is done the orchestrator opens one pull request per repo against your git host (Azure DevOps, GitHub or GitLab — Jira has no repos) and writes the ticket update back to wherever it came from.</desc>
 
   <defs>
     <marker id="lc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -163,7 +163,7 @@
 
   <!-- ORCHESTRATOR -->
   <rect x="326" y="68" width="210" height="104" rx="9" class="lc-surface-2"/>
-  <text x="344" y="94" class="lc-text" font-size="15" font-weight="600">Agent Smith</text>
+  <text x="344" y="94" class="lc-text" font-size="15" font-weight="600">codeably</text>
   <text x="344" y="113" class="lc-mute" font-size="12.5">orchestrator + agent loop</text>
   <g class="lc-mono">
     <rect x="344" y="126" width="86" height="30" rx="5" class="lc-surface"/>

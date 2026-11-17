@@ -1,6 +1,6 @@
 # agentsmith.yml
 
-The file didn't go away. It changed jobs. Depending on how you run Agent Smith it's the bootstrap for a server, the entire configuration for the CLI, or the artifact you move configuration around in.
+The file didn't go away. It changed jobs. Depending on how you run codeably it's the bootstrap for a server, the entire configuration for the CLI, or the artifact you move configuration around in.
 
 ## As a server bootstrap
 
@@ -16,7 +16,7 @@ secrets:
   github_token:      ${GITHUB_TOKEN}
 ```
 
-The `${...}` references resolve from the process environment. Values never belong in this file. Agent Smith refuses a config that carries raw secrets.
+The `${...}` references resolve from the process environment. Values never belong in this file. codeably refuses a config that carries raw secrets.
 
 `persistence:` is the exception, and it cuts the other way: it is read *before* the secrets map exists, so a `${...}` inside `connection_string` is expanded by nothing and would be sent to the database as the password itself. A deployment that must keep the credential out of this file sets the pair
 

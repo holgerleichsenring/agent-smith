@@ -1,6 +1,6 @@
 # Teams Setup Guide
 
-This guide walks through connecting Agent Smith to Microsoft Teams. It covers
+This guide walks through connecting codeably to Microsoft Teams. It covers
 Azure Bot registration, local development with ngrok, and sideloading the app.
 
 !!! info "Beta"
@@ -13,7 +13,7 @@ Azure Bot registration, local development with ngrok, and sideloading the app.
 
 - An Azure account with permission to create App Registrations
 - A Microsoft Teams tenant where you can sideload custom apps
-- Agent Smith running and reachable via a public HTTPS URL
+- codeably running and reachable via a public HTTPS URL
   - Local development: [ngrok](https://ngrok.com) to expose your local port
   - Production: reverse proxy (nginx, Traefik, etc.)
 

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-6877a
+goal: "The ticket page leads with its conversation: a header with a ··· menu, a thread in which every attempt reports, and one sticky Your move box above the composer."
+
+applies_to: "dashboard (TicketPage, TicketHeader, a TicketThread and its pure words, a YourMove box and its mapper, the Details fold over the old tabs, ticket-thread.css)"
+
+requires: [2026-10-16-86e6c, 2026-10-17-e730a]
+
+facts:
+  - claim: "The page draws header, state block, runway, waits-for, derivations, a seven-tab bar and the selected pane; the conversation is one of the tabs."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:36-48, src/dashboard/src/components/tickets/detail/ticketTabTable.ts:39-74"
+  - claim: "The header's act row holds Done by hand, Close, Reopen, Derive specs with its store-mode choice and Cancel attempt."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketHeader.tsx:63-77, src/dashboard/src/components/tickets/detail/DeriveSpecsAct.tsx:13-16"
+  - claim: "ticketState is the one source of the state words and the one act; a parallel spec adds EndDetail to it."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketState.ts:51-70"
+  - claim: "Conversation groups place entries before the first attempt, per attempt and now, and sameCauses names runs of equal failed causes."
+    evidence: "src/dashboard/src/components/tickets/detail/conversationGroups.ts:32-61, src/dashboard/src/components/tickets/detail/conversationGroups.ts:96-108"
+  - claim: "Every page colour is a .mock-shell custom property."
+    evidence: "src/dashboard/src/styles/mock-parity.css:46-90"
+
+scope:
+  in: "Header with meta line and ··· menu holding the existing acts; thread (ticket text first, attempt reports with spec card, defaults Keep/Change, run line with duration and cost, pending question in place, repeated attempts and derivations collapsed with a count); sticky Your move box from ticketState through one mapper; Details fold holding Summary, Specs, Acceptance, Attempts, Cost & compute, Defaults and the runway, opened by ?tab=."
+  out: "Backend changes; EndDetail beyond an optional local type in the mapper; the global theme, globals.css, DESIGN.md and the shell; the never-run page beyond its header."
+
+steps:
+  - id: header
+    action: "TicketHeader: key, title, one meta line (project, tracker, tracker status, branch, PR fate) and a ··· menu with open in tracker, Done by hand, Close/Reopen, Derive specs, Cancel attempt."
+  - id: move
+    action: "yourMove.ts maps ticketState's view (and an optional endDetail) to tone, title, text, act and why; YourMoveBox draws it sticky above the composer."
+  - id: thread
+    action: "threadItems.ts orders the thread; TicketThread draws ticket text, entries, attempt reports, the spec card, collapsed repeats and derivations, the pending question and the proposal; TicketConversationTab and ConversationList are replaced."
+  - id: details
+    action: "ticketTabTable drops Conversation; TicketDetails draws the remaining tabs collapsed at the thread's end, open while ?tab= names one."
+  - id: css
+    action: "ticket-thread.css under .mock-tickets, only .mock-shell custom properties, no hex."
+
+decisions:
+  - "Conversation leads; the old panes fold into Details instead of being rebuilt — alternatives: rebuild every pane inline."
+  - "Stuck headline in one mapper over ticketState, EndDetail typed locally — alternatives: edit ticketState or types/tickets.ts (owned by a parallel spec)."
+
+tests:
+  - "yourMove.test.ts: every bucket maps to its tone, title and act; endDetail replaces the headline."
+  - "threadItems.test.ts: order, repeated failed attempts collapse with a count, identical derivations collapse."
+  - "TicketPage and TicketThread suites: header menu acts, Your move per state (needs you, stuck, review, done, closed, running, waiting for input), Details by ?tab=."
+
+done:
+  - "No tab bar on top; the thread and the Your move box show on every ticket with a run."
+  - "Every act of the old header and state block is reachable from the menu or the box."
+  - "Every old tab pane except Conversation is reachable from Details."
+  - "pnpm test, build and gen:hub-events are green."

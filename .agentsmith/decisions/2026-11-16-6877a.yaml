@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-6877a
+
+decisions:
+  - category: Architecture
+    chose: "The conversation is the page body (TicketThread); the six other tab panes fold unchanged into a closed Details section at the thread's end, opened by ?tab="
+    over: "Rebuilding every pane inline, or keeping a tab bar with Conversation first"
+    reason: "Everything stays reachable with no pane rewritten, and every older link that sets ?tab= (Open specs, the runway's defaults, a spec id) still lands on its pane."
+  - category: Architecture
+    chose: "yourMove.ts maps ticketState's view to tone, title and act; ticketState.ts and types/tickets.ts are untouched; EndDetail is typed optionally in yourMove.ts"
+    over: "Moving the headline into ticketState or adding endDetail to TicketAttempt"
+    reason: "A parallel backend spec edits ticketState.ts and types/tickets.ts. With the mapper as the one consumer, that PR passes head.endDetail to yourMove() and both merge in either order. Today the stuck title comes from endKind."
+  - category: Architecture
+    chose: "The Your move box takes the old state block's place in the bottom dock above the composer, keeping its test ids (ticket-state, -sentence, -act, -why, -cause, -trace, -prs)"
+    over: "A new block with new ids"
+    reason: "The operator liked the Stuck block's content; only its place changes. Attempt chips go, because every attempt now reports in the thread with its own run link."
+  - category: Behaviour
+    chose: "Initialize, Auto-accept PRs and Refresh principles stay where the state block offered them: as the Your move box's act when the head ended on a missing bootstrap"
+    over: "Duplicating ProjectInitAction into the ··· menu"
+    reason: "Two live copies of one stateful launcher would disagree; the box is the place the state block was."
+  - category: Behaviour
+    chose: "The ··· menu stays open until ··· or Escape; its acts stay mounted while it is closed"
+    over: "Closing on an outside click"
+    reason: "Close ticket and Done by hand open dialogs inside their act; closing the menu on a click would unmount them mid-dialog."
+  - category: Behaviour
+    chose: "?tab=conversation no longer focuses the composer"
+    over: "Auto-focusing it"
+    reason: "Focus engages the ticket's Work it out session (a resume); only a person's act may do that. The Your move act 'Reply below' focuses it on click."
+  - category: Behaviour
+    chose: "A run of failed attempts with equal end kind and text folds into one line ('3 runs stopped: <cause>') only when none of them carries an entry; equal derivations in a row fold the same way"
+    over: "Folding regardless of entries, or keeping 'Same cause as A1' markers"
+    reason: "A fold must never hide a person's words or a review comment."
+  - category: Behaviour
+    chose: "An open review finding shows as the PR review comment entry it already is (file, line, decision pill); the run's internal review findings are on the run page"
+    over: "A new finding card fed from run data"
+    reason: "The ticket reads carry no per-run review findings; inventing a read would be new backend data."
+  - category: Behaviour
+    chose: "Run counts use 'Run n' in the new copy (reports, run line, folds); ticketState's sentences still say 'Attempt n'"
+    over: "Rewording ticketState"
+    reason: "The approved mock says Run; ticketState belongs to the parallel spec. A follow-up can align the words."
+  - category: Process
+    chose: "The spec record line goes in contexts/default/context.yaml"
+    over: "contexts/dashboard/context.yaml as the brief asked"
+    reason: "SpecRecordRuleTests reads state.done only from the default context; a line in the dashboard context fails the spec gate."
+  - category: Process
+    chose: ".tstate rules in mock-parity.css are left in place"
+    over: "Deleting them now"
+    reason: "A parallel theme change edits that file; removing the dead block is a follow-up once both land."

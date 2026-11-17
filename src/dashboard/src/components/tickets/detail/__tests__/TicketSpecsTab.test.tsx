@@ -188,7 +188,7 @@ describe("Ticket specs and acceptance tabs", () => {
   });
 
   it("OpenTheSpec_OnAGraphNode_SelectsThatSpecOnTheSpecsTab", async () => {
-    nav.search = "";
+    nav.search = "tab=summary";
     await open();
     fireEvent.click(document.querySelector('[data-node="s2"]') as Element);
     fireEvent.click(screen.getByTestId("node-open-spec"));
@@ -201,10 +201,8 @@ describe("Ticket specs and acceptance tabs", () => {
   });
 
   it("TheCrossLinks_SetTheTab", async () => {
-    nav.search = "";
+    nav.search = "tab=summary"; // 2026-11-16-6877a: the conversation is no tab; the Summary pane is in Details
     await open();
-    fireEvent.click(screen.getByTestId("ticket-tab-conversation")); // 2026-10-16-86e6c: the header's Continue moved into the state block
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
     fireEvent.click(screen.getByTestId("ticket-open-specs"));
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs", { scroll: false });
   });
@@ -383,7 +381,7 @@ describe("Ticket specs and acceptance tabs over a run-record series", () => {
   });
 
   it("TheSummarySeriesCell_ReadsRunRecord", async () => {
-    nav.search = "";
+    nav.search = "tab=summary";
     await open();
     expect(screen.getByTestId("cell-series-run-record")).toHaveTextContent("2 specs · run record");
     expect(screen.getByTestId("attempt-flow-fallback")).toBeInTheDocument();
