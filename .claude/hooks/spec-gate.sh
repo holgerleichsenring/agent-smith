@@ -83,85 +83,82 @@ record() {
     "${spec:-unknown}" "$tree" "$parent" "$detail" >>"$ledger" 2>/dev/null || true
 }
 
-# Only gate an actual `git commit` invocation (command word at start or after a
-# shell separator) whose message names a spec in either namespace. This
-# deliberately ignores commands that merely *mention* git commit (grep, echo,
-# this script's own tests).
-#
-# 2026-09-21-9ae2: git's GLOBAL OPTIONS sit between the program and the subcommand, and
-# `git -C <tree> commit` is what an agent told to work in absolute paths writes instead
-# of changing directory first. Requiring `commit` immediately after `git` rejected every
-# such form, so the hook exited silently: no checks, no ledger line, nothing to tell the
-# skip from a pass. What is accepted between the two is an option — a flag, and, for the
-# flags that take one, the value after it — and nothing else, so `git -p log commit` and
-# `git -C <tree> rebase --continue` still pass through untouched. The subcommand ends at
-# whitespace, a separator or the line, because `commit-graph` is not `commit`.
-git_value="(\"[^\"]*\"|'[^']*'|[^[:space:]]+)"
-git_value_flag="(-[Cc]|--(git-dir|work-tree|namespace|exec-path|super-prefix|config-env))"
-git_option="(${git_value_flag}[[:space:]]*${git_value}|--[A-Za-z][A-Za-z0-9-]*(=[^[:space:]]*)?|-[A-Za-z]+)"
-printf '%s' "$cmd" \
-  | grep -Eq "(^|[;&|]|&&)[[:space:]]*git([[:space:]]+${git_option})*[[:space:]]+commit([[:space:]]|[;&|]|$)" \
-  || exit 0
+# Only gate a command that RUNS `git commit` and whose message names a spec in either
+# namespace. Most Bash calls never mention the two words, so they leave here without
+# starting python.
+case "$cmd" in *git*commit*) ;; *) exit 0 ;; esac
 
-# Look for the marker in the message the commit will CARRY, not in the command
-# line. `--amend --no-edit`, `-F <file>`, `-t <template>` and `-C <rev>` keep the
-# spec id off the command line entirely, and matching the raw string waved every
-# one of them through — a skip that is indistinguishable from a pass, since both
-# exit 0. commit-message.py resolves the message (exit 3 when it cannot exist
-# yet: a bare commit, an editor amend, `-F -`); those pass through, but loudly,
-# because that is the one case with a human sitting in front of it.
+# 2026-11-17-f270: ONE reading of the command decides whether it commits, in which tree
+# and with which message. commit-message.py reads it as the shell will — quotes, heredoc
+# bodies, here-strings, `( )`, newlines and every other separator — and follows each cd,
+# pushd, popd, variable, export, GIT_DIR/GIT_WORK_TREE and git -C/--git-dir/--work-tree
+# up to the commit; git itself names the top level. Until this spec a regex decided
+# whether the command was a commit and shlex read it: a heredoc body with one apostrophe
+# made the command unreadable, and the gate then built the session's cwd — the main
+# checkout — while the commit landed in a worktree (15 of 112 spec commits on 2026-11-17).
+# The answer is three header lines and the message: kind (none | message | unreadable |
+# unparsed), tree, the reason the tree is unknown, then the message or why it is unreadable.
 resolver="$hooks_dir/commit-message.py"
-if message=$(printf '%s' "$cmd" | python3 "$resolver" "${hook_cwd:-${CLAUDE_PROJECT_DIR:-.}}"); then
-  if ! printf '%s' "$message" | grep -Eq "$spec_marker"; then
-    # `-m "$(cat message.txt)"` reaches the resolver unexpanded: the shell, not the
-    # command line, supplies the text. Finding no marker in `$(cat message.txt)`
-    # proves nothing about the message the commit will carry, so say so instead of
-    # passing in silence — silence here is what a clean pass looks like.
-    if printf '%s' "$message" | grep -Eq '[$]\(|`'; then
-      record not-gated "${hook_cwd:-.}" "message built by a shell substitution"
-      echo "[spec-gate] the commit message is built by the shell ($(printf '%s' "$message" | head -c 60)) — its text never reached the gate, so it was not gated; run the spec checks by hand if this is a spec commit" >&2
-      exit 0
-    fi
-    # 2026-09-09-8fce: a SUBJECT that names a spec but carries no marker the gate can read.
-    # That is a spec commit by intent and an ordinary commit by the gate's reading, and the
-    # silence between the two is what let a two-spec commit through unverified. The body is
-    # not scanned: a good spec commit names its prerequisites there.
-    if printf '%s' "$message" | head -1 | grep -Eq "(^|[^0-9A-Za-z-])${strict_spec_id}([^0-9A-Za-z-]|$)"; then
-      record not-gated "${hook_cwd:-.}" "spec named in the subject without a marker"
-      echo "[spec-gate] the subject names a spec but carries no marker the gate reads — write it as '(<id>)' or '(<id>, <id>)'; NOT gated, run the spec checks by hand" >&2
-      exit 0
-    fi
+base_dir="${hook_cwd:-${CLAUDE_PROJECT_DIR:-.}}"
+# Read line by line: an empty header line (no problem, an empty message) must stay a line.
+kind="" target_dir="" tree_problem="" message=""
+{ IFS= read -r kind; IFS= read -r target_dir; IFS= read -r tree_problem; message=$(cat); } \
+  < <(printf '%s' "$cmd" | python3 "$resolver" --gate "$base_dir" 2>/dev/null)
+if [ -z "$kind" ]; then kind=unparsed; message="the resolver could not run"; fi
+# Every line names the tree git commits in when the gate knows it, and says so when not.
+ledger_tree=${target_dir:-$base_dir}
+
+case "$kind" in
+  none) exit 0 ;;
+  unparsed)
+    # The reader could not follow the command, so it cannot say whether it commits. When
+    # the text carries a spec marker that is a spec commit the gate cannot place — block
+    # rather than build some other tree, which is what the old fallback to the cwd did.
+    reason=$message; message=$cmd
+    printf '%s' "$cmd" | grep -Eq "$spec_marker" || exit 0
+    record blocked "$ledger_tree" "unreadable command: $reason"
+    echo "SPEC GATE BLOCKED COMMIT — the gate could not read this command as shell ($reason). Run the commit as a command of its own: cd <tree> && git commit -m \"...\" (or -F <file>)." >&2
+    exit 2 ;;
+  unreadable)
+    # The ledger names the spec when the command text carries one, so a pass-through of a
+    # spec commit is findable afterwards.
+    reason=$message; message=$cmd
+    record not-gated "$ledger_tree" "unreadable message: $reason"
+    echo "[spec-gate] could not read the commit message ($reason) — not gating; run the spec checks by hand if this is a spec commit" >&2
+    exit 0 ;;
+esac
+
+if ! printf '%s' "$message" | grep -Eq "$spec_marker"; then
+  # `-m "$(cat message.txt)"` reaches the resolver unexpanded: the shell, not the
+  # command line, supplies the text. Finding no marker in `$(cat message.txt)`
+  # proves nothing about the message the commit will carry, so say so instead of
+  # passing in silence — silence here is what a clean pass looks like.
+  if printf '%s' "$message" | grep -Eq '[$]\(|`'; then
+    record not-gated "$ledger_tree" "message built by a shell substitution"
+    echo "[spec-gate] the commit message is built by the shell ($(printf '%s' "$message" | head -c 60)) — its text never reached the gate, so it was not gated; run the spec checks by hand if this is a spec commit" >&2
     exit 0
   fi
-else
-  record not-gated "${hook_cwd:-.}" "unreadable message: ${message:-resolver unavailable}"
-  echo "[spec-gate] could not read the commit message (${message:-resolver unavailable}) — not gating; run the spec checks by hand if this is a spec commit" >&2
+  # 2026-09-09-8fce: a SUBJECT that names a spec but carries no marker the gate can read.
+  # That is a spec commit by intent and an ordinary commit by the gate's reading, and the
+  # silence between the two is what let a two-spec commit through unverified. The body is
+  # not scanned: a good spec commit names its prerequisites there.
+  if printf '%s' "$message" | head -1 | grep -Eq "(^|[^0-9A-Za-z-])${strict_spec_id}([^0-9A-Za-z-]|$)"; then
+    record not-gated "$ledger_tree" "spec named in the subject without a marker"
+    echo "[spec-gate] the subject names a spec but carries no marker the gate reads — write it as '(<id>)' or '(<id>, <id>)'; NOT gated, run the spec checks by hand" >&2
+    exit 0
+  fi
   exit 0
 fi
 
-# Gate the tree the commit ACTUALLY runs in, not the session's project dir. Work
-# in a git worktree (a spec implemented on its own branch) lives outside
-# CLAUDE_PROJECT_DIR, so the old unconditional `cd "$CLAUDE_PROJECT_DIR"` built and
-# tested the main checkout and waved the worktree's changes through without ever
-# compiling them — the gate reported numbers from code the commit does not contain.
-# Resolution order: the directory the commit itself runs in — the hook payload's cwd
-# moved by a leading `cd <dir>` and by git's own `-C <dir>` — then that cwd, then the
-# project dir; each resolved to its git top level. The resolver computes it, so the
-# tree that is built and the message that is read come from ONE reading of the command:
-# a `-C` that sent the commit elsewhere while the gate checked the session's tree would
-# report numbers from code the commit does not contain, which is the same failure the
-# `cd` case was written for (2026-09-21-9ae2).
-target_dir=""
-for candidate in \
-  "$(printf '%s' "$cmd" | python3 "$resolver" --work-dir "${hook_cwd:-.}" 2>/dev/null)" \
-  "$hook_cwd" \
-  "${CLAUDE_PROJECT_DIR:-.}"
-do
-  [ -n "$candidate" ] && [ -d "$candidate" ] || continue
-  target_dir=$(cd "$candidate" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -n "$target_dir" ] && break
-done
-[ -n "$target_dir" ] || { echo "spec-gate: cannot resolve the git tree to gate" >&2; exit 2; }
-cd "$target_dir" || { echo "spec-gate: cannot cd to $target_dir" >&2; exit 2; }
+# Gate the tree the commit ACTUALLY runs in. A spec commit whose tree the gate cannot
+# name is blocked: building some other tree instead reports numbers from code the commit
+# does not contain, which is the failure this resolution exists to prevent.
+if [ -z "$target_dir" ]; then
+  record blocked "$ledger_tree" "unknown tree: $tree_problem"
+  echo "SPEC GATE BLOCKED COMMIT — cannot tell which git tree this commit runs in ($tree_problem). Name it literally: cd <tree> && git commit ..., or git -C <tree> commit ..." >&2
+  exit 2
+fi
+cd "$target_dir" || { record blocked "$target_dir" "cannot cd"; echo "spec-gate: cannot cd to $target_dir" >&2; exit 2; }
 
 tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[spec-gate] $*" >&2; }
