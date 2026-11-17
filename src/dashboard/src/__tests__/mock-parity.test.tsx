@@ -253,7 +253,7 @@ describe("Mock parity", () => {
     }
     ticketView.unmount();
 
-    // ---- ticket detail (ticket-view.html, detail view: Summary) ----
+    // ---- ticket detail (2026-11-17-8d1ca: TicketRail mock — the section bar beside one section) ----
     const carriedAttempt = attempt({ number: 2, runId: "r-2", revision: { number: 2, cause: "comment on the ticket", seriesId: "x", carriedIds: ["s1"], approvalAt: null } });
     const ticketApi = {
       detail: () => Promise.resolve(detail([attempt(), carriedAttempt])),
@@ -269,17 +269,17 @@ describe("Mock parity", () => {
       defaults: () => Promise.resolve(defaults()),
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
-    search.current = "tab=summary"; // 2026-11-16-6877a: the Summary pane is in the Details fold
+    search.current = "";
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
         <TicketPage />
       </TicketPageStore>,
     );
+    await screen.findByTestId("ticket-section-bar", {}, { timeout: 5000 });
     const pageRoot = screen.getByTestId("ticket-page");
     expect(pageRoot.className).toContain("mock-shell");
     expect(pageRoot.className).toContain("mock-tickets");
-    await screen.findByTestId("attempt-flow", {}, { timeout: 5000 }); // the whole thread renders first; slow under a loaded gate
-    for (const cls of [".t-head", ".ticon", ".tsub", ".tabs", ".tab", ".sum", ".sg", ".banner", ".graph", ".g-top", ".gt", ".g-sub", ".lm", ".canvas", ".edge", ".node", ".g-legend", ".sdet", ".sd-h", ".sd-b"]) {
+    for (const cls of [".tk-bar", ".tk-bar-back", ".tk-bar-id", ".tk-bar-key", ".tk-bar-title", ".tk-bar-state", ".tk-bar-sec", ".tk-bar-count", ".tk-bar-facts", ".tk-heading", ".tk-more-btn"]) {
       expect(pageRoot.querySelector(cls), `ticket detail missing ${cls}`).not.toBeNull();
     }
     ticketPage.unmount();
@@ -348,8 +348,8 @@ describe("Mock parity", () => {
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string[]]> = [
-      // 2026-11-16-6877a: the conversation is the page (no tab): its thread, the Your move box and the composer.
-      ["", [".thread", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".tk-move", ".composer", ".cp-actions", ".cp-input"]],
+      // 2026-11-17-8d1cb: What happened (TicketRail mock): the Your move line, one line per event, the composer.
+      ["", [".tk-move", ".thread", ".tk-line", ".tk-line-head", ".tk-at", ".tk-dot", ".tk-who", ".tk-text", ".tk-entry", ".tk-entry.internal", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".composer", ".cp-actions", ".cp-input"]],
       ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
         // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
         ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],
@@ -362,9 +362,9 @@ describe("Mock parity", () => {
           <TicketPage />
         </TicketPageStore>,
       );
-      const root = screen.getByTestId("ticket-page");
-      if (tab) await screen.findByTestId(`ticket-tab-${tab}`);
+      if (tab) await screen.findByTestId(`ticket-section-${tab}`);
       await screen.findByText(tab === "" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "" ? ".mb [data-testid='tracker-text']" : "h2" });
+      const root = screen.getByTestId("ticket-page");
       for (const cls of classes) {
         expect(root.querySelector(cls), `ticket ${tab || "thread"} missing ${cls}`).not.toBeNull();
       }
@@ -393,8 +393,9 @@ describe("Mock parity", () => {
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string, string[]]> = [
-      ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],
-      ["cost", "compute-table", [".costs", ".cr", ".cl", ".track", ".bar", ".parts", ".cv", ".cr.total", ".capmark", ".health.four", ".metric", ".metric.hot", ".banner.need", ".compute", ".c-head", ".c-row", ".c-a", ".c-track", ".c-bar", ".seg", ".park", ".c-figs", ".c-pods", ".pd", ".c-n", ".c-legend"]],
+      // 2026-11-17-8d1cc: the Runs and Cost sections of the TicketRail mock — plain lines, one thin bar.
+      ["runs", "runs-list", [".tk-runs", ".tk-run", ".tk-run-line", ".tk-dot", ".tk-who", ".tk-text", ".tk-outcome", ".tk-meta", ".tk-chev"]],
+      ["cost", "cost-rows", [".tk-cost-head", ".tk-cost-total", ".tk-cost-lines", ".tk-cost-line", ".tk-cost-who", ".tk-cost-usd", ".tk-sub-head", ".tk-kv", ".tk-kv-row", ".k", ".v", ".tk-wait-line"]],
     ];
     for (const [tab, ready, classes] of tabs) {
       search.current = `tab=${tab}`;
@@ -403,9 +404,9 @@ describe("Mock parity", () => {
           <TicketPage />
         </TicketPageStore>,
       );
-      const root = screen.getByTestId("ticket-page");
       await screen.findByTestId(ready);
-      await screen.findAllByText(/LLM calls|call time/);
+      if (tab === "cost") await screen.findAllByText(/LLM calls|call time/);
+      const root = screen.getByTestId("ticket-page");
       // Some classes draw from later reads (the budget cap mark needs the run detail), so wait for them.
       await waitFor(() => {
         for (const cls of classes) {

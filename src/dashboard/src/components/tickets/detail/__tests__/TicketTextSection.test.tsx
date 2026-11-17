@@ -5,7 +5,7 @@ import { attempt, conversation, defaults, detail, passes, reviews, series, ticke
 import type { RunEvent } from "@/types/hub-events";
 import type { TicketText } from "@/types/tickets";
 
-// The ticket itself on the Summary tab: the description rendered in its tracker's format, the tracker's own
+// The ticket itself as written: the description rendered in its tracker's format, the tracker's own
 // criteria under their own label, twelve lines until "Show all", and a snapshot naming the attempt that read it.
 
 const NONE: RunEvent[] = [];
@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const { TicketPageStore } = await import("@/lib/tickets/TicketPageStore");
-const { TicketSummaryTab } = await import("../TicketSummaryTab");
+const { TicketTextSection } = await import("../TicketTextSection");
 
 let text: TicketText;
 const api = {
@@ -34,7 +34,7 @@ const api = {
 };
 
 async function open() {
-  render(<TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={api}><TicketSummaryTab /></TicketPageStore>);
+  render(<TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={api}><TicketTextSection /></TicketPageStore>);
   for (let i = 0; i < 3; i++) await act(() => vi.advanceTimersByTimeAsync(0));
   return screen.getByTestId("ticket-text");
 }

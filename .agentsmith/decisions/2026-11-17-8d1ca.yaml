@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-8d1ca
+
+decisions:
+  - category: Architecture
+    chose: "The six panes become sections of a ticket section bar; the main area shows one, picked by ?section= (default What happened); the Details fold and its tab bar are deleted"
+    over: "Keeping the Details fold under the thread, or a tab bar on top"
+    reason: "The operator approved the TicketRail mock: one section at a time, counts visible in the bar without a click."
+  - category: Behaviour
+    chose: "?tab= keeps working: summary and conversation land on What happened, attempts on Runs, the others on their own section; go() writes ?section= and drops ?tab="
+    over: "Dropping ?tab= links"
+    reason: "Older links (tracker comments, bookmarks, the runway's defaults link) must still land where they pointed."
+  - category: Behaviour
+    chose: "The Summary pane and its attempt flow graph (AttemptFlowGraph, FlowCanvas, NodeDetail, attemptFlowLayout, SummaryCells, OpenSpecButton) are deleted with their tests; the ticket text stays (TicketTextSection) for What happened"
+    over: "A seventh section for the summary and graph"
+    reason: "The approved mock has no such section and the operator asked for minimal first; the run page keeps its own graph and sectioned log. Git keeps the code if it is wanted back."
+  - category: Behaviour
+    chose: "Cancel for a live attempt stands beside the heading as a red text link ('Cancel run n'); Open in tracker, Done by hand, Close, Reopen and Derive specs stay in ···"
+    over: "Cancel in the ··· menu"
+    reason: "The audit found Cancel buried; ending a paid run must be one look away. CancelRunButton keeps its two-click confirm."
+  - category: Behaviour
+    chose: "Every link that went to the conversation goes to What happened, and the thread scrolls to ?causeOf= each time the parameter changes (scrolledFor ref), not only on first mount"
+    over: "Leaving the first-mount scroll"
+    reason: "Read, Continue in conversation, Discuss and the cost banner set tab=conversation, which closed the fold and never scrolled."
+  - category: Behaviour
+    chose: "The app sidebar is icons-only on /tickets/<project>/<id> and its toggle is hidden there; the remembered choice is untouched elsewhere"
+    over: "Changing the remembered state when a ticket opens"
+    reason: "The mock shows the narrow nav beside the ticket bar; a page visit must not overwrite the person's own choice."
+  - category: Behaviour
+    chose: "The chosen section is bright text and weight, not a filled row; the state word is coloured text from ticketDot, the list's bucket title"
+    over: "The mock's filled selected row"
+    reason: "The operator asked for no filled backgrounds, hairlines and text colour only; the list and the bar must name a state with one word."
+  - category: Behaviour
+    chose: "The bar's PR fact reads the summary's pull-request fate, else counts the attempts' opened pull requests ('1 PR'), else 'no PR'"
+    over: "'no PR' whenever the fate is unread"
+    reason: "Local data showed an attempt with a PR while the summary's list was empty; 'no PR' beside a PR link would be false."
+  - category: Architecture
+    chose: "The address hook keeps its name useTicketTabGo; the section names live in ticketSectionNames.ts, read by both the hook and the section table"
+    over: "Renaming the hook, or mapping in two places"
+    reason: "YourMoveBox imports the hook and a parallel PR edits YourMoveBox; a rename would conflict. One table avoids two mappings that could disagree."
+  - category: Behaviour
+    chose: "A ticket with no run keeps its header page (TicketHeader, waits-for, filed line, derivations) without a section bar"
+    over: "A section bar with empty sections"
+    reason: "It has nothing derived, attempted or spent; its sections would all be empty."
+  - category: Process
+    chose: "The series runway sits at the top of the Cost section until 8d1cc folds it into the total-versus-budget line"
+    over: "Above every section"
+    reason: "It reports spend against the series cap, which is what Cost shows."
