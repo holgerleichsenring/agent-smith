@@ -18,20 +18,31 @@ public sealed class ApprovedSetWordingTests
     private const string Key = "azdo-19106";
 
     /// <summary>
-    /// It must not send the operator to the design conversation: nothing re-opens an approved
-    /// record from one yet, and that would be the deleted promise moved somewhere else.
+    /// 2026-11-17-ec48b: a change is discussed in the ticket's conversation; nobody edits the branch by hand.
     /// </summary>
     [Fact]
-    public void CutComment_ApprovedSet_PointsAtTheBranchSpecsInsteadOfAnAmendment()
+    public void CutComment_ApprovedSet_SendsAChangeToTheTicketsConversation()
     {
         var body = SpecSetComment.Render(Set(approved: true), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
-        body.Should().Contain("edit the specs on the ticket branch")
+        body.Should().Contain("say what should change in the ticket's conversation")
             .And.Contain("will NOT change the specification");
+        body.Should().NotContain("edit the specs on the ticket branch");
         body.Should().NotContain("re-cuts the unstarted tail",
             "for an approved set that promise is false and contradicts the notice beside it");
         body.Should().NotContain("approving the set again",
             "no conversation can re-open an approved record yet — pointing there would be unreachable");
+    }
+
+    /// <summary>2026-11-17-ec48b: no notice tells a person to edit a spec on the branch by hand.</summary>
+    [Fact]
+    public void WhereToChangeIt_BothForms_SendAChangeToTheConversation()
+    {
+        ApprovedSetKept.WhereToChangeIt.Should().Contain(ApprovedSetKept.TheConversationRule).And.NotContain("Edit a spec");
+        ApprovedSetKept.WhereToChangeItWithNoPullRequest.Should().Contain(ApprovedSetKept.TheConversationRule)
+            .And.NotContain("pull request");
+        ApprovedSetKept.TheConversationRule.Should().Contain("someone who may control runs")
+            .And.Contain("the spec it is building").And.Contain("recorded for the next attempt");
     }
 
     [Fact]

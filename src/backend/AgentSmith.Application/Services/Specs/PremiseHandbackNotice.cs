@@ -40,7 +40,8 @@ public sealed class PremiseHandbackNotice(
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(findings);
         if (findings.Count == 0) return false;
-        var body = PremiseHandback.Notice(draft, findings, HasPullRequest(pipeline));
+        var approved = pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) && set?.Approval is not null;
+        var body = PremiseHandback.Notice(draft, findings, HasPullRequest(pipeline), approved);
         // The run's own record of it, whether or not a tracker is reachable. A run is a new
         // reader every time, so this is written on every run that hands back.
         await decisions.LogAsync(null, DecisionCategory.Implementation, body, ct, "spec-set");

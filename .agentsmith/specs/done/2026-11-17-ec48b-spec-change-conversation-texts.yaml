@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-ec48b
+goal: "Every text that tells a person how to change a spec says to discuss it in the ticket's conversation, not to edit it on the ticket branch by hand."
+
+applies_to: "default (ApprovedSetKept, SpecSetCommentPreamble, PremiseHandback, MissingSpecReason, docs how-it-works and fix-and-feature)"
+
+requires: [2026-11-17-ec48a, 2026-11-17-4860a]
+
+facts:
+  - claim: "The hand-back and kept-set notices end on a rule telling the operator to edit an unstarted spec on the ticket branch, and the door for the tracker-only case opens with 'If you cannot reach the branch at all'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:45-67"
+  - claim: "The approved cut comment tells the operator to edit the specs on the ticket branch and re-trigger."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetCommentPreamble.cs:51"
+  - claim: "The premise hand-back says the run did not rewrite the specification and never will, then ends on the edit rule."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseHandback.cs:61-66"
+  - claim: "The missing-approved-spec park ends on the same edit rule."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MissingSpecReason.cs:31"
+  - claim: "The docs tell people to edit a spec on the ticket branch, or to put the specification on the branch, in the expectations, lifecycle and fix-and-feature pages; the coding master's tool list does not name revise_spec."
+    evidence: "docs/how-it-works/expectations.md:13, docs/how-it-works/expectations.md:15, docs/how-it-works/expectations.md:30, docs/how-it-works/lifecycle.md:63, docs/reference/pipelines/fix-and-feature.md:133, docs/reference/pipelines/fix-and-feature.md:144"
+  - claim: "An approval in a never-worked ticket's conversation records its series and writes the branch in an 'amend' run; specs are not edited by hand on the ticket page."
+    evidence: ".agentsmith/specs/done/2026-11-17-e061c-act-runs-amend.yaml:3, .agentsmith/specs/done/2026-11-17-4860a-spec-edit-removal.yaml:3"
+
+scope:
+  in: "ApprovedSetKept: the edit rule becomes a conversation rule — say what should change in the ticket's conversation; while a run is building a spec, a message from someone who may control runs reaches its agent, which can revise the spec it is building with one review of the change, and a change to another spec is raised again once the run has ended; otherwise the conversation proposes the change and, once approved, it is recorded for the next attempt, which continues the series by spec id; a spec that already ran is never edited, a correction to one is a new spec after it. WhereToChangeIt and its no-pull-request form keep where the specs are and end on that rule; the door opens with 'If you work from the tracker alone'. SpecSetCommentPreamble's approved wording sends a change to the ticket's conversation. PremiseHandback says the check reports and does not amend, without 'never will', and ends by the set's kind: an approved set on the conversation rule, a derived set on what changes it today (comment on the ticket or edit its text; the next run cuts the unstarted specs again). MissingSpecReason no longer ends on the edit rule (it named specs the park says are not there); SpecHandbackComment's own instruction to put the specification on the branch stays. Docs: expectations.md (derived cut keeps comment/edit the ticket and drops editing on the branch; approved set), lifecycle.md (spec handed back: an approved spec only when a done criterion breaks, c47ea; how to change it), fix-and-feature.md (the coding master's tools name revise_spec). Tests that pin the old wording follow."
+  out: "Restoring a missing or unreadable series (SpecHandbackComment.Missing, ApprovedSetHandoff's 'restore the branch's series', expectations.md:30, fix-and-feature.md:133): that puts back an artifact the run cannot read, it does not edit a spec, and the conversation cannot write a branch it cannot read. The recut door's mechanism (SpecRecutDemand) and its phrase, which stays inside a sentence. Carrying a run-stamped message about another spec into the conversation after the run ends (4860b out). The skills repository's coding-agent-master text (its own PR). Changelog entries (release-please)."
+
+upgrade_impact: "None: only ticket notice texts and docs change."
+
+steps:
+  - id: wording
+    action: "ApprovedSetKept.TheConversationRule replaces TheEditRule; WhereToChangeIt/WithNoPullRequest/TheDoor reworded; SpecSetCommentPreamble approved wording and its remarks; PremiseHandback.Notice takes whether the set is approved (PremiseHandbackNotice reads SpecSet.Approval) and ends on the conversation rule or the derived-set sentence; MissingSpecReason drops the rule."
+  - id: docs
+    action: "expectations.md lines 13 and 15; lifecycle.md 63; fix-and-feature.md 144."
+  - id: tests
+    action: "ApprovedSetWordingTests, PremiseHandbackTests and any test pinning the old sentences assert the new wording; SpecRecutDemandTests stay unchanged and green."
+
+tests:
+  - "ApprovedSetWordingTests: the approved cut comment names the ticket's conversation and no longer 'edit the specs on the ticket branch'; WhereToChangeIt and its no-PR form carry no 'Edit a spec'"
+  - "PremiseHandbackTests: the notice ends on the conversation rule and does not say 'never will'"
+  - "PremiseHandbackTests: a derived set's notice ends on commenting or editing the ticket, not on the conversation rule"
+  - "MissingSpecReason/SpecHandbackComment tests: the park carries no 'Edit a spec' rule"
+
+done:
+  - "No run text or doc page tells a person to edit an unstarted spec on the ticket branch by hand; each says to discuss it in the ticket's conversation."

@@ -39,33 +39,32 @@ public static class ApprovedSetKept
     /// </summary>
     public const string Heading = "## Agent Smith — the approved specification stands";
 
-    /// <summary>Where a change to an approved set is made: on the branch, or (2026-10-13-9a59l) by approving
-    /// a new proposal in the ticket's own conversation, which the next run merges into the series by spec
-    /// id — what already ran stays as it ran.</summary>
-    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run linked. " + TheEditRule
-        + " Or approve a new proposal in the ticket's conversation: the next run continues the series by spec id.";
+    /// <summary>Where the specs are, and (2026-11-17-ec48b) how a change is made: in the ticket's conversation.</summary>
+    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run linked. " + TheConversationRule;
 
-    /// <summary>2026-09-17-0e79c: the same place, for a run that has NOT opened a pull request
-    /// yet. A hand-back on the FIRST spec of a set happens before any delivery, so naming a
-    /// pull request there would send an operator to something that does not exist.</summary>
-    public const string WhereToChangeItWithNoPullRequest = OnTheBranch + ". " + TheEditRule;
+    /// <summary>2026-09-17-0e79c: the same, for a run that has NOT opened a pull request yet (a first-spec hand-back).</summary>
+    public const string WhereToChangeItWithNoPullRequest = OnTheBranch + ". " + TheConversationRule;
 
-    /// <summary>2026-09-22-8b25: the ONE deliberate door for somebody who cannot reach the branch,
+    /// <summary>2026-11-17-ec48b: how a spec of an approved set is changed — a running attempt's agent hears only a
+    /// runs.control poster (4860b) and revises only its current spec (ec48a); an approval starts nothing (9a59l).</summary>
+    public const string TheConversationRule =
+        "To change a spec, say what should change in the ticket's conversation. While a run is building a spec, a message "
+        + "from someone who may control runs reaches its agent, which can revise the spec it is building, with one review "
+        + "of the change; a change to another spec is raised again once the run has ended. Otherwise the conversation "
+        + "proposes the change, and once you approve it, it is recorded for the next attempt, which continues the series "
+        + "by spec id. A spec that already ran is never edited, so a correction to one becomes a new spec after it.";
+
+    /// <summary>2026-09-22-8b25: the ONE deliberate door for somebody who works from the tracker alone,
     /// named where a person learns their input was not acted on. The phrase sits INSIDE a sentence
     /// and never on a line of its own, so quoting this notice back cannot fire a demand:
     /// <see cref="SpecRecutDemand"/> reads it only as a whole line at the START of a comment.</summary>
     public const string TheDoor =
-        "If you cannot reach the branch at all, there is one deliberate exception: write a comment "
-        + "whose FIRST line says nothing but `" + SpecSetComment.RecutDemand + "`, and the next "
-        + "run cuts the unstarted specs again from the ticket, or adds specs after the ones that "
-        + "ran when none is left. Any other first line is an "
-        + "ordinary comment and changes nothing.";
+        "If you work from the tracker alone, there is one deliberate exception: write a comment whose FIRST line says "
+        + "nothing but `" + SpecSetComment.RecutDemand + "`, and the next run cuts the unstarted specs again from the "
+        + "ticket, or adds specs after the ones that ran when none is left. Any other first line is an ordinary comment "
+        + "and changes nothing.";
 
     private const string OnTheBranch = "The specs are on the ticket branch under `" + SeriesPaths.Planned + "/`";
-
-    private const string TheEditRule =
-        "Edit a spec that has NOT started there and the next run works your edit; a spec that "
-        + "already ran is never edited, so a correction to one becomes a new spec after it.";
 
     // The input this run saw and kept, or null when nothing arrived that would have re-cut a set
     // nobody approved. Not public: the three questions callers actually ask are below.

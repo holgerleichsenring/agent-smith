@@ -66,6 +66,7 @@ public sealed class RenamedApprovedSetStampTests
 
         reason.Should().Contain($"carries '{Renamed}'")
             .And.NotContain(FiledTicketLabels.ApprovedSetStamp);
+        reason.Should().NotContain("Edit a spec", "2026-11-17-ec48b: the park names no specs to edit on the branch");
     }
 
     [Fact]

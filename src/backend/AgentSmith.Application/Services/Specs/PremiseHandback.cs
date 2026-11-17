@@ -22,6 +22,12 @@ public static class PremiseHandback
     /// rule measures from.</summary>
     public const string Heading = "## Agent Smith — a spec rests on something that is no longer so";
 
+    /// <summary>2026-11-17-ec48b: how a set the run cut itself is changed — what its cut comment says.</summary>
+    public const string DerivedChange =
+        "Comment on the ticket with what is true now, or edit the ticket text, and the next run cuts the "
+        + "unstarted specs again. A spec that already ran is never edited, so a correction to one becomes a "
+        + "new spec after it.";
+
     /// <summary>What a notice for THIS spec carries, so the next run can tell it was already
     /// told and not say the same thing again.</summary>
     public static string Marker(string specId) => $"agent-smith:premise-check:{specId}";
@@ -36,9 +42,10 @@ public static class PremiseHandback
 
     /// <summary>The ticket's copy: every false premise, what proved it, and where a correction
     /// is made. <paramref name="hasPullRequest"/> decides which of the two true wordings for
-    /// that last part is used — a first-spec hand-back has opened none.</summary>
+    /// that last part is used — a first-spec hand-back has opened none. 2026-11-17-ec48b: <paramref name="approved"/>
+    /// decides how it is changed — in the ticket's conversation, or for a derived set by a comment.</summary>
     public static string Notice(
-        SpecDraft draft, IReadOnlyList<PremiseFinding> findings, bool hasPullRequest)
+        SpecDraft draft, IReadOnlyList<PremiseFinding> findings, bool hasPullRequest, bool approved)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(findings);
@@ -58,11 +65,11 @@ public static class PremiseHandback
         }
         sb.AppendLine();
         sb.AppendLine(
-            "This run did not rewrite the specification and never will: the check reports, it "
-            + "does not amend. Any spec that was already verified is still delivered.")
+            "The check reports; it does not amend the specification. Any spec that was already "
+            + "verified is still delivered.")
             .AppendLine();
-        return sb.Append(hasPullRequest
-            ? ApprovedSetKept.WhereToChangeIt
+        return sb.Append(!approved ? DerivedChange
+            : hasPullRequest ? ApprovedSetKept.WhereToChangeIt
             : ApprovedSetKept.WhereToChangeItWithNoPullRequest).ToString();
     }
 

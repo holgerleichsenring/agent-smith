@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-ec48b
+
+decisions:
+  - category: Implementation
+    chose: "One conversation rule (ApprovedSetKept.TheConversationRule) replaces the edit rule in every notice that named it, and says exactly what each path does: a running attempt's agent revises only the spec it is building and only on a runs.control poster's message; otherwise an approved change is recorded for the next attempt"
+    over: "A short 'discuss it in the ticket's conversation' with no detail"
+    reason: "Adversarial review: the short form is false for a later spec while a run builds another (4860b drops the message after the run, ec48a revises only the current spec), for a poster without runs.control, and for a series edit, which starts nothing (SeriesEditAct)."
+  - category: Implementation
+    chose: "The premise hand-back ends by the set's kind: an approved set on the conversation rule, a derived set on commenting or editing the ticket"
+    over: "The approved wording for both"
+    reason: "c47ea hands back every false premise of a derived set; a comment re-cuts a derived set's unstarted specs today, while approving a change in the conversation would turn it into an approved set that comments no longer move."
+  - category: Implementation
+    chose: "MissingSpecReason drops the edit rule; SpecHandbackComment's 'put the specification on the ticket branch', ApprovedSetHandoff's 'restore the branch's series' and the matching doc lines stay"
+    over: "Telling the operator to approve the specification again in the conversation"
+    reason: "Adversarial review: approving again is false in most cases the park is posted in — an unreadable branch is refused by the conversation, a parked ticket counts as worked so an approval only records to the database, and a stamp without a record was never approved. Restoring an artifact the run cannot read is not editing a spec."
+  - category: Implementation
+    chose: "The tracker-only door opens with 'If you work from the tracker alone'"
+    over: "'If you cannot reach the branch at all'"
+    reason: "Reaching the branch is no longer how a change is made; the door is for a person who has no conversation. The phrase still sits inside a sentence, so SpecRecutDemand never reads a quoted notice as a demand."
