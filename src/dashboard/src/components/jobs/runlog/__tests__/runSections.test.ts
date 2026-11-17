@@ -40,6 +40,19 @@ describe("runSections", () => {
     expect(sections.build).toEqual(["AgenticMaster", "build s2"]);
   });
 
+  // 2026-11-17-b6e4b: a file run delivers its tickets; a security scan's config preflight is getting ready.
+  it("runSections_FileTickets_ReadsUnderDelivered", () => {
+    const sections = placed([step("PlanFilingCommand"), step("FileTicketsCommand")]);
+    expect(sections.ready).toEqual(["PlanFilingCommand"]);
+    expect(sections.deliver).toEqual(["FileTicketsCommand"]);
+  });
+
+  it("runSections_RunConfigPreflightAfterRatifyScanContract_ReadsUnderGotReady", () => {
+    const sections = placed([step("RatifyScanContractCommand"), step("RunConfigPreflightCommand")]);
+    expect(sections.spec).toEqual(["RatifyScanContractCommand"]);
+    expect(sections.ready).toEqual(["RunConfigPreflightCommand"]);
+  });
+
   it("runSections_AnUnknownCommand_JoinsTheSectionBeforeIt_TheFirstJoinsGotReady", () => {
     const sections = placed([step("SomethingNew"), step("DeriveSpec"), step("AnotherNewOne")]);
     expect(sections.ready).toEqual(["SomethingNew"]);

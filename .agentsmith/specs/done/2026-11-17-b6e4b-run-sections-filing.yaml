@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-b6e4b
+goal: "The run page places FileTickets under Delivered and the config preflight under Got ready, instead of the section of the step before them."
+
+applies_to: "dashboard (run log sections)"
+
+requires: [2026-11-17-5701b]
+
+facts:
+  - claim: "The run page places each step by its command name; a name the table lacks joins the section of the step before it, the first one joining Got ready."
+    evidence: "src/dashboard/src/components/jobs/runlog/runSections.ts:5-9, src/dashboard/src/components/jobs/runlog/runSections.ts:26-44"
+  - claim: "The 'file' preset runs PlanFiling then FileTickets, so FileTickets lands under Got ready; security-scan runs RunConfigPreflight after RatifyScanContract, so it lands under Derived the spec."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.File.cs:1-16, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SecurityScan.cs:20-23"
+
+scope:
+  in: "SECTION_OF gains PlanFiling and RunConfigPreflight under ready, FileTickets under deliver."
+  out: "The scan pipelines' other unnamed steps. A file run still shows the sections it has no steps in as empty."
+
+steps:
+  - id: map
+    action: "Add PlanFiling: ready, RunConfigPreflight: ready, FileTickets: deliver to SECTION_OF."
+
+tests:
+  - "runSections.test.ts: a file run's FileTickets reads under Delivered; a security-scan's RunConfigPreflight after RatifyScanContract reads under Got ready"
+
+done:
+  - "A 'file' run's page shows PlanFiling under Got ready and FileTickets under Delivered."
