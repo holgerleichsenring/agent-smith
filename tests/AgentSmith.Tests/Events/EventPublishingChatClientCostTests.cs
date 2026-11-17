@@ -31,6 +31,25 @@ public sealed class EventPublishingChatClientCostTests
         finished.TokensOut.Should().Be(1_000_000);
     }
 
+    // 2026-11-17-166ab: a worker call records the CLI's own figure, not the table price of its joined model name.
+    [Fact]
+    public async Task WorkerResponse_RecordsTheCliReportedCost()
+    {
+        var recorder = new RecordingPublisher();
+        var resolver = StubResolver(input: 2m, output: 8m, cacheRead: 0m);
+        var stub = new StubChat("haiku", input: 1_000_000, output: 1_000_000)
+        {
+            Worker = new AgentSmith.Contracts.Models.Workers.WorkerCallAccounting(
+                "claude-haiku-4-5+claude-opus-5-5", 2, 900, 12_149, 57_017, 0.4213m, 1),
+        };
+        var client = NewClient(stub, recorder, resolver);
+
+        await client.GetResponseAsync(
+            new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
+
+        recorder.Events.OfType<LlmCallFinishedEvent>().Single().CostUsd.Should().Be(0.4213m);
+    }
+
     [Fact]
     public async Task ResponseWithAnthropicCacheReadTokens_BillsThemAtCacheReadRate()
     {
@@ -137,6 +156,9 @@ public sealed class EventPublishingChatClientCostTests
         // adapter sets this, not an AdditionalCounts key).
         public long? CachedInputTokenCount { get; set; }
 
+        // 2026-11-17-166ab: what a worker CLI reported for the call, hung on the response as the bridge does.
+        public AgentSmith.Contracts.Models.Workers.WorkerCallAccounting? Worker { get; set; }
+
         public Task<ChatResponse> GetResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default)
@@ -153,11 +175,12 @@ public sealed class EventPublishingChatClientCostTests
                 foreach (var (key, value) in AdditionalCounts)
                     usage.AdditionalCounts[key] = value;
             }
-            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))
+            var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))
             {
                 ModelId = _modelId,
                 Usage = usage,
-            });
+            };
+            return Task.FromResult(Worker?.AttachTo(response) ?? response);
         }
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

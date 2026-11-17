@@ -6,7 +6,8 @@ namespace AgentSmith.Application.Services.Tickets;
 /// <summary>
 /// 2026-10-13-9a59k: the statuses agent-smith itself moves a project's tickets into, from the project's
 /// effective trigger, then its tracker — the ONE place that precedence lives. Done is the trigger's
-/// done_status; Failed its failed_status, else Done, as the spawn seeds it; Clarification and
+/// done_status; Failed its failed_status only (2026-11-17-166aa: a failure never moves a ticket to done, so no
+/// failed_status means the failure leaves the status where it is); Clarification and
 /// NotImplementable the trigger's, else the tracker's, NotImplementable falling back to Clarification
 /// like the hand-back park; Closed the tracker's closed_status. A blank configured value is no status.
 /// </summary>
@@ -20,7 +21,7 @@ public sealed record TicketParkStatuses(
         var clarification = Either(trigger?.NeedsClarificationStatus, project.Tracker.NeedsClarificationStatus);
         return new TicketParkStatuses(
             done,
-            trigger is null ? null : Either(trigger.FailedStatus, done),
+            trigger is null ? null : Either(trigger.FailedStatus, null),
             clarification,
             Either(Either(trigger?.NotImplementableStatus, project.Tracker.NotImplementableStatus), clarification),
             Either(project.Tracker.ClosedStatus, null));

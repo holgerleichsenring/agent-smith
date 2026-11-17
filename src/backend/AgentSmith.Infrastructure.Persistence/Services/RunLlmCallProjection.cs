@@ -27,12 +27,12 @@ public sealed class RunLlmCallProjection(
         if (await records.HoldsAsync<RunLlmCall>(uow, e.RunId, eventSeq, ct)) return;
         uow.Add(CallFrom(e, eventSeq));
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
-        // The finish path stays authoritative: RunFinished overwrites the row with its own
-        // total (or the per-call sum fallback), and a terminal row is never mutated by a
-        // late replay.
+        // 2026-11-17-166ab: the total is the sum of the rows, so a call projected after the
+        // finish adds too (a replayed call was refused above by its trail position). The
+        // metrics and step time of a terminal row stay as they landed.
+        if (run is not null) run.CostTotalUsd += e.CostUsd;
         if (run is not null && run.FinishedAt is null)
         {
-            run.CostTotalUsd += e.CostUsd;
             metrics.Fold(run, e);
             await stepTime.FoldLlmAsync(uow, e, ct);
         }

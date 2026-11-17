@@ -113,7 +113,8 @@ public sealed partial class AgentConfig
     /// reading a prompt on stdin and printing an answer works, and an unknown binary handed
     /// an unknown flag exits non-zero — a dead run. Unset means on for the default
     /// <c>claude</c> binary, which documents the flag, and off for anything else. Set via
-    /// <c>agent.worker_structured_result</c>.
+    /// <c>agent.worker_structured_result</c>. 2026-11-17-166ac: true also marks the binary as Claude Code's
+    /// CLI, started without tools, MCP servers or saved sessions (the default binary always is).
     /// </summary>
     public bool? WorkerStructuredResult { get; set; }
 }

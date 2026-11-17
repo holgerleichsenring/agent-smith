@@ -16,8 +16,11 @@ public sealed class ScriptedWorkerProcessRunner : IWorkerProcessRunner
     private readonly WorkerJsonFormat _json = new();
     private readonly Queue<WorkerProcessResult> _results = new();
 
-    /// <summary>Every prompt the bridge handed the worker, in order.</summary>
+    /// <summary>Every prompt the bridge handed the worker, in order, as one text (system part first).</summary>
     public List<string> Prompts { get; } = [];
+
+    /// <summary>2026-11-17-166ae: the same prompts in their two parts.</summary>
+    public List<WorkerPrompt> Parts { get; } = [];
 
     public ScriptedWorkerProcessRunner EnqueueText(string text) =>
         EnqueueReply(new WorkerReply(Text: text));
@@ -38,9 +41,10 @@ public sealed class ScriptedWorkerProcessRunner : IWorkerProcessRunner
     }
 
     public Task<WorkerProcessResult> RunAsync(
-        string prompt, ExternalWorkerCliOptions options, CancellationToken cancellationToken)
+        WorkerPrompt prompt, ExternalWorkerCliOptions options, CancellationToken cancellationToken)
     {
-        Prompts.Add(prompt);
+        Prompts.Add(prompt.Text);
+        Parts.Add(prompt);
         return Task.FromResult(_results.Count > 0 ? _results.Dequeue() : DefaultEmpty());
     }
 

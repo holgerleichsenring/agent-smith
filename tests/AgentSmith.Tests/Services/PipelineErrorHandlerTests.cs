@@ -160,10 +160,10 @@ public sealed class PipelineErrorHandlerTests
     }
 
     [Fact]
-    public async Task HandleStepFailureAsync_NoFailedStatus_FallsBackToDoneStatus()
+    public async Task HandleStepFailureAsync_NoFailedStatus_CommentsAndLeavesTheStatus()
     {
-        // p0261: failed_status unset → terminalize to done_status, so the ticket still
-        // leaves the open set rather than staying New/Active.
+        // 2026-11-17-166aa: failed_status unset → no done_status fallback; a failure never looks done.
+        // The comment goes out comment-only and the ticket keeps its status.
         var ticketProvider = new Mock<ITicketProvider>();
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var context = new PipelineContext();
@@ -174,8 +174,29 @@ public sealed class PipelineErrorHandlerTests
             Array.Empty<string>(), new ResolvedProject(), context, _lifecycleMock.Object,
             CommandResult.Fail("boom"), CancellationToken.None);
 
+        ticketProvider.Verify(t => t.UpdateStatusAsync(
+            It.IsAny<TicketId>(), It.Is<string>(c => c.Contains("Agent Smith — Failed")), It.IsAny<CancellationToken>()), Times.Once);
         ticketProvider.Verify(t => t.FinalizeAsync(
-            It.IsAny<TicketId>(), It.IsAny<string>(), "Resolved", It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleFatalFailureAsync_NoFailedStatus_CommentsAndLeavesTheStatus()
+    {
+        // 2026-11-17-166aa: the thrown-exception path goes the same way as a step failure.
+        var ticketProvider = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+        context.Set(ContextKeys.DoneStatus, "Resolved");
+
+        await _sut.HandleFatalFailureAsync(
+            new ResolvedProject(), context, new InvalidOperationException("spawn quota"), CancellationToken.None);
+
+        ticketProvider.Verify(t => t.UpdateStatusAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        ticketProvider.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

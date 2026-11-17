@@ -25,7 +25,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
         if (OperatingSystem.IsWindows()) return; // POSIX shell stand-in for the agent CLI
 
         var result = await NewRunner().RunAsync(
-            """{"call":"one"}""", Shell("cat"), CancellationToken.None);
+            new WorkerPrompt("", """{"call":"one"}"""), Shell("cat"), CancellationToken.None);
 
         result.ExitCode.Should().Be(0);
         result.TimedOut.Should().BeFalse();
@@ -39,7 +39,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
         if (OperatingSystem.IsWindows()) return;
 
         var result = await NewRunner().RunAsync(
-            "ignored", Shell("cat > /dev/null; echo 'auth failed' >&2; exit 3"), CancellationToken.None);
+            new WorkerPrompt("", "ignored"), Shell("cat > /dev/null; echo 'auth failed' >&2; exit 3"), CancellationToken.None);
 
         result.ExitCode.Should().Be(3);
         result.StandardError.Should().Contain("auth failed");
@@ -55,7 +55,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
         // host scales neither. Twenty seconds was a third number, belonging to neither.
         var childSleep = TimeSpan.FromSeconds(30);
         var result = await NewRunner().RunAsync(
-            "ignored", Shell($"sleep {childSleep.TotalSeconds:F0}", timeoutSeconds: 1),
+            new WorkerPrompt("", "ignored"), Shell($"sleep {childSleep.TotalSeconds:F0}", timeoutSeconds: 1),
             CancellationToken.None);
 
         result.TimedOut.Should().BeTrue();
@@ -70,7 +70,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
-        var act = async () => await NewRunner().RunAsync("ignored", Shell("sleep 30"), cts.Token);
+        var act = async () => await NewRunner().RunAsync(new WorkerPrompt("", "ignored"), Shell("sleep 30"), cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
@@ -88,7 +88,8 @@ public sealed class AgentCliWorkerProcessRunnerTests
 
         options.Binary.Should().Be("/opt/bin/claude", "endpoint is where the provider lives");
         // 2026-09-01-b0d7: the default CLI is asked for its structured result.
-        options.Arguments.Should().Equal("-p", "--model", "sonnet", "--output-format", "json");
+        options.Arguments.Should().Equal("-p", "--model", "sonnet", "--output-format", "json",
+            "--tools", "", "--strict-mcp-config", "--no-session-persistence");
         options.Timeout.Should().Be(TimeSpan.FromMinutes(30), "a worker takes minutes, not seconds");
         options.WorkingDirectory.Should().NotContain("agent-smith",
             "the worker answers a model call; it must not pick up the repo under change");
@@ -101,7 +102,8 @@ public sealed class AgentCliWorkerProcessRunnerTests
             .Create(new AgentConfig { Type = "external_worker" }, new ModelAssignment());
 
         options.Binary.Should().Be(ExternalWorkerCliOptionsFactory.DefaultBinary);
-        options.Arguments.Should().Equal("-p", "--output-format", "json");
+        options.Arguments.Should().Equal("-p", "--output-format", "json",
+            "--tools", "", "--strict-mcp-config", "--no-session-persistence");
         options.Timeout.Should().Be(TimeSpan.FromSeconds(300));
     }
 }
