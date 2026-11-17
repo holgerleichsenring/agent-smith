@@ -24,13 +24,22 @@ public sealed class ExternalWorkerCliOptionsFactory
     public static readonly IReadOnlyList<string> IsolationArguments =
         ["--tools", "", "--strict-mcp-config", "--no-session-persistence"];
 
+    /// <summary>2026-11-17-d6f5: the structured result as a stream, which is what lets the input in as content blocks —
+    /// the CLI takes stream-json input only with stream-json output, and stream-json output only with --verbose.</summary>
+    public static readonly IReadOnlyList<string> StreamArguments =
+        ["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"];
+
     public ExternalWorkerCliOptions Create(AgentConfig agent, ModelAssignment assignment)
     {
         var binary = ResolveBinary(agent);
         return new(binary,
             BuildArguments(agent, binary, assignment),
             TimeSpan.FromSeconds(Math.Max(1, agent.NetworkTimeoutSeconds)),
-            ResolveWorkingDirectory()) { SystemPromptAsFile = IsClaudeCode(agent, binary) };
+            ResolveWorkingDirectory())
+        {
+            SystemPromptAsFile = IsClaudeCode(agent, binary),
+            InputAsBlocks = WantsStructuredResult(agent, binary),
+        };
     }
 
     private static string ResolveBinary(AgentConfig agent) =>
@@ -41,7 +50,7 @@ public sealed class ExternalWorkerCliOptionsFactory
     {
         List<string> arguments = ["-p"];
         if (!string.IsNullOrWhiteSpace(assignment.Model)) arguments.AddRange(["--model", assignment.Model]);
-        if (WantsStructuredResult(agent, binary)) arguments.AddRange(["--output-format", "json"]);
+        if (WantsStructuredResult(agent, binary)) arguments.AddRange(StreamArguments);
         if (IsClaudeCode(agent, binary)) arguments.AddRange(IsolationArguments);
         var extra = Environment.GetEnvironmentVariable(ExtraArgsEnv);
         if (!string.IsNullOrWhiteSpace(extra))

@@ -124,6 +124,30 @@ public sealed class WorkerCliEnvelopeTests
             .Which.Reason.Should().Contain("error_max_turns").And.Contain("completed");
     }
 
+    // 2026-11-17-d6f5: with stream-json output the CLI prints one event per line and ends on the result.
+    private static string Stream(params string[] tail) => string.Join("\n",
+        ["""{"type":"system","subtype":"init","session_id":"19b77a13"}""",
+         """{"type":"assistant","message":{"content":[{"type":"text","text":"{ not the answer"}]}}""", .. tail]);
+
+    [Fact]
+    public async Task WorkerCall_StreamEndingOnTheResult_IsReadLikeTheJsonResult()
+    {
+        var response = await Answer(new ScriptedWorkerProcessRunner()
+            .EnqueueRaw(Stream(Envelope("The guard exists.").ReplaceLineEndings(" "))));
+
+        response.Text.Should().Be("The guard exists.");
+        response.Usage!.AdditionalCounts!["cache_read_input_tokens"].Should().Be(20446);
+    }
+
+    [Fact]
+    public async Task WorkerCall_StreamWithoutAResult_FailsInsteadOfAnsweringWithTheEvents()
+    {
+        var act = () => Answer(new ScriptedWorkerProcessRunner().EnqueueRaw(Stream()));
+
+        (await act.Should().ThrowAsync<ExternalWorkerCallException>())
+            .Which.Reason.Should().Contain("ended without a result");
+    }
+
     [Fact]
     public async Task WorkerCall_PlainTextOutput_StillAnswersTheCall()
     {

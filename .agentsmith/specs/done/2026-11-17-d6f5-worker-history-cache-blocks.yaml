@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d6f5
+goal: "A Claude Code worker call sends every conversation message as its own content block under one session id per conversation, so what its previous call wrote is read from cache."
+
+applies_to: "default (worker prompt renderer, process runner, CLI options, CLI envelope)"
+
+requires: [2026-11-17-166ae]
+
+facts:
+  - claim: "In the replay of 2026-11-17 (one Work it out design turn, 240 worker calls, $105.20 by the CLI's figures) the system file is byte-identical within each role and read on every call after the first. History, not the system part, is 99 % of the cache writes: spec-attack-reviewer 183 calls, avg read 1,923 and write 28,813 tokens; agentic-executor 50 calls, avg read 13,545 and write 83,485."
+    evidence: "observed: 2026-11-17, replay prompt captures (.system/.prompt/.out per call), md5 of each .system file grouped by role"
+  - claim: "169 of 183 consecutive calls of one loop extend the previous call's message list verbatim; the other 14 follow a compaction fold of the executor."
+    evidence: "observed: 2026-11-17, replay prompt captures, message lists compared call against call"
+  - claim: "The stdin text starts with request_id and created_utc, new on every call, ahead of the messages."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerRequestComposer.cs:17-30, src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerPromptSections.cs:20-21"
+  - claim: "Claude Code 2.1.285 marks only the last content block of the last message for caching, and puts its own reminder blocks ahead of the stdin content; one names a scratchpad directory that carries the session id, which is new on every call."
+    evidence: "observed: 2026-11-17, request bodies captured through ANTHROPIC_BASE_URL pointed at a local listener, two consecutive calls diffed"
+  - claim: "Probe, haiku, 17.5k-char system file, 2 to 5 stdin chunks of 1,500 words: one stdin text reads 11.9k (the system part) on every call and writes 21k to 32k; one block per chunk without --session-id reads the same; one block per chunk with a fixed --session-id reads 22.9k, 28.0k, 33.1k and writes about 5.1k per call."
+    evidence: "observed: 2026-11-17, probes on CLI 2.1.285"
+  - claim: "--input-format stream-json requires --output-format stream-json and --verbose; the stream's last line is the result object with the fields the json result has."
+    evidence: "observed: 2026-11-17, CLI 2.1.285 error messages and output"
+
+scope:
+  in: "WorkerPromptRenderer also renders InputBlocks: block 0 is the REQUEST marker with the call's identity (run, step, role, phase, repo, agent type, model) and options, without request_id and created_utc; then one block per remaining message. WorkerPrompt carries InputBlocks and a ConversationId, a UUID from SHA-256 of the system part and the first two blocks. When the structured result is on, the factory asks for --input-format stream-json --output-format stream-json --verbose in place of --output-format json, and the options say InputAsBlocks. The runner then writes one stream-json user message holding the blocks and passes --session-id ConversationId. WorkerCliEnvelope reads the last line of a stream when it is the result; a stream without one is a failed call. A binary without the structured result keeps today's stdin text."
+  out: "Compaction folding on almost every executor call once over its trigger (the summary grows each fold, 7k to 58k chars). The CLI's 1-hour cache TTL. Both are in the decision file with their numbers."
+
+steps:
+  - id: prompt
+    action: "WorkerPrompt gains InputBlocks (default: Input as one block) and ConversationId; WorkerPromptRenderer renders the blocks."
+  - id: options
+    action: "ExternalWorkerCliOptions.InputAsBlocks; the factory sets it with the structured result and swaps the output flags."
+  - id: runner
+    action: "AgentCliWorkerProcessRunner writes the stream-json line and --session-id when InputAsBlocks."
+  - id: envelope
+    action: "WorkerCliEnvelope.TryRead accepts a stream whose last line is the result, and reports a stream without one as a failure."
+  - id: docs
+    action: "WORKER-MODE.md says how the request reaches a Claude Code CLI and why."
+
+tests:
+  - "WorkerPromptSplitTests: two consecutive calls of one function-invoking loop through ExternalWorkerChatClient — the system part is byte-identical, the first call's InputBlocks are a prefix of the second's, the ConversationId is equal, and no block carries request_id or created_utc"
+  - "WorkerPromptSplitTests: a different first message gives a different ConversationId"
+  - "AgentCliWorkerProcessRunnerTests: an InputAsBlocks runner writes one stream-json user line with one text block per input block and passes --session-id"
+  - "WorkerSpendChannelTests / AgentCliWorkerProcessRunnerTests: the default binary gets the stream-json flags; structured result off keeps neither"
+  - "WorkerCliEnvelopeTests: a stream ending in a result line is read as the envelope; a stream without a result line is a failure"
+
+done:
+  - "A claude -p probe through AgentCliWorkerProcessRunner's arguments (haiku, a few calls of one growing conversation) reads the previous call's prefix from cache on every call after the first."
+  - "The tests above are green."

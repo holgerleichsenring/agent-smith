@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Contracts.Models.Workers;
 
 namespace AgentSmith.Infrastructure.Services.Workers;
@@ -23,7 +24,24 @@ public sealed class WorkerPromptRenderer(WorkerJsonFormat json)
         var (head, input) = WorkerPromptSections.Split(request);
         var nl = Environment.NewLine;
         return new(Instructions + nl + HeadMarker + nl + json.Serialize(head) + nl,
-            RequestMarker + nl + json.Serialize(input) + nl);
+            RequestMarker + nl + json.Serialize(input) + nl) { InputBlocks = Blocks(input) };
+    }
+
+    // 2026-11-17-d6f5: the identity block, then one block per message, each rendered on its own so a message renders
+    // the same bytes on every later call.
+    private IReadOnlyList<string> Blocks(WorkerRequest input)
+    {
+        var nl = Environment.NewLine;
+        return [RequestMarker + nl + Identity(input) + nl, .. input.Messages.Select(message => json.Serialize(message) + nl)];
+    }
+
+    // The call's identity and options: the request without its messages and without request id and creation time, which
+    // are new on every call and would end the cached prefix at the first block. Logs and failures still name the request.
+    private string Identity(WorkerRequest input)
+    {
+        var identity = JsonSerializer.SerializeToNode(input, json.Options)!.AsObject();
+        foreach (var perCall in (string[])["request_id", "created_utc", "messages", "tools"]) identity.Remove(perCall);
+        return identity.ToJsonString(json.Options);
     }
 
     private const string Instructions =

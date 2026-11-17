@@ -19,4 +19,9 @@ public sealed record ExternalWorkerCliOptions(
     /// <summary>2026-11-17-166ae: the binary is Claude Code's CLI, so the prompt's system part goes in through
     /// <c>--system-prompt-file</c> — cached across calls — and only the input part on stdin.</summary>
     public bool SystemPromptAsFile { get; init; }
+
+    /// <summary>2026-11-17-d6f5: with the system file, the input goes on stdin as one stream-json user message holding
+    /// the prompt's input blocks, under <c>--session-id</c> of the conversation — the CLI then reads from cache what
+    /// the conversation's previous call wrote.</summary>
+    public bool InputAsBlocks { get; init; }
 }

@@ -18,13 +18,19 @@ public sealed class AgentCliWorkerProcessRunner(ILogger<AgentCliWorkerProcessRun
         // 2026-11-17-166ae: a file, not --system-prompt — Linux caps one argument at 128 KB, and the system part of a
         // coding call is larger. Written per call and removed after it, so concurrent calls never share one.
         using var systemFile = options.SystemPromptAsFile ? await WorkerSystemPromptFile.WriteAsync(prompt.System, logger) : null;
-        return await RunProcessAsync(systemFile is null ? prompt.Text : prompt.Input, systemFile?.Path, options, cancellationToken);
+        // 2026-11-17-d6f5: the input as blocks under the conversation's session id, so the previous call's are read.
+        var blocks = systemFile is not null && options.InputAsBlocks;
+        var stdin = systemFile is null ? prompt.Text : blocks ? WorkerStreamInput.Line(prompt.InputBlocks) : prompt.Input;
+        string[] extra = systemFile is null ? []
+            : blocks ? ["--system-prompt-file", systemFile.Path, "--session-id", prompt.ConversationId]
+            : ["--system-prompt-file", systemFile.Path];
+        return await RunProcessAsync(stdin, extra, options, cancellationToken);
     }
 
     private async Task<WorkerProcessResult> RunProcessAsync(
-        string stdin, string? systemFile, ExternalWorkerCliOptions options, CancellationToken cancellationToken)
+        string stdin, IReadOnlyList<string> extra, ExternalWorkerCliOptions options, CancellationToken cancellationToken)
     {
-        using var process = new Process { StartInfo = BuildStartInfo(options, systemFile) };
+        using var process = new Process { StartInfo = BuildStartInfo(options, extra) };
         var stopwatch = Stopwatch.StartNew();
         logger.LogDebug("Invoking external worker: {Binary} {Args}",
             options.Binary, string.Join(' ', options.Arguments));
@@ -87,7 +93,7 @@ public sealed class AgentCliWorkerProcessRunner(ILogger<AgentCliWorkerProcessRun
         }
     }
 
-    private static ProcessStartInfo BuildStartInfo(ExternalWorkerCliOptions options, string? systemFile)
+    private static ProcessStartInfo BuildStartInfo(ExternalWorkerCliOptions options, IReadOnlyList<string> extra)
     {
         var info = new ProcessStartInfo
         {
@@ -98,8 +104,7 @@ public sealed class AgentCliWorkerProcessRunner(ILogger<AgentCliWorkerProcessRun
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        foreach (var argument in options.Arguments) info.ArgumentList.Add(argument);
-        if (systemFile is not null) { info.ArgumentList.Add("--system-prompt-file"); info.ArgumentList.Add(systemFile); }
+        foreach (var argument in options.Arguments.Concat(extra)) info.ArgumentList.Add(argument);
         return info;
     }
 }
