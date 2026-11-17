@@ -66,17 +66,21 @@ handed an unknown flag exits non-zero, which the bridge treats as a dead call.
 
 Two things the reported figure is not:
 
-- **It is not this run's spend.** No money is charged against an agent budget on this
-  transport. The figure is carried in its own channel with its own label, never added to
-  `total_usd` and never reported as an unpriced model — pricing it from the model table
-  would invent money the run never paid, and leaving it unpriced would raise a pricing
-  alarm for a call that has no price by design.
+- **It is not money charged here.** No money is charged against an agent budget on this
+  transport. In `result.md` the figure is carried in its own channel with its own label,
+  never added to `total_usd` and never reported as an unpriced model — pricing it from the
+  model table would invent money the run never paid.
 - **It is not comparable to a provider call.** A trivial probe reported a third of a cent
   on twenty-six thousand cache-creation tokens: the CLI's own system prompt and tool
   schemas, charged per call, not this run's context.
 
 Token VOLUME is real on any transport, so the token arm of the per-pipeline budget cap
 counts worker calls. The USD arm does not.
+
+The run's RECORDED cost — the figure on the run, the ticket and the delivery pages, and the
+one a series budget is read against — is the sum of its recorded calls, and a worker call
+records the figure its CLI reported (2026-11-17-166ab). It is what the work would cost at the
+CLI's own prices, labelled as the CLI's on every call row.
 
 The answer is unwrapped at the transport, before anything else reads it. That matters more
 than it sounds: a structured result is never empty, so the retry-on-silence check and the
