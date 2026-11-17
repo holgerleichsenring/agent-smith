@@ -31,15 +31,20 @@ public sealed record WorkerCliEnvelope(
 {
     public static bool TryRead(string? stdout, out WorkerCliEnvelope envelope)
     {
-        envelope = null!;
         var text = (stdout ?? string.Empty).Trim();
+        // 2026-11-17-d6f5: or the result line a stream-json run ends on.
+        return TryReadResult(text, out envelope) || WorkerCliStream.TryRead(text, out envelope);
+    }
+
+    internal static bool TryReadResult(string text, out WorkerCliEnvelope envelope)
+    {
+        envelope = null!;
         if (text.Length == 0 || text[0] != '{') return false;
         try
         {
             using var document = JsonDocument.Parse(text);
             var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return false;
-            if (Text(root, "type") != "result") return false;
+            if (root.ValueKind != JsonValueKind.Object || Text(root, "type") != "result") return false;
             envelope = Read(root);
             return true;
         }

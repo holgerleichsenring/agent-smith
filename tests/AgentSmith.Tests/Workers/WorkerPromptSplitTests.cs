@@ -1,4 +1,7 @@
+using System.Text.Json;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Infrastructure.Services.Workers;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -74,6 +77,81 @@ public sealed class WorkerPromptSplitTests
         var result = await Runner().RunAsync(new WorkerPrompt("SYSTEM PART ", "INPUT PART"), options, CancellationToken.None);
 
         result.StandardOutput.Should().Be("SYSTEM PART INPUT PART");
+    }
+
+    // 2026-11-17-d6f5: what the CLI caches is the previous call's blocks, read where a block ends — so within one loop
+    // the system part must not move a byte, the earlier blocks must come back unchanged, and the session id must hold.
+    [Fact]
+    public async Task Loop_ConsecutiveCalls_KeepTheSystemPartAndExtendTheBlocksUnderOneConversationId()
+    {
+        var tool = AIFunctionFactory.Create((string path) => "contents of " + path, "read_file", "Reads a file");
+        var runner = new ScriptedWorkerProcessRunner()
+            .EnqueueToolCall("read_file", """{"path":"src/A.cs"}""")
+            .EnqueueToolCall("read_file", """{"path":"src/B.cs"}""")
+            .EnqueueText("done");
+
+        await RunLoop(runner, [new(ChatRole.System, "You are the reviewer."), new(ChatRole.User, "Attack this spec.")], tool);
+
+        runner.Parts.Should().HaveCount(3);
+        foreach (var (earlier, later) in runner.Parts.Zip(runner.Parts.Skip(1)))
+        {
+            later.System.Should().Be(earlier.System, "the system file is the cached head of every call");
+            later.InputBlocks.Take(earlier.InputBlocks.Count).Should().Equal(earlier.InputBlocks,
+                "the previous call's blocks are the cache entry the next call reads");
+            later.InputBlocks.Should().HaveCount(earlier.InputBlocks.Count + 2, "one assistant and one tool message per round");
+            later.ConversationId.Should().Be(earlier.ConversationId);
+        }
+        runner.Parts.SelectMany(p => p.InputBlocks).Should()
+            .NotContain(b => b.Contains("request_id") || b.Contains("created_utc"), "both are new on every call");
+        runner.Parts[^1].InputBlocks[^1].Should().Contain("contents of src/B.cs", "the newest message ends the input");
+    }
+
+    [Fact]
+    public void ConversationId_DiffersWithTheOpeningMessage_AndIsAUuid()
+    {
+        var a = Render([new(ChatRole.System, "s"), new(ChatRole.User, "reviewer 1")], new ChatOptions(), step: 1);
+        var b = Render([new(ChatRole.System, "s"), new(ChatRole.User, "reviewer 2")], new ChatOptions(), step: 1);
+
+        a.ConversationId.Should().NotBe(b.ConversationId);
+        Guid.TryParse(a.ConversationId, out _).Should().BeTrue("the CLI takes --session-id as a UUID");
+    }
+
+    [Fact]
+    public async Task Run_InputAsBlocks_WritesOneStreamJsonUserMessageUnderTheConversationsSessionId()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        // The four appended arguments arrive as $0..$3: --system-prompt-file <path> --session-id <id>.
+        var options = new ExternalWorkerCliOptions("/bin/sh",
+            ["-c", "in=$(cat); printf '%s|%s|%s|' \"$0\" \"$2\" \"$3\"; printf '%s' \"$in\""],
+            TimeSpan.FromSeconds(30), Path.GetTempPath()) { SystemPromptAsFile = true, InputAsBlocks = true };
+        var prompt = new WorkerPrompt("SYSTEM", "unused") { InputBlocks = ["REQUEST\n{}", "first message", "second"] };
+
+        var result = await Runner().RunAsync(prompt, options, CancellationToken.None);
+
+        var parts = result.StandardOutput.Split('|', 4);
+        parts[0].Should().Be("--system-prompt-file");
+        parts[1].Should().Be("--session-id");
+        parts[2].Should().Be(prompt.ConversationId);
+        using var line = JsonDocument.Parse(parts[3]);
+        line.RootElement.GetProperty("type").GetString().Should().Be("user");
+        line.RootElement.GetProperty("message").GetProperty("content").EnumerateArray()
+            .Select(block => block.GetProperty("text").GetString()).Should().Equal(prompt.InputBlocks);
+    }
+
+    private static async Task RunLoop(ScriptedWorkerProcessRunner runner, List<ChatMessage> chat, AITool tool)
+    {
+        var json = new WorkerJsonFormat();
+        var context = new AsyncLocalRunContextAccessor();
+        var client = new ExternalWorkerChatClient(
+            new WorkerRequestComposer(new WorkerMessageMapper(json), new WorkerOptionsMapper()),
+            new WorkerPromptRenderer(json), new WorkerReplyParser(json), new WorkerReplyTranslator(), runner, context,
+            new ExternalWorkerCliOptions("claude", ["-p"], TimeSpan.FromMinutes(5), "/tmp"),
+            "external_worker", "sonnet", NullLogger.Instance);
+        using var run = context.BeginScope("run-42");
+        using var step = context.BeginStepScope(7);
+        using var call = context.BeginCallScope("spec-attack-reviewer", "Plan", "primary");
+        await new ChatClientBuilder(client).UseFunctionInvocation().Build()
+            .GetResponseAsync(chat, new ChatOptions { Tools = [tool] }, CancellationToken.None);
     }
 
     private static WorkerPrompt Render(List<ChatMessage> chat, ChatOptions options, int step) =>

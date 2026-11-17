@@ -74,9 +74,10 @@ public sealed class WorkerSpendChannelTests
     {
         using var _ = new ClearedWorkerEnvironment();
 
-        Arguments(new AgentConfig()).Should().ContainInOrder("--output-format", "json");
+        // 2026-11-17-d6f5: as a stream, which is what lets the input in as content blocks.
+        Arguments(new AgentConfig()).Should().ContainInOrder(ExternalWorkerCliOptionsFactory.StreamArguments);
         Arguments(new AgentConfig { Endpoint = "/usr/local/bin/claude" })
-            .Should().ContainInOrder("--output-format", "json");
+            .Should().ContainInOrder(ExternalWorkerCliOptionsFactory.StreamArguments);
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public sealed class WorkerSpendChannelTests
         using var _ = new ClearedWorkerEnvironment();
 
         Arguments(new AgentConfig { WorkerStructuredResult = false })
-            .Should().NotContain("--output-format");
+            .Should().NotContain("--output-format").And.NotContain("--input-format");
         Arguments(new AgentConfig
         {
             Endpoint = "/opt/bin/my-own-worker", WorkerStructuredResult = true,

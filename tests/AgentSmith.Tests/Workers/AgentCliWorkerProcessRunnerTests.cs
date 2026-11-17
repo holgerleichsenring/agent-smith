@@ -88,8 +88,10 @@ public sealed class AgentCliWorkerProcessRunnerTests
 
         options.Binary.Should().Be("/opt/bin/claude", "endpoint is where the provider lives");
         // 2026-09-01-b0d7: the default CLI is asked for its structured result.
-        options.Arguments.Should().Equal("-p", "--model", "sonnet", "--output-format", "json",
+        options.Arguments.Should().Equal("-p", "--model", "sonnet",
+            "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--tools", "", "--strict-mcp-config", "--no-session-persistence");
+        options.InputAsBlocks.Should().BeTrue("2026-11-17-d6f5: the input goes in as content blocks");
         options.Timeout.Should().Be(TimeSpan.FromMinutes(30), "a worker takes minutes, not seconds");
         options.WorkingDirectory.Should().NotContain("agent-smith",
             "the worker answers a model call; it must not pick up the repo under change");
@@ -102,7 +104,8 @@ public sealed class AgentCliWorkerProcessRunnerTests
             .Create(new AgentConfig { Type = "external_worker" }, new ModelAssignment());
 
         options.Binary.Should().Be(ExternalWorkerCliOptionsFactory.DefaultBinary);
-        options.Arguments.Should().Equal("-p", "--output-format", "json",
+        options.Arguments.Should().Equal("-p",
+            "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
             "--tools", "", "--strict-mcp-config", "--no-session-persistence");
         options.Timeout.Should().Be(TimeSpan.FromSeconds(300));
     }

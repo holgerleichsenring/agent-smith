@@ -55,7 +55,7 @@ waits for it. Runs are unattended.
 ### What the call cost
 
 `worker_structured_result` asks the CLI for its own structured result
-(`--output-format json`) instead of bare text. With it, a worker call reports the tokens
+(`--output-format stream-json`, whose last line is the result) instead of bare text. With it, a worker call reports the tokens
 it used and the USD figure the CLI itself names, and the run's `result.md` carries a
 `worker_cli:` block under `cost:`.
 
@@ -156,6 +156,19 @@ Any other binary reads both parts on stdin, head first. Measured on the replay o
 2026-11-17: 164 of 172 calls read only the CLI's own prompt from cache and wrote the
 whole conversation as new cache — a stdin text is one content block, and no cache entry
 ever matches a prefix inside one.
+
+With the structured result on, the request goes in as content blocks (2026-11-17-d6f5):
+one stream-json user message (`--input-format stream-json`) whose first block is the
+call's identity and options — without `request_id` and `created_utc`, which change on
+every call — followed by one block per message. The CLI marks the last block for caching
+and a cached prefix is read where a block ends, so the blocks a call ended with are read
+by the next call of the conversation instead of written again. The CLI also writes its
+session id into its own prompt ahead of the request, so every call of a conversation
+passes the same `--session-id`, a UUID derived from the head and the first two blocks.
+Measured on the replay of 2026-11-17 before this change: 99 % of the cache writes were
+conversation history, 183 reviewer calls averaging 1,923 tokens read against 28,813
+written. A five-call probe after it reads the whole previous call and writes about one
+tool round per call.
 
 This envelope is deliberately the payload p0166e's MCP worker mode will carry. When that
 lands, the CLI subprocess is replaced by a JSON-RPC method; the payload does not change.

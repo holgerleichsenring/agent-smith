@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d6f5
+
+decisions:
+  - category: Implementation
+    chose: "The input part goes on stdin as one stream-json user message with one text block per message, and every call of a conversation passes the same --session-id"
+    over: "Resumable CLI sessions (--resume with a session the CLI keeps), which 166ae named as the only way to cache the history"
+    reason: "Probed on CLI 2.1.285: the CLI marks only the last content block for caching, and the API reads a cached prefix where a block ends, so the blocks the previous call ended with are read when they come back unchanged. That needs no state in the CLI and keeps --no-session-persistence. Through the real runner with haiku, five calls of one loop: before, read stayed at 10,825 (the system part) and write grew from 1,088 to 25,766; after, read grew from 11,839 to 30,341 and write stayed near 6,170, one tool round."
+  - category: Implementation
+    chose: "The session id is a UUID derived from the system part and the first two blocks"
+    over: "A random id per call, or one per chat client instance"
+    reason: "The CLI writes a scratchpad path carrying the session id into a reminder block ahead of the input; a new id per call changes that block and ends the cached prefix there (captured request bodies, two calls diffed). A chat client serves many conversations, concurrently. Two conversations that derive the same id share nothing but that path: no session is persisted, and three concurrent calls under one id all answered."
+  - category: Implementation
+    chose: "The first block carries the call's identity and options without request_id and created_utc; the plain stdin text keeps the whole request"
+    over: "Dropping the identity from the input, or keeping request_id in it"
+    reason: "Both fields change on every call and would end the cached prefix at the first block. The request id still names the call in every log line and failure (WorkerRequest.Describe); the worker model never needed it."
+  - category: Implementation
+    chose: "Stream-json output whenever the structured result is on; WorkerCliEnvelope reads the stream's last line, and a stream without a result line is a failed call"
+    over: "Keeping --output-format json"
+    reason: "The CLI refuses --input-format stream-json without --output-format stream-json, and that without --verbose. A stream that ended without its result would otherwise reach the reply parser as the assistant's text."
+  - category: Scope
+    chose: "Not changed here, with their numbers from the replay of 2026-11-17 (one Work it out design turn, 240 calls, $105.20)"
+    over: "Folding them into this spec"
+    reason: "(1) Compaction folds on almost every executor call once over its trigger: 14 of 50 executor calls follow a fold, the accumulated summary grows from 7k to 58k chars, and each fold rewrites everything after the first message; the per-call pin also sits ahead of the tail. A fix belongs to CompactingChatClient and its trigger, a spec of its own. (2) The CLI writes cache with a 1-hour TTL at twice the input price; FORCE_PROMPT_CACHING_5M would halve that premium, but the executor waited 29 minutes between two calls in the replay, which a 5-minute entry does not survive."
