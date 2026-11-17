@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d762a
+goal: "Work it out lists its conversations in a plain section bar beside an icon-only app sidebar, like the ticket page's bar, with New and All conversations as rows."
+
+applies_to: "dashboard (DialogConversations, SpecDialogSurface layout, spec-dialog.css, AppSidebar, sectionBarPage)"
+
+requires: [2026-11-17-8d1ca]
+
+assumptions:
+  - "The operator asked on 2026-11-17 that Work it out look like the ticket page and settings: the left side becomes the navigation, narrower text, no boxes."
+
+facts:
+  - claim: "The conversations are a Recents card with a primary New conversation button and rows whose title wraps to two lines and whose project, ticket and outcome are chips."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:51, src/dashboard/src/components/dialog/DialogConversations.tsx:69, src/dashboard/src/components/dialog/DialogConversations.tsx:161-163"
+  - claim: "The page is a container-queried three-column grid under a PageHead."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:328, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:341"
+  - claim: "The app sidebar renders icons-only on a ticket page through isTicketPage."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:42-43"
+
+scope:
+  in: "A bar (dl-bar) in the ticket bar's look: Work it out as its title, New conversation as a plain row, one row per conversation (title on one line with ellipsis, a muted line of project · ticket · turns · age and the outcome as coloured text), the open one as bright text, the hover delete kept, All conversations at its foot. The page becomes bar | exchange | pane; the app sidebar is icons-only on /spec-dialog by the ticket page's mechanism."
+  out: "The exchange card and composer (d762b); the pane card, tabs and scope marks (d762c); the All conversations page; backend."
+
+steps:
+  - id: rule
+    action: "lib/sectionBarPage.ts: hasSectionBar(pathname) is a ticket page or /spec-dialog; AppSidebar collapses and hides its toggle by it."
+  - id: bar
+    action: "DialogConversations renders the dl-bar: title, New row, rows, All conversations foot; outcome tone from the summary."
+  - id: layout
+    action: "SpecDialogSurface: dl-shell with the bar, the exchange in main and the pane at its right; PageHead and the container grid removed; styles/spec-dialog.css."
+  - id: tests
+    action: "Adapt the surface tests (one-line title, plain project text, grid assertion) and add bar and sidebar tests."
+
+decisions:
+  - "The bar copies the ticket bar's look (bright text for the open row, no fill) over the settings nav's filled .nav.on — alternatives: SectionNavItem rows."
+
+tests:
+  - "sectionBarPage.test.ts: the dialog page and a ticket page have a bar; the conversations list page and the ticket list do not."
+  - "AppSidebar: collapsed on /spec-dialog."
+  - "DialogConversations: New row starts a conversation, a row opens its conversation and carries aria-current, All conversations links to the list, the outcome is coloured text and no row is a card or chip."
+
+done:
+  - "/spec-dialog shows the conversation bar beside an icon-only app sidebar; New, selecting, deleting and All conversations work as before."
+  - "pnpm test and pnpm build are green; the spec gate passes."

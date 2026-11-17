@@ -19,7 +19,7 @@ import { approvalDecision } from "@/components/dialog/approvalDecision";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
-import { PageHead } from "@/components/system/PageHead";
+import "@/styles/spec-dialog.css";
 import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
@@ -323,157 +323,146 @@ export function SpecDialogSurface() {
   ) : null;
 
   return (
-    <div className="mock-shell mock-dialog" data-testid="spec-dialog">
-      <main className="main">
-        <PageHead
-          title={WORK_IT_OUT}
-          sub="Say what you want to be true. Leave with tickets someone can run."
-        />
+    // 2026-11-17-d762a: the conversations' bar | the exchange | the pane, in the ticket page's frame (8d1ca): the bar
+    // beside an icon-only app sidebar, the page's name in the bar rather than a page head over three cards.
+    <div className="mock-shell mock-dialog dl-shell" data-testid="spec-dialog">
+      <DialogConversations
+        dialogId={dialog.dialogId}
+        sessionHere={session?.sessionId ?? null}
+        conversations={dialog.conversations}
+        onStartNew={() => {
+          // 2026-09-23-6e3f: the pick is cleared HERE, where it lives. The hook mints the
+          // dialog id and clears the view, but it holds no reference to the pick — and a
+          // new conversation that kept the last one's project would open on it without
+          // ever having asked.
+          setPicked("");
+          setPickedTicket(null);
+          forgetAddressedTicket();
+          void dialog.startNew();
+        }}
+        onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
+        onDelete={(sessionId) => void remove(sessionId)}
+      />
+      <main className="main dl-page">
         {/* A refusal reads as one here: FailedSurface branches on it, so a caller who
             may not hold spec dialogs is told that rather than shown a stack. */}
         {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
-        <div className="@container">
-          {/* 2026-09-21-f237c: the panel's track goes 220px -> 300px, and the EXCHANGE pays. The
-              scope pane renders given names — repositories, templates, revisions — that this page
-              did not choose and cannot shorten without lying, so it keeps its width; the exchange
-              is prose and reflows. The mid and phone breakpoints, where the panel is already full
-              width, are unchanged. */}
-          <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-[minmax(0,1fr)_300px] @6xl:grid-cols-[300px_minmax(0,1fr)_360px]">
-            <DialogConversations
-              dialogId={dialog.dialogId}
-              sessionHere={session?.sessionId ?? null}
-              conversations={dialog.conversations}
-              onStartNew={() => {
-                // 2026-09-23-6e3f: the pick is cleared HERE, where it lives. The hook mints the
-                // dialog id and clears the view, but it holds no reference to the pick — and a
-                // new conversation that kept the last one's project would open on it without
-                // ever having asked.
-                setPicked("");
-                setPickedTicket(null);
-                forgetAddressedTicket();
-                void dialog.startNew();
-              }}
-              onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
-              onDelete={(sessionId) => void remove(sessionId)}
-            />
-            <section className="ecard inert unclipped min-w-0">
-              <div className="d-head">
-                {/* 2026-09-17-042em: the header names the open session's PROJECT — this is
-                    where a person reads what the conversation they are in is about.
-                    2026-09-23-6e3f: and the choice that picks one for the NEXT conversation is
-                    this column's empty state, so the two are never on screen together and
-                    neither can be read as the other. */}
-                <div className="d-head-t">
-                  <h2 data-testid="dialog-heading" className="ec-name sans min-w-0">
-                    {title ?? "New conversation"}
-                  </h2>
-                  {session && (
-                    <span data-testid="dialog-exchange-project" className="ec-sub">
-                      in <span className="fv">{session.scope.name}</span>
-                    </span>
-                  )}
-                </div>
-                {/* The dialog id IS the session key: a page that lost it would open a second
-                    conversation beside one still running, and an operator comparing two tabs
-                    needs to see which is which. */}
-                <span data-testid="dialog-identity" className="ec-sub font-mono">
-                  {session
-                    ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
-                    : `dialog ${dialog.dialogId ?? ""} · no session open`}
+        <section className="ecard inert unclipped min-w-0">
+          <div className="d-head">
+            {/* 2026-09-17-042em: the header names the open session's PROJECT — this is
+                where a person reads what the conversation they are in is about.
+                2026-09-23-6e3f: and the choice that picks one for the NEXT conversation is
+                this column's empty state, so the two are never on screen together and
+                neither can be read as the other. */}
+            <div className="d-head-t">
+              <h2 data-testid="dialog-heading" className="ec-name sans min-w-0">
+                {title ?? "New conversation"}
+              </h2>
+              {session && (
+                <span data-testid="dialog-exchange-project" className="ec-sub">
+                  in <span className="fv">{session.scope.name}</span>
                 </span>
-                {session?.workPicture && <DialogWorkPicture picture={session.workPicture} />}
-              </div>
-              <div className="d-body flex flex-col gap-4">
-                {/* 2026-09-27-5c1eb: ABOVE the branch, so it renders in both states — the project
-                    choice is not rendered at all on a single-project installation, and it unmounts
-                    the moment a project is picked. The reason a ticket did not name one project
-                    moved here with it: it used to be passed only into that choice, so on a
-                    single-project installation it was computed and silently discarded. */}
-                {/* 2026-09-27-481bd: a project picked BY HAND ends the ticket question — but
-                    only when no ticket is in play. With one picked, or with one asking which
-                    project it belongs to, the pick COMPLETES it, and removing the field here would
-                    delete the sentence being answered, the row showing the choice, and the only
-                    way to undo it, while the composer went on sending the ticket. */}
-                {!session && !(picked !== "" && pickedTicket === null && !ticketReason) && (
-                  <DialogTicketSearch
-                    key={dialog.dialogId ?? "new"}
-                    stranded={strandedTicket}
-                    bound={boundTickets}
-                    picked={pickedTicket}
-                    onPicked={setPickedTicket}
-                    reason={ticketReason}
-                  />
-                )}
-                {mustPick ? (
-                  <DialogProjectChoice
-                    projects={offered}
-                    read={read}
-                    picked={picked}
-                    onPicked={setPicked}
-                  />
-                ) : (
-                  <>
-                    <DialogTranscript
-                      entries={dialog.entries}
-                      greeting={<DialogGreeting />}
-                      onOpenUpload={openUpload}
-                    />
-                    {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
-                        so a page arriving mid-turn is not shown a conversation that looks over. */}
-                    {dialog.working && (
-                      <DialogWorking
-                        readings={dialog.readings}
-                        activity={dialog.activity}
-                        since={dialog.workingSince}
-                      />
-                    )}
-                  </>
-                )}
-              </div>
-              {/* The first render holds no dialog id yet — it is read off the browser after the
-                  mount — so the composer is still guarded on that. Nothing else disables it:
-                  with no project picked there is no composer to disable. */}
-              {!mustPick && (
-                <DialogComposer
-                  disabled={!dialog.dialogId}
-                  onSend={(text) =>
-                    // 2026-09-25-8e51b: the first message on a ticket-addressed page carries the
-                    // binding, because that message is what opens the conversation.
-                    // 2026-09-27-5c1eb: or a ticket that was searched for. The ADDRESS wins: it is
-                    // consumed once and the operator did not type it.
-                    void dialog.send(
-                      text,
-                      project,
-                      undefined,
-                      pendingTicket?.ticketId ?? pickedTicket?.ticketId,
-                    )
-                  }
-                  onAttach={(file) => dialog.attach(file, project)}
-                  onAttachSite={(files, leftOut) => dialog.attachSite(files, project, leftOut)}
-                  note={dialog.uploadNote}
-                  left={leftOf(session)}
-                  loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}
-                  actions={decisionBar}
-                />
               )}
-            </section>
-            <DialogPane
-              session={session}
-              projects={settled ? projects.filter((held) => held.name === project) : offered}
-              starting={session ? null : pickedTicket}
-              proposal={dialog.proposal}
-              filed={dialog.filed}
-              work={work}
-              focus={focus}
-              onFocus={setFocus}
-              paneRef={pane}
-              panelRef={panel}
-              dialogId={dialog.dialogId}
-              onRefresh={dialog.refresh}
-            />
+            </div>
+            {/* The dialog id IS the session key: a page that lost it would open a second
+                conversation beside one still running, and an operator comparing two tabs
+                needs to see which is which. */}
+            <span data-testid="dialog-identity" className="ec-sub font-mono">
+              {session
+                ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
+                : `dialog ${dialog.dialogId ?? ""} · no session open`}
+            </span>
+            {session?.workPicture && <DialogWorkPicture picture={session.workPicture} />}
           </div>
-        </div>
+          <div className="d-body flex flex-col gap-4">
+            {/* 2026-09-27-5c1eb: ABOVE the branch, so it renders in both states — the project
+                choice is not rendered at all on a single-project installation, and it unmounts
+                the moment a project is picked. The reason a ticket did not name one project
+                moved here with it: it used to be passed only into that choice, so on a
+                single-project installation it was computed and silently discarded. */}
+            {/* 2026-09-27-481bd: a project picked BY HAND ends the ticket question — but
+                only when no ticket is in play. With one picked, or with one asking which
+                project it belongs to, the pick COMPLETES it, and removing the field here would
+                delete the sentence being answered, the row showing the choice, and the only
+                way to undo it, while the composer went on sending the ticket. */}
+            {!session && !(picked !== "" && pickedTicket === null && !ticketReason) && (
+              <DialogTicketSearch
+                key={dialog.dialogId ?? "new"}
+                stranded={strandedTicket}
+                bound={boundTickets}
+                picked={pickedTicket}
+                onPicked={setPickedTicket}
+                reason={ticketReason}
+              />
+            )}
+            {mustPick ? (
+              <DialogProjectChoice
+                projects={offered}
+                read={read}
+                picked={picked}
+                onPicked={setPicked}
+              />
+            ) : (
+              <>
+                <DialogTranscript
+                  entries={dialog.entries}
+                  greeting={<DialogGreeting />}
+                  onOpenUpload={openUpload}
+                />
+                {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
+                    so a page arriving mid-turn is not shown a conversation that looks over. */}
+                {dialog.working && (
+                  <DialogWorking
+                    readings={dialog.readings}
+                    activity={dialog.activity}
+                    since={dialog.workingSince}
+                  />
+                )}
+              </>
+            )}
+          </div>
+          {/* The first render holds no dialog id yet — it is read off the browser after the
+              mount — so the composer is still guarded on that. Nothing else disables it:
+              with no project picked there is no composer to disable. */}
+          {!mustPick && (
+            <DialogComposer
+              disabled={!dialog.dialogId}
+              onSend={(text) =>
+                // 2026-09-25-8e51b: the first message on a ticket-addressed page carries the
+                // binding, because that message is what opens the conversation.
+                // 2026-09-27-5c1eb: or a ticket that was searched for. The ADDRESS wins: it is
+                // consumed once and the operator did not type it.
+                void dialog.send(
+                  text,
+                  project,
+                  undefined,
+                  pendingTicket?.ticketId ?? pickedTicket?.ticketId,
+                )
+              }
+              onAttach={(file) => dialog.attach(file, project)}
+              onAttachSite={(files, leftOut) => dialog.attachSite(files, project, leftOut)}
+              note={dialog.uploadNote}
+              left={leftOf(session)}
+              loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}
+              actions={decisionBar}
+            />
+          )}
+        </section>
       </main>
+      <DialogPane
+        session={session}
+        projects={settled ? projects.filter((held) => held.name === project) : offered}
+        starting={session ? null : pickedTicket}
+        proposal={dialog.proposal}
+        filed={dialog.filed}
+        work={work}
+        focus={focus}
+        onFocus={setFocus}
+        paneRef={pane}
+        panelRef={panel}
+        dialogId={dialog.dialogId}
+        onRefresh={dialog.refresh}
+      />
       {/* Inside this page's shell, because that is what the confirmation's rules are scoped
           to; showModal lifts it to the top layer without moving it in the DOM. */}
       <ConfirmDialog {...confirmation.dialog} />

@@ -63,21 +63,17 @@ export function localSurfaces(content: string): string[] {
   return LOCAL.filter((name) => new RegExp(`function\\s+${name}\\s*\\(`).test(content));
 }
 
-// 2026-09-21-f237c: the panel's own track. Asserted on the class string, because jsdom resolves
-// no container query — what is provable here is the policy the surface declares, and the policy
-// is the thing that was wrong: 220px of one truncated line showed three words of a subject.
-const surfacePath = join(dialogDir, "SpecDialogSurface.tsx");
+// 2026-11-17-d762a: the page is the ticket page's frame — the conversations' bar, the exchange and the pane — declared
+// in its own sheet. Asserted on the stylesheet, because jsdom lays nothing out: the bar keeps the ticket bar's width
+// and the pane keeps a fixed track for the given names it renders, while the exchange takes what is left.
+const sheetPath = join(dialogDir, "..", "..", "styles", "spec-dialog.css");
 
-describe("The dialog grid", () => {
-  it("SpecDialog_TheWideBreakpoint_GivesThePanelItsLargerShare", () => {
-    const grid = readFileSync(surfacePath, "utf8");
+describe("The dialog frame", () => {
+  it("SpecDialog_TheShell_IsBarExchangeAndPane", () => {
+    const sheet = readFileSync(sheetPath, "utf8");
 
-    expect(grid).toContain("@6xl:grid-cols-[300px_minmax(0,1fr)_360px]");
-    // The scope pane keeps its width: it renders given names this page cannot shorten. The
-    // exchange is prose, and it is what reflows.
-    expect(grid).not.toContain("@6xl:grid-cols-[300px_minmax(0,1fr)_300px]");
-    // The mid and phone breakpoints are untouched — the panel is already full width there.
-    expect(grid).toContain("@3xl:grid-cols-[minmax(0,1fr)_300px]");
+    expect(sheet).toContain("grid-template-columns: 236px minmax(0, 1fr) 320px");
+    expect(readFileSync(join(dialogDir, "SpecDialogSurface.tsx"), "utf8")).not.toContain("@6xl:grid-cols");
   });
 });
 

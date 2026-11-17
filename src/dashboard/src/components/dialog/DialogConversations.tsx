@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
-import { lastActive, outcomeLabel } from "./conversationRows";
+import { lastActive, outcomeLabel, outcomeTone } from "./conversationRows";
 
 // 2026-09-15-cb3e: "/spec" and "/spec new <project>" are a project picker and a button, and
 // the caller's conversations are a list — open and closed, each opened by clicking it.
@@ -22,6 +22,7 @@ import { lastActive, outcomeLabel } from "./conversationRows";
 // column's empty state, where a person starting a conversation is already looking — two places
 // to pick one thing is how a select at the top of this column came to sit half a page away from
 // the box it was silently disabling.
+// 2026-11-17-d762a: the card became the page's section bar; the rows are text, not chips.
 
 export function DialogConversations({
   dialogId,
@@ -46,49 +47,41 @@ export function DialogConversations({
   useEffect(() => setStarting(false), [dialogId]);
 
   return (
-    <section
-      data-testid="dialog-controls"
-      className="ecard inert @3xl:col-span-2 @6xl:col-span-1"
-    >
-      <div className="d-head">
-        {/* 2026-09-21-f237c: ONE heading. The card already named the list, and adding a Recents
-            heading under it would have put two names on one thing. Recents is the truer name:
-            the card holds the recent ones, the way to start another, and the link to all of
-            them. */}
-        <h2 className="ec-name sans">Recents</h2>
-      </div>
-      <div className="d-body flex flex-col gap-3">
-        <button
-          type="button"
-          data-testid="dialog-new"
-          disabled={starting}
-          onClick={() => {
-            setStarting(true);
-            onStartNew();
-          }}
-          className="btn primary w-full"
-        >
-          + New conversation
-        </button>
-        {conversations.length > 0 && (
-          <div data-testid="dialog-conversations" className="flex flex-col gap-0.5">
-            {drawn(conversations, sessionHere).map((conversation) => (
-              <Conversation
-                key={conversation.sessionId}
-                conversation={conversation}
-                current={conversation.sessionId === sessionHere}
-                onOpen={onOpen}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-        )}
-        {/* 2026-09-21-f237b: the panel is not the only way to a conversation any more. */}
-        <Link href="/spec-dialog/conversations" className="d-link" data-testid="dialog-see-all">
-          All conversations
-        </Link>
-      </div>
-    </section>
+    // 2026-11-17-d762a: the page's own bar beside the icon-only app sidebar, in the ticket bar's look (8d1ca): the
+    // page's name, New conversation as a row, a row per conversation and All conversations at its foot. Text and
+    // hairlines only; the open conversation is the bright row.
+    <aside data-testid="dialog-controls" className="dl-bar" aria-label="Conversations">
+      <div className="dl-bar-id">Work it out</div>
+      <button
+        type="button"
+        data-testid="dialog-new"
+        disabled={starting}
+        onClick={() => {
+          setStarting(true);
+          onStartNew();
+        }}
+        className="dl-bar-new"
+      >
+        + New conversation
+      </button>
+      {conversations.length > 0 && (
+        <nav data-testid="dialog-conversations" className="dl-bar-rows" aria-label="Recent conversations">
+          {drawn(conversations, sessionHere).map((conversation) => (
+            <Conversation
+              key={conversation.sessionId}
+              conversation={conversation}
+              current={conversation.sessionId === sessionHere}
+              onOpen={onOpen}
+              onDelete={onDelete}
+            />
+          ))}
+        </nav>
+      )}
+      {/* 2026-09-21-f237b: the panel is not the only way to a conversation any more. */}
+      <Link href="/spec-dialog/conversations" className="dl-bar-all" data-testid="dialog-see-all">
+        All conversations
+      </Link>
+    </aside>
   );
 }
 
@@ -148,28 +141,23 @@ function Conversation({
   const title = conversation.subject ?? conversation.title ?? untitled(conversation);
   const written = conversation.title ?? conversation.subject ?? untitled(conversation);
   return (
-    <div className="d-conv-row">
+    <div className="dl-row">
       <button
         type="button"
         data-testid={`dialog-conversation-${conversation.sessionId}`}
         aria-current={current ? "true" : undefined}
         onClick={() => onOpen(conversation.sessionId, conversation.openDialogId)}
-        className="d-conv"
+        className="dl-conv"
       >
-        {/* 2026-09-21-f237c: two lines, then the ellipsis — the same truncation, one line
-            later. `block` comes off because line-clamp sets its own display. */}
-        <span className="line-clamp-2 dsh-body font-medium text-ink">{title}</span>
-        <span className="ec-marks ec-sub items-center">
-          <span className="ec-mark given">{conversation.project}</span>
+        {/* 2026-11-17-d762a: one line, then the ellipsis; the full subject is the tooltip. */}
+        <span className="dl-conv-title" title={title}>{title}</span>
+        {/* The facts as one muted line of text, the outcome in its colour — no chips. */}
+        <span className="dl-conv-meta">
+          <span data-testid={`dialog-conversation-project-${conversation.sessionId}`}>{conversation.project}</span>
           {/* 2026-09-27-5c1eb: a conversation bound to a ticket says which one, the way the
-              tracker spells it. Built twice, here and on the conversations page, because the two
-              rows share their label helpers and nothing else — one is a button that opens in
-              place, the other a link. */}
+              tracker spells it. */}
           {conversation.ticket && (
-            <span
-              data-testid={`dialog-conversation-ticket-${conversation.sessionId}`}
-              className="ec-mark filed"
-            >
+            <span data-testid={`dialog-conversation-ticket-${conversation.sessionId}`} className="mono">
               {conversation.ticket}
             </span>
           )}
@@ -178,7 +166,7 @@ function Conversation({
           </span>
           <span>{time}</span>
           {filed && (
-            <span data-testid="dialog-conversation-outcome" className="ec-mark filed">
+            <span data-testid="dialog-conversation-outcome" className={`dl-tone ${outcomeTone(conversation)}`}>
               {filed}
             </span>
           )}

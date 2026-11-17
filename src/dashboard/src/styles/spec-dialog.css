@@ -1,0 +1,41 @@
+/* 2026-11-17-d762a: Work it out in the ticket page's frame (ticket-thread.css, 8d1ca) — the conversations' bar beside
+   the icon-only app sidebar, the exchange in the middle, the pane at the right.
+   Plain: hairlines and text colour, no panels, no pills, no filled backgrounds; the open conversation is the bright row. */
+.mock-dialog.dl-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 320px; align-items: start; min-height: 100%; }
+.mock-dialog.dl-shell > .dl-page { min-width: 0; max-width: none; padding: 28px 32px 20px; min-height: calc(100vh - var(--topbar-h, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+.mock-dialog.dl-shell > .d-pane { margin: 28px 24px 20px 0; min-width: 0; }
+
+/* the bar: the ticket bar's measures and colours */
+.mock-dialog .dl-bar { box-sizing: border-box; position: sticky; top: 0; height: calc(100vh - var(--topbar-h, 0px)); overflow-y: auto; border-right: 1px solid var(--line-2); padding: 22px 12px; display: flex; flex-direction: column; gap: 2px; }
+.mock-dialog .dl-bar-id { padding: 0 8px 14px; font-weight: 500; line-height: 20px; color: var(--ink); }
+.mock-dialog button.dl-bar-new { font: inherit; display: flex; align-items: center; min-height: 32px; padding: 0 8px; border: 0; background: none; text-align: left; color: var(--ink-2); cursor: pointer; }
+.mock-dialog .dl-bar-new:hover { color: var(--ink); }
+.mock-dialog .dl-bar-new:disabled { color: var(--ink-3); cursor: default; }
+.mock-dialog .dl-bar-rows { display: flex; flex-direction: column; padding-top: 6px; }
+.mock-dialog .dl-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.mock-dialog button.dl-conv { font: inherit; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border: 0; background: none; text-align: left; color: var(--ink-3); cursor: pointer; }
+.mock-dialog .dl-conv:hover .dl-conv-title { color: var(--ink-2); }
+.mock-dialog .dl-conv-title { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-3); line-height: 20px; }
+.mock-dialog .dl-conv[aria-current="true"] .dl-conv-title { color: var(--ink); font-weight: 500; }
+.mock-dialog .dl-conv-meta { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; line-height: 17px; color: var(--ink-3); }
+.mock-dialog .dl-conv-meta > span + span::before { content: " · "; color: var(--ink-3); }
+.mock-dialog .dl-conv-meta .mono { font-family: var(--mono); }
+.mock-dialog .dl-tone.ok { color: var(--ok); }
+.mock-dialog .dl-tone.run { color: var(--run); }
+.mock-dialog .dl-tone.bad { color: var(--bad); }
+.mock-dialog .dl-row:hover .d-conv-x { opacity: 1; }
+.mock-dialog .dl-row .d-conv-x:hover { background: none; }
+.mock-dialog .dl-bar-all { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid var(--line-2); font-size: 13px; color: var(--ink-3); text-decoration: none; }
+.mock-dialog .dl-bar-all:hover { color: var(--ink); }
+
+@media (max-width: 1180px) {
+  .mock-dialog.dl-shell { grid-template-columns: 236px minmax(0, 1fr); }
+  .mock-dialog.dl-shell > .d-pane { grid-column: 2; margin: 0 32px 28px; }
+}
+@media (max-width: 760px) {
+  .mock-dialog.dl-shell { grid-template-columns: minmax(0, 1fr); }
+  .mock-dialog .dl-bar { position: static; height: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line-2); padding: 14px 16px; }
+  .mock-dialog .dl-bar-all { margin-top: 8px; }
+  .mock-dialog.dl-shell > .dl-page { padding: 18px 16px 20px; min-height: 0; }
+  .mock-dialog.dl-shell > .d-pane { grid-column: 1; margin: 0 16px 24px; }
+}

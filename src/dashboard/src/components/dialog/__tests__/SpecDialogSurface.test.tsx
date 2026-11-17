@@ -984,18 +984,16 @@ describe("SpecDialogSurface", () => {
     return { role: "user", text, at: "2026-09-15T09:00:00Z" };
   }
 
-  // 2026-09-18-e63d: the likelier case of the same bug. This column is 220px — 140px narrower
-  // than the scope pane — the title one line above it already needs truncation, and the project
-  // name is the operator's own. The mark carries the same modifier.
-  it("SpecDialog_AConversationsProjectMark_AsksToWrap", async () => {
+  // 2026-11-17-d762a: the project is plain text in the row's muted line — no chip, nothing boxed in the bar.
+  it("SpecDialog_AConversationsProject_IsPlainTextNotAChip", async () => {
     const projectName = "a-project-name-with-no-space-in-it-at-all";
     fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ project: projectName })]));
     await renderSurface();
 
-    const mark = (await screen.findByTestId("dialog-conversation-s-9"))
-      .querySelector(".ec-mark") as HTMLElement;
-    expect(mark.className.split(/\s+/)).toContain("given");
-    expect(mark.textContent).toBe(projectName);
+    const row = await screen.findByTestId("dialog-conversation-s-9");
+    expect(within(row).getByTestId("dialog-conversation-project-s-9")).toHaveTextContent(projectName);
+    expect(row.querySelector(".ec-mark")).toBeNull();
+    expect(screen.getByTestId("dialog-controls").querySelector(".ecard, .btn")).toBeNull();
   });
 
   it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
@@ -1030,7 +1028,7 @@ describe("SpecDialogSurface", () => {
     await screen.findByTestId("dialog-conversation-s-4");
     expect(screen.queryAllByTestId("dialog-conversation-day")).toEqual([]);
     const rows = [...screen.getByTestId("dialog-conversations")
-      .querySelectorAll<HTMLElement>(".d-conv")];
+      .querySelectorAll<HTMLElement>(".dl-conv")];
     expect(rows.map((row) => row.dataset.testid)).toEqual([
       "dialog-conversation-s-1", "dialog-conversation-s-2",
       "dialog-conversation-s-3", "dialog-conversation-s-4",
@@ -1086,7 +1084,7 @@ describe("SpecDialogSurface", () => {
 
     await screen.findByTestId("dialog-conversation-s-0");
     expect(screen.getByTestId("dialog-conversations")
-      .querySelectorAll(".d-conv")).toHaveLength(20);
+      .querySelectorAll(".dl-conv")).toHaveLength(20);
     expect(screen.queryByTestId("dialog-conversation-s-25")).not.toBeInTheDocument();
   });
 
@@ -1103,7 +1101,7 @@ describe("SpecDialogSurface", () => {
     expect(await screen.findByTestId("dialog-conversation-s-1"))
       .toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("dialog-conversations")
-      .querySelectorAll(".d-conv")).toHaveLength(21);
+      .querySelectorAll(".dl-conv")).toHaveLength(21);
   });
 
   // The cap is taken on the way to the screen and never on the array behind it: the predicate
@@ -1143,18 +1141,16 @@ describe("SpecDialogSurface", () => {
     expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
   });
 
-  // A subject is minted short, but nothing guarantees it — and a row that grew to four lines for
-  // one verbose subject would make a ragged column.
-  it("SpecDialog_ALongSubject_IsClampedRatherThanTruncatedAtOneLine", async () => {
-    fetchSpecDialogConversations.mockResolvedValue(listing([
-      conversation({ sessionId: "s-1", subject: "a subject long enough to need a second line" }),
-    ]));
+  // 2026-11-17-d762a: the bar's row is one line with an ellipsis, like a settings nav row; the whole subject is
+  // its tooltip, so nothing is lost to the cut.
+  it("SpecDialog_ALongSubject_IsOneLineWithTheWholeSubjectAsItsTooltip", async () => {
+    const subject = "a subject long enough to need a second line";
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-1", subject })]));
     await renderSurface();
 
-    const name = (await screen.findByTestId("dialog-conversation-s-1"))
-      .querySelector("span");
-    expect(name?.className).toContain("line-clamp-2");
-    expect(name?.className).not.toContain("truncate");
+    const name = (await screen.findByTestId("dialog-conversation-s-1")).querySelector("span");
+    expect(name?.className).toBe("dl-conv-title");
+    expect(name).toHaveAttribute("title", subject);
   });
 
   it("SpecDialog_AConversationWithAnOutcome_ShowsIt_OneWithoutShowsNone", async () => {
