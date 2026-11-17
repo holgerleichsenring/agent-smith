@@ -57,7 +57,7 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>().AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>().AddSingleton<IStepDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>().AddSingleton<IStepDataFlow, SpecDeriveDataFlow>().AddSingleton<IStepDataFlow, FileDataFlow>() // bdd0a, 5701b
             .AddSingleton<IStepDataFlow, CloseDataFlow>().AddSingleton<IStepDataFlow, ReopenDataFlow>().AddSingleton<IStepDataFlow, StartDataFlow>() // e061a-b
-            .AddSingleton<IStepDataFlow, AmendDataFlow>().AddSingleton<IStepDataFlow, CommentDataFlow>(); // e061c
+            .AddSingleton<IStepDataFlow, AmendDataFlow>().AddSingleton<IStepDataFlow, CommentDataFlow>().AddSingleton<IStepDataFlow, TicketBodyDataFlow>(); // e061c, dd05b
         services.AddSingleton<IStepDataFlowResolver, StepDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);

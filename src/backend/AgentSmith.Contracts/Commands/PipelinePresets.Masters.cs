@@ -27,6 +27,7 @@ public static partial class PipelinePresets
             [FileName] = string.Empty, // 2026-11-17-5701b: a filing runs no master
             [CloseName] = string.Empty, // 2026-11-17-e061a: an act on a filed ticket runs no master
             [ReopenName] = string.Empty, [StartName] = string.Empty, [AmendName] = string.Empty, [CommentName] = string.Empty,
+            [TicketBodyName] = string.Empty, // 2026-11-17-dd05b
         };
 
     /// <summary>

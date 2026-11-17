@@ -58,7 +58,7 @@ internal static class SpecDialogExtensions
         services.AddTicketActPipelines().AddScoped<IActRun, Acts.ActRun>()
             .AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier, Tickets.Closing.TicketCloseFailureClassifier>();
         services.AddScoped<SpecDialogLatestOutcomeStore>().AddScoped<SpecDialogProposalContinuity>(); // 2026-11-09-9a98
-        services.AddScoped<TicketAmendment>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
+        services.AddScoped<TicketAmendment>().AddScoped<Tickets.Body.TicketBodyOverwrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek, dd05b
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
         // 2026-11-04-96a0a: the subject the master named a conversation with, stored by the keeper in

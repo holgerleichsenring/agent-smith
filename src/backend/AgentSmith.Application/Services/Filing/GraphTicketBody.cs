@@ -1,15 +1,14 @@
 using System.Text;
 using AgentSmith.Application.Services.SpecDialog;
-using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Application.Services.Filing;
 
 /// <summary>
-/// 2026-10-14-dbcel: the body a list's ticket is filed with — its TEXT, no spec: the requirement, the done items as
-/// acceptance criteria (list items, the only lines read back as criteria), what must merge first, and the conversation
-/// it came from. 2026-11-17-5701b: its approved specs are on its branch, so the body no longer says the run derives them.
+/// 2026-10-14-dbcel: the body a list's ticket is filed with. 2026-11-17-dd05b: its specs' region — the requirement and
+/// criteria as the approved specs say them, rendered by the filing's renderer — then what must merge first. Never the
+/// list's free text: the specs on its branch are the ticket's truth, and its body says what they say.
 /// </summary>
 internal static class GraphTicketBody
 {
@@ -17,28 +16,20 @@ internal static class GraphTicketBody
 
     internal const string RequiresLine = "Merge these first; this ticket starts once each is merged or marked done by hand.";
 
+    /// <param name="region">The specs' region, as <see cref="SeriesTicketRegion"/> renders it.</param>
     /// <param name="required">Each required ticket's tracker key, with its title when it is a sibling of this list.</param>
-    /// <param name="labelNote">The note on the labels the ticket is filed with, or null for none.</param>
     internal static SpecTicketContent Render(
-        GraphTicket ticket, IReadOnlyList<(string Key, string? Title)> required, string conversation, string? labelNote)
+        GraphTicket ticket, SpecTicketContent region, IReadOnlyList<(string Key, string? Title)> required)
     {
         ArgumentNullException.ThrowIfNull(ticket);
+        ArgumentNullException.ThrowIfNull(region);
         ArgumentNullException.ThrowIfNull(required);
-        var body = new StringBuilder(ticket.Requirement.Trim()).AppendLine().AppendLine();
-        if (ticket.Done.Count > 0)
-        {
-            body.AppendLine(AcceptanceCriteriaSection.Heading);
-            foreach (var done in ticket.Done) body.AppendLine($"- {CriterionLine.Collapse(done)}");
-            body.AppendLine();
-        }
+        var body = new StringBuilder(region.Body.TrimEnd()).AppendLine();
         if (required.Count > 0)
         {
-            body.AppendLine(RequiresHeading).AppendLine(RequiresLine);
+            body.AppendLine().AppendLine(RequiresHeading).AppendLine(RequiresLine);
             foreach (var (key, title) in required) body.AppendLine(title is null ? $"- {key}" : $"- {key} — {title}");
-            body.AppendLine();
         }
-        body.AppendLine($"Filed from design conversation `{conversation}`.");
-        if (labelNote is not null) body.AppendLine().Append(labelNote);
         return new SpecTicketContent(TicketTitle.Fit(ticket.Title), body.ToString());
     }
 }

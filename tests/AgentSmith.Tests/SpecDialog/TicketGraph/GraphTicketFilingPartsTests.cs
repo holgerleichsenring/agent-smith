@@ -18,36 +18,44 @@ namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 /// ticket's own specs), the shared labels and the start pass's wording.</summary>
 public sealed class GraphTicketFilingPartsTests
 {
+    // 2026-11-17-dd05b: a list ticket's body is its specs' region, then what must merge first — never its free text.
+    private static readonly SpecTicketRenderer Renderer = new();
+
+    private static SpecTicketContent Region(params SpecDraft[] specs) =>
+        new SeriesTicketRegion(Renderer).Render("Title ui", "2026-11-17-aaaa", specs, "conv-9", "LABEL NOTE\n");
+
     [Fact]
-    public void GraphTicketBody_Render_RequirementCriteriaRequiresAndConversation()
+    public void GraphTicketBody_Render_SpecRegionThenRequires()
     {
-        var content = GraphTicketBody.Render(Ticket("ui", "api"), [("#101", "Title api"), ("#41", null)], "conv-9", "LABEL NOTE\n");
+        var content = GraphTicketBody.Render(Ticket("ui", "api"), Region(SpecOf("ui") with { Done = ["ui works"] }),
+            [("#101", "Title api"), ("#41", null)]);
 
         content.Title.Should().Be("Title ui");
-        content.Body.Should().Be(
-            "Requirement of ui.\n\n"
-            + "## Acceptance criteria\n- ui works\n- ui is tested\n\n"
-            + "## Requires\nMerge these first; this ticket starts once each is merged or marked done by hand.\n"
-            + "- #101 — Title api\n- #41\n\n"
-            + "Filed from design conversation `conv-9`.\n\n"
-            + "LABEL NOTE\n");
+        content.Body.Should().StartWith(FramedTicketRegion.Begin).And.Contain("Goal of ui").And.Contain("- ui works")
+            .And.Contain("Approved in design conversation `conv-9`.").And.NotContain("Requirement of ui.");
+        content.Body.Should().EndWith("## Requires\nMerge these first; this ticket starts once each is merged or marked done by hand.\n"
+            + "- #101 — Title api\n- #41\n");
     }
 
     [Fact]
     public void GraphTicketBody_NoRequires_OmitsTheSection()
     {
-        GraphTicketBody.Render(Ticket("api"), [], "conv-9", null).Body.Should().NotContain("## Requires");
+        GraphTicketBody.Render(Ticket("api"), Region(SpecOf("api")), []).Body.Should().NotContain("## Requires");
     }
 
     [Fact]
-    public void GraphTicketBody_DoneItems_ReadBackByAcceptanceCriteriaSection()
+    public void SeriesTicketRegion_SeveralSpecs_ListsEverySliceUnderTheGoal()
     {
-        var ticket = Ticket("ui", "api") with { Done = ["the page\nloads", "no file outside .agentsmith/ contains X"] };
-        var stamp = FiledTicketLabels.ApprovedSetStamp;
+        var body = Region(SpecOf("ui"), SpecOf("api")).Body;
 
-        var body = GraphTicketBody.Render(ticket, [("#101", "Title api")], "conv-9", TicketLabelNote.For([stamp], stamp)).Body;
+        body.Should().StartWith(FramedTicketRegion.Begin).And.Contain("Title ui").And.Contain("## Slices")
+            .And.Contain("`ui-spec` Goal of ui").And.Contain("`api-spec` Goal of api");
+    }
 
-        AcceptanceCriteriaSection.Read(body).Should().Equal("the page loads", "no file outside .agentsmith/ contains X");
+    [Fact]
+    public void SeriesTicketRegion_OneSpec_IsTheFiledSpecBody()
+    {
+        Region(SpecOf("ui")).Body.Should().Be(Renderer.RenderSpec(SpecOf("ui"), "conv-9", "LABEL NOTE\n").Body);
     }
 
     [Fact]
