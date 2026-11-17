@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-dd05c
+goal: "The operator edits a filed ticket's unexecuted spec from the ticket page's Specs section; the edit goes the way an approval in its conversation goes."
+
+applies_to: "default (TicketSpecEdit, ticket spec edit endpoint, TicketAmendment, SeriesEditAct), dashboard (SpecDocument, ticketSpecEditApi)"
+
+requires: [2026-11-17-dd05b, 2026-11-17-e061c]
+
+facts:
+  - claim: "The Specs section is read-only and says a spec changes only through the conversation."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecDocument.tsx:89, src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:94"
+  - claim: "An approval on a never-worked ticket amends it in an 'amend' run, read from a conversation state."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:40, src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:65"
+  - claim: "An edit of a worked ticket's series is recorded for its next attempt by SeriesEditAct, which reads the approver from a stored conversation."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:24, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:41"
+  - claim: "A recut edit validates the yaml and keeps the spec's id."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditList.cs:26"
+  - claim: "The ticket page already holds each spec's yaml."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketSeriesSpecView.cs:28"
+
+scope:
+  in: "PUT /api/tickets/{project}/{ticketId}/specs/{specId} {yaml}, runs.control. TicketSpecEdit reads the next attempt's series (the branch's), refuses a closed ticket, an executed spec and an invalid yaml, applies the recut through SeriesEditList and hands the series to the same two entries a conversation's approval and series edit use, now ticket-keyed: never-worked → TicketAmendment (an 'amend' run: body, record, branch), worked → SeriesEditAct (recorded for the next attempt). The approval source is the editor, with the ticket's approval record's conversation, repositories and owner words. SpecDocument gets Edit for a spec not executed: the yaml in a text area, Save and Cancel, and the server's sentence."
+  out: "Appending and dropping specs stay in the conversation. An edit of a derived set records it as approved by the editor: the editor approved what it now says."
+
+steps:
+  - id: amend-entry
+    action: "TicketAmendment.ApplyAsync(project, ticketId, ApprovalSource, proposal, ct, continuation); the conversation overload resolves those and calls it."
+  - id: edit-entry
+    action: "SeriesEditAct.EditAsync(project, ticketId, ApprovalSource?, edits, ct) → SeriesEditAnswer(Recorded, Message); the conversation overload resolves the session and keeps its sentence."
+  - id: edit
+    action: "TicketSpecEdit in Server/Services/Tickets/Editing answers TicketSpecEditAnswer(Status, Message)."
+  - id: endpoint
+    action: "TicketSpecEditEndpoints: 200 recorded, 400 empty yaml, 404 unknown project, 409 refused — each a sentence."
+  - id: dashboard
+    action: "editTicketSpec in ticketSpecEditApi; SpecDocument edit mode; the read-only note names the edit; a saved edit re-reads the page."
+
+tests:
+  - "TicketSpecEditTests (real composition over a filed ticket): a never-worked edit runs an 'amend' run, the record and the branch carry the new yaml and the body its goal; executed spec, closed ticket and invalid yaml refuse"
+  - "SeriesEditAct suites keep their scenarios through the conversation overload"
+  - "SpecDocument.test.tsx: Edit shows the yaml, Save sends it, the answer shows, an executed spec has no Edit"
+
+done:
+  - "A filed ticket's unexecuted spec is edited from the dashboard through the amend entry a conversation's approval uses; nothing writes a spec any other way."

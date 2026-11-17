@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Tickets;
 
@@ -17,11 +16,6 @@ public sealed class SeriesTicketRegion(SpecTicketRenderer renderer)
         ArgumentNullException.ThrowIfNull(specs);
         return specs.Count == 1
             ? renderer.RenderSpec(specs[0], conversation, labelNote)
-            : renderer.RenderEpicParent(Parent(series, goal), specs, null, conversation, labelNote, series);
+            : renderer.RenderEpicParent(SeriesParentDraft.Of(series, goal), specs, null, conversation, labelNote, series);
     }
-
-    // A series on a branch keeps its goal, not a parent document: the parent is that goal alone (a JSON string is a
-    // YAML scalar, so any goal reads back).
-    private static SpecDraft Parent(string series, string goal) =>
-        new(series, goal, $"goal: {JsonSerializer.Serialize(goal)}", []);
 }

@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-dd05c: "TICKET SPEC EDIT (TicketSpecEdit, PUT /api/tickets/.../specs/{id}, TicketAmendment/SeriesEditAct ticket-keyed, SpecEdit). An unexecuted spec's yaml is edited on the ticket page; never-worked goes through the 'amend' run, worked is kept for the next attempt; a never-run ticket shows its branch specs. -> .agentsmith/specs/done/2026-11-17-dd05c-ticket-spec-edit.yaml"
     2026-11-17-dd05b: "TICKET BODY FROM SPECS (SeriesTicketRegion, GraphTicketBody, 'ticket-body' act, TicketBodyRender, SeriesFingerprintStamp, TicketBodyOverwrite). A list ticket is filed with its specs' region; a 'ticket-body' run re-renders a body from the branch and stamps the manifest fingerprint. -> .agentsmith/specs/done/2026-11-17-dd05b-ticket-body-from-specs.yaml"
     2026-11-17-dd05a: "WHAT HAPPENED CUT LINE (SpecSetCommentLine, TicketConversationReader, SpecSetComment.DoneHeading). A posted cut comment whose first line is the cut heading reads on the ticket page as one line: n specs derived/approved (from Work it out), revision n inside its run; the tracker comment is unchanged. -> .agentsmith/specs/done/2026-11-17-dd05a-ticket-thread-spec-line.yaml"
     2026-11-17-e061c: "ACT RUNS: AMEND/COMMENT ('amend', 'comment' presets, TicketAmendmentWrite, PostTicketComments). A never-worked ticket's approval records its series and writes the branch in an 'amend' run; an approved comment posts in a 'comment' run; act presets are one table. -> .agentsmith/specs/done/2026-11-17-e061c-act-runs-amend.yaml"

@@ -13,12 +13,13 @@ import { sectionOf } from "./ticketPageSections";
 import { TicketSectionBar } from "./TicketSectionBar";
 import { TicketThread } from "./TicketThread";
 import { TicketWaitsFor } from "./TicketWaitsFor";
-import { SpecDerivations } from "./SpecDerivations";
+import { TicketSpecsTab } from "./TicketSpecsTab";
 import { CAUSE_PARAM, SECTION_PARAM, TAB_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the ticket detail under .mock-shell.mock-tickets like the list.
 // 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no thread:
 // its header, what it waits for, what waits for it and the filed line (ticket-graph.html, never-run-page).
+// 2026-11-17-dd05c: and its specs as its branch holds them, editable, then its derivations (the Specs section's pane).
 // 2026-11-17-8d1ca: a ticket with a run has its section bar beside the main area, which shows ONE section — What
 // happened (what it waits for, the thread, Your move and the composer) unless ?section= names another. The heading
 // carries the section's name, Cancel for a live attempt in plain sight, and the ··· menu.
@@ -42,7 +43,7 @@ export function TicketPage() {
           <TicketHeader detail={detail.data} />
           <TicketWaitsFor project={detail.project} />
           <TicketNeverRun summary={detail.data.summary} />
-          <SpecDerivations />
+          <TicketSpecsTab />
         </main>
       </div>
     );

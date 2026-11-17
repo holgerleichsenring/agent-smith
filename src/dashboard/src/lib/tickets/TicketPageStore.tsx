@@ -165,6 +165,12 @@ export function useTicketDerivations(): { derivations: TicketDerivation[]; start
   return { derivations: snapshot.detail.data?.derivations ?? [], started: () => reads.derivationStarted() };
 }
 
+/** 2026-11-17-dd05c: this page edited the ticket's specs — everything re-reads, as on the ticket's own nudge. */
+export function useTicketEdited(): () => void {
+  const { reads } = useStore();
+  return () => reads.ticketChanged();
+}
+
 /** The ticket itself — description, criteria and fields — read on its own tick, never on a RunsChanged. */
 export function useTicketText(): Read<TicketText> {
   return useStore().snapshot.text;
