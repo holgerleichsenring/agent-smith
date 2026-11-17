@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d6fbb
+goal: "The run page's default log carries every fact the graph view had: budget, compute, shape, pipeline and run id in the meta, and Ticket, Spec and plan, and Outcome sections."
+
+applies_to: "dashboard (app/jobs/[id] page, RunLogView, RunPageHead, RunFacts, runFactWords, storySections, RunSectionLog, RunStatusBox, RunStory, SpecPlanPanels, runLedger)"
+
+requires: [2026-11-16-6877b]
+
+facts:
+  - claim: "The side rail, the story beats and the banner render only while graph is true."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:180-207"
+  - claim: "The side rail holds progress, compute and pods, cost with budget and bar, shape with reason, sandbox beat, time split and the no-PR note."
+    evidence: "src/dashboard/src/components/jobs/RunSideRail.tsx:163-390"
+  - claim: "The story's ticket, plan, building and outcome beats draw TicketPanel, SpecPanel and PlanPanel, LedgerPanel, SpecsPanel, BuildNotes and OutcomePanel."
+    evidence: "src/dashboard/src/components/jobs/story/RunStory.tsx:132-173"
+  - claim: "RunLogView and RunStory each call useRunJudgements."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogView.tsx:38, src/dashboard/src/components/jobs/story/RunStory.tsx:72"
+  - claim: "The graph switch is component state, not the address."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:87"
+
+scope:
+  in: "Meta line: cost of cap and tier, compute, shape, pipeline, full run id; a facts line: step progress, time split, sandbox beat, shape reason, pods behind a disclosure, the budget bar; status box: the waiting run's held-compute sentence and a finished run's 'No pull request opened'; sections Ticket, Spec and plan, Outcome, collapsed; ?view=graph; one useRunJudgements on the page."
+  out: "Removing the graph view; backend changes; the trace drawer."
+
+steps:
+  - id: judgements
+    action: "The page calls useRunJudgements once and passes it to RunLogView and RunStory."
+  - id: view
+    action: "The page reads ?view=graph and the switch replaces the address."
+  - id: meta
+    action: "metaLine adds cost of cap, compute, shape, pipeline and run id; runFactWords.ts says each fact; RunFacts draws progress, time split, sandbox beat, shape reason, pods and the budget bar."
+  - id: sections
+    action: "storySections.ts adds Ticket, Spec and plan, and Outcome around the step sections; RunSectionLog draws a section's slot instead of its lines; the strip keeps its seven step nodes."
+  - id: status
+    action: "RunStatusBox adds the held-compute sentence while waiting and 'No pull request opened' on a finished run without one."
+
+tests:
+  - "RunPageHead/metaLine: budget, compute, shape, pipeline, run id."
+  - "RunFacts: progress, time split, shape reason, pods disclosure, budget bar."
+  - "RunSectionLog: Ticket, Spec and plan, Outcome closed by default and open on click."
+  - "Run page: ?view=graph shows the story; one judgements read."
+
+done:
+  - "Every fact of the side rail, the story beats and the banner is on the default view."
+  - "Show as graph sets ?view=graph and a reload keeps it."
+  - "pnpm test and build are green."

@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-8d1ca
+goal: "A ticket page has a section bar beside an icon-only app sidebar and shows one section at a time, chosen by ?section= with old ?tab= links mapped."
+
+applies_to: "dashboard (TicketPage, a TicketSectionBar and its pure section table, useTicketTabGo, TicketThread scroll, AppSidebar collapse, TicketHeader menu)"
+
+requires: [2026-11-16-6877a, 2026-11-16-0440c]
+
+
+assumptions:
+  - "Layout and wording follow the operator-approved 2026-11-17 mock: TicketRail.dc.html: section bar, one section in the main area, plain lines without boxes."
+
+facts:
+  - claim: "The page draws header, waits-for and the thread with a Details fold at its end; SpecDerivations renders only for a ticket without runs."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:28-38"
+  - claim: "The thread scrolls to ?causeOf= only on its first mount, and the address replaces with scroll:false."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketThread.tsx:45-55, src/dashboard/src/components/tickets/detail/useTicketTabGo.ts:34"
+  - claim: "Attempts read, Continue in conversation, the cost waiting banner and Discuss go to tab=conversation, a tab the table no longer has."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketAttemptsTab.tsx:39, src/dashboard/src/components/tickets/detail/TicketAttemptsTab.tsx:68, src/dashboard/src/components/tickets/detail/TicketCostTab.tsx:47, src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:56"
+  - claim: "Cancel for a live attempt sits only in the ··· menu."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketHeader.tsx:65-70"
+  - claim: "The sidebar's collapsed state is the browser's remembered choice only."
+    evidence: "src/dashboard/src/hooks/useSidebarCollapsed.ts:9-29"
+
+scope:
+  in: "Section table (What happened, Specs, Acceptance, Runs, Cost, Defaults) with counts; ?section= with ?tab= mapped (summary/conversation -> happened, attempts -> runs); section bar with back link, id, title, state word in its colour, sections, project, tracker and status, branch, PR; main heading with the ··· menu and a visible Cancel for a live attempt; one section shown; the Summary pane and its flow graph removed; every conversation link goes to What happened and scrolls to ?causeOf= whenever it changes; the app sidebar is icons-only on a ticket page."
+  out: "The What happened line layout (8d1cb); the Runs and Cost lines (8d1cc); restyling Specs, Acceptance, Defaults (8d1cd); YourMoveBox's endDetail; the run page and home page."
+
+steps:
+  - id: table
+    action: "ticketSections.ts: SECTIONS with counters, sectionOf(params) mapping ?section= and old ?tab= values, default happened."
+  - id: address
+    action: "useTicketTabGo: goSection(id, extra) sets section and drops tab; a conversation target scrolls."
+  - id: bar
+    action: "TicketSectionBar: back link, key, title, state word, section buttons with counts, facts at its foot."
+  - id: page
+    action: "TicketPage: section bar beside main; main holds the heading, ··· menu, Cancel, and the chosen section; Details, TicketTabs, Summary pane and flow graph files deleted."
+  - id: scroll
+    action: "TicketThread scrolls to the ?causeOf= entry each time the parameter changes, not only on mount."
+  - id: sidebar
+    action: "AppSidebar renders collapsed on /tickets/<project>/<id> through isTicketPage(pathname)."
+
+decisions:
+  - "Summary pane and its flow graph are not a section: the ticket text leads What happened, the run page keeps the graph — alternatives: a seventh section."
+
+tests:
+  - "ticketSections.test.ts: sectionOf maps every old tab and defaults to happened; counters."
+  - "TicketPage suite: section bar, one section per ?section=, ?tab=attempts lands on Runs, Cancel visible for a live attempt, conversation links go to What happened."
+  - "isTicketPage test; TicketThread scrolls when ?causeOf= changes."
+
+done:
+  - "A ticket page shows the section bar and one section; every old ?tab= link lands on its section."
+  - "Every link that pointed to the conversation lands on What happened at its entry."
+  - "pnpm test, build and gen:hub-events are green; the spec gate passes."

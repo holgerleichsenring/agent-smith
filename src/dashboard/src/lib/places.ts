@@ -6,9 +6,9 @@ import { SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
 // links and the header labels are asserted against each other by a test rather than kept
 // in step by hand.
 //
-// The table maps a PATH to a place, not a rail entry to a place: five monitor entries
-// share "/" and differ only by a ?bucket= query, which the root layout may not read (a
-// search-param hook there fails the build for every statically rendered route). So "/" is
+// The table maps a PATH to a place, not a rail entry to a place: the runs list's bucket views
+// share "/runs" and differ only by a ?bucket= query, which the root layout may not read (a
+// search-param hook there fails the build for every statically rendered route). So "/runs" is
 // ONE place — "Runs" — and a query string is dropped before the lookup.
 //
 // The catalog and settings places are DERIVED from the same constants the config rail and
@@ -19,7 +19,9 @@ const RUN_WHY_PLACE = "Run · why";
 const TICKET_PLACE = "Ticket";
 
 const FIXED_PLACES: Record<string, string> = {
-  "/": "Runs",
+  // 2026-11-17-d6fba: / is the input page; the runs list moved to /runs.
+  "/": "Home",
+  "/runs": "Runs",
   // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
   "/tickets": "Tickets",
   "/pull-requests": "Pull requests",

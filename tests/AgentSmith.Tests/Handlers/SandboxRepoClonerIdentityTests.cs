@@ -50,6 +50,50 @@ public sealed class SandboxRepoClonerIdentityTests
         sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("--get") && s.Args!.Contains("user.email"));
     }
 
+    // 2026-11-17-d5cc: a bind-mounted checkout is never cloned over.
+    [Fact]
+    public async Task Checkout_LocalBindMount_IsNotCloned()
+    {
+        var sandbox = new RecordingSandbox();
+
+        var checkout = await Cloner("Local").CheckoutIntoSandboxesAsync(
+            new RepoConnection { Name = "local", Type = RepoType.Local, Path = "/tmp/repo", Url = "file:///tmp/repo" },
+            new RunBranch(new BranchName("feature/x"), ComposedFromTicket: true),
+            [new KeyValuePair<string, ISandbox>("local", sandbox)], CancellationToken.None);
+
+        checkout.Problem.Should().BeNull();
+        sandbox.RanSteps.Should().NotContain(s => s.Args!.Contains("clone"));
+    }
+
+    // 2026-11-17-d5cc: the in-process sandbox's fresh work dir holds no checkout, so the local repo is cloned
+    // from its url and the run's branch is switched to, as for a remote repo.
+    [Fact]
+    public async Task Checkout_LocalRepoInEmptySandbox_ClonesFromItsUrlAndSwitchesBranch()
+    {
+        var sandbox = new RecordingSandbox { NoCheckout = true };
+
+        var checkout = await Cloner("Local").CheckoutIntoSandboxesAsync(
+            new RepoConnection { Name = "local", Type = RepoType.Local, Path = "/tmp/repo", Url = "file:///tmp/origin" },
+            new RunBranch(new BranchName("feature/x"), ComposedFromTicket: true),
+            [new KeyValuePair<string, ISandbox>("local", sandbox)], CancellationToken.None);
+
+        checkout.Problem.Should().BeNull();
+        sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("clone") && s.Args!.Contains("file:///tmp/origin"));
+        sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("checkout") && s.Args!.Contains("feature/x"));
+    }
+
+    [Fact]
+    public async Task Checkout_LocalRepoInEmptySandboxWithoutUrl_ClonesFromItsPath()
+    {
+        var sandbox = new RecordingSandbox { NoCheckout = true };
+
+        await Cloner("Local").CheckoutIntoSandboxesAsync(
+            new RepoConnection { Name = "local", Type = RepoType.Local, Path = "/tmp/repo" },
+            branch: null, [new KeyValuePair<string, ISandbox>("local", sandbox)], CancellationToken.None);
+
+        sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("clone") && s.Args!.Contains("/tmp/repo"));
+    }
+
     // 2026-10-02-5f89g: a missing secret refuses the checkout by name — no clone, no git prompt.
     [Fact]
     public async Task SandboxRepoCloner_RepoWithMissingSecret_FailsNamingTheSecret()
@@ -85,13 +129,15 @@ public sealed class SandboxRepoClonerIdentityTests
     {
         public string JobId => "checkout-test";
         public List<Step> RanSteps { get; } = new();
+        public bool NoCheckout { get; init; }
 
         public Task<StepResult> RunStepAsync(
             Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
         {
             RanSteps.Add(step);
+            var outside = NoCheckout && step.Args!.Contains("--show-prefix");
             return Task.FromResult(new StepResult(
-                StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0,
+                StepResult.CurrentSchemaVersion, step.StepId, ExitCode: outside ? 128 : 0,
                 TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: string.Empty));
         }
 

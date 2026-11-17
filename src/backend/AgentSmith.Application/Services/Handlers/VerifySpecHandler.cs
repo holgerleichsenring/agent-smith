@@ -60,6 +60,7 @@ public sealed class VerifySpecHandler(
     ISpecProgressRecorder progress,
     VerifiedHeads verifiedHeads,
     SpecReviewRevert reviewRevert,
+    VerifyPassReporter passReporter,
     ILogger<VerifySpecHandler> logger)
     : ICommandHandler<VerifySpecContext>
 {
@@ -146,6 +147,8 @@ public sealed class VerifySpecHandler(
         var ran = outcomes.Where(o => !o.Skipped).ToList();
         var mechanical = WithStaleDerivations(
             BuildAggregateResult(ran, notes.Findings, delivered.Anything), [.. notes.Stale, .. notes.NoStageApplies]);
+        // 2026-11-17-d6fbc: the same pass as data, for the run log's line per repository.
+        await passReporter.ReportAsync(context.Pipeline, outcomes, notes, mechanical.IsSuccess, cancellationToken);
         if (!mechanical.IsSuccess)
         {
             // The spec's account IS the mechanical failure. Without this the run reports

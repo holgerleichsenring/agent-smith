@@ -70,3 +70,6 @@ export function useRunJudgements(runId: string, enabled: boolean) {
 
   return { judgements, busy, error, record, withdraw };
 }
+
+/** 2026-11-17-d6fbb: what the page's one judgements read hands the views that show criteria. */
+export type RunJudgements = ReturnType<typeof useRunJudgements>;
