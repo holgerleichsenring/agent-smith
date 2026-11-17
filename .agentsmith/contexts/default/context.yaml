@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-5701d: "SKILLS PIN V5.33.0 (AgentSmith.Infrastructure.Core embedded catalog, TicketGraphSkillRulesTests). The embedded catalog is v5.33.0: design-partner-master 3.4.0 writes each ticket's specs under draft:tickets/<key>/, reviewed in the turn and filed onto the ticket branch. -> .agentsmith/specs/done/2026-11-17-5701d-skills-pin-ticket-specs.yaml"
     2026-11-17-5701f: "RUN LOOK READS REPO-PREFIXED PATHS (DerivationLook.WithoutRepositoryName, RepositoryFileReadTool, RepositorySearchTool). A read that ran and found nothing, or a search whose path filter does not exist, is retried below the key's repository name (SandboxRepos) on the opened sandbox, one look charged. -> .agentsmith/specs/done/2026-11-17-5701f-run-look-repo-prefix.yaml"
     2026-11-17-5701e: "APPROVED SPECS REVIEWED ONCE (FiledSeriesFactory, ProposalReviewText.LastRoundPassed). Filing marks a draft reviewed in its filed text when the approving turn's last round passed it and it is not in NotReviewed, the contract likewise unless narrowed; the coding run spares those. -> .agentsmith/specs/done/2026-11-17-5701e-approved-specs-reviewed-once.yaml"
     2026-11-17-5701b: "FILING PIPELINE ('file' preset, PlanFiling/FileTickets, Application/Services/Filing, FilingRun). Spec, epic, list and bug file in one 'file' run: each ticket stamped only with its approved set, recorded with the operator's words, written to its branch, then settled; later parts held by requires. -> .agentsmith/specs/done/2026-11-17-5701b-filing-pipeline.yaml"
