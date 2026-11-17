@@ -105,8 +105,8 @@ export function failureAct(head: TicketAttempt, project: string): { sentence: st
 
 /**
  * 2026-11-16-f3fba: the headline a recorded EndDetail gives — what the refusal is about and the setting that
- * lifts it, e.g. "Image node:22-bookworm (context default) is not trusted: set Docker Hub official library
- * images to Trust." Null without a detail, so the kind's own sentence stands.
+ * lifts it, e.g. "Image node:22-bookworm (context default) is not trusted: set Trusted image registries
+ * to ghcr.io/, docker.io/library/." Null without a detail, so the kind's own sentence stands.
  */
 export function detailSentence(head: TicketAttempt): string | null {
   const d = head.endDetail;

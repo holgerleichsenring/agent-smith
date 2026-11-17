@@ -32,6 +32,7 @@ public static class RunPreflightServiceCollectionExtensions
         services.AddTransient<IRunPreflightCheck, BootstrapPresenceCheck>();
         services.AddTransient<RunContextInventory>();
         // 2026-10-12-6bfac: decidable from the run's own context discoveries, before any probe.
+        services.AddTransient<Sandbox.RegistryTrustAdmission>(); // 2026-11-16-f3fbd
         services.AddTransient<IRunPreflightCheck, ContextImageTrustCheck>();
         services.AddTransient<IRunPreflightCheck, SandboxHomeWritableCheck>();
         services.AddTransient<IRunPreflightCheck, SandboxRunsAsRootCheck>(); // 2026-10-25-c5a7a

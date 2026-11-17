@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Services.Claim;
 public sealed class PreconditionStopGateTests
 {
     private static readonly EndDetail Image = new("Image node:22-bookworm (context default)", [],
-        "Docker Hub official library images", "Trust");
+        "Trusted image registries", "ghcr.io/, docker.io/library/");
 
     [Fact]
     public async Task Retrigger_TicketStoppedOnPrecondition_IsRefusedWithTheHeadline()
@@ -23,7 +23,7 @@ public sealed class PreconditionStopGateTests
 
         refusal!.Rejection.Should().Be(ClaimRejectionReason.TicketStuckOnPrecondition);
         refusal.Error.Should().Be("This ticket stopped on a precondition: Image node:22-bookworm (context default) is not "
-            + "trusted: set Docker Hub official library images to Trust. It starts by itself once that holds, or when you reply.");
+            + "trusted: set Trusted image registries to ghcr.io/, docker.io/library/. It starts by itself once that holds, or when you reply.");
     }
 
     [Fact]

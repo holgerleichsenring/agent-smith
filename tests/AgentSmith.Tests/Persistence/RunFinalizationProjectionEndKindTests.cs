@@ -55,7 +55,7 @@ public sealed class RunFinalizationProjectionEndKindTests : IDisposable
             await seed.SaveChangesAsync();
         }
         var detail = new EndDetail("Image node:22 (context default)", ["web"],
-            "Docker Hub official library images", "Trust", "/config/settings/sandbox");
+            "Trusted image registries", "ghcr.io/, docker.io/library/", "/config/settings/sandbox");
 
         using (var ctx = Context())
             await new RunFinalizationProjection(new QueuedRunProjection()).ApplyAsync(ctx,

@@ -30,7 +30,7 @@ public sealed class ContextImageBoundaryTests
         refusal.Should().NotBeNull();
         refusal!.Image.Should().Be(UserNamespaceImage);
         refusal.Reason.Should().Contain(UserNamespaceImage).And.Contain("mcr.microsoft.com/");
-        refusal.Lever.Should().Contain("'sbtscala/'").And.Contain("sandbox.allowed_registries")
+        refusal.Lever.Should().Contain("'docker.io/sbtscala/'").And.Contain("sandbox.allowed_registries")
             .And.Contain("replaces the built-in defaults",
                 "following the lever as written must not silently refuse every default image")
             .And.Contain("sandbox.images").And.Contain("sandbox.toolchain_image");
@@ -45,14 +45,13 @@ public sealed class ContextImageBoundaryTests
         Boundary().Judge(image).Should().BeNull();
 
     [Fact]
-    public void Judge_LibraryImageRefusedByANamedList_PointsAtTheLibrarySwitch()
+    public void Judge_LibraryImageRefusedByANamedList_PointsAtTheLibraryEntry()
     {
         var refusal = Boundary(new SandboxGlobalConfig { AllowedRegistries = ["mirror.example.com"] })
             .Judge("eclipse-temurin:21-jdk");
 
-        refusal!.Lever.Should().Contain("sandbox.allow_docker_hub_library")
-            .And.NotContain("allowed_registries",
-                "a namespace-free image has no prefix a registry entry could name");
+        refusal!.Lever.Should().Contain("'docker.io/library/'").And.Contain("sandbox.allowed_registries",
+                "2026-11-16-f3fbd: the library is an ordinary list entry").And.Contain("sandbox.allow_new_registries");
     }
 
     [Fact]

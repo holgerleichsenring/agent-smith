@@ -125,6 +125,17 @@
 #   image_pull_secrets:
 #     - acr-pull
 
+# --- Trusted image registries (2026-08-25-014d, 2026-11-16-f3fbd) ---
+# Where a context's stack.image may come from, as reference prefixes. Empty means the
+# built-in default: mcr.microsoft.com/, ghcr.io/ and docker.io/library/ (Docker Hub
+# official images such as node:22-bookworm). Naming any entry replaces that default.
+# allow_new_registries: true lets a code or spec-derive run add the registry of a
+# refused image to this list, attributed to the run and recorded as a run decision;
+# pr-review and security-scan never add one. Default false.
+# sandbox:
+#   allowed_registries: ["mcr.microsoft.com/", "ghcr.io/", "docker.io/library/"]
+#   allow_new_registries: false
+
 # (Every run executes in the server; the sandboxes above are the only pods it
 # starts. A run older than this is cancelled:
 #   orchestrator:

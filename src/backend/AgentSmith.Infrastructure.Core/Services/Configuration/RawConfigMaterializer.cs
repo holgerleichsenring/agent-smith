@@ -29,6 +29,7 @@ public sealed class RawConfigMaterializer(
         secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
     private readonly List<StartupFinding> _unmaterializable = [];
     private readonly LegacyTriggerFold _legacyTriggers = new();
+    private readonly LegacyDockerHubLibraryMigration _legacyLibrary = new();
     private readonly LegacyCredentialMigration _legacyCredentials = legacyCredentials ?? new(
         secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
 
@@ -51,6 +52,7 @@ public sealed class RawConfigMaterializer(
         _secrets.Apply(raw);
         // 2026-10-02-5f89a: advisory, so recorded but never part of what the one-shot loader refuses on.
         foreach (var note in _legacyCredentials.Apply(raw)) _findings.Record(note);
+        _legacyLibrary.Apply(raw.Sandbox); // 2026-11-16-f3fbd
         deploymentDefaults.Apply(raw);
         ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);

@@ -23,10 +23,14 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// (<see cref="RunContextInventory"/>). A backend that spawns no containers runs no image, so nothing
 /// is judged there. The refusal carries the first image as an <c>EndDetail</c>.
 /// </para>
+/// <para>
+/// 2026-11-16-f3fbd: a refused image is first offered to <see cref="RegistryTrustAdmission"/>, which in a
+/// code or spec-derive run with new registries allowed trusts its registry and records that it did.
+/// </para>
 /// </summary>
 public sealed class ContextImageTrustCheck(
     ContextImageBoundary boundary, SandboxImageChain chain, RunContextInventory inventory,
-    SandboxContainerRuntime runtime) : IRunPreflightCheck
+    SandboxContainerRuntime runtime, RegistryTrustAdmission admission) : IRunPreflightCheck
 {
     private const string ContextLever =
         "or declare a stack.image inside the boundary that carries the context's whole toolchain";
@@ -42,7 +46,8 @@ public sealed class ContextImageTrustCheck(
     {
         if (!runtime.SpawnsContainers)
             return RunPreflightFinding.Pass(Name, "the sandbox backend runs on the host and starts no image");
-        var refused = Refused(pipeline, await inventory.ReadAsync(pipeline, cancellationToken));
+        var refused = await StandingAsync(
+            pipeline, Refused(pipeline, await inventory.ReadAsync(pipeline, cancellationToken)), cancellationToken);
         if (refused.Count == 0)
             return RunPreflightFinding.Pass(
                 Name, "every context image the sandboxes consult is inside the registry boundary");
@@ -57,6 +62,17 @@ public sealed class ContextImageTrustCheck(
             Kind = RunEndKinds.ImageUntrusted,
             Detail = boundary.Detail(first.Refusal.Image, first.Context, first.Repo),
         };
+    }
+
+    private async Task<List<(string Repo, string Context, ContextImageRefusal Refusal)>> StandingAsync(
+        PipelineContext pipeline, List<(string Repo, string Context, ContextImageRefusal Refusal)> refused,
+        CancellationToken cancellationToken)
+    {
+        var standing = new List<(string Repo, string Context, ContextImageRefusal Refusal)>();
+        foreach (var (repo, context, refusal) in refused)
+            if (await admission.AdmitAsync(pipeline, context, refusal, cancellationToken) is { } still)
+                standing.Add((repo, context, still));
+        return standing;
     }
 
     private List<(string Repo, string Context, ContextImageRefusal Refusal)> Refused(

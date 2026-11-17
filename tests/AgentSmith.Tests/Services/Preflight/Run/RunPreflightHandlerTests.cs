@@ -34,7 +34,7 @@ public sealed class RunPreflightHandlerTests
     [Fact]
     public async Task RunPreflightHandler_FirstFailureNamesKind_ResultCarriesItsKindAndDetail()
     {
-        var detail = new EndDetail("Image node:22 (context default)", ["web"], "Docker Hub official library images", "Trust");
+        var detail = new EndDetail("Image node:22 (context default)", ["web"], "Trusted image registries", "ghcr.io/, docker.io/library/");
         var handler = HandlerWith(
             new StubCheck(ContextImageTrustCheck.CheckName,
                 RunPreflightFinding.Fail(ContextImageTrustCheck.CheckName, "image outside the boundary", "trust it")

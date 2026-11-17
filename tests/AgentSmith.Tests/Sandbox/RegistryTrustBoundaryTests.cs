@@ -38,12 +38,31 @@ public sealed class RegistryTrustBoundaryTests
     [InlineData("docker.io/node:20-bookworm")]
     [InlineData("docker.io/library/node:20-bookworm")]
     [InlineData("mcr.microsoft.com:latest")]
-    public void Accepts_DockerIoLibraryForms_FollowTheLibrarySwitch(string image)
+    public void Accepts_DockerIoLibraryForms_FollowTheLibraryEntry(string image)
     {
-        RegistryTrustBoundary.From(new SandboxGlobalConfig()).Accepts(image).Should().BeTrue();
-        RegistryTrustBoundary.From(new SandboxGlobalConfig { AllowDockerHubLibrary = false })
-            .Accepts(image).Should().BeFalse();
+        RegistryTrustBoundary.From(new SandboxGlobalConfig()).Accepts(image).Should().BeTrue(
+            "2026-11-16-f3fbd: docker.io/library/ is part of the built-in default");
+        With("docker.io/library/").Accepts(image).Should().BeTrue();
+        With("ghcr.io/").Accepts(image).Should().BeFalse("a named list without the entry leaves the library out");
     }
+
+    [Fact]
+    public void Accepts_LibraryEntry_TrustsNodeButNoUserNamespace()
+    {
+        var boundary = With("docker.io/library/");
+
+        boundary.Accepts("node:22-bookworm").Should().BeTrue();
+        boundary.Accepts("someuser/node:22-bookworm").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("node:22-bookworm", "docker.io/library/")]
+    [InlineData("docker.io/node:22", "docker.io/library/")]
+    [InlineData("sbtscala/scala-sbt:1", "docker.io/sbtscala/")]
+    [InlineData("registry.example.com:5000/team/sbt:1.11@sha256:abc", "registry.example.com:5000/team/")]
+    [InlineData("quay.io/org/img:2", "quay.io/org/")]
+    public void PrefixOf_IsTheCanonicalRepositoryUpToItsLastSlash(string image, string prefix) =>
+        RegistryTrustBoundary.PrefixOf(image).Should().Be(prefix);
 
     [Fact]
     public void Accepts_BareDockerIoEntry_TrustsAllOfDockerHub()
@@ -57,16 +76,12 @@ public sealed class RegistryTrustBoundaryTests
     }
 
     [Fact]
-    public void From_ReportsWhereEachHalfCameFrom()
+    public void From_ReportsWhetherTheListIsTheDefault()
     {
-        var unset = RegistryTrustBoundary.From(new SandboxGlobalConfig());
-        unset.Should().Be(new RegistryTrustBoundary(
-            RegistryTrustBoundary.DefaultRegistries, true, true, false));
+        RegistryTrustBoundary.From(new SandboxGlobalConfig()).Should().BeEquivalentTo(new RegistryTrustBoundary(
+            ["mcr.microsoft.com/", "ghcr.io/", "docker.io/library/"], true));
 
-        var named = With("ghcr.io/org");
-        named.RegistriesAreDefault.Should().BeFalse();
-        named.DockerHubLibrary.Should().BeFalse("naming a registry narrows the library away");
-        named.DockerHubLibraryIsExplicit.Should().BeFalse();
+        With("ghcr.io/org").RegistriesAreDefault.Should().BeFalse();
     }
 
     [Fact]

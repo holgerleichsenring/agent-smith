@@ -213,12 +213,17 @@
         },
         "allowed_registries": {
           "type": "array",
-          "description": "Registry prefixes a sandbox toolchain image may come from (mcr.microsoft.com/, ghcr.io/, a mirror host). Empty: the built-in default.",
+          "description": "Registry prefixes a sandbox toolchain image may come from (mcr.microsoft.com/, ghcr.io/, docker.io/library/ for Docker Hub official images, a mirror host). Empty: the built-in default, those three. Naming any entry replaces the default.",
           "items": { "type": "string" }
+        },
+        "allow_new_registries": {
+          "type": "boolean",
+          "description": "2026-11-16-f3fbd: true lets a code or spec-derive run add the registry of a refused context image to allowed_registries, attributed to the run, and record it as a run decision. pr-review and security-scan never add one. Default false."
         },
         "allow_docker_hub_library": {
           "type": "boolean",
-          "description": "Whether Docker Hub official images (node:20-bookworm) are trusted. Unset: trusted while no registry is named, refused once one is."
+          "deprecated": true,
+          "description": "2026-11-16-f3fbd: superseded by the allowed_registries entry docker.io/library/. Still read: at load it is folded into allowed_registries so the boundary stays what it was, and dropped."
         },
         "browser": {
           "type": "object",

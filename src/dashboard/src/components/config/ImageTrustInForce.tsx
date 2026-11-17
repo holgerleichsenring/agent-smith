@@ -4,8 +4,7 @@ import type { ImageTrustBoundary } from "@/lib/configApi";
 
 // 2026-10-12-6bfab: the boundary the NEXT stack.image decision is judged against, as the
 // server reads it — never re-derived here, so the panel and the decision cannot disagree.
-// Each half says where it came from: the built-in default or the operator's list, the
-// operator's switch or "follows the list".
+// It says where the list came from: the built-in default or the operator's list.
 
 export function ImageTrustInForce({
   boundary,
@@ -42,11 +41,6 @@ export function ImageTrustInForce({
         {boundary.registriesAreDefault
           ? "the built-in default — no registry is named"
           : "the registries named here, replacing the built-in default"}
-      </p>
-      <p className="help" data-testid="setting-sandbox-trust-inforce-library">
-        Docker Hub official library images (node:20-bookworm) are{" "}
-        <strong>{boundary.dockerHubLibrary ? "trusted" : "refused"}</strong>
-        {boundary.dockerHubLibraryIsExplicit ? " — set explicitly" : " — following the registry list"}
       </p>
     </div>
   );

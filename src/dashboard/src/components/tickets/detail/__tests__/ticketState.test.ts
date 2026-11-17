@@ -40,9 +40,9 @@ describe("ticketState", () => {
   it("ticketState_ImageUntrustedWithEndDetail_NamesTheImageAndTheSetting", () => {
     const view = state(failedTicket({ endKind: "image-untrusted", endDetail: {
       subject: "Image node:22-bookworm (context default)", repos: ["web"],
-      control: "Docker Hub official library images", setTo: "Trust", settingsPath: SANDBOX_SETTINGS_PATH } }));
+      control: "Trusted image registries", setTo: "ghcr.io/, docker.io/library/", settingsPath: SANDBOX_SETTINGS_PATH } }));
     expect(view.sentence).toBe(
-      "Image node:22-bookworm (context default) is not trusted: set Docker Hub official library images to Trust.");
+      "Image node:22-bookworm (context default) is not trusted: set Trusted image registries to ghcr.io/, docker.io/library/.");
     expect(view.act).toMatchObject({ kind: "link", href: SANDBOX_SETTINGS_PATH });
   });
 
