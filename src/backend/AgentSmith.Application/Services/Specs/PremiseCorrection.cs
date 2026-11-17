@@ -47,13 +47,16 @@ public sealed class PremiseCorrection(
         return summary;
     }
 
-    /// <summary>2026-11-17-c47ea: the approved spec's premises a look proved false, as facts the master builds on.</summary>
+    /// <summary>2026-11-17-c47ea: the approved spec's premises a look proved false, as facts the master builds on.
+    /// 2026-11-17-ec48a: a criterion one of them breaks is revised with revise_spec.</summary>
     public static string PromptBlock(PipelineContext pipeline) =>
         !pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.PremiseCorrections, out var corrected) || corrected is not { Count: > 0 }
             ? string.Empty
             : "\n**Corrected premises — the approved spec below claims these, and a look taken before your work showed "
               + "otherwise. Build on what the look showed and keep the spec's goal and done criteria; log the deviation with "
-              + "log_decision. If a done criterion cannot be met or tested as written because of it, call ask_human.**\n"
+              + "log_decision. If a done criterion cannot be met or tested as written because of it, revise the spec with "
+              + "revise_spec — one review of the changed text decides — or ask with ask_human when only the operator can "
+              + "say what the criterion should become.**\n"
               + string.Join("\n", corrected.Select(c => "- " + c));
 
     /// <summary>What the spec claimed, what the look showed, and the evidence the look minted.</summary>

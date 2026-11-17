@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-ec48a
+goal: "The coding master revises the spec it is building with revise_spec: the text is validated, one review decides, and an accepted revision is written to the branch and becomes the done criteria."
+
+applies_to: "default (Application/Services/Specs/Revision, SpecReviewLoop input, MasterToolComposition, SpecExecutionPromptFactory, PremiseCorrection)"
+
+requires: [2026-11-17-4860b, 2026-11-17-c47ea]
+
+facts:
+  - claim: "The coding master is told to use ask_human, which pauses the run, when an operator message changes the spec's goal or done criteria, and when a corrected premise breaks a done criterion."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:83-86, src/backend/AgentSmith.Application/Services/Specs/PremiseCorrection.cs:56"
+  - claim: "A revision made during a run is published by SpecReviewRevision: the replaced spec keeps its repositories, one revision naming the cause is appended, the set goes through ISpecSetPublisher, and a write the branch did not take fails."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRevision.cs:19-39"
+  - claim: "A series revision's commit message is 'spec: <series> (<key>) revision N (<cause>), n spec(s)'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesWriter.cs:91-94"
+  - claim: "The spec review round runs the panel on the current text, merges the answers and applies cuts through the reviser; the attack input is built in a private helper of the loop."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewLoop.cs:31-32, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewLoop.cs:58, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewLoop.cs:113"
+  - claim: "A spec text is validated against the spec schema by ISpecDraftValidator.ValidateYaml, and a rewrite may not change spec, requires, repos or applies_to."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftValidator.cs:35, src/backend/AgentSmith.Application/Services/Specs/Review/SpecIdentityRule.cs:13"
+  - claim: "The done criteria every consumer reads are the CurrentSpec draft's Done list, read when asked; a repair pass is keyed on OutstandingCriteria and SpecRepairAttempted."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteria.cs:18-24, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:205-210"
+  - claim: "The coding master's surface gets hand_forward only when it executes a spec, beside update_progress."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:98"
+
+scope:
+  in: "A revise_spec(spec_yaml, reason) tool on the coding master of a spec run (a current spec and a spec set; never a child, a scan or a design turn), carried on MasterRecordTools beside hand_forward. It revises the CURRENT spec only, and not while a repair pass (OutstandingCriteria) or the review's fix pass (SpecReviewFixPass) is in flight, nor while any sandbox's index holds staged work (it would ride the spec commit, which commits the whole index). The text must pass ISpecDraftValidator.ValidateYaml, keep spec, requires, repos and applies_to (SpecIdentityRule) and differ from the current text. Then one review of that text, reusing the review's own parts: the evidence check first, against the tree as it stands (an unresolved citation is returned to the master to re-cite, no reviewer is asked), one SpecReviewPanel round under spec_review settings whose reviewers read the reason as part of the wider goal and the operator messages this run was handed (TicketRunMessages keeps their texts, ContextKeys.TicketMessagesHanded) as the owner's words, SpecReviewMerge, and on BUILD WITH CUTS the cuts applied by ISpecCutReviser. BUILD or BUILD WITH CUTS with the cuts applied: the text is published through SpecReviewRevision with the cause 'revised in run <id>: <reason>' (so the branch reads 'revision N (revised in run <id>: <reason>)'), the round is stored as round spec_review.rounds + n (n counts this run's revision reviews, ContextKeys.SpecRevisionReviews) with the revision number, the run's decision log records the revision with the verdict, the spec's row carries it as a note, CurrentSpec becomes the published set's member (its repos kept) and the spec's entry account (SpecAccounts) is cleared, so VerifySpec takes the account against the revised criteria; SpecRepairAttempted is kept. The reply gives the new done criteria and says to restructure the checklist with update_progress. REFUSE: nothing is written; the reply gives the reviewers' findings so the master may revise again or ask with ask_human. No reviewer answered, cuts the reviser could not apply, a failed write, invalid settings or a spent run cap / wall time: nothing changes and the reply says why. spec_review.rounds 0 writes the revision unreviewed and says so. The master prompt and the corrected-premise block describe the tool; ask_human stays for what only a person can answer."
+  out: "Revising a spec other than the current one, or one that already ran. A mechanical re-seed of the progress ledger (it is model-owned for pending work). The skills repository's coding-agent-master text (its own PR) and the backend skills pin bump after its release. Texts that tell people to edit a spec on the branch by hand (2026-11-17-ec48b)."
+
+decisions:
+  - key: "Review before the write: a refused text never reaches the branch, so the branch only states contracts that were reviewed."
+  - key: "One review is one panel round as spec_review configures it; it is bounded by the run cap and wall time (SpecReviewBudget.Exhausted), not by the review share, which a long run has spent by the time a message arrives."
+  - key: "A cut text is settled without a further attack, as the spec-first review-spec settles BUILD WITH CUTS once its cuts are applied; this departs from the pre-build loop (8e59), which attacks a cut text again. The reviser is called with lastRound false: a broken fact is never moved, it was refused before the panel."
+  - key: "No operator message is required: the review is the guard. The reviewers read the reason and every operator message this run was handed, so a revision that drops a criterion nobody asked to drop has nothing behind it."
+  - key: "A revised spec is not marked reviewed-clean for a later attempt; a later attempt's review step attacks its text again."
+upgrade_impact: "None required: no setting, default, migration or deploy file changes. Behaviour: a coding master may now spend spec_review reviewer calls mid-run and push a spec revision commit to the ticket branch mid-run; both only when it calls revise_spec."
+
+steps:
+  - id: input
+    action: "Extract the loop's attack-input construction into SpecReviewInput.Of(run, draft, round, evidence, residues); SpecReviewLoop uses it. Characterised by SpecReviewLoopTests (ReviewLoop_ResidueLeft_RunsAnotherRound, ReviewLoop_PublishedRecordWithOwnerWords_EveryReviewerReadsThem), which pin the input before and after."
+  - id: review
+    action: "SpecRevisionReview (Specs/Review): evidence check, one panel round, merge, cuts applied; answers a SpecRevisionVerdict (cleared text, refused findings, unresolved citations, not taken, cuts not applied) with the answers for the round record."
+  - id: revise
+    action: "Specs/Revision: SpecRevisionText (validate + identity + unchanged), SpecRevisionGate (current spec, no repair or fix pass, no staged work), SpecCriteriaReset (CurrentSpec and SpecAccounts), SpecRevisionReplies (the reply texts), MasterSpecRevision (orchestrates: gate, text, settings, budget, review, publish, round, decision log, progress note, reset). TicketRunMessages keeps the handed texts."
+  - id: tool
+    action: "ReviseSpecToolHost (revise_spec), built by MasterRecordToolHosts only when a spec is current, carried on MasterRecordTools; MasterToolComposition takes hand_forward and revise_spec from one MasterRecordTools member; registrations."
+  - id: prompt
+    action: "SpecExecutionPromptFactory and PremiseCorrection.PromptBlock describe revise_spec: an operator message or a corrected premise that changes the goal or done criteria is a revision of this spec with one review; ask_human stays for what only a person can answer."
+
+tests:
+  - "SpecRevisionTextTests: invalid yaml, a changed id/requires/repos/applies_to, and an unchanged text are refused; a fenced valid text is read"
+  - "MasterSpecRevisionTests (ReviewLoopRig): BUILD writes one revision with the run cause, logs the decision, sets CurrentSpec with its repos and clears SpecAccounts; BUILD WITH CUTS writes the cut text; REFUSE writes nothing and returns the findings; unresolved citations ask no reviewer; rounds 0 writes unreviewed; a failed write changes nothing; two revisions store distinct rounds; the reviewers read the reason and the handed operator messages"
+  - "SpecRevisionGateTests: refused during a repair pass, during a fix pass, and with staged work in a sandbox"
+  - "MasterRecordToolHosts tests: revise_spec is offered only with a current spec"
+  - "TicketRunMessagesTests: the handed texts are kept in the pipeline"
+  - "ReviseSpecCompositionTests (real composition, scripted LLM): a mid-run message, the master calls revise_spec, the revision is committed to the branch, one review round runs, the run ends green on the revised criteria; a refused revision returns the findings and the run keeps its criteria"
+  - "SpecExecutionPromptFactory/PremiseCorrection tests: the prompt names revise_spec"
+
+done:
+  - "A coding master can revise its current spec with revise_spec; an accepted revision is on the branch as 'revision N (revised in run <id>: <reason>)', in the run's decision log, and is the spec's done criteria from then on."
+  - "A refused revision writes nothing and returns the reviewers' reasons to the master."
+  - "The real-composition test drives message -> revise_spec -> branch revision -> one review -> criteria reset -> green run."

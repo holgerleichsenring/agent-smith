@@ -13,6 +13,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// approval may exist over a path holding nothing AND over a path holding something broken, and a
 /// single sentence covering both would send the operator to the wrong one.
 /// </para>
+/// <para>2026-11-17-ec48b: it no longer ends on how to edit the specs on the branch — the park says there are none it
+/// can read; the hand-back comment that posts it says how to put the specification back.</para>
 /// </summary>
 public static class MissingSpecReason
 {
@@ -27,8 +29,7 @@ public static class MissingSpecReason
             + $"{Branch(key, state)} {Approval(record)}\n\n"
             + "Nothing was derived and nothing was put in its place from a copy: a specification "
             + "a person approved is not replaced by a guess, and not by a record nobody can read "
-            + "or edit either.\n\n"
-            + ApprovedSetKept.WhereToChangeItWithNoPullRequest;
+            + "or edit either.";
     }
 
     /// <summary>WHICH half held it: the record, or the stamp under the word the ticket actually

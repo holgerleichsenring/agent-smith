@@ -26,6 +26,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// door opened; what stays true is that a passing remark does not, which is what the immunity was
 /// ever for. The door is named beside it, from the one constant that defines it.
 /// </para>
+/// <para>
+/// 2026-11-17-ec48b: a change is no longer made by editing the branch by hand. It is discussed in the ticket's
+/// conversation, which proposes it for the next attempt or, while a run builds the spec, reaches the agent that
+/// revises it (<see cref="ApprovedSetKept.TheConversationRule"/>).
+/// </para>
 /// </summary>
 public static class SpecSetCommentPreamble
 {
@@ -48,9 +53,9 @@ public static class SpecSetCommentPreamble
     private const string Approved =
         ApprovedOpening + " and I started working. This is NOT a "
         + "question and the run is not waiting — and an ordinary comment here will NOT change the "
-        + "specification: no passing remark re-cuts a set somebody approved. To change it, edit "
-        + "the specs on the ticket branch (they are open in the pull request linked below) "
-        + "and re-trigger: the next run works them as they stand. A spec that already ran is "
+        + "specification: no passing remark re-cuts a set somebody approved. To change it, say "
+        + "what should change in the ticket's conversation; the specs are open in the pull request "
+        + "linked below. A spec that already ran is "
         + "never edited — a correction to it becomes a new spec. Comment anyway if something is "
         + "wrong; the run records it and says so, it just will not act on it. "
         + ApprovedSetKept.TheDoor;

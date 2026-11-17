@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-ec48a
+
+decisions:
+  - category: Architecture
+    chose: "revise_spec reuses the run's own review parts — the evidence check, SpecReviewPanel, SpecReviewMerge, ISpecCutReviser, SpecReviewRoundPublisher — and the one in-run revision publisher SpecReviewRevision (ISpecSetPublisher, SeriesWriter)"
+    over: "A reviewer or branch writer of its own for the master"
+    reason: "Operator: reuse the existing spec review step, write through the one branch writer. The attack input is extracted (SpecReviewInput) so both the pre-build loop and the revision review build it the same way."
+  - category: Architecture
+    chose: "Review before the write; a refused text never reaches the branch"
+    over: "Writing the master's text first and reviewing what the branch holds"
+    reason: "The branch states the contract the run builds; a refused text on it would be read back by a resume or a later attempt as the spec."
+  - category: Implementation
+    chose: "One review is one panel round as spec_review configures it; BUILD WITH CUTS is settled once the reviser applied the cuts (lastRound false), with no further attack"
+    over: "Running the pre-build SpecReviewLoop, which attacks a cut text again (8e59) and rewrites a refused one from the code"
+    reason: "The operator asked for the spec-first review-spec shape: facts resolved first, one review, cuts applied, settled. A REFUSE goes back to the master, which may revise once more or ask with ask_human — a rewrite from the code would replace the master's revision with a text nobody asked for."
+  - category: Implementation
+    chose: "An unresolved citation is returned to the master before any reviewer is asked"
+    over: "Showing the evidence problems to the reviewers as the pre-build round does"
+    reason: "review-spec resolves cited facts first. The check runs against the tree as it stands, the master's own edits included, so the master re-cites rather than a reviewer spending a call on a stale line."
+  - category: Implementation
+    chose: "Bounded by the run cap and wall time (SpecReviewBudget.Exhausted), not by the review share"
+    over: "SpecReviewBudget.Spent, as for every spec after the first in the pre-build step"
+    reason: "The share bounds what review may take before building; a revision arrives mid-build, when a long run has spent the share, and would always be refused. No new limit is introduced."
+  - category: Implementation
+    chose: "Refused inside the repair pass or the review's fix pass, and while a checkout's index holds staged work"
+    over: "Admitting a revision anywhere and resetting the repair flag"
+    reason: "Adversarial review: clearing SpecRepairAttempted would let every repair earn another (VerifySpecHandler.Repairable), and a red fix pass reverts every tree to the verified head, which would take the revision off the branch while the run holds it. The spec commit commits the whole index (SandboxGitOperations.CommitAsync), so staged work would ride it unscanned."
+  - category: Implementation
+    chose: "A written revision sets CurrentSpec to the published set's member and drops SpecAccounts; SpecRepairAttempted is kept"
+    over: "Clearing every repair and review key (SpecRepairScope.Reset)"
+    reason: "Every consumer reads the done criteria from CurrentSpec when asked (AcceptanceCriteria, VerifySpec, WriteSpecRecord, CommitAndPR), so replacing it is the reset; the entry account was taken on the old criteria. The member keeps the repositories the spec was placed in, which SpecSandboxes reads."
+  - category: Implementation
+    chose: "No operator message is required; the reviewers read the master's reason in the wider goal and every operator message the run was handed (TicketRunMessages keeps their texts) as the owner's words"
+    over: "Admitting a revision only after a delivered message"
+    reason: "Operator: a message or a corrected premise calls for it, and the premise path has no message. The review is the guard: a revision that drops a criterion nobody asked to drop has nothing behind it in front of the reviewers."
+  - category: Implementation
+    chose: "A revision review is stored as round spec_review.rounds + n, n counting this run's revision reviews"
+    over: "Round 1, or a new review scope"
+    reason: "The ticket page groups a run's rows by (scope, spec, round); a revision stored as round 1 would merge into the pre-build round, and a new scope is a shape no reader knows."
+  - category: Implementation
+    chose: "The progress ledger is not re-seeded; the reply lists the revised done criteria and asks the master to restructure its checklist with update_progress"
+    over: "Replacing the ledger host's entries from the revised steps"
+    reason: "Pending work in the ledger is model-owned (p0368) and done steps must stay done; the master already restructures it when the plan evolves."
+  - category: Implementation
+    chose: "A revised spec is not marked reviewed-clean for a later attempt"
+    over: "Adding its text to the approval record's ReviewedClean"
+    reason: "The record is the approving turn's; a later attempt's review step attacks the revised text like any text a person did not see reviewed."

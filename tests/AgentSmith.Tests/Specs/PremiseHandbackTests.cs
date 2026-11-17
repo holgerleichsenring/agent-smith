@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using static AgentSmith.Tests.Specs.PremiseCheckTestDoubles;
 
@@ -20,6 +21,13 @@ public sealed class PremiseHandbackTests
         [{"premise": "OrderHandler validates the payload before dispatch",
           "verdict": "no-longer-holds", "why": "nothing in the handler validates any more",
           "cites": "M1"}]
+        """;
+
+    // 2026-11-17-c47ea: an approved spec is handed back only when the false premise breaks a done criterion.
+    private const string Breaking = """
+        [{"premise": "OrderHandler validates the payload before dispatch",
+          "verdict": "no-longer-holds", "why": "nothing in the handler validates any more",
+          "cites": "M1", "breaks": "the dispatch no longer runs inside the handler"}]
         """;
 
     [Fact]
@@ -63,8 +71,9 @@ public sealed class PremiseHandbackTests
             .And.Contain("OrderHandler validates the payload before dispatch")
             .And.Contain("it looked at:")
             .And.Contain("[M1]")
-            .And.Contain(ApprovedSetKept.WhereToChangeItWithNoPullRequest,
-                "where a change is actually made, in the one wording the run already uses");
+            .And.Contain(PremiseHandback.DerivedChange,
+                "a set the run cut itself is changed by a comment, as its cut comment says");
+        h.Ticket.Comments.Single().Should().NotContain("Edit a spec").And.NotContain("never will");
         h.Decisions.Decisions.Should().ContainSingle(
             "the run carries it too, for a run whose tracker refuses the comment");
     }
@@ -83,13 +92,31 @@ public sealed class PremiseHandbackTests
     [Fact]
     public async Task PremiseCheck_FalsePremiseAfterAPullRequest_NamesIt()
     {
-        var h = For(Draft(), Falsified, searches: (DerivationTestLooks.Repo, "Validate"));
+        var h = For(Draft(), Breaking, searches: (DerivationTestLooks.Repo, "Validate"));
         h.Pipeline.Set(ContextKeys.SpecPullRequestUrl, "https://example.invalid/pr/7");
+        Approve(h);
 
         await h.RunAsync();
 
         h.Ticket.Comments.Single().Should().Contain(ApprovedSetKept.WhereToChangeIt);
     }
+
+    /// <summary>2026-11-17-ec48b: an approved set is changed in the ticket's conversation, never on the branch by hand.</summary>
+    [Fact]
+    public async Task PremiseCheck_ApprovedSetHandedBack_SendsAChangeToTheTicketsConversation()
+    {
+        var h = For(Draft(), Breaking, searches: (DerivationTestLooks.Repo, "Validate"));
+        Approve(h);
+
+        await h.RunAsync();
+
+        h.Ticket.Comments.Single().Should().Contain(ApprovedSetKept.WhereToChangeItWithNoPullRequest)
+            .And.Contain("in the ticket's conversation").And.NotContain("Edit a spec")
+            .And.NotContain(PremiseHandback.DerivedChange);
+    }
+
+    private static void Approve(Harness h) => h.Pipeline.Set(ContextKeys.SpecSet, h.Pipeline.Get<SpecSet>(ContextKeys.SpecSet)
+        with { Source = SpecSource.Approved, Approval = ApprovedSets.Approval(ApprovedSets.Noon, "session-77") });
 
     [Fact]
     public async Task PremiseCheck_RetriggerWithTheSameFinding_DoesNotSayItAgain()

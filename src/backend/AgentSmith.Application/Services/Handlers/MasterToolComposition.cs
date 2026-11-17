@@ -95,7 +95,7 @@ public sealed class MasterToolComposition(
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
                 .Concat(gateStage.Tools(context.Pipeline))
-                .Concat(records.HandForward?.GetTools(null, null) ?? []) // 8762m: a spec's master only, never a child
+                .Concat(records.SpecTools) // 8762m hand_forward, ec48a revise_spec: a spec's master only, never a child
                 .ToList();
         // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.
         var fanOut = isSpecDialog ? loopLimits.MaxSubAgentsPerDialogTurn : loopLimits.MaxSubAgentsPerRun;

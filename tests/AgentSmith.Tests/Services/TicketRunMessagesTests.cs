@@ -64,6 +64,20 @@ public sealed class TicketRunMessagesTests
         TicketRunMessages.Through(new PipelineContext()).Should().Be(-1);
     }
 
+    [Fact]
+    public async Task DrainAsync_HandedTexts_AreKeptForASpecRevisionsReview_AcrossACheckpoint()
+    {
+        var conversation = new FakeConversation();
+        conversation.Messages.Add(new(3, "keep the header", DateTimeOffset.UtcNow));
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketMessagesHanded, JsonSerializer.SerializeToElement(new[] { "earlier" }));
+
+        await For(conversation, pipeline).DrainAsync(default);
+
+        AgentSmith.Application.Services.CheckpointedValues.Strings(pipeline, ContextKeys.TicketMessagesHanded)
+            .Should().Equal("earlier", "keep the header");
+    }
+
     private static TicketRunMessages For(ITicketConversationMessages conversation, PipelineContext pipeline) =>
         new(conversation, pipeline, "sample", "7", "run-1");
 }

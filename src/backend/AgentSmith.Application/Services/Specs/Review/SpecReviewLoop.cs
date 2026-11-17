@@ -111,10 +111,5 @@ public sealed class SpecReviewLoop(
         evidence.CheckAsync(run.Pipeline, draft, run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet), ct);
 
     private static SpecAttackInput Input(SpecReviewRun run, SpecReviewState state) =>
-        new(state.Draft, SpecReviewScopes.Spec, state.Round, 0, run.WiderGoal,
-            SpecToday.Describes(state.Draft, run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet)),
-            state.Evidence.Problems, state.Evidence.Unchecked, state.Evidence.Total, state.Residues, run.QuestionPin)
-        {
-            RepositoryNames = SpecReviewRepositories.Names(run.Pipeline), OwnerWords = run.OwnerWords, // 2026-11-15-53d0
-        };
+        SpecReviewInput.Of(run, state.Draft, state.Round, state.Evidence, state.Residues);
 }
