@@ -1,8 +1,8 @@
-namespace AgentSmith.Server.Models;
+namespace AgentSmith.Contracts.Tickets;
 
 /// <summary>
 /// 2026-10-15-114fa: why a close did not close a pull request or a tracker ticket, beyond the read classes of
-/// <see cref="TicketTextReasons"/> — a class, never the host's text.
+/// the server's ticket-text reads — a class, never the host's text.
 /// </summary>
 public static class TicketCloseReasons
 {

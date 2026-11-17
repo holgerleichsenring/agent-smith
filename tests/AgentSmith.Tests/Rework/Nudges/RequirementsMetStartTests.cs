@@ -229,9 +229,9 @@ public sealed class RequirementsMetStartTests : IDisposable
             Projects = new Dictionary<string, ResolvedProject> { [project.Name] = project },
             PipelineTriggers = PipelineTriggerMap.Empty,
         };
-        _scopes = new ServiceCollection().AddScoped(_ => FiledWorkDoubles.Move(config)).BuildServiceProvider();
+        _scopes = new ServiceCollection().AddScoped(_ => ActSteps.Start(config, FiledWorkDoubles.Move(config), _tracker)).BuildServiceProvider();
         return new RequirementsMetStart(_facts, new TicketStartHold(_facts, _facts, _tracker, NullLogger<TicketStartHold>.Instance),
-            TicketRequirementDoubles.Of(_facts, _approvals), _tracker,
+            TicketRequirementDoubles.Of(_facts, _approvals),
             _scopes.GetRequiredService<IServiceScopeFactory>(), Fallback(config), NullLogger<RequirementsMetStart>.Instance);
     }
 

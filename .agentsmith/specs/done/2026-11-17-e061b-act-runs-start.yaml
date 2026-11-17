@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-e061b
+goal: "Starting a waiting ticket once its requirements land, and a never-worked ticket after its approval, runs as a 'start' pipeline with a run id instead of a server move."
+
+applies_to: "default (pipeline presets, Application/Services/TicketActs, RequirementsMetStart, OperatorStart, server-writes ratchet header)"
+
+requires: [2026-11-17-e061a]
+
+facts:
+  - claim: "A RequirementsMet nudge tags and moves the ticket through FiledWorkMove from the server, then spawns its run through the poller's route when it started."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:37-43"
+  - claim: "An approval on a never-worked ticket with nothing unmet starts it through FiledWorkMove from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:28-36"
+  - claim: "FiledWorkMove.StartExistingAsync reads the ticket, adds the routing tag and moves it into a trigger status; it never throws."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledWorkMove.cs:29-43"
+  - claim: "The ratchet header names both callers as debt block 4 removes."
+    evidence: "tests/AgentSmith.Tests/Architecture/server-writes-baseline.txt:4-7"
+  - claim: "e061a's IActRun is the entry a server act runs its preset through."
+    evidence: "src/backend/AgentSmith.Server/Services/Acts/IActRun.cs:11-16"
+
+scope:
+  in: "Preset 'start' [StartTicket], host context only, not routable, no master; StartTicketRequest(TicketId, MayStartRuns) and an ActSlot<FiledWorkStart>; StartTicketHandler over FiledWorkMove.StartExistingAsync on no token. RequirementsMetStart keeps its held checks, launches 'start' and spawns through ReworkFallbackSpawn when the slot says started; a run that ended with no outcome throws so the nudge reschedules, as a thrown move did. OperatorStart's never-worked arm keeps the unmet check and launches 'start'. The ratchet header drops both callers from the debt it names."
+  out: "The amend's own start moves into the amend run in e061c. The worker's operator nudge (enqueue, no tracker write) stays."
+
+steps:
+  - id: preset
+    action: "PipelinePresets.StartName 'start' = [StartTicket]; joins the host acts of e061a (NeedsHostContext, NotRoutable, PipelineType, MasterFor, every command metadata map, builder and data flow)."
+  - id: step
+    action: "StartTicketHandler reads StartTicketRequest and ActSlot<FiledWorkStart>, starts the existing ticket through FiledWorkMove on CancellationToken.None, fills the slot and answers Ok with the start's state and reason; missing seeds fail naming the key."
+  - id: callers
+    action: "A server TicketStartRun launches 'start' through IActRun and answers the slot's FiledWorkStart, or null when the run ended first. RequirementsMetStart and OperatorStart use it; RequirementsMetStart throws on null (the nudge reschedules), OperatorStart says the ticket was not started, naming the run's end."
+  - id: ratchet
+    action: "The baseline header's sentence naming OperatorStart and RequirementsMetStart as debt is replaced by e061b's line saying they start through the 'start' run."
+
+tests:
+  - "StartTicketHandlerTests: a routed ticket in a trigger status is Started with the tag added; missing seeds fail naming the key"
+  - "RequirementsMetStart, landed-by-hand, requires-gate and continuation suites keep their scenarios through the 'start' run driven in process"
+  - "StartActCompositionTests (PipelineHarness, real composition): a list of two filed, the dependent held; its requirement lands and the RequirementsMet start runs one 'start' run with a run id, tags the ticket and spawns its run; the run list shows the 'start' run with its StartTicket step"
+  - "Preset coverage tests know 'start'"
+
+done:
+  - "A landed requirement's dependent and an approved never-worked ticket start in a 'start' run with a run id the dashboard lists, with the tag, move and spawn they had before."

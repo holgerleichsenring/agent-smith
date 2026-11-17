@@ -36,10 +36,10 @@ internal static class Continuations
         return new TicketContinuationAct(config, new SpecDialogTicketTextRepository(Mock.Of<IUnitOfWork>()), reader,
             Amendments.Unused(), new ClosedTicketFollowUp(filer, new FollowUpLink(trackers, NullLogger<FollowUpLink>.Instance)),
             ApprovedSetDoubles.Recorder(), Mock.Of<ITicketActivityNudge>(),
-            new OperatorStart(Mock.Of<IReworkNudges>(), trackers, FiledWorkDoubles.Move(), NullLogger<OperatorStart>.Instance,
+            new OperatorStart(Mock.Of<IReworkNudges>(), ActSteps.Start(new AgentSmithConfig(), FiledWorkDoubles.Move(), trackers), NullLogger<OperatorStart>.Instance,
                 TicketRequirementDoubles.None()),
             SeriesSettingsDoubles.Reader(),
-            new TicketCommentPost(trackers, Mock.Of<ITicketActivityNudge>(), NullLogger<TicketCommentPost>.Instance),
+            new TicketCommentPost(ActSteps.Amend(new AgentSmithConfig(), trackers)),
             NullLogger<TicketContinuationAct>.Instance);
     }
 }

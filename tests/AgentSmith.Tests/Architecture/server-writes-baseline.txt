@@ -2,9 +2,10 @@
 # ratchet was installed. No file may join; a file that stops writing must leave. Paths are relative
 # to src/backend. Blocks 3 and 4 of the consolidation plan move these writes into pipeline steps.
 # 2026-11-17-5701b: the filers moved into the 'file' pipeline (AgentSmith.Application/Services/Filing) and left this
-# list. Server callers that still move ticket status through those Application services, outside a run, are debt the
-# scanner cannot see and block 4 removes: Services/SpecDialog/Continuation/OperatorStart.cs and
-# Services/Rework/RequirementsMetStart.cs (both through FiledWorkMove).
+# list. 2026-11-17-e061b: OperatorStart and RequirementsMetStart, which moved ticket status through FiledWorkMove outside a
+# run, start through the 'start' run now.
+# 2026-11-17-e061a: a close, a withdrawal and a reopen run as 'close' and 'reopen' pipelines (Application/Services/
+# TicketActs) and left this list; e061c: so did the amendment's description rewrite and the approved comment.
 AgentSmith.Server/Extensions/QueuedRunCancel.cs
 AgentSmith.Server/Extensions/RunControlEndpoints.cs
 AgentSmith.Server/Services/CapacityQueueDrop.cs
@@ -19,9 +20,5 @@ AgentSmith.Server/Services/Rework/ReworkSpeech.cs
 AgentSmith.Server/Services/Rework/WaitingRunCloser.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs
-AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs
-AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs
-AgentSmith.Server/Services/SpecDialog/TicketDescriptionRewrite.cs
-AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs
 AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs
 AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs

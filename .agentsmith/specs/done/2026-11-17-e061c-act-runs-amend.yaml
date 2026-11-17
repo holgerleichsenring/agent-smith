@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-e061c
+goal: "An approval on a never-worked ticket records its series in an 'amend' run, and an approved comment posts in a 'comment' run, each with a run id."
+
+applies_to: "default (pipeline presets, Application/Services/TicketActs, TicketAmendment, TicketDescriptionRewrite, TicketCommentPost, server-writes ratchet baseline)"
+
+requires: [2026-11-17-e061b]
+
+facts:
+  - claim: "TicketAmendment rewrites the description, records the set, reads the ticket back and writes the branch from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:77-96"
+  - claim: "Before writing, TicketAmendment resolves the project, the conversation's ticket and the previous record, renders the amendment and refuses a ticket a run holds."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:41-75"
+  - claim: "The description rewrite is a server class that writes the tracker's region."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketDescriptionRewrite.cs:23-41"
+  - claim: "An approved comment is posted on its ticket from the server, then the ticket's pages are nudged."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs:27-41"
+  - claim: "After an amendment the never-worked start already runs as e061b's 'start' run."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:44-49, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:28-36"
+
+scope:
+  in: "Presets 'amend' [AmendTicket] and 'comment' [PostTicketComments], host acts like e061a's. AmendTicketRequest(Approval, TicketId, Set, Goal, Region, Previous, Continuation) and ActSlot<TicketAmendmentResult>; TicketAmendmentWrite (the write half of TicketAmendment) and TicketDescriptionRewrite move into Application/Services/TicketActs. PostTicketCommentsRequest(Comments, NudgeActivity) and ActSlot<IReadOnlyList<TicketCommentPosted>>: one step posts each rendered comment, reports each, nudges each posted ticket when asked. TicketAmendment keeps its reads and refusals and launches 'amend'; TicketCommentPost renders and launches 'comment'. TicketDescriptionRewrite and TicketCommentPost leave server-writes-baseline.txt."
+  out: "The amendment's start stays e061b's separate 'start' run (one run per act). The follow-up's link comments use the 'comment' step in e061d. The database-only acts (continued record, series edit, pending edit) write no tracker or repository."
+
+steps:
+  - id: presets
+    action: "PipelinePresets.AmendName 'amend' = [AmendTicket], CommentName 'comment' = [PostTicketComments]; they join the host acts (NeedsHostContext, NotRoutable, PipelineType, MasterFor, every command metadata map, builder and data flow)."
+  - id: amend-step
+    action: "AmendTicketHandler runs TicketAmendmentWrite on no token: description rewrite first, record, read back, branch write with the set's sources; the notice goes into the slot as recorded. A write that throws puts 'did not complete' into the slot as not recorded and fails the step. Missing seeds fail naming the key."
+  - id: comment-step
+    action: "PostTicketCommentsHandler posts each comment through UpdateStatusAsync on no token; a failed post reports the first line of its error and the rest are still posted; a posted ticket's pages are nudged when the request asks."
+  - id: callers
+    action: "TicketAmendment's WriteAsync becomes a run launch through IActRun with the request; no outcome answers 'did not complete' naming the run's end, not recorded. TicketCommentPost renders as before (heading, escaped lines) and launches 'comment' with NudgeActivity, mapping a failed post to the same 'not posted … Approve again' answer."
+  - id: ratchet
+    action: "Remove TicketDescriptionRewrite.cs and TicketCommentPost.cs from server-writes-baseline.txt; the header names e061c."
+
+tests:
+  - "AmendTicketHandlerTests: rewrite, record and branch in order; a throwing record answers not recorded and fails the step; missing seeds fail"
+  - "PostTicketCommentsHandlerTests: posts in order, reports a failure and still posts the next, nudges only when asked"
+  - "TicketAmendment, TicketDescriptionRewrite, comment-outcome and continuation suites keep their scenarios through the runs driven in process"
+  - "AmendActCompositionTests (PipelineHarness, real composition): a filed spec ticket's own conversation approves a new spec; one 'amend' run with a run id records it and writes the branch, then a 'start' run starts it; an approved comment runs one 'comment' run that posts it; the run list shows the runs with their steps"
+  - "Preset coverage tests know 'amend' and 'comment'; ServerWritesRatchetTests green with the shorter baseline"
+
+done:
+  - "An approval on a never-worked ticket and an approved comment run as pipelines with a run id the dashboard lists, with the tracker and branch effects they had before."

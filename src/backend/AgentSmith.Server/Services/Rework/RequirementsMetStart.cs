@@ -1,6 +1,6 @@
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
+using AgentSmith.Server.Services.Acts;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
@@ -18,12 +18,12 @@ namespace AgentSmith.Server.Services.Rework;
 /// its approver could start runs, and never one a person marked done by hand or closed: tagged or moved as
 /// a filed ticket is, then claimed now through the poller's own route, since in webhook mode nothing else
 /// delivers a ticket that already sits in a trigger status. A thrown exception reschedules the nudge.
+/// 2026-11-17-e061b: the tag and the move run as a 'start' pipeline (<see cref="TicketStartRun"/>) with a run id.
 /// </summary>
 public sealed class RequirementsMetStart(
     ITicketRequirementStore requirements,
     TicketStartHold hold, // 2026-11-16-f3fbc: the landing, closed-mark and tracker-closed checks, shared with the release
     UnmetTicketRequirements unmet,
-    ITicketProviderFactory trackers,
     IServiceScopeFactory scopes,
     ReworkFallbackSpawn fallback,
     ILogger<RequirementsMetStart> logger)
@@ -34,10 +34,12 @@ public sealed class RequirementsMetStart(
         ArgumentNullException.ThrowIfNull(nudge);
         if (await HeldAsync(project, nudge.TicketId, ct) || !await hold.OpenAsync(project, nudge.TicketId, ct))
             return ReworkNudgeDisposition.Finish;
-        FiledWorkStart started;
-        using (var scope = scopes.CreateScope())
-            started = await scope.ServiceProvider.GetRequiredService<FiledWorkMove>()
-                .StartExistingAsync(trackers.Create(project.Tracker), project, nudge.TicketId, mayStartRuns: true, ct);
+        // 2026-11-17-e061b: the tag and the move are a 'start' run's step; a run that ended first reschedules the nudge.
+        (FiledWorkStart? Start, string? Ended) run;
+        await using (var scope = scopes.CreateAsyncScope())
+            run = await scope.ServiceProvider.GetRequiredService<TicketStartRun>().StartAsync(project, nudge.TicketId, mayStartRuns: true);
+        var started = run.Start ?? throw new InvalidOperationException(
+            $"Ticket {project.Name}/{nudge.TicketId}'s start run ended before it started anything: {run.Ended}");
         if (started.State == FiledStartState.Started) await fallback.SpawnAsync(project, nudge.TicketId, ct);
         else logger.LogWarning("Ticket {Project}/{Ticket}'s requirements landed but it was not started: {Reason}",
             project.Name, nudge.TicketId, started.Reason);

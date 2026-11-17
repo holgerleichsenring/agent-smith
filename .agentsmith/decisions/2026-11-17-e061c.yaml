@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-e061c
+
+decisions:
+  - category: Architecture
+    chose: "'amend' [AmendTicket] does the never-worked amendment's writes (description rewrite, record, read-back, branch write) in TicketAmendmentWrite; TicketAmendment keeps the reads, the rendering and the lease refusal and launches it"
+    over: "Rendering the amendment inside the step"
+    reason: "Rendering is a computation over the proposal and the previous record and refuses before anything is written; the step is exactly the part that wrote outside a run."
+  - category: Implementation
+    chose: "The amendment's start stays e061b's separate 'start' run"
+    over: "An 'amend' preset [AmendTicket, StartTicket] with an optional start seed"
+    reason: "A step that silently succeeds when its seed is missing would make the 'start' preset's missing-seed failure unprovable; two runs, each strict, keep one meaning per step."
+  - category: Architecture
+    chose: "One 'comment' preset [PostTicketComments] posts a list of rendered comments and reports each; the approved comment uses it now and the follow-up's two link comments use it in e061d"
+    over: "A comment step per caller"
+    reason: "Both callers post agent-smith's headed comments on tickets and report what did not land; one step is one path."
+  - category: Implementation
+    chose: "The act presets are one table (HostActSteps) the static constructor adds to the presets and routing reads; the per-act PipelineType entries are dropped (the default is Discussion)"
+    over: "One entry per act in each preset dictionary"
+    reason: "Every act grew the 120-line Contracts files by a line each; the table is the one place an act is declared, and its not-routable reason follows from it."
+  - category: Scope
+    chose: "The continued-series record, the series edit and the pending edit stay database writes the next attempt applies to the branch (ApprovedContinuation)"
+    over: "Writing a worked ticket's edit straight to its branch in an 'amend' run"
+    reason: "They write no tracker or repository today; writing the edit to the branch while an attempt may hold it changes the continuation's semantics and its readers (block 6's approval-set-readers list). It is named as the follow-up in the PR, not done silently here."
+  - category: Tooling
+    chose: "Adversarial self-review: the thread's 'did not complete' answer survives a run that ends before its step; the lease refusal still precedes any write; a failed comment still answers 'Approve again'; the merged block-6 readers are untouched"
+    over: "Building on the spec as written"
+    reason: "The findings are the Implementation entries above."

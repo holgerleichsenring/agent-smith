@@ -2,16 +2,15 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
-using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using AgentSmith.Application.Services.Filing;
+using AgentSmith.Application.Services.TicketActs;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Server.Services.Acts;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -24,6 +23,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// tracker supports it, said when refused or failed, never blocking. It still goes FIRST, so the
 /// branch set's fingerprint is the text the tracker stored. A ticket a claim holds is refused whole.
 /// </para>
+/// <para>2026-11-17-e061c: those writes are an 'amend' run's step (TicketAmendmentWrite) with a run id; this class reads,
+/// renders and refuses, then launches it through <see cref="IActRun"/>.</para>
 /// </summary>
 public sealed class TicketAmendment(
     TicketProjects projects,
@@ -31,10 +32,8 @@ public sealed class TicketAmendment(
     FiledWorkTrackerProjects trackerProjects,
     Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository ticketText,
     ApprovedSpecSetRecorder approvals,
-    ITicketProviderFactory trackers,
     SpecTicketRenderer renderer, EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
-    FiledSpecBranch branches, TicketDescriptionRewrite descriptions,
-    ILogger<TicketAmendment> logger)
+    IActRun acts)
 {
     /// <summary>What the thread is told, and whether the approved series was recorded.</summary>
     /// <param name="continuation">The record's continuation — null for a plain never-worked hand-off.</param>
@@ -61,47 +60,15 @@ public sealed class TicketAmendment(
         if (await FiledWorkClaims.LeaseOnAsync(scope, trackerProjects.SharingTrackerWith(name), ticketId, ct) is { } claimed)
             return new($"Ticket {ticketId} {claimed} The approval was not recorded: the series a run works "
                 + "from is not replaced under a run that holds the ticket — approve again when no run holds it.", false);
-        try
+        // 2026-11-17-e061c: the writes are an 'amend' run's step; the run answers what the thread is told.
+        var slot = new ActSlot<TicketAmendmentResult>();
+        var result = await acts.RunAsync(project.Name, PipelinePresets.AmendName, new Dictionary<string, object>
         {
-            return new(await WriteAsync(state, project, ticketId, amended, continuation, previous, ct), true);
-        }
-        // The conversation asked for this write and has to hear how it ended, never a thrown turn.
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogError(ex, "Recording the approval under ticket {Ticket} failed", ticketId);
-            return new($"The approval under ticket {ticketId} did not complete: {ex.Message}. Check the "
-                + "ticket's approved series before triggering it, and approve again.", false);
-        }
-    }
-
-    private async Task<string> WriteAsync(
-        ConversationState state, ResolvedProject project, string ticketId,
-        AmendedSpecification amended, SeriesContinuation? continuation, SpecApprovalRecord? previous, CancellationToken ct)
-    {
-        var id = new TicketId(ticketId);
-        var rewrite = await descriptions.WriteAsync(project, id, amended.Region, previous, ct);
-        var record = await approvals.RecordAsync(ConversationApproval.Of(state), project, ticketId, amended.Set, amended.Goal, ct, continuation);
-        // Read back AFTER the rewrite: the fingerprint the branch set carries is of the ticket as the
-        // TRACKER stored it, and a stale one reads as a ticket edit on the next run. 2026-10-12-f5f7d:
-        // each spec is written into the repository it names; what already ran stays out by id.
-        var branch = await branches.WriteAsync(project, record, id, await ReadBackAsync(project, id, ct), ct, amended.Set.Sources);
-        logger.LogInformation(
-            "Approval recorded under ticket {Ticket} from conversation {Session}: {Specs} spec(s), branch {State}",
-            ticketId, state.JobId, amended.Set.Drafts.Count, branch.Written ? "written" : branch.Error);
-        var recorded = $"The approved series under ticket {ticketId} is the one you just approved "
-            + $"({amended.Set.Drafts.Count} spec(s)). {rewrite}{string.Concat((branch.Notes ?? []).Select(n => " " + n))}";
-        return branch.Written ? recorded
-            : $"{recorded} The series is NOT on the ticket branch yet ({branch.Error}); a run that claims "
-                + "this ticket works the set the branch still carries — approve again once it can be written.";
-    }
-
-    private async Task<Ticket?> ReadBackAsync(ResolvedProject project, TicketId id, CancellationToken ct)
-    {
-        try { return await trackers.Create(project.Tracker).GetTicketAsync(id, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "The ticket {Ticket} could not be read back", id.Value);
-            return null;
-        }
+            [ContextKeys.AmendTicketRequest] = new AmendTicketRequest(ConversationApproval.Of(state), ticketId, amended.Set,
+                amended.Goal, amended.Region, previous, continuation),
+            [ContextKeys.ActOutcome] = slot,
+        });
+        return slot.Value ?? new($"The approval under ticket {ticketId} did not complete: the amend run ended first "
+            + $"({result.Message}). Check the ticket's approved series before triggering it, and approve again.", false);
     }
 }

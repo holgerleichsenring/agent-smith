@@ -7,12 +7,12 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AgentSmith.Server.Services.SpecDialog;
+namespace AgentSmith.Application.Services.TicketActs;
 
 /// <summary>
 /// 2026-10-28-7a69b: the description half of an amendment — a courtesy for whoever reads the ticket,
-/// never blocking, because a run reads the record and the branch. Moved out of
-/// <see cref="TicketAmendment"/> when the placement joined it.
+/// never blocking, because a run reads the record and the branch. Moved out of the server's
+/// TicketAmendment when the placement joined it; 2026-11-17-e061c: a step of the 'amend' run.
 /// <para>
 /// An unmarked body the FRAMEWORK rendered whole — stamped as an approved set, filed as an epic
 /// record, or holding a recorded spec set — stays refused: nothing says where its text ends. Every

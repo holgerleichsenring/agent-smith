@@ -23,10 +23,7 @@ internal static class Amendments
             new FiledWorkTrackerProjects(LiveConfig.Projects(new AgentSmithConfig())),
             new SpecDialogTicketTextRepository(Mock.Of<IUnitOfWork>()),
             ApprovedSetDoubles.Recorder(),
-            new Mock<ITicketProviderFactory>().Object,
             new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.Branch(),
-            new TicketDescriptionRewrite(new Mock<ITicketProviderFactory>().Object, NullLogger<TicketDescriptionRewrite>.Instance),
-            NullLogger<TicketAmendment>.Instance);
+            ActSteps.Amend(new AgentSmithConfig(), new Mock<ITicketProviderFactory>().Object));
 }
