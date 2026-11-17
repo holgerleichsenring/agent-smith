@@ -101,11 +101,11 @@ afterEach(() => vi.useRealTimers());
 describe("Ticket specs and acceptance tabs", () => {
   it("TheSpecsCounter_ReadsNAndTheNewestRevision", async () => {
     await open();
-    expect(screen.getByTestId("ticket-tab-specs")).toHaveTextContent("Specs3 · rev 4");
+    expect(screen.getByTestId("ticket-section-specs")).toHaveTextContent("Specs3 · rev 4");
     cleanup();
     world.detail = detail([attempt({ revision: null })]);
     await open();
-    expect(screen.getByTestId("ticket-tab-specs").querySelector(".tc")).toHaveTextContent(/^3$/);
+    expect(screen.getByTestId("ticket-section-specs").querySelector(".tk-bar-count")).toHaveTextContent(/^3$/);
   });
 
   it("ACarriedSpec_ShowsACarriedCellForEachLaterAttempt_AndTheDocumentMarksEachStepWithItsAttemptAndPass", async () => {
@@ -178,7 +178,7 @@ describe("Ticket specs and acceptance tabs", () => {
     nav.search = "tab=acceptance";
     await open();
     expect(screen.getByTestId("acceptance-tally")).toHaveTextContent("3 of 5 verified");
-    expect(screen.getByTestId("ticket-tab-acceptance")).toHaveTextContent("3/5");
+    expect(screen.getByTestId("ticket-section-acceptance")).toHaveTextContent("3/5");
     expect(screen.getByTestId("acceptance-spec-s2")).toHaveTextContent("Spec 2 · portal-worker");
     expect(within(screen.getByTestId("acceptance-spec-s2")).getByTestId("acceptance-overruled"))
       .toHaveTextContent("overruled: unmet by h.operator — one type dropped");
@@ -187,24 +187,18 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(screen.getByTestId("acceptance-spec-s1")).toHaveTextContent("A1");
   });
 
-  it("OpenTheSpec_OnAGraphNode_SelectsThatSpecOnTheSpecsTab", async () => {
-    nav.search = "tab=summary";
-    await open();
-    fireEvent.click(document.querySelector('[data-node="s2"]') as Element);
-    fireEvent.click(screen.getByTestId("node-open-spec"));
-    expect(nav.replace).toHaveBeenCalledWith("/tickets/shop/101?tab=specs&spec=s2", { scroll: false });
-    cleanup();
-    nav.search = "tab=specs&spec=s2";
+  it("TheSpecParam_SelectsThatSpecOnTheSpecsSection", async () => {
+    nav.search = "section=specs&spec=s2";
     await open();
     expect(screen.getByTestId("spec-item-s2")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("spec-doc-goal")).toHaveTextContent("Replace the consumers");
   });
 
-  it("TheCrossLinks_SetTheTab", async () => {
-    nav.search = "tab=summary"; // 2026-11-16-6877a: the conversation is no tab; the Summary pane is in Details
+  it("Discuss_GoesToWhatHappened", async () => {
+    nav.search = "tab=specs&spec=s1";
     await open();
-    fireEvent.click(screen.getByTestId("ticket-open-specs"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs", { scroll: false });
+    fireEvent.click(screen.getByTestId("spec-discuss"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?spec=s1", { scroll: false });
   });
 });
 
@@ -279,7 +273,7 @@ describe("Ticket specs tab review rounds", () => {
     const section = screen.getByTestId("series-review");
     expect(within(section).getByTestId("review-finding")).toHaveTextContent("Two owners of one event");
     fireEvent.click(within(section).getByTestId("series-member-s2"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs&spec=s2", { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=specs&spec=s2", { scroll: false });
   });
 
   it("TicketSpecsTab_ApprovedSetSeriesRound_IsShown", async () => {
@@ -378,12 +372,5 @@ describe("Ticket specs and acceptance tabs over a run-record series", () => {
     expect(run).toHaveTextContent("Run criteria, not tied to a spec · attempt 1");
     expect(run).toHaveTextContent("Docs updated");
     expect(within(run).getByTestId("acceptance-unmeasured")).toHaveTextContent("portal-worker could not be measured — the build was red");
-  });
-
-  it("TheSummarySeriesCell_ReadsRunRecord", async () => {
-    nav.search = "tab=summary";
-    await open();
-    expect(screen.getByTestId("cell-series-run-record")).toHaveTextContent("2 specs · run record");
-    expect(screen.getByTestId("attempt-flow-fallback")).toBeInTheDocument();
   });
 });

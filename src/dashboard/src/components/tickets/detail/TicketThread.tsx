@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { useTicketApprovalPreview, useTicketConversation, useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketConversation, TicketConversationEntry } from "@/types/tickets";
 import { causeEntryMatch, causeEntryOf } from "./causeEntryMatch";
@@ -15,13 +15,14 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 import { YourMoveBox } from "./YourMoveBox";
 
 // 2026-11-16-6877a: the ticket page's body — the conversation, leading. The ticket first, every exchange and every
-// attempt's report in order (threadItems), the open proposal, then whatever `after` holds (the Details fold); the
+// attempt's report in order (threadItems), the open proposal; the
 // dock at the bottom holds the Your move box above the composer. Carried over from the Conversation tab
 // (2026-10-13-9a59r, 2026-10-17-e730a/b/f): it opens at its end unless a question waits or ?causeOf= names an entry,
-// and "Newest" brings the reader back after scrolling up. Focusing the composer engages the ticket's session, so
+// and "Newest" brings the reader back after scrolling up. 2026-11-17-8d1ca: it scrolls again each time ?causeOf=
+// changes, so a "read" link on a page already showing the thread lands on its entry. Focusing the composer engages the ticket's session, so
 // only a person's own act focuses it, never an address.
 
-export function TicketThread({ after }: { after?: ReactNode }) {
+export function TicketThread() {
   const detail = useTicketDetail();
   const conversation = useTicketConversation();
   const preview = useTicketApprovalPreview();
@@ -37,14 +38,15 @@ export function TicketThread({ after }: { after?: ReactNode }) {
   const question = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
-  const opened = useRef(false);
+  /** The ?causeOf= the page last scrolled for; undefined until the first scroll. */
+  const scrolledFor = useRef<string | null | undefined>(undefined);
   const sentinel = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const newestJump = useNewestJump(data?.entries ?? null, sentinel, dock, end);
   useEffect(() => {
-    if (!data || !detail.data || opened.current) return;
-    opened.current = true;
+    if (!data || !detail.data || scrolledFor.current === causeOf) return;
+    scrolledFor.current = causeOf;
     if (target) {
       const node = list.current?.querySelector(`[data-entry-id="${cssEscape(target.id)}"]`);
       if (node instanceof HTMLElement) node.scrollIntoView?.({ block: "center" });
@@ -52,7 +54,7 @@ export function TicketThread({ after }: { after?: ReactNode }) {
     }
     if (asking && question.current) question.current.scrollIntoView({ block: "start" });
     else end.current?.scrollIntoView({ block: "end" });
-  }, [data, detail.data, target, asking]);
+  }, [data, detail.data, target, asking, causeOf]);
 
   if (!detail.data) return null;
   const reply = () => input.current?.focus();
@@ -75,7 +77,6 @@ export function TicketThread({ after }: { after?: ReactNode }) {
         {data?.proposal && !data.transcriptHidden && <ProposalBlock proposal={data.proposal} preview={preview.data} />}
       </div>
       <div ref={sentinel} data-testid="conv-sentinel" />
-      {after}
       <div className="conv-dock" ref={dock} data-testid="conv-dock">
         {newestJump.away && (
           <button type="button" className="chip conv-newest" onClick={newestJump.jump} data-testid="conv-newest">

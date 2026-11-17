@@ -354,6 +354,31 @@ describe("Ticket thread", () => {
     expect(screen.queryAllByTestId("conv-entry").some((e) => e.getAttribute("data-target") === "true")).toBe(false);
   });
 
+  // 2026-11-17-8d1ca: a "read" link on a page that already shows the thread changes only ?causeOf=; it scrolls again.
+  it("CauseOf_ChangedWhileTheThreadIsShown_ScrollsToThatEntry", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", cause: prCause })]);
+    world.conversation = {
+      ...conversation([
+        entry({ id: "pr-review:k:c-77", source: "pr-review", kind: "comment", sourceId: "c-77", url: PR, attemptRunId: "r-1", role: "reviewer" }),
+      ]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: prCause, revision: null }],
+    };
+    nav.search = "";
+    const { client } = fakeHub();
+    const page = () => <TicketPageStore project="shop" ticketId="101" client={client} api={api}><TicketPage /></TicketPageStore>;
+    const { rerender } = render(page());
+    await settle();
+    expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-end"));
+    scrolled.mockClear();
+    nav.search = "causeOf=r-2";
+    rerender(page());
+    await settle();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect((scrolled.mock.instances[0] as unknown as HTMLElement).getAttribute("data-entry-id")).toBe("pr-review:k:c-77");
+  });
+
   it("AWorkersLaterAnswerComment_ShowsAsAnAgentEntry", async () => {
     world.conversation = {
       ...conversation([

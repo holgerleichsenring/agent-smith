@@ -7,7 +7,7 @@ import type { TicketAttempt } from "@/types/tickets";
 import { AttemptCard } from "./AttemptCard";
 import { causeLabel, causeWhere } from "./attemptStory";
 import { clock } from "./flowWords";
-import { CAUSE_PARAM, TAB_PARAM, useTicketTabGo } from "./useTicketTabGo";
+import { addressQuery, CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59s: the Attempts tab — what started each attempt, what it did, why it stopped. Newest first
 // by run id; between two cards the change that started the newer one, whose read opens the Conversation tab
@@ -36,7 +36,7 @@ export function TicketAttemptsTab() {
           </div>
         </div>
         <button className="btn primary" type="button" data-testid="attempts-continue"
-          onClick={() => address.go("conversation", { [CAUSE_PARAM]: null })}>Continue in conversation</button>
+          onClick={() => address.go("happened", { [CAUSE_PARAM]: null })}>Continue in conversation</button>
       </div>
 
       <div className="section-head first">
@@ -65,7 +65,7 @@ function ChangeEvent({ attempt, project, ticketId }: { attempt: TicketAttempt; p
   const who = [attempt.cause?.actor, causeWhere(attempt)].filter(Boolean).join(" on ");
   const anchored = !!attempt.cause?.source?.id;
   const extra = { [CAUSE_PARAM]: anchored ? attempt.runId : null };
-  const query = new URLSearchParams({ [TAB_PARAM]: "conversation", ...(anchored ? { [CAUSE_PARAM]: attempt.runId } : {}) });
+  const query = addressQuery("", "happened", extra);
   return (
     <div className="chg" data-testid={`attempt-change-${attempt.number}`}>
       <span className="dot" />
@@ -73,10 +73,10 @@ function ChangeEvent({ attempt, project, ticketId }: { attempt: TicketAttempt; p
         {attempt.cause?.at && <span className="w">{clock(attempt.cause.at)}</span>}
         <b>{label[0].toUpperCase() + label.slice(1)}</b>
         {who && <span>{who}</span>}
-        <a href={`${ticketPath(project, ticketId)}?${query.toString()}`} data-testid={`attempt-change-read-${attempt.number}`}
+        <a href={query ? `${ticketPath(project, ticketId)}?${query}` : ticketPath(project, ticketId)} data-testid={`attempt-change-read-${attempt.number}`}
           onClick={(e) => {
             e.preventDefault();
-            address.go("conversation", extra);
+            address.go("happened", extra);
           }}>read</a>
       </div>
     </div>

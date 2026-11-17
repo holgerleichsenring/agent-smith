@@ -138,6 +138,13 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("app-sidebar")).toHaveAttribute("data-collapsed", "true");
   });
 
+  // 2026-11-17-8d1ca: a ticket page has its own section bar, so the sidebar beside it shows icons only.
+  it("Sidebar_OnATicketPage_ShowsIconsOnly_WithoutTheToggle", () => {
+    renderAt("/tickets/shop/101");
+    expect(screen.getByTestId("app-sidebar")).toHaveAttribute("data-collapsed", "true");
+    expect(screen.queryByTestId("sidebar-toggle")).toBeNull();
+  });
+
   it("Sidebar_Recent_ListsTheTicketAndRunPagesOpened_NewestFirst", async () => {
     const first = renderAt("/tickets/shop/GH-101");
     first.unmount();

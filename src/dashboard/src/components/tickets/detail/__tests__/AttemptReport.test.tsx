@@ -86,7 +86,7 @@ describe("AttemptReport", () => {
     expect(criteria[0]).toHaveTextContent("dotnet build exited 0");
     expect(criteria[1]).toHaveTextContent("RetryPolicy.cs:18");
     fireEvent.click(within(card).getByTestId("spec-card-open"));
-    expect(nav.replace).toHaveBeenCalledWith("/tickets/shop/101?tab=specs&spec=s1", { scroll: false });
+    expect(nav.replace).toHaveBeenCalledWith("/tickets/shop/101?section=specs&spec=s1", { scroll: false });
   });
 
   it("SpecCard_DecidedForYou_KeepRatifies_ChangeOverrules_AConversationDefaultOffersKeepOnly", async () => {

@@ -1,12 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub, pr } from "../../__tests__/ticketFixtures";
-import { attempt, budget, conversation, defaults, detail, entry, pass, passes, reviews, series, spec, ticketText } from "./detailFixtures";
+import { attempt, budget, conversation, defaults, detail, passes, reviews, series, spec, ticketText } from "./detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
 
-// 2026-10-13-9a59q: the ticket page as a reader meets it — header, Summary cells, the graph of each
-// attempt from that attempt's own records, and the node detail — driven through the page's one store.
+// 2026-10-13-9a59q: the ticket page as a reader meets it, driven through the page's one store.
+// 2026-11-17-8d1ca: the section bar beside one section; ?section= names it, an older ?tab= lands on its section.
 
 const stream = vi.hoisted(() => ({ events: [] as RunEvent[], listeners: new Set<() => void>() }));
 vi.mock("@/hooks/useRunEvents", async () => {
@@ -67,13 +67,11 @@ async function open() {
   return hub;
 }
 
-const node = (id: string) => document.querySelector(`[data-node="${id}"]`) as SVGGElement;
-const detailText = () => screen.getByTestId("node-detail").textContent ?? "";
 
 beforeEach(() => {
   vi.useFakeTimers();
   stream.events = [];
-  nav.search = "tab=summary"; // 2026-11-16-6877a: the Summary pane lives in the Details fold
+  nav.search = "";
   for (const fn of Object.values(api)) fn.mockClear();
   world.series = {};
   world.passes = {};
@@ -84,27 +82,28 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("Ticket page", () => {
-  it("Header_ShowsOnlyRecordedFields_AndThisAttemptListsTheUnionOfTheCutsRepositories", async () => {
+  it("SectionBar_ShowsOnlyRecordedFields", async () => {
     world.detail = detail([attempt()], { branch: "" });
+    world.detail.summary = { ...world.detail.summary, platform: null, trackerState: null };
     await open();
     const head = screen.getByTestId("ticket-head");
     expect(head).toHaveTextContent("GH-101");
     expect(head).toHaveTextContent("Fix the login");
     expect(within(head).queryByRole("link")).toBeNull();
-    // 2026-10-26-bdd0f: the subline, not the acts — Derive specs offers "Store on the branch".
-    const subline = head.querySelector(".tsub") as HTMLElement;
-    expect(subline).not.toHaveTextContent("tracker status");
-    expect(subline).not.toHaveTextContent("branch");
-    expect(screen.getByTestId("cell-this-attempt")).toHaveTextContent("portal-api, portal-worker · run r-1");
+    expect(screen.getByTestId("ticket-back")).toHaveAttribute("href", "/tickets");
+    expect(screen.queryByTestId("ticket-tracker-fact")).toBeNull();
+    expect(screen.queryByTestId("ticket-branch")).toBeNull();
+    expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("no PR");
   });
 
-  it("Header_MetaLineNamesProjectTrackerStatusAndBranch_TheTrackerLinkIsInTheMoreMenu", async () => {
+  it("SectionBar_FactsNameProjectTrackerStatusAndBranch_TheTrackerLinkIsInTheMoreMenu", async () => {
     world.detail = detail([attempt()]);
     world.detail.summary = { ...world.detail.summary, webUrl: "https://example.test/101", trackerState: "Active", platform: "github" };
     await open();
-    const head = screen.getByTestId("ticket-head");
-    expect(head.querySelector(".tsub")).toHaveTextContent("shop·GitHub GH-101·GitHub status Active at attempt 1");
-    expect(head).toHaveTextContent("branch agent-smith/GH-101");
+    const facts = screen.getByTestId("ticket-facts");
+    expect(facts).toHaveTextContent("shop");
+    expect(screen.getByTestId("ticket-tracker-fact")).toHaveTextContent("GitHub · Active");
+    expect(screen.getByTestId("ticket-branch")).toHaveTextContent("agent-smith/GH-101");
     expect(screen.getByTestId("ticket-more-menu")).not.toBeVisible();
     fireEvent.click(screen.getByTestId("ticket-more"));
     expect(screen.getByTestId("ticket-more-menu")).toBeVisible();
@@ -117,9 +116,8 @@ describe("Ticket page", () => {
     world.detail.summary = { ...world.detail.summary, bucket: "done", landing: "merged",
       pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "merged" })] };
     await open();
-    const head = screen.getByTestId("ticket-head");
-    expect(head.querySelector(".ticon")?.className).toBe("ticon ok");
-    expect(head).not.toHaveTextContent("attempt 2"); // 2026-10-16-86e6c: the state block says the state
+    expect(screen.getByTestId("ticket-state-word")).toHaveClass("ok");
+    expect(screen.getByTestId("ticket-state-word")).toHaveTextContent("Done");
     expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Done");
     expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("2 PRs merged");
   });
@@ -150,27 +148,41 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Stopped");
     expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Reply below");
   });
-  it("TicketPage_EveryDetailsTab_KeepsTheThreadAndTheYourMoveBoxAboveTheComposer", async () => {
+  it("TicketPage_EverySection_ShowsOnlyThatSection_AndAnOlderTabLandsOnItsSection", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
-    for (const tab of ["summary", "specs", "acceptance", "attempts", "cost", "defaults"]) {
-      nav.search = `tab=${tab}`;
+    const cases: Array<[string, string, string]> = [
+      ["", "happened", "What happened"], ["tab=summary", "happened", "What happened"], ["tab=conversation", "happened", "What happened"],
+      ["section=specs", "specs", "Specs"], ["tab=acceptance", "acceptance", "Acceptance"], ["tab=attempts", "runs", "Runs"],
+      ["section=runs", "runs", "Runs"], ["tab=cost", "cost", "Cost"], ["section=defaults", "defaults", "Defaults"],
+    ];
+    for (const [search, id, title] of cases) {
+      nav.search = search;
       await open();
-      expect(screen.getByRole("log", { name: "Conversation" })).toBeInTheDocument();
-      expect(screen.getByTestId(`ticket-tab-${tab}`)).toHaveAttribute("aria-selected", "true");
-      expect(screen.getByTestId("conv-dock").firstElementChild).toBe(screen.getByTestId("ticket-state"));
+      expect(screen.getByTestId("ticket-section-title")).toHaveTextContent(title);
+      expect(screen.getByTestId(`ticket-section-${id}`)).toHaveAttribute("aria-current", "page");
+      if (id === "happened") {
+        expect(screen.getByRole("log", { name: "Conversation" })).toBeInTheDocument();
+        expect(screen.getByTestId("conv-dock")).toContainElement(screen.getByTestId("ticket-state"));
+      } else {
+        expect(screen.queryByRole("log", { name: "Conversation" })).toBeNull();
+        expect(screen.getByTestId(`ticket-pane-${id}`)).toBeInTheDocument();
+      }
       cleanup();
     }
   });
 
-  it("TicketPage_NoTab_TheDetailsFoldIsClosed_AndItsToggleOpensTheSummary", async () => {
-    nav.search = "";
+  it("TicketPage_ASectionButton_WritesSectionAndDropsTheOlderTab", async () => {
+    nav.search = "tab=specs&causeOf=r-1";
     await open();
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(screen.queryByTestId("ticket-tab-conversation")).toBeNull();
-    fireEvent.click(screen.getByTestId("ticket-details-toggle"));
-    expect(nav.replace).toHaveBeenCalledWith(expect.stringContaining("tab=summary"), { scroll: false });
+    expect(screen.getByTestId("ticket-section-runs")).toHaveTextContent("Runs1");
+    fireEvent.click(screen.getByTestId("ticket-section-runs"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=runs", { scroll: false });
+    fireEvent.click(screen.getByTestId("ticket-section-happened"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101", { scroll: false });
   });
+
   it("Thread_EveryAttemptReports_WithItsRunLine", async () => {
     world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted", summary: "Image not trusted" }),
       attempt({ number: 2, runId: "r-2", status: "cancelled", endKind: "superseded" }),
@@ -277,7 +289,7 @@ describe("Ticket page", () => {
     world.detail.summary = { ...world.detail.summary, bucket: "idle", lastOutcome: "success", landing: "unmerged",
       pullRequests: ["1", "2", "3"].map((number) => pr({ number, state: "closed" })) };
     await open();
-    expect(screen.getByTestId("ticket-head").querySelector(".ticon")?.className).toBe("ticon bad");
+    expect(screen.getByTestId("ticket-state-word")).toHaveClass("bad");
     expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("3 PRs closed unmerged");
   });
 
@@ -292,14 +304,17 @@ describe("Ticket page", () => {
   it("Header_AQueuedWorkingTicket_DrawsTheListRowsQueuedDot", async () => {
     world.detail = detail([attempt({ status: "queued", finishedAt: null })]);
     await open();
-    expect(screen.getByTestId("ticket-head").querySelector(".ticon")?.className).toBe("ticon queued");
+    expect(screen.getByTestId("ticket-state-word")).toHaveClass("queued");
+    expect(screen.getByTestId("ticket-state-word")).toHaveTextContent("Working");
   });
 
-  it("CancelAttempt_ShowsOnlyForALiveAttempt_AndReadsCancellingAfterARunCancelRequested", async () => {
+  it("CancelAttempt_ShowsOnlyForALiveAttempt_OutsideTheMenu_AndReadsCancellingAfterARunCancelRequested", async () => {
     world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", status: "running", finishedAt: null })]);
     await open();
     const cancel = screen.getByTestId("cancel-run-r-2");
-    expect(cancel).toHaveTextContent("Cancel attempt 2");
+    expect(cancel).toHaveTextContent("Cancel run 2");
+    expect(cancel).toBeVisible();
+    expect(screen.getByTestId("ticket-more-menu")).not.toContainElement(cancel);
     act(() => {
       stream.events = [{ runId: "r-2", type: EventType.RunCancelRequested, timestamp: "t" } as RunEvent];
       stream.listeners.forEach((l) => l());
@@ -309,90 +324,7 @@ describe("Ticket page", () => {
 
   it("CancelAttempt_IsAbsentWhenNoAttemptIsLive", async () => {
     await open();
-    expect(screen.queryByText(/Cancel attempt/)).toBeNull();
-  });
-
-  it("Nodes_AreReachableByTab_AndOpenTheirDetailOnEnterAndSpace", async () => {
-    await open();
-    const gate = node("gate");
-    expect(gate).toHaveAttribute("tabindex", "0");
-    fireEvent.keyDown(gate, { key: "Enter" });
-    expect(screen.getByTestId("node-detail")).toHaveTextContent("Spec gate");
-    fireEvent.keyDown(node("s1"), { key: " " });
-    expect(screen.getByTestId("node-detail")).toHaveTextContent("Spec 1");
-    expect(screen.getByTestId("spec-goal")).toHaveTextContent("Port the publishers");
-  });
-
-  it("ANodeWithoutARecord_SaysNothingWasRecorded", async () => {
-    world.detail = detail([attempt({ cause: null })]);
-    await open();
-    fireEvent.click(node("ticket"));
-    expect(detailText()).toContain("Nothing recorded here in this attempt.");
-  });
-
-  it("DeriveNode_ShowsTheDeriveCostAndTheRefusedCutReviews", async () => {
-    world.passes["r-1"] = passes("r-1", {}, 1.3);
-    world.conversation = conversation([
-      entry({ id: "c1", source: "spec-cut", kind: "cut-review", detail: { attempt: 1, deliverable: "refused", findings: [{ specId: "s2", criterion: "retry", problem: "both rewrite RetryPolicy.cs" }] } }),
-      entry({ id: "c2", source: "spec-cut", kind: "cut-review", detail: { attempt: 2, deliverable: "accepted", findings: [] } }),
-    ]);
-    await open();
-    expect(node("derive").textContent).toContain("1✗");
-    fireEvent.click(node("derive"));
-    expect(detailText()).toContain("$1.30");
-    expect(detailText()).toContain("refused");
-    expect(detailText()).toContain("both rewrite RetryPolicy.cs");
-  });
-
-  it("AnEarlierPassesVerify_ListsItsOwnCriterionVerdicts_NotTheSpecsFinalOnes", async () => {
-    world.series["r-1"] = series("r-1", [spec()]);
-    world.passes["r-1"] = passes("r-1", { s1: [
-      pass({ ordinal: 1, endedBecause: "re-engaged", reengageReason: "red-with-open-steps", criteriaMet: 0, criteria: [{ criterion: "Builds", status: "unmet", evidence: "no test" }] }),
-      pass({ ordinal: 2, passInSpec: 2, criteria: [{ criterion: "Builds", status: "met", evidence: "test added" }] }),
-    ] });
-    await open();
-    fireEvent.click(node("v-s1-1"));
-    expect(detailText()).toContain("Verify · spec 1 · pass 1");
-    expect(detailText()).toContain("no test");
-    expect(detailText()).not.toContain("test added");
-  });
-
-  it("AnOlderHandedBackAttempt_DrawsHandBackWithTheTextOfItsOwnConversationEntry", async () => {
-    world.detail = detail([
-      attempt({ runId: "r-1", handedBack: true, revision: null }),
-      attempt({ number: 2, runId: "r-2", cause: { channel: "ticket_comment", actor: "h.operator", at: "2026-09-04T15:00:00Z" } }),
-    ]);
-    world.series["r-1"] = series("r-1", [], { handback: { case: "RequirementsContradictRepository", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
-    world.series["r-2"] = series("r-2", [spec()]);
-    world.conversation = conversation([
-      entry({ id: "h1", source: "spec-cut", kind: "hand-back", attemptRunId: "r-1", text: "Map the old headers or change the consumers?" }),
-      entry({ id: "h2", source: "spec-cut", kind: "hand-back", attemptRunId: "r-2", text: "a later one" }),
-    ]);
-    await open();
-    fireEvent.click(screen.getByTestId("attempt-switch-1"));
-    await settle();
-    await settle();
-    fireEvent.click(node("handback"));
-    expect(screen.getByTestId("handback-text")).toHaveTextContent("Map the old headers or change the consumers?");
-    expect(detailText()).toContain("contradiction");
-    expect(detailText()).toContain("Answered by h.operator");
-    expect(detailText()).not.toContain("a later one");
-  });
-
-  // 2026-10-16-7ed3c: posted ticket text renders as the conversation renders it — markdown, a mention as @Name.
-  it("NodeDetail_Handback_RendersMarkdownLineBreaksAndMentionAsText", async () => {
-    world.detail = detail([attempt({ runId: "r-1", handedBack: true, revision: null })]);
-    world.series["r-1"] = series("r-1", [], { handback: { case: "Question", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
-    world.conversation = conversation([entry({ id: "h1", source: "spec-cut", kind: "hand-back", attemptRunId: "r-1", format: "markdown",
-      text: "## Agent Smith — handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> which header?\n\nSee https://example.test/a/very/long/path/to/src/Sample.App.Server/File.cs" })]);
-    await open();
-    fireEvent.click(node("handback"));
-    const text = screen.getByTestId("handback-text");
-    expect(text.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
-    expect(text).toHaveTextContent("@Ada Example which header?");
-    expect(text.innerHTML).not.toContain("data-vss-mention");
-    expect(text.textContent).not.toContain("<a");
-    expect(within(text).queryByRole("link", { name: "@Ada Example" })).toBeNull();
+    expect(screen.queryByText(/Cancel run/)).toBeNull();
   });
 
   it("TicketStateBlock_Handback_RendersMarkdownWithMentionAsText", async () => {
@@ -406,89 +338,25 @@ describe("Ticket page", () => {
     expect(shown.innerHTML).not.toContain("data-vss-mention");
   });
 
-  // 2026-10-16-7ed3d: a metric cut to its column reads whole in the tooltip and the node detail.
-  it("NodeDetail_CutMetric_SubLineReadsTheFullMetric (FlowCanvas_NodeWithFullText_HasATitle)", async () => {
-    world.detail = detail([attempt({ runId: "r-1", handedBack: true, revision: null })]);
-    world.series["r-1"] = series("r-1", [], { handback: { case: "SpecificationMissingFromBranch", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
-    await open();
-    const mark = node("handback");
-    expect(mark.querySelector("text.met")?.textContent).toBe("spec missing from the b…");
-    expect(mark.querySelector("title")?.textContent).toBe("HAND-BACK · spec missing from the branch");
-    expect(mark.getAttribute("aria-label")).toBe("HAND-BACK, spec missing from the branch");
-    fireEvent.click(mark);
-    expect(screen.getByTestId("node-detail").querySelector(".sh-sub")?.textContent).toBe("A1 · spec missing from the branch");
-  });
-
-  it("NodeDetail_FailedTail_ShowsTheWholeSummary", async () => {
-    const summary = "Pipeline aborted: missing bootstrap in repos\nSample.App.Server\nSample.App.Client";
-    world.detail = detail([attempt({ status: "failed", summary })]);
-    await open();
-    fireEvent.click(node("tail"));
-    expect(screen.getByTestId("tail-summary").textContent).toBe(summary);
-  });
-
-  it("AttemptFlowGraph_NoCutWithSummary_NoteSaysTheCause", async () => {
-    world.detail = detail([attempt({ revision: null, status: "failed", summary: "Preflight failed: context-image-trust\nmore" })]);
-    delete world.series["r-1"];
-    await open();
-    expect(screen.getByTestId("attempt-flow-fallback")).toHaveTextContent("Attempt 1 recorded no cut, so it has no graph.");
-    expect(screen.getByTestId("attempt-flow-cause")).toHaveTextContent("It ended: Preflight failed: context-image-trust");
-  });
-
-  it("ATerminalAttemptWithNoRevisionAndNoCut_LinksToItsRunViewer", async () => {
-    world.detail = detail([attempt({ revision: null, status: "failed" })]);
-    delete world.series["r-1"];
-    await open();
-    const fallback = screen.getByTestId("attempt-flow-fallback");
-    expect(within(fallback).getByRole("link")).toHaveAttribute("href", "/jobs/r-1");
-    expect(screen.queryByTestId("attempt-flow")).toBeNull();
-  });
-
-  it("ALiveAttemptsHandBackAndRefusedCutReview_AppearWithoutAReload", async () => {
-    const live = attempt({ runId: "r-1", status: "running", finishedAt: null, revision: null });
-    world.detail = detail([live]);
-    delete world.series["r-1"];
-    const hub = await open();
-    expect(node("derive").getAttribute("class")).toContain("live");
-
-    world.conversation = conversation([entry({ id: "c1", source: "spec-cut", kind: "cut-review", detail: { attempt: 1, deliverable: "refused", findings: [] } })]);
-    act(() => {
-      stream.events = [{ runId: "r-1", type: EventType.SpecCutReviewed, timestamp: "t", attempt: 1, deliverable: "refused", findings: [] } as RunEvent];
-      stream.listeners.forEach((l) => l());
-    });
-    await settle(2000);
-    await settle();
-    expect(node("derive").textContent).toContain("1✗");
-
-    world.detail = detail([{ ...live, status: "success", handedBack: true, finishedAt: "2026-09-04T14:30:00Z" }]);
-    world.series["r-1"] = series("r-1", [], { handback: { case: "Refused", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
-    world.conversation = conversation([entry({ id: "h1", source: "spec-cut", kind: "hand-back", text: "Cannot be built as asked." })]);
-    act(() => hub.runsChanged.emit("r-1"));
-    await settle(2000);
-    await settle(2000);
-    await settle();
-    fireEvent.click(node("handback"));
-    expect(screen.getByTestId("handback-text")).toHaveTextContent("Cannot be built as asked.");
-  });
-
   it("ANewAttemptAppearsAfterThisTicketsTicketActivityChanged", async () => {
     const hub = await open();
-    expect(screen.queryByTestId("attempt-switch-2")).toBeNull();
+    expect(screen.queryByTestId("thread-report-2")).toBeNull();
     world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", status: "queued", finishedAt: null })]);
     act(() => hub.runsChanged.emit("r-2"));
     await settle(3000);
-    expect(screen.queryByTestId("attempt-switch-2")).toBeNull();
+    expect(screen.queryByTestId("thread-report-2")).toBeNull();
     act(() => hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" }));
     await settle(2000);
     await settle();
-    expect(screen.getByTestId("attempt-switch-2")).toBeInTheDocument();
+    expect(screen.getByTestId("thread-report-2")).toBeInTheDocument();
   });
 
-  // 2026-10-13-8762w: the series strip sits between the header and the tabs, only for a real, budgeted series.
+  // 2026-10-13-8762w: the series strip, only for a real, budgeted series. 2026-11-17-8d1ca: it heads the Cost section.
   const defaultSeries = (over: Parameters<typeof budget>[0] | null) =>
     series("r-1", [spec()], { budget: over === null ? null : budget(over) });
 
   it("TicketPage_NoBudget_RendersNoStrip", async () => {
+    nav.search = "section=cost";
     world.series.default = defaultSeries(null);
     await open();
     expect(screen.getByTestId("ticket-head")).toBeInTheDocument();
@@ -496,16 +364,17 @@ describe("Ticket page", () => {
   });
 
   it("TicketPage_BudgetOff_RendersNoStrip", async () => {
+    nav.search = "section=cost";
     world.series.default = defaultSeries({ next: "hold", heldBecause: "off" });
     await open();
     expect(screen.queryByTestId("series-runway")).toBeNull();
   });
 
   it("TicketPage_ActivityNudge_RefreshesTheStrip", async () => {
+    nav.search = "section=cost";
     world.series.default = defaultSeries({ next: "start" });
     const hub = await open();
-    const strip = screen.getByTestId("series-runway");
-    expect(strip.nextElementSibling).toHaveAttribute("role", "tablist");
+    expect(screen.getByTestId("ticket-pane-cost")).toContainElement(screen.getByTestId("series-runway"));
     expect(screen.getByTestId("series-next")).toHaveTextContent("starts by itself");
 
     // The run ended (RunsChanged), and only afterwards the worker marks the ticket closed (TicketActivityChanged).
@@ -520,10 +389,11 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("series-next")).toHaveTextContent("held — a person closed the ticket");
   });
 
-  it("TicketPage_HeldOnDefault_SelectsTheDefaultsTab", async () => {
+  it("TicketPage_HeldOnDefault_SelectsTheDefaultsSection", async () => {
+    nav.search = "section=cost";
     world.series.default = defaultSeries({ next: "hold", heldBecause: "default-pending" });
     await open();
     fireEvent.click(screen.getByTestId("series-go-defaults"));
-    expect(nav.replace).toHaveBeenCalledWith(expect.stringContaining("tab=defaults"), { scroll: false });
+    expect(nav.replace).toHaveBeenCalledWith("/tickets/shop/101?section=defaults", { scroll: false });
   });
 });

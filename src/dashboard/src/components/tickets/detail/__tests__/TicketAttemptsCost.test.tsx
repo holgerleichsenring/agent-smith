@@ -95,7 +95,7 @@ describe("Ticket attempts tab", () => {
     expect(screen.getByTestId("attempt-head-2")).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByTestId("attempt-head-2"));
     expect(screen.getByTestId("attempt-head-2")).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("ticket-tab-attempts")).toHaveTextContent("Attempts3");
+    expect(screen.getByTestId("ticket-section-runs")).toHaveTextContent("Runs3");
     expect(within(screen.getByTestId("attempt-1")).getByTestId("attempt-ended")).toHaveTextContent("Handed back as not implementable.");
   });
 
@@ -141,13 +141,13 @@ describe("Ticket attempts tab", () => {
   it("ReadOnACommentCausedChange_OpensTheConversationAtThatCause_OnAStatusMoveTheTabOnly", async () => {
     await open();
     const anchored = screen.getByTestId("attempt-change-read-3");
-    expect(anchored).toHaveAttribute("href", "/tickets/shop/101?tab=conversation&causeOf=r-3");
+    expect(anchored).toHaveAttribute("href", "/tickets/shop/101?causeOf=r-3");
     fireEvent.click(anchored);
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation&causeOf=r-3", { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?causeOf=r-3", { scroll: false });
     expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("Pull-request review");
     expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("m.reviewer on #813");
     fireEvent.click(screen.getByTestId("attempt-change-read-2"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101", { scroll: false });
     expect(screen.queryByTestId("attempt-change-1")).toBeNull();
   });
 });
@@ -163,7 +163,7 @@ describe("Ticket cost and compute tab", () => {
     expect(screen.getByTestId("cost-bar-3").querySelectorAll("span")).toHaveLength(1);
     expect(screen.getByTestId("cost-parts-2")).toHaveTextContent("derive $0.90 · S1 $2.00");
     expect(screen.getByTestId("cost-scale")).toHaveTextContent("the $15.00 run cap is the full width");
-    expect(screen.getByTestId("ticket-tab-cost")).toHaveTextContent("$5.36");
+    expect(screen.getByTestId("ticket-section-cost")).toHaveTextContent("$5.36");
     expect(screen.queryByTestId("cost-derivations")).toBeNull();
   });
 
@@ -180,7 +180,7 @@ describe("Ticket cost and compute tab", () => {
     expect(screen.getByTestId("cost-derivations")).toHaveTextContent("$1.75");
     expect(screen.queryByTestId("cost-row-4")).toBeNull();
     expect(screen.getByTestId("cost-total")).toHaveTextContent("$7.11");
-    expect(screen.getByTestId("ticket-tab-cost")).toHaveTextContent("$7.11");
+    expect(screen.getByTestId("ticket-section-cost")).toHaveTextContent("$7.11");
   });
 
   it("TheWaitingBanner_AppearsOnlyWhenWaitingExceededModelCallTime", async () => {

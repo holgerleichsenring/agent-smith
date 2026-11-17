@@ -1,6 +1,7 @@
 "use client";
 
 import { useAttemptMachines, useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
+import { SeriesRunway } from "./SeriesRunway";
 import type { TicketAttempt, TicketSeries } from "@/types/tickets";
 import { ComputeTable, ComputeTiles, WaitingBanner } from "./ComputeSection";
 import { computeTotals, duration, type AttemptMachine } from "./computeTotals";
@@ -37,6 +38,7 @@ export function TicketCostTab() {
 
   return (
     <>
+      <SeriesRunway budget={series.data?.budget} attempts={attempts} onDefaults={() => address.go("defaults")} />
       <CostSection attempts={attempts} derivations={detail.data?.derivations ?? []} machines={reads}
         ordinals={ordinalsOf(attempts, series.data)} />
       <div className="section-head">
@@ -44,7 +46,7 @@ export function TicketCostTab() {
         <span className="sh-sub">every counted sandbox of every attempt · bar = wall clock, one scale</span>
       </div>
       <ComputeTiles totals={totals} />
-      <WaitingBanner totals={totals} onRead={() => address.go("conversation", { [CAUSE_PARAM]: null })} />
+      <WaitingBanner totals={totals} onRead={() => address.go("happened", { [CAUSE_PARAM]: null })} />
       <ComputeTable machines={machines} now={now} />
     </>
   );
