@@ -7,6 +7,7 @@ import { useAttemptReads, useTicketDetail, useTicketSeries } from "@/lib/tickets
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { clock } from "./flowWords";
 import { SeriesContractReview } from "./SeriesContractReview";
+import { SpecDerivations } from "./SpecDerivations";
 import { SpecDocument } from "./SpecDocument";
 import { attemptCell, defaultSpec, isRunRecord, RUN_RECORD_LINE, type AttemptCell } from "./specWords";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
@@ -16,7 +17,8 @@ import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // the selected spec's document; then the revisions the attempts recorded. Specs change only through the
 // conversation, so nothing here edits or fetches a spec file. Attempts that predate the cut show the specs
 // their runs recorded, and say so. 2026-10-16-86e6d: the cell row sits beside the item button (a link cannot sit in a
-// button), and the cell of an attempt that ran the spec opens its run.
+// button), and the cell of an attempt that ran the spec opens its run. 2026-11-17-8d1cd: the ticket's spec derivations
+// close the section, with when, how long, what came of each and Derive again — also on a ticket that has runs.
 
 export function TicketSpecsTab() {
   const detail = useTicketDetail();
@@ -30,6 +32,7 @@ export function TicketSpecsTab() {
       <>
         <SpecsHead specs={specs} />
         <div className="msub" data-testid="specs-none">{series.loading ? "Reading the series…" : "No spec has been cut for this ticket."}</div>
+        <SpecDerivations />
       </>
     );
   }
@@ -62,6 +65,7 @@ export function TicketSpecsTab() {
       </div>
       <SeriesContractReview onSelect={(specId) => address.go("specs", { [SPEC_PARAM]: specId })} />
       <Revisions attempts={attempts} />
+      <SpecDerivations />
     </>
   );
 }

@@ -168,6 +168,17 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(within(block).getByTestId("criterion-overrule")).toHaveAttribute("href", "/jobs/r-2");
   });
 
+  // 2026-11-17-8d1cd: a judged criterion says why and offers "overrule" as a text link to the run that judged it.
+  it("Acceptance_AJudgedCriterion_ShowsItsReason_AndOverruleLinksToTheJudgingRun", async () => {
+    world.series.default = series("r-3", [spec({ specId: "s7", judgedBy: "r-2",
+      done: [{ text: "Builds", verdict: "met", note: "dotnet build exited 0", citation: null, overrule: null }] })], { attempt: 3 });
+    nav.search = "section=acceptance";
+    await open();
+    const block = screen.getByTestId("acceptance-spec-s7");
+    expect(within(block).getByTestId("acceptance-reason")).toHaveTextContent("dotnet build exited 0");
+    expect(within(block).getByTestId("acceptance-overrule")).toHaveAttribute("href", "/jobs/r-2");
+  });
+
   it("WithoutASelection_TheLiveSpecIsShownFirst", async () => {
     await open();
     expect(screen.getByTestId("spec-doc-goal")).toHaveTextContent("Retry with backoff");
