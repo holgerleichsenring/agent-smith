@@ -210,7 +210,8 @@ public sealed class CommitAndPRHandler(
         }
 
         await FinalizeTicketAsync(context, opened, shortfall: null, cancellationToken);
-        return BuildResult(opened, anyCode, context.Changes.Count);
+        CodeRunResult.PublishGatePassed(context.Pipeline, opened, anyCode && !isDraft); // 2026-11-17-023fa
+        return CodeRunResult.Build(opened, anyCode, context.Changes.Count);
     }
 
     // p0300c: the outcome keystone is evaluated BEFORE opening PRs so a verification-red
@@ -402,25 +403,5 @@ public sealed class CommitAndPRHandler(
         return ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,
             doneStatus, summary, logger, ct);
-    }
-
-    // p0235: a clear, factual run outcome — this message becomes the step's
-    // result line, so it must say plainly what happened (changes + PR, or "no
-    // code changes"), not a bare URL.
-    private static CommandResult BuildResult(
-        IReadOnlyList<OpenedPullRequest> opened, bool anyCode, int changeCount)
-    {
-        var openedEntries = opened.Where(o => o.Status == OpenStatus.Opened).ToList();
-        var failed = opened.Count(o => o.Status == OpenStatus.Failed);
-        if (openedEntries.Count == 0 && failed > 0)
-            return CommandResult.Fail($"All {opened.Count} PR open attempts failed.");
-        if (openedEntries.Count == 0)
-            return CommandResult.Ok("No PR opened (nothing to record).");
-        var urls = string.Join(", ", openedEntries.Select(o => o.Url));
-        if (!anyCode)
-            return CommandResult.Ok(
-                $"No code changes were applied — run recorded in PR: {urls} (safe to close).");
-        var prWord = openedEntries.Count == 1 ? "PR" : "PRs";
-        return CommandResult.Ok($"Completed: {changeCount} file(s) changed — {prWord}: {urls}");
     }
 }

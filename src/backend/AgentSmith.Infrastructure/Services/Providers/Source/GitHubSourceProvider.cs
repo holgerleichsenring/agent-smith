@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Sweep;
@@ -28,6 +29,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly ILogger<GitHubSourceProvider> _logger;
     private readonly GitHubPullRequestUpdater _pullRequests;
     private readonly GitHubPullRequestMerger _merger;
+    private readonly GitHubMergeModes _merge; // 2026-11-17-023fa
     // 2026-09-13-a284: where an open pull request POINTS, separate from what it says.
     private readonly GitHubPullRequestTarget _prTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
@@ -52,6 +54,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         _logger = logger;
         _pullRequests = new GitHubPullRequestUpdater(_address, clientFactory, _token, logger);
         _merger = new GitHubPullRequestMerger(_address, clientFactory, _token, logger);
+        _merge = new GitHubMergeModes(_address, clientFactory, _token, _merger, logger);
         _prTarget = new GitHubPullRequestTarget(_address, clientFactory, _token, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, $"{_owner}/{_repo}", logger);
@@ -281,6 +284,10 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _merger.CompleteAsync(prUrl, sourceBranch.Value, cancellationToken);
+
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
+        _merge.MergeAsync(prUrl, sourceBranch.Value, protection, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);

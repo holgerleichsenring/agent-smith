@@ -59,4 +59,7 @@ public sealed class RawProjectEntry
 
     public PollingConfig Polling { get; set; } = new();
     public SandboxConfig? Sandbox { get; set; }
+
+    /// <summary>2026-11-17-023fa: the merge policy; null reads as manual.</summary>
+    public MergePolicyConfig? Merge { get; set; }
 }

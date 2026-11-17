@@ -122,6 +122,9 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public Contracts.Models.InlineTicket? InlineTicket { get; set; }
 
+    /// <summary>2026-11-17-023fa: the project's merge block; null is manual.</summary>
+    public MergePolicyConfig? MergeOverride { get; set; }
+
     public async Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -150,6 +153,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             Agent = agent,
             Pipeline = presetName,
             Sandbox = SandboxOverride,
+            Merge = MergeOverride ?? new MergePolicyConfig(), // 2026-11-17-023fa
             // p0199c: leave CodingPrinciplesPath unset so LoadCodingPrinciplesHandler
             // resolves the default `.agentsmith/principles.md` AND keeps the
             // nested per-context fallback (`.agentsmith/contexts/<name>/coding-

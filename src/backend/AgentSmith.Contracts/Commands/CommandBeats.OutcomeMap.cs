@@ -21,6 +21,7 @@ public static partial class CommandBeats
         [CommandNames.InitCommit] = RunBeat.Outcome,
         [CommandNames.PrCrossLink] = RunBeat.Outcome,
         [CommandNames.InitComplete] = RunBeat.Outcome,
+        [CommandNames.CompletePullRequests] = RunBeat.Outcome, // 2026-11-17-023fa
         [CommandNames.CleanupWorkBranches] = RunBeat.Outcome, // 2026-11-17-713ec
         [CommandNames.PersistWorkBranch] = RunBeat.Outcome,
         [CommandNames.CollectSpecDialogReply] = RunBeat.Outcome,

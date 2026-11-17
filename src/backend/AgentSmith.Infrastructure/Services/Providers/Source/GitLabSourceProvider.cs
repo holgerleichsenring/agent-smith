@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Sweep;
@@ -26,6 +27,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitLabSourceProvider> _logger;
     private readonly GitLabMergeRequestUpdater _mergeRequests;
+    private readonly GitLabMergeModes _merge; // 2026-11-17-023fa
     // 2026-09-13-a284: where an open merge request POINTS, separate from what it says.
     private readonly GitLabMergeRequestTarget _mrTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
@@ -50,6 +52,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
         _logger = logger;
         _mergeRequests = new GitLabMergeRequestUpdater(
             _baseUrl, _projectPath, _privateToken, httpClient, logger);
+        _merge = new GitLabMergeModes(_baseUrl, _projectPath, _privateToken, httpClient, _mergeRequests, logger);
         _mrTarget = new GitLabMergeRequestTarget(
             _baseUrl, _projectPath, _privateToken, httpClient, logger);
         _defaultBranch = new DefaultBranchResolver(
@@ -334,6 +337,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _mergeRequests.CompleteAsync(prUrl, cancellationToken);
+
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
+        _merge.MergeAsync(prUrl, protection, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);

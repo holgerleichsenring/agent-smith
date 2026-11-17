@@ -111,6 +111,11 @@ internal sealed class StubSourceProvider(string? contextYaml = null) : ISourcePr
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         Task.FromResult(PullRequestCompletion.Merged());
 
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(PullRequestCompletion.Merged());
+
     // 2026-09-22-b6ad: the stub's remote accepts the write and names a commit, which is what a
     // caller recording the pointer needs. What was written is asserted through a double of its
     // own; this one only has to be a remote that works.

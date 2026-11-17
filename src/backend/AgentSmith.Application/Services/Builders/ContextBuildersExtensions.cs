@@ -59,6 +59,7 @@ public static class ContextBuildersExtensions
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);
         AddBuilder<PrCrossLinkContextBuilder>(services, CommandNames.PrCrossLink);
         AddBuilder<InitCompleteContextBuilder>(services, CommandNames.InitComplete); // p0490
+        AddBuilder<CompletePullRequestsContextBuilder>(services, CommandNames.CompletePullRequests); // 2026-11-17-023fa
         AddBuilder<CleanupWorkBranchesContextBuilder>(services, CommandNames.CleanupWorkBranches); // 2026-11-17-713ec
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);

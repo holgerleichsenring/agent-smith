@@ -88,7 +88,7 @@ public static partial class CommandModelUse
         CommandNames.RenderTicketBody, // 2026-11-17-dd05b
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
-        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches,
+        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

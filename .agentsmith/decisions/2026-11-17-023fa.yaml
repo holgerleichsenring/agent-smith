@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-023fa
+
+decisions:
+  - category: Architecture
+    chose: "Operator decision (2026-11-17, revised ~20:50): with merge: on_gate_green every provider merges past branch policies, protection and approval rules by default; respect_branch_protection: true restores the human gate (Azure arms auto-complete, GitHub enables auto-merge, GitLab merges when the pipeline succeeds)"
+    over: "The first brief: respect policies on Azure DevOps by default and bypass only as a per-project bypass_policies setting"
+    reason: "The operator's call: branch protection is for humans, and a run whose own gate verified the change fixes forward. A missing bypass permission is never a silent fallback: the refusal reads 'cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true' and the pull request stays open."
+  - category: Architecture
+    chose: "A new ISourceProvider.MergePullRequestAsync(prUrl, branch, BranchProtection, ct) implemented by all four providers and every test double; init keeps CompletePullRequestAsync"
+    over: "A default interface method, or one method with a mode parameter that init would also pass"
+    reason: "Review round 2: decorating test doubles forward only the methods they implement, so a default body would have answered the default instead of the inner provider, and Moq cannot reach a default body. Init's completion is mixed today (GitHub merges at once, Azure arms) and is not governed by the project's merge block, so it is not routed through the modes."
+  - category: Architecture
+    chose: "Merge only the pull requests CommitAndPR publishes on its success tail (ContextKeys.GatePassedPullRequests): code changed, none a draft, no repository failed to open; spec-only pull requests of a green series are merged with them"
+    over: "Recomputing the keystone in the merge step, or merging every opened pull request"
+    reason: "The success tail is the one place that knows the keystone (every VerifySpec account) passed and the run neither failed, shortfell nor stopped at a chunk. A ticket lands only when every recorded pull request ended, so leaving the spec-only ones open would keep the ticket from landing (review round 1)."
+  - category: Implementation
+    chose: "Merge in order and stop at the first refusal; armed is not a refusal; a pull request opened against a rung is left open and named"
+    over: "All-or-nothing across repositories, or merging rung-targeted pull requests"
+    reason: "No host merges two repositories atomically; stopping at the first refusal keeps a cross-repository change from landing further than the first repository the host declined, and the per-repo record says merged / still open / not attempted. Merging a rung-targeted pull request lands it on the rung while the record says merged and dependents wake."
+  - category: Implementation
+    chose: "GitHub Respect uses GraphQL for both the pull request's node id and the repository's allowed merge methods, then enablePullRequestAutoMerge; 'clean status' merges through REST at once; auto-merge off is a refusal naming allow_auto_merge"
+    over: "REST lookups plus the mutation"
+    reason: "One transport the existing GitHubGraphQlQuery and its test host already cover; a pull request with nothing to wait for has no protection to respect."
+  - category: Implementation
+    chose: "Azure bypass PATCHes Status=Completed with LastMergeSourceCommit and CompletionOptions{BypassPolicy, BypassReason, DeleteSourceBranch}; an answer still active with a queued merge is armed, Conflicts is refused, Failure/RejectedByPolicy and a thrown permission error are bypass refusals"
+    over: "Reading anything not Completed as refused"
+    reason: "Azure completes asynchronously (review round 1). The bypass reason names agent-smith and merge: on_gate_green; the provider does not know the run id."
+  - category: Implementation
+    chose: "The block lives on RawProjectEntry/ResolvedProject as MergePolicyConfig with an enum stored as numbers, declared in agentsmith.schema.json; no studio form field"
+    over: "A studio field in this spec"
+    reason: "The YAML loader reads underscored enum names and the stored document keeps numbers; a studio save mutates the stored entry, so a block the form does not carry survives. The schema closes project, and ConfigSchemaCoverageTests requires the key."
+  - category: Implementation
+    chose: "CommitAndPR's result line moved to CodeRunResult, with the gate-key publication; baseline lowered to 407"
+    over: "Raising the baseline"
+    reason: "CommitAndPRHandler sat at its file-length baseline (review round 1)."
+  - category: Review
+    chose: "Two adversarial review rounds: round 1 BUILD WITH CUTS (baselines, schema, spec-only pull requests, all-or-none, local landing, rung targets, async hosts, upgrade_impact, characterisation, registration); round 2 after the operator's revision BUILD WITH CUTS (no default interface body, harness assertion, GitLab armed answer, GitHub auto-merge failures, file lengths)"
+    over: "Building the first draft"
+    reason: "Every cut was applied before code; InitCompleteHandlerTests pin init before and after the extraction."
+  - category: Scope
+    chose: "A local repository's merge records no landing, and GitHub auto-merge for Respect, GitLab approval bypass and a studio field are not built"
+    over: "Claiming dependents wake on every provider"
+    reason: "LocalSourceProvider has no pull-request state reader, so the run-end refresh records it unsupported. GitLab has no API to skip required approvals or pipelines; its refusal says so."
