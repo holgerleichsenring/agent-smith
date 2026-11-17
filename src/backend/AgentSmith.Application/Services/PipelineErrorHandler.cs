@@ -147,13 +147,9 @@ public sealed class PipelineErrorHandler(
     }
 
     /// <summary>
-    /// p0261: terminalize a FAILED run — post the failure comment AND move the native
-    /// ticket status to failed_status in one provider-native step (mirrors the success
-    /// path's FinalizeAsync(doneStatus)). Resolves failed_status from the pipeline
-    /// context, falling back to done_status, then to the provider's own default when
-    /// FinalizeAsync is handed null — so the status ALWAYS changes and the ticket never
-    /// stays in a trigger status. Best-effort: a write failure (e.g. a deleted ticket)
-    /// is logged, never rethrown, so it can't invalidate an already-produced PR.
+    /// p0261: terminalize a FAILED run — comment AND move the native status to failed_status in one
+    /// provider-native step. 2026-11-17-166aa: failed_status only, never done; without one it comments
+    /// only (f3fbb's path) and BoundaryStopGate holds the ticket. Best-effort: a write failure is logged.
     /// </summary>
     private async Task FinalizeFailureAsync(
         ResolvedProject projectConfig, PipelineContext context,
@@ -166,9 +162,8 @@ public sealed class PipelineErrorHandler(
                 || PipelinePresets.LeavesTicketAlone(context))
                 return;
 
-            if (!context.TryGet<string>(ContextKeys.FailedStatus, out var failedStatus)
-                || string.IsNullOrEmpty(failedStatus))
-                context.TryGet<string>(ContextKeys.DoneStatus, out failedStatus);
+            if (!context.TryGet<string>(ContextKeys.FailedStatus, out var failedStatus) || string.IsNullOrEmpty(failedStatus))
+            { await PostTicketStatusAsync(projectConfig, context, message, cancellationToken); return; }
 
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var finalize = await ticketProvider.FinalizeAsync(

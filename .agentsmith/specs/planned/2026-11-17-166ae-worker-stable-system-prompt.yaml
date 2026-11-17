@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-166ae
+goal: "A Claude Code worker call receives the protocol, the tools and the leading system messages as its system prompt, so their tokens are cache reads on the next call."
+
+applies_to: "default (worker prompt renderer, process runner, CLI options)"
+
+requires: [2026-11-17-166ac]
+
+facts:
+  - claim: "Every call renders one stdin text: the instructions, then the request JSON whose leading fields vary per call (request_id, run, step, role, phase, created_utc), then messages, then tools."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerPromptRenderer.cs:14-15, src/backend/AgentSmith.Contracts/Models/Workers/WorkerRequest.cs:15-28"
+  - claim: "Compaction keeps the leading system messages byte for byte; the loop builds its system message once."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:180-186"
+  - claim: "Ticket SCRUM-17 (2 specs, 53 files) took 1 h 44 min in worker mode: 172 calls, 72 % of the wall clock in calls, 12.99M cache-write tokens, 3.04M cache-read, 304k output. 164 of 172 calls read only the CLI's own 12,149-token prompt from cache."
+    evidence: "observed: 2026-11-17, replay RunLlmCalls and server.3.log for run 08-44-38-b43b"
+  - claim: "The CLI reported $91.74 for the 102 calls the tracker saw (12.30M tokens); the other 70 calls are uncounted there."
+    evidence: "observed: 2026-11-17, replay server.3.log 10:28:26 result line"
+  - claim: "By role: agentic-executor 80 calls, 10.4M of the cache-write tokens; spec-attack-reviewer 53 calls, 3.0M; diff-reviewer 12 and accountant 8, 1.6M together. Of 20.4M prompt chars, 2.4M are tool schemas and 4.4M leading system messages (33 %); the executor's share is 43 %."
+    evidence: "observed: 2026-11-17, replay RunLlmCalls grouped by Role and PromptRecords/PromptBlocks for the run"
+  - claim: "A stdin prompt is one content block, so a repeated prefix inside it is never read from cache; a --system-prompt-file is cached and read on the next call."
+    evidence: "observed: 2026-11-17, probes on CLI 2.1.285: same 58k-char prefix on stdin, second call read 6,235 and created 24,652; as --system-prompt-file, second call read 23,756 and created 911"
+
+scope:
+  in: "WorkerPromptRenderer renders a WorkerPrompt(System, Input): System = instructions + JSON of protocol, agent type, model, the leading system messages, then tools; Input = JSON of the remaining messages, options and the call identity. Protocol agentsmith.worker/2. For a Claude Code binary (166ac's rule) the runner writes System to a per-call file in the worker directory, passes --system-prompt-file and deletes the file after the call; a file and not --system-prompt because Linux caps one argument at 128 KB. Any other binary gets System + Input on stdin as one text."
+  out: "Re-sending the history every call (one-shot CLI; would need resumable CLI sessions). Re-reads across passes (215 read_file calls of 55 files). The tracker's undercount of loop iterations. These are listed in the decision file with their numbers."
+
+steps:
+  - id: prompt
+    action: "WorkerPrompt record; WorkerPromptRenderer.Render returns it; the instructions name the two parts."
+  - id: runner
+    action: "IWorkerProcessRunner takes a WorkerPrompt; AgentCliWorkerProcessRunner writes the system file in the call directory when options say the binary takes Claude Code's flags, else concatenates; the retry decorator and the scripted harness runner follow."
+  - id: guard
+    action: "WorkerProcessGuard and the chat client's log measure the whole prompt (System + Input)."
+
+tests:
+  - "WorkerPromptRenderer: two calls of one conversation render byte-identical System; request id and created time only in Input; non-leading system messages stay in Input"
+  - "AgentCliWorkerProcessRunnerTests: a Claude Code-flag runner passes --system-prompt-file naming a file in the call dir holding System; a plain binary reads System + Input on stdin"
+  - "ExternalWorkerChatClientTests: the scripted runner receives both parts"
+
+done:
+  - "On the next replay every call after a conversation's first reads at least its system part from cache (CachedTokensIn at or above the system part's tokens)."

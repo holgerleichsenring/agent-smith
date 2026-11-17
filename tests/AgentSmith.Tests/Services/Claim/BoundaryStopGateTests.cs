@@ -54,7 +54,7 @@ public sealed class BoundaryStopGateTests
             InitialContext = new() { [ContextKeys.RequestedByName] = true, [ContextKeys.SeriesAutoStart] = true },
         };
 
-        (await new BoundaryStopGate(Stopped(true).Object).RefusalAsync(series, CancellationToken.None)).Should().BeNull();
+        (await new BoundaryStopGate(Stopped(true).Object).RefusalAsync(series, Config(), CancellationToken.None)).Should().BeNull();
     }
 
     [Fact]
@@ -72,12 +72,12 @@ public sealed class BoundaryStopGateTests
     [Fact]
     public async Task BoundaryStopGate_Refusal_NamesAStartByNameOrACommentAndNotRetry()
     {
-        var refusal = await new BoundaryStopGate(Stopped(true).Object).RefusalAsync(Request(), CancellationToken.None);
+        var refusal = await new BoundaryStopGate(Stopped(true).Object).RefusalAsync(Request(), Config(), CancellationToken.None);
 
         refusal!.Error.Should().Be(BoundaryStopGate.Sentence);
         BoundaryStopGate.Sentence.Should().Contain("start it by name in chat").And.Contain("a comment on the ticket")
             .And.NotContainEquivalentOf("retry");
-        (await new BoundaryStopGate(Stopped(false).Object).RefusalAsync(Request(), CancellationToken.None))
+        (await new BoundaryStopGate(Stopped(false).Object).RefusalAsync(Request(), Config(), CancellationToken.None))
             .Should().BeNull();
     }
 
