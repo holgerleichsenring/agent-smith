@@ -97,7 +97,7 @@ or with **run sandboxes as root** in the project's Sandbox tab. Its pods then ru
 
 ### Isolating sandboxes (opt-in)
 
-Off by default. `kubectl apply -f deploy/k8s/` leaves sandbox pods in `agentsmith` and creates no network policy, so updating Agent Smith changes nothing here. Isolation is a separate step, and so is hardening (`sandbox.hardening_enabled`, above); either works without the other.
+Off by default. `kubectl apply -f deploy/k8s/` leaves sandbox pods in `agentsmith` and creates no network policy, so updating codeably changes nothing here. Isolation is a separate step, and so is hardening (`sandbox.hardening_enabled`, above); either works without the other.
 
 `deploy/k8s/sandbox-isolation/` holds three manifests and a README with the full steps:
 
@@ -166,7 +166,7 @@ sandbox:
 
 ### Credentials inside the sandbox
 
-A build step that needs a credential (a private feed, a CLI login) gets it from a Kubernetes Secret you own. The project names the reference; the value never passes through Agent Smith, Redis, the context file or the model:
+A build step that needs a credential (a private feed, a CLI login) gets it from a Kubernetes Secret you own. The project names the reference; the value never passes through codeably, Redis, the context file or the model:
 
 ```yaml
 projects:

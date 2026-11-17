@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md) (the project drawer's **routing** tab); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-When a ticket event arrives, by webhook or by polling, Agent Smith has to answer one question: *which project owns this ticket?* Each project answers it with one resolution rule.
+When a ticket event arrives, by webhook or by polling, codeably has to answer one question: *which project owns this ticket?* Each project answers it with one resolution rule.
 
 This page covers the four strategies (`tag`, `area_path`, `repo`, `to_address`), when to pick each, and a YAML example for each.
 
@@ -87,7 +87,7 @@ projects:
 
 ### Worked example
 
-A Jira issue carries the labels `bug` and `todolist-backend` and is assigned to the Agent Smith user.
+A Jira issue carries the labels `bug` and `todolist-backend` and is assigned to the codeably user.
 
 1. The Jira webhook arrives at `/webhook/jira`. `JiraAssigneeWebhookHandler` confirms the assignee and builds an envelope with `Labels = ["bug", "todolist-backend"]`.
 2. `ProjectResolver` finds one match, `todolist-backend`.

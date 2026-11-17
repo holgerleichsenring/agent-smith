@@ -1,6 +1,6 @@
 # Chat Gateway (Slack / Teams)
 
-The server doubles as a gateway between chat platforms and Agent Smith. Users start runs from Slack or Teams, and the server runs them exactly like a run a webhook or the poller started: admitted against capacity, queued, and executed in the server's sandboxes. There is no separate process for it: `AgentSmith.Server` receives the chat events on the same port as the webhooks (8081).
+The server doubles as a gateway between chat platforms and codeably. Users start runs from Slack or Teams, and the server runs them exactly like a run a webhook or the poller started: admitted against capacity, queued, and executed in the server's sandboxes. There is no separate process for it: `AgentSmith.Server` receives the chat events on the same port as the webhooks (8081).
 
 ## Architecture
 

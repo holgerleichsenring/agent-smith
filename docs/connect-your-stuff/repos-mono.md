@@ -1,6 +1,6 @@
 # Repos: mono-repo
 
-One product, one repo. The smallest viable Agent Smith setup. Use this page when your `TodoList` (or whatever it really is) lives in a single git repo.
+One product, one repo. The smallest viable codeably setup. Use this page when your `TodoList` (or whatever it really is) lives in a single git repo.
 
 ## In the studio
 
@@ -46,15 +46,15 @@ secrets:
   github_token:   ${GITHUB_TOKEN}
 ```
 
-That's it. The `repos:` list on `projects.todolist` has one entry, the project is a mono-repo, and Agent Smith spawns one sandbox for it per run (one per toolchain, if the repo holds contexts that need different ones). Skills need no configuration — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
+That's it. The `repos:` list on `projects.todolist` has one entry, the project is a mono-repo, and codeably spawns one sandbox for it per run (one per toolchain, if the repo holds contexts that need different ones). Skills need no configuration — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
 
-The explicit `repos:` catalog entry shown here is the right shape for exactly this case — a single, known repo. It also stays available as the escape hatch for a repo that isn't discoverable through a provider API. The moment you have several repos under one org, prefer a `connections:` entry and let Agent Smith discover them — see [Repos: multi-repo](repos-multi.md).
+The explicit `repos:` catalog entry shown here is the right shape for exactly this case — a single, known repo. It also stays available as the escape hatch for a repo that isn't discoverable through a provider API. The moment you have several repos under one org, prefer a `connections:` entry and let codeably discover them — see [Repos: multi-repo](repos-multi.md).
 
 ## What happens at run-time
 
 For a ticket targeted at the `todolist` project:
 
-1. Agent Smith spawns one sandbox with the toolchain image for the repo's contexts, read from the `stack:` block of each `.agentsmith/contexts/<name>/context.yaml`, or a generic image when nothing names one.
+1. codeably spawns one sandbox with the toolchain image for the repo's contexts, read from the `stack:` block of each `.agentsmith/contexts/<name>/context.yaml`, or a generic image when nothing names one.
 2. The repo gets cloned into `/work` inside the sandbox.
 3. A branch named `agent-smith/{ticket}` (for issue 54, `agent-smith/54`) is cut from the default branch.
 4. The agent reads, writes and tests, all inside that sandbox.
@@ -67,7 +67,7 @@ The internal mechanics are the same as for multi-repo runs — there's just one 
 
 You add the new repo to the top-level `repos:` catalog and reference it from `projects.todolist.repos` — or, better, declare a `connections:` entry once (host, org, auth) and reference repos under it by glob, so new repos are discovered instead of hand-listed. The lifecycle code is identical either way; multi-repo just means the list has more than one entry. See [Repos: multi-repo](repos-multi.md) for the worked example.
 
-The interesting bit: every repo in the project needs its own contexts, `.agentsmith/contexts/<name>/context.yaml` plus `.agentsmith/contexts/<name>/principles.md`, one directory per component the repo holds, so Agent Smith knows the toolchain and conventions for each. The `init-project` pipeline bootstraps them for every repo of the project; the **Initialize** button on the project card runs it. Do that once before the first `code` run. See [Context file](../reference/concepts/context-file.md) for what a context declares.
+The interesting bit: every repo in the project needs its own contexts, `.agentsmith/contexts/<name>/context.yaml` plus `.agentsmith/contexts/<name>/principles.md`, one directory per component the repo holds, so codeably knows the toolchain and conventions for each. The `init-project` pipeline bootstraps them for every repo of the project; the **Initialize** button on the project card runs it. Do that once before the first `code` run. See [Context file](../reference/concepts/context-file.md) for what a context declares.
 
 ## What about pipelines, triggers, hosting?
 

@@ -1,6 +1,6 @@
 # Self-documentation
 
-Agent Smith doesn't just run tasks, it records why it was built the way it was. Every feature has a spec. Every spec has a rationale. Every run has a cost.
+codeably doesn't just run tasks, it records why it was built the way it was. Every feature has a spec. Every spec has a rationale. Every run has a cost.
 
 This is not documentation written after the fact. It is documentation produced as a side effect of the work itself.
 
@@ -8,7 +8,7 @@ This is not documentation written after the fact. It is documentation produced a
 
 ### Layer 1: Specs (the "what" and "why")
 
-Every capability in Agent Smith originated in a spec. Specs are YAML files in `.agentsmith/specs/` and move through `planned/` → `active/` → `done/`. Each spec states:
+Every capability in codeably originated in a spec. Specs are YAML files in `.agentsmith/specs/` and move through `planned/` → `active/` → `done/`. Each spec states:
 
 - The goal, in one sentence
 - Which part of the system it applies to, and which earlier specs it requires
@@ -77,7 +77,7 @@ decisions:
 
 Most AI tools are black boxes. You don't know why they do what they do, how much it costs, or what they decided not to do.
 
-Agent Smith is an audit trail. Long after a pipeline ran, you can answer:
+codeably is an audit trail. Long after a pipeline ran, you can answer:
 
 - **What did it change?** `result.md` lists the changed files
 - **What did it cost?** Token usage and USD in the frontmatter

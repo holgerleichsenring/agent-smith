@@ -24,12 +24,12 @@ Open the dashboard, switch the rail to **Configuration**, and work down the cata
 
 **Trackers.** New tracker, type `azure_devops`. The form switches to the Azure fields once you pick the type: organization, project, URL, auth secret. Then the workflow, which the tracker owns for every project routed to it:
 
-- **Open states**, the work item states Agent Smith treats as eligible. Anything else is ignored.
+- **Open states**, the work item states codeably treats as eligible. Anything else is ignored.
 - **Done status**, where a finished run moves the ticket.
 - **Failed status**, where a failed run parks it. Leave it empty and the status stays put.
 - **Needs-clarification status**, where a ticket goes when the agent has questions it won't guess at.
 - **Pipeline by label** and **Default pipeline**, which label runs which pipeline, and what a work item runs when no label matched. Both are picked from the pipelines that exist.
-- **Work item kind by filing role**, which work-item type a ticket Agent Smith files is created as (see below).
+- **Work item kind by filing role**, which work-item type a ticket codeably files is created as (see below).
 
 ![Editing a tracker in the studio](../assets/screenshots/config-tracker-drawer.png)
 
@@ -37,7 +37,7 @@ Open the dashboard, switch the rail to **Configuration**, and work down the cata
 
 ![The New Project drawer](../assets/screenshots/config-new-project.png)
 
-That's the whole wiring. Two environment variables and Agent Smith can claim a work item and open a pull request end to end.
+That's the whole wiring. Two environment variables and codeably can claim a work item and open a pull request end to end.
 
 ## The same thing as YAML
 
@@ -148,7 +148,7 @@ projects:
 
 The rest of the workflow (`trigger_statuses`, which falls back to `open_states`, `pipeline_from_label`, `default_pipeline`, `comment_keyword`, `in_progress_status`) sits on the tracker too and holds for every project routed to it.
 
-`work_item_kinds` maps the roles Agent Smith files tickets under to your process's work-item types: `work` (the one work ticket an approved cut files), `spec` (a single spec filed from a design conversation; the key `phase` is still accepted), `bug` and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway, and the filing states which type it used. Whatever type you pick, its workflow has to contain your lifecycle statuses (`done_status`, `failed_status`, `needs_clarification_status`); a work item whose type doesn't know them can't be moved, and the refusal names the type as the usual cause.
+`work_item_kinds` maps the roles codeably files tickets under to your process's work-item types: `work` (the one work ticket an approved cut files), `spec` (a single spec filed from a design conversation; the key `phase` is still accepted), `bug` and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway, and the filing states which type it used. Whatever type you pick, its workflow has to contain your lifecycle statuses (`done_status`, `failed_status`, `needs_clarification_status`); a work item whose type doesn't know them can't be moved, and the refusal names the type as the usual cause.
 
 ## Authentication
 
@@ -165,14 +165,14 @@ export AZURE_DEVOPS_TOKEN=...
 
 The tracker, the connections and the repos read it through the secret their `auth` names (`azure_devops_token: ${AZURE_DEVOPS_TOKEN}`), for API calls and for clone and push alike, so a second organization gets a secret and a variable of its own. That pairing is the file's. A secret created in the studio reads the variable of its own name, which is why the studio walkthrough above names it `AZURE_DEVOPS_TOKEN`.
 
-The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup, so restart the orchestrator after a rotation. The studio holds the *name* of the secret, so there's nothing to change there.
+The token rotates whenever you rotate it in Azure DevOps. codeably reads it once at startup, so restart the orchestrator after a rotation. The studio holds the *name* of the secret, so there's nothing to change there.
 
-## How tickets reach Agent Smith
+## How tickets reach codeably
 
 Three ways, pick one:
 
-- **Webhook** (preferred). Azure DevOps posts to Agent Smith on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (Azure DevOps sends no platform header, so the platform is recognised from the payload's `publisherId` and `eventType` — on `/webhook` only). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). Leave polling off on the tracker.
-- **Polling**. Agent Smith asks the tracker every `interval_seconds` what's new. Use this when you can't set up a webhook (NAT, on-prem tracker, fast iteration). Turn it on in the tracker's polling section and set the interval there; the running server picks the change up without a restart.
+- **Webhook** (preferred). Azure DevOps posts to codeably on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (Azure DevOps sends no platform header, so the platform is recognised from the payload's `publisherId` and `eventType` — on `/webhook` only). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). Leave polling off on the tracker.
+- **Polling**. codeably asks the tracker every `interval_seconds` what's new. Use this when you can't set up a webhook (NAT, on-prem tracker, fast iteration). Turn it on in the tracker's polling section and set the interval there; the running server picks the change up without a restart.
 - **Manual CLI**. `agent-smith code --ticket 54 --project azuredevops-todolist` — explicit, useful for testing the config. See [Trigger from CLI](../trigger-it/cli.md).
 
 ## What gets written back to the ticket
@@ -194,7 +194,7 @@ When a run fails:
 
 The run lifecycle is carried as `agent-smith:*` tags. A board with its own vocabulary can rename them with a `label_names:` map on the tracker (keys `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set`); tags written under an older name are still recognised.
 
-When a ticket is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as a work-item comment and parks the ticket in the tracker's `needs_clarification_status`. Without one, a project whose pipeline can park gets a blocking startup finding and its trigger stays off until you set it. Answering the questions resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When a ticket is too thin to act on (title-only, or the run needs a decision), codeably doesn't guess: it posts its open questions as a work-item comment and parks the ticket in the tracker's `needs_clarification_status`. Without one, a project whose pipeline can park gets a blocking startup finding and its trigger stays off until you set it. Answering the questions resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Next
 

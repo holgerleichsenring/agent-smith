@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Limits** in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../../configure-it/index.md).
 
-Every model-driven pipeline in Agent Smith runs one agent at its centre: a master. The master is a skill with `role: master` in the [skills catalog](../configuration/skills.md), and it runs an open tool loop at the pipeline's `AgenticMaster` step. When the work splits into independent pieces, the master can hand them to child agents that run in parallel and report back. That is the whole orchestration model: one master, any number of children up to a budget, one level deep.
+Every model-driven pipeline in codeably runs one agent at its centre: a master. The master is a skill with `role: master` in the [skills catalog](../configuration/skills.md), and it runs an open tool loop at the pipeline's `AgenticMaster` step. When the work splits into independent pieces, the master can hand them to child agents that run in parallel and report back. That is the whole orchestration model: one master, any number of children up to a budget, one level deep.
 
 ## Which master a pipeline runs
 

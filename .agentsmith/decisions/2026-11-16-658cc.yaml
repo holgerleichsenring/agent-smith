@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-658cc
+
+decisions:
+  - category: Scope
+    chose: "The README banner's visible 'agent-smith' becomes the codeably.ai wordmark with 'ably' in the stage accent"
+    over: "Leaving the banner for a later series"
+    reason: "The banner is the first thing on the repository page; an old name above a renamed README reads as a mistake."
+  - category: Scope
+    chose: "One formerly line under the tagline that also names the repository as still carrying the old name"
+    over: "No note in the README"
+    reason: "Every link, badge and command below still says agent-smith; the note explains them once."

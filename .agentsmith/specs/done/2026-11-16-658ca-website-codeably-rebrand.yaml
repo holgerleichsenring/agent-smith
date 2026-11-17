@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-658ca
+goal: "The website is codeably.ai: new name and URL, a hero that replays a real run on a seven-node line, one warm brand accent token, and agent-smith.org redirecting to it."
+
+applies_to: "default (website/, DESIGN.md website stage, tools/build-tokens.mjs output)"
+
+requires: []
+
+facts:
+  - claim: "The hero draws a green code-rain canvas behind a two-line headline."
+    evidence: "website/src/index.njk:7, website/src/static/main.js:25-66"
+  - claim: "The h1 lands with the slam and thud animations in IBM Plex Mono 700 uppercase."
+    evidence: "website/src/static/styles.css:65-76"
+  - claim: "The site's buttons, headline accent and proven tags all read one green, --smith = --color-primary."
+    evidence: "website/src/static/styles.css:15, website/src/static/styles.css:46, website/src/static/styles.css:69"
+  - claim: "Site name, URL and docs URL come from site.json."
+    evidence: "website/src/_data/site.json:2-10"
+  - claim: "tokens.css is generated from the DESIGN.md frontmatter; the stage colours live there."
+    evidence: "tools/build-tokens.mjs:11-15, DESIGN.md:33-40"
+  - claim: "vercel.json carries headers only, no redirects."
+    evidence: "website/vercel.json:1-17"
+  - claim: "The run shown is real: sample-inventory SCRUM-13, 13 Oct, 5 min 55 s, one review finding left open."
+    evidence: "observed: 2026-11-16, approved mock Main.dc.html (operator session 87a46c7c)"
+
+scope:
+  in: "site.json, every page's copy, titles, meta, OG, JSON-LD, llms.txt; hero run line replacing the rain; stage-accent token in DESIGN.md; vercel.json host redirects; 'formerly Agent Smith' once in the hero eyebrow."
+  out: "Fonts and the h1 slam/thud (kept as they are). Docs (658cb). README (658cc). Dashboard and backend. sentinelUrl, blogUrl, partner, legal."
+
+steps:
+  - id: token
+    action: "DESIGN.md: stage-accent #ff7a3d in the frontmatter, the Website stage section names it; regenerate tokens."
+  - id: css
+    action: "styles.css: --accent from the token for buttons, wordmark, headline accent, links; green only on proven states; run-line styles."
+  - id: hero
+    action: "index.njk: wordmark, eyebrow, 'Make work programmable.', run line with seven nodes and a log console; rain canvas removed."
+  - id: script
+    action: "main.js: rain and decode/glitch out, run-line loop in; reduced motion shows the finished run."
+  - id: copy
+    action: "Rename and calm the copy on every page, layout, llms.txt; site.json url and docsUrl."
+  - id: redirect
+    action: "vercel.json: agent-smith.org and www.agent-smith.org, any path, permanent to https://codeably.ai/$path."
+
+tests:
+  - "npm run build: tokens, eleventy, check-links, check-consent green"
+  - "headless render at 1400 and 390 px: no horizontal overflow, run line visible"
+
+done:
+  - "The landing page reads codeably, shows the run line looping to 'done · 5 min 55 s', and is static under reduced motion."
+  - "No 'Agent Smith' left in website/src except 'formerly Agent Smith'."
+  - "The accent is one token in DESIGN.md; text on it and it on the ground pass WCAG AA."
+  - "agent-smith.org redirects permanently to codeably.ai with the path kept."

@@ -69,4 +69,4 @@ The output directory is `--output-dir` when you give one and it is writable, oth
 A run whose master wrote no report fails at `DeliverOutput` with "No analysis report to deliver" rather than printing an empty result. The source document is left where it is.
 
 !!! warning "No legal advice"
-    Agent Smith identifies and describes. The output is an analytical aid, not legal counsel. Always have a qualified lawyer review the results.
+    codeably identifies and describes. The output is an analytical aid, not legal counsel. Always have a qualified lawyer review the results.

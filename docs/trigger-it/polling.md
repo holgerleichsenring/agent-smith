@@ -1,6 +1,6 @@
 # Trigger: polling
 
-The fallback when webhooks aren't an option. Agent Smith asks the tracker every N seconds what's new.
+The fallback when webhooks aren't an option. codeably asks the tracker every N seconds what's new.
 
 Use polling when:
 

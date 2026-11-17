@@ -1,27 +1,28 @@
-site_name: Agent Smith
-site_url: https://docs.agent-smith.org
-site_description: Documentation for Agent Smith, the open source agentic software factory — ticket in, spec, verified pull request out, on your own infrastructure.
+site_name: codeably
+site_url: https://docs.codeably.ai
+site_description: Documentation for codeably, open source software that turns a ticket into a spec and a verified pull request, on your own infrastructure.
 site_author: Holger Leichsenring
 repo_url: https://github.com/holgerleichsenring/agent-smith
 repo_name: holgerleichsenring/agent-smith
 docs_dir: .
 site_dir: ../site
+exclude_docs: |
+  overrides/
 
 theme:
   name: material
+  custom_dir: overrides
   font: false
   palette:
-    - scheme: default
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
     - scheme: slate
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   features:
-    - navigation.tabs
-    - navigation.tabs.sticky
     - navigation.sections
     - navigation.top
     - navigation.indexes
@@ -32,7 +33,7 @@ theme:
     - search.highlight
     - content.code.copy
     - content.tabs.link
-  favicon: agent-smith-title-green.png
+  favicon: assets/favicon.svg
   icon:
     repo: fontawesome/brands/github
 
@@ -43,10 +44,10 @@ extra_css:
 extra:
   social:
     - icon: fontawesome/solid/globe
-      link: https://agent-smith.org
-      name: Agent Smith website
+      link: https://codeably.ai
+      name: codeably.ai
     - icon: fontawesome/solid/handshake
-      link: https://agent-smith.org/services
+      link: https://codeably.ai/services
       name: Professional services by 45level
     - icon: fontawesome/brands/github
       link: https://github.com/holgerleichsenring/agent-smith
@@ -61,9 +62,9 @@ extra:
       name: Community
 
 copyright: >
-  Copyright &copy; 2026 Holger Leichsenring · MIT License —
+  Copyright &copy; 2026 Holger Leichsenring · MIT License ·
   <a href="https://45level.com">Professional services by 45level</a> ·
-  <a href="https://agent-smith.org">Website</a> ·
+  <a href="https://codeably.ai">codeably.ai</a> ·
   <a href="https://codingsoul.org">CodingSoul Blog</a> ·
   <a href="https://github.com/holgerleichsenring/agent-smith/issues">Community</a>
 

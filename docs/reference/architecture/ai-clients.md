@@ -1,6 +1,6 @@
 # AI Clients
 
-Agent Smith talks to every LLM provider through one abstraction: Microsoft's `IChatClient` from the `Microsoft.Extensions.AI` package family. Per-provider plumbing sits behind a small set of `IChatClientBuilder` implementations that each emit a configured `IChatClient`. Tool-bearing tasks are wrapped with `FunctionInvokingChatClient`, so the tool loop is run by the framework, not by hand-rolled code.
+codeably talks to every LLM provider through one abstraction: Microsoft's `IChatClient` from the `Microsoft.Extensions.AI` package family. Per-provider plumbing sits behind a small set of `IChatClientBuilder` implementations that each emit a configured `IChatClient`. Tool-bearing tasks are wrapped with `FunctionInvokingChatClient`, so the tool loop is run by the framework, not by hand-rolled code.
 
 ## The factory and the builders
 

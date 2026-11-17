@@ -1,6 +1,6 @@
 # Trigger: webhooks
 
-What you want for production. Your tracker POSTs to Agent Smith on every ticket update, Agent Smith filters down to the events that matter (status change, label add, comment with a command) and starts a run.
+What you want for production. Your tracker POSTs to codeably on every ticket update, codeably filters down to the events that matter (status change, label add, comment with a command) and starts a run.
 
 The server listens on `POST /webhook` (port 8081) and detects the platform from the request's headers and payload. Explicit per-platform routes exist too — `POST /webhook/github`, `/webhook/gitlab`, `/webhook/jira` — they all land in the same handler. For docker-compose / k8s deploys this is exposed on the server service; for the CLI binary it's not (the CLI is one-shot).
 
@@ -45,8 +45,8 @@ Verify the wiring with a test work item: tag it `TodoList` and the trigger label
 In Jira Cloud: **System → System Webhooks → Create a Webhook**.
 
 - URL: `https://agent-smith.your-host.example/webhook/jira`
-- Events: **Issue created**, **Issue updated**. Work starts when an issue is assigned to the Agent Smith user (the tracker's `assignee_name`, default `Agent Smith`).
-- JQL filter: `project = TL` (or whatever your project key is) — narrows webhooks to just the project Agent Smith manages.
+- Events: **Issue created**, **Issue updated**. Work starts when an issue is assigned to the codeably user (the tracker's `assignee_name`, default `Agent Smith`).
+- JQL filter: `project = TL` (or whatever your project key is) — narrows webhooks to just the project codeably manages.
 - Secret: paste your `JIRA_WEBHOOK_SECRET` value. Once the tracker carries a secret, every delivery must arrive with a matching `x-hub-signature` — one without it is refused with `401`.
 
 Jira is the one platform where the secret is referenced from the configuration (on the tracker, as `webhook_secret`) rather than read from a server env var directly. On a server that reference is set on the tracker in **Configuration → Trackers**. A `${NAME}` reference resolves against the `secrets:` map first and then against the environment variable of that name, and a reference that resolves to nothing counts as unconfigured — so a placeholder nobody exported leaves the platform open rather than turning every delivery into a `401`:
@@ -104,7 +104,7 @@ GitLab sends the token in the `X-Gitlab-Token` header, plain text (not HMAC). Th
 
 ## Rework a finished ticket
 
-A comment carrying the tracker's `comment_keyword` on a ticket whose last run finished — the ticket sits in `done_status` or `failed_status`, or the last run could not move it — starts exactly one new attempt. Agent Smith moves the ticket back to the first `trigger_statuses` entry when it sits outside them, clears what held it, and starts the run; the run reads the comment itself and leads its prompt with everything written since the previous attempt started. Ordinary comments start nothing. While a run is working on the ticket, a keyword comment starts no second run: Agent Smith says so on the ticket, and you comment again once that run has finished. A ticket parked as not implementable comes back through its conversation on the dashboard, where approving a change starts the next attempt; Retry only repeats an attempt that ended on infrastructure.
+A comment carrying the tracker's `comment_keyword` on a ticket whose last run finished — the ticket sits in `done_status` or `failed_status`, or the last run could not move it — starts exactly one new attempt. codeably moves the ticket back to the first `trigger_statuses` entry when it sits outside them, clears what held it, and starts the run; the run reads the comment itself and leads its prompt with everything written since the previous attempt started. Ordinary comments start nothing. While a run is working on the ticket, a keyword comment starts no second run: codeably says so on the ticket, and you comment again once that run has finished. A ticket parked as not implementable comes back through its conversation on the dashboard, where approving a change starts the next attempt; Retry only repeats an attempt that ended on infrastructure.
 
 Moving the ticket back works too. When a person moves a finished ticket into one of the tracker's `trigger_statuses` (a Jira status change, an Azure DevOps state change, reopening a GitHub or GitLab issue when an open state triggers), it is picked up like any ticket in a trigger status, by a webhook or by the poller. The run then reads that move from the tracker's history and treats it as the rework act: it keeps the specs already done, appends new ones, and leads with what was written since the previous attempt. A move made by the account behind the tracker token counts as agent-smith's own and starts nothing, and so does a move while the newest attempt is still running. Only code runs are reworked this way.
 
@@ -145,7 +145,7 @@ Without the scopes every command on that platform is ignored, since a lookup tha
 
 1. Detect the platform and verify the secret (HMAC for GitHub and Jira, token compare for GitLab, basic-auth for Azure DevOps). Wherever a secret is configured this is mandatory: a delivery without a valid signature — an absent header included — is refused with `401` before any handler runs. A platform with no secret configured is not verified at all.
 2. Parse the payload, extract the ticket id and the changed fields.
-3. Decide if this event matters: did the status change to one of `trigger_statuses`? Did a `pipeline_from_label` label get added? Did a comment with the tracker's `comment_keyword` land? Was a Jira issue assigned to the Agent Smith user? Then find the project the ticket belongs to (see [Project resolution](../reference/configuration/project-resolution.md)). If nothing matches, return 200 and stop.
+3. Decide if this event matters: did the status change to one of `trigger_statuses`? Did a `pipeline_from_label` label get added? Did a comment with the tracker's `comment_keyword` land? Was a Jira issue assigned to the codeably user? Then find the project the ticket belongs to (see [Project resolution](../reference/configuration/project-resolution.md)). If nothing matches, return 200 and stop.
 4. If the event matters: claim the ticket — the claim is a database lease, so a webhook and a poll racing on the same ticket can't double-trigger, and one ticket never has two live runs (that's enforced by construction, not by timing). A code run of a ticket that waits for another ticket, one it requires that has neither merged nor been marked done by hand, is refused here and starts nothing; the ticket starts by itself when the last ticket it waits for lands ([ticket dependencies](../how-it-works/ticket-dependencies.md)). Then check capacity: if the run's whole footprint doesn't fit right now, it queues in strict FIFO order instead of failing (see [Capacity & queueing](../reference/operations/capacity.md)).
 5. The run spawns and executes; every state change lands in the [dashboard](../reference/operations/dashboard.md).
 
