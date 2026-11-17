@@ -80,7 +80,7 @@ internal sealed class LandedByHandFixture : IDisposable
 
     public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, Landings,
         PrReviewRefreshHarness.WakeOver(Store, Nudges.Object, approvals: Approvals, clock: Clock),
-        Events.Object, Activity.Object, Clock, NullLogger<TicketLandingRecorder>.Instance);
+        Events.Object, Activity.Object, [], Clock, NullLogger<TicketLandingRecorder>.Instance);
 
     public static ClaimsPrincipal Person(params (string Type, string Value)[] claims) =>
         new(new ClaimsIdentity(claims.Select(c => new Claim(c.Type, c.Value)), "test"));

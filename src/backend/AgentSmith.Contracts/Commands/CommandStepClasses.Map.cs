@@ -103,7 +103,7 @@ public static partial class CommandStepClasses
         [CommandNames.WriteSpecRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
-        [CommandNames.CompletePullRequests] = Internal, [CommandNames.InitComplete] = Internal, [CommandNames.CleanupWorkBranches] = Internal, // 713ec, 023fa
+        [CommandNames.CompletePullRequests] = Internal, [CommandNames.InitComplete] = Internal, [CommandNames.CleanupWorkBranches] = Internal, [CommandNames.RefreshBranchBase] = Internal, // 713ec, 023fa, 023fb
         [CommandNames.SwitchSkill] = Internal,
         [CommandNames.SessionSetup] = Internal,
         [CommandNames.PersistWorkBranch] = Internal,

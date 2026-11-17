@@ -15,6 +15,12 @@ public sealed class MergePolicyConfig
     /// </summary>
     public bool RespectBranchProtection { get; set; }
 
+    /// <summary>
+    /// 2026-11-17-023fb: when a ticket of this project lands, merge its base into every other open agent-smith pull
+    /// request on the same repository and base. Off by default: it pushes onto pull requests people may be reviewing.
+    /// </summary>
+    public bool RefreshOpenPullRequests { get; set; }
+
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;
 }

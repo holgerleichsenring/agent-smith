@@ -61,6 +61,7 @@ public static class ContextBuildersExtensions
         AddBuilder<InitCompleteContextBuilder>(services, CommandNames.InitComplete); // p0490
         AddBuilder<CompletePullRequestsContextBuilder>(services, CommandNames.CompletePullRequests); // 2026-11-17-023fa
         AddBuilder<CleanupWorkBranchesContextBuilder>(services, CommandNames.CleanupWorkBranches); // 2026-11-17-713ec
+        AddBuilder<RefreshBranchBaseContextBuilder>(services, CommandNames.RefreshBranchBase); // 2026-11-17-023fb
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);

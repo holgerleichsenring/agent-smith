@@ -101,6 +101,17 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
         return path;
     }
 
+    /// <summary>2026-11-17-023fb: a commit of <paramref name="content"/> on <paramref name="branch"/>, created from
+    /// the base when it does not exist; the remote is left on the base.</summary>
+    public void CommitOn(string branch, string file, string content)
+    {
+        if (Run(RemotePath, "rev-parse", "--verify", branch).Exit == 0) Git(RemotePath, "checkout", branch);
+        else Git(RemotePath, "checkout", "-b", branch);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(RemotePath, file))!);
+        Commit(RemotePath, file, content, $"{branch}: {file}");
+        Git(RemotePath, "checkout", BaseBranch);
+    }
+
     /// <summary>What the remote says, without throwing — for asking about refs that may not exist.</summary>
     public (int Exit, string Output) AskRemote(params string[] args) => Run(RemotePath, args);
 

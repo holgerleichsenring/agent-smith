@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ public sealed class TicketLandingRecorder(
     ITicketLandingStore landings, DependentsWake wake, // 2026-10-14-dbceh: the won insert wakes, before any Redis call
     ISystemEventPublisher events,
     ITicketActivityNudge activity,
+    IEnumerable<ITicketLandedSubscriber> subscribers, // 2026-11-17-023fb: the generic landing hook
     TimeProvider clock,
     ILogger<TicketLandingRecorder> logger)
 {
@@ -62,6 +64,7 @@ public sealed class TicketLandingRecorder(
         logger.LogInformation("Ticket {Project}/{Ticket} landed ({Kind}) at {LandedAt}",
             landing.Project, landing.TicketId, landing.Kind, landing.LandedAt);
         await wake.WakeAsync(landing, ct);
+        foreach (var subscriber in subscribers) await TellAsync(subscriber, landing, ct);
         try
         {
             await events.PublishAsync(new TicketLandedEvent(Source, landing.Project, landing.TicketKey, landing.TicketId,
@@ -80,5 +83,15 @@ public sealed class TicketLandingRecorder(
             logger.LogWarning(ex, "The ticket pages of {Project}/{Ticket} were not told of its landing", landing.Project, landing.TicketId);
         }
         return true;
+    }
+
+    private async Task TellAsync(ITicketLandedSubscriber subscriber, TicketLandingFact landing, CancellationToken ct)
+    {
+        try { await subscriber.LandedAsync(landing, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "{Subscriber} failed on the landing of {Project}/{Ticket}",
+                subscriber.GetType().Name, landing.Project, landing.TicketId);
+        }
     }
 }

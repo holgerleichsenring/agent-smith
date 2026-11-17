@@ -21,7 +21,7 @@ public static class SandboxGitServicesExtensions
         services.AddTransient<SandboxRunStartCommit>();
         services.AddTransient<CreateOnlyBranchPush>();
         services.AddTransient<SandboxRungPublisher>();
-        services.AddTransient<WorkBranchBaseMerger>();
+        services.AddTransient<WorkBranchBaseMerger>().AddTransient<StateIndexConflictResolver>(); // 2026-11-17-023fb
         services.AddTransient<WorkBranchBaseMergeReport>();
         services.AddTransient<SandboxWorkBranchCheckout>();
         services.AddTransient<SandboxTreeGit>().AddTransient<SandboxTreeSpread>();

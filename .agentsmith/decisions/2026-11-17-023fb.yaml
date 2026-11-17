@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-023fb
+
+decisions:
+  - category: Architecture
+    chose: "A generic ITicketLandedSubscriber that TicketLandingRecorder calls after the wake of a won insert, every subscriber in turn, a throw logged per subscriber"
+    over: "Wiring the sibling refresh into the recorder or into DependentsWake"
+    reason: "The operator asked for a hook others subscribe to; the parallel stacked-start work retargets pull requests on the same event. The won insert is the one replica that may act, so a subscriber runs once per landing."
+  - category: Architecture
+    chose: "Siblings are the project's other tickets with an OPEN pull request on the repository (RepoKey) the landed ticket merged into, whose host-read base equals the landed pull request's base"
+    over: "Members of the filed series only, or every repository of the series"
+    reason: "Only a pull request whose base moved has anything to merge: series siblings on another repository have an unmoved base, and every series sibling on this repository is included. The repository is the cheap superset the operator allowed; the base comparison drops a sibling on a feature rung."
+  - category: Architecture
+    chose: "One refresh-base run per sibling [LoadCatalog, CheckoutSource, RefreshBranchBase], started like branch-cleanup: a queued run row, then QueuedRunDispatch, seeded with strings (repository, agent-smith/<ticket>, PR url, number, base)"
+    over: "A run awaited inside the rework nudge worker (first draft), or the fire-and-forget detached launcher"
+    reason: "Review round 1: a sandbox run under the five-minute nudge lease could be claimed twice across replicas and stalls other tickets' acts. The queued row keeps the request when a queue push is lost; the host reads that choose siblings run in a background task so the landing path never waits on a host. String seeds survive the queue's serialization. The run row carries no ticket id, so it is never an attempt of the ticket."
+  - category: Implementation
+    chose: "Skip a sibling that is closed, leased, queued or waiting for an answer"
+    over: "Refreshing every open pull request"
+    reason: "Review round 1: a push lifts a close mark (TicketClosedRule), and a ticket with a run of its own merges its base at its own checkout."
+  - category: Implementation
+    chose: "Push without force (GitBranchPusher.PushPlainAsync); a rejected push is reported as 'moved on the remote, skipped'; only an agent-smith/ branch is written"
+    over: "PushHeadAsync, which forces with a lease and retries after a fetch"
+    reason: "Review round 2: between launch and push a sibling's own run may have pushed checkpoints; the lease retry would overwrite them. A handed branch is not licensed for writes (RunBranch)."
+  - category: Implementation
+    chose: "State.done union in Infrastructure (ContextYamlStateIndexUnion, behind IContextYamlStateIndexUnion) reusing ContextStateBlock; StateIndexConflictResolver reads git's stages 1-3 and runs only when every unmerged path is a .agentsmith/contexts/*/context.yaml; WorkBranchBaseMerger commits the merge when all resolved"
+    over: "Parsing diff3 markers in Application"
+    reason: "Review round 2: the codec's own block locator knows done's indent, inline {} and multi-line entries; a second parser would disagree with the writer. A missing base (add/add of a seeded file) is an empty base; a missing side is no union; the same key added on both sides with the same text is kept once."
+  - category: Implementation
+    chose: "The resolver reuses WorkBranchBaseMerger.TimeoutSeconds"
+    over: "A new timeout constant"
+    reason: "Limit ratchet: no new hard-coded limit; the git calls are part of the same merge."
+  - category: Scope
+    chose: "A conflict beyond state.done is said on the pull request (one comment per landing, each landing a new base) and the branch is left unchanged; turning it into work for the ticket's coding master is spec 2026-11-17-023fc"
+    over: "A ReworkNudgeOrigin.BaseMoved = 8 and a spec-revision cause (first draft)"
+    reason: "Review round 1 REFUSED that design: origin 8 swallows PreconditionsMet/Ticket/Operator in a nudge merge, a revision cause amends nothing on a full executed set, and the merger aborts by design so the master would have no merge to resolve. 023fc needs a real master capability; it is planned, not built."
+  - category: Implementation
+    chose: "merge.refresh_open_pull_requests, default false"
+    over: "On by default"
+    reason: "Review round 1: refreshing pushes merge commits onto pull requests people may be reviewing, and some hosts dismiss approvals on a push; the operator turns it on per project."
+  - category: Review
+    chose: "Round 1 REFUSE, re-spec; round 2 BUILD WITH CUTS (plain push, LoadCatalog first, union next to the codec, stage cases, checkout characterisation, comment by number, host reads off the landing path), every cut applied"
+    over: "Building the first draft"
+    reason: "WorkBranchBaseMergeTests stay unchanged and green; StateIndexMergeTests pin the new merge."

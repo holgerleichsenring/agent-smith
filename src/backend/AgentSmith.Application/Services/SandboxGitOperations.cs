@@ -21,7 +21,7 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
     // p0299: untracked path (inside .git/, never staged by `git add -A`) used to hand a
     // secondary sandbox's staged diff to `git apply` in the primary sandbox.
     private const string ConsolidatePatchPath = ".git/agentsmith-consolidate.patch";
-    private const string CredHelper =
+    internal const string CredHelper =
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
     // p0192: CommitAndPRHandler now scans the staged diff between stage and
