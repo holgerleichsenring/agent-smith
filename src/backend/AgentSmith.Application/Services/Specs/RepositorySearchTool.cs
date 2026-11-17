@@ -13,6 +13,10 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
 {
     public const string Name = "search_repository";
 
+    /// <summary>A grep that could not run, a path filter that does not exist among its causes; the
+    /// source scope's search answers in the same convention.</summary>
+    private const int CouldNotRunExit = 2; // not a limit: grep's exit code for a search that could not run
+
     /// <summary>2026-09-15-ffa7: per look, because the id it spells is the holder's.</summary>
     public string Description =>
         "Searches one repository as checked out now and returns the matching lines with file "
@@ -47,14 +51,16 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
         // engines under different filters, so the evidence line names the one that actually ran
         // — a line that said 'grep -E' for a ripgrep search would be a fact about nothing.
         var opened = sandbox is ISourceScopeSandbox scope ? new SourceScopeLook(scope) : null;
-        var what = opened is null
-            ? $"grep -E '{pattern}' {under}"
-            : $"rg --hidden --no-ignore '{pattern}' {under}";
         if (opened is not null && await opened.TryOpenAsync(ct) is { } failure)
-            return NothingRan(repository, what, failure);
-        var result = opened is null
-            ? await sandbox.RunStepAsync(SearchCommands.OverTree(pattern, under), progress: null, ct)
-            : await opened.SearchAsync(pattern, under, ct);
+            return NothingRan(repository, What(opened, pattern, under), failure);
+        var result = await SearchAt(sandbox, opened, pattern, under, ct);
+        // 2026-11-17-5701f: a path filter written '<repository>/<path>' in a run keyed 'default' does not exist
+        // (exit 2 on both engines). Only then is it searched below the repository's name, on the sandbox already
+        // opened; a search that ran and matched nothing stands as it is.
+        if (result.ExitCode == CouldNotRunExit && look.WithoutRepositoryName(repository, under) is { } below
+            && await SearchAt(sandbox, opened, pattern, below, ct) is { ExitCode: 0 or 1 } found)
+            (result, under) = (found, below);
+        var what = What(opened, pattern, under);
         var id = look.Evidence.Remember(new EvidenceRecord(
             repository, EvidenceRecord.Search, what, result.ExitCode,
             Ran: result.ExitCode is 0 or 1, under, Pattern: pattern));
@@ -64,6 +70,15 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
         return $"[{id}] " + SearchOutcome.Report(
             result, repository, under == "." ? null : under, pattern);
     }
+
+    private static string What(SourceScopeLook? opened, string pattern, string under) =>
+        opened is null ? $"grep -E '{pattern}' {under}" : $"rg --hidden --no-ignore '{pattern}' {under}";
+
+    private static async Task<StepResult> SearchAt(
+        ISandbox sandbox, SourceScopeLook? opened, string pattern, string under, CancellationToken ct) =>
+        opened is null
+            ? await sandbox.RunStepAsync(SearchCommands.OverTree(pattern, under), progress: null, ct)
+            : await opened.SearchAsync(pattern, under, ct);
 
     /// <summary>A look that never happened: its id is minted, and its line says it proves
     /// nothing, so a statement citing it is not admitted as a fact.</summary>
