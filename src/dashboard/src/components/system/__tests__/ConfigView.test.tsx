@@ -59,7 +59,7 @@ function snapshot(over: Partial<ConfigSnapshot> = {}): ConfigSnapshot {
     globals: {
       sandbox: { agentRegistry: "r", agentVersion: "1", stepTimeoutSeconds: 600, runCommandTimeoutSeconds: 120 },
       orchestrator: { maxRunWallTimeSeconds: 3600 },
-      limits: { maxToolCallsPerSkill: 1, maxLlmCallsPerSkill: 1, maxConcurrentSkillCalls: 1, maxSubAgentsPerRun: 1 },
+      limits: { maxToolCallsPerSkill: 1, maxSecondsPerSkillCall: 1, maxSubAgentsPerRun: 1 },
       costCap: { usd: 5, tokens: 1 },
       persistenceProvider: "postgres",
     },

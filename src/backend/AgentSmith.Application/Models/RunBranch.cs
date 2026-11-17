@@ -19,6 +19,11 @@ namespace AgentSmith.Application.Models;
 /// branch of every ticket that already has one, and a pull request is found by its head
 /// branch, so a re-run after such a rename would abandon the open pull request.
 /// </para>
+/// <para>
+/// 2026-11-17-713ea: <see cref="CutFresh"/> says the branch is cut from its base on every run,
+/// whatever the remote already holds — the init branch, so a second init never builds on what
+/// an earlier one left there.
+/// </para>
 /// </summary>
 public sealed record RunBranch(
-    BranchName Name, bool ComposedFromTicket, string? ParentTicketId = null);
+    BranchName Name, bool ComposedFromTicket, string? ParentTicketId = null, bool CutFresh = false);

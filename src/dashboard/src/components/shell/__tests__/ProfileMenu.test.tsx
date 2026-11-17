@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import { RuntimeSettingsProvider } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
@@ -101,6 +101,33 @@ describe("ProfileMenu", () => {
     getAccessTokenStore().end("expired");
     renderProfile("https://login.example/realm");
     expect(await screen.findByText("Your session expired")).toBeInTheDocument();
+  });
+
+  // 2026-11-17-d6fbe: restored from the deleted AppHeader suite (2026-08-28-0f46) — a refused renewal, a tab that
+  // never signed in and a sign-in after an expiry each read as what they are.
+  it("Profile_ARefusedRenewal_SaysTheSessionEnded", async () => {
+    getAccessTokenStore().end("renewal-refused");
+    renderProfile("https://login.example/realm");
+    expect(await screen.findByTestId("profile-status")).toHaveTextContent("Your session ended");
+  });
+
+  it("Profile_NeverSignedIn_ReadsDifferentlyFromExpired", async () => {
+    renderProfile("https://login.example/realm");
+    expect(await screen.findByTestId("profile-name")).toHaveTextContent("Not signed in");
+    // Nothing ended here; saying one did would report a fault at a tab that has simply not signed in yet.
+    expect(screen.getByTestId("profile-status")).not.toHaveTextContent(/session (expired|ended)/);
+    expect(screen.getByTestId("profile-status")).toHaveTextContent("Connected");
+  });
+
+  it("Profile_SignedInAfterAnExpiry_StopsSayingItEnded", async () => {
+    getAccessTokenStore().end("expired");
+    renderProfile("https://login.example/realm");
+    await screen.findByText("Your session expired");
+
+    act(() => getAccessTokenStore().hold({ accessToken: "at-1" }));
+
+    await waitFor(() => expect(screen.queryByText("Your session expired")).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("profile-name")).toHaveTextContent("operator@example"));
   });
 
   it("Profile_SignedIn_ShowsTheNameAndRole_AndOffersIdentityAndSignOut", async () => {

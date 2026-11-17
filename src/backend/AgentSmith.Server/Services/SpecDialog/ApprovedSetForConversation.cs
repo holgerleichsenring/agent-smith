@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.Tickets;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -14,10 +15,16 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// only the tracker TYPE — a guessed instance would hand the conversation another organisation's
 /// record.
 /// </para>
+/// <para>
+/// 2026-11-17-a0b6c: the record says WHOSE approval and when; the specs are the ticket branch's
+/// (<see cref="TicketBranchSpecs"/>), so the pane never shows a second copy that disagrees with what a run reads.
+/// The branch is addressed by the record's project and ticket id, else the session's project and the key's id part.
+/// </para>
 /// </summary>
 public sealed class ApprovedSetForConversation(
     SpecDialogSessionRepository sessions,
-    ISpecApprovalStore approvals)
+    ISpecApprovalStore approvals,
+    TicketBranchSpecs branch)
 {
     public async Task<ApprovedSetView?> ForAsync(string dialogId, CancellationToken ct)
     {
@@ -25,15 +32,24 @@ public sealed class ApprovedSetForConversation(
             DispatcherDefaults.PlatformDashboard, dialogId, ct);
         if (session?.Tracker is not { } tracker || session.TicketKey is not { } key) return null;
         var record = await approvals.GetAsync(tracker, key, ct);
-        return record is null ? null : View(record, tracker);
+        if (record is null) return null;
+        var read = await branch.ReadAsync(
+            NonEmpty(record.Project) ?? session.Project, NonEmpty(record.TicketId) ?? IdOf(key), ct);
+        return View(record, tracker, read);
     }
 
-    private static ApprovedSetView View(SpecApprovalRecord record, string tracker) => new(
+    private static ApprovedSetView View(SpecApprovalRecord record, string tracker, TicketBranchRead read) => new(
         record.Key,
         tracker,
         record.Set.Approval?.At,
         record.Set.Approval?.Principal,
         record.Set.Approval?.Conversation,
         record.Repositories,
-        [.. record.Set.Specs.Select(spec => SpecDialogProposalComposer.View(spec.Draft))]);
+        [.. (read.Set?.Specs ?? []).Select(spec => SpecDialogProposalComposer.View(spec.Draft))],
+        read.Why);
+
+    // The key is <provider>-<ticketId>; an older record carries no id of its own.
+    private static string IdOf(string key) => key.IndexOf('-') is var dash and > 0 ? key[(dash + 1)..] : key;
+
+    private static string? NonEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

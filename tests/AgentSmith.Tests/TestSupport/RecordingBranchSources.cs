@@ -17,11 +17,25 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
 
     internal List<BranchWrite> Writes { get; } = [];
 
+    /// <summary>2026-11-17-a0b6b: what a branch already held before the test acted — read like a write, never
+    /// counted among <see cref="Writes"/>.</summary>
+    internal List<BranchWrite> Seeded { get; } = [];
+
+    /// <summary>2026-11-17-a0b6b: puts <paramref name="files"/> on <paramref name="branch"/> of <paramref name="repo"/>.</summary>
+    internal void Seed(string repo, string branch, IReadOnlyList<RepoFile> files) =>
+        Seeded.Add(new BranchWrite(repo, branch, "seeded", files));
+
+    private IEnumerable<BranchWrite> OnBranch(string repo, string branch) =>
+        Seeded.Concat(Writes).Where(w => w.Repo == repo && w.Branch == branch);
+
     /// <summary>The sha the remote answers; null makes it answer none, which is a failure.</summary>
     internal string? Sha { get; set; } = DefaultSha;
 
     /// <summary>When set, the write THROWS with it instead of answering — a remote that is down.</summary>
     internal Exception? Throws { get; set; }
+
+    /// <summary>2026-11-17-a0b6a: when set, a branch READ throws with it — a host that cannot be asked.</summary>
+    internal Exception? ReadThrows { get; set; }
 
     /// <summary>Called as the write lands, so a test can journal WHEN it happened.</summary>
     internal Action? OnWrite { get; set; }
@@ -75,12 +89,26 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
         public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
-            Task.FromResult<string?>(null);
+        // 2026-11-17-a0b6a: a branch answers what was written to it, the newest write of a path winning, so a
+        // filed set reads back through the host-side branch read; a read of a branch nothing wrote answers null.
+        public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken)
+        {
+            if (owner.ReadThrows is not null) throw owner.ReadThrows;
+            return Task.FromResult(owner.OnBranch(repo, branch.Value).LastOrDefault(w => w.ContentOf(path) is not null)
+                ?.ContentOf(path));
+        }
 
         public Task<IReadOnlyList<string>> ListDirectoryAsync(
-            string path, BranchName branch, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<string>>([]);
+            string path, BranchName branch, CancellationToken cancellationToken)
+        {
+            if (owner.ReadThrows is not null) throw owner.ReadThrows;
+            var prefix = path.TrimEnd('/') + "/";
+            return Task.FromResult<IReadOnlyList<string>>([.. owner.OnBranch(repo, branch.Value)
+                .SelectMany(w => w.Paths)
+                .Where(p => p.StartsWith(prefix, StringComparison.Ordinal) && !p[prefix.Length..].Contains('/'))
+                .Select(p => p[prefix.Length..])
+                .Distinct(StringComparer.Ordinal)]);
+        }
 
         public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
             throw new NotSupportedException(Inert);

@@ -61,7 +61,7 @@ public sealed class SpecCutHandbackTests
         var cut = events.Events.OfType<SpecSetPublishedEvent>().Single();
         cut.HandbackCase.Should().BeNull();
         cut.Specs.Should().Equal(new SpecCutEntry("2026-10-13-1234a", 1, "2026-10-13-1234a-endpoint",
-            "Add the endpoint", draft.Repos, draft.Steps, draft.Done, "spec: a\n"));
+            "Add the endpoint", draft.Repos));
     }
 
     [Fact]

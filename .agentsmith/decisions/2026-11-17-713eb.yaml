@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-713eb
+
+decisions:
+  - category: Architecture
+    chose: "Delete on merge through each host's own mechanism: Azure Repos' completion option, GitLab's remove-source-branch flag (on create, ready and merge), and on GitHub a ref delete right after the run's own merge"
+    over: "Changing repository settings (GitHub delete_branch_on_merge) or deleting from a server-side merge watcher"
+    reason: "Repository settings belong to the owner; a server-side delete is a repository write outside a run, which the pipeline rule forbids. Everything here happens inside a pipeline step's provider call. What no host option covers — a person's merge on GitHub or Azure Repos, a closed pull request — is the branch-cleanup run's (713ec)."
+  - category: Architecture
+    chose: "WorkBranches (prefix and Owns) lives in Contracts and TicketBranchNamer.Prefix reads it"
+    over: "A second prefix constant in Infrastructure"
+    reason: "Infrastructure does not reference Application; one constant keeps the branch the namer composes and the branch a provider may delete the same."
+  - category: Implementation
+    chose: "On GitHub a failed ref delete is logged and the completion stays Merged"
+    over: "Reporting the completion refused"
+    reason: "The merge happened; a repository that deletes merged branches itself answers 422 for a ref already gone, and the sweep removes anything left."
+  - category: Review
+    chose: "Adversarial self-review: a GitLab rung merge request carrying remove_source_branch would leave open slice requests targeting a deleted branch"
+    over: "Excluding rungs at create time"
+    reason: "Nothing at create time tells a rung from a ticket branch, and a rung's own merge request merges after its slices by construction (the feature lands last). Accepted; the sweep's verdict keeps any branch an open pull request targets."

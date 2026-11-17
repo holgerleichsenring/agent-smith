@@ -22,7 +22,8 @@ public static class RunBranchResolver
         var parent = RunParentTicket.Of(pipeline);
         if (pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var handed)
             && !string.IsNullOrWhiteSpace(handed))
-            return new RunBranch(new BranchName(handed), ComposedFromTicket: false, parent);
+            return new RunBranch(new BranchName(handed), ComposedFromTicket: false, parent,
+                CutFresh: InitRunSeed.IsInitRun(pipeline)); // 2026-11-17-713ea
 
         return pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) && ticketId is not null
             ? new RunBranch(TicketBranchNamer.Compose(ticketId), ComposedFromTicket: true, parent)

@@ -5,7 +5,7 @@ using AgentSmith.Server.Models;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// 2026-11-10-ccd9: the proposal a conversation is deciding on, as the session row keeps it. Unlike the
+/// 2026-11-10-ccd9: the proposal a conversation is deciding on, as its proposal rows keep it (2026-11-17-a0b6d). Unlike the
 /// pane's display record, every write here fails its caller: a card that was never stored must not be
 /// shown, and a claim or a reject that did not land must not be reported as done. A ticket's own
 /// conversation is nudged after each change, as a saved turn nudges it.
@@ -14,18 +14,27 @@ public sealed class SpecDialogProposalState(
     SpecDialogProposalClaim claim, SpecDialogSessionRepository sessions, BoundSessionNudge bound, SpecDialogConfirmedSlot confirmed)
 {
     /// <summary>Stores the turn's final proposal as awaiting under a fresh id; returns it with the id it replaced.</summary>
+    public Task<(string Id, string? Replaced)> StoreAwaitingAsync(
+        ConversationState state, OutcomeProposal proposal, CancellationToken ct) =>
+        StoreAwaitingAsync(state, proposal, null, ct);
+
+    /// <summary>2026-11-17-a0b6d: the same, as run <paramref name="runId"/>'s own proposal row.</summary>
     public async Task<(string Id, string? Replaced)> StoreAwaitingAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken ct)
+        ConversationState state, OutcomeProposal proposal, string? runId, CancellationToken ct)
     {
-        var stored = await claim.SetAwaitingAsync(state.Platform, state.ThreadId!, OutcomeProposalJson.Write(proposal), ct);
+        var stored = await claim.SetAwaitingAsync(state.Platform, state.ThreadId!, OutcomeProposalJson.Write(proposal), runId, ct);
         await NudgeAsync(state, ct);
         return stored;
     }
 
     /// <summary>A draft under review; never approvable, never over the awaiting proposal.</summary>
-    public async Task StoreReviewingAsync(ConversationState state, OutcomeProposal proposal, CancellationToken ct)
+    public Task StoreReviewingAsync(ConversationState state, OutcomeProposal proposal, CancellationToken ct) =>
+        StoreReviewingAsync(state, proposal, null, ct);
+
+    /// <summary>2026-11-17-a0b6d: the same, as run <paramref name="runId"/>'s own proposal row.</summary>
+    public async Task StoreReviewingAsync(ConversationState state, OutcomeProposal proposal, string? runId, CancellationToken ct)
     {
-        await claim.SetReviewingAsync(state.Platform, state.ThreadId!, OutcomeProposalJson.Write(proposal), ct);
+        await claim.SetReviewingAsync(state.Platform, state.ThreadId!, OutcomeProposalJson.Write(proposal), runId, ct);
         await NudgeAsync(state, ct);
     }
 
@@ -79,17 +88,6 @@ public sealed class SpecDialogProposalState(
 
     public Task PostedAsync(ConversationState state, string? id, DateTimeOffset? at, CancellationToken ct) =>
         claim.SetPostedAsync(state.Platform, state.ThreadId!, id, at, ct);
-
-    /// <summary>Gives a row from before the deploy its id; a stored draft under review stays one. An unreadable
-    /// row is backfilled as awaiting and then reads as absent, as the pane's reads always treated it.</summary>
-    public Task BackfillAsync(string platform, string threadId, CancellationToken ct) =>
-        claim.BackfillAsync(platform, threadId, UnderReview, ct);
-
-    internal static bool UnderReview(string json)
-    {
-        try { return OutcomeProposalJson.Read(json).UnderReview; }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or NotSupportedException) { return false; }
-    }
 
     private async Task NudgeAsync(ConversationState state, CancellationToken ct) =>
         await bound.NotifyAsync(await sessions.GetOpenByThreadAsync(state.Platform, state.ThreadId!, ct), ct);

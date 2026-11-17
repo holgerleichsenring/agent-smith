@@ -227,7 +227,7 @@ public sealed class TicketConversationReadTests : IDisposable
             Row("r-1", 4, RunConversationKinds.Question, 7, "Which repo?", "q-2"), Answer("r-1", "q-2", "api", "jane", "ticket-comment", 8),
             Row("r-1", 5, RunConversationKinds.Question, 9, "Which port?", "q-3"), Answer("r-1", "q-3", "80", "joe", "ticket-comment", 11),
             Row("r-1", 6, RunConversationKinds.HandBack, 20, "## Agent Smith — refused"),
-            Session(null, Turn(TranscriptRole.User, "Can it be faster?", 90), Turn(TranscriptRole.Assistant, "**Yes.**", 91)));
+            Session(Turn(TranscriptRole.User, "Can it be faster?", 90), Turn(TranscriptRole.Assistant, "**Yes.**", 91)));
         Thread(Comment("c-1", "carol", 2, "<h2>Plan</h2>") with { Format = TicketTextFormat.Html },
             Comment("c-2", "jane", 8, "api") with { Format = TicketTextFormat.Markdown });
 

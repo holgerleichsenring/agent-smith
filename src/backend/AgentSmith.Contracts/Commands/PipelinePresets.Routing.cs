@@ -49,5 +49,7 @@ public static partial class PipelinePresets
             + "supplies, so a ticket routed to it fails when it starts",
         [CloseName] = HostActReason,
         [ReopenName] = HostActReason, [StartName] = HostActReason,
+        [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
+            + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };
 }

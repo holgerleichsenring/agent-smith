@@ -13,6 +13,8 @@ namespace AgentSmith.Server.Models;
 /// approved spec exactly as it shows a proposed one and there is one mirror to keep in step.
 /// </para>
 /// </summary>
+/// <param name="Specs">2026-11-17-a0b6b..c: the specs as the ticket branch holds them, never the record's copy.</param>
+/// <param name="BranchUnread">Why the ticket branch could not be read; null when it was.</param>
 public sealed record ApprovedSetView(
     string Key,
     string Tracker,
@@ -20,4 +22,5 @@ public sealed record ApprovedSetView(
     string? ApprovedBy,
     string? ApprovedInConversation,
     IReadOnlyList<string> Repositories,
-    IReadOnlyList<SpecDialogDraftView> Specs);
+    IReadOnlyList<SpecDialogDraftView> Specs,
+    string? BranchUnread = null);

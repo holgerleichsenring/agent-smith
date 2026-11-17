@@ -86,7 +86,7 @@ public static partial class CommandModelUse
         CommandNames.CloseTicket, CommandNames.ReopenTicket, CommandNames.StartTicket, // 2026-11-17-e061a, e061b
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
-        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete,
+        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

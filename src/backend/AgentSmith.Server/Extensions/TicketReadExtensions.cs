@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Server.Services.Tickets.Checks;
@@ -21,6 +22,7 @@ internal static class TicketReadExtensions
     {
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddTransient<SpecDraftReader>();
+        services.AddBranchSeriesRead(); // 2026-11-17-a0b6b
         services.TryAddTransient<SpecRecordReader>();
         services.AddTransient<TicketAttempts>()
             .AddTransient<InfrastructureEnd>()
@@ -43,7 +45,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketRunsQuery>() // 2026-10-13-9a59e
             .AddTransient<TicketSeriesRecordsReader>()
             .AddTransient<TicketSeriesSpecComposer>()
-            .AddTransient<TicketSeriesReader>()
+            .AddTransient<TicketSeriesReader>().AddTransient<TicketBranchSpecs>() // 2026-11-17-a0b6b: the branch is the text
             .AddTransient<SeriesHolds>().AddTransient<SeriesRunwayReader>() // 2026-10-13-8762v
             .AddTransient<TicketReviewsReader>() // 2026-10-13-8762l
             .AddTransient<TicketSpecRecordsReader>()

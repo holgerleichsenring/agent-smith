@@ -125,7 +125,7 @@ public sealed class LiveDoneTargetStateEvalTests(ITestOutputHelper output) : IDi
 
     private static PipelineCostTracker Cost() => PipelineCostTracker.GetOrCreate(new PipelineContext());
 
-    private static CutReviewTestDoubles.CappingFactory Factory() => new(LiveSkillProbeTests.BuildChatClient());
+    private static CutReviewTestDoubles.CappingFactory Factory() => new(LiveChatClient.Build());
 
     private async Task<DerivationLook> LookAsync(DerivationLookTerms terms)
     {

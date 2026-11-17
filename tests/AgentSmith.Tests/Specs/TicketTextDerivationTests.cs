@@ -73,7 +73,7 @@ public sealed class TicketTextDerivationTests
         {
             Set = new SpecSet("github-7", [], SpecAccounting.Empty, [], SpecSource.Approved) { Goal = "Something else entirely" },
         }, CancellationToken.None);
-        var divergence = new ApprovedSetDivergence(ApprovedSetDoubles.Recorder(store), NullLogger<ApprovedSetDivergence>.Instance);
+        var divergence = new ApprovedSetDivergence(SeriesDoubles.BranchSeries(), NullLogger<ApprovedSetDivergence>.Instance);
 
         (await divergence.ForAsync(project, "7", "A ticket text nothing was approved against", CancellationToken.None))
             .Should().BeNull();

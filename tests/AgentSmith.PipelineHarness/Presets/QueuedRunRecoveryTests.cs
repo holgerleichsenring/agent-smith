@@ -14,7 +14,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// 2026-10-02-5ab2b: the operator's finding, through the REAL server composition. An init is
 /// launched and its queue entry is lost — Redis flushed before any consumer popped it. The row
 /// kept the request: the housekeeping sweeper pushes it again, the start gate claims it, and the
-/// operator's auto-complete choice arrives with it; a second copy is dropped at the claim.
+/// operator's refresh-principles choice arrives with it; a second copy is dropped at the claim.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class QueuedRunRecoveryTests
@@ -30,7 +30,7 @@ public sealed class QueuedRunRecoveryTests
         {
             await using var harness = QueuedRunRecoveryHarness.Build(dbPath, queue);
             await DurableDialogueHarness.MigrateAsync(harness);
-            await QueuedRunRecoveryHarness.LaunchInitAsync(harness, RunId, autoComplete: true);
+            await QueuedRunRecoveryHarness.LaunchInitAsync(harness, RunId, refreshPrinciples: true);
             queue.Pending.Should().Be(0, "the first push was lost");
 
             var sweeper = harness.Services.GetRequiredService<QueuedRunSweeper>();
@@ -48,7 +48,7 @@ public sealed class QueuedRunRecoveryTests
             started.Should().NotBeNull().And.Match<ClaimedRunStart>(s => s.IsBeating);
             duplicate.Should().BeNull("the copy pushed twice starts once");
             first.RunId.Should().Be(RunId);
-            ((JsonElement)first.Context![ContextKeys.AutoCompletePullRequests]).GetBoolean().Should().BeTrue();
+            ((JsonElement)first.Context![ContextKeys.RefreshPrinciples]).GetBoolean().Should().BeTrue();
         }
         finally
         {

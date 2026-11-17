@@ -179,7 +179,8 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         await ConversationAsync((TranscriptRole.Assistant, Draft));
         var row = await _context.Set<AgentSmith.Infrastructure.Persistence.Entities.SpecDialogSession>()
             .SingleAsync(session => session.ThreadId == Dialog);
-        row.LatestProposalJson = "{ not a proposal";
+        _context.Add(AgentSmith.Tests.TestSupport.StoredProposals.Row(row.SessionId, "{ not a proposal", "p-1",
+            AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim.Awaiting));
         row.LatestFilingJson = "[1,2,3]";
         await _context.SaveChangesAsync();
 
@@ -263,9 +264,10 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         await ConversationAsync((TranscriptRole.Assistant, Draft));
         // A row as releases before this one wrote it: a kind and its payload, no findings field.
         var session = await _repository.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
-        session!.LatestProposalJson =
+        _context.Add(AgentSmith.Tests.TestSupport.StoredProposals.Row(session!.SessionId,
             "{\"kind\":\"spec\",\"spec\":{\"specId\":\"p9999\",\"goal\":\"widget goal\","
-            + "\"yaml\":\"spec: p9999\",\"requires\":[]}}";
+            + "\"yaml\":\"spec: p9999\",\"requires\":[]}}", "p-1",
+            AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim.Awaiting));
         await _repository.SaveAsync(CancellationToken.None);
 
         (await ReadAsync()).Proposal!.Findings.Should().BeEmpty(

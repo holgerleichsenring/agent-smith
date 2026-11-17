@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-713ec
+goal: "A branch-cleanup run, started per project on a configured interval, deletes every agent-smith/ branch whose pull request merged or closed and that has not moved since."
+
+applies_to: "default (branch-cleanup preset and step, source providers, server sweep subsystem, branch_cleanup config)"
+
+requires: [2026-11-17-713eb]
+
+facts:
+  - claim: "Writing to a repository is a step of a run with a run id; the server starts runs, and its direct writes are baselined debt that may not grow."
+    evidence: "CLAUDE.md:248"
+  - claim: "A ticketless run is started by writing the queued row and dispatching the request; every ticketless run is stamped trigger 'manual' when it starts."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketlessRunLauncher.cs:33-41, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:539"
+  - claim: "A preset that runs no CheckoutSource takes no sandbox; queued runs execute in-process through ExecutePipelineUseCase."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineQueueConsumer.cs:85-87"
+  - claim: "A leader subsystem with an interval is a BackgroundService under its own lease running LeaderEpochLoop, as the preconditions pass is; its config block is a stored settings document refused on load, save and import."
+    evidence: "src/backend/AgentSmith.Server/Services/Preconditions/PreconditionReleaseHostedService.cs:18-49, src/backend/AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs:8-23"
+  - claim: "A person's merge on GitHub or Azure Repos leaves the agent-smith/ branch (2026-11-17-713eb out of scope), and a closed pull request's branch is kept by every host."
+    evidence: ".agentsmith/specs/done/2026-11-17-713eb-branch-delete-on-merge.yaml:25"
+  - claim: "A slice's pull request targets its parent's rung, itself an agent-smith/ branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:24-31"
+  - claim: "Presets a label must not start carry their reason in PipelinePresets.NotRoutable."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Routing.cs:34-41"
+
+scope:
+  in: "Contracts IWorkBranchCleanup (list agent-smith/ branches with their tip, pull requests from a branch in any state with their head sha, count of open pull requests into it, delete), implemented by the Azure Repos, GitHub and GitLab providers; WorkBranchVerdict; preset branch-cleanup = [CleanupWorkBranches] with its handler, context and builder, not routable; BranchCleanupConfig (enabled, interval_seconds) as a settings block; the server's branch-cleanup subsystem and WorkBranchCleanupLauncher."
+  out: "Branches with no pull request at all (a live or parked run's, or one a failed run left before opening one): the run keeps them and names how many — deleting them needs the run's own state, which a later spec reads. Local repositories: no host to list. The dashboard shows the runs as it shows every run; no new control."
+
+steps:
+  - id: contract
+    action: "Contracts/Providers: IWorkBranchCleanup { ListWorkBranchesAsync → WorkBranchTip(Name, Sha) under WorkBranches.Prefix; PullRequestsOfAsync(branch) → BranchPullRequests(From: [BranchPullRequest(State Open|Merged|Closed, HeadSha)], OpenInto: int); DeleteBranchAsync(WorkBranchTip) → bool }."
+  - id: verdict
+    action: "Application WorkBranchVerdict.Judge(tip, prs) → Delete or Keep(reason): an open pull request into it keeps (a rung), an open one from it keeps, none from it keeps ('no pull request'), an ended one whose head sha differs from the tip keeps ('moved since'), otherwise Delete."
+  - id: step
+    action: "CommandNames.CleanupWorkBranches; CleanupWorkBranchesContext(repos, pipeline) built from the project's repos; the handler judges and deletes per repository whose provider implements IWorkBranchCleanup, records per repo deleted and kept-by-reason, catches a repository's failure into its line, and fails only when every repository failed. Display name, beat, step class, model use and progress label entries."
+  - id: preset
+    action: "PipelinePresets.BranchCleanupName = \"branch-cleanup\" = [CleanupWorkBranches]; NotRoutable names why a label cannot start it."
+  - id: providers
+    action: "GitHub: Git.Reference.GetAllForSubNamespace(heads/agent-smith), PullRequest.GetAllForRepository(Head owner:branch, State All) and (Base branch, State Open), Git.Reference.Delete. Azure Repos: GetRefsAsync(filter heads/agent-smith/), GetPullRequestsAsync by SourceRefName (All) and TargetRefName (Active), UpdateRefsAsync with OldObjectId = tip (the delete refuses a moved branch). GitLab: repository/branches?search=^agent-smith/ (paged), merge_requests?source_branch=…&state=all and ?target_branch=…&state=opened, DELETE repository/branches/:name."
+  - id: config
+    action: "BranchCleanupConfig { Enabled = true, IntervalSeconds = 86400 } on AgentSmithConfig, raw config, composer, ConfigDocTypes/taxonomy, SettingsBlockRule, AgentSmithConfigValidator, schema and example with its reason; IntervalSeconds under 3600 refused naming the value, the reason (each run lists every agent-smith/ branch and its pull requests over the host API, which rate-limits) and the key branch_cleanup.interval_seconds."
+  - id: server
+    action: "WorkBranchCleanupLauncher: for a project with a repository whose type has a host (not Local) and no live branch-cleanup run, write the queued row and dispatch PipelineRequest(project, branch-cleanup). WorkBranchCleanupHostedService ('branch-cleanup' subsystem, own lease, LeaderEpochLoop): when enabled, launch for every configured project, then wait interval_seconds."
+
+tests:
+  - "WorkBranchVerdict: every keep reason and the delete case"
+  - "Handler: deletes what the verdict says, skips a provider without the capability, one repo's failure does not stop the next, all failed fails"
+  - "Providers: GitHub/Azure/GitLab list, pull-request read and delete calls against mocked clients/HTTP; Azure delete carries the tip as OldObjectId"
+  - "Config: default, under 3600 refused with value/reason/key, round-trip and save refusal"
+  - "Launcher: queued row and dispatched request, a live run skips, a Local-only project skips; hosted pass launches per project and not when disabled"
+  - "Harness: branch-cleanup through the real composition deletes a merged agent-smith/ branch of a scripted provider and keeps an open one"
+
+done:
+  - "Within one interval of a person merging or closing an agent-smith/ pull request on any of the three hosts, its unchanged branch is gone, by a run the dashboard lists."

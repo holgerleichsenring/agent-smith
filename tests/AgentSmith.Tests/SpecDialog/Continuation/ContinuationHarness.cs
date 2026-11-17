@@ -55,6 +55,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddSingleton(Config).AddSingleton<ITicketProviderFactory>(Tracker).AddSingleton(Activity.Object);
         services.AddSingleton<ISpecApprovalStore>(Approvals).AddSingleton<ISpecSetPointerStore>(Pointers);
+        services.AddSingleton<ISourceProviderFactory>(Sources); // 2026-11-17-a0b6b: the basis is read off the ticket branch
         services.AddSingleton<TrackerIdentity>().AddTransient<TicketClosure>().AddTransient<FiledWorkTrackerProjects>();
         services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogTicketTextRepository>().AddScoped<SpecDialogProposalClaim>();
         services.AddScoped<ActiveRunRepository>().AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
@@ -136,22 +137,37 @@ internal sealed class ContinuationHarness : IDisposable
     /// <summary>The bound conversation with its open proposal and the ticket text it recorded.</summary>
     public async Task BindAsync(OutcomeProposal? proposal)
     {
-        await AddAsync(TicketConversationFixtures.Session(proposal), new SpecDialogTicketText
+        await AddAsync(TicketConversationFixtures.Session(), new SpecDialogTicketText
         {
             SessionId = SessionId, TicketId = TicketId, Title = "Widget drops", Text = "Title: Widget drops",
             Fingerprint = "fp", ReadAt = TicketStoreHarness.T,
         });
+        if (proposal is not null) await AddAsync(TicketConversationFixtures.Awaiting(proposal));
     }
 
-    /// <summary>A worked attempt that published a cut of <paramref name="specs"/>, with the pointer naming what ran.</summary>
+    /// <summary>A worked attempt that published a cut of <paramref name="specs"/>, with the pointer naming what ran.
+    /// 2026-11-17-a0b6b: and the specs on the ticket branch of <paramref name="carrier"/>, where their text is read.</summary>
     public async Task WorkedAsync(string runId, string project, string series, IReadOnlyList<string> specs,
         IReadOnlyList<string> executed, string carrier = "web", string status = "success")
     {
         await AddAsync(TicketStoreHarness.Run(runId, project: project, status: status), TicketStoreHarness.Step(runId),
             TicketSeriesFixtures.Cut(runId, 1, [.. specs.Select((id, i) => TicketSeriesFixtures.Entry(id, i + 1))]),
             new RunAttempt { RunId = runId, SeriesId = series });
+        await OnBranchAsync(carrier, series, specs);
         await Pointers.SaveAsync(project, new SpecSetPointer(Key, carrier, "sha", 1, SeriesId: series,
             RevisionShas: new Dictionary<string, string> { [carrier] = "sha" }, ExecutedIds: executed), default);
+    }
+
+    /// <summary>2026-11-17-a0b6b: <paramref name="specs"/> written to ticket 42's branch of <paramref name="repo"/>.</summary>
+    public Task OnBranchAsync(string repo, string series, IReadOnlyList<string> specs)
+    {
+        var set = new SpecSet(Key, [.. specs.Select(id => TicketSeriesFixtures.BranchSpec(id) is var spec
+                ? spec with { Draft = spec.Draft with { Repos = [repo] } } : spec)],
+            SpecAccounting.Empty, [new SpecRevision(1, "initial", TicketStoreHarness.T)], SpecSource.Approved, Series: series);
+        var files = new AgentSmith.Application.Services.Specs.SeriesFiles(new AgentSmith.Application.Services.Specs.SeriesManifest())
+            .Render(set).Select(f => new RepoFile(f.Path, f.Content)).ToList();
+        Sources.Seed(repo, "agent-smith/42", files);
+        return Task.CompletedTask;
     }
 
     public async Task AddAsync(params object[] rows)
@@ -164,18 +180,18 @@ internal sealed class ContinuationHarness : IDisposable
     public async Task<string?> OpenProposalJsonAsync()
     {
         await using var ctx = new AgentSmithDbContext(Options());
-        return SpecDialogAwaitingRow.Json(await ctx.Set<SpecDialogSession>().SingleAsync(s => s.SessionId == SessionId));
+        return await ctx.Set<SpecDialogProposal>().Where(p => p.SessionId == SessionId && p.State == SpecDialogProposalClaim.Awaiting)
+            .Select(p => p.ProposalJson).SingleOrDefaultAsync();
     }
 
     /// <summary>2026-11-10-ccd9 review: an approve or reject decided as a person decides it — through the decision
-    /// path, on the id of the card the page showed (a fixture row from before the deploy is backfilled first).</summary>
+    /// path, on the id of the card the page showed.</summary>
     public Task<SpecDialogDecided> DecideAsync(SpecDialogDecision decision, bool mayStartRuns = false) => InScopeAsync(async sp =>
     {
         var sessions = sp.GetRequiredService<SpecDialogSessionRepository>();
         var proposals = new SpecDialogProposalState(
             sp.GetRequiredService<SpecDialogProposalClaim>(), sessions, sp.GetRequiredService<BoundSessionNudge>(),
             sp.GetRequiredService<SpecDialogConfirmedSlot>());
-        await proposals.BackfillAsync(State().Platform, Thread, default);
         var id = (await proposals.ReadAsync(State(), default)).AwaitingId;
         var (messenger, composer) = (sp.GetRequiredService<SpecDialogMessenger>(), sp.GetRequiredService<SpecDialogOutcomeComposer>());
         var cards = new SpecDialogChatCard(new AgentSmith.Server.Services.Adapters.ChatThreadAdapters([],

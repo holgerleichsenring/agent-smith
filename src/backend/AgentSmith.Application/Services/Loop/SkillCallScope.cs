@@ -6,17 +6,13 @@ namespace AgentSmith.Application.Services.Loop;
 /// Per-skill-call cost-attribution scope opened by
 /// <see cref="PipelineCostTracker.BeginCall"/>. Inside the scope, every
 /// <c>Track(ChatResponse)</c> call attributes its tokens to this scope's running
-/// totals. Disposing the scope finalizes the <see cref="CallCostRecord"/>;
-/// the runtime calls <see cref="Finalize"/> with its <see cref="LimitEnforcer"/>
-/// counters before disposal.
+/// totals. Disposing the scope finalizes the <see cref="CallCostRecord"/>.
 /// </summary>
 public sealed class SkillCallScope : IDisposable
 {
     private readonly PipelineCostTracker _tracker;
     private readonly DateTimeOffset _startedAt;
     private bool _disposed;
-
-    private LimitEnforcer? _enforcer;
 
     public SkillCallScope(string skillName, string role, SkillExecutionPhase phase,
         PipelineCostTracker tracker, DateTimeOffset startedAt, string? repoName = null)
@@ -60,11 +56,9 @@ public sealed class SkillCallScope : IDisposable
         AccruedUsd += usd;
     }
 
-    /// <summary>p0361: copied from the ambient CallScope by SkillCallRuntime
-    /// before finalize — see CallScope.DuplicateToolCallCount.</summary>
+    /// <summary>p0361: copied from the ambient CallScope before disposal — see
+    /// CallScope.DuplicateToolCallCount.</summary>
     public void SetDuplicateToolCalls(int count) => _duplicateToolCalls = count;
-
-    public void Finalize(LimitEnforcer enforcer) => _enforcer = enforcer;
 
     internal bool IsEnded => _disposed;
 
@@ -72,12 +66,12 @@ public sealed class SkillCallScope : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _tracker.EndCall(this, _enforcer);
+        _tracker.EndCall(this);
     }
 
-    internal CallCostRecord BuildRecord(LimitEnforcer? enforcer)
+    internal CallCostRecord BuildRecord()
     {
-        var elapsed = enforcer?.ElapsedMs ?? (long)(DateTimeOffset.UtcNow - _startedAt).TotalMilliseconds;
+        var elapsed = (long)(DateTimeOffset.UtcNow - _startedAt).TotalMilliseconds;
         return new CallCostRecord
         {
             SkillName = SkillName,
@@ -88,10 +82,8 @@ public sealed class SkillCallScope : IDisposable
             OutputTokens = OutputTokens,
             CacheCreateTokens = CacheCreateTokens,
             CacheReadTokens = CacheReadTokens,
-            ToolCallCount = enforcer?.ToolCallCount ?? 0,
             DurationMs = elapsed,
             StartedAt = _startedAt,
-            HitLimit = enforcer?.HitLimit,
             Model = string.Join("+", _models.OrderBy(m => m, StringComparer.OrdinalIgnoreCase)),
             AccruedUsd = AccruedUsd,
             DuplicateToolCallCount = _duplicateToolCalls

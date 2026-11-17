@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-a0b6b
+
+decisions:
+  - category: Architecture
+    chose: "SpecCutEntry keeps SpecId, Ordinal, FileStem, Goal and Repos; Steps, Done and Yaml go"
+    over: "Dropping the goal too, or keeping the whole text as before"
+    reason: "The goal titles the run's own not-started RunSpec rows (RunSeriesCutProjection) — the run's history of what it published, which the run page reads; no reader takes it as the spec's current text. Steps, done and yaml were read only by the ticket page and the continuation basis, both now on the branch."
+  - category: Architecture
+    chose: "The ticket page reads the branch head; an attempt's view lists the specs that attempt's cut named with the branch's current text"
+    over: "Reading each attempt's text at the commit it published"
+    reason: "The branch is the truth the next attempt works from; history at a commit is git's own UI (diff, blame, the PR). The cut still says which specs an attempt published and in what order."
+  - category: Implementation
+    chose: "A ticket with no code run whose branch holds a set answers a view with source 'branch' and Recorded true, every spec not started"
+    over: "Keeping the 404 until a run publishes a cut"
+    reason: "Filing writes the approved set to the branch before any run; the Specs section was blind to it, which is exactly the gap a DB-held cut created."
+  - category: Implementation
+    chose: "A branch the host cannot read is named on the view (BranchUnread) and the cut's ids still show; a continuation whose branch cannot be read fails with the reason and records nothing"
+    over: "Falling back to the cut's or the record's text"
+    reason: "A fallback copy is the second truth this series removes; for the continuation an empty basis would write a fresh revision 1 over a published series, the failure the sibling-project rule already guards against."
+  - category: Implementation
+    chose: "One branch read per ticket-series request, no cache"
+    over: "Caching the branch read per ticket"
+    reason: "A cache keyed on nothing the branch changes would show a reviewer's edit late, the defect this spec fixes; the read is a handful of host calls per page load, the same order as the PR reads the ticket page already makes."
+  - category: Implementation
+    chose: "AddBranchSeriesRead registers the series reading with TryAdd and is called by the derivation, the ticket readers and the continuation registration"
+    over: "Each registration listing the classes again"
+    reason: "Three hosts compose the reader; one idempotent list keeps them from drifting."
+  - category: Testing
+    chose: "TicketStoreHarness writes a fixture OnBranch(...) row through the real FiledSpecBranch onto RecordingBranchSources; ContinuationHarness seeds the branch (RecordingBranchSources.Seed), which reads like a write but is not counted in Writes"
+    over: "Stubbing TicketBranchSpecs"
+    reason: "The tests resolve TicketSeriesReader and the continuation reader through the real registration, so the page and rework are proven to read what filing wrote; seeding keeps the assertions that a continuation writes nothing to the branch."

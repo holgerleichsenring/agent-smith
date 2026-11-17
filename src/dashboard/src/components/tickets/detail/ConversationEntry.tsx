@@ -1,9 +1,9 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { TicketConversationEntry } from "@/types/tickets";
 import { TrackerText } from "@/components/ui/TrackerText";
-import { avatarOf, decisionPill, isQuote, nameOf, whereOf } from "./conversationWords";
+import { decisionPill, isQuote, nameOf, whereOf } from "./conversationWords";
 import { clock } from "./flowWords";
 
 // 2026-10-13-9a59r: one entry of the ticket's conversation, the mock's .msg — avatar by role, the name
@@ -11,7 +11,8 @@ import { clock } from "./flowWords";
 // file and line, the detail block (a ticket-text diff, a hand-back's quote, a cut review's findings) and
 // the footer. Keyed and anchored on 9a59h's composite id. Spec-cut entries are drawn internal. The body renders
 // in the format its source named.
-// 2026-10-17-e730d: body and detail clamp together at about six lines, with Show more when the drawn box overflows.
+// 2026-11-17-8d1cb: one line of What happened — time, a dot in the speaker's colour, who, then the where-label and the
+// whole text: a conversation shows long texts in full (the six-line clamp of 2026-10-17-e730d is gone).
 
 /** The cap the pull-request record cuts a note's body at. */
 const PR_BODY_CAP = 4000;
@@ -26,66 +27,40 @@ interface Props {
 }
 
 export function ConversationEntry({ entry, attemptNumber, started, target = false }: Props) {
-  const avatar = avatarOf(entry);
   const internal = entry.source === "spec-cut";
   const pill = decisionPill(entry);
   const startedNothing = entry.kind === "command-answer"
     && (entry.detail as { startedNothing?: unknown } | null | undefined)?.startedNothing === true;
   const footer = pill || started !== null || startedNothing;
   return (
-    <div className={["msg", internal && "internal", target && "target"].filter(Boolean).join(" ")} data-entry-id={entry.id}
-      data-testid="conv-entry" data-source={entry.source} data-target={target || undefined}>
-      <span className={`av ${avatar.className}`} aria-hidden="true">{avatar.text}</span>
-      <div>
-        <div className="mh">
-          <b>{nameOf(entry)}</b>
+    <div className={["tk-line", "tk-entry", toneOf(entry), internal && "internal", target && "target"].filter(Boolean).join(" ")}
+      data-entry-id={entry.id} data-testid="conv-entry" data-source={entry.source} data-target={target || undefined}>
+      <div className="tk-line-head">
+        <span className="tk-at mono">{clock(entry.at)}</span>
+        <span className="tk-dot" aria-hidden="true" />
+        <span className="tk-who">{nameOf(entry)}</span>
+        <div className="tk-text">
           <span className="where">{whereOf(entry, attemptNumber)}</span>
-          <span className="w">{clock(entry.at)}</span>
-        </div>
-        <Clamped entry={entry}>
           <Body entry={entry} />
           <DetailBlock entry={entry} />
-        </Clamped>
-        {footer && (
-          <div className="mf">
-            {pill && <span className={`pill ${pill[0]}`}>{pill[1]}</span>}
-            {startedNothing && <span>command answered, no attempt</span>}
-            {started !== null && <span className="eff run" data-testid="conv-started">started attempt {started}</span>}
-          </div>
-        )}
+          {footer && (
+            <div className="mf">
+              {pill && <span className={`tk-decision ${pill[0]}`}>{pill[1]}</span>}
+              {startedNothing && <span>command answered, no attempt</span>}
+              {started !== null && <span className="eff run" data-testid="conv-started">started run {started}</span>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-/** Six lines and a fade while closed; the toggle shows only when the drawn content is taller than that. Measured
- *  only while closed — open, nothing overflows — so Show less stays once it was offered. */
-function Clamped({ entry, children }: { entry: TicketConversationEntry; children: ReactNode }) {
-  const box = useRef<HTMLDivElement>(null);
-  const inner = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [over, setOver] = useState(false);
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (open || !el) return;
-    const measure = () => setOver(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    if (typeof ResizeObserver === "undefined" || !inner.current) return;
-    const watcher = new ResizeObserver(measure);
-    watcher.observe(inner.current);
-    return () => watcher.disconnect();
-  }, [open, entry.text, entry.detail]);
-  const className = ["m-clamp", !open && "closed", !open && over && "over"].filter(Boolean).join(" ");
-  return (
-    <>
-      <div ref={box} className={className} data-testid="conv-clamp"><div ref={inner}>{children}</div></div>
-      {over && (
-        <button type="button" className="tt-more" aria-expanded={open} onClick={() => setOpen(!open)} data-testid="conv-more">
-          {open ? "Show less" : "Show more"}
-        </button>
-      )}
-    </>
-  );
+/** A person's words in the bright text colour, a reviewer's in the person colour, everything else quiet. */
+function toneOf(entry: TicketConversationEntry): string {
+  if (entry.role === "person") return "you";
+  if (entry.role === "reviewer") return "person";
+  return "quiet";
 }
 
 function Body({ entry }: { entry: TicketConversationEntry }) {

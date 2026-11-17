@@ -98,8 +98,6 @@ public sealed class WriteRunResultHandlerArtifactsTests
         var pipeline = NewPipelineWithSandbox();
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
         var scope = tracker.BeginCall("plan-author", "planner", SkillExecutionPhase.Plan);
-        scope.Finalize(new LimitEnforcer(new Contracts.Models.Configuration.LoopLimitsConfig(),
-            new CancellationTokenSource()));
         scope.Dispose();
 
         await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);

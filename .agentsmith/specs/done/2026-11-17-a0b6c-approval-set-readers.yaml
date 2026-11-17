@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-a0b6c
+goal: "The dialog pane's approved set and the divergence check read the specs off the ticket branch, and a ratchet keeps any new reader from taking spec text out of the approval record."
+
+applies_to: "default (ApprovedSetForConversation, ApprovedSetDivergence, architecture ratchets, real-composition harness)"
+
+requires: [2026-11-17-a0b6b]
+
+facts:
+  - claim: "The pane's approved set is the approval record's drafts."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetForConversation.cs:21-39"
+  - claim: "The divergence check compares the ticket text with the approval record's spec goals."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetDivergence.cs:24-39"
+  - claim: "The record carries the ticket id and the project it was filed into; both are empty on an older record."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:68-87"
+  - claim: "A run takes the branch's set over any stored record."
+    evidence: "tests/AgentSmith.Tests/Specs/ApprovedSetDeriveSpecTests.cs:298"
+  - claim: "The real server composition files an approved list through the 'file' run with a replaceable source remote."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/FilePipelineCompositionTests.cs:30-58"
+
+scope:
+  in: "ApprovedSetForConversation takes the approval's metadata (instant, principal, conversation, repositories) from the record and the specs from TicketBranchSpecs (project: the record's, else the session's; ticket: the record's id, else the key's id part); ApprovedSetView gains BranchUnread and the pane shows it; ApprovedSetDivergence compares against the branch's goals; ApprovalSetReadersRatchetTests: a backend file that reads an approval record (SpecApprovalRecord, ISpecApprovalStore, ApprovedSpecSetRecorder, ApprovedSpecSetResolver) and its set's specs or goal must be listed in approval-set-readers-baseline.tsv with its reason; the list holds the writes that put a set on a branch and the pending-edit readers block 4 retires; a real-composition test files a ticket, changes the stored record's text, and reads the ticket page, the continuation basis and the pane from the branch."
+  out: "The run's one-time hand-off and the continuation merge (ApprovedSetHandoff, ApprovedContinuation) and the pending edit (PendingSeriesEditReader, NextAttemptSeriesReader, SeriesEditAct, TicketContinuationAct): they read the record's set as a write not yet on the branch; block 4 turns amend and continuation into pipelines that write the edit to the branch, after which they leave the baseline. FiledTicketRows' title (the series goal the ticket was filed with)."
+
+steps:
+  - id: pane
+    action: "ApprovedSetForConversation reads the record, then the branch; a record with no set on the branch shows no specs and BranchUnread when the branch could not be read; src/dashboard ApprovedSetView type and DialogApprovedPanel show the line."
+  - id: divergence
+    action: "ApprovedSetDivergence: TicketBranchSpecs.ReadAsync(project, ticket id); no set or unread is no divergence, as an unreachable store was."
+  - id: ratchet
+    action: "ApprovalSetReadersRatchetTests with approval-set-readers-baseline.tsv (file, reason): a new file fails naming the branch reader to use, a listed file that no longer matches must leave."
+  - id: composition
+    action: "SpecTextFromBranchCompositionTests (PipelineHarness, RealCompositionHarness with RecordingBranchSources as the remote): file one ticket with one spec through IFilingRun; overwrite the stored record with another goal; the ticket series read, the continuation state read and the dialog pane all answer the branch's goal."
+
+tests:
+  - "ApprovedSetForConversationTests: specs from the branch; branch unread named"
+  - "ApprovedSetDivergenceTests: compares the branch's goals"
+  - "ApprovalSetReadersRatchetTests: green on the baseline"
+  - "SpecTextFromBranchCompositionTests: page, basis and pane read the branch after the record changed"
+  - "DialogApprovedPanel test: BranchUnread shown"
+
+done:
+  - "No server reader shows or compares spec text from the approval record; the files still reading its set are named with their reason and cannot grow."

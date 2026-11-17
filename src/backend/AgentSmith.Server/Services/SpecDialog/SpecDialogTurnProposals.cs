@@ -21,7 +21,7 @@ public sealed class SpecDialogTurnProposals(
 {
     public async Task<SpecDialogSessionView> WithAsync(
         SpecDialogSessionView session, ConversationState state, bool computing, CancellationToken ct,
-        OutcomeProposal? awaiting = null)
+        string? awaitingId = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         var byRun = await store.ReadAsync(state.JobId, ct);
@@ -42,23 +42,21 @@ public sealed class SpecDialogTurnProposals(
         return session with
         {
             Transcript = transcript,
-            ProposalTurn = AwaitingTurn(session, byRun, awaiting) ?? session.ProposalTurn,
+            ProposalTurn = AwaitingTurn(session, byRun, awaitingId) ?? session.ProposalTurn,
             RunningRunId = state.RunningRunId,
             RunningProposal = running.Key is null ? null : Push(state, running.Value.Proposal, state.LastActivityAt, computing),
             InterruptedTurns = interrupted.Count == 0 ? null : interrupted,
         };
     }
 
-    /// <summary>The last kept turn whose own proposal is <paramref name="awaiting"/>: both are written from one object by
-    /// one serializer (SpecDialogOutcomeFlow), so equal JSON is the same proposal.</summary>
+    /// <summary>The kept turn whose own row is the awaiting proposal <paramref name="awaitingId"/> (2026-11-17-a0b6d: by its
+    /// id — the awaiting proposal IS that row — no longer by comparing JSON).</summary>
     private static int? AwaitingTurn(
-        SpecDialogSessionView session, IReadOnlyDictionary<string, SpecDialogTurnProposalRead> byRun, OutcomeProposal? awaiting)
+        SpecDialogSessionView session, IReadOnlyDictionary<string, SpecDialogTurnProposalRead> byRun, string? awaitingId)
     {
-        if (awaiting is null || session.Proposal is null) return null;
-        var json = OutcomeProposalJson.Write(awaiting);
+        if (awaitingId is null || session.Proposal is null) return null;
         for (var index = session.Transcript.Count - 1; index >= 0; index--)
-            if (session.Transcript[index].RunId is { } runId && byRun.TryGetValue(runId, out var kept)
-                && OutcomeProposalJson.Write(kept.Proposal) == json)
+            if (session.Transcript[index].RunId is { } runId && byRun.TryGetValue(runId, out var kept) && kept.AwaitingId == awaitingId)
                 return index;
         return null;
     }

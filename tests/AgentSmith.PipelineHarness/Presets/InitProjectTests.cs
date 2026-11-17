@@ -44,6 +44,28 @@ public sealed class InitProjectTests
     }
 
     [Fact]
+    public async Task InitProject_StartedWithATicketLikeALabel_RunsInInitModeOnAFreshInitBranch()
+    {
+        // 2026-11-17-713ea: the runner seeds a ticket id, which is the shape a tracker label's
+        // init has. Init mode and the init branch come from the pipeline name alone.
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default),
+            SandboxBackend.Stub, session: null, SkillsBackend.Fixture,
+            HarnessProjectAnalyzerStub.Register);
+        EnqueueBootstrapWrite(harness);
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync(AgentSmith.Contracts.Commands.PipelinePresets.InitProjectName);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        var context = runner.LastContext!;
+        AgentSmith.Application.Services.InitRunSeed.IsInitRun(context).Should().BeTrue();
+        context.Get<string>(AgentSmith.Contracts.Commands.ContextKeys.CheckoutBranch).Should().Be("agent-smith/init");
+        AgentSmith.Application.Services.RunBranchResolver.Resolve(context)!.CutFresh.Should().BeTrue(
+            "every init cuts its branch fresh from the base");
+    }
+
+    [Fact]
     public async Task InitProject_RepositoryWithNoSource_FailsNamingItInsteadOfReportingSuccess()
     {
         await using var harness = RealCompositionHarness.Build(

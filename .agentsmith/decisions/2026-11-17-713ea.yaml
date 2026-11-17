@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-713ea
+
+decisions:
+  - category: Architecture
+    chose: "One path: what makes a run an init is its pipeline name (InitRunSeed, called from ExecutePipelineUseCase); the four doors (dashboard POST, chat intent incl. the Slack modal, CLI init, a tracker label mapped to init-project) stay as doors and pass no init-specific flag"
+    over: "Routing every door through InitRunLauncher, or removing the label door"
+    reason: "The operator's agreed wording is 'dashboard, CLI, chat and label go one way'. The CLI runs in-process with no server to call, and the label door already has the poller's claim and lease, so the one way is the run itself: no door can start an init that runs differently. IsInit on PipelineRequest was the flag that let the label door run outside init mode; it is gone."
+  - category: Architecture
+    chose: "The init branch keeps its fixed name agent-smith/init and is cut fresh from the resolved base on every run (RunBranch.CutFresh); the push forces with a lease, so it replaces what the remote held, and an init PR still open on that head is refreshed rather than opened twice"
+    over: "A per-run branch name such as agent-smith/init-<run id>"
+    reason: "A per-run name leaves an earlier open init PR beside the new one, and a name below agent-smith/init/ collides with an existing agent-smith/init ref. The fixed name means one init PR per repository at a time. A person's commits on an open init PR are replaced by a new init they or a label asked for; the init branch is the framework's own."
+  - category: Architecture
+    chose: "Every init completes its pull requests; the launch flag, the context key, the request member and the dashboard checkbox are removed"
+    over: "Keeping the checkbox defaulting to on, or a project setting"
+    reason: "The operator agreed 'auto-complete on everywhere'. A branch policy or required reviewer that refuses still leaves the PR open with its reason recorded (p0490/p0501), which is the way to keep a human review before the files land; the onboarding doc says so."
+  - category: Implementation
+    chose: "WriteRunResult takes the init fan-out when the run carries the InitMode flag OR has neither ticket nor plan"
+    over: "Replacing the null-ticket-and-plan test with the flag alone"
+    reason: "A label-started init fetches its ticket, so the null test alone sent it down the ticket-driven write with a null plan. The flag alone broke the ticketless security scan, which relied on the same fan-out (PipelineE2ETests caught it)."
+  - category: Implementation
+    chose: "The init ticket comment moved to InitTicketSummary and now says the run completes the PRs itself"
+    over: "Editing it in place"
+    reason: "InitCommitHandler is on the file-length baseline at 190 lines; the find-or-create added ten, the extraction brings it to 177."
+  - category: Review
+    chose: "Adversarial self-review before building found: (1) a fresh cut must skip the existing-branch checkout entirely, since a handed branch is never merged with its base; (2) creating a second PR on the same head is refused by every host, hence find-or-create; (3) the label door also skipped WriteRunResult's init record"
+    over: "Building the spec text as first written"
+    reason: "Each finding changed a step before code was written."

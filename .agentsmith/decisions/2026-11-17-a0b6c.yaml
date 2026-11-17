@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-a0b6c
+
+decisions:
+  - category: Architecture
+    chose: "The pane keeps the record for WHOSE approval and when, and takes the specs from the ticket branch"
+    over: "Dropping the record from the pane"
+    reason: "The approval instant, principal and conversation are metadata the branch manifest also carries but the record is keyed by the conversation's tracker connection, which is how the pane may address a ticket at all; only the text had a second home."
+  - category: Implementation
+    chose: "The pane addresses the branch by the record's project and ticket id, else the session's project and the id part of the key"
+    over: "Refusing records written before the record carried them"
+    reason: "Older records are still the ordinary case; the branch name is composed from a lowercase slug of the id, so the key's id part names the same branch."
+  - category: Implementation
+    chose: "Divergence reads TicketBranchSeries directly and no longer reads the approval record"
+    over: "Keeping the record to tell a ticket-text record apart"
+    reason: "A ticket text has no set on its branch, which answers 'nothing to compare' on its own; the record's TicketText flag was the second fact for the same thing."
+  - category: Architecture
+    chose: "A text ratchet over backend files: one that names an approval-record type and touches Set.Specs or Set.Goal must be listed with its reason"
+    over: "A Roslyn analysis of record.Set reads"
+    reason: "The two patterns catch every reader the inventory found except the pending-edit readers that reach the set through a merged copy, which are named in the spec's scope for block 4; the cost is one regex pass in the architecture suite."
+  - category: Implementation
+    chose: "The pending-edit readers (TicketContinuationAct, SeriesEditAct, NextAttemptSeriesReader, PendingSeriesEditReader, ApprovedContinuation) and the run's one-time hand-off keep reading the record's set"
+    over: "Writing an edit straight to the branch in this series"
+    reason: "Their set is an edit not yet on any branch, the input of a write; turning amend and continuation into pipelines that write it is block 4 of the consolidation plan, which waits on the file pipeline. They are named in the baseline or the spec so block 4 can take them out."
+  - category: Implementation
+    chose: "FiledTicketRows keeps the series goal as a never-run ticket's title"
+    over: "Reading every listed ticket's branch for its title"
+    reason: "It is the title the ticket was filed with, shown in a list; one host read per row per list load would cost more than every other read of the page together."
+  - category: Testing
+    chose: "SpecTextFromBranchCompositionTests composes the real server with AddTicketReaders and AddTicketDefaults, as the dashboard API does, files through the 'file' run and overwrites the stored record before reading"
+    over: "Enabling the whole dashboard API in the harness"
+    reason: "The dashboard API also brings SignalR and hosted services the harness does not run; the two registrations are the ones the Specs endpoint resolves through."
+  - category: Product
+    chose: "The pane says its specs are on the ticket branch, where a run reads them"
+    over: "Keeping 'not necessarily what a run is working now'"
+    reason: "That warning described the second copy this spec removes; the text now states what the pane shows."

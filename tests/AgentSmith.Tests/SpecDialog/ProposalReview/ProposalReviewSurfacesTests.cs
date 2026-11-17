@@ -68,12 +68,12 @@ public sealed class ProposalReviewSurfacesTests
     {
         var reader = new TicketTranscriptReader(Mock.Of<IServiceScopeFactory>(), NullLogger<TicketTranscriptReader>.Instance);
 
-        var view = reader.Proposal(TicketConversationFixtures.Session(Reviewed()))!;
+        var view = reader.Proposal(TicketConversationFixtures.Session(), ("p-1", OutcomeProposalJson.Write(Reviewed())))!;
 
         view.Findings.Should().ContainSingle().Which.Problem.Should().Be("not reviewed yet");
         view.ReviewRounds.Should().BeEquivalentTo([Round]);
         view.NotReviewed.Should().Equal(Lone, ProposalReviewTokens.Series);
-        reader.Proposal(TicketConversationFixtures.Session(new SpecOutcome(Draft)))!.NotReviewed.Should().BeNull();
+        reader.Proposal(TicketConversationFixtures.Session(), ("p-1", OutcomeProposalJson.Write(new SpecOutcome(Draft))))!.NotReviewed.Should().BeNull();
     }
 
     [Fact]

@@ -39,7 +39,7 @@ internal static class InitCommand
             sourceOptions.ApplyTo(ctx, context);
             if (refresh) context[ContextKeys.RefreshPrinciples] = true;
 
-            var request = new PipelineRequest(project, "init-project", IsInit: true, Headless: true,
+            var request = new PipelineRequest(project, PipelinePresets.InitProjectName, Headless: true,
                 Context: context.Count > 0 ? context : null);
 
             if (isDryRun)

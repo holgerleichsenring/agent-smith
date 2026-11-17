@@ -41,7 +41,7 @@ internal static class SampleEventFactory
         if (declared == typeof(IReadOnlyList<string>)) return new[] { "one", "two" };
         if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Specs.SpecCutEntry>)) // 2026-10-13-9a59e
             return new[] { new AgentSmith.Contracts.Specs.SpecCutEntry("2026-10-13-1234a", 1, "2026-10-13-1234a-x", "goal",
-                ["api"], [new AgentSmith.Contracts.Models.SpecStep("s1", "do it", "src/A.cs")], ["it builds"], "spec: x") };
+                ["api"]) };
         if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Passes.MasterPassCriterion>)) // 2026-10-13-9a59f
             return new[] { new AgentSmith.Contracts.Passes.MasterPassCriterion("it builds", "met", "src/A.cs") };
         if (declared == typeof(IReadOnlyList<AgentSmith.Domain.Models.CutFinding>)) // 2026-10-13-9a59g
@@ -54,6 +54,11 @@ internal static class SampleEventFactory
             return new[] { new SpecEvidenceProblem("it exists", "not a file (missing, or a directory): src/A.cs") };
         if (declared == typeof(IReadOnlyList<SpecReviewResidue>))
             return new[] { new SpecReviewResidue("done", "the four word run") };
+        if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Verify.VerifyRepositoryPass>)) // 2026-11-17-d6fbc
+            return new[] { new AgentSmith.Contracts.Verify.VerifyRepositoryPass("server", "passed",
+                [new AgentSmith.Contracts.Verify.VerifyStageRun("build", "dotnet build", 0, false)]) };
+        if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Verify.VerifyStaleDerivation>))
+            return new[] { new AgentSmith.Contracts.Verify.VerifyStaleDerivation("server", "default", ["ci.yml"]) };
         if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Memory.MemoryCitation>)) // 2026-10-25-9324b
             return new[] { new AgentSmith.Contracts.Memory.MemoryCitation("api", "github.com/o/api", "build-order") };
         if (type == typeof(AgentSmith.Contracts.Memory.MemoryCitation))

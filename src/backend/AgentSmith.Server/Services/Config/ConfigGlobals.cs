@@ -25,8 +25,7 @@ public sealed record ConfigOrchestrator(int MaxRunWallTimeSeconds);
 /// <summary>The agentic-loop hard limits operators most often tune.</summary>
 public sealed record ConfigLimits(
     int MaxToolCallsPerSkill,
-    int MaxLlmCallsPerSkill,
-    int MaxConcurrentSkillCalls,
+    int MaxSecondsPerSkillCall,
     int MaxSubAgentsPerRun);
 
 /// <summary>The default per-pipeline cost cap (USD + token budget).</summary>

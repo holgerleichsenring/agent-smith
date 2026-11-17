@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using static AgentSmith.Tests.Tickets.TicketStoreHarness;
@@ -47,13 +48,19 @@ internal static class TicketConversationFixtures
     public static TicketComment Comment(string id, string author, int minutes, string body) =>
         new(author, T.AddMinutes(minutes), body) { Id = id };
 
-    public static SpecDialogSession Session(OutcomeProposal? proposal = null, params TranscriptTurn[] turns) => new()
+    public static SpecDialogSession Session(params TranscriptTurn[] turns) => new()
     {
         SessionId = "s-1", Platform = "dashboard", ChannelId = "c", ThreadId = "d-1", UserId = "owner", Project = "alpha",
         Tracker = "gh", TicketKey = "github-42", IsOpen = true,
         TranscriptJson = SpecDialogSessionMapper.WriteTranscript(turns),
-        LatestProposalJson = proposal is null ? null : OutcomeProposalJson.Write(proposal),
     };
+
+    /// <summary>2026-11-17-a0b6d: <see cref="Session"/>'s proposal awaiting a decision, as its row.</summary>
+    public static SpecDialogProposal Awaiting(OutcomeProposal proposal) =>
+        TestSupport.StoredProposals.Row("s-1", OutcomeProposalJson.Write(proposal), AwaitingId, SpecDialogProposalClaim.Awaiting);
+
+    /// <summary>The id <see cref="Awaiting"/> awaits under.</summary>
+    public const string AwaitingId = "p-1";
 
     public static TranscriptTurn Turn(TranscriptRole role, string text, int minutes) => new(role, text, T.AddMinutes(minutes));
 }

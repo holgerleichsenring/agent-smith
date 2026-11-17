@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d6fbb
+
+decisions:
+  - category: Behaviour
+    chose: "The meta line carries compute (live pods, else the reservation while running), cost against cap and tier, shape, pipeline and the full run id; a facts line under it carries step progress, the time split, the live sandbox beat, the shape's reason, a budget bar and the pods behind a disclosure"
+    over: "Rendering RunSideRail inside the log view"
+    reason: "The side rail is a tile column built for the graph layout; the log's look is text, and every fact it showed now reads as one."
+  - category: Behaviour
+    chose: "Ticket, Spec and plan, and Outcome are log sections, closed by default, whose bodies are the story's own panels (TicketPanel; SpecPanel, PlanPanel, LedgerPanel, SpecsPanel, BuildNotes; OutcomePanel) with the card chrome flattened by .rl-slot"
+    over: "New text renderings of the ticket, plan and result"
+    reason: "One renderer per artefact; the panels already read the real data and handle its absence."
+  - category: Behaviour
+    chose: "The progress strip keeps its seven step nodes; the three story sections are not on it"
+    over: "Ten nodes"
+    reason: "The strip says where the run is in its steps; the ticket and the outcome are not steps."
+  - category: Behaviour
+    chose: "The banner's held-compute sentence and the side rail's no-PR note move into the status box as one muted note"
+    over: "A second banner on the log view"
+    reason: "The status box is the log view's one place for where the run stands."
+  - category: Architecture
+    chose: "The graph view is ?view=graph, read after mount and written with history.replaceState"
+    over: "useSearchParams"
+    reason: "Same approach as the runs filter: no Suspense boundary needed and the page tests' navigation mocks stay as they are; replace, not push, because the switch is a view, not a navigation."
+  - category: Architecture
+    chose: "The page calls useRunJudgements once and hands it to RunLogView and RunStory as a required prop"
+    over: "Two hook instances, or a context"
+    reason: "Two instances held two sets, so an overrule in one view did not show in the other until a reload."
+  - category: Architecture
+    chose: "SpecPanel and PlanPanel move to SpecPlanPanels.tsx, the ledger recovery to runLedger.ts"
+    over: "Exporting them from RunStory.tsx"
+    reason: "Both views use them; RunStory keeps only the beat stage."

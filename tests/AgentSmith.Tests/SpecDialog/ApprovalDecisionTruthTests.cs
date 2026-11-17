@@ -66,7 +66,7 @@ public sealed class ApprovalDecisionTruthTests : IDisposable
 
         decided.Should().Be(SpecDialogDecided.Refused);
         (await LastUserTurnAsync()).Decision.Should().BeNull("a refused approval filed nothing");
-        (await RowAsync()).ProposalState.Should().Be(SpecDialogProposalClaim.Awaiting);
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting);
     }
 
     [Fact]
@@ -99,8 +99,10 @@ public sealed class ApprovalDecisionTruthTests : IDisposable
         SpecDialogShownTranscript.Turns(transcript).Last(t => t.Role == "user").Decision.Should().Be("rejected");
     }
 
+    // 2026-11-17-a0b6d: every claimed proposal is its own row, so the first filing finishes on its own and the second's
+    // stays as it was.
     [Fact]
-    public async Task Claim_FirstFilingCompletesAfterSecondClaim_SecondFilingsConfirmedJsonUntouched()
+    public async Task Claim_FirstFilingCompletesAfterSecondClaim_SecondFilingUntouched()
     {
         var (_, first) = await ProposedAsync();
         await using var other = Context();
@@ -108,27 +110,26 @@ public sealed class ApprovalDecisionTruthTests : IDisposable
         var (second, _) = await new SpecDialogProposalClaim(other).SetAwaitingAsync(Platform, Thread, Json("p2"), default);
         (await new SpecDialogProposalClaim(other).ClaimAsync(Platform, Thread, second, default)).Should().NotBeNull();
 
-        (await Slot(_context).ClearAsync(Platform, Thread, first, default)).Should().BeFalse("the slot is the second's now");
+        (await Slot(_context).ClearAsync(Platform, Thread, first, default)).Should().BeTrue();
 
-        var row = await RowAsync();
-        (row.ConfirmedProposalId, row.ConfirmedOutcomeJson).Should().Be((second, Json("p2")));
+        (await StoredProposals.ByIdAsync(Context(), first))!.State.Should().Be(SpecDialogProposalClaim.Filed);
+        var row = (await StoredProposals.ByIdAsync(Context(), second))!;
+        (row.State, row.ProposalJson).Should().Be((SpecDialogProposalClaim.Filing, Json("p2")));
         (await Slot(other).ReleaseAsync(Platform, Thread, second, default)).Should().BeTrue();
-        row = await RowAsync();
-        (row.ProposalId, row.ProposalState, row.AwaitingProposalJson).Should().Be((second, SpecDialogProposalClaim.Awaiting, Json("p2")));
+        (await StoredProposals.ByIdAsync(Context(), second))!.State.Should().Be(SpecDialogProposalClaim.Awaiting);
     }
 
     [Fact]
-    public async Task Release_ConfirmedJsonCleared_ChangesNothing()
+    public async Task Release_AfterTheFilingFinished_ChangesNothing()
     {
         var (_, id) = await ProposedAsync();
         await new SpecDialogProposalClaim(_context).ClaimAsync(Platform, Thread, id, default);
-        await Context().Set<SpecDialogSession>().ExecuteUpdateAsync(s => s.SetProperty(r => r.ConfirmedOutcomeJson, (string?)null));
+        await Slot(_context).ClearAsync(Platform, Thread, id, default);
 
         (await Slot(_context).ReleaseAsync(Platform, Thread, id, default)).Should().BeFalse();
 
-        var row = await RowAsync();
-        (row.ProposalState, row.AwaitingProposalJson).Should().Be((SpecDialogProposalClaim.Filing, (string?)null),
-            "a release never leaves the awaiting slot without its proposal");
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Filed,
+            "a filed proposal never awaits again");
     }
 
     [Fact]
@@ -140,9 +141,9 @@ public sealed class ApprovalDecisionTruthTests : IDisposable
         (await Slot(_context).ClearAsync(Platform, Thread, "another", default)).Should().BeFalse();
         (await Slot(_context).ClearAsync(Platform, Thread, null, default)).Should().BeFalse();
 
-        (await RowAsync()).ConfirmedOutcomeJson.Should().NotBeNull();
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Filing);
         (await Slot(_context).ClearAsync(Platform, Thread, id, default)).Should().BeTrue();
-        (await RowAsync()).ConfirmedOutcomeJson.Should().BeNull();
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Filed);
     }
 
     private SpecDialogDecisionHarness Harness() => new(_context, sink: _sink.Object);

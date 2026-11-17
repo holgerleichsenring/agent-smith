@@ -35,18 +35,17 @@ public static class QueuedRunRecoveryHarness
             });
 
     /// <summary>What InitRunLauncher does once admitted: the queued row, then the dispatch —
-    /// with the same two launch flags in the request's context.</summary>
-    public static async Task LaunchInitAsync(RealCompositionHarness harness, string runId, bool autoComplete)
+    /// with the launch's refresh-principles choice in the request's context.</summary>
+    public static async Task LaunchInitAsync(RealCompositionHarness harness, string runId, bool refreshPrinciples)
     {
         await using (var scope = harness.Services.CreateAsyncScope())
             await new InitRunRepository(scope.ServiceProvider.GetRequiredService<IUnitOfWork>(), TimeProvider.System)
                 .CreateQueuedRunAsync(runId, Project, "init-project", ["repo"], "starting", CancellationToken.None);
         await harness.Services.GetRequiredService<QueuedRunDispatch>().DispatchAsync(
-            new PipelineRequest(Project, "init-project", IsInit: true, Headless: true, RunId: runId,
+            new PipelineRequest(Project, "init-project", Headless: true, RunId: runId,
                 Context: new Dictionary<string, object>
                 {
-                    [ContextKeys.AutoCompletePullRequests] = autoComplete,
-                    [ContextKeys.RefreshPrinciples] = false,
+                    [ContextKeys.RefreshPrinciples] = refreshPrinciples,
                 }),
             CancellationToken.None);
     }

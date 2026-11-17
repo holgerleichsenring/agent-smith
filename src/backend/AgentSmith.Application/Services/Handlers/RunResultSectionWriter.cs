@@ -94,8 +94,8 @@ internal static class RunResultSectionWriter
 
     /// <summary>
     /// p0128a: surfaces PerSkillBreakdown from PipelineCostTracker into result.md.
-    /// p0142: appends a "(limit: tokens|wall-clock|tool-calls|llm-calls)" suffix
-    /// when a LimitEnforcer cap fired during the call. Empty input writes nothing.
+    /// Empty input writes nothing. 2026-11-17-274cb: the "(limit: …)" suffix went with the
+    /// skill-call runtime, the only thing that ever set it.
     /// </summary>
     internal static void AppendPerSkillBreakdown(StringBuilder sb, IReadOnlyList<CallCostRecord>? breakdown)
     {
@@ -108,7 +108,6 @@ internal static class RunResultSectionWriter
         var ordered = breakdown.OrderBy(b => b.StartedAt).ToList();
         foreach (var record in ordered)
         {
-            var limitSuffix = record.HitLimit is null ? "" : $" (limit: {record.HitLimit})";
             // p0361: repeated identical tool calls are redone work — surface them
             // right where the operator reads per-skill effort.
             var duplicateSuffix = record.DuplicateToolCallCount > 0
@@ -117,7 +116,7 @@ internal static class RunResultSectionWriter
             sb.AppendLine(
                 $"- {record.SkillName} ({record.Role}, {record.Phase}): " +
                 $"{record.InputTokens} in / {record.OutputTokens} out / " +
-                $"{record.ToolCallCount} tools{duplicateSuffix} / {record.DurationMs}ms{limitSuffix}");
+                $"{record.ToolCallCount} tools{duplicateSuffix} / {record.DurationMs}ms");
         }
     }
 

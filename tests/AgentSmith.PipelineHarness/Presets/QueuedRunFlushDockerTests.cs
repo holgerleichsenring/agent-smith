@@ -19,7 +19,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// its own — never the operator's — launches an init through the production dispatch onto the
 /// production RedisJobQueue, flushes that Redis before anything pops, and lets the sweeper push
 /// the request again twice. Of the two copies on the list exactly one is claimed to start, and
-/// it carries the auto-complete choice. The container is removed afterwards.
+/// it carries the refresh-principles choice. The container is removed afterwards.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 [Trait("Tier", "Docker")]
@@ -43,7 +43,7 @@ public sealed class QueuedRunFlushDockerTests(ITestOutputHelper output)
             var queue = new RedisJobQueue(redis, NullLogger<RedisJobQueue>.Instance);
             await using var harness = QueuedRunRecoveryHarness.Build(dbPath, queue);
             await DurableDialogueHarness.MigrateAsync(harness);
-            await QueuedRunRecoveryHarness.LaunchInitAsync(harness, RunId, autoComplete: true);
+            await QueuedRunRecoveryHarness.LaunchInitAsync(harness, RunId, refreshPrinciples: true);
             (await queue.LenAsync(CancellationToken.None)).Should().Be(1);
 
             await redis.GetServers().Single().FlushAllDatabasesAsync();
@@ -56,7 +56,7 @@ public sealed class QueuedRunFlushDockerTests(ITestOutputHelper output)
             var duplicate = await gate.ClaimAsync(popped[1], CancellationToken.None);
             started.Should().NotBeNull();
             duplicate.Should().BeNull("two copies of one request start once");
-            ((JsonElement)popped[0].Context![ContextKeys.AutoCompletePullRequests]).GetBoolean().Should().BeTrue();
+            ((JsonElement)popped[0].Context![ContextKeys.RefreshPrinciples]).GetBoolean().Should().BeTrue();
         }
         finally
         {

@@ -108,10 +108,8 @@ public sealed class ProposalDecisionTests : IDisposable
 
         await new SpecDialogProposalClaim(_context).ClaimAsync(Platform, Thread, id, default);
 
-        var row = await RowAsync();
-        row.ConfirmedOutcomeJson.Should().NotBeNull();
-        row.AwaitingProposalJson.Should().BeNull("the next turn may propose at once");
-        row.ProposalState.Should().Be(SpecDialogProposalClaim.Filing);
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Filing);
+        (await StoredProposals.InStateAsync(Context(), SpecDialogProposalClaim.Awaiting)).Should().BeNull("the next turn may propose at once");
     }
 
     // L1: every write lands on the thread's newest open row — the one every read answers from — never on all of them.
@@ -128,16 +126,17 @@ public sealed class ProposalDecisionTests : IDisposable
         await Harness().Flow().HandleAsync(state, Spec("p2"), default);
         (await new SpecDialogProposalClaim(_context).ClaimAsync(Platform, Thread, id, default)).Should().BeNull();
 
-        var rows = await Context().Set<SpecDialogSession>().Where(s => s.ThreadId == Thread).OrderBy(s => s.Id).ToListAsync();
-        (rows[0].ProposalId, rows[0].ProposalState).Should().Be((id, SpecDialogProposalClaim.Awaiting), "the older row is left as it was");
-        rows[1].ProposalId.Should().NotBeNull().And.NotBe(id);
+        var rows = await StoredProposals.AllAsync(Context());
+        rows.Should().Contain(p => p.SessionId == state.JobId && p.ProposalId == id && p.State == SpecDialogProposalClaim.Awaiting,
+            "the older session's proposal is left as it was");
+        rows.Should().Contain(p => p.SessionId == "s-newer" && p.State == SpecDialogProposalClaim.Awaiting && p.ProposalId != id);
     }
 
     [Fact]
-    public async Task Claim_AwaitingJsonNull_Fails()
+    public async Task Claim_NoLongerAwaiting_Fails()
     {
         var (_, id) = await ProposedAsync();
-        await _context.Set<SpecDialogSession>().ExecuteUpdateAsync(s => s.SetProperty(r => r.AwaitingProposalJson, (string?)null));
+        await _context.Set<SpecDialogProposal>().ExecuteUpdateAsync(s => s.SetProperty(r => r.State, SpecDialogProposalClaim.Superseded));
 
         (await new SpecDialogProposalClaim(_context).ClaimAsync(Platform, Thread, id, default)).Should().BeNull();
     }
@@ -167,9 +166,9 @@ public sealed class ProposalDecisionTests : IDisposable
 
         (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
 
-        var row = await RowAsync();
-        (row.ProposalId, row.ProposalState, row.ConfirmedOutcomeJson).Should().Be((id, SpecDialogProposalClaim.Awaiting, (string?)null));
-        row.AwaitingProposalJson.Should().NotBeNull("the refused approval kept the card the person saw");
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting,
+            "the refused approval kept the card the person saw");
+        (await StoredProposals.InStateAsync(Context(), SpecDialogProposalClaim.Filing)).Should().BeNull();
     }
 
     [Fact]
@@ -196,7 +195,7 @@ public sealed class ProposalDecisionTests : IDisposable
         (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
 
         Filed().Should().Be(0);
-        (await RowAsync()).ProposalState.Should().Be(SpecDialogProposalClaim.Awaiting);
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting);
         (await TranscriptAsync()).Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text == SpecDialogApprovalRefusal.UnboundComment);
     }
 
@@ -211,7 +210,7 @@ public sealed class ProposalDecisionTests : IDisposable
         (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, id, false, default)).Should().Be(SpecDialogDecided.Refused);
 
         Filed().Should().Be(0);
-        (await RowAsync()).ProposalState.Should().Be(SpecDialogProposalClaim.Awaiting);
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting);
         (await TranscriptAsync()).Should().Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text == SpecDialogApprovalRefusal.NotOffered);
     }
 
@@ -228,15 +227,14 @@ public sealed class ProposalDecisionTests : IDisposable
     }
 
     [Fact]
-    public async Task Observer_MidReviewDraft_WritesOnlyTheReviewingColumn()
+    public async Task Observer_MidReviewDraft_WritesOnlyAReviewingRow()
     {
         var (state, id) = await ProposedAsync();
 
         await Harness().Proposals.StoreReviewingAsync(state, Spec("p2") with { UnderReview = true }, default);
 
-        var row = await RowAsync();
-        row.ProposalId.Should().Be(id, "the awaiting proposal is untouched");
-        row.ReviewingProposalJson.Should().NotBeNull();
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting, "the awaiting proposal is untouched");
+        (await StoredProposals.InStateAsync(Context(), SpecDialogProposalClaim.Reviewing)).Should().NotBeNull();
     }
 
     [Fact]
@@ -285,20 +283,6 @@ public sealed class ProposalDecisionTests : IDisposable
         (await RowAsync()).PostedProposalId.Should().BeNull("no thread adapter took the card, so nothing was posted");
     }
 
-    [Fact]
-    public async Task LazyBackfill_RowWithoutId_MintsOneByCompareAndSet()
-    {
-        await Harness().OpenAsync(Platform, Thread);
-        await _context.Set<SpecDialogSession>().ExecuteUpdateAsync(s =>
-            s.SetProperty(r => r.LatestProposalJson, OutcomeProposalJson.Write(Spec("p1"))));
-
-        await Harness().Proposals.BackfillAsync(Platform, Thread, default);
-
-        var held = await Harness().Outcomes.ReadAsync(Platform, Thread, default);
-        held.ProposalId.Should().NotBeNullOrEmpty();
-        held.Proposal.Should().NotBeNull();
-    }
-
     // M3: a typed word binds by the platform's own time — one Slack took before the card was posted names nothing.
     [Fact]
     public async Task SlackTypedApprove_SentBeforePostedAt_IsAnOrdinaryMessage()
@@ -337,14 +321,14 @@ public sealed class ProposalDecisionTests : IDisposable
     {
         var (state, id) = await ProposedAsync();
         await _context.Database.ExecuteSqlRawAsync(
-            "CREATE TRIGGER no_write BEFORE UPDATE ON SpecDialogSessions BEGIN SELECT RAISE(ABORT, 'store unavailable'); END;");
+            "CREATE TRIGGER no_write BEFORE UPDATE ON SpecDialogProposal BEGIN SELECT RAISE(ABORT, 'store unavailable'); END;");
 
         var reject = () => Harness().Decisions().DecideAsync(state, SpecDialogDecision.Rejected, id, false, default);
 
         await reject.Should().ThrowAsync<SqliteException>("a reject that did not land must not be reported as done");
         await _context.Database.ExecuteSqlRawAsync("DROP TRIGGER no_write;");
         (await TranscriptAsync()).Should().NotContain(t => t.Kind == SpecDialogTurnKind.Notice);
-        (await RowAsync()).ProposalId.Should().Be(id, "the card still awaits");
+        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting, "the card still awaits");
     }
 
     [Fact]
@@ -354,7 +338,8 @@ public sealed class ProposalDecisionTests : IDisposable
         string? storedAtPush = null;
         hub.OnPush = (method, _) =>
         {
-            if (method == "SpecDialogProposal") storedAtPush ??= Context().Set<SpecDialogSession>().Single(s => s.IsOpen).AwaitingProposalJson;
+            if (method == "SpecDialogProposal") storedAtPush ??= Context().Set<SpecDialogProposal>()
+                .Where(p => p.State == SpecDialogProposalClaim.Awaiting).Select(p => p.ProposalJson).FirstOrDefault();
         };
         var channel = new DashboardOutcomeChannel(new SpecDialogProposalComposer(new AgentSmith.Application.Services.SpecDialog.EpicChildOrderer(),
             new AgentSmith.Application.Services.SpecDialog.BugTicketRenderer()), Microsoft.Extensions.Logging.Abstractions.NullLogger<DashboardOutcomeChannel>.Instance, hub);
@@ -387,21 +372,6 @@ public sealed class ProposalDecisionTests : IDisposable
         posted.Should().Equal(older, current, current);
         (await RowAsync()).PostedProposalId.Should().Be(current, "a typed word in the thread now names the card it was shown again");
         Filed().Should().Be(0);
-    }
-
-    // L2: a row from before the deploy is given its id by the decision path too, not only by the page's read.
-    [Fact]
-    public async Task Decision_RowWithoutId_IsBackfilledFirst()
-    {
-        var state = await Harness().OpenAsync(Platform, Thread);
-        await _context.Set<SpecDialogSession>().ExecuteUpdateAsync(s =>
-            s.SetProperty(r => r.LatestProposalJson, OutcomeProposalJson.Write(Spec("p1"))));
-
-        (await Harness().Decisions().DecideAsync(state, SpecDialogDecision.Approved, "an-older-card", false, default))
-            .Should().Be(SpecDialogDecided.Replaced);
-
-        (await RowAsync()).ProposalId.Should().NotBeNull();
-        (await TranscriptAsync()).Should().Contain(t => t.Text.Contains("the current proposal is"), "the replaced notice names the backfilled card as current");
     }
 
     private SpecDialogDecisionHarness Harness() => new(_context, sink: _sink.Object);

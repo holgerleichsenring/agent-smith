@@ -13,7 +13,6 @@ namespace AgentSmith.Server.Services.Sandbox;
 public sealed class SandboxRedisChannel : IAsyncDisposable
 {
     private static readonly TimeSpan ResultPollTick = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan EventBlockTick = TimeSpan.FromMilliseconds(1000);
 
     private readonly IDatabase _database;
     private readonly string _jobId;

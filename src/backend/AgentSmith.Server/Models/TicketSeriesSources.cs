@@ -5,4 +5,7 @@ public static class TicketSeriesSources
 {
     public const string Cut = "cut";
     public const string RunRecord = "run-record";
+
+    /// <summary>2026-11-17-a0b6b: the ticket branch's set, before any attempt published a cut.</summary>
+    public const string Branch = "branch";
 }

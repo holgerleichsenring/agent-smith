@@ -80,8 +80,12 @@ public static class ServerCompositionBuilder
             sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
         // 2026-10-01-7f7aa: the masker and every token lookup follow the config store, so a
         // secret added in the Studio after startup is resolved and masked like a booted one.
+        services.AddSingleton<CurrentConfigSnapshot>();
         services.RemoveAll<ISecretValues>();
         services.AddSingleton<ISecretValues, CurrentSecretValues>();
+        // 2026-11-17-274ca: the loop limits follow the store too, so a Studio change reaches the next run.
+        services.RemoveAll<LoopLimitsConfig>();
+        services.AddTransient(sp => sp.GetRequiredService<CurrentConfigSnapshot>().Value.Limits);
 
         // 2026-09-22-6968: the single resolution pass run against an EMPTY per-project
         // sandbox block — what a project would inherit if it said nothing. A dashboard

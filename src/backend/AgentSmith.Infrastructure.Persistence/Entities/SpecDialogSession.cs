@@ -25,36 +25,7 @@ public sealed class SpecDialogSession : EntityBase
     /// <summary>JSON array of ordered user/assistant transcript turns.</summary>
     public string TranscriptJson { get; set; } = "[]";
 
-    /// <summary>
-    /// JSON of the CONFIRMED outcome proposal (p0315e) — null until the human
-    /// approves one in-thread. p0315c files tickets from this handoff.
-    /// </summary>
-    public string? ConfirmedOutcomeJson { get; set; }
-
-    /// <summary>2026-11-11-205fe: the proposal the confirmed JSON belongs to; clear and release match on it.</summary>
-    public string? ConfirmedProposalId { get; set; }
-
-    /// <summary>
-    /// JSON of the proposal under discussion — the latest one a turn put to the person, kept
-    /// until a later one supersedes it or the person rejects it. What a reloaded page shows
-    /// in the proposal pane; the transcript keeps the reply it came from.
-    /// </summary>
-    public string? LatestProposalJson { get; set; }
-
-    /// <summary>
-    /// 2026-11-10-ccd9: the proposal awaiting a decision, written at turn end before it is shown and
-    /// moved into <see cref="ConfirmedOutcomeJson"/> by the claim. Old builds never touch it.
-    /// </summary>
-    public string? AwaitingProposalJson { get; set; }
-
-    /// <summary>2026-11-10-ccd9: the id minted for the awaiting proposal; every decision carries it.</summary>
-    public string? ProposalId { get; set; }
-
-    /// <summary>2026-11-10-ccd9: awaiting or filing; null when no proposal waits.</summary>
-    public string? ProposalState { get; set; }
-
-    /// <summary>2026-11-10-ccd9: the draft under review, never approvable and never over the awaiting one.</summary>
-    public string? ReviewingProposalJson { get; set; }
+    // 2026-11-17-a0b6d: the proposals themselves — awaiting, reviewing, filing — are rows of SpecDialogProposal.
 
     /// <summary>2026-11-10-ccd9: the awaiting proposal last posted to a chat thread, and when.</summary>
     public string? PostedProposalId { get; set; }

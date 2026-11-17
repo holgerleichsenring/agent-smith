@@ -10,7 +10,9 @@ public sealed record PipelineRequest(
     string ProjectName,
     string PipelineName,
     TicketId? TicketId = null,
-    bool IsInit = false,
+    // 2026-11-17-713ea: IsInit is gone — a run is an init when its pipeline is init-project
+    // (InitRunSeed), so no door can start one that is not. A stored request that still
+    // carries the member deserializes; the member is ignored.
     bool Headless = false,
     Dictionary<string, object>? Context = null,
     Dictionary<string, string>? PlanAnswers = null,

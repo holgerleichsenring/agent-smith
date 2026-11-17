@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
@@ -168,11 +169,28 @@ public sealed class WriteRunResultInitProjectTests
             md.Should().Contain("shared across 2 repos"));
     }
 
+    [Fact]
+    public async Task WriteRunResult_InitStartedByALabel_WithItsTicketFetched_StillWritesTheInitRecord()
+    {
+        var pipeline = NewInitPipeline(repos: ["monorepo"], components: new()
+        {
+            ["monorepo"] = new[] { new DiscoveredComponent("server", ".", "csharp", "Program.cs") },
+        });
+        var repo = new Repository(new BranchName("agent-smith/init"), "https://x/y.git");
+        var ticket = new Ticket(new TicketId("42"), "Initialise", "Set the project up", null, "New", "GitHub");
+
+        await _sut.ExecuteAsync(new WriteRunResultContext(repo, Plan: null, ticket, Changes: [], pipeline), CancellationToken.None);
+
+        _written.First(kv => kv.Key.EndsWith("plan.md")).Value.Should().Contain("Discovered components",
+            "init mode is the run's InitMode flag, so a label-started init with its ticket fetched writes the init record");
+    }
+
     private static PipelineContext NewInitPipeline(
         string[] repos, Dictionary<string, DiscoveredComponent[]> components)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, SampleRunId);
+        InitRunSeed.Apply(pipeline, PipelinePresets.InitProjectName);
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
             "init-project", new AgentConfig(), "skills", null));
         pipeline.Set<IReadOnlyList<RepoConnection>>(
@@ -192,7 +210,7 @@ public sealed class WriteRunResultInitProjectTests
     private static WriteRunResultContext NewInitContext(PipelineContext pipeline)
     {
         var repo = new Repository(new BranchName("agentsmith/init"), "https://x/y.git");
-        // p0161d: init-mode runs have null Plan + null Ticket (the discriminator).
+        // 2026-11-17-713ea: init mode is the pipeline's InitMode flag, not the null ticket.
         return new WriteRunResultContext(repo, Plan: null, Ticket: null, Changes: [], pipeline);
     }
 }

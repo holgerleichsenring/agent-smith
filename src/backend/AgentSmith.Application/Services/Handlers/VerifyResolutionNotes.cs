@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Verify;
+
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
@@ -32,7 +34,12 @@ public sealed class VerifyResolutionNotes
     /// </summary>
     public List<string> Stale { get; } = [];
 
-    public void DerivationMoved(string key, string contextName, IReadOnlyList<string> files) =>
+    /// <summary>2026-11-17-d6fbc: the same declarations as data, for the dashboard's one muted line.</summary>
+    public List<VerifyStaleDerivation> StaleDerivations { get; } = [];
+
+    public void DerivationMoved(string key, string contextName, IReadOnlyList<string> files)
+    {
+        StaleDerivations.Add(new VerifyStaleDerivation(Named(key), contextName, [.. files]));
         Stale.Add(
             $"{Named(key)}: context '{contextName}' derived its verify block from "
             + $"[{string.Join(", ", files)}], and those files no longer hash to what was "
@@ -40,6 +47,7 @@ public sealed class VerifyResolutionNotes
             + "this repository's pipeline runs. (A hash sees the pipeline FILE move, never "
             + "the target it points at — a cluster id, a schema name, a service connection "
             + "can change under an identical file, and only the stage itself finds that out.)");
+    }
 
     public void NothingDeclared(string key, string? primaryLanguage) =>
         Searched.Add(
@@ -63,7 +71,7 @@ public sealed class VerifyResolutionNotes
         NoStageApplies.Add($"{Named(repository)}: no stage applies to this change — when_changed globs "
             + $"[{string.Join(", ", globs)}] match nothing its branch changed");
 
-    private static string Named(string key) => string.IsNullOrEmpty(key) ? "(default)" : key;
+    internal static string Named(string key) => string.IsNullOrEmpty(key) ? "(default)" : key;
 
     private static string Language(string? primaryLanguage) =>
         string.IsNullOrWhiteSpace(primaryLanguage) ? "unknown" : primaryLanguage;

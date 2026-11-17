@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Runs;
-using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 
@@ -15,18 +15,20 @@ public static class StepsAsWorkedFold
 {
     private const string Done = "done";
 
+    /// <param name="steps">The spec's steps as its branch states them (2026-11-17-a0b6b).</param>
     public static IReadOnlyList<TicketSeriesStepWorkedView> Fold(
-        SpecCutEntry spec, IReadOnlyList<RunLedgerTransition> transitions, IReadOnlyDictionary<string, int> attemptNumbers)
+        string specId, IReadOnlyList<SpecStep> steps, IReadOnlyList<RunLedgerTransition> transitions,
+        IReadOnlyDictionary<string, int> attemptNumbers)
     {
-        ArgumentNullException.ThrowIfNull(spec);
+        ArgumentNullException.ThrowIfNull(steps);
         ArgumentNullException.ThrowIfNull(transitions);
         var moves = transitions
-            .Where(t => t.SpecId == spec.SpecId && attemptNumbers.ContainsKey(t.RunId))
+            .Where(t => t.SpecId == specId && attemptNumbers.ContainsKey(t.RunId))
             .OrderBy(t => attemptNumbers[t.RunId]).ThenBy(t => t.EventSeq ?? long.MaxValue).ThenBy(t => t.Id)
             .SelectMany(t => (RunStoryJson.TryDeserialize<List<LedgerTransitionView>>(t.TransitionsJson) ?? [])
                 .Select(v => (Row: t, View: v)))
             .ToList();
-        return [.. spec.Steps.Select(step => Step(step.Id, moves.Where(m => m.View.EntryId == step.Id).ToList(), attemptNumbers))];
+        return [.. steps.Select(step => Step(step.Id, moves.Where(m => m.View.EntryId == step.Id).ToList(), attemptNumbers))];
     }
 
     private static TicketSeriesStepWorkedView Step(

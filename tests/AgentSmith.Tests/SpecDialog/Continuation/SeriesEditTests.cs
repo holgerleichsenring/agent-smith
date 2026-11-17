@@ -40,7 +40,8 @@ public sealed class SeriesEditTests : IDisposable
         reading.SeriesId.Should().Be(Series);
         reading.Specs.Select(s => (s.Draft.SpecId, s.State, s.Ran)).Should().Equal(
             (A, "done", true), (B, "failed", false), (C, "not_started", false));
-        reading.Specs[1].Draft.Yaml.Should().Be($"spec: {B}\n");
+        reading.Specs[1].Draft.Yaml.Should().StartWith($"spec: {B}\n", "the yaml is the branch's file (2026-11-17-a0b6b)")
+            .And.Contain($"goal: \"Goal of {B}\"");
         reading.ShaByRepo.Should().ContainKey("web").WhoseValue.Should().Be("sha");
         ReadSeriesToolHost.Render(reading).Should().Contain($"## {B} — failed, not run").And.Contain($"spec: {B}");
     }
