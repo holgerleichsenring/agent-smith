@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Acts;
@@ -12,7 +13,7 @@ namespace AgentSmith.Server.Services.Acts;
 /// one a caller's cancellation broke off halfway would leave a host changed and nothing recorded. Extracted from
 /// 5701b's FilingRun, which now runs through it.
 /// </summary>
-public sealed class ActRun(ExecutePipelineUseCase pipelines, ServerContext server, ILogger<ActRun> logger) : IActRun
+public sealed class ActRun(IServiceProvider services, ServerContext server, ILogger<ActRun> logger) : IActRun
 {
     public async Task<CommandResult> RunAsync(string project, string pipeline, IReadOnlyDictionary<string, object> seeds)
     {
@@ -21,6 +22,9 @@ public sealed class ActRun(ExecutePipelineUseCase pipelines, ServerContext serve
             ProjectName: project, PipelineName: pipeline, Headless: true, Context: new Dictionary<string, object>(seeds));
         try
         {
+            // Resolved when an act runs: the run lifecycle reads the configuration file, which a composition that
+            // merely holds an act (a turn, a nudge) must not need to construct.
+            var pipelines = services.GetRequiredService<ExecutePipelineUseCase>();
             return await pipelines.ExecuteAsync(request, server.ConfigPath, CancellationToken.None);
         }
         catch (Exception ex)

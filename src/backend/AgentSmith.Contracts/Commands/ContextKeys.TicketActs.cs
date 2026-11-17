@@ -9,6 +9,9 @@ public static partial class ContextKeys
     /// <summary><c>ReopenTicketRequest</c> — the ticket whose close mark to clear. Seeded by the server.</summary>
     public const string ReopenTicketRequest = "ReopenTicketRequest";
 
+    /// <summary><c>StartTicketRequest</c> — the existing ticket to make claimable (2026-11-17-e061b). Seeded by the server.</summary>
+    public const string StartTicketRequest = "StartTicketRequest";
+
     /// <summary><c>ActSlot&lt;T&gt;</c> — the mutable holder an act's step fills with what it did; the server reads it
     /// back after the run, because the pipeline context never leaves the run.</summary>
     public const string ActOutcome = "ActOutcome";

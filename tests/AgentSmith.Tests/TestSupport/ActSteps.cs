@@ -6,6 +6,7 @@ using AgentSmith.Server.Services.Acts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Filing;
 using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -44,7 +45,12 @@ internal sealed class ActSteps(AgentSmithConfig config, IServiceProvider service
     [
         new(CommandNames.CloseTicket, new CloseTicketContextBuilder()),
         new(CommandNames.ReopenTicket, new ReopenTicketContextBuilder()),
+        new(CommandNames.StartTicket, new StartTicketContextBuilder()), // 2026-11-17-e061b
     ];
+
+    /// <summary>2026-11-17-e061b: the 'start' run over <paramref name="move"/> and <paramref name="trackers"/>, in process.</summary>
+    public static TicketStartRun Start(AgentSmithConfig config, FiledWorkMove move, ITicketProviderFactory trackers) =>
+        new(Over(config, s => s.AddScoped(_ => move).AddSingleton(trackers)));
 
     /// <summary>Every preset this double ran, in order.</summary>
     public List<string> Runs { get; } = [];

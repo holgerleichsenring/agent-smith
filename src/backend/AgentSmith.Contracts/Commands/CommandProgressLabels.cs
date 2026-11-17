@@ -50,10 +50,10 @@ public static partial class CommandNames
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
         [AgenticMaster] = "Running master skill",
-        [LoadCachedCodeMap] = "Loading cached code map",
-        [GroundSpecDialog] = "Grounding the design conversation",
+        [LoadCachedCodeMap] = "Loading cached code map", [GroundSpecDialog] = "Grounding the design conversation",
         [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets",
-        [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [SpecGate] = "Validating the spec", // e061a
+        [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [StartTicket] = "Starting the ticket",
+        [SpecGate] = "Validating the spec", // e061a-b: the ticket acts
         [MasterOpenQuestions] = "Posting master open questions",
         [WriteSpecRecord] = "Writing spec record",
         [WriteRunResult] = "Writing run result",

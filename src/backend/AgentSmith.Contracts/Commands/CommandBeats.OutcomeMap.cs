@@ -31,6 +31,6 @@ public static partial class CommandBeats
         [CommandNames.PlanFiling] = RunBeat.Plan, // 2026-11-17-5701b: the filing run's two steps
         [CommandNames.FileTickets] = RunBeat.Outcome,
         [CommandNames.CloseTicket] = RunBeat.Outcome, // 2026-11-17-e061a
-        [CommandNames.ReopenTicket] = RunBeat.Outcome,
+        [CommandNames.ReopenTicket] = RunBeat.Outcome, [CommandNames.StartTicket] = RunBeat.Outcome,
     };
 }

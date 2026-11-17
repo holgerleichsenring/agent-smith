@@ -78,6 +78,7 @@ internal sealed class ContinuationHarness : IDisposable
             AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u: Config's series block
         services.AddTransient<TicketProjects>().AddTransient<TicketTranscriptReader>();
         services.AddScoped(_ => FiledWorkDoubles.Move(Routing)); // 2026-10-13-9a59m: before the registration's TryAdd
+        services.AddScoped(sp => ActSteps.Start(Config, sp.GetRequiredService<FiledWorkMove>(), Tracker)); // 2026-11-17-e061b
         services.AddScoped<FiledWorkStarter>().AddTransient<TicketKindResolver>(); // 2026-10-13-9a59t: a closed ticket's act files
         services.AddScoped<TicketAmendment>().AddScoped<TicketDescriptionRewrite>().AddTicketContinuation();
         // 2026-10-13-9a59m: the start arm's reads and the nudge queue, over the same store.

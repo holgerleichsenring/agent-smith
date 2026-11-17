@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-e061b: "ACT RUNS: START ('start' preset, StartTicket, TicketStartRun). A landed requirement's waiting dependent and an approved never-worked ticket are tagged and moved in a 'start' run with a run id; the server keeps the held checks and the spawn. -> .agentsmith/specs/done/2026-11-17-e061b-act-runs-start.yaml"
     2026-11-17-e061a: "ACT RUNS: CLOSE/REOPEN ('close', 'reopen' presets, IActRun/ActRun, Application/Services/TicketActs). A person's close, a conversation's withdrawal and a reopen each run as a pipeline with a run id; the server validates and reads, the step closes PRs and tracker and stores or clears the mark; FilingRun runs through IActRun. -> .agentsmith/specs/done/2026-11-17-e061a-act-runs-close.yaml"
     2026-11-17-5701b: "FILING PIPELINE ('file' preset, PlanFiling/FileTickets, Application/Services/Filing, FilingRun). Spec, epic, list and bug file in one 'file' run: each ticket stamped only with its approved set, recorded with the operator's words, written to its branch, then settled; later parts held by requires. -> .agentsmith/specs/done/2026-11-17-5701b-filing-pipeline.yaml"
     2026-11-17-5701c: "MASTER READS OPERATOR TURNS (SpecExecutionPromptFactory, ApprovedSpecSetResolver). The coding master's spec prompt renders the approval record's owner words after the memory index; a carried record no resolution keeps is removed from the context. -> .agentsmith/specs/done/2026-11-17-5701c-master-operator-turns.yaml"

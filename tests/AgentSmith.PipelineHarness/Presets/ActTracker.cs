@@ -24,8 +24,14 @@ internal sealed class ActTracker : ITicketProvider
     public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
         Task.FromResult(ConnectionProbeResult.Reachable(0));
 
-    public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
-        Task.FromResult(new Ticket(ticketId, $"Title {ticketId.Value}", "body", null, "open", ProviderType, []));
+    /// <summary>Carries the labels it was created with and every label added since, as a tracker would.</summary>
+    public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
+    {
+        List<string> labels;
+        lock (Created) labels = int.TryParse(ticketId.Value, out var n) && n >= 1 && n <= Created.Count ? [.. Created[n - 1].Labels] : [];
+        lock (Labels) labels.AddRange(Labels.Where(l => l.Ticket == ticketId.Value).Select(l => l.Label));
+        return Task.FromResult(new Ticket(ticketId, $"Title {ticketId.Value}", "body", null, "open", ProviderType, labels));
+    }
 
     public Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken cancellationToken)

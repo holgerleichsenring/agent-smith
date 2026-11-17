@@ -8,4 +8,7 @@ public static partial class CommandNames
 
     /// <summary>Clears a ticket's close mark.</summary>
     public const string ReopenTicket = "ReopenTicketCommand";
+
+    /// <summary>2026-11-17-e061b: makes an existing ticket claimable — its routing tag, then a move into a trigger status.</summary>
+    public const string StartTicket = "StartTicketCommand";
 }

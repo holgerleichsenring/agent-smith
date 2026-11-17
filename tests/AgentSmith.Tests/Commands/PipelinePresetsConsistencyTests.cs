@@ -25,7 +25,7 @@ public sealed class PipelinePresetsConsistencyTests
         // 2026-11-17-5701b: a filing reads no skill, so it binds no catalog step; its prologue still resolves one.
         if (presetName == PipelinePresets.FileName) return;
         // 2026-11-17-e061a: an act on a filed ticket reads no skill either.
-        if (presetName is PipelinePresets.CloseName or PipelinePresets.ReopenName) return;
+        if (PipelinePresets.NotRoutableBecause(presetName)?.Contains("filed ticket") == true) return;
         preset[0].Should().Be(CommandNames.LoadCatalog,
             $"preset '{presetName}' must bind the skill catalog as its first visible step (p0205)");
     }

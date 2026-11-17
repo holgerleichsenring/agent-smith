@@ -12,4 +12,9 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> Close = [CommandNames.CloseTicket];
 
     public static readonly IReadOnlyList<string> Reopen = [CommandNames.ReopenTicket];
+
+    /// <summary>2026-11-17-e061b: preset name of a start — a landed requirement's dependent, an approved never-worked ticket.</summary>
+    public const string StartName = "start";
+
+    public static readonly IReadOnlyList<string> Start = [CommandNames.StartTicket];
 }

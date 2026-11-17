@@ -16,6 +16,7 @@ public static class TicketActPipelineExtensions
         services.AddScoped<TicketHostClose>().AddScoped<TicketCloseActs>();
         services.AddTransient<ICommandHandler<CloseTicketContext>, CloseTicketHandler>();
         services.AddTransient<ICommandHandler<ReopenTicketContext>, ReopenTicketHandler>();
+        services.AddTransient<ICommandHandler<StartTicketContext>, StartTicketHandler>(); // 2026-11-17-e061b
         return services;
     }
 }

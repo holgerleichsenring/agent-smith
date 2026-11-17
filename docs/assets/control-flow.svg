@@ -2,7 +2,7 @@
      tests/AgentSmith.Tests/ControlFlow/ControlFlowDiagram.cs.
      Do not hand-edit. Change the presets, then regenerate by running the
      ControlFlowDiagram test with AGENTSMITH_WRITE_DIAGRAM=1. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 2031" role="img" aria-labelledby="cf-title cf-desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 2079" role="img" aria-labelledby="cf-title cf-desc">
   <title id="cf-title">What runs during an agent-smith run, in order</title>
   <desc id="cf-desc">Generated from the pipeline presets. The code pipeline runs 31 steps in a fixed order; 11 of them call a model and the rest are deterministic machinery. A block of steps repeats once per derived spec. Every other preset is listed with its master, its step count and one tick per step.</desc>
   <style>
@@ -21,10 +21,10 @@
     .cf-accent    { fill: #16a34a; font-family: 'IBM Plex Mono', ui-monospace, monospace; }
     .cf-tag       { fill: #16a34a; font-family: 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: 0.8px; }
   </style>
-  <rect width="920" height="2031" rx="14" class="cf-bg"/>
+  <rect width="920" height="2079" rx="14" class="cf-bg"/>
   <text x="40" y="46" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">AGENT-SMITH · CONTROL FLOW</text>
   <text x="40" y="76" class="cf-text" font-size="22" font-weight="600" text-anchor="start">What runs, in what order, and where the model gets a say</text>
-  <text x="40" y="98" class="cf-mute" font-size="11" font-weight="400" text-anchor="start">Generated from the 12 pipeline presets in the source — a test regenerates this file and fails when the code and the picture disagree.</text>
+  <text x="40" y="98" class="cf-mute" font-size="11" font-weight="400" text-anchor="start">Generated from the 13 pipeline presets in the source — a test regenerates this file and fails when the code and the picture disagree.</text>
   <text x="40" y="122" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">1 · ONE RUN, IN ORDER</text>
   <text x="40" y="144" class="cf-text" font-size="16" font-weight="600" text-anchor="start">The `code` pipeline — 31 steps, read left to right, top to bottom</text>
   <text x="40" y="162" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">Each box is a step the executor really runs. The word under a green box is the master or prompt that answers there.</text>
@@ -416,16 +416,20 @@
   <rect x="460" y="1766" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="475" y="1766" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="490" y="1766" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="40" y="1819" width="18" height="12" rx="3" class="cf-model"/>
-  <text x="66" y="1828" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a model runs here — the named master or prompt answers</text>
-  <rect x="440" y="1819" width="18" height="12" rx="3" class="cf-gate"/>
-  <text x="466" y="1828" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a gate — visible in a run only when it has a finding</text>
-  <rect x="40" y="1841" width="18" height="12" rx="3" class="cf-surface"/>
-  <text x="66" y="1850" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">deterministic machinery — no model involved</text>
-  <text x="40" y="1886" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">WHAT THIS PICTURE CANNOT SHOW</text>
-  <text x="40" y="1906" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Inside a loop box the model drives tools until it is done — the number of iterations, the files it reads and the sub-agents it spawns are run-time decisions.</text>
-  <text x="40" y="1923" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— How many specs a ticket becomes, and therefore how often the spec block repeats, is decided by the derivation on the day.</text>
-  <text x="40" y="1940" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Master bodies and their output schemas live in a separately versioned skills catalog the operator pins; this names the master a run loads, not what that master says.</text>
-  <text x="40" y="1957" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Steps can skip themselves at run time (no DAST configured, a single repo, nothing to park), and an operator's YAML may override a preset's step list.</text>
-  <text x="40" y="1974" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Fan-out steps create work that is not in the preset: init-project's dispatch runs one project-bootstrap round per discovered component, decided per repository.</text>
+  <line x1="40" y1="1808" x2="880" y2="1808" class="cf-rule"/>
+  <text x="40" y="1826" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">start</text>
+  <text x="40" y="1842" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start"> · 1 steps · 0 with a model</text>
+  <rect x="430" y="1814" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="40" y="1867" width="18" height="12" rx="3" class="cf-model"/>
+  <text x="66" y="1876" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a model runs here — the named master or prompt answers</text>
+  <rect x="440" y="1867" width="18" height="12" rx="3" class="cf-gate"/>
+  <text x="466" y="1876" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a gate — visible in a run only when it has a finding</text>
+  <rect x="40" y="1889" width="18" height="12" rx="3" class="cf-surface"/>
+  <text x="66" y="1898" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">deterministic machinery — no model involved</text>
+  <text x="40" y="1934" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">WHAT THIS PICTURE CANNOT SHOW</text>
+  <text x="40" y="1954" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Inside a loop box the model drives tools until it is done — the number of iterations, the files it reads and the sub-agents it spawns are run-time decisions.</text>
+  <text x="40" y="1971" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— How many specs a ticket becomes, and therefore how often the spec block repeats, is decided by the derivation on the day.</text>
+  <text x="40" y="1988" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Master bodies and their output schemas live in a separately versioned skills catalog the operator pins; this names the master a run loads, not what that master says.</text>
+  <text x="40" y="2005" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Steps can skip themselves at run time (no DAST configured, a single repo, nothing to park), and an operator's YAML may override a preset's step list.</text>
+  <text x="40" y="2022" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Fan-out steps create work that is not in the preset: init-project's dispatch runs one project-bootstrap round per discovered component, decided per repository.</text>
 </svg>
