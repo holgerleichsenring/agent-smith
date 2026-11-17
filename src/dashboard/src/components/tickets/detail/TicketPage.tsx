@@ -20,7 +20,7 @@ import { CAUSE_PARAM, SECTION_PARAM, TAB_PARAM, useTicketTabGo } from "./useTick
 // 2026-10-13-9a59q: the ticket detail under .mock-shell.mock-tickets like the list.
 // 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no thread:
 // its header, what it waits for, what waits for it and the filed line (ticket-graph.html, never-run-page).
-// 2026-11-17-dd05c: and its specs as its branch holds them, editable, then its derivations (the Specs section's pane).
+// 2026-11-17-dd05c: and its specs as its branch holds them, then its derivations (the Specs section's pane).
 // 2026-11-17-dd05d: a tracker text that no longer states the approved specs is named on top of What happened (and of a
 // never-run ticket's page), with its two remedies.
 // 2026-11-17-8d1ca: a ticket with a run has its section bar beside the main area, which shows ONE section — What

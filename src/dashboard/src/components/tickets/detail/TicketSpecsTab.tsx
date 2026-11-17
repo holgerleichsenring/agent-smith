@@ -66,7 +66,7 @@ export function TicketSpecsTab() {
           ))}
         </div>
         {selected && <SpecDocument spec={selected} attempts={attempts} runRecord={runRecord}
-          onDiscuss={() => address.go("happened")} />}
+          onDiscuss={attempts.length > 0 ? () => address.go("happened") : undefined} />}
       </div>
       <SeriesContractReview onSelect={(specId) => address.go("specs", { [SPEC_PARAM]: specId })} />
       <Revisions attempts={attempts} />
@@ -91,7 +91,7 @@ function SpecsHead({ specs }: { specs: TicketSeriesSpec[] }) {
     <div className="section-head first">
       <h2>Specs</h2>
       {specs.length > 0 && <span className="cnt green" data-testid="specs-done">{done} of {specs.length} done</span>}
-      <span className="sh-sub">the series as it is being worked · a spec that has not run can be edited</span>
+      <span className="sh-sub">the series as it is being worked · read-only, changed only through the conversation</span>
     </div>
   );
 }

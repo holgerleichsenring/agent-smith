@@ -119,6 +119,7 @@ internal static class PremiseCheckTestDoubles
             new PremiseHandbackNotice(
                 ticket.Factory(), decisions, NullLogger<PremiseHandbackNotice>.Instance),
             PremiseReplayDoubles.Filter(progress),
+            new PremiseCorrection(progress, decisions, NullLogger<PremiseCorrection>.Instance),
             NullLogger<CheckSpecPremisesHandler>.Instance);
         return new Harness(
             handler, new CheckSpecPremisesContext(new AgentConfig(), ticket.Tracker, pipeline),

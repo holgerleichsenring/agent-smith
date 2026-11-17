@@ -373,7 +373,7 @@ public sealed class AgenticMasterHandler(
         var composed = composition.Compose(
             isScanMaster, isSpecDialog, fs, records, human, credentials, writeContextYaml, web,
             progress, withdraw, readTicket, ticketWork, ticketRuns, context);
-        var masterTools = isSpecDialog ? midTurn.Delivering(reportingTools.Reporting(composed), context) : composed;
+        var masterTools = midTurn.Delivering(isSpecDialog ? reportingTools.Reporting(composed) : composed, context); // 4860b: code runs too
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,

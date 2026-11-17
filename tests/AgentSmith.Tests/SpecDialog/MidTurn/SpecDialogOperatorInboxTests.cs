@@ -108,14 +108,14 @@ public sealed class SpecDialogOperatorInboxTests
     }
 
     [Fact]
-    public void For_TheTurnsView_LeadsTheGateAndDrainsIntoTheCapture()
+    public async Task For_TheTurnsView_LeadsTheGateAndDrainsIntoTheCapture()
     {
         _gate.TryEnterTurn(Session);
         _inbox.TryQueue(Session, Message(3, Owner));
         var capture = new ForwardedThreadCapture();
         var turn = _inbox.For(Session, Owner, capture);
 
-        turn.Drain().Select(m => m.Text).Should().Equal("message 3");
+        (await turn.DrainAsync(default)).Select(m => m.Text).Should().Equal("message 3");
         capture.Record([new ChatMessage(ChatRole.User, "p")], new ChatResponse(new ChatMessage(ChatRole.Assistant, "a")));
         turn.Lead(stewarded: true);
 

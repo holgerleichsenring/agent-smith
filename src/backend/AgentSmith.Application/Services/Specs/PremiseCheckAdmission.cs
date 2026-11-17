@@ -49,7 +49,7 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
             var stated = SpecQuotableText.Resolve(premises.Claims, finding.Premise);
             if (stated is null) unproven.Add(NotStated(finding));
             else if (Proven(finding with { Premise = stated }, looks) is { } proven)
-                falsified.Add(proven);
+                falsified.Add(proven with { Breaks = Criterion(draft, proven) });
             else unproven.Add(Unproven(finding with { Premise = stated }));
         }
         return new PremiseCheck(falsified, unproven);
@@ -76,6 +76,19 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
         return cited is null
             ? null
             : finding with { Evidence = cited.Line, Looked = $"{cited.Repository}: {cited.What}", CitedId = cited.Id };
+    }
+
+    /// <summary>2026-11-17-c47ea: the done criterion the finding says it breaks, in the spec's own wording; a name that
+    /// resolves to no done entry is an invention and breaks nothing.</summary>
+    private string? Criterion(SpecDraft draft, PremiseFinding finding)
+    {
+        if (finding.Breaks is null) return null;
+        var stated = SpecQuotableText.Resolve([.. draft.Done.Where(d => !string.IsNullOrWhiteSpace(d))], finding.Breaks);
+        if (stated is null)
+            logger.LogWarning(
+                "The premise check said '{Premise}' breaks '{Breaks}', which is no done criterion of {Spec} — it breaks nothing",
+                finding.Premise, finding.Breaks, draft.SpecId);
+        return stated;
     }
 
     private static bool IsContradiction(PremiseFinding finding) =>

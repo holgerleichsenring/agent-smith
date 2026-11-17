@@ -148,4 +148,3 @@ PUT	/api/config/repos/{id}	config.write	-
 PUT	/api/config/secrets/{id}	secrets.write	-
 PUT	/api/config/settings/{type}	config.write	-
 PUT	/api/config/trackers/{id}	config.write	-
-PUT	/api/tickets/{project}/{ticketId}/specs/{specId}	runs.control	route:project

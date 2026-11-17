@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// sandbox the reader looks into, and a premise written against the state they LEAVE reads as
 /// broken to anyone who does not know they ran.
 /// </para>
+/// <para>2026-11-17-c47ea: each contradiction also says which completion criterion, if any, it breaks.</para>
 /// </summary>
 public static class PremiseCheckPrompt
 {
@@ -68,12 +69,18 @@ public static class PremiseCheckPrompt
             is what the spec is FOR, it is asked and answered elsewhere, and such a finding is
             discarded here. Say nothing about the spec's wording, its size or its ordering.
 
+            For each premise you report {{NoLongerHolds}}, say whether it BREAKS a completion
+            criterion: quote that criterion in "breaks" only when, with the premise false, it
+            can no longer be met or tested AS WRITTEN — never because it is not met yet. A
+            false premise the work can simply build around breaks nothing: "breaks" is null.
+
             Answer with JSON and nothing else:
 
               [{"premise": "<verbatim from the premises below>",
                 "verdict": "{{NoLongerHolds}}|{{Unproven}}",
                 "why": "<one sentence>",
-                "cites": "<the evidence id of the look that shows it, e.g. {{look.Terms.EvidencePrefix}}2; null when you could not look>"}]
+                "cites": "<the evidence id of the look that shows it, e.g. {{look.Terms.EvidencePrefix}}2; null when you could not look>",
+                "breaks": "<a completion criterion verbatim from the spec, or null>"}]
 
             An empty array means every premise below still holds.
             {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan, notes ?? [])}}

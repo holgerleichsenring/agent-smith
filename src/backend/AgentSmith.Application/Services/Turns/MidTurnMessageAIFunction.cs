@@ -29,7 +29,7 @@ public sealed class MidTurnMessageAIFunction(AIFunction inner, IMidTurnMessages 
         AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var result = await inner.InvokeAsync(arguments, cancellationToken);
-        var waiting = messages.Drain();
+        var waiting = await messages.DrainAsync(cancellationToken);
         return waiting.Count == 0 ? result : Appended(TextOf(result), waiting);
     }
 

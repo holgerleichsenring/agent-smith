@@ -58,7 +58,7 @@ internal static class SpecDialogExtensions
         services.AddTicketActPipelines().AddScoped<IActRun, Acts.ActRun>()
             .AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier, Tickets.Closing.TicketCloseFailureClassifier>();
         services.AddScoped<SpecDialogLatestOutcomeStore>().AddScoped<SpecDialogProposalContinuity>(); // 2026-11-09-9a98
-        services.AddScoped<TicketAmendment>().AddScoped<Tickets.Body.TicketBodyOverwrite>().AddScoped<Tickets.Editing.TicketSpecEdit>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek, dd05b
+        services.AddScoped<TicketAmendment>().AddScoped<Tickets.Body.TicketBodyOverwrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek, dd05b
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
         // 2026-11-04-96a0a: the subject the master named a conversation with, stored by the keeper in
@@ -66,7 +66,7 @@ internal static class SpecDialogExtensions
         // which is where it stores the subject. The edit re-entry shares that unit of work for
         // the same reason.
         services.AddScoped<SpecDialogSubjectStore>().AddScoped<SpecDialogWorkPictureStore>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
-        services.AddScoped<SpecDialogRouter>().AddScoped<SpecDialogTurnDelivery>().AddScoped<SpecDialogQueuedTurns>(); // a1fa
+        services.AddScoped<SpecDialogRouter>().AddScoped<SpecDialogTurnDelivery>().AddScoped<SpecDialogQueuedTurns>().AddTicketRunMessages(); // a1fa, 4860b
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>().AddScoped<MockRatification>();

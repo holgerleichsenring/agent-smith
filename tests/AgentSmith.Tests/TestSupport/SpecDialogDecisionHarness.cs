@@ -55,14 +55,14 @@ internal sealed class SpecDialogDecisionHarness(
     public SpecDialogRouter Router(
         SpecDialogCommandHandler commands, ISpecDialogTurnRunner turns, SpecDialogTurnGate gate,
         SpecDialogAnswerAdmission admission, SpecDialogTurnKeeper keeper, SpecDialogSessionManager? sessions = null,
-        SpecDialogOperatorInbox? inbox = null)
+        SpecDialogOperatorInbox? inbox = null, AgentSmith.Server.Services.SpecDialog.RunMessages.SpecDialogRunDivert? runs = null)
     {
         var queue = inbox ?? new SpecDialogOperatorInbox(gate);
         var delivery = new SpecDialogTurnDelivery(turns, keeper, Messenger, Flow());
         var queued = new SpecDialogQueuedTurns(queue, gate, sessions ?? Sessions, admission, delivery, Messenger,
             new SpecDialogReplyComposer(), NullLogger<SpecDialogQueuedTurns>.Instance);
         return new(new SpecCommandParser(), commands, delivery, queued, new SpecDialogDecisionOutcome(Decisions(), admission),
-            gate, queue, admission, keeper, NullLogger<SpecDialogRouter>.Instance);
+            gate, queue, admission, keeper, NullLogger<SpecDialogRouter>.Instance, runs);
     }
 
     public SpecDialogViewReader View(

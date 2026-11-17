@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-4860a
+goal: "The ticket page no longer edits a spec by hand: the Edit button, PUT .../specs/{specId} and what only it used are gone; spec changes go through the ticket conversation."
+
+applies_to: "default (TicketSpecEdit, TicketSpecEditEndpoints, TicketAmendment, SeriesEditAct), dashboard (SpecDocument, SpecEdit, TicketTextDivergence)"
+
+requires: [2026-11-17-dd05c, 2026-11-17-dd05d]
+
+facts:
+  - claim: "dd05c added the Edit button, the PUT endpoint and ticket-keyed entries on TicketAmendment and SeriesEditAct that only the edit needs apart from the conversation overloads."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSpecEditEndpoints.cs:16, src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:51-56, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:31-35, src/dashboard/src/components/tickets/detail/SpecDocument.tsx:89"
+  - claim: "The tracker-edit notice offers 'Edit the specs', which jumps to the Specs section."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketTextDivergence.tsx:44"
+  - claim: "The ticket conversation lives on the What happened section; the Specs section's Discuss button already goes there."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketSectionNames.ts:10-13, src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:69"
+
+scope:
+  in: "Delete TicketSpecEdit, TicketSpecEditAnswer, TicketSpecEditEndpoints, TicketSpecEditRequest, SpecEdit.tsx, ticketSpecEditApi.ts, the composition and dashboard tests of the edit, the route-permission row and the edit's css; fold the ticket-keyed entries back into TicketAmendment's and SeriesEditAct's conversation entries (SeriesEditAnswer goes). SpecDocument shows the read-only note for every spec again. The divergence notice's first action becomes 'Discuss in the conversation', which scrolls to and focuses the composer under the thread (shown only on a ticket with a run — a never-run page has no conversation); the Specs section's Discuss button likewise only where a conversation exists; the 'Overwrite the tracker from the specs' action stays."
+  out: "dd05c's never-run page showing the branch specs, SeriesParentDraft (SeriesTicketRegion uses it) and useTicketEdited (the overwrite uses it) stay. The hand-back text and docs/how-it-works/expectations.md still invite a git edit of an unstarted spec on the branch; aligning them with 'discuss it in the conversation' is its own follow-up."
+
+steps:
+  - id: backend
+    action: "Remove the endpoint, the edit service and its models; revert TicketAmendment and SeriesEditAct to their single conversation entries; drop the registration and the MapTicketSpecEditEndpoints call."
+  - id: dashboard
+    action: "Remove SpecEdit and its api; SpecDocument's read-only note for every spec; Specs head line back to read-only; the divergence notice's conversation action."
+  - id: tests
+    action: "Delete TicketSpecEditCompositionTests and SpecEdit.test.tsx; route-permission baseline row out; TicketTextDivergence.test.tsx asserts the conversation action; TicketNeverRunPage.test.tsx shows the branch specs read-only."
+
+tests:
+  - "TicketTextDivergence.test.tsx: the first action goes to the conversation; the overwrite still runs"
+  - "RoutePermission tests pass without the PUT row"
+
+done:
+  - "No dashboard control or endpoint edits a spec; the divergence notice sends the operator to the conversation."

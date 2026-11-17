@@ -6,7 +6,8 @@ import type { RunEvent } from "@/types/hub-events";
 import type { TicketText } from "@/types/tickets";
 
 // 2026-11-17-dd05d: the tracker text no longer states the approved specs — What happened says which goals, and offers
-// editing the specs or overwriting the tracker from them; a focus re-reads the text past the server's cache.
+// discussing it in the conversation (2026-11-17-4860a: the composer, not a hand edit) or overwriting the tracker from
+// them; a focus re-reads the text past the server's cache.
 
 const NONE: RunEvent[] = [];
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => NONE }));
@@ -61,8 +62,18 @@ describe("TicketTextDivergence", () => {
     await show();
 
     expect(screen.getByTestId("ticket-divergence")).toHaveTextContent("no longer states 1 of its 2 spec goals: “Retry with backoff”");
-    expect(screen.getByTestId("divergence-edit")).toBeInTheDocument();
+    expect(screen.getByTestId("divergence-discuss")).toHaveTextContent("Discuss in the conversation");
     expect(screen.getByTestId("divergence-overwrite")).toBeInTheDocument();
+    expect(screen.queryByTestId("divergence-edit")).toBeNull();
+  });
+
+  it("Discuss_FocusesTheConversationsComposer", async () => {
+    await show();
+
+    fireEvent.click(screen.getByTestId("divergence-discuss"));
+
+    const composer = screen.getByTestId("ticket-composer");
+    expect(composer.contains(document.activeElement)).toBe(true);
   });
 
   it("Overwrite_PostsAndShowsTheServersSentence", async () => {

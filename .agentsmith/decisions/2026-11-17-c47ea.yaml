@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-c47ea
+
+decisions:
+  - category: Architecture
+    chose: "On an approved set, a still-false premise that breaks no done criterion is a correction: the step succeeds, the master prompt carries a 'Corrected premises' block, the run's decision log gets one entry per correction, the spec row a progress note"
+    over: "Failing the step as before, or a new question mechanism for every false premise"
+    reason: "Live replay 2026-11-17T15-45-47-09e4 stopped an approved, reviewed spec on one over-generalised fact (one user FK cascades). The approval stands on the goal and the done criteria; a corrected fact is something the master can build on, and the master already has ask_human when it is genuinely blocked."
+  - category: Architecture
+    chose: "A false premise that makes a done criterion impossible to meet or test as written keeps today's premise hand-back, for all of the spec's false premises, and records no correction"
+    over: "Handing back only the breaking finding and correcting the rest"
+    reason: "The operator policy asks for the existing hand-back/question as the one question; a spec that is handed back is not built, so a correction recorded for it would be a decision-log entry nobody acted on."
+  - category: Implementation
+    chose: "The checker names the broken criterion verbatim ('breaks'); admission resolves it against the spec's done list with SpecQuotableText, and an unresolved name breaks nothing"
+    over: "Letting the model's free text decide, or the framework guessing from wording overlap"
+    reason: "Same rule as the premise itself: a verdict quotes the spec, never the model. A criterion the spec does not state cannot be broken; the master can still ask_human."
+  - category: Implementation
+    chose: "Unapproved (derived) sets keep the hand-back for every false premise"
+    over: "Applying corrections to derived specs too"
+    reason: "No person stands behind a derived spec's facts; the hand-back is the moment one first reads them. Note: 'approved' is SpecSet.Approval, which also covers sets re-cut on an operator's demand and rework/overrule sets that keep the earlier approval — accepted, since a person ratified the series those specs continue."
+  - category: Implementation
+    chose: "The corrections list is replaced at every premise check entry (ContextKeys.PremiseCorrections), as StaleCitations is"
+    over: "Accumulating corrections over the series"
+    reason: "A correction is about one spec's premises; the next spec's master must not inherit it."
+  - category: Architecture
+    chose: "Dropped the drafted series members c47eb (spec-edit queue) and c47ec (pending edit on the ticket page) before building; they never shipped, and the uncommitted draft 2026-11-17-381f is superseded with them"
+    over: "Queueing hand edits of a ticket's specs while an attempt holds the branch"
+    reason: "Operator decision 2026-11-17: specs are not edited by hand. Changes are discussed with the agent in the ticket conversation, and the agent edits the spec on the branch (with a review of exactly that spec); the dashboard edit is removed and a message to a running attempt reaches that run in their own specs."
