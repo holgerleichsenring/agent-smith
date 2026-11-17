@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-274ca
+
+decisions:
+  - category: Architecture
+    chose: "LoopLimitsConfig is registered transient from the loaded AgentSmithConfig; the server registers it from a store-following CurrentConfigSnapshot"
+    over: "A singleton read from AgentSmithConfig at start"
+    reason: "The server's AgentSmithConfig singleton is loaded once at boot, so a Studio save to the limits form would need a restart; every consumer is scoped or transient, so a transient registration costs nothing and follows the store."
+  - category: Architecture
+    chose: "One CurrentConfigSnapshot shared by the secrets and the loop limits; CurrentSecretValues reads it"
+    over: "A second catalog-keyed loader beside CurrentSecretValues"
+    reason: "Two copies would load the whole configuration twice per catalog change and republish its findings twice; extending the existing store-following mechanism keeps one path."
+  - category: Implementation
+    chose: "A scout call past limits.max_seconds_per_skill_call throws TimeoutException naming value, reason and key; ClientSurfaceReader's swallow filter excludes it like a cancellation"
+    over: "Returning not-computed from ClientSurfaceReader on timeout"
+    reason: "The step failed on a timeout before; keeping that and only changing the message keeps behaviour. GenericRegistryAuthApplier already reports ex.Message, so the operator now reads the key instead of 'The operation was canceled'."
+  - category: Implementation
+    chose: "A deferred spawn entry keeps reason budget_exhausted and gains a detail naming value, key and what it bounds"
+    over: "Rewording reason"
+    reason: "reason is a code the tests and the model already read; the detail carries the rule-4 message beside it."
+  - category: Scope
+    chose: "The tool-call ceiling (limits.max_tool_calls_per_skill) keeps stopping inside FunctionInvokingChatClient without its own message"
+    over: "Wrapping the chat client to report the ceiling"
+    reason: "The stop happens inside Microsoft.Extensions.AI and returns the last response; reporting it is a loop-harness change, not a binding fix. It is listed debt in the 274cc inventory."
+  - category: TradeOff
+    chose: "Fixing the binding lets operator-set limits take effect immediately"
+    reason: "An installation whose stored limits differ from the defaults (for example an example-file copy) runs under those values from this release on; the live keys are the scout seconds and tool calls and the three sub-agent numbers."

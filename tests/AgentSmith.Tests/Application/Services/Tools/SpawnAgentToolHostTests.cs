@@ -59,6 +59,8 @@ public sealed class SpawnAgentToolHostTests
         """);
 
         result.Should().Contain("budget_exhausted");
+        result.Should().Contain("the budget of 1 sub-agents is spent (limits.max_sub_agents_per_run)",
+            "2026-11-17-274ca: the refusal names the value and the key it is set under");
         loopRunner.CallCount.Should().Be(1, "only the first task fits the budget");
     }
 

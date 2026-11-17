@@ -23,7 +23,7 @@ public sealed class SecretValuesTests
     public void SecretMasker_SecretAddedInStudioAfterStartup_IsMasked()
     {
         var (store, loader) = StoreAndLoader();
-        var masker = new SecretMasker(new CurrentSecretValues(store.Object, loader.Object, new ServerContext("x")));
+        var masker = new SecretMasker(new CurrentSecretValues(new CurrentConfigSnapshot(store.Object, loader.Object, new ServerContext("x"))));
         masker.Apply($"a {BootToken}").Should().Be("a ***");
 
         store.Setup(s => s.Catalog).Returns(new ConfigCatalog());
@@ -36,7 +36,7 @@ public sealed class SecretValuesTests
     public void CurrentSecretValues_CatalogUnchanged_DoesNotReload()
     {
         var (store, loader) = StoreAndLoader();
-        var values = new CurrentSecretValues(store.Object, loader.Object, new ServerContext("x"));
+        var values = new CurrentSecretValues(new CurrentConfigSnapshot(store.Object, loader.Object, new ServerContext("x")));
 
         values.Resolve("BOOT").Should().Be(BootToken);
         values.All().Should().BeSameAs(values.All());

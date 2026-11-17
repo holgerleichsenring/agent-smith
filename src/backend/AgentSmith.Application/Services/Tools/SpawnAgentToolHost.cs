@@ -94,12 +94,11 @@ public sealed class SpawnAgentToolHost : IToolHost
                 status = SubAgentStatus.Failed.ToString(),
                 sub_agent_id = (string?)null,
                 name = deferred[i].Name,
-                observations_count = 0,
-                findings_count = 0,
-                files_written_count = 0,
+                observations_count = 0, findings_count = 0, files_written_count = 0,
                 tool_calls = 0,
                 cost_usd = 0m,
                 reason = "budget_exhausted",
+                detail = _budget.Exhausted, // 2026-11-17-274ca
             });
         }
         var cut = runResults.Any(r => r.Answer?.StartsWith(SubAgentAnswer.CallCutPrefix, StringComparison.Ordinal) == true); // 85e2
