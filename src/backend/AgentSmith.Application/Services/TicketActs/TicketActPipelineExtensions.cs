@@ -27,6 +27,7 @@ public static class TicketActPipelineExtensions
         services.TryAddTransient<SeriesManifest>(); services.TryAddTransient<SeriesFiles>(); services.TryAddTransient<SeriesRepos>();
         services.TryAddTransient<SpecTicketRenderer>(); services.TryAddTransient<SeriesTicketRegion>(); services.TryAddTransient<SpecSetPointerRecorder>();
         services.AddTransient<ICommandHandler<RenderTicketBodyContext>, RenderTicketBodyHandler>();
+        services.AddTransient<ICommandHandler<RetargetPullRequestsContext>, RetargetPullRequestsHandler>(); // 2026-11-17-9a39c
         return services;
     }
 }

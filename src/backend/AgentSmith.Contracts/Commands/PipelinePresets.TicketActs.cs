@@ -33,6 +33,11 @@ public static partial class PipelinePresets
 
     public static readonly IReadOnlyList<string> TicketBody = [CommandNames.RenderTicketBody];
 
+    /// <summary>2026-11-17-9a39c: preset name of a retarget — a stacked dependent's pull requests leave a landed branch.</summary>
+    public const string RetargetName = "retarget";
+
+    public static readonly IReadOnlyList<string> Retarget = [CommandNames.RetargetPullRequests];
+
     // 2026-11-17-e061: every act on a filed ticket, by preset — the static constructor adds them to the presets, and
     // routing reads it to keep them off a label (a launch with a server seed, never a ticket's route). Declared after
     // the step lists above, which a field initializer in this file reads in textual order.
@@ -40,5 +45,6 @@ public static partial class PipelinePresets
     {
         [CloseName] = Close, [ReopenName] = Reopen, [StartName] = Start, [AmendName] = Amend, [CommentName] = Comment,
         [TicketBodyName] = TicketBody, // 2026-11-17-dd05b
+        [RetargetName] = Retarget, // 2026-11-17-9a39c
     };
 }

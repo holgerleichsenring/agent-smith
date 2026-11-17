@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-9a39c
+
+decisions:
+  - category: Architecture
+    chose: "A 'retarget' preset [RetargetPullRequests] launched through IActRun by PullRequestRetargetRun; the server class only reads (requirement and landing rows, pull-request bases) and decides the moves"
+    over: "Calling RetargetPullRequestAsync from the server's nudge handling"
+    reason: "Everything that writes to a repository is a pipeline step with a run id (server-writes ratchet); the reads that decide whether to launch keep a run from being started on every nudge."
+  - category: Implementation
+    chose: "Asked on EVERY nudge of a ticket with an attempt and no live lease, idempotent"
+    over: "Only on the RequirementsMet nudge a landing enqueues"
+    reason: "Adversarial review: a RequirementsMet origin is lost when merged with PreconditionsMet, and a nudge served while the dependent's run holds the ticket must wait for that run's CommitAndPR, which can move the pull request back onto the rung it resolved. The run's own end nudge catches both. The cost is one base read per open pull request per nudge, only for tickets with a landed requirement."
+  - category: Implementation
+    chose: "New base: the next unlanded tip's branch, else the base the prerequisite's own pull request in that repo had, else the repo's configured default_branch, else logged and left"
+    over: "Always the provider's default branch"
+    reason: "ISourceProvider has no default-branch read; the prerequisite's pull request names where its work landed — for a prerequisite that was itself stacked, its pull request was moved to the real base before it merged. The providers read a merged pull request's base (GitHub's Get, Azure Repos' and GitLab's merge request reads are state-independent)."
+  - category: Scope
+    chose: "A refused move (closed pull request, deleted base) is named in the step's result line and logged; nothing else"
+    over: "Reopening or recreating anything"
+    reason: "The branch-cleanup sweep (2026-11-17-713ec) never deletes a branch an open pull request targets; GitLab retargets dependents of a merged source branch itself. A pull request a person closed is theirs."
+  - category: Scope
+    chose: "After a squash merge the moved pull request shows the prerequisite's commits until the dependent's next run merges its base"
+    over: "Starting a run on landing to merge the base"
+    reason: "A merge commit or rebase merge shows only the dependent's work; starting a coding run on every landing would spend a run the reviewer may not need. Stated, not hidden."

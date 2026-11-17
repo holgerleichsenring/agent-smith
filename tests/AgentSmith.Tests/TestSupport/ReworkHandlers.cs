@@ -16,26 +16,29 @@ internal static class ReworkHandlers
         IActiveRunLease leases, IPreviousAttemptReader attempts, IReworkPendingActs pending, IReworkEntry rework,
         ReworkSpeech speech, ReworkFallbackSpawn fallback, ReworkWithheld withheld, IRunCheckpointStore checkpoints,
         ClosedTicketActFollowUp followUps, ISeriesAutoStart? series = null, RequirementsMetStart? start = null,
-        PreconditionRelease? release = null, StackedDependentsWake? stacked = null) =>
+        PreconditionRelease? release = null, StackedTicketUpkeep? stacked = null) =>
         Of(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps,
             new ReworkNoActTail(pending, followUps, withheld, series ?? Mock.Of<ISeriesAutoStart>()), start, release,
-            stacked ?? NoStackedWake(attempts, leases));
+            stacked ?? NoStackedUpkeep(attempts, leases));
 
     private static ReworkNudgeHandler Of(
         IActiveRunLease leases, IPreviousAttemptReader attempts, IReworkPendingActs pending, IReworkEntry rework,
         ReworkSpeech speech, ReworkFallbackSpawn fallback, ReworkWithheld withheld, IRunCheckpointStore checkpoints,
         ClosedTicketActFollowUp followUps, ReworkNoActTail tail, RequirementsMetStart? start, PreconditionRelease? release,
-        StackedDependentsWake stacked) =>
+        StackedTicketUpkeep stacked) =>
         new(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps, tail, start ?? NoStart(fallback),
             release ?? new PreconditionRelease(attempts, pending, tail, Hold(new InMemoryTicketFacts()), Mock.Of<IReworkLaunch>(),
                 NullLogger<PreconditionRelease>.Instance), stacked);
 
-    // 2026-11-17-9a39a: a green wake over empty requirement stores — it never nudges anything.
-    public static StackedDependentsWake NoStackedWake(IPreviousAttemptReader attempts, IActiveRunLease leases)
+    // 2026-11-17-9a39a/c: the stack upkeep over empty requirement stores — it never nudges or moves anything.
+    public static StackedTicketUpkeep NoStackedUpkeep(IPreviousAttemptReader attempts, IActiveRunLease leases)
     {
         var facts = new InMemoryTicketFacts();
-        return new(facts, facts, TicketRequirementDoubles.Of(facts), attempts, leases, Mock.Of<IReworkNudges>(),
-            NullLogger<StackedDependentsWake>.Instance);
+        var unmet = TicketRequirementDoubles.Of(facts);
+        return new(new StackedDependentsWake(facts, facts, unmet, attempts, leases, Mock.Of<IReworkNudges>(),
+                NullLogger<StackedDependentsWake>.Instance),
+            new StackedPullRequestRetarget(facts, facts, unmet, attempts, leases, Mock.Of<ISourceProviderFactory>(),
+                Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance));
     }
 
     // 2026-10-14-dbceh: a start over empty requirement stores — it never starts anything.
