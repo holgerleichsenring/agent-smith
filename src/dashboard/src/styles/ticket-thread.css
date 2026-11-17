@@ -52,19 +52,82 @@
 .mock-tickets .tk-menu-item { font-size: 12.5px; font-weight: 600; color: var(--ink); text-decoration: none; padding: 6px 2px; }
 .mock-tickets .tk-menu .derive-act { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
-/* the thread */
-.mock-tickets .thread { display: flex; flex-direction: column; gap: 10px; }
-.mock-tickets .tk-msg .mb.tk-said { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
-.mock-tickets .tk-msg.stopped .mb.tk-said { color: var(--bad); }
-.mock-tickets .tk-msg .mb.tk-short { max-height: calc(4 * 1.5em); overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, var(--ink) calc(100% - 1.5em), transparent); mask-image: linear-gradient(to bottom, var(--ink) calc(100% - 1.5em), transparent); }
-.mock-tickets .tk-ac { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+/* 2026-11-17-8d1cb: What happened — one line per event under hairlines: time, a dot in the outcome's colour, who,
+   one sentence, how long, ▸. The body of an opened line sits under its sentence. No avatars, boxes or fills. */
+.mock-tickets .thread { display: flex; flex-direction: column; border-top: 1px solid var(--line-2); }
+.mock-tickets .tk-line { --tone: var(--ink-3); border-bottom: 1px solid var(--line-2); }
+.mock-tickets .tk-line.ok { --tone: var(--ok); }
+.mock-tickets .tk-line.run { --tone: var(--run); }
+.mock-tickets .tk-line.person { --tone: var(--person); }
+.mock-tickets .tk-line.bad { --tone: var(--bad); }
+.mock-tickets .tk-line.you { --tone: var(--ink); }
+.mock-tickets .tk-line-head { width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 10px 2px; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.mock-tickets button.tk-line-head { cursor: pointer; }
+.mock-tickets button.tk-line-head:disabled { cursor: default; color: inherit; }
+.mock-tickets .tk-at { flex: none; width: 92px; padding-top: 2px; color: var(--ink-3); font-size: 12px; line-height: 19px; }
+.mock-tickets .tk-dot { flex: none; width: 7px; height: 7px; margin-top: 7px; border-radius: 50%; background: var(--tone); }
+.mock-tickets .tk-who { flex: none; width: 104px; color: var(--ink-2); line-height: 21px; overflow-wrap: anywhere; }
+.mock-tickets .tk-text { flex: 1; min-width: 0; line-height: 21px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-tickets .tk-line.you .tk-text { color: var(--ink); }
+.mock-tickets .tk-outcome { color: var(--tone); }
+.mock-tickets .tk-meta { flex: none; color: var(--ink-3); font-size: 12px; line-height: 21px; }
+.mock-tickets .tk-chev { flex: none; width: 12px; color: var(--ink-3); line-height: 21px; }
+.mock-tickets .tk-line-body { margin: 0 0 12px 237px; display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 13px; }
+.mock-tickets .tk-line.tk-fold > .tk-line-body { margin-left: 0; }
+.mock-tickets .tk-fold-body .tk-line:last-child { border-bottom: 0; }
+.mock-tickets .tk-said { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; color: var(--ink-2); }
+.mock-tickets .tk-entry .where { display: block; font-size: 12px; line-height: 19px; color: var(--ink-3); }
+.mock-tickets .tk-entry .mb { font-size: 14px; max-width: 72ch; }
+.mock-tickets .tk-entry .mb .file { display: block; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.mock-tickets .tk-entry .mb .cut { display: block; font-size: 12px; color: var(--ink-3); }
+.mock-tickets .tk-entry .mb h1, .mock-tickets .tk-entry .mb h2, .mock-tickets .tk-entry .mb h3 { font-size: inherit; line-height: 1.5; font-weight: 600; color: inherit; margin: 6px 0 2px; letter-spacing: normal; }
+.mock-tickets .tk-entry .mb p { margin: 4px 0; }
+.mock-tickets .tk-line .diff { margin-top: 4px; padding: 2px 0 2px 10px; border-left: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-tickets .tk-line .diff .rm { color: var(--bad); }
+.mock-tickets .tk-line .diff .ad { color: var(--ok); }
+.mock-tickets .tk-entry.internal .tk-who { color: var(--ink-3); }
+.mock-tickets .tk-entry.target { box-shadow: inset 2px 0 0 var(--person); }
+.mock-tickets .tk-entry .mf { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ink-3); }
+.mock-tickets .tk-entry .mf .eff.run { color: var(--run); }
+.mock-tickets .tk-decision.ok { color: var(--ok); }
+.mock-tickets .tk-decision.bad { color: var(--bad); }
+.mock-tickets .tk-line-body .tt { background: none; border: 0; border-radius: 0; padding: 0; margin: 0; }
+.mock-tickets .tk-line-body .tt .tchip { border: 0; background: none; padding: 0 6px 0 0; color: var(--ink-3); }
 .mock-tickets .tk-link { font: inherit; font-size: 12.5px; color: var(--ink-2); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; align-self: flex-start; }
-.mock-tickets .tk-runline { display: inline-block; margin-top: 6px; font-size: 12.5px; color: var(--ink-2); }
+.mock-tickets .tk-runline { align-self: flex-start; font-size: 12.5px; color: var(--ink-2); }
 .mock-tickets .tk-dim { color: var(--ink-3); }
-.mock-tickets .tk-prs { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12.5px; }
+.mock-tickets .tk-prs { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
 .mock-tickets .tk-prs a { color: var(--ink); }
-.mock-tickets .tk-msg .q-head { margin: 8px 0 4px; }
-.mock-tickets .tk-chev { display: inline-block; width: 12px; color: var(--ink-3); }
+.mock-tickets .tk-line-body .q-head { margin: 4px 0; }
+.mock-tickets .tk-chev { display: inline-block; }
+@media (max-width: 760px) {
+  .mock-tickets .tk-line-head { flex-wrap: wrap; gap: 4px 10px; }
+  .mock-tickets .tk-at { width: auto; }
+  .mock-tickets .tk-who { width: auto; }
+  .mock-tickets .tk-text { flex-basis: 100%; order: 5; }
+  .mock-tickets .tk-line-body { margin-left: 0; }
+}
+
+/* a run's sectioned log inside its line: the run page's sections (components/jobs/runlog), as plain mono lines */
+.mock-tickets .tk-runlog .rl-sections { display: flex; flex-direction: column; }
+.mock-tickets .tk-runlog .rl-sec { --tone: var(--ink-3); }
+.mock-tickets .tk-runlog .rl-sec.done { --tone: var(--ok); }
+.mock-tickets .tk-runlog .rl-sec.warn, .mock-tickets .tk-runlog .rl-sec.running { --tone: var(--run); }
+.mock-tickets .tk-runlog .rl-sec.bad { --tone: var(--bad); }
+.mock-tickets .tk-runlog .rl-sec-head { width: 100%; display: flex; align-items: baseline; gap: 10px; padding: 3px 0; border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.mock-tickets .tk-runlog .rl-chev { width: 12px; color: var(--ink-3); }
+.mock-tickets .tk-runlog .rl-sec-mark { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tone); align-self: center; }
+.mock-tickets .tk-runlog .rl-sec.pending .rl-sec-mark { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.mock-tickets .tk-runlog .rl-sec-title { flex: none; width: 170px; }
+.mock-tickets .tk-runlog .rl-sec-sum { flex: 1; min-width: 0; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-tickets .tk-runlog .rl-sec.warn .rl-sec-sum, .mock-tickets .tk-runlog .rl-sec.bad .rl-sec-sum { color: var(--tone); }
+.mock-tickets .tk-runlog .rl-sec-time { flex: none; font-size: 12px; color: var(--ink-3); }
+.mock-tickets .tk-runlog .rl-sec-body { padding: 2px 0 6px 22px; display: flex; flex-direction: column; gap: 2px; }
+.mock-tickets .tk-runlog .rl-line { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; font-family: var(--mono); font-size: 12px; line-height: 20px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-tickets .tk-runlog .rl-line.done { color: var(--ink-2); }
+.mock-tickets .tk-runlog .rl-line.warn, .mock-tickets .tk-runlog .rl-line.running { color: var(--run); }
+.mock-tickets .tk-runlog .rl-line.bad { color: var(--bad); }
+.mock-tickets .tk-runlog .rl-line.pending, .mock-tickets .tk-runlog .rl-at, .mock-tickets .tk-runlog .rl-dim { color: var(--ink-3); }
 
 /* the spec card inside a report */
 .mock-tickets .tk-spec { margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; max-width: 70ch; }
@@ -84,42 +147,32 @@
 .mock-tickets .tk-decided > div { flex: 1 1 280px; }
 .mock-tickets .tk-decided-acts { display: inline-flex; gap: 6px; }
 
-/* a folded run of equal messages */
-.mock-tickets .tk-repeat { padding: 4px 0 4px 42px; }
-.mock-tickets .tk-repeat-head { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 4px 0; cursor: pointer; text-align: left; }
-.mock-tickets .tk-repeat-body { margin-left: -42px; display: flex; flex-direction: column; gap: 10px; }
-
-/* Details, folded at the end of the thread */
-.mock-tickets .tk-details { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 10px; }
-.mock-tickets .tk-details-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: none; border: 0; padding: 6px 0; cursor: pointer; text-align: left; }
-.mock-tickets .tk-details-head .tk-dim { font-weight: 400; font-size: 12px; }
-
-/* the Your move box, docked above the composer */
-.mock-tickets .tk-page .conv-dock { max-width: none; display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
-.mock-tickets .tk-page .conv-dock .composer { margin-top: 0; max-width: none; }
-.mock-tickets .tk-move { --tone: var(--ink-3); --wash: var(--panel); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 12px; background: var(--wash); border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--line)); }
-.mock-tickets .tk-move.amber { --tone: var(--run); --wash: var(--run-wash); }
-.mock-tickets .tk-move.person { --tone: var(--person); --wash: var(--person-wash); }
-.mock-tickets .tk-move.ok { --tone: var(--ok); --wash: var(--ok-wash); }
-.mock-tickets .tk-move.bad { --tone: var(--bad); --wash: var(--bad-wash); }
-.mock-tickets .tk-move-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
-.mock-tickets .tk-move-say { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* 2026-11-17-8d1cb: the Your move line on top of What happened — a dot, the title, the sentence and the act as a text
+   link; no box. The composer at the bottom under one hairline. */
+.mock-tickets .tk-page .conv-dock { max-width: none; display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 0; background: var(--bg); }
+.mock-tickets .tk-page .conv-dock .composer { margin-top: 0; max-width: none; border: 0; border-top: 1px solid var(--line-2); border-radius: 0; background: var(--bg); }
+.mock-tickets .tk-page .conv-dock .cp-input { padding: 12px 0 4px; border-top: 0; background: none; }
+.mock-tickets .tk-page .conv-dock .cp-input textarea, .mock-tickets .tk-page .conv-dock .cp-input .d-input { border: 0; background: none; padding: 4px 0; box-shadow: none; }
+.mock-tickets .tk-page .conv-dock .cp-body, .mock-tickets .tk-page .conv-dock .cp-actions { padding-left: 0; padding-right: 0; }
+.mock-tickets .tk-move { --tone: var(--ink-3); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 0 0 16px; }
+.mock-tickets .tk-move.amber { --tone: var(--run); }
+.mock-tickets .tk-move.person { --tone: var(--person); }
+.mock-tickets .tk-move.ok { --tone: var(--ok); }
+.mock-tickets .tk-move.bad { --tone: var(--bad); }
+.mock-tickets .tk-move-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--tone); align-self: flex-start; margin-top: 8px; }
+.mock-tickets .tk-move-say { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .mock-tickets .tk-move-title { font-weight: 600; }
 .mock-tickets .tk-move-text { color: var(--ink-2); font-size: 13px; }
-.mock-tickets .tk-move-detail { margin-top: 4px; font-size: 13px; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow-y: auto; }
+.mock-tickets .tk-move-detail { margin-top: 4px; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .mock-tickets .tk-move-detail.md { white-space: normal; }
 .mock-tickets .tk-move-detail.md p { margin: 4px 0; }
 .mock-tickets .tk-move-act { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mock-tickets .tk-move-act .btn, .mock-tickets .tk-move-why .btn { border: 0; background: none; padding: 0; min-height: 0; font: inherit; font-weight: 500; color: var(--ink); text-decoration: underline; box-shadow: none; }
 .mock-tickets .tk-move-act .tk-dim { font-size: 12px; max-width: 40ch; }
 .mock-tickets .tk-move-prs { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12.5px; }
 .mock-tickets .tk-move-prs a { color: var(--ink); }
-.mock-tickets .tk-move-why { flex: 1 1 100%; border-top: 1px solid color-mix(in srgb, var(--tone) 25%, var(--line)); padding-top: 8px; }
+.mock-tickets .tk-move-why { flex: 1 1 100%; padding-left: 21px; }
 .mock-tickets .tk-move-why > summary { cursor: pointer; font-size: 12.5px; color: var(--ink-2); }
 .mock-tickets .tk-move-why-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.mock-tickets .tk-move-why .ts-cause { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14em; overflow-y: auto; }
-.mock-tickets .tk-move-why .ts-links { display: flex; gap: 8px; flex-wrap: wrap; }
-
-@media (max-width: 640px) {
-  .mock-tickets .tk-repeat { padding-left: 0; }
-  .mock-tickets .tk-repeat-body { margin-left: 0; }
-}
+.mock-tickets .tk-move-why .ts-cause { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-2); background: none; border: 0; border-left: 1px solid var(--line); border-radius: 0; padding: 2px 0 2px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-tickets .tk-move-why .ts-links { display: flex; gap: 14px; flex-wrap: wrap; }

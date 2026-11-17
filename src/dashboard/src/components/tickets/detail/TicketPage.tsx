@@ -68,10 +68,7 @@ function TicketSections({ detail, project }: { detail: TicketDetail; project: st
             <section.Pane />
           </section>
         ) : (
-          <>
-            <TicketWaitsFor project={project} />
-            <TicketThread />
-          </>
+          <TicketThread lead={<TicketWaitsFor project={project} />} />
         )}
       </main>
     </div>

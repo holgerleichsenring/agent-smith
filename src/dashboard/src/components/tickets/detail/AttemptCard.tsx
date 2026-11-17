@@ -7,8 +7,9 @@ import { runPath, runTracePath } from "@/lib/runPath";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { RunSnapshot } from "@/types/hub-events";
-import { RUN_END_KINDS, type RunCompute, type RunPasses, type TicketAttempt, type TicketConversationEntry, type TicketSeries } from "@/types/tickets";
+import { type RunCompute, type RunPasses, type TicketAttempt, type TicketConversationEntry, type TicketSeries } from "@/types/tickets";
 import { money } from "../ticketFormat";
+import { outcomePill } from "./attemptOutcome";
 import { attemptStory, causeLabel, causeWhere, liveSpec, questionWaits } from "./attemptStory";
 import { duration } from "./computeTotals";
 import { elapsed } from "./flowWords";
@@ -26,20 +27,6 @@ interface Props {
   /** The ticket's default cut — the live attempt's "spec n of m" only when it is this attempt's own. */
   series: TicketSeries | null;
   now: number;
-}
-
-const PILLS: Record<string, [string, string]> = {
-  running: ["amber", "running"], queued: ["amber", "queued"], waiting_for_input: ["person", "waiting for an answer"],
-  success: ["ok", "succeeded"], shortfall: ["amber", "shortfall"], failed: ["bad", "failed"], error: ["bad", "failed"],
-  cancelled: ["q", "cancelled"],
-};
-
-export function outcomePill(attempt: TicketAttempt): [string, string] {
-  // 2026-10-16-86e6b: a park a newer attempt started past is closed as superseded, whatever it waited on.
-  if (attempt.endKind === RUN_END_KINDS.superseded) return ["q", "superseded"];
-  if (attempt.handedBack) return ["person", "handed back"];
-  if (attempt.endedOnInfrastructure) return ["bad", "ended on infrastructure"];
-  return PILLS[attempt.status] ?? ["q", attempt.status.replace(/_/g, " ")];
 }
 
 function dotClass(attempt: TicketAttempt): string {

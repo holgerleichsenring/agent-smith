@@ -319,7 +319,7 @@ describe("Ticket thread", () => {
     };
     await open();
     const log = screen.getByRole("log", { name: "Conversation" });
-    const order = [...log.querySelectorAll("[data-entry-id], [data-testid^=thread-report-]:not([data-testid=thread-report-text]), [data-testid=thread-ticket]")]
+    const order = [...log.querySelectorAll("[data-entry-id], [data-testid^=thread-report-]:not([data-testid=thread-report-text]):not([data-testid$=-head]), [data-testid=thread-ticket]")]
       .map((n) => n.getAttribute("data-entry-id") ?? n.getAttribute("data-testid"));
     expect(order).toEqual(["thread-ticket", "a", "b", "thread-report-1", "c", "thread-report-2", "d", "e"]);
     expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Done on the branch.");
@@ -390,7 +390,7 @@ describe("Ticket thread", () => {
     const shown = screen.getAllByTestId("conv-entry");
     expect(shown).toHaveLength(1);
     expect(shown[0]).toHaveTextContent("Not a rework");
-    expect(shown[0].querySelector(".av.agent")).not.toBeNull();
+    expect(shown[0].querySelector(".tk-who")).toHaveTextContent("Agent Smith");
   });
   it("AReviewCommentShowsFileAndLine_ATicketEditShowsItsDiffAndNoEditor", async () => {
     world.conversation = {
@@ -425,7 +425,7 @@ describe("Ticket thread", () => {
     await open();
     const footers = screen.getAllByTestId("conv-started");
     expect(footers).toHaveLength(1);
-    expect(footers[0]).toHaveTextContent("started attempt 2");
+    expect(footers[0]).toHaveTextContent("started run 2");
     expect(footers[0].closest("[data-entry-id]")).toHaveAttribute("data-entry-id", "x");
   });
 
@@ -606,10 +606,11 @@ describe("Ticket thread reading", () => {
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
     const line = screen.getByTestId("thread-repeat-attempts-r-1");
-    expect(line).toHaveTextContent("3 runs stopped: Pipeline aborted: missing bootstrap");
+    // 2026-11-17-8d1cb: the fold is one line — "Runs 1–3", the outcome with its end kind, the cause, "3× same cause".
+    expect(line).toHaveTextContent("Runs 1–3failed · bootstrap missing · Pipeline aborted: missing bootstrap3× same cause");
     expect(screen.queryByTestId("thread-report-2")).toBeNull();
     expect(screen.getByTestId("thread-report-4")).toHaveTextContent("Pod did not start");
-    fireEvent.click(within(line).getByRole("button"));
+    fireEvent.click(screen.getByTestId("thread-repeat-attempts-r-1-head"));
     expect(within(line).getByTestId("thread-report-1")).toBeInTheDocument();
     expect(within(line).getByTestId("thread-report-3")).toBeInTheDocument();
   });

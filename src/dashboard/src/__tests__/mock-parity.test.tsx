@@ -345,8 +345,8 @@ describe("Mock parity", () => {
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string[]]> = [
-      // 2026-11-16-6877a: the conversation is the page (no tab): its thread, the Your move box and the composer.
-      ["", [".thread", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".tk-move", ".composer", ".cp-actions", ".cp-input"]],
+      // 2026-11-17-8d1cb: What happened (TicketRail mock): the Your move line, one line per event, the composer.
+      ["", [".tk-move", ".thread", ".tk-line", ".tk-line-head", ".tk-at", ".tk-dot", ".tk-who", ".tk-text", ".tk-entry", ".tk-entry.internal", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".composer", ".cp-actions", ".cp-input"]],
       ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
         // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
         ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],

@@ -162,8 +162,10 @@ describe("Ticket page", () => {
       expect(screen.getByTestId("ticket-section-title")).toHaveTextContent(title);
       expect(screen.getByTestId(`ticket-section-${id}`)).toHaveAttribute("aria-current", "page");
       if (id === "happened") {
-        expect(screen.getByRole("log", { name: "Conversation" })).toBeInTheDocument();
-        expect(screen.getByTestId("conv-dock")).toContainElement(screen.getByTestId("ticket-state"));
+        // 2026-11-17-8d1cb: the Your move line heads What happened, above the lines; the composer is at the bottom.
+        const log = screen.getByRole("log", { name: "Conversation" });
+        expect(screen.getByTestId("ticket-state").compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(screen.getByTestId("conv-dock")).not.toContainElement(screen.getByTestId("ticket-state"));
       } else {
         expect(screen.queryByRole("log", { name: "Conversation" })).toBeNull();
         expect(screen.getByTestId(`ticket-pane-${id}`)).toBeInTheDocument();
@@ -189,10 +191,12 @@ describe("Ticket page", () => {
       attempt({ number: 3, runId: "r-3", status: "failed", summary: "Pod did not start" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Image not trusted");
-    expect(screen.getByTestId("thread-report-2")).toHaveTextContent("Run 2 was cancelled.");
+    // 2026-11-17-8d1cb: every run says how it ended and why in words, not only the newest; the newest is open.
+    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("failed · image not trusted · Image not trusted");
+    expect(screen.getByTestId("thread-report-2")).toHaveTextContent("superseded · Run 2 was cancelled.");
+    expect(screen.queryByTestId("thread-run-1")).toBeNull();
     expect(screen.getByTestId("thread-run-3")).toHaveAttribute("href", "/jobs/r-3");
-    expect(screen.getByTestId("thread-run-3")).toHaveTextContent(/^Run 3 · .* · \$\d+\.\d\d · see what it did$/);
+    expect(screen.getByTestId("thread-run-3")).toHaveTextContent(/^Run 3 · .* · \$\d+\.\d\d · open the run ›$/);
   });
   it("TicketStateBlock_PullRequests_AreRowsWithShortRepoNumberStateAndLink", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
