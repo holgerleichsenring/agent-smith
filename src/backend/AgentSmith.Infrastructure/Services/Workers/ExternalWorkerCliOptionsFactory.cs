@@ -30,7 +30,7 @@ public sealed class ExternalWorkerCliOptionsFactory
         return new(binary,
             BuildArguments(agent, binary, assignment),
             TimeSpan.FromSeconds(Math.Max(1, agent.NetworkTimeoutSeconds)),
-            ResolveWorkingDirectory());
+            ResolveWorkingDirectory()) { SystemPromptAsFile = IsClaudeCode(agent, binary) };
     }
 
     private static string ResolveBinary(AgentConfig agent) =>

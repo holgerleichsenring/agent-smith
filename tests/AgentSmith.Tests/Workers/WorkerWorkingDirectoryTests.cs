@@ -40,7 +40,7 @@ public sealed class WorkerWorkingDirectoryTests
         var options = Options() with { Binary = "/bin/sh", Arguments = ["-c", "cat >/dev/null; pwd -P"] };
 
         var result = await new AgentCliWorkerProcessRunner(NullLogger<AgentCliWorkerProcessRunner>.Instance)
-            .RunAsync("{}", options, CancellationToken.None);
+            .RunAsync(new WorkerPrompt("", "{}"), options, CancellationToken.None);
 
         // macOS resolves /var to /private/var, so both sides are compared resolved.
         result.StandardOutput.Trim().Should().Be(Resolve(options.WorkingDirectory));

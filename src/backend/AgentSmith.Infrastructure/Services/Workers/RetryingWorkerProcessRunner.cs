@@ -29,7 +29,7 @@ public sealed class RetryingWorkerProcessRunner(
     private const int MaxAttempts = 3;
 
     public async Task<WorkerProcessResult> RunAsync(
-        string prompt, ExternalWorkerCliOptions options, CancellationToken cancellationToken)
+        WorkerPrompt prompt, ExternalWorkerCliOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         WorkerProcessResult result = null!;

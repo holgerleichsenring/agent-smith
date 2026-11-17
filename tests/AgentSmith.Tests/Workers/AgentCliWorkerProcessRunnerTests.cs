@@ -25,7 +25,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
         if (OperatingSystem.IsWindows()) return; // POSIX shell stand-in for the agent CLI
 
         var result = await NewRunner().RunAsync(
-            """{"call":"one"}""", Shell("cat"), CancellationToken.None);
+            new WorkerPrompt("", """{"call":"one"}"""), Shell("cat"), CancellationToken.None);
 
         result.ExitCode.Should().Be(0);
         result.TimedOut.Should().BeFalse();
@@ -39,7 +39,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
         if (OperatingSystem.IsWindows()) return;
 
         var result = await NewRunner().RunAsync(
-            "ignored", Shell("cat > /dev/null; echo 'auth failed' >&2; exit 3"), CancellationToken.None);
+            new WorkerPrompt("", "ignored"), Shell("cat > /dev/null; echo 'auth failed' >&2; exit 3"), CancellationToken.None);
 
         result.ExitCode.Should().Be(3);
         result.StandardError.Should().Contain("auth failed");
@@ -55,7 +55,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
         // host scales neither. Twenty seconds was a third number, belonging to neither.
         var childSleep = TimeSpan.FromSeconds(30);
         var result = await NewRunner().RunAsync(
-            "ignored", Shell($"sleep {childSleep.TotalSeconds:F0}", timeoutSeconds: 1),
+            new WorkerPrompt("", "ignored"), Shell($"sleep {childSleep.TotalSeconds:F0}", timeoutSeconds: 1),
             CancellationToken.None);
 
         result.TimedOut.Should().BeTrue();
@@ -70,7 +70,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
-        var act = async () => await NewRunner().RunAsync("ignored", Shell("sleep 30"), cts.Token);
+        var act = async () => await NewRunner().RunAsync(new WorkerPrompt("", "ignored"), Shell("sleep 30"), cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }

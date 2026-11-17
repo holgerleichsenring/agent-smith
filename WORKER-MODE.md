@@ -109,7 +109,7 @@ servers, no session saved per call. Measured on CLI 2.1.285, that took a one-wor
 ## What goes over the wire
 
 There are no request/reply files. Each call renders one JSON envelope
-(`protocol: agentsmith.worker/1`) into the CLI prompt on stdin:
+(`protocol: agentsmith.worker/1`) for the CLI, shown here whole:
 
 ```json
 {
@@ -145,6 +145,17 @@ The CLI answers with one JSON object and nothing else:
 
 `options.not_rendered` names every sampling option that was set but has no field in the
 envelope — the payload declares its own gaps rather than leaving them to a comment.
+
+The CLI receives the envelope in two parts (2026-11-17-166ae). `CONVERSATION HEAD` holds
+the instructions, `protocol`, `agent_type`, `model`, the conversation's leading system
+messages (as `system`) and `tools` — the same on every call of a conversation. `REQUEST`
+holds the call's identity, the rest of the `messages` and `options`. A Claude Code CLI
+reads the head from `--system-prompt-file` (a file because Linux caps one argument at
+128 KB), which its prompt cache serves on the next call; only the request goes on stdin.
+Any other binary reads both parts on stdin, head first. Measured on the replay of
+2026-11-17: 164 of 172 calls read only the CLI's own prompt from cache and wrote the
+whole conversation as new cache — a stdin text is one content block, and no cache entry
+ever matches a prefix inside one.
 
 This envelope is deliberately the payload p0166e's MCP worker mode will carry. When that
 lands, the CLI subprocess is replaced by a JSON-RPC method; the payload does not change.

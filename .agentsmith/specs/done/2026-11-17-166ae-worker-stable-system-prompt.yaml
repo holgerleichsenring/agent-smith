@@ -21,7 +21,7 @@ facts:
     evidence: "observed: 2026-11-17, probes on CLI 2.1.285: same 58k-char prefix on stdin, second call read 6,235 and created 24,652; as --system-prompt-file, second call read 23,756 and created 911"
 
 scope:
-  in: "WorkerPromptRenderer renders a WorkerPrompt(System, Input): System = instructions + JSON of protocol, agent type, model, the leading system messages, then tools; Input = JSON of the remaining messages, options and the call identity. Protocol agentsmith.worker/2. For a Claude Code binary (166ac's rule) the runner writes System to a per-call file in the worker directory, passes --system-prompt-file and deletes the file after the call; a file and not --system-prompt because Linux caps one argument at 128 KB. Any other binary gets System + Input on stdin as one text."
+  in: "WorkerPromptRenderer renders a WorkerPrompt(System, Input): System = instructions + JSON of protocol, agent type, model, the leading system messages, then tools; Input = JSON of the remaining messages, options and the call identity. The WorkerRequest payload and its protocol agentsmith.worker/1 stay as they are; only the CLI rendering splits. For a Claude Code binary (166ac's rule) the runner writes System to a per-call file beside the worker directory (<temp>/agentsmith-worker-system), passes --system-prompt-file and deletes the file after the call; a file and not --system-prompt because Linux caps one argument at 128 KB. Any other binary gets System + Input on stdin as one text."
   out: "Re-sending the history every call (one-shot CLI; would need resumable CLI sessions). Re-reads across passes (215 read_file calls of 55 files). The tracker's undercount of loop iterations. These are listed in the decision file with their numbers."
 
 steps:

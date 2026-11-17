@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-166ae
+
+decisions:
+  - category: Implementation
+    chose: "The system part (instructions, protocol, agent type, model, leading system messages, then tools) goes in through --system-prompt-file; the call's identity, the rest of the messages and the options go on stdin"
+    over: "Reordering the one stdin JSON so the stable fields come first"
+    reason: "Probed on CLI 2.1.285: a 58k-char prefix repeated on stdin was re-created on the second call (6,235 read, 24,652 created); the same text as --system-prompt-file was read (23,756 read, 911 created). A stdin prompt is one content block and cache hits happen at block boundaries, so reordering inside it saves nothing."
+  - category: Implementation
+    chose: "A file per call in <temp>/agentsmith-worker-system, removed after the call"
+    over: "--system-prompt, or a content-hash file shared across calls"
+    reason: "Linux caps one argument at 128 KB and an executor's system part is around 90k chars and growing; a shared file needs cross-call lifetime rules. Writing a file per call is cheap next to a call that takes tens of seconds, and keeps the CLI's working directory empty."
+  - category: Implementation
+    chose: "Only LEADING system messages go to the head, and they precede the tools"
+    over: "Every system message, or tools first"
+    reason: "CompactingChatClient pins the leading system messages byte for byte; a later system message (a nudge) changes per call and would break the cached prefix. Putting system before tools keeps the system prompt cached even when a loop's tool list changes."
+  - category: Scope
+    chose: "The WorkerRequest payload and agentsmith.worker/1 stay; the split is how the CLI transport renders it"
+    over: "Bumping the protocol to /2"
+    reason: "Every field still travels, once; the MCP transport p0166e plans would carry the request whole. WORKER-MODE.md documents the two parts."
+  - category: Scope
+    chose: "Not fixed here, listed with their numbers from the SCRUM-17 replay (run 2026-11-17T08-44-38-b43b, 1 h 44 min, 172 calls, 72 % of the wall clock in calls)"
+    over: "Folding them into this series"
+    reason: "(1) The history is re-sent on every call: 13.6M of 20.4M prompt chars are conversation after the system prompt, written as new cache each call; caching it needs resumable CLI sessions, a protocol change of its own. (2) 215 read_file calls over 55 distinct files (160 re-reads) across passes and reviewers. (3) The pipeline tracker counts only responses its call sites hand it: 102 of 172 worker calls and $91.74 in the run's result line, so result.md and the token fence undercount loop iterations. (4) agentic-executor 80 calls held 10.4M of 13.0M cache-write tokens, its contexts reaching 207k tokens before a pass ended; compaction folded 9 times."
