@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-b6e4b: "RUN SECTIONS FOR FILING (dashboard runSections SECTION_OF). A file run's FileTickets reads under Delivered and PlanFiling under Got ready; RunConfigPreflight reads under Got ready wherever it sits, including after a scan's RatifyScanContract. -> .agentsmith/specs/done/2026-11-17-b6e4b-run-sections-filing.yaml"
     2026-11-17-b6e4a: "FILED FINGERPRINT STRIPPED (FiledSpecBranch, TicketLabelNoteStripper). Filing and amendment fingerprint the ticket without its label note, as FetchTicket does, so a filed ticket's first run no longer records a ticket edit nobody made. -> .agentsmith/specs/done/2026-11-17-b6e4a-filed-fingerprint-stripped.yaml"
     2026-11-17-5701d: "SKILLS PIN V5.33.0 (AgentSmith.Infrastructure.Core embedded catalog, TicketGraphSkillRulesTests). The embedded catalog is v5.33.0: design-partner-master 3.4.0 writes each ticket's specs under draft:tickets/<key>/, reviewed in the turn and filed onto the ticket branch. -> .agentsmith/specs/done/2026-11-17-5701d-skills-pin-ticket-specs.yaml"
     2026-11-17-5701f: "RUN LOOK READS REPO-PREFIXED PATHS (DerivationLook.WithoutRepositoryName, RepositoryFileReadTool, RepositorySearchTool). A read that ran and found nothing, or a search whose path filter does not exist, is retried below the key's repository name (SandboxRepos) on the opened sandbox, one look charged. -> .agentsmith/specs/done/2026-11-17-5701f-run-look-repo-prefix.yaml"
