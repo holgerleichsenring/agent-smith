@@ -40,6 +40,12 @@ internal static class SeriesDoubles
         new(pointers ?? new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore(),
             sources ?? new RecordingBranchSources(), SubSeries(), Composer(), NullLogger<TicketBranchSeries>.Instance);
 
+    /// <summary>2026-11-17-a0b6c: the server's branch read of a ticket over <paramref name="config"/>'s projects.</summary>
+    internal static AgentSmith.Server.Services.Tickets.TicketBranchSpecs BranchSpecs(
+        AgentSmith.Contracts.Models.Configuration.AgentSmithConfig config,
+        ISourceProviderFactory? sources = null, ISpecSetPointerStore? pointers = null) =>
+        new(LiveConfig.Projects(config), BranchSeries(sources, pointers));
+
     /// <summary>2026-10-12-f5f7d: DeriveSpec's branch read over <paramref name="reader"/>; done/ is
     /// listed through <paramref name="files"/>, empty when none is given.</summary>
     internal static SeriesBranchRead BranchRead(ISpecSetReader reader, ISandboxFileReaderFactory? files = null) =>

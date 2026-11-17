@@ -1,0 +1,12 @@
+# 2026-11-17-a0b6c: backend files that read an approval record AND its set's specs or goal. The branch is the
+# spec's text (TicketBranchSeries, TicketBranchSpecs); the record's set is only the input of a write that puts it
+# on a branch. Every file here says why it still reads the set. No file may join; a file that stops must leave.
+# file (under src/backend)	reason
+AgentSmith.Application/Services/Specs/ApprovedSpecSetCarrier.cs	carries the record onto the run's context, the input of the run's one-time branch write
+AgentSmith.Application/Services/Specs/FiledSpecBranch.cs	filing's branch write: renders the approved set onto the ticket branch
+AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs	a set filing failed to write is written to the branch by the run, once (block 4 retires it once filing never leaves one)
+AgentSmith.Application/Services/Filing/ApprovedSpecSetRecorder.cs	builds the record a filing writes to the branch
+AgentSmith.Application/Services/Filing/FiledSpecBranchWrite.cs	filing's branch write step
+AgentSmith.Server/Services/Tickets/FiledTicketRows.cs	the series goal as a never-run ticket's title, the title the ticket was filed with
+AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs	a pending edit the next attempt writes to the branch (block 4: amend and continuation as pipelines)
+AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs	a pending edit the next attempt writes to the branch (block 4: amend and continuation as pipelines)

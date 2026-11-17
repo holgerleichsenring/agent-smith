@@ -27,12 +27,19 @@ describe("DialogApprovedPanel", () => {
     ],
   };
 
-  it("names whose approval it shows and warns it is not what a run is working", () => {
+  it("names whose approval it shows and says the specs are the branch's", () => {
     render(<DialogApprovedPanel approved={approved} />);
 
     const line = screen.getByTestId("dialog-approved-approval").textContent ?? "";
     expect(line).toContain("someone");
-    expect(line).toContain("not necessarily what a run is working");
+    expect(line).toContain("on the ticket branch, where a run reads them");
+    expect(screen.queryByTestId("dialog-approved-branch-unread")).toBeNull();
+  });
+
+  it("says when the ticket branch could not be read", () => {
+    render(<DialogApprovedPanel approved={{ ...approved, specs: [], branchUnread: "503 from the host" }} />);
+
+    expect(screen.getByTestId("dialog-approved-branch-unread").textContent).toContain("503 from the host");
   });
 
   it("draws every approved spec with its done criteria", () => {

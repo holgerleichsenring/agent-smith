@@ -55,7 +55,12 @@ public sealed class ApprovedSeriesTests : IDisposable
     [Fact]
     public async Task ApprovedSetPane_BoundConversationAfterFiling_ShowsContent()
     {
-        await FileAsync();
+        var record = await FileAsync();
+        // 2026-11-17-a0b6c: the pane's specs are the ticket branch's, so the filing's branch write lands too.
+        var (sources, pointers) = (new RecordingBranchSources(), new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore());
+        (await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(Project(), record, new AgentSmith.Domain.Models.TicketId(TicketId),
+            new AgentSmith.Domain.Entities.Ticket(new AgentSmith.Domain.Models.TicketId(TicketId), "t", "b", null, "open", "azuredevops", []),
+            default)).Written.Should().BeTrue();
         var binding = TicketBinding.For(Tracker, "azuredevops", TicketId, "Widget");
         await new SpecDialogSessionRepository(_context).AddAsync(new SpecDialogSession
         {
@@ -65,7 +70,9 @@ public sealed class ApprovedSeriesTests : IDisposable
         }, default);
 
         var view = await new ApprovedSetForConversation(
-            new SpecDialogSessionRepository(_context), Store()).ForAsync(Dialog, default);
+            new SpecDialogSessionRepository(_context), Store(),
+            SeriesDoubles.BranchSpecs(new AgentSmithConfig { Projects = new() { ["sample"] = Project() } }, sources, pointers))
+            .ForAsync(Dialog, default);
 
         view.Should().NotBeNull("the binding computes the key the filing stored under");
         view!.Specs.Should().ContainSingle().Which.SpecId.Should().Be($"{Series}a");
@@ -118,7 +125,7 @@ public sealed class ApprovedSeriesTests : IDisposable
     private Task<SpecApprovalRecord> FileAsync() =>
         ApprovedSetDoubles.Recorder(Store()).RecordAsync(
             ConversationApproval.Of(State()), Project(), TicketId,
-            new FiledSeries(Series, [new SpecDraft($"{Series}a", "Do it", $"spec: {Series}a", [])]),
+            new FiledSeries(Series, [new SpecDraft($"{Series}a", "Do it", $"spec: {Series}a\ngoal: \"Do it\"", [])]),
             "The epic's goal", default);
 
     private DbSpecApprovalStore Store()

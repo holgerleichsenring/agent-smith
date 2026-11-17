@@ -726,7 +726,8 @@ public sealed class FiledWorkReadTests : IDisposable
             // approved set to show, and the reader asks for one either way.
             new ApprovedSetForConversation(
                 new SpecDialogSessionRepository(ctx),
-                new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore()));
+                new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore(),
+                SeriesDoubles.BranchSpecs(Config())));
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

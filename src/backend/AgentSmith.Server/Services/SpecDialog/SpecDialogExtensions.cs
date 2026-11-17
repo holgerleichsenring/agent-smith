@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
@@ -68,6 +70,8 @@ internal static class SpecDialogExtensions
         services.AddScoped<TicketTextForConversation>().AddScoped<TicketMovedCheck>()
             .AddScoped<ApprovedSetDivergence>();  // 8e51c, 481ba, 8e51e
         services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb
+        services.AddBranchSeriesRead().TryAddTransient<Tickets.TicketProjects>(); // 2026-11-17-a0b6c: the pane and divergence read the branch
+        services.TryAddTransient<Tickets.TicketBranchSpecs>();
         services.AddScoped<ApprovedSetForConversation>();  // 8e51d
         services.AddScoped<DashboardDialogDispatcher>().AddScoped<DashboardDialogOpening>();
         // 2026-09-15-cb3e: the dialog page's read — scoped for the session manager's unit of work,

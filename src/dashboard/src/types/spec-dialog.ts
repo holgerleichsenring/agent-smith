@@ -562,7 +562,7 @@ export interface SpecDialogFilingPush {
 
 /** One thing 2026-09-17-042eh's review kept against a spec's own diff. */
 /** 2026-09-25-8e51d: the specification a person approved for the ticket a conversation belongs
- *  to. Labelled with its approval, because the branch — not this — is what a run reads. */
+ *  to, labelled with its approval. 2026-11-17-a0b6c: specs are the ticket branch's, never a stored copy. */
 export interface ApprovedSetView {
   key: string;
   tracker: string;
@@ -571,6 +571,8 @@ export interface ApprovedSetView {
   approvedInConversation: string | null;
   repositories: string[];
   specs: SpecDraftProposal[];
+  /** Why the ticket branch could not be read; null when it was. */
+  branchUnread?: string | null;
 }
 
 export interface FiledWorkFinding {

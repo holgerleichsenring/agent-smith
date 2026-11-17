@@ -62,13 +62,13 @@ public sealed class FilePipelineCompositionTests
         Ticket("ui", ["api"]),
     ]);
 
-    private static GraphTicket Ticket(string key, IReadOnlyList<string> requires) =>
+    internal static GraphTicket Ticket(string key, IReadOnlyList<string> requires) =>
         new(key, $"Title {key}", $"Requirement of {key}.", [$"{key} works"], requires, [])
         {
             Specs = [new SpecDraft($"{key}-spec", $"Goal of {key}", $"spec: {key}-spec\ngoal: \"Goal of {key}\"\n", [])],
         };
 
-    private static ConversationState State() => new()
+    internal static ConversationState State() => new()
     {
         JobId = "s-file", ChannelId = "d-file", ThreadId = "d-file", UserId = "sample.user", Platform = "dashboard",
         Project = Project, TicketId = string.Empty, StartedAt = Noon,
@@ -93,7 +93,7 @@ public sealed class FilePipelineCompositionTests
     }
 
     /// <summary>Creates tickets "1", "2", … in status "open", takes every label.</summary>
-    private sealed class FilingTracker : ITicketProvider
+    internal sealed class FilingTracker : ITicketProvider
     {
         public List<(string Title, IReadOnlyList<string> Labels)> Created { get; } = [];
 
@@ -123,7 +123,7 @@ public sealed class FilePipelineCompositionTests
             Task.FromResult(TicketFinalizeResult.Moved());
     }
 
-    private sealed class FilingTrackerFactory(FilingTracker tracker) : ITicketProviderFactory
+    internal sealed class FilingTrackerFactory(FilingTracker tracker) : ITicketProviderFactory
     {
         public ITicketProvider Create(TrackerConnection config) => tracker;
 

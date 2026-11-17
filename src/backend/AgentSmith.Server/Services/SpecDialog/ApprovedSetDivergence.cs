@@ -1,8 +1,10 @@
+using AgentSmith.Domain.Models;
+using AgentSmith.Contracts.Specs;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using Microsoft.Extensions.Logging;
-using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -14,9 +16,13 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// Beside the ticket-text reader rather than inside it: that class answers what the ticket says,
 /// this one what somebody approved for it, and they reach two different stores.
 /// </para>
+/// <para>
+/// 2026-11-17-a0b6c: the set is the one the ticket branch holds (<see cref="TicketBranchSeries"/>), never the
+/// approval record's copy; a branch with no set — a ticket text, or nothing filed — has nothing to compare.
+/// </para>
 /// </summary>
 public sealed class ApprovedSetDivergence(
-    ApprovedSpecSetRecorder approvals,
+    TicketBranchSeries branch,
     ILogger<ApprovedSetDivergence> logger)
 {
     /// <summary>
@@ -29,11 +35,11 @@ public sealed class ApprovedSetDivergence(
         if (project is null || string.IsNullOrWhiteSpace(ticketId)) return null;
         try
         {
-            var record = await approvals.LoadAsync(project, ticketId, ct);
-            return record is null || record.TicketText // 2026-10-14-dbcel: a ticket text has no specs to compare
+            var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
+            var read = await branch.ReadAsync(project, key, new TicketId(ticketId), ct);
+            return read.Set is not { Specs.Count: > 0 } set
                 ? null
-                : TicketSetDivergence.Between(
-                    ticketText, [.. record.Set.Specs.Select(spec => spec.Draft.Goal)]);
+                : TicketSetDivergence.Between(ticketText, [.. set.Specs.Select(spec => spec.Draft.Goal)]);
         }
         // A store this turn could not reach says nothing about whether the two agree, and a turn
         // must still run: the conversation is the surface the operator is standing on.
