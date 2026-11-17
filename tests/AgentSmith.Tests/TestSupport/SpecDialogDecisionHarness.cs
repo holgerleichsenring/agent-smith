@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -38,7 +39,11 @@ internal sealed class SpecDialogDecisionHarness(
 
     /// <summary>2026-11-10-d854c: each turn's own proposal, keyed by its run id.</summary>
     public SpecDialogTurnProposalStore TurnProposals =>
-        new(new SpecDialogTurnProposalRepository(context), NullLogger<SpecDialogTurnProposalStore>.Instance);
+        new(new SpecDialogProposalRepository(context), NullLogger<SpecDialogTurnProposalStore>.Instance);
+
+    /// <summary>2026-11-17-a0b6d: a turn's own proposal row as a run wrote it — never put to a decision.</summary>
+    public Task WriteTurnAsync(ConversationState state, string runId, OutcomeProposal proposal) =>
+        new SpecDialogProposalRepository(context).WriteAsync(state.JobId, runId, OutcomeProposalJson.Write(proposal), default);
 
     public SpecDialogOutcomeFlow Flow() => new(Proposals, new SpecDialogOutcomeComposer(), new SpecDialogReplyComposer(),
         Notices, Channel, Cards, NullLogger<SpecDialogOutcomeFlow>.Instance, TurnProposals);
@@ -64,7 +69,7 @@ internal sealed class SpecDialogDecisionHarness(
         SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects, SpecDialogPendingQuestions pending,
         SpecDialogProposalComposer composer, SpecDialogTurnGate turns, SpecDialogTicketTextRepository ticketText,
         ConversationUploads uploads, AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
-        new(sessions, projects, pending, Outcomes, Proposals, Cards, composer, turns,
+        new(sessions, projects, pending, Outcomes, Cards, composer, turns,
             new SpecDialogHoldings(ticketText, uploads, mocks), new SpecDialogTurnProposals(TurnProposals, composer, new RunLivenessRepository(context)));
 
     public Task<ConversationState> OpenAsync(string platform, string thread, CancellationToken ct = default) =>

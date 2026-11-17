@@ -3,8 +3,8 @@ using AgentSmith.Contracts.Specs;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-10-13-9a59e: the cut a published set carries — every spec in set order with what it was asked
-/// to do. The ordinal is the spec's 1-based place in the set, the same number its state events carry.
+/// 2026-10-13-9a59e: the cut a published set carries — every spec in set order with its goal; its text
+/// is the branch's (2026-11-17-a0b6b). The ordinal is the spec's 1-based place in the set, the same number its state events carry.
 /// </summary>
 public static class SpecCutContent
 {
@@ -12,8 +12,7 @@ public static class SpecCutContent
     {
         ArgumentNullException.ThrowIfNull(set);
         return [.. set.Specs.Select((spec, i) => new SpecCutEntry(
-            spec.SpecId, i + 1, spec.FileStem, spec.Draft.Goal, spec.Draft.Repos,
-            spec.Draft.Steps, spec.Draft.Done, spec.Draft.Yaml))];
+            spec.SpecId, i + 1, spec.FileStem, spec.Draft.Goal, spec.Draft.Repos))];
     }
 
     /// <summary>The case of a handed-back set, as the cut stores it; null for a set that was not. 2026-10-13-8762l: a

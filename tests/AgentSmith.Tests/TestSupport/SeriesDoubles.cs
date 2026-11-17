@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Services;
@@ -20,12 +21,30 @@ internal static class SeriesDoubles
             files, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     internal static SeriesReader Reader(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>
-        new(new SubSeriesReader(files, git ?? Git(files),
-                new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
-                new SeriesSpecFileReader(new SpecDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
-                new SeriesManifest(), new SandboxTargets()),
-            new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()),
-            new SeriesManifest(), NullLogger<SeriesReader>.Instance);
+        new(new SubSeriesReader(files, git ?? Git(files), SubSeries(), new SandboxTargets()), Composer());
+
+    /// <summary>2026-11-17-a0b6a: the sub-series reading shared by the checkout and the branch read.</summary>
+    internal static SubSeriesFiles SubSeries() =>
+        new(new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
+            new SeriesSpecFileReader(new SpecDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
+            new SeriesManifest());
+
+    /// <summary>2026-11-17-a0b6a: the join and composition shared by both reads.</summary>
+    internal static SeriesComposer Composer() =>
+        new(new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()), new SeriesManifest(),
+            NullLogger<SeriesComposer>.Instance);
+
+    /// <summary>2026-11-17-a0b6a: the host-side branch read over a recording remote and a pointer store.</summary>
+    internal static TicketBranchSeries BranchSeries(
+        ISourceProviderFactory? sources = null, ISpecSetPointerStore? pointers = null) =>
+        new(pointers ?? new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore(),
+            sources ?? new RecordingBranchSources(), SubSeries(), Composer(), NullLogger<TicketBranchSeries>.Instance);
+
+    /// <summary>2026-11-17-a0b6c: the server's branch read of a ticket over <paramref name="config"/>'s projects.</summary>
+    internal static AgentSmith.Server.Services.Tickets.TicketBranchSpecs BranchSpecs(
+        AgentSmith.Contracts.Models.Configuration.AgentSmithConfig config,
+        ISourceProviderFactory? sources = null, ISpecSetPointerStore? pointers = null) =>
+        new(LiveConfig.Projects(config), BranchSeries(sources, pointers));
 
     /// <summary>2026-10-12-f5f7d: DeriveSpec's branch read over <paramref name="reader"/>; done/ is
     /// listed through <paramref name="files"/>, empty when none is given.</summary>

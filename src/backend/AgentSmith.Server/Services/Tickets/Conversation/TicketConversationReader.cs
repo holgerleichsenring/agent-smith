@@ -46,7 +46,7 @@ public sealed class TicketConversationReader(
             .OrderBy(e => e.At).ToList();
         return new TicketConversationView(project, ticketId, placed, await MarkersAsync(ordered, rows, placed, ct),
             hidden ? null : session?.SessionId, hidden || session is not { IsOpen: true } ? null : session.ThreadId,
-            hidden || session is null ? null : transcript.Proposal(session), hidden, comments is null);
+            hidden || session is null ? null : await transcript.ProposalAsync(session, ct), hidden, comments is null);
     }
 
     private async Task<IReadOnlyList<TicketConversationAttemptView>> MarkersAsync(

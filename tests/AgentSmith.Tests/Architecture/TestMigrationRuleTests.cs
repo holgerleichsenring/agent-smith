@@ -34,6 +34,7 @@ public sealed class TestMigrationRuleTests
         "StoredSpecNameRewriteTests.cs",
         "StepAttributionPersistenceTests.cs",
         "RunSandboxEndMigrationTests.cs",
+        "ProposalMigrationTests.cs", // 2026-11-17-a0b6d: the session's proposal columns copied into rows and back
     ];
 
     [Fact]

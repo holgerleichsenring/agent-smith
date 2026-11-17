@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-a0b6b
+goal: "The ticket page's Specs and a continuation's basis read spec text from the ticket branch; a published cut keeps ids, order, stems, repos and goals, never steps, done or yaml."
+
+applies_to: "default (ticket series reader, continuation state reader, SpecCutEntry, SpecSetPublished event)"
+
+requires: [2026-11-17-a0b6a]
+
+facts:
+  - claim: "The ticket page's Specs read goal, steps, done and yaml from the latest cut row and never from git; a ticket with no code run answers 404."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:7-31, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:28-30"
+  - claim: "A continuation's basis is the latest cut's goal and yaml, else the approval record's set."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationStateReader.cs:47-58"
+  - claim: "A cut entry carries goal, steps, done and yaml, built from the published set and stored as the cut row's SpecsJson."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecCutEntry.cs:9-17, src/backend/AgentSmith.Application/Services/Specs/SpecCutContent.cs:12-17"
+  - claim: "The cut projection names each not-started RunSpec row by the cut's goal."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSeriesCutProjection.cs:52-55"
+  - claim: "Steps as worked fold over the cut entry's steps."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/StepsAsWorkedFold.cs:18-29"
+
+scope:
+  in: "SpecCutEntry drops Steps, Done and Yaml (Goal stays: it titles the run's own spec rows, the run's history); the TS mirror follows; TicketBranchSpecs (server) reads the ticket's set off its branch through TicketBranchSeries for a project and ticket id; TicketSeriesReader takes each cut spec's content from it by id, a cut spec missing from the branch shows its id and stem with no content, a branch it could not read is named on the view; a ticket with no code run whose branch holds a set shows that set, every spec not started, source 'branch'; TicketContinuationStateReader's basis is the branch set with each spec's state from the attempts, else nothing."
+  out: "Reading the branch at a past commit: an attempt's view shows the branch's current text of the specs that attempt published. The run-record fallback (no cut, no branch set) stays: it is a run's own executed record. The dialog pane and divergence (a0b6c)."
+
+steps:
+  - id: entry
+    action: "SpecCutEntry(SpecId, Ordinal, FileStem, Goal, Repos); SpecCutContent fills it; src/dashboard/src/types/hub-events.ts SpecCutEntry follows. A stored row with the old fields reads back, the extra fields ignored."
+  - id: branch
+    action: "TicketBranchSpecs.ReadAsync(project name, ticket id): the project from TicketProjects, the key TicketKey.For(tracker type, ticket id), TicketBranchSeries over it; answers the set or why it could not be read; registered in AddTicketReaders, with an Application AddBranchSeriesRead() that registers the series reading once for both the derivation and the ticket readers."
+  - id: page
+    action: "TicketSeriesReader reads the branch once per request; TicketSeriesSpecComposer composes goal, steps, done and yaml from the branch spec and the cut entry's id, ordinal and stem; StepsAsWorkedFold folds the branch steps; TicketSeriesView gains BranchUnread (the reason, null when read) and TicketSeriesSources.Branch; TicketSpecsTab shows BranchUnread above the list."
+  - id: basis
+    action: "TicketContinuationStateReader: basis = branch specs (id, goal, yaml) with the cut state when a cut names them, else not started; executed from the branch's done/ ids; series from the attempt, the pointer, then the branch set; the approval record is no longer read for the basis."
+
+tests:
+  - "TicketSeriesReadTests (real registration, sqlite store): content comes from the branch; a branch edit after the cut shows on the page; a filed ticket without a run shows its branch set; an unreadable branch is named and the ids still show"
+  - "TicketSeriesStepsWorkedTests and TicketSeriesBuildNoteTests over branch content"
+  - "RunSeriesCutProjectionTests: the stored cut has no steps, done or yaml; an old row with them still reads"
+  - "ContinuationHarness / SeriesEditTests: the basis is the branch's set"
+
+done:
+  - "No reader of the ticket page or a continuation takes a spec's steps, done or yaml from a database row; the cut row stores none."

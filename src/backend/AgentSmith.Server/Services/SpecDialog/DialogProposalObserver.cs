@@ -11,7 +11,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// 2026-11-09-9a98: stores a proposal under review on the session row and pushes it to the page.
 /// The row is what survives a cancel and what every replica reads. It writes in a scope of its
 /// own, because the turn's scope is in use around it, and it never fails the review it reports on.
-/// <para>2026-11-10-ccd9: it writes only the reviewing column and pushes the draft without an id, so
+/// <para>2026-11-10-ccd9: it writes only a reviewing row and pushes the draft without an id, so
 /// the proposal awaiting a decision stays as it was and the draft cannot be approved.</para>
 /// </summary>
 public sealed class DialogProposalObserver(
@@ -24,11 +24,9 @@ public sealed class DialogProposalObserver(
         {
             await using var scope = scopes.CreateAsyncScope();
             var services = scope.ServiceProvider;
-            await services.GetRequiredService<SpecDialogProposalState>()
-                .StoreReviewingAsync(state, proposal, cancellationToken);
-            // 2026-11-10-d854c: and on the turn's own row, so a turn that dies here still leaves this draft.
-            await services.GetRequiredService<SpecDialogTurnProposalStore>().WriteAsync(
-                state, services.GetRequiredService<IRunContextAccessor>().CurrentRunId, proposal, cancellationToken);
+            // 2026-11-10-d854c, 2026-11-17-a0b6d: on the turn's own row, so a turn that dies here still leaves this draft.
+            await services.GetRequiredService<SpecDialogProposalState>().StoreReviewingAsync(
+                state, proposal, services.GetRequiredService<IRunContextAccessor>().CurrentRunId, cancellationToken);
             await services.GetRequiredService<DashboardOutcomeChannel>()
                 .ProposeAsync(state, proposal, cancellationToken);
         }

@@ -99,6 +99,13 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("Ticket specs and acceptance tabs", () => {
+  // 2026-11-17-a0b6b: the specs' text lives on the branch; a branch that could not be read is named.
+  it("AnUnreadableBranch_IsNamedAboveTheSpecs", async () => {
+    world.series = { ...world.series, default: series("r-3", [s1, s2, s3], { attempt: 3, branchUnread: "503 from the host" }) };
+    await open();
+    expect(screen.getByTestId("specs-branch-unread")).toHaveTextContent("could not be read: 503 from the host");
+  });
+
   it("TheSpecsCounter_ReadsNAndTheNewestRevision", async () => {
     await open();
     expect(screen.getByTestId("ticket-section-specs")).toHaveTextContent("Specs3 · rev 4");

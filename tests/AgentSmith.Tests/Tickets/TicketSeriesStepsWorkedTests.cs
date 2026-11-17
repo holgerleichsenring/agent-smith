@@ -26,7 +26,7 @@ public sealed class TicketSeriesStepsWorkedTests : IDisposable
     [Fact]
     public async Task TicketSeries_Read_StepDoneInSecondPass_NamesAttemptAndPass()
     {
-        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Cut(R1, 3, Entry(A, 1)),
+        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A)),
             Moved(R1, 4, pass: 1, ("s1", "pending", "in_progress")),
             Run(R2), Step(R2), Cut(R2, 5, Entry(A, 1)),
             Moved(R2, 6, pass: 1, ("s1", "in_progress", "pending")),
@@ -41,7 +41,7 @@ public sealed class TicketSeriesStepsWorkedTests : IDisposable
     [Fact]
     public async Task TicketSeries_Read_StepNeverMoved_HasNoState()
     {
-        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)));
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A)));
 
         var worked = (await ReadAsync()).Specs.Single().Worked;
 
