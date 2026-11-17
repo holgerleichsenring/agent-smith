@@ -26,18 +26,16 @@ public static partial class PipelinePresets
     public static bool NeedsHostContext(string pipelineName) =>
         string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
         || string.Equals(pipelineName, FileName, StringComparison.OrdinalIgnoreCase)
-        || HostActs.Contains(pipelineName);
+        || HostActSteps.ContainsKey(pipelineName);
 
     // 2026-11-17-e061a: the runs that act on a filed ticket, launched by the server with a request and an outcome slot.
-    private static readonly HashSet<string> HostActs = new(StringComparer.OrdinalIgnoreCase) { CloseName, ReopenName, StartName };
-
     private const string HostActReason = "its run acts on a filed ticket with a request only the server's act supplies "
         + "(the ticket page or a conversation), so a ticket routed to it fails when it starts";
 
     /// <summary>Why a label cannot start this preset, in the words a configuration finding uses;
     /// null for a preset a ticket can be routed to.</summary>
     public static string? NotRoutableBecause(string pipelineName) =>
-        NotRoutable.GetValueOrDefault(pipelineName);
+        NotRoutable.GetValueOrDefault(pipelineName) ?? (HostActSteps.ContainsKey(pipelineName) ? HostActReason : null);
 
     private static readonly Dictionary<string, string> NotRoutable = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -47,8 +45,6 @@ public static partial class PipelinePresets
             + "again on every poll; start it from the ticket page or the ticket's conversation",
         [FileName] = "its run needs an approved proposal and a report slot, which only a design conversation's approval "
             + "supplies, so a ticket routed to it fails when it starts",
-        [CloseName] = HostActReason,
-        [ReopenName] = HostActReason, [StartName] = HostActReason,
         [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
             + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };

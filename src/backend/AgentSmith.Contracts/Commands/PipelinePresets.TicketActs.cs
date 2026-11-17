@@ -17,4 +17,22 @@ public static partial class PipelinePresets
     public const string StartName = "start";
 
     public static readonly IReadOnlyList<string> Start = [CommandNames.StartTicket];
+
+    /// <summary>2026-11-17-e061c: preset name of an amendment — an approval in a never-worked ticket's own conversation.</summary>
+    public const string AmendName = "amend";
+
+    public static readonly IReadOnlyList<string> Amend = [CommandNames.AmendTicket];
+
+    /// <summary>2026-11-17-e061c: preset name of agent-smith's comments on tickets — an approved comment, a follow-up's link.</summary>
+    public const string CommentName = "comment";
+
+    public static readonly IReadOnlyList<string> Comment = [CommandNames.PostTicketComments];
+
+    // 2026-11-17-e061: every act on a filed ticket, by preset — the static constructor adds them to the presets, and
+    // routing reads it to keep them off a label (a launch with a server seed, never a ticket's route). Declared after
+    // the step lists above, which a field initializer in this file reads in textual order.
+    private static readonly Dictionary<string, IReadOnlyList<string>> HostActSteps = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [CloseName] = Close, [ReopenName] = Reopen, [StartName] = Start, [AmendName] = Amend, [CommentName] = Comment,
+    };
 }

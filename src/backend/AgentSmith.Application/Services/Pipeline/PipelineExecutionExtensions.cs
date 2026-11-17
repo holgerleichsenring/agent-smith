@@ -54,10 +54,10 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IStepDataFlow, InitProjectDataFlow>(); services.AddSingleton<IStepDataFlow, BranchCleanupDataFlow>(); // 2026-11-17-713ec
         services.AddSingleton<IStepDataFlow, SecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, ApiSecurityScanDataFlow>();
-        services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>();
-        services.AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>().AddSingleton<IStepDataFlow, PrReviewDataFlow>();
+        services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>().AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>().AddSingleton<IStepDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>().AddSingleton<IStepDataFlow, SpecDeriveDataFlow>().AddSingleton<IStepDataFlow, FileDataFlow>() // bdd0a, 5701b
-            .AddSingleton<IStepDataFlow, CloseDataFlow>().AddSingleton<IStepDataFlow, ReopenDataFlow>().AddSingleton<IStepDataFlow, StartDataFlow>(); // e061a-b
+            .AddSingleton<IStepDataFlow, CloseDataFlow>().AddSingleton<IStepDataFlow, ReopenDataFlow>().AddSingleton<IStepDataFlow, StartDataFlow>() // e061a-b
+            .AddSingleton<IStepDataFlow, AmendDataFlow>().AddSingleton<IStepDataFlow, CommentDataFlow>(); // e061c
         services.AddSingleton<IStepDataFlowResolver, StepDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);

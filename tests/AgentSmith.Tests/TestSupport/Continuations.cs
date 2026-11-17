@@ -39,7 +39,7 @@ internal static class Continuations
             new OperatorStart(Mock.Of<IReworkNudges>(), ActSteps.Start(new AgentSmithConfig(), FiledWorkDoubles.Move(), trackers), NullLogger<OperatorStart>.Instance,
                 TicketRequirementDoubles.None()),
             SeriesSettingsDoubles.Reader(),
-            new TicketCommentPost(trackers, Mock.Of<ITicketActivityNudge>(), NullLogger<TicketCommentPost>.Instance),
+            new TicketCommentPost(ActSteps.Amend(new AgentSmithConfig(), trackers)),
             NullLogger<TicketContinuationAct>.Instance);
     }
 }

@@ -81,7 +81,10 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddScoped(_ => FiledWorkDoubles.Move(Routing)); // 2026-10-13-9a59m: before the registration's TryAdd
         services.AddScoped(sp => ActSteps.Start(Config, sp.GetRequiredService<FiledWorkMove>(), Tracker)); // 2026-11-17-e061b
         services.AddScoped<FiledWorkStarter>().AddTransient<TicketKindResolver>(); // 2026-10-13-9a59t: a closed ticket's act files
-        services.AddScoped<TicketAmendment>().AddScoped<TicketDescriptionRewrite>().AddTicketContinuation();
+        // 2026-11-17-e061c: the amendment's writes and the approved comment are 'amend' and 'comment' runs, in process.
+        services.AddScoped<AgentSmith.Server.Services.Acts.IActRun>(sp => ActSteps.Amend(Config, Tracker,
+            sp.GetRequiredService<ApprovedSpecSetRecorder>(), sp.GetRequiredService<AgentSmith.Application.Services.Specs.FiledSpecBranch>()));
+        services.AddScoped<TicketAmendment>().AddTicketContinuation();
         // 2026-10-13-9a59m: the start arm's reads and the nudge queue, over the same store.
         services.AddScoped<RunCheckpointRepository>().AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>().AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();

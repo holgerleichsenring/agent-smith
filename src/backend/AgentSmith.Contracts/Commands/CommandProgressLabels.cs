@@ -53,7 +53,7 @@ public static partial class CommandNames
         [LoadCachedCodeMap] = "Loading cached code map", [GroundSpecDialog] = "Grounding the design conversation",
         [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets",
         [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [StartTicket] = "Starting the ticket",
-        [SpecGate] = "Validating the spec", // e061a-b: the ticket acts
+        [AmendTicket] = "Recording the approved series", [PostTicketComments] = "Posting the comments", [SpecGate] = "Validating the spec",
         [MasterOpenQuestions] = "Posting master open questions",
         [WriteSpecRecord] = "Writing spec record",
         [WriteRunResult] = "Writing run result",

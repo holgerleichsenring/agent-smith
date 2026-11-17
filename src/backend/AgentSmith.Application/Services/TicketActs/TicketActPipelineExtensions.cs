@@ -17,6 +17,9 @@ public static class TicketActPipelineExtensions
         services.AddTransient<ICommandHandler<CloseTicketContext>, CloseTicketHandler>();
         services.AddTransient<ICommandHandler<ReopenTicketContext>, ReopenTicketHandler>();
         services.AddTransient<ICommandHandler<StartTicketContext>, StartTicketHandler>(); // 2026-11-17-e061b
+        services.AddScoped<TicketDescriptionRewrite>().AddScoped<TicketAmendmentWrite>(); // 2026-11-17-e061c
+        services.AddTransient<ICommandHandler<AmendTicketContext>, AmendTicketHandler>();
+        services.AddTransient<ICommandHandler<PostTicketCommentsContext>, PostTicketCommentsHandler>();
         return services;
     }
 }

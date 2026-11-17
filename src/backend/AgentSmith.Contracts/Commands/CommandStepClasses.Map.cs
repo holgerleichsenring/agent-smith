@@ -31,8 +31,8 @@ public static partial class CommandStepClasses
         [CommandNames.ReviewSpecDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
         [CommandNames.FileTickets] = Milestone, // 2026-11-17-5701b: it creates the tickets
-        [CommandNames.CloseTicket] = Milestone, // 2026-11-17-e061a: the act itself
-        [CommandNames.ReopenTicket] = Milestone, [CommandNames.StartTicket] = Milestone,
+        [CommandNames.CloseTicket] = Milestone, [CommandNames.ReopenTicket] = Milestone, [CommandNames.StartTicket] = Milestone, // e061a-b
+        [CommandNames.AmendTicket] = Milestone, [CommandNames.PostTicketComments] = Milestone, // 2026-11-17-e061c: the acts themselves
         [CommandNames.InitCommit] = Milestone,
         [CommandNames.GenerateTests] = Milestone,
         [CommandNames.GenerateDocs] = Milestone,
@@ -103,8 +103,7 @@ public static partial class CommandStepClasses
         [CommandNames.WriteSpecRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
-        [CommandNames.InitComplete] = Internal,
-        [CommandNames.CleanupWorkBranches] = Internal, // 2026-11-17-713ec
+        [CommandNames.InitComplete] = Internal, [CommandNames.CleanupWorkBranches] = Internal, // 2026-11-17-713ec
         [CommandNames.SwitchSkill] = Internal,
         [CommandNames.SessionSetup] = Internal,
         [CommandNames.PersistWorkBranch] = Internal,

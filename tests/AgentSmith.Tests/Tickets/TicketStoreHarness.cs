@@ -82,6 +82,8 @@ internal sealed class TicketStoreHarness : IDisposable
             AgentSmith.Server.Services.Tickets.Closing.TicketCloseFailureClassifier>();
         services.AddSingleton<AgentSmith.Server.Services.Acts.IActRun>(sp => new AgentSmith.Tests.TestSupport.ActSteps(Config, sp));
         services.AddScoped(_ => AgentSmith.Tests.TestSupport.FiledWorkDoubles.Move(Config)); // 2026-11-17-e061b: the start step's move
+        services.AddScoped(_ => AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Recorder(Approvals)) // e061c: the amend step's writes
+            .AddSingleton(AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Branch());
         services.AddTicketDefaults(); // 2026-10-13-8762p
         configure?.Invoke(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });

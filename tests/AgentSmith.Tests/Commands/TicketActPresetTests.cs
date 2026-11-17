@@ -13,6 +13,8 @@ public sealed class TicketActPresetTests
         { PipelinePresets.CloseName, CommandNames.CloseTicket },
         { PipelinePresets.ReopenName, CommandNames.ReopenTicket },
         { PipelinePresets.StartName, CommandNames.StartTicket },
+        { PipelinePresets.AmendName, CommandNames.AmendTicket },
+        { PipelinePresets.CommentName, CommandNames.PostTicketComments },
     };
 
     [Theory]

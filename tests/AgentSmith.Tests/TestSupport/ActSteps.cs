@@ -46,11 +46,23 @@ internal sealed class ActSteps(AgentSmithConfig config, IServiceProvider service
         new(CommandNames.CloseTicket, new CloseTicketContextBuilder()),
         new(CommandNames.ReopenTicket, new ReopenTicketContextBuilder()),
         new(CommandNames.StartTicket, new StartTicketContextBuilder()), // 2026-11-17-e061b
+        new(CommandNames.AmendTicket, new AmendTicketContextBuilder()), // 2026-11-17-e061c
+        new(CommandNames.PostTicketComments, new PostTicketCommentsContextBuilder()),
     ];
 
     /// <summary>2026-11-17-e061b: the 'start' run over <paramref name="move"/> and <paramref name="trackers"/>, in process.</summary>
     public static TicketStartRun Start(AgentSmithConfig config, FiledWorkMove move, ITicketProviderFactory trackers) =>
         new(Over(config, s => s.AddScoped(_ => move).AddSingleton(trackers)));
+
+    /// <summary>2026-11-17-e061c: the 'amend' and 'comment' runs over a tracker, a recorder and a branch write, in process.</summary>
+    public static ActSteps Amend(AgentSmithConfig config, ITicketProviderFactory trackers,
+        ApprovedSpecSetRecorder? recorder = null, AgentSmith.Application.Services.Specs.FiledSpecBranch? branch = null) =>
+        Over(config, s =>
+        {
+            s.AddSingleton(trackers);
+            if (recorder is not null) s.AddSingleton(recorder);
+            if (branch is not null) s.AddSingleton(branch);
+        });
 
     /// <summary>Every preset this double ran, in order.</summary>
     public List<string> Runs { get; } = [];
