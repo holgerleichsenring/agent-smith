@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-5701a
+
+decisions:
+  - category: Architecture
+    chose: "A ticket's specs live on GraphTicket.Specs inside draft.Tickets; TicketSpecDraftWrite writes one, TicketSpecRemoval deletes one or a ticket's directory, DraftFileWrite routes tickets/<key>/<label>.yaml to them"
+    over: "A second spec list on ProposalDraft keyed by ticket"
+    reason: "The ticket is the specs' parent, so a ticket rewrite keeping them and a ticket delete dropping them fall out of the one list; ProposalDraftOutcome and ProposalDraftSeed carry them without a change."
+  - category: Implementation
+    chose: "A ticket spec's repositories are decided by DialogDraftRepos.ForSpec with the ticket's repos as the scope when it names any, else the turn's"
+    over: "A separate within-the-ticket check after the scope check"
+    reason: "ForSpec already refuses a name outside the scope it is given and fills one when the spec names none; handing it the narrower list is the whole rule."
+  - category: Implementation
+    chose: "A spec's requires naming a label or id that is no spec of the same ticket is refused naming draft:tickets/<key>/<id>.yaml; the orderer's cycle refusal is prefixed with the ticket"
+    over: "Letting a spec require another ticket's spec"
+    reason: "Ticket order lives on the ticket's own requires; a cross-ticket spec edge would be a second ordering the list review never reads."
+  - category: Implementation
+    chose: "The plan review is taken from the ledger as the list's part: exactly this list keeps its findings, a settled (edited) list only the bound note and a failed review's not-reviewed mark; the list part is told apart by the result's own spec labels"
+    over: "Running the plan review again whenever a ticket spec changed"
+    reason: "The spec skips the plan review once the turn holds or settled the list text; the edited-list filter is the one ProposalReviewSlices already applied, and the result's own labels keep a deleted spec's findings out of the list part."
+  - category: Implementation
+    chose: "With the pass off, the evidence check reads the first spec (in requires order) of each ticket that requires nothing"
+    over: "Checking every ticket spec's evidence"
+    reason: "ProposalEvidenceReview checks only what describes today; a later spec or a ticket waiting on another describes code not merged yet, where a citation of a file still to be created is correct."
+  - category: Architecture
+    chose: "The spec section of the review report moved into DesignTurnSpecReport; DesignTurnReviewReport composes the plan section and it under one heading and one rule line"
+    over: "Growing DesignTurnReviewReport with a list branch per spec rule"
+    reason: "A list now carries both sections; the spec section is one responsibility used by a spec, an epic and a list alike, and the class stays under the size limit."
+  - category: Implementation
+    chose: "DraftStoredNote names the decided repos of a ticket's spec as it does a spec's"
+    over: "Leaving the note to specs under specs/ and epic/"
+    reason: "A ticket's spec has its repos decided the same way, so the write answer would otherwise hide a change the checks made."
+  - category: Implementation
+    chose: "The pane opens a ticket's card when one of its specs carries a finding, and lists its specs under 'Specs' with id, goal and findings"
+    over: "Opening only the first ticket and tickets with a ticket-level finding"
+    reason: "A spec finding would otherwise sit in a closed card; the open rule is the existing one extended to what the card now holds."
+  - category: Testing
+    chose: "OutcomeProposalJsonTests and OfferFilingToolHostTests are new classes as the spec names them; the view mapping is tested in TicketGraphProposalTextTests beside the composer's ticket test; MasterHandlerFixture.ProposalWrites builds on DraftWriteRig.Files()"
+    over: "Adding the cases to TicketGraphStorageTests and FilingOfferTests, and a second hand-built DraftFileWrite in the fixture"
+    reason: "The spec's test list names the classes; one composition of the write checks in the tests keeps a new constructor parameter to one edit."

@@ -9,4 +9,7 @@ public enum DraftItemKind
     Bug,
     Comment,
     Contract,
+
+    /// <summary>2026-11-17-5701a: a spec of a ticket, tickets/&lt;key&gt;/&lt;label&gt;.yaml.</summary>
+    TicketSpec,
 }

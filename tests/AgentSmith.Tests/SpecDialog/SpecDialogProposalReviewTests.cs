@@ -27,6 +27,27 @@ public sealed class SpecDialogProposalReviewTests
 {
     private const string Repo = "repo-a";
 
+    /// <summary>2026-11-17-5701a: each ticket spec is keyed apart in the turn's ledger.</summary>
+    [Fact]
+    public async Task TicketList_SpecEditedAfterTheFirstReview_IsReviewedAgain_OthersKeepTheirFindings()
+    {
+        var rig = new ProposalReview.ProposalReviewRig
+        {
+            OnReview = input => ProposalReview.ProposalReviewRig.Refuse($"objection on {input.Draft.SpecId}"),
+        };
+        rig.Pipeline.Set(ContextKeys.SpecDialogOutcome, ProposalReview.ProposalReviewRig.TicketSpecs());
+        await rig.RunAsync();
+        var first = rig.Reviewed.Count;
+
+        rig.Pipeline.Set(ContextKeys.SpecDialogOutcome, ProposalReview.ProposalReviewRig.TicketSpecs("Write the orders in one batch."));
+        await rig.RunAsync();
+
+        rig.Reviewed.Skip(first).Select(i => i.Draft.SpecId).Distinct().Should().Equal("order-state");
+        rig.Outcome.Findings.Should().Contain(f => f.SpecId == "order-page" && f.Why == "objection on order-page")
+            .And.Contain(f => f.SpecId == "order-state" && f.Why == "objection on order-state");
+        rig.Outcome.ReviewRounds.Select(r => r.SpecId).Should().BeEquivalentTo(["order-state", "order-page"]);
+    }
+
     [Fact]
     public async Task Turn_SpecProposal_IsReviewedAgainstTheTurnsRepositories()
     {

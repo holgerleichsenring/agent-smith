@@ -23,7 +23,7 @@ public static class TicketPlanReviewPrompt
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(questions);
         return $$"""
-            A design conversation proposes a LIST OF TICKETS joined by requires. Each ticket is built by its own run, which writes its specs when it starts, and is merged as its own pull request. Review the list as a PLAN, never spec by spec. For each ticket answer, against the operator's requirements and the repositories:
+            A design conversation proposes a LIST OF TICKETS joined by requires. Each ticket carries its own specs, which other reviewers read one by one; it is built by its own run and merged as its own pull request. Review the list as a PLAN, never spec by spec. For each ticket answer, against the operator's requirements and the repositories:
             1. merge — can it be merged on its own and leave the code working?
             2. order — is it ordered after every ticket whose work it needs?
             3. {{Missing}} — does the list cover every requirement the operator stated? A requirement met by a ticket:<id> requirement, one the conversation leaves for a later list, or one an open question below asks the operator to leave, is not missing.

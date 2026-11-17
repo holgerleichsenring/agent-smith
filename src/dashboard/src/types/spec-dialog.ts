@@ -414,8 +414,8 @@ export interface SpecDialogProposalFinding {
 }
 
 /**
- * 2026-10-14-dbcek: one ticket text of a proposed list — no spec inside; its run derives its specs when it starts.
- * `requires` names sibling keys or `ticket:<id>` of a ticket already filed.
+ * 2026-10-14-dbcek: one ticket of a proposed list. `requires` names sibling keys or `ticket:<id>` of a ticket already
+ * filed. 2026-11-17-5701a: `specs` are the ticket's own specs; absent on a list stored before tickets carried them.
  */
 export interface SpecDialogGraphTicket {
   key: string;
@@ -424,6 +424,7 @@ export interface SpecDialogGraphTicket {
   done: string[];
   requires: string[];
   repos: string[];
+  specs?: SpecDraftProposal[];
 }
 
 /**

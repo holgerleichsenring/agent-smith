@@ -10,7 +10,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// attacked once by spec_review.reviewers fresh reviewers beside its siblings and the operator's open questions,
 /// and an epic with a contract gets its series round. Nothing is re-prompted: what the reviewers say is advice on
 /// the card. Drafts carried over unchanged from the proposal under revision keep their review; only the run's
-/// cost cap stops the pass (<see cref="ProposalReviewSession.Admit"/>).
+/// cost cap stops the pass (<see cref="ProposalReviewSession.Admit"/>). 2026-11-17-5701a: a ticket list's specs are
+/// attacked as an epic's children are, each beside its ticket's other specs with its ticket's title as the wider goal.
 /// </summary>
 public sealed class ProposalAttackPass(
     ProposalAttackPanel panel, ISpecRoundEvidence evidence, ProposalSeriesRound series, ILogger<ProposalAttackPass> logger)
@@ -68,7 +69,7 @@ public sealed class ProposalAttackPass(
     }
 
     private static SpecAttackInput Input(ProposalReviewSession session, ProposalDraftReview draft) =>
-        new(draft.Draft, SpecReviewScopes.Spec, 1, 0, (session.Proposal as EpicOutcome)?.Parent.Goal,
+        new(draft.Draft, SpecReviewScopes.Spec, 1, 0, WiderGoal(session.Proposal, draft.Draft),
             SpecToday.Describes(draft.Draft, session.Set), draft.Evidence.Problems, draft.Evidence.Unchecked,
             draft.Evidence.Total, [])
         {
@@ -78,10 +79,12 @@ public sealed class ProposalAttackPass(
             OperatorTurns = ProposalOperatorTurns.Of(session.Turn.Pipeline), // 2026-11-12-92e9b
         };
 
+    private static string? WiderGoal(OutcomeProposal proposal, SpecDraft draft) =>
+        (proposal as EpicOutcome)?.Parent.Goal ?? ProposalSpecSet.TicketOf(proposal, draft.SpecId)?.Title;
+
     private static IReadOnlyList<SpecDraft> Reviewed(OutcomeProposal proposal) => proposal switch
     {
-        SpecOutcome spec => [spec.Draft],
         EpicOutcome epic => epic.Children,
-        _ => [],
+        _ => ProposalSpecSet.Drafts(proposal),
     };
 }

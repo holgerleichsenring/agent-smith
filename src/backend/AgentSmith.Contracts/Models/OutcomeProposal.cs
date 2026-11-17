@@ -72,7 +72,7 @@ public sealed record SpecOutcome(SpecDraft Draft) : OutcomeProposal;
 /// </summary>
 public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children, Specs.SeriesContract? Contract = null) : OutcomeProposal;
 
-/// <summary>2026-10-14-dbcej: 2 to 20 ticket texts joined by requires; each ticket's run derives its own specs.</summary>
+/// <summary>2026-10-14-dbcej: 2 to 20 tickets joined by requires; 2026-11-17-5701a: each carries its own specs.</summary>
 public sealed record TicketGraphOutcome(IReadOnlyList<GraphTicket> Tickets) : OutcomeProposal;
 
 /// <summary>2026-10-28-7a69c: a ticket's conversation ends in a comment on it, and nothing starts.</summary>

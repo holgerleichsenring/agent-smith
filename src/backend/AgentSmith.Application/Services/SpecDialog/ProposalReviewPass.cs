@@ -12,7 +12,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// it called clean. The post-turn review and the review_proposal tool run this same pass. 2026-11-12-92e9b: every
 /// result is recorded in the turn's <see cref="ProposalReviewLedger"/> under the exact texts it reviewed.
 /// 2026-11-13-3dc8: after the Reviewing step, every step of the pass reaches the turn as "Review › …", so a reviewer's
-/// answer is never read as the master's narration.
+/// answer is never read as the master's narration. 2026-11-17-5701a: a ticket list gets its plan review — taken from the
+/// ledger when this turn already reviewed the list — and, when its tickets carry specs, the attack pass over them.
 /// </summary>
 public sealed class ProposalReviewPass(
     ProposalWholeSetReview wholeSet, ProposalAttackPass attack, TicketPlanReview plans, ITurnActivityObserverAccessor turnActivity)
@@ -37,12 +38,26 @@ public sealed class ProposalReviewPass(
     private async Task<OutcomeProposal> RunAsync(
         ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, CancellationToken ct)
     {
-        if (proposal is TicketGraphOutcome graph) return await plans.ReviewAsync(turn, graph, ct);
+        if (proposal is TicketGraphOutcome graph) return await ListAsync(turn, settings, graph, ct);
         var whole = await wholeSet.FindingsAsync(turn, ProposalSpecSet.Drafts(proposal), ct) ?? [];
         var outcome = await attack.RunAsync(turn, settings, proposal, ct);
         return proposal with
         {
             Findings = [.. outcome.Standing, .. whole], ReviewRounds = outcome.Rounds, NotReviewed = outcome.NotReviewed,
+            ReviewedClean = outcome.ReviewedClean,
+        };
+    }
+
+    private async Task<OutcomeProposal> ListAsync(
+        ProposalTurn turn, SpecReviewSettings settings, TicketGraphOutcome graph, CancellationToken ct)
+    {
+        var plan = ProposalReviewLedger.Of(turn.Pipeline).PlanFindings(graph)
+            ?? (await plans.ReviewAsync(turn, graph, ct)).Findings;
+        if (ProposalSpecSet.Drafts(graph).Count == 0) return graph with { Findings = plan };
+        var outcome = await attack.RunAsync(turn, settings, graph, ct);
+        return graph with
+        {
+            Findings = [.. plan, .. outcome.Standing], ReviewRounds = outcome.Rounds, NotReviewed = outcome.NotReviewed,
             ReviewedClean = outcome.ReviewedClean,
         };
     }

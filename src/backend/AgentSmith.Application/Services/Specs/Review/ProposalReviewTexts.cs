@@ -8,7 +8,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// list, a spec or an epic child as its id and yaml, an epic's parent with its contract. Any changed byte is a new key.
 /// An answer, a bug or a comment holds no text a pass reads. 2026-11-13-3f79: each text also names the id its review
 /// sits under and the key it is settled under (<see cref="ProposalReviewText"/>). 2026-11-15-67f1: the text a draft
-/// file wrote is no part of a key — a pass reads the fields.
+/// file wrote is no part of a key — a pass reads the fields. 2026-11-17-5701a: a ticket list is its list without the
+/// specs, plus one text per ticket spec, so an edited spec is reviewed again and the list and the other specs keep theirs.
 /// </summary>
 internal static class ProposalReviewTexts
 {
@@ -20,7 +21,7 @@ internal static class ProposalReviewTexts
         ArgumentNullException.ThrowIfNull(proposal);
         return proposal switch
         {
-            TicketGraphOutcome graph => [new(List(graph), ListId, ListId)],
+            TicketGraphOutcome graph => [new(List(graph), ListId, ListId), .. ProposalSpecSet.Drafts(graph).Select(Text)],
             SpecOutcome spec => [Text(spec.Draft)],
             EpicOutcome epic => [.. epic.Children.Select(Text), new(Parent(epic), ProposalReviewTokens.Series, SettledParent(epic))],
             _ => [],
@@ -37,5 +38,5 @@ internal static class ProposalReviewTexts
 
     private static ProposalReviewText Text(SpecDraft draft) => new(Draft(draft), draft.SpecId, draft.SpecId);
 
-    private static string List(TicketGraphOutcome graph) => $"list\n{JsonSerializer.Serialize(graph.Tickets.Select(t => t with { Source = null }))}";
+    private static string List(TicketGraphOutcome graph) => $"list\n{JsonSerializer.Serialize(graph.Tickets.Select(t => t with { Source = null, Specs = [] }))}";
 }

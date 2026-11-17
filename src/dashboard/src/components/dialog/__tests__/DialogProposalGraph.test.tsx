@@ -43,7 +43,23 @@ describe("A proposed list of tickets", () => {
     expect(screen.getByText("order-ui is done")).toBeInTheDocument();
     expect(within(screen.getByTestId("dialog-graph-ticket-order-ui")).getByTestId("dialog-graph-ticket-finding"))
       .toHaveTextContent("required ticket not found");
-    expect(screen.getByTestId("dialog-graph-derive")).toHaveTextContent("each ticket's run derives and reviews its own specs");
+    expect(screen.queryByTestId("dialog-graph-derive")).not.toBeInTheDocument();
+  });
+
+  it("DialogProposalPanel_TicketsKind_ListsEachTicketsSpecsWithTheirFindings", () => {
+    const spec = { specId: "order-state", goal: "The API returns the order state.", steps: [], tests: [], done: [], requires: [], yaml: "" };
+    const withSpecs: SpecDialogProposalPush = {
+      ...list,
+      tickets: [{ ...ticket("order-api"), specs: [spec] }, ticket("order-ui", ["order-api"])],
+      findings: [{ specId: "order-state", problem: "BUILD_WITH_CUTS", why: "the route is named twice", quote: null, evidence: null }],
+    };
+    render(<DialogProposalPanel proposal={withSpecs} />);
+
+    const specs = screen.getByTestId("dialog-graph-specs-order-api");
+    expect(within(specs).getByTestId("dialog-graph-spec-order-state")).toHaveTextContent("order-stateThe API returns the order state.");
+    expect(within(specs).getByTestId("dialog-graph-spec-finding")).toHaveTextContent("the route is named twice");
+    expect(screen.queryByTestId("dialog-graph-specs-order-ui")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("dialog-graph-ticket-order-api")).queryByTestId("dialog-graph-ticket-finding")).toBeNull();
   });
 
   it("DialogProposalPanel_TicketsKind_ListLevelFindingAboveTheTickets", () => {

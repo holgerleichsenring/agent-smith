@@ -1,7 +1,8 @@
 namespace AgentSmith.Application.Services.SpecDialog.Writes;
 
-/// <summary>2026-11-15-06fc: the item a draft path names — its kind, and the spec id or ticket key its file name gives.</summary>
-public sealed record DraftItem(DraftItemKind Kind, string Name)
+/// <summary>2026-11-15-06fc: the item a draft path names — its kind, and the spec id or ticket key its file name gives.
+/// 2026-11-17-5701a: a ticket's spec names its ticket's key as <paramref name="Owner"/>.</summary>
+public sealed record DraftItem(DraftItemKind Kind, string Name, string? Owner = null)
 {
     /// <summary>The handle the draft's checks name the item by: a spec's id, a ticket's key, or bug, comment, contract.</summary>
     public string Handle => Kind switch

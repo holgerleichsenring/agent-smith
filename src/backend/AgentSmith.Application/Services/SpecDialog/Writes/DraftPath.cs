@@ -4,6 +4,7 @@ namespace AgentSmith.Application.Services.SpecDialog.Writes;
 /// 2026-11-15-06fc: how a draft is laid out as files under <c>draft:</c>. A spec is <c>specs/&lt;id&gt;.yaml</c> and an
 /// epic's parent <c>epic/&lt;id&gt;.yaml</c>, the file name being the spec's id; a ticket is
 /// <c>tickets/&lt;key&gt;.yaml</c>; the bug, the comment and an epic's series contract have one file each.
+/// 2026-11-17-5701a: a ticket's spec is <c>tickets/&lt;key&gt;/&lt;label&gt;.yaml</c>, and <c>tickets/&lt;key&gt;/</c> a directory.
 /// </summary>
 public static class DraftPath
 {
@@ -18,7 +19,7 @@ public static class DraftPath
 
     /// <summary>The layout, for an answer that names a path outside it.</summary>
     public const string Layout =
-        "draft:specs/<id>.yaml, draft:epic/<id>.yaml, draft:contract.yaml, draft:tickets/<key>.yaml, draft:bug.yaml, draft:comment.md";
+        "draft:specs/<id>.yaml, draft:epic/<id>.yaml, draft:contract.yaml, draft:tickets/<key>.yaml, draft:tickets/<key>/<label>.yaml, draft:bug.yaml, draft:comment.md";
 
     /// <summary>Whether a tool's path addresses the draft.</summary>
     public static bool Names(string? path) => (path ?? string.Empty).TrimStart().StartsWith(Prefix, StringComparison.Ordinal);
@@ -39,6 +40,8 @@ public static class DraftPath
 
     public static string OfTicket(string key) => Tickets + key + Yaml;
 
+    public static string OfTicketSpec(string key, string label) => Tickets + key + "/" + label + Yaml;
+
     /// <summary>The item a bare path names, or null when it lies outside the layout.</summary>
     public static DraftItem? Item(string bare) => bare switch
     {
@@ -46,17 +49,34 @@ public static class DraftPath
         Comment => new(DraftItemKind.Comment, Comment),
         Contract => new(DraftItemKind.Contract, Contract),
         _ => Named(bare, Specs, DraftItemKind.Spec) ?? Named(bare, Epic, DraftItemKind.Epic)
-            ?? Named(bare, Tickets, DraftItemKind.Ticket),
+            ?? Named(bare, Tickets, DraftItemKind.Ticket) ?? TicketSpec(bare),
     };
 
-    /// <summary>A directory of the draft, as a delete names it: the whole draft, specs/, epic/ or tickets/.</summary>
+    /// <summary>A directory of the draft, as a delete names it: the whole draft, specs/, epic/, tickets/ or a
+    /// ticket's tickets/&lt;key&gt;/.</summary>
     public static bool IsDirectory(string bare) =>
-        bare.TrimEnd('/') is "" or "specs" or "epic" or "tickets";
+        bare.TrimEnd('/') is "" or "specs" or "epic" or "tickets" || TicketDirectory(bare) is not null;
+
+    /// <summary>The key a ticket's directory tickets/&lt;key&gt;/ names, or null.</summary>
+    public static string? TicketDirectory(string bare)
+    {
+        var trimmed = (bare ?? string.Empty).TrimEnd('/');
+        if (!trimmed.StartsWith(Tickets, StringComparison.Ordinal)) return null;
+        var key = trimmed[Tickets.Length..];
+        return key.Length == 0 || key.Contains('/') || key.EndsWith(Yaml, StringComparison.Ordinal) ? null : key;
+    }
 
     private static DraftItem? Named(string bare, string directory, DraftItemKind kind)
     {
         if (!bare.StartsWith(directory, StringComparison.Ordinal) || !bare.EndsWith(Yaml, StringComparison.Ordinal)) return null;
         var name = bare[directory.Length..^Yaml.Length];
         return name.Length == 0 || name.Contains('/') ? null : new DraftItem(kind, name);
+    }
+
+    private static DraftItem? TicketSpec(string bare)
+    {
+        if (!bare.StartsWith(Tickets, StringComparison.Ordinal) || !bare.EndsWith(Yaml, StringComparison.Ordinal)) return null;
+        var parts = bare[Tickets.Length..^Yaml.Length].Split('/');
+        return parts is [{ Length: > 0 } key, { Length: > 0 } label] ? new DraftItem(DraftItemKind.TicketSpec, label, key) : null;
     }
 }

@@ -8,6 +8,6 @@ public static class ProposalWriteRegistrations
 {
     public static IServiceCollection AddProposalWrites(this IServiceCollection services) =>
         services.AddTransient<TicketDraftWrite>().AddTransient<SpecDraftWrite>().AddTransient<SpecDraftIds>()
-            .AddTransient<SpecDraftShape>().AddTransient<ContractDraftWrite>().AddTransient<DraftFileWrite>()
+            .AddTransient<SpecDraftShape>().AddTransient<ContractDraftWrite>().AddTransient<DraftFileWrite>().AddTransient<TicketSpecDraftWrite>()
             .AddTransient<ProposalWriteTools>();
 }

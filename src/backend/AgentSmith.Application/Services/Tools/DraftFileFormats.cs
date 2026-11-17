@@ -2,7 +2,7 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// 2026-11-12-cd4cg: the formats the design master writes its draft in, carried by the tool instead of a fetched
-/// format. 2026-11-15-06fc: one per draft file, on write_file.
+/// format. 2026-11-15-06fc: one per draft file, on write_file. 2026-11-17-5701a: a ticket carries its specs.
 /// </summary>
 internal static class DraftFileFormats
 {
@@ -25,8 +25,11 @@ internal static class DraftFileFormats
         + "title (one line), requirement (its scope in prose, against the code as it stands once its requires are "
         + "merged), done (outcomes true once it has merged, one line each, a scenario as WHEN … THEN …), requires (keys "
         + "of tickets in this draft that merge first, or ticket:<tracker id> of a filed ticket), repos (the configured "
-        + "repositories it changes); the run a ticket starts derives its own specs, and one run builds, reviews and "
-        + "merges it. bug.yaml, a small fix filed as one fix-bug ticket: title (one imperative line), description "
+        + "repositories it changes); one run builds, reviews and merges it. A ticket's specs, "
+        + "tickets/<key>/<label>.yaml, in the spec format above, each with a label no other spec or ticket of the "
+        + "draft carries: the ticket is their parent, their requires name specs of the same ticket, their repos lie "
+        + "within the ticket's when it names any, and the turn reviews them as it reviews a spec; the run the ticket "
+        + "starts works off them. bug.yaml, a small fix filed as one fix-bug ticket: title (one imperative line), description "
         + "(what is wrong, where, and what correct behaviour looks like), acceptance_criteria (how the fix is "
         + "verified, one line each). comment.md: the comment for the bound ticket's readers, in the ticket's language.";
 }

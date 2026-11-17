@@ -102,23 +102,8 @@ internal static class MasterHandlerFixture
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks (2026-11-15-06fc: as files).</summary>
-    internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites()
-    {
-        var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
-            new AgentSmith.Application.Services.Validation.SpecSchemaProvider());
-        var orderer = new AgentSmith.Application.Services.SpecDialog.TicketGraphOrderer();
-        return new(new AgentSmith.Application.Services.SpecDialog.Writes.DraftFileWrite(
-            new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftWrite(
-                new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftIds(),
-                validator, AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(),
-                new AgentSmith.Application.Services.SpecDialog.SpecDraftReader(),
-                new AgentSmith.Application.Services.SpecDialog.Writes.SpecDraftShape(
-                    new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker(),
-                    new AgentSmith.Application.Services.SpecDialog.EpicChildOrderer())),
-            new AgentSmith.Application.Services.SpecDialog.Writes.TicketDraftWrite(
-                new AgentSmith.Application.Services.SpecDialog.TicketGraphChecker(orderer), orderer),
-            new AgentSmith.Application.Services.SpecDialog.Writes.ContractDraftWrite(AgentSmith.Tests.TestSupport.SeriesContracts.Reader())));
-    }
+    internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites() =>
+        new(AgentSmith.Tests.SpecDialog.Writes.DraftWriteRig.Files());
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(

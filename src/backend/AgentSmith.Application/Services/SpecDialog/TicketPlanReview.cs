@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-10-14-dbcek: a proposed list of tickets is reviewed as a PLAN — never spec by spec, because a list carries
-/// ticket texts and each ticket's run derives its specs. 2026-11-12-cd4ci: ONE advisory reviewer call, its findings on
+/// 2026-10-14-dbcek: a proposed list of tickets is reviewed as a PLAN — never spec by spec; 2026-11-17-5701a: each
+/// ticket's specs are attacked apart (<see cref="ProposalReviewPass"/>). 2026-11-12-cd4ci: ONE advisory reviewer call, its findings on
 /// the card, nothing re-prompted; <see cref="CheckAsync"/> is the mechanical half alone. A conversation that belongs
 /// to a ticket is not reviewed: a list is filed from Work it out without a ticket. Nothing here blocks.
 /// 2026-11-13-67ae: a reviewer that gave no readable answer leaves one "not reviewed yet" finding on the list.
