@@ -104,7 +104,7 @@ public sealed class MasterToolComposition(
         // The injected budget's capacity is frozen from the run-wide number, so a turn that
         // only READ its own count would still be granted twenty. It builds the budget it gates
         // on and hands that one to the spawn host, which reserves from it.
-        var budget = isSpecDialog ? new SubAgentBudget(fanOut) : subAgentBudget;
+        var budget = isSpecDialog ? new SubAgentBudget(fanOut, SubAgentBudget.DialogTurnKey, "design turn") : subAgentBudget;
         var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid) && rid is not null ? rid : "run";
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(

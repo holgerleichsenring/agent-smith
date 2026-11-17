@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d6fbc
+goal: "A verify pass reports what it ran as data, so the run log shows one line per repository and one muted line for stale derivations instead of a paragraph."
+
+applies_to: "default (VerifySpecHandler, VerifyResolutionNotes, a VerifyPassRecordedEvent) and dashboard (hub-events mirror, runSections, RunSectionLog)"
+
+requires: [2026-11-16-6877b]
+
+facts:
+  - claim: "DerivationMoved writes one long sentence per context with a parenthetical repeated each time."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyResolutionNotes.cs:37-44"
+  - claim: "The verdict message joins the stale notes and the no-stage notes onto the result with newlines."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:147-148, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:286-292"
+  - claim: "A green pass says 'Verified: repo [install+build+test] green'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:271-272, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:300-303"
+  - claim: "Every run event carries the step it was produced in."
+    evidence: "src/backend/AgentSmith.Contracts/Events/RunEvent.cs:26"
+  - claim: "A log line shows the step's result message as one detail string."
+    evidence: "src/dashboard/src/components/jobs/runlog/runSections.ts:107-115"
+
+scope:
+  in: "VerifyPassRecordedEvent (repositories with their stages and result, stale derivations with context and files, the pass result); VerifyResolutionNotes keeps the derivations as data beside the prose; the handler publishes one event per pass; the TS mirror; the log renders the event under its Build and test line."
+  out: "Changing the prose the result message carries (tracker comments, the run summary, the CLI and the spec progress read it); persisting new columns."
+
+steps:
+  - id: contract
+    action: "VerifyPassRecordedEvent in Contracts/Events; VerifyRepositoryPass, VerifyStageRun, VerifyStaleDerivation and VerifyPassResults in Contracts/Verify; EventType.VerifyPassRecorded; EventTypeResolver."
+  - id: notes
+    action: "VerifyResolutionNotes.DerivationMoved also records a VerifyStaleDerivation."
+  - id: publish
+    action: "VerifyPassReporter builds the event from the outcomes and notes and publishes it; VerifySpecHandler calls it once the pass is decided."
+  - id: mirror
+    action: "hub-events.ts mirrors the event and originStepIndex on the event base; FilterRail and eventFilterQuery name it."
+  - id: render
+    action: "runSections attaches the VerifyPassRecorded event whose originStepIndex is the step's to its line; VerifyPassLines draws a line per repository and one muted stale line with the per-context files behind a disclosure; the prose detail is not drawn when the event is there."
+
+tests:
+  - "VerifyPassReporterTests: green, failed and stale passes map to the event; no run id publishes nothing; DerivationMoved records the data and keeps the prose."
+  - "EventEnvelopeRoundTripTests cover the new event through SampleEventFactory."
+  - "RunSectionLog test: a verify line with its event shows repository lines and one closed stale line, without the prose; without the event the prose stays."
+
+done:
+  - "A green pass shows '✓ <repo>  install · build · test' per repository."
+  - "Stale derivations read as one muted line with the files behind a disclosure."
+  - "The result message is unchanged for every other reader."
+  - "Backend build and tests, pnpm test, build and gen:hub-events are green."

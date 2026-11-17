@@ -23,7 +23,7 @@ public static partial class PipelinePresets
         All = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
             [CodeName] = Code,
-            ["init-project"] = InitProject,
+            [InitProjectName] = InitProject,
             ["mad-discussion"] = MadDiscussion,
             ["legal-analysis"] = LegalAnalysis,
             ["security-scan"] = SecurityScan,
@@ -32,6 +32,7 @@ public static partial class PipelinePresets
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
             [FileName] = File, // 2026-11-17-5701b
+            [BranchCleanupName] = BranchCleanup, // 2026-11-17-713ec
         };
         Names = All.Keys.ToList();
         Routable = [.. Names.Where(n => NotRoutableBecause(n) is null)];
@@ -42,7 +43,7 @@ public static partial class PipelinePresets
     private static readonly Dictionary<string, PipelineType> PipelineTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         [CodeName] = PipelineType.Hierarchical,
-        ["init-project"] = PipelineType.Discussion,
+        [InitProjectName] = PipelineType.Discussion,
         ["security-scan"] = PipelineType.Structured,
         ["api-security-scan"] = PipelineType.Structured,
         ["mad-discussion"] = PipelineType.Discussion,
@@ -53,6 +54,7 @@ public static partial class PipelinePresets
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
         [FileName] = PipelineType.Discussion,
+        [BranchCleanupName] = PipelineType.Structured, // 2026-11-17-713ec
     };
 
     /// <summary>

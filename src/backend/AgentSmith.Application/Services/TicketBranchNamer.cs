@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public static class TicketBranchNamer
 {
-    public const string Prefix = "agent-smith";
+    public const string Prefix = AgentSmith.Contracts.Providers.WorkBranches.Prefix;
 
     /// <summary>The branch an init-project run works on, under the same prefix as every ticket run.</summary>
     public const string InitBranch = Prefix + "/init";

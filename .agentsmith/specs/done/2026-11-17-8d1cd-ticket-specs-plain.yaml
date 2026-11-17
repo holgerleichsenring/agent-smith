@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-8d1cd
+goal: "Specs, Acceptance and Defaults read as plain lines; Specs lists every spec derivation with its duration and offers Derive again on a ticket with runs."
+
+applies_to: "dashboard (TicketSpecsTab, SpecDocument, SpecDerivations, TicketAcceptanceTab, TicketDefaultsTab, ticket-thread.css)"
+
+requires: [2026-11-17-8d1cc]
+
+
+assumptions:
+  - "Layout and wording follow the operator-approved 2026-11-17 mock: TicketRail.dc.html: Specs, Acceptance with overrule as a text link, Defaults as key/value lines."
+
+facts:
+  - claim: "SpecDerivations offers Derive again only on the newest unfinished derivation and renders only for a ticket without runs."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecDerivations.tsx:26, src/dashboard/src/components/tickets/detail/TicketPage.tsx:45"
+  - claim: "Acceptance says overruling stays in the run viewer."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:8-10"
+
+scope:
+  in: "Specs section: spec lines and the selected document, plain; derivations with start, duration, cost and outcome and Derive again (spec derivation of the ticket) for any ticket that is not closed; Discuss goes to What happened. Acceptance: one line per criterion, its reason, overrule as a text link to the run that judged it. Defaults: key/value lines with the change link. All under hairlines, no panels."
+  out: "Recording an overrule on the ticket page; backend changes."
+
+steps:
+  - id: derivations
+    action: "SpecDerivations in the Specs section with duration and Derive again."
+  - id: acceptance
+    action: "CriterionLine adds an overrule link to the run that judged it."
+  - id: css
+    action: "ticket-thread.css flattens .sp-*, .doc, .crit, .df-* inside the section pane."
+
+decisions:
+  - "Overrule is a link to the run's check section — alternatives: record judgements on the ticket page (new write path)."
+
+tests:
+  - "SpecDerivations and TicketSpecsTab suites: Derive again on a ticket with runs, durations; acceptance overrule link."
+
+done:
+  - "A ticket with runs offers Derive again and shows each derivation's duration in Specs."
+  - "pnpm test, build and gen:hub-events are green; the spec gate passes."

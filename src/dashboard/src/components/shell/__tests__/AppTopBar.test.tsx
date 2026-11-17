@@ -21,7 +21,7 @@ describe("AppTopBar", () => {
   it("PlaceForQuery_ExactNameFirst_ThenAPrefix_CaseBlind", () => {
     expect(placeForQuery("delivery")).toBe("/delivery");
     expect(placeForQuery("  Pull ")).toBe("/pull-requests");
-    expect(placeForQuery("Runs")).toBe("/");
+    expect(placeForQuery("Runs")).toBe("/runs");
     expect(placeForQuery("nothing by this name")).toBeNull();
     expect(placeForQuery("   ")).toBeNull();
   });

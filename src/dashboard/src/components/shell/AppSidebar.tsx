@@ -13,9 +13,10 @@ import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { totalTickets } from "@/components/tickets/ticketSections";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
-import { bucketHref, useRunBucketFilter } from "@/lib/RunBucketFilter";
+import { bucketHref, RUNS_PATH, useRunBucketFilter } from "@/lib/RunBucketFilter";
 import { TICKETS_PATH, ticketBucketHref, useTicketBucketFilter, type TicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
+import { isTicketPage } from "@/lib/tickets/ticketAddress";
 import { cn } from "@/lib/utils";
 import { ProfileMenu } from "./ProfileMenu";
 import { SidebarGroup, SidebarItem } from "./SidebarItem";
@@ -36,7 +37,10 @@ const isModified = (event: React.MouseEvent) => event.metaKey || event.ctrlKey |
 
 export function AppSidebar() {
   const pathname = usePathname() ?? "/";
-  const [collapsed, toggle] = useSidebarCollapsed();
+  const [chosen, toggle] = useSidebarCollapsed();
+  // 2026-11-17-8d1ca: a ticket page has its own section bar beside this one, so the sidebar shows icons only there.
+  const onTicketPage = isTicketPage(pathname);
+  const collapsed = chosen || onTicketPage;
   const tickets = useTicketList().list?.counts;
   const ticketFilter = useTicketBucketFilter();
   const runFilter = useRunBucketFilter();
@@ -71,7 +75,7 @@ export function AppSidebar() {
       <div className="sb-brand">
         <Terminal size={20} strokeWidth={2} aria-hidden="true" />
         {!collapsed && <span className="sb-brand-name">Agent Smith</span>}
-        <button
+        {!onTicketPage && <button
           type="button"
           className="sb-toggle"
           onClick={toggle}
@@ -80,7 +84,7 @@ export function AppSidebar() {
           data-testid="sidebar-toggle"
         >
           <PanelLeft size={16} strokeWidth={1.8} aria-hidden="true" />
-        </button>
+        </button>}
       </div>
 
       <Link
@@ -120,7 +124,7 @@ export function AppSidebar() {
         label="Runs"
         href={bucketHref("all")}
         icon={CirclePlay}
-        active={pathname === "/" || under("/jobs")}
+        active={under(RUNS_PATH) || under("/jobs")}
         collapsed={collapsed}
         count={inFlight}
         onClick={chooseRuns}

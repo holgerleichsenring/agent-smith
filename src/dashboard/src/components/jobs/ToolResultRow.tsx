@@ -7,13 +7,13 @@ interface Props {
 }
 
 export function ToolResultRow({ event }: Props) {
-  const okClass = event.ok ? "text-emerald-300" : "text-rose-300";
+  const okClass = event.ok ? "text-app-proven" : "text-app-stopped";
   return (
-    <div className="flex items-center gap-2 text-xs text-stone-300" data-testid="tool-result-row">
-      <span className="text-stone-500">←</span>
-      <span className="font-mono text-amber-300">{event.tool}</span>
+    <div className="flex items-center gap-2 text-xs text-app-text-soft" data-testid="tool-result-row">
+      <span className="text-app-mute">←</span>
+      <span className="font-mono text-app-needs">{event.tool}</span>
       <span className={okClass}>{event.ok ? "ok" : "fail"}</span>
-      <span className="text-stone-500">({event.resultLength}B result)</span>
+      <span className="text-app-mute">({event.resultLength}B result)</span>
     </div>
   );
 }

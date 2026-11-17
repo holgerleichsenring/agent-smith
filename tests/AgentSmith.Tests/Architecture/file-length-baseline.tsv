@@ -32,7 +32,6 @@
 242	AgentSmith.Application/Services/Loop/SubAgentRunner.cs
 234	AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs
 194	AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs
-232	AgentSmith.Application/Services/Loop/SkillCallRuntime.cs
 223	AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs
 218	AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs
 130	AgentSmith.Server/Services/Events/RunSnapshot.cs
@@ -108,7 +107,6 @@
 138	AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs
 137	AgentSmith.Application/Services/ApiScanFindingsCompressor.cs
 137	AgentSmith.Cli/Commands/SkillsPullCommand.cs
-136	AgentSmith.Application/Services/Loop/RuntimeObservationFactory.cs
 136	AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeHistoryCacheHandler.cs
 135	AgentSmith.Application/Services/ApiScanFindingsFormatter.cs
 134	AgentSmith.Infrastructure/Services/Tools/DockerToolRunner.cs

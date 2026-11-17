@@ -86,8 +86,10 @@ public sealed class WriteRunResultHandler(
         }
     }
 
+    // 2026-11-17-713ea: an init is one whatever its door — a label-started init fetched its ticket
+    // and still writes the init record. A ticketless run with no plan (a CLI scan) takes it too.
     private static bool IsInitMode(WriteRunResultContext context) =>
-        context.Ticket is null && context.Plan is null;
+        InitRunSeed.IsInitRun(context.Pipeline) || (context.Ticket is null && context.Plan is null);
 
     // p0344b: snapshot the run story (p0341 progress ledger + p0340 acceptance
     // dispositions over the ratified criteria) onto the event stream so the

@@ -9,7 +9,6 @@ public sealed class SkillConfig
     public SkillOutputConfig Output { get; set; } = new();
     public SkillContextConfig Context { get; set; } = new();
     public Dictionary<string, RoleProjectConfig> Roles { get; set; } = new();
-    public DiscussionConfig Discussion { get; set; } = new();
 }
 
 /// <summary>
@@ -46,14 +45,4 @@ public sealed class RoleProjectConfig
 {
     public bool Enabled { get; set; } = true;
     public string? ExtraRules { get; set; }
-}
-
-/// <summary>
-/// Settings for multi-role plan discussion.
-/// </summary>
-public sealed class DiscussionConfig
-{
-    public int MaxRounds { get; set; } = 3;
-    public int MaxTotalCommands { get; set; } = 50;
-    public int ConvergenceThreshold { get; set; }
 }

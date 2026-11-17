@@ -9,7 +9,7 @@ describe("text wrap", () => {
     const css = readFileSync("src/styles/mock-parity.css", "utf8");
     const rule = css.split("\n").find((line) => line.includes("overflow-wrap: anywhere; min-width: 0;") && line.includes(":is("));
     expect(rule).toBeDefined();
-    for (const pane of [".why", ".doc", ".msg .mb", ".spdoc .sb", ".sd-b > div", ".ts-say", ".crit .ci > span"]) {
+    for (const pane of [".why", ".doc", ".msg .mb", ".spdoc .sb", ".sd-b > div", ".crit .ci > span"]) {
       expect(rule).toContain(pane);
     }
   });

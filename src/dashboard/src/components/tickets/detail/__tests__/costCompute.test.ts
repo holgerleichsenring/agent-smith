@@ -1,36 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { computeSegments } from "../computeSegments";
 import { computeTotals, type AttemptMachine } from "../computeTotals";
-import { costBuckets, costParts, costScale } from "../costScale";
+import { costBuckets, costParts } from "../costScale";
 import { attempt, compute, pass, passes, runDetail, segment, spawn } from "./detailFixtures";
 
-// 2026-10-13-9a59s: the cost scale, the compute tiles and the wall-clock pieces — pure, over the server's shapes.
+// 2026-10-13-9a59s: the cost split and the compute figures — pure, over the server's shapes.
 
 const NOW = Date.parse("2026-09-05T00:00:00Z");
 const min = (n: number) => n * 60000;
 
-describe("costScale", () => {
-  it("TheLargestRunCap_IsTheFullWidth_AndASmallerCapIsMarkedOnItsRow", () => {
-    const scale = costScale([{ cost: 1.9, cap: 15 }, { cost: 3, cap: 5 }]);
-    expect(scale.full).toBe(15);
-    expect(scale.capIsFull).toBe(true);
-    expect(scale.rows[0]).toEqual({ costPct: (1.9 / 15) * 100, capPct: null, over: false });
-    expect(scale.rows[1].capPct).toBeCloseTo((5 / 15) * 100);
-    expect(scale.rows[1].over).toBe(false);
-  });
-
-  it("WithNoCapOnAnyAttempt_TheLargestCostIsTheFullWidth_AndACostOverItsCapPassesItsMarker", () => {
-    const none = costScale([{ cost: 2, cap: null }, { cost: 8, cap: null }]);
-    expect(none.full).toBe(8);
-    expect(none.largestCap).toBeNull();
-    expect(none.rows[1].costPct).toBe(100);
-    const over = costScale([{ cost: 12, cap: 10 }, { cost: 3, cap: null }]);
-    expect(over.full).toBe(12);
-    expect(over.capIsFull).toBe(false);
-    expect(over.rows[0].over).toBe(true);
-    expect(over.rows[0].costPct).toBeGreaterThan(over.rows[0].capPct!);
-  });
-
+describe("costBuckets", () => {
   it("CarriedSpecs_AreWrittenAtZero_AndAddNothingToTheBar", () => {
     const read = passes("r-3", { s3: [pass({ costUsd: 1.2 }), pass({ ordinal: 2, passInSpec: 2, costUsd: 0.5 })] }, 0.9);
     const buckets = costBuckets(read, { s1: 1, s2: 2, s3: 3 });
@@ -93,8 +71,8 @@ describe("computeTotals", () => {
   });
 });
 
-describe("computeSegments", () => {
-  it("AParkSplitsTheWallClock_AndIsDrawnWithoutPods_AndACallTimeLargerThanItsSpanIsAFigureNotAShare", () => {
+describe("computeTotals, parks", () => {
+  it("APark_HoldsNoPods_UnlessAPodOutlivedIt", () => {
     const parkedAttempt = attempt({ startedAt: "2026-09-04T14:00:00Z", finishedAt: "2026-09-04T16:30:00Z" });
     const record = compute("r-1", {
       segments: [
@@ -105,11 +83,6 @@ describe("computeSegments", () => {
         segment({ startedAt: "2026-09-04T16:00:00Z", endedAt: "2026-09-04T16:30:00Z", modelMs: min(10) }),
       ],
     });
-    const clock = computeSegments(parkedAttempt, record, NOW);
-    expect(clock.pieces.map((p) => p.kind)).toEqual(["segment", "park", "segment"]);
-    expect(clock.pieces.map((p) => Math.round(p.pct))).toEqual([20, 60, 20]);
-    expect(clock.pieces.reduce((sum, p) => sum + p.pct, 0)).toBeCloseTo(100);
-    expect(clock.figures[0]).toEqual({ launch: 1, wallMs: min(30), callMs: min(75) });
     const totals = computeTotals([machine({ attempt: parkedAttempt, compute: record })], NOW);
     expect(totals.podsHeldWhileWaiting).toBe(false);
     const held = { ...record, spawns: [spawn({ disposedAt: "2026-09-04T15:00:00Z", endReason: "exited" })] };

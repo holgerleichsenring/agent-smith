@@ -267,27 +267,19 @@ function LimitsForm({ value, onChange }: { value: LimitsSetting; onChange: (v: S
       help={help}
     />
   );
-  // The 11 flat limits grouped by domain: per-skill call counts, the per-call token/
-  // time budgets, and the sub-agent fan-out caps.
+  // 2026-11-17-274cb: the five limits something reads — the scout call's tool-loop and time
+  // bounds, and the sub-agent fan-out caps. The six the skill-call runtime read are retired.
   return (
     <>
-      <DrawerSection title="Call caps" defaultOpen testId="setting-limits-calls">
-        {field("maxToolCallsPerSkill", "Max tool calls per skill")}
-        {field("maxToolCallsPerInvestigator", "Max tool calls per investigator")}
-        {field("maxToolCallsPerVerifier", "Max tool calls per verifier")}
-        {field("maxLlmCallsPerSkill", "Max LLM calls per skill")}
-        {field("maxConcurrentSkillCalls", "Max concurrent skill calls")}
-        {field("maxSkillsPerPhase", "Max skills per phase")}
-      </DrawerSection>
-
-      <DrawerSection title="Token & time budgets" defaultOpen testId="setting-limits-budgets">
-        {field("maxInputTokensPerSkillCall", "Max input tokens per skill call")}
-        {field("maxSecondsPerSkillCall", "Max seconds per skill call")}
+      <DrawerSection title="Scout calls" defaultOpen testId="setting-limits-calls">
+        {field("maxToolCallsPerSkill", "Max tool calls per scout call")}
+        {field("maxSecondsPerSkillCall", "Max seconds per scout call")}
       </DrawerSection>
 
       <DrawerSection title="Sub-agent caps" defaultOpen testId="setting-limits-subagents">
         {field("maxConcurrentSubAgents", "Max concurrent sub-agents")}
         {field("maxSubAgentsPerRun", "Max sub-agents per run")}
+        {field("maxSubAgentsPerDialogTurn", "Max sub-agents per design turn")}
       </DrawerSection>
     </>
   );

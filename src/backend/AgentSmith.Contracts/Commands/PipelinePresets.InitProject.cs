@@ -2,6 +2,15 @@ namespace AgentSmith.Contracts.Commands;
 
 public static partial class PipelinePresets
 {
+    /// <summary>2026-11-17-713ea: the init preset's name. Whether a run is an init is read from it,
+    /// never from a flag its door passes, so every door — dashboard, chat, CLI, a tracker label —
+    /// starts the same run.</summary>
+    public const string InitProjectName = "init-project";
+
+    /// <summary>2026-11-17-713ea: true for the init preset, whatever the casing.</summary>
+    public static bool IsInit(string? pipelineName) =>
+        string.Equals(pipelineName, InitProjectName, StringComparison.OrdinalIgnoreCase);
+
     // p0130c: InitProject migrates from BootstrapProjectHandler to SkillRound dispatch.
     // AnalyzeCode populates ProjectMap; PublishProjectLanguage maps PrimaryLanguage to
     // the typed project_language enum; LoadSkills loads the bootstrap-* producers from

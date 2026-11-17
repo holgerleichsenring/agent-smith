@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-274cc
+
+decisions:
+  - category: Architecture
+    chose: "Rule 4's 'listed debt' is a ratchet over a per-file count of hard-coded bounds, beside an inventory note with each limit's class, reason and owner"
+    over: "Rule text only, or one baseline row per limit"
+    reason: "The block-0 ratchets proved a number that fails a build survives where prose does not; per-file counts tolerate line moves while still refusing any new bound, and the inventory carries the reasons the TSV cannot."
+  - category: Implementation
+    chose: "The scanner matches a numeric or TimeSpan const/static readonly whose initializer holds a digit, and TimeSpan.From*, Take/TakeLast, Task.Delay and CancelAfter with a literal; settable/init config properties and '// not a limit: <why>' lines are skipped"
+    over: "Matching limit-sounding names, or all numeric constants"
+    reason: "Names miss bounds like Kept or Patience; requiring a digit keeps aliases such as WireProtocol.Current out; the escape hatch requires a stated reason, so a protocol constant or an exit code is admitted only with one."
+  - category: Scope
+    chose: "The inventory converts nothing; agent-guard limits tied to open operator questions are marked ask, the rest debt by class"
+    over: "Moving the remaining limits to config in this series"
+    reason: "About 627 bounds in 439 files remain; most are resource, poll or display bounds with a class reason, and the agent guards that refuse the agent are the ones the operator's answers decide (the pending-decisions round of block 7)."
+  - category: TradeOff
+    chose: "Items in areas other work is rebuilding (filing and spec dialog, init and branch cleanup, ticket/run/home reads, the in-process local clone) are listed by area, not changed"
+    reason: "Those areas are being rebuilt in parallel; their owners convert the limits as they rebuild."

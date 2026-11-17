@@ -5,3 +5,8 @@
 export function ticketPath(project: string, ticketId: string): string {
   return `/tickets/${encodeURIComponent(project)}/${encodeURIComponent(ticketId)}`;
 }
+
+/** 2026-11-17-8d1ca: whether a path is one ticket's page (/tickets/<project>/<ticket id>), not the list. */
+export function isTicketPage(pathname: string): boolean {
+  return /^\/tickets\/[^/]+\/[^/]+/.test(pathname);
+}

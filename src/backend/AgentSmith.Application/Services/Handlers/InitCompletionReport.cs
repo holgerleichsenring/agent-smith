@@ -25,12 +25,6 @@ public static class InitCompletionReport
         };
     }
 
-    /// <summary>What the step says when the launch did not carry the operator's auto-accept.</summary>
-    public static string Untouched(int count) =>
-        count == 0
-            ? "Auto-accept was off; no pull request was opened."
-            : $"Auto-accept was off; {count} pull request(s) stay open.";
-
     /// <summary>What the step says after it tried, keeping the three outcomes apart.</summary>
     public static string Describe(
         int attempted, IReadOnlyList<string> refusals, IReadOnlyList<string> armed)

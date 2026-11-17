@@ -10,6 +10,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// merge commit, squash, rebase, the first its settings allow. A setting the response leaves null is
 /// unknown: that method is tried, and a 405 moves on to the next one not known to be off. A 405 on a
 /// method the repository is known to allow is the platform declining (p0490) and is reported as such.
+/// 2026-11-17-713eb: a merged agent-smith/ head is deleted afterwards — GitHub has no per-pull-request
+/// option for it. A delete that fails (a repository that deletes on merge itself answers 422) leaves the
+/// completion Merged; the branch sweep removes what is left.
 /// </summary>
 public sealed class GitHubPullRequestMerger(
     GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
@@ -17,7 +20,7 @@ public sealed class GitHubPullRequestMerger(
     private const string NoneAllowed =
         "The repository allows no merge method (allow_merge_commit, allow_squash_merge and allow_rebase_merge are all off).";
 
-    public async Task<PullRequestCompletion> CompleteAsync(string prUrl, CancellationToken cancellationToken)
+    public async Task<PullRequestCompletion> CompleteAsync(string prUrl, string? sourceBranch, CancellationToken cancellationToken)
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var prNumber))
             return PullRequestCompletion.Refused($"'{prUrl}' is not a GitHub pull request URL.");
@@ -26,7 +29,10 @@ public sealed class GitHubPullRequestMerger(
         {
             var client = clientFactory.Create(address, token);
             var methods = Candidates(await client.Repository.Get(address.Owner, address.Repo));
-            return methods.Count == 0 ? PullRequestCompletion.Refused(NoneAllowed) : await MergeAsync(client, prNumber, methods);
+            if (methods.Count == 0) return PullRequestCompletion.Refused(NoneAllowed);
+            var completion = await MergeAsync(client, prNumber, methods);
+            if (completion.Outcome == PullRequestCompletionOutcome.Merged) await DeleteHeadAsync(client, sourceBranch);
+            return completion;
         }
         catch (Exception ex)
         {
@@ -51,6 +57,20 @@ public sealed class GitHubPullRequestMerger(
                 logger.LogInformation("PR #{Pr}: {Method} merge refused ({Message}); trying {Next}",
                     prNumber, methods[i].Method, ex.Message, methods[i + 1].Method);
             }
+        }
+    }
+
+    private async Task DeleteHeadAsync(IGitHubClient client, string? branch)
+    {
+        if (!WorkBranches.Owns(branch)) return;
+        try
+        {
+            await client.Git.Reference.Delete(address.Owner, address.Repo, $"heads/{branch}");
+            logger.LogInformation("Deleted merged branch {Branch}", branch);
+        }
+        catch (Exception ex)
+        {
+            logger.LogInformation(ex, "Merged branch {Branch} was not deleted", branch);
         }
     }
 

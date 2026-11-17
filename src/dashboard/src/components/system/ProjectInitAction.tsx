@@ -14,10 +14,9 @@ import { CHIP, InitOptionChip } from "./InitOptionChip";
 // a link to that run. A second press while an init is live opens the live run
 // instead of starting another.
 //
-// p0490: the checkbox beside it defaults to ON. An init pull request is generated
-// .agentsmith/ context on a repo that had none, and nobody reviews it — so the review
-// step the tick skips was already not happening. It applies to the run it starts and
-// to nothing else.
+// 2026-11-17-713ea: no auto-accept option any more — every init completes its own pull
+// requests, whichever door started it (p0490's checkbox defaulted on for the same reason:
+// nobody reviews generated .agentsmith/ context).
 //
 // p0497: and it LOOKS like it belongs. The toggle used to be a bare checkbox input,
 // so it drew the operating system's accent — the one colour on the page no token
@@ -31,9 +30,9 @@ import { CHIP, InitOptionChip } from "./InitOptionChip";
 // running init. The server's live run is read on mount and on every relevant RunsChanged,
 // and it says whether the run waits for a slot, runs, or is being cancelled.
 //
-// 2026-10-04-2bf2: a second option, "Refresh principles", defaults to OFF — it replaces a
+// 2026-10-04-2bf2: the one option, "Refresh principles", defaults to OFF — it replaces a
 // ratified principles.md (keeping its Project Specifics), and that is the operator's call per
-// launch. The two options are independent: neither disables, warns about or implies the other.
+// launch.
 
 type InitState =
   | { kind: "idle" }
@@ -43,17 +42,13 @@ type InitState =
 
 export function ProjectInitAction({ project }: { project: string }) {
   const [state, setState] = useState<InitState>({ kind: "idle" });
-  const [autoAccept, setAutoAccept] = useState(true);
   const [refreshPrinciples, setRefreshPrinciples] = useState(false);
   const { live, refresh } = useProjectInitRun(project);
 
   async function start() {
     setState({ kind: "starting" });
     try {
-      const launch = await startProjectInit(project, {
-        autoCompletePullRequests: autoAccept,
-        refreshPrinciples,
-      });
+      const launch = await startProjectInit(project, { refreshPrinciples });
       if (!launch.runId) {
         setState({
           kind: "refused",
@@ -97,15 +92,6 @@ export function ProjectInitAction({ project }: { project: string }) {
           className="flex flex-wrap items-center gap-1.5"
           data-testid={`project-init-options-${project}`}
         >
-          <InitOptionChip
-            testId={`project-init-auto-accept-${project}`}
-            boxTestId={`project-init-auto-accept-box-${project}`}
-            title="Merge the pull requests this initialization opens. A branch policy that refuses leaves the pull request open."
-            label="Auto-accept PRs"
-            checked={autoAccept}
-            disabled={starting}
-            onChange={setAutoAccept}
-          />
           <InitOptionChip
             testId={`project-init-refresh-principles-${project}`}
             boxTestId={`project-init-refresh-principles-box-${project}`}

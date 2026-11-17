@@ -325,11 +325,7 @@ public sealed class ExecutePipelineUseCase(
         if (request.InlineTicket is not null)
             pipeline.Set(ContextKeys.InlineTicket, request.InlineTicket);
 
-        if (request.IsInit)
-        {
-            pipeline.Set(ContextKeys.InitMode, true);
-            pipeline.Set(ContextKeys.CheckoutBranch, TicketBranchNamer.InitBranch);
-        }
+        InitRunSeed.Apply(pipeline, request.PipelineName); // 2026-11-17-713ea: from the pipeline, not the door
 
         if (request.Context is not null)
         {

@@ -52,12 +52,15 @@ export enum EventType {
   DefaultDecisionTaken = 88,
   MemoryUseRecorded = 89,
   DialogActivity = 90,
+  VerifyPassRecorded = 91,
 }
 
 interface RunEventBase {
   runId: string;
   type: EventType;
   timestamp: string;
+  /** p0388a: the pipeline step the event was produced in; null outside any step and on older payloads. */
+  originStepIndex?: number | null;
 }
 
 export interface RunStartedEvent extends RunEventBase {
@@ -759,6 +762,39 @@ export interface DialogActivityEvent extends RunEventBase {
   turnStartedAt: string;
 }
 
+/** 2026-11-17-d6fbc: one stage a verify pass ran or skipped for one repository. Mirrors C# VerifyStageRun. */
+export interface VerifyStageRun {
+  stage: string;
+  command: string;
+  exitCode: number;
+  skipped: boolean;
+}
+
+/** 2026-11-17-d6fbc: what one verify pass ran for one repository; result is passed | failed. */
+export interface VerifyRepositoryPass {
+  repository: string;
+  result: string;
+  stages: VerifyStageRun[];
+}
+
+/** 2026-11-17-d6fbc: a context whose verify block was derived from files that have moved since. */
+export interface VerifyStaleDerivation {
+  repository: string;
+  context: string;
+  files: string[];
+}
+
+/**
+ * 2026-11-17-d6fbc: one verify pass (Build and test) as data, published in the verify step — `originStepIndex` names
+ * the step. `result` is passed | failed.
+ */
+export interface VerifyPassRecordedEvent extends RunEventBase {
+  type: EventType.VerifyPassRecorded;
+  result: string;
+  repositories: VerifyRepositoryPass[];
+  staleDerivations: VerifyStaleDerivation[];
+}
+
 /** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */
 export interface SpecReviewCut {
   register: string;
@@ -846,7 +882,8 @@ export type RunEvent =
   | SpecReviewRoundEvent
   | DefaultDecisionTakenEvent
   | MemoryUseRecordedEvent
-  | DialogActivityEvent;
+  | DialogActivityEvent
+  | VerifyPassRecordedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

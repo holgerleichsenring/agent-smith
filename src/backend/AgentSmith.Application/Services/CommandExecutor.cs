@@ -65,7 +65,7 @@ public sealed class CommandExecutor(
         }
         // p0239: an operator/watchdog cancel (our run token IS cancelled) must
         // PROPAGATE so the pipeline-level p0232 cancel handler maps the WHY — the
-        // same guard PipelineStepRunner (line 173) and SkillCallRuntime apply.
+        // same guard PipelineStepRunner (line 173) applies.
         // The blanket catch below previously swallowed it into a failed result
         // carrying the raw ".NET 'A task was canceled.'" message, defeating both
         // the propagation and the operator-reason mapping. An OCE whose token is

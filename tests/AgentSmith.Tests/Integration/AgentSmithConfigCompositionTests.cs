@@ -123,6 +123,43 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
             "the `${azure_devops_token}` secret reference must resolve through the secrets dict.");
     }
 
+    // 2026-11-17-274ca: the limits: block reached AgentSmithConfig.Limits but never the LoopLimitsConfig
+    // every loop consumer resolves — a fresh default was registered beside it.
+    [Fact]
+    public void CliComposition_LoopLimitsConfig_IsTheFilesLimitsBlock()
+    {
+        var services = BuildBaseServices();
+        services.AddSingleton<AgentSmithConfig>(sp =>
+            sp.GetRequiredService<IConfigurationLoader>().LoadConfig(_fixturePath));
+        using var provider = services.BuildServiceProvider();
+
+        var limits = provider.GetRequiredService<LoopLimitsConfig>();
+
+        (limits.MaxSecondsPerSkillCall, limits.MaxSubAgentsPerRun, limits.MaxConcurrentSubAgents).Should().Be((77, 3, 2));
+    }
+
+    [Fact]
+    public void ServerComposition_LoopLimitsConfig_IsTheStoredLimitsDocument()
+    {
+        _dbPath = Path.Combine(Path.GetTempPath(), $"agentsmith-comp-{Guid.NewGuid():N}.db");
+        ImportFixtureIntoDb(_dbPath);
+        var bootstrapPath = WriteBootstrap(_dbPath);
+        Environment.SetEnvironmentVariable("CONFIG_PATH", bootstrapPath);
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, bootstrapPath);
+        services.RemoveAll<StackExchange.Redis.IConnectionMultiplexer>();
+        services.AddSingleton(Mock.Of<StackExchange.Redis.IConnectionMultiplexer>());
+        services.RemoveAll<AgentSmith.Contracts.Events.ISystemEventPublisher>();
+        services.AddSingleton<AgentSmith.Contracts.Events.ISystemEventPublisher,
+            AgentSmith.Application.Services.Events.NoOpSystemEventPublisher>();
+        using var provider = services.BuildServiceProvider();
+
+        var limits = provider.GetRequiredService<LoopLimitsConfig>();
+
+        (limits.MaxSecondsPerSkillCall, limits.MaxSubAgentsPerRun, limits.MaxConcurrentSubAgents).Should().Be((77, 3, 2));
+    }
+
     private void ImportFixtureIntoDb(string dbPath)
     {
         var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
@@ -193,6 +230,11 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         secrets:
           azure_devops_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}
           gh_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}
+
+        limits:
+          max_seconds_per_skill_call: 77
+          max_sub_agents_per_run: 3
+          max_concurrent_sub_agents: 2
 
         registries:
           - host: pkgs.dev.azure.com

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-8d1cb
+
+decisions:
+  - category: Architecture
+    chose: "Runs, derivations, folds and the ticket are StoryRow lines (time, dot, who, outcome · sentence, duration, ▸) whose body is the old report content; conversation entries are lines that carry their whole text"
+    over: "Rewriting the thread from scratch, or keeping avatar messages"
+    reason: "The TicketRail mock is one line per event; the reports' data logic (threadItems, reportWords, SpecCard, PendingQuestion) is sound and stays."
+  - category: Behaviour
+    chose: "Only failed attempts with the same end kind and end text fold (sameCauses), labelled 'Runs n–m · k× same cause'; finished, cancelled or handed-back attempts never fold"
+    over: "Folding every run of equal outcome words"
+    reason: "Each delivery carries its own spec, PRs and verdicts; folding successes would hide what a run delivered. A stop that repeats says nothing new."
+  - category: Behaviour
+    chose: "The newest run's line and a run that waits on a question open by themselves; every other line opens on a click"
+    over: "All lines closed"
+    reason: "The mock opens the newest run; a waiting question must be answerable without a click and the Your move act scrolls to it."
+  - category: Behaviour
+    chose: "A run's body shows its sectioned log through RunSectionLog and runSections over useRunSteps (refetched when the attempt's status moves); a section that stopped or holds a finding opens by itself; the check section lists the run's verdicts in words"
+    over: "A second log component, or the run page's verify summary with overrule"
+    reason: "Reuses components/jobs/runlog as asked; overruling stays on the run page, which the line links to."
+  - category: Behaviour
+    chose: "Log lines carry no clock time on the ticket page"
+    over: "Replaying each run's StepStarted events"
+    reason: "Timestamps come from the run's event stream, which the ticket page reads only for the live attempt; replaying every run's events for a line is heavy. Each section shows its duration."
+  - category: Behaviour
+    chose: "Long texts are whole in What happened: the entry clamp (2026-10-17-e730d) is removed; the ticket line shows its first sentence and opens to the ticket as written (TicketTextSection)"
+    over: "Keeping the six-line clamp"
+    reason: "The operator: full in the conversation, truncated only in lists. The ticket's own line is a headline whose body is the whole ticket."
+  - category: Behaviour
+    chose: "The Your move block moves to the top of What happened and is drawn as a line by CSS only (no box, act as a text link); YourMoveBox.tsx is untouched"
+    over: "Editing YourMoveBox"
+    reason: "A parallel PR edits YourMoveBox to pass endDetail; a CSS-only change merges cleanly with it."
+  - category: Behaviour
+    chose: "The composer keeps its behaviour and sits in the bottom dock under one top hairline: its box, panel and the text field's frame are removed by ticket-thread.css"
+    over: "A new composer"
+    reason: "The mock shows only a hairline and the hint text; the Work it out session logic must not change."
+  - category: Behaviour
+    chose: "outcomePill and the end-kind words live in attemptOutcome.ts; attemptPill in conversationWords.ts, unused since 6877a, and avatarOf, unused now, are deleted"
+    over: "Keeping the dead exports"
+    reason: "The audit found the end-kind words lost; one module now names how any attempt ended for both What happened and Runs."
+  - category: Process
+    chose: "run-log.css is not edited; the inline log's plain styles are scoped under .mock-tickets .tk-runlog in ticket-thread.css"
+    over: "Sharing run-log.css rules"
+    reason: "run-log.css belongs to the run page, which a parallel PR changes; the ticket page needs a flatter look anyway."

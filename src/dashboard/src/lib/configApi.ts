@@ -116,8 +116,7 @@ export interface ConfigOrchestrator {
 
 export interface ConfigLimits {
   maxToolCallsPerSkill: number;
-  maxLlmCallsPerSkill: number;
-  maxConcurrentSkillCalls: number;
+  maxSecondsPerSkillCall: number;
   maxSubAgentsPerRun: number;
 }
 
@@ -876,15 +875,10 @@ export interface OrchestratorSetting {
 
 export interface LimitsSetting {
   maxToolCallsPerSkill: number;
-  maxToolCallsPerInvestigator: number;
-  maxToolCallsPerVerifier: number;
-  maxLlmCallsPerSkill: number;
-  maxInputTokensPerSkillCall: number;
   maxSecondsPerSkillCall: number;
-  maxConcurrentSkillCalls: number;
-  maxSkillsPerPhase: number;
   maxConcurrentSubAgents: number;
   maxSubAgentsPerRun: number;
+  maxSubAgentsPerDialogTurn: number;
 }
 
 export interface CostCapValues {

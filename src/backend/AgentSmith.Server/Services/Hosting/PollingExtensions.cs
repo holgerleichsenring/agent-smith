@@ -52,6 +52,14 @@ internal static class PollingExtensions
         services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>());
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>().Health);
 
+        // 2026-11-17-713ec: a branch-cleanup run per project every branch_cleanup.interval_seconds — leader-elected,
+        // re-run on every config epoch; the launcher is scoped (it writes the queued row).
+        services.TryAddScoped<AgentSmith.Infrastructure.Persistence.Repositories.InitRunRepository>();
+        services.AddScoped<AgentSmith.Server.Services.Branches.WorkBranchCleanupLauncher>();
+        services.AddSingleton<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>().Health);
+
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
         services.AddHostedService<RepoDiscoveryRefreshHostedService>();
 

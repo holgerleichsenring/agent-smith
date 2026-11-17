@@ -40,5 +40,7 @@ public static partial class PipelinePresets
             + "again on every poll; start it from the ticket page or the ticket's conversation",
         [FileName] = "its run needs an approved proposal and a report slot, which only a design conversation's approval "
             + "supplies, so a ticket routed to it fails when it starts",
+        [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
+            + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };
 }

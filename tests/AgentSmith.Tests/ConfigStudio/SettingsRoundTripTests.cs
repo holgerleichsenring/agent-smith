@@ -29,6 +29,7 @@ public sealed class SettingsRoundTripTests
             "spec_review", // 2026-10-13-8762g
             "series", // 2026-10-13-8762u
             "preconditions", // 2026-11-16-f3fbc
+            "branch_cleanup", // 2026-11-17-713ec
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }

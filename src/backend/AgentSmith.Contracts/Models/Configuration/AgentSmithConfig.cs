@@ -38,6 +38,7 @@ public sealed class AgentSmithConfig
     public SpecReviewConfig SpecReview { get; init; } = new(); // 2026-10-13-8762g
     public SeriesConfig Series { get; init; } = new(); // 2026-10-13-8762u
     public PreconditionsConfig Preconditions { get; init; } = new(); // 2026-11-16-f3fbc
+    public BranchCleanupConfig BranchCleanup { get; init; } = new(); // 2026-11-17-713ec
 
     /// <summary>
     /// Empty placeholder. Used by DI default registration when no real config
