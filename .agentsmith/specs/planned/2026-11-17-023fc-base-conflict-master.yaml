@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-023fc
+goal: "A base merge that conflicts beyond state.done becomes work for the ticket's coding master, which merges the base and resolves it, instead of ending the run."
+
+applies_to: "default (work-branch checkout, rework start, coding master, finalizer)"
+
+requires: [2026-11-17-023fb]
+
+facts:
+  - claim: "A reused branch whose base merge conflicts stops the run at checkout; the merge is aborted so the finalizer, which stages everything and pushes, never sees conflict markers."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:23-26, src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMergeReport.cs:31-35, src/backend/AgentSmith.Application/Services/Handlers/SandboxRepoCloner.cs:75-77"
+  - claim: "A revision cause alone amends nothing on a full, executed set, so naming the conflict to the deriver does not give the master a merge to resolve."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:45-72"
+  - claim: "Operator decision 2026-11-17: any conflict other than state.done becomes a rework step for the ticket's coding master instead of aborting."
+    evidence: "observed: 2026-11-17, operator brief for landing refreshes"
+
+upgrade_impact: "Not yet assessed; planned only."
+
+scope:
+  in: "A capability the master holds: re-run the base merge in its own sandbox, resolve the markers, conclude the merge, with the finalizer refusing a tree that still carries markers or MERGE_HEAD; a start of the ticket's coding run when a refresh-base run (2026-11-17-023fb) reports a conflict, with closed, waiting and handed-back tickets excluded and the nudge origin ranks unchanged."
+  out: "Everything 2026-11-17-023fb ships."
+
+steps:
+  - id: design
+    action: "Design the master capability and the start path against the review findings recorded in decisions/2026-11-17-023fb.yaml, then review this spec before building."
+
+tests:
+  - "Defined with the design step."
+
+done:
+  - "A refresh-base conflict starts the ticket's coding master with the conflict as its input, and the pull request carries the base afterwards."

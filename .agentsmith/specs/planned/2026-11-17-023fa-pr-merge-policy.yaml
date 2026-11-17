@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-023fa
+goal: "A project with merge: on_gate_green has a green code run merge its own pull requests past branch protection unless respect_branch_protection is set."
+
+applies_to: "default (project config, code preset, CompletePullRequests step, provider completion modes)"
+
+requires: [2026-11-17-713ea]
+
+facts:
+  - claim: "ISourceProvider.CompletePullRequestAsync has one caller, the init pipeline's InitComplete step; a code run opens its pull request in CommitAndPR and the pipeline ends after PrCrossLink."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCompleteHandler.cs:78, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:74-75"
+  - claim: "GitHub merges with the first allowed method now, GitLab PUTs /merge once, a local repository fast-forwards its configured default branch whatever the PR's target, and Azure Repos approves and arms auto-complete, so a branch policy decides when it merges."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPullRequestMerger.cs:22-60, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestUpdater.cs:64-81, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:100-102, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:31-45"
+  - claim: "CommitAndPR reaches its success tail only when the keystone (every VerifySpec account) is satisfied, the run did not fail, delivered no shortfall and did not stop at a chunk boundary; a red run returns Fail and later non-finalizer steps do not run. On a green run the spec-only pull requests of repos without code are kept in the opened list too."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:173-213, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:161-162, src/backend/AgentSmith.Application/Services/Pipeline/PipelineFinalizerTail.cs:22-27"
+  - claim: "A ticket lands when every recorded pull request has ended and one merged; the run's end enqueues a RunEnd nudge whose refresh reads the host state through IPrReviewStateReader and records the landing, which wakes dependents. LocalSourceProvider has no state reader, so a local merge records no landing."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketLanding.cs:18-24, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-48, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:50-63, src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:60-64, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:14"
+  - claim: "A pull request opened against a recorded rung targets that branch, not the default branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:329"
+  - claim: "Project YAML is read with underscored naming for keys and enum values; the stored config document uses System.Text.Json defaults; a studio save mutates the stored raw entry, so a block the entity does not carry survives; the config schema closes project with additionalProperties false and a test requires every bound key to be declared."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/YamlConfigurationLoader.cs:85-86, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawProjectPatch.cs:15-35, tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:10-16"
+  - claim: "CommitAndPRHandler and ContextKeys sit at their file-length baselines; a file not on the baseline may have at most 120 lines, and LocalSourceProvider and GitLabMergeRequestUpdater are near that."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:10, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+  - claim: "Operator decision 2026-11-17, revised ~20:50: merge as soon as the run's own gate is green and fix forward; branch policies, protections and approval rules are for humans, so with on_gate_green every provider merges past them by default; respect_branch_protection: true restores the human gate (Azure arms auto-complete, GitHub and GitLab auto-merge where available); a missing bypass permission is reported naming policy, provider, reason, permission and key, never a silent fallback."
+    evidence: "observed: 2026-11-17, operator brief for the merge policy and its revision"
+
+upgrade_impact: "None required: the merge block is optional and absent means manual, today's behaviour. Every code run shows one more step, which on manual says the pull requests stay open. A project that sets on_gate_green merges past branch protection unless it also sets respect_branch_protection: true; the bypass needs the token's permission (Azure: Bypass policies when completing pull requests; GitHub: repository admin with admins not enforced, or the token's actor on a ruleset's bypass list; GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow and is refused otherwise), and without it the step names that permission and the key."
+
+scope:
+  in: "Project block merge: {when: manual|on_gate_green, respect_branch_protection: bool} (default manual, false) in YAML, stored document and schema; CommitAndPR publishes the run's non-draft pull requests on its success tail when the run changed code and every repo opened; a CompletePullRequests step after PrCrossLink completes them in order, stopping at the first refusal, through a completion that names the protection mode; a PR with a recorded rung target is left open and named; per-PR outcome and reason recorded like init's; init's completion loop shared, init keeps today's completion."
+  out: "A studio form field (YAML and stored document carry it; a studio save keeps it). Merging a shortfall, a chunk stop, a red run, a run where a repo failed to open, or a record-only PR. Refreshing sibling pull requests after a landing (2026-11-17-023fb)."
+
+steps:
+  - id: config
+    action: "Contracts: MergePolicyConfig (When: MergeWhen.Manual=0|OnGateGreen=1, RespectBranchProtection) on RawProjectEntry.Merge and ResolvedProject.Merge, mapped in ResolvedProjectBuilder; agentsmith.schema.json project.merge; agentsmith-yml.md and agentsmith-yml-schema.md."
+  - id: green
+    action: "CommitAndPR sets ContextKeys.GatePassedPullRequests (in a ContextKeys partial) to the Opened entries on its success tail when the run changed code, the PRs are not drafts and no repo failed; BuildResult moves to CodeRunResult so the handler stays at its baseline."
+  - id: complete
+    action: "PullRequestCompleter (extracted from InitCompleteHandler, characterised by InitCompleteHandlerTests and InitProjectTailTests unchanged): completes each entry, publishes PullRequestOutcomeEvent, never throws. New CompletePullRequests command, context, builder, handler: manual or no gate key says why and completes nothing; a recorded rung target is named and left open; else completes in order, stops at the first refusal, reports merged/armed/refused/not attempted per repo."
+  - id: modes
+    action: "ISourceProvider gains MergePullRequestAsync(prUrl, branch, BranchProtection, ct), implemented by all four providers and every test double (init keeps CompletePullRequestAsync). Azure, new AzureReposPolicyBypass: Bypass PATCH Status=Completed, LastMergeSourceCommit, CompletionOptions{BypassPolicy, BypassReason naming the run, DeleteSourceBranch}; completed -> merged, queued -> armed, conflicts -> refused; Respect arms as init does. GitHub: Bypass REST merge as the token; Respect, new GitHubAutoMerge: enablePullRequestAutoMerge by node id -> armed, 'clean status' -> REST merge, auto-merge off -> refusal naming allow_auto_merge. GitLab, new GitLabMergeModes: Bypass PUT /merge now; Respect PUT /merge with merge_when_pipeline_succeeds and auto_merge -> armed when the answer says so. Local, new file: fast-forward either way. A Bypass refusal reads 'cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true'."
+  - id: wire
+    action: "Code preset: CompletePullRequests after PrCrossLink; CommandNames, ContextBuildersExtensions, handler DI, display name, progress label, beat, step class, model use, RunCallAttribution (Pr bucket), PipelinePresetContextContractTests, dashboard runSections.ts."
+
+tests:
+  - "MergePolicy YAML: merge: {when: on_gate_green, respect_branch_protection: true} loads; absent block is manual; schema coverage passes."
+  - "CompletePullRequestsHandler: manual and no gate key complete nothing; on_gate_green completes each and records merged/armed/refused; first refusal stops the rest; a rung target is left open; the project's mode reaches the provider."
+  - "CommitAndPR: a green run with code sets the gate key; a red run, a no-code run and a run with a failed repo do not."
+  - "Per provider (fake HTTP or mocked client): Azure bypass completed -> merged, queued -> armed, 403 -> refusal naming permission and key; GitHub bypass refusal text, respect enables auto-merge -> armed; GitLab bypass merges, respect sends merge_when_pipeline_succeeds -> armed."
+  - "InitCompleteHandlerTests unchanged and green."
+  - "Harness: code preset on a local repo with merge on_gate_green records a merge of its pull request through the harness provider; with manual it records none."
+
+done:
+  - "A green code run on a project with merge: on_gate_green completes its pull requests past branch protection on Azure Repos and GitHub, merges on GitLab when its merge checks allow (or, with respect_branch_protection, arms auto-complete / auto-merge), a local repo fast-forwards; every refusal is in the step result and the per-repo record with its reason and, for a missing bypass permission, the permission and the key; the PR stays open."
+  - "A project without the block behaves as before."

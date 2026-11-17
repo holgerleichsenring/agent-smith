@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-023fb
+goal: "When a ticket lands, each open agent-smith pull request on the same base gets that base merged in by a run; state.done collisions resolve by union."
+
+applies_to: "default (landing hook, sibling refresh, refresh-base run, work-branch base merge)"
+
+requires: [2026-11-17-023fa]
+
+facts:
+  - claim: "A landing is recorded once, by the replica whose insert won, and then wakes the dependents; nothing else learns that a ticket landed."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:59-83"
+  - claim: "Pull-request records can be read by repository key; the view carries state, ticket, project, repo name and url, but no base or head branch."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:25-26, src/backend/AgentSmith.Contracts/Reviews/PrReviewRecordView.cs:10-22"
+  - claim: "A ticket's work branch is agent-smith/<ticket id>; a provider reads an open pull request's base, null when it has no pull request server."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:27-28, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.Targeting.cs:20-31"
+  - claim: "The server starts a ticketless pull-request run nobody waits for through IDetachedPipelineLauncher, seeded with SourceOverrideRepo and CheckoutBranch as pr-review is; a handed branch is checked out as it is, its base left alone."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/DetachedPipelineLauncher.cs:17-40, src/backend/AgentSmith.Server/Services/Webhooks/PrRunContextFactory.cs:56-67, src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:62-67"
+  - claim: "WorkBranchBaseMerger merges a resolved base into HEAD and aborts any conflict, leaving a clean tree."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:33-73"
+  - claim: "state.done is a mapping written newest first directly under '  done:', one '    <spec id>: \"...\"' entry per spec; a re-run replaces its own entry."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ContextYamlStateDoneCodec.cs:59-90, .agentsmith/contexts/default/context.yaml:92-94"
+  - claim: "A run's attempts are code-pipeline rows only, so a ticket's refresh run is no attempt; a head that moves after a close mark lifts the mark."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-28, src/backend/AgentSmith.Server/Services/Tickets/TicketClosedRule.cs:27"
+  - claim: "Source providers that can comment on a pull request implement IPrCommentProvider; a run reaches it by casting, as the hand-back notice does."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/HandbackPrNotice.cs:33"
+  - claim: "Operator decision 2026-11-17: on a landing, refresh open agent-smith pull requests of the series and, if cheap, of the repository, a pipeline run per PR reusing WorkBranchBaseMerger; state.done conflicts by union."
+    evidence: "observed: 2026-11-17, operator brief for landing refreshes"
+
+upgrade_impact: "None required: refresh is opt-in per project (merge.refresh_open_pull_requests, default false). A project that turns it on gets merge commits pushed onto its open agent-smith pull requests after every merged landing. WorkBranchBaseMerger now resolves additive state.done conflicts for every reused branch, where a run used to stop. A host that dismisses approvals on a push (GitHub stale-review dismissal, Azure reset votes) clears them on a refreshed pull request."
+
+scope:
+  in: "ITicketLandedSubscriber, called by TicketLandingRecorder after the wake of a won insert (a generic hook; stacked starts subscribe too); merge.refresh_open_pull_requests; SiblingBaseRefresh: a merged landing on a project with it on; for each landed record's repository, the open records of other tickets of the project whose host-read base equals the landed PR's base, skipping closed, leased, waiting and queued tickets; one detached refresh-base run each. refresh-base preset [CheckoutSource, RefreshBranchBase]: merge origin/<base> into agent-smith/<ticket>, push on a merge, comment the conflict on the PR otherwise. StateIndexUnion inside WorkBranchBaseMerger for .agentsmith/contexts/*/context.yaml."
+  out: "Series siblings on another repository or base (their base did not move). Local repositories (no pull request server, no base to read). A durable queue for the refresh: a run lost with its replica is not retried; the next landing or the ticket's next run merges the base. Turning a real conflict into work for the ticket's coding master: 2026-11-17-023fc. Stacked branches and retargeting (parallel work)."
+
+steps:
+  - id: union
+    action: "IContextYamlStateIndexUnion (Contracts) implemented next to ContextYamlStateDoneCodec, reusing ContextStateBlock: from stage blobs base (missing = empty), ours, theirs: null when ours or theirs is missing; outside state.done the two sides must be equal or one equal to base; no base entry changed or removed on either side; a key added on both sides must carry the same text (deduplicated); the result is the changed side with the other side's added entries inserted under done. StateIndexConflictResolver (Application) runs only when every unmerged path matches .agentsmith/contexts/*/context.yaml, reads stages 1-3, writes, git-adds; WorkBranchBaseMerger commits the merge when all resolved (no MERGE_HEAD left), otherwise aborts as before."
+  - id: hook
+    action: "Server.Contracts ITicketLandedSubscriber.LandedAsync(TicketLandingFact); TicketLandingRecorder calls each after the wake, a throw logged per subscriber."
+  - id: setting
+    action: "MergePolicyConfig.RefreshOpenPullRequests (YAML refresh_open_pull_requests), schema and docs."
+  - id: siblings
+    action: "SiblingBaseRefresh : ITicketLandedSubscriber - merged landings, setting on; inline only database reads (records by RepoKey.Of(repo url), open, other tickets of the project, not closed, not leased, not queued or waiting); the host reads (landed and sibling base) and the launch run in a background task: one detached refresh-base run per sibling on the same base, seeded with SourceOverrideRepo, CheckoutBranch agent-smith/<ticket> and BaseRefreshRequest(PrUrl, Number, BaseBranch)."
+  - id: refresh
+    action: "refresh-base preset [LoadCatalog, CheckoutSource, RefreshBranchBase] registered as 713ec registered branch-cleanup (All, PipelineType, NotRoutableBecause, step data flow, coverage tests, control-flow doc); RefreshBranchBase refuses a branch that is not a work branch; WorkBranchBaseMerger with ResolvedBase.Rung(base); on Merged a plain (non-forced) push, a rejected push reported as 'branch moved, skipped'; on Conflicted one PR comment naming base and paths per landing (each landing is a new base); UpToDate or Unavailable is a plain result."
+
+tests:
+  - "StateIndexUnion: two sides adding different entries resolve; a changed base entry, a non-done change on both sides, or the same key added twice with different text do not."
+  - "WorkBranchBaseMerger against a real git repository: a state.done-only conflict merges and commits with no MERGE_HEAD left; add/add of a seeded context.yaml merges; a code conflict is Conflicted with a clean tree (WorkBranchBaseMergeTests unchanged and green)."
+  - "SandboxWorkBranchCheckout: a reused branch whose base differs only in state.done is placed, not stopped."
+  - "TicketLandingRecorder: a won insert calls each subscriber; a throwing subscriber does not fail the landing."
+  - "SiblingBaseRefresh: merged landing with the setting on launches one run per open sibling on the same base; setting off, by-hand landing, other base, closed, leased or queued sibling launch nothing."
+  - "RefreshBranchBaseHandler: merged pushes without force, a rejected push is skipped and said, up to date pushes nothing, conflicted comments on the PR and pushes nothing, a non-work branch is refused."
+  - "Harness: refresh-base on a cloned local repository merges the moved base into the branch and pushes it."
+
+done:
+  - "On a project with refresh_open_pull_requests, after a ticket lands, each open agent-smith pull request on the same base carries the new base without a person; a state.done collision does not stop it; any other conflict is said on the pull request."
