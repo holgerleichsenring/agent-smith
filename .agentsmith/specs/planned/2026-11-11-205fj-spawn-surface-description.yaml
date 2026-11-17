@@ -16,7 +16,7 @@ facts:
   - claim: "The description is one static attribute for every surface, names coding-run tools and states no count."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:49-56"
   - claim: "A design turn may start 4 children, each up to 20 tool rounds, by default."
-    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:56,68"
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:44"
   - claim: "The design master does not cite spawn-budget."
     evidence: "observed: agent-smith-skills v5.27.1 spawn-budget is cited by six masters, not design-partner-master, 2026-11-11"
 

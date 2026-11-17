@@ -613,15 +613,12 @@ tool_runner:
 #   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
 #   cache_dir: /var/lib/agentsmith/skills
 
-# Hard limits for the per-skill agentic loop.
+# Hard limits of the agentic loops. A scout call (the client call-site reading, the
+# registry-auth staging) runs at most max_tool_calls_per_skill tool turns and
+# max_seconds_per_skill_call seconds; past the time it fails naming this key.
 limits:
   max_tool_calls_per_skill: 30
-  max_tool_calls_per_investigator: 10
-  max_tool_calls_per_verifier: 20
-  max_llm_calls_per_skill: 15
-  max_input_tokens_per_skill_call: 200000
   max_seconds_per_skill_call: 300
-  max_concurrent_skill_calls: 10
   # Sub-agent limits. Every run's master gets spawn_agents while
   # max_sub_agents_per_run is above 0; set it to 0 to take fan-out away.
   max_concurrent_sub_agents: 4

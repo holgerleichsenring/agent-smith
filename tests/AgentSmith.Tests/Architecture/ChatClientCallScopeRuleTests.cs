@@ -15,11 +15,6 @@ namespace AgentSmith.Tests.Architecture;
 /// Exemptions (recognised at file-name level, not by attribute):
 ///   - <c>EventPublishingChatClient.cs</c> — the decorator that emits the
 ///     events; calls <c>inner.GetResponseAsync</c> after reading the scope.
-///   - <c>TracingChatClient.cs</c> — pass-through decorator; the scope is
-///     opened by the outermost caller and flows through AsyncLocal.
-///   - <c>RetryCoordinator.cs</c> — runtime retry loop invoked by
-///     <c>SkillCallRuntime</c>, which opens <c>BeginCallScope</c> around the
-///     dispatch; the AsyncLocal scope is live throughout the retry.
 /// </summary>
 public sealed class ChatClientCallScopeRuleTests
 {
@@ -30,8 +25,6 @@ public sealed class ChatClientCallScopeRuleTests
         // of an already-scoped call to the run trace and delegates unchanged; the outer
         // call's BeginCallScope flows through it via AsyncLocal.
         "RecordingChatClient.cs",
-        "TracingChatClient.cs",
-        "RetryCoordinator.cs",
         // p0188: pass-through decorator; the outer call (master handler, sub-agent,
         // analyzer, etc.) opens BeginCallScope and the scope flows via AsyncLocal
         // through the rate-limit wait + the inner GetResponseAsync.

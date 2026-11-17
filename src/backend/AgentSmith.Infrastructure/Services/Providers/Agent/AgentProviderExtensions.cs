@@ -56,7 +56,9 @@ public static class AgentProviderExtensions
         services.AddSingleton<Contracts.Providers.IToolImageDeposit, ToolImages.AsyncLocalToolImageDeposit>();
         services.AddSingleton<ToolImages.IToolImageRelay, ToolImages.ToolImageRelay>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
-        services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
+        // 2026-11-17-274ca: the limits: block of the loaded configuration, not a fresh default —
+        // composition roots replace the AgentSmithConfig placeholder, and the server follows its store.
+        services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Limits);
         return services;
     }
 }

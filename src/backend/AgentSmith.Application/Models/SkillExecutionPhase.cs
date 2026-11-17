@@ -1,8 +1,7 @@
 namespace AgentSmith.Application.Models;
 
 /// <summary>
-/// Per-skill execution-context phase. Drives tool-set selection and limit
-/// resolution in the SkillCallRuntime. Distinct from a spec, the unit of
+/// Per-skill execution-context phase: what a cost scope and a tool surface are opened for. Distinct from a spec, the unit of
 /// development work a run executes.
 /// </summary>
 public enum SkillExecutionPhase

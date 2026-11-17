@@ -46,12 +46,4 @@ public sealed record CallCostRecord
     /// three times".
     /// </summary>
     public int DuplicateToolCallCount { get; init; }
-
-    /// <summary>
-    /// p0142: which LimitEnforcer cap (if any) terminated the call. Values:
-    /// 'tokens', 'wall-clock', 'tool-calls', 'llm-calls'. Null when the call
-    /// completed without hitting any limit. Operator-visible in the
-    /// PerSkillBreakdown table's Limit column.
-    /// </summary>
-    public string? HitLimit { get; init; }
 }

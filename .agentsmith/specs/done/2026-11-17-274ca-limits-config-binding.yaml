@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-274ca
+goal: "The limits: block of agentsmith.yml and the Studio reaches every live consumer, and the scout time bound and the sub-agent budget name value, reason and key when they stop."
+
+applies_to: "default (loop limits config, DI composition of CLI and server, scout calls, spawn budget)"
+
+requires: []
+
+facts:
+  - claim: "The DI LoopLimitsConfig is a fresh default instance, so the yaml or stored limits block never reaches a consumer."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/AgentProviderExtensions.cs:59"
+  - claim: "The yaml limits block is bound onto AgentSmithConfig.Limits, and the Studio stores it as the 'limits' document."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:30, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:33"
+  - claim: "The CLI and the server replace the empty AgentSmithConfig placeholder with the loaded config, last binding wins; the server's copy is loaded once at start."
+    evidence: "src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:79-80, src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:79-80"
+  - claim: "The server already follows the config store for secrets by re-loading when the store's catalog instance changes."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/CurrentSecretValues.cs:14-35"
+  - claim: "Every LoopLimitsConfig consumer is scoped or transient, so the type can be registered transient."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:25,61,67,71-75, src/backend/AgentSmith.Application/Services/Scans/ScanRegistrations.cs:78, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:64,106"
+  - claim: "The live readers are the two scout calls (tool-call ceiling and a CancelAfter time bound) and the spawn path (three sub-agent numbers); a scout timeout surfaces only as a cancelled task."
+    evidence: "src/backend/AgentSmith.Application/Services/Surface/ClientSurfaceReader.cs:65-83, src/backend/AgentSmith.Application/Services/Registry/RegistryAuthStager.cs:40-55, src/backend/AgentSmith.Application/Services/Registry/GenericRegistryAuthApplier.cs:52-60, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:101-107, src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:40"
+  - claim: "An exhausted spawn budget says only 'budget_exhausted', which two test classes assert."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:89-104, tests/AgentSmith.Tests/Application/Services/Tools/SpawnAgentToolHostTests.cs:61, tests/AgentSmith.Tests/Handlers/SpecDialogSubAgentTests.cs:118"
+  - claim: "SpawnAgentToolHost sits exactly at its file-length baseline."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:58"
+
+scope:
+  in: "LoopLimitsConfig registered transient from AgentSmithConfig.Limits; in the server a CurrentConfigSnapshot caches the loaded config per catalog instance, CurrentSecretValues reads it instead of loading its own, and LoopLimitsConfig is registered from it; a scout call that passes limits.max_seconds_per_skill_call throws a TimeoutException naming value, reason and key; SubAgentBudget carries its key and a deferred spawn entry gains a detail naming value, reason and key beside reason budget_exhausted."
+  out: "The limits only the unused skill-call runtime reads, and the two keys nothing reads, retire in 2026-11-17-274cb. The tool-call ceiling stops inside M.E.AI's FunctionInvokingChatClient without a message of its own."
+
+steps:
+  - id: binding
+    action: "AgentProviderExtensions registers LoopLimitsConfig transient as sp.GetRequiredService<AgentSmithConfig>().Limits. Server: CurrentConfigSnapshot(IConfigStore, IConfigurationLoader, ServerContext).Value re-loads when store.Catalog is a new instance; CurrentSecretValues takes it; ServerCompositionBuilder registers both and LoopLimitsConfig transient as snapshot.Value.Limits."
+  - id: scout-time
+    action: "ScoutCallTimeBound.RunAsync(seconds, call, ct) links ct, cancels after the seconds and, when it fired and ct did not, throws TimeoutException('the call passed limits.max_seconds_per_skill_call = N s, the wall-clock bound of one scout call; raise it in the limits settings if the reading needs longer'). ClientSurfaceReader and RegistryAuthStager call through it. ClientSurfaceReader's swallow filter excludes TimeoutException as it excludes cancellation today, so a timed-out reading still fails its step, now with the message; GenericRegistryAuthApplier already reports ex.Message."
+  - id: spawn-budget
+    action: "SubAgentBudget(maxPerRun, configKey = limits.max_sub_agents_per_run, scope = run) gains Exhausted: 'the budget of N sub-agents is spent (<key>); it bounds what one <scope> spends on children'. MasterToolComposition builds the design-turn budget with limits.max_sub_agents_per_dialog_turn and 'design turn'. SpawnAgentToolHost adds detail = budget.Exhausted to each deferred entry, keeping the file at its baseline length."
+
+tests:
+  - "AgentSmithConfigCompositionTests: a limits block reaches the resolved LoopLimitsConfig in the CLI-shaped file composition and in the server DB composition"
+  - "CurrentConfigSnapshotTests: a new catalog instance re-loads, the same one does not; SecretValuesTests through the snapshot"
+  - "ScoutCallTimeBoundTests: a call that outlives the bound throws a TimeoutException naming key and value; an outer cancellation stays an OperationCanceledException"
+  - "SpawnAgentToolHostTests / SpecDialogSubAgentTests: a deferred entry's detail names the run key, a design turn's the dialog key"
+
+done:
+  - "A limits value set in agentsmith.yml or the Studio is what the scout calls, SubAgentRunner and the spawn budgets use; a Studio change applies to the next run without a restart."
+  - "Build and full suite green at the spec gate."

@@ -83,7 +83,7 @@ public sealed class GateRetryCoordinator(
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);
         // p0142: when the caller (typically SkillRoundHandlerBase) owns a
         // SkillCallScope, fire its per-attempt hook so each retry attempt
-        // gets its own LimitEnforcer.RecordLlmCall + cost-scope attribution.
+        // gets its own cost-scope attribution.
         // Defensive try/catch — a misbehaving hook must not break the gate.
         try { onResponse?.Invoke(response); }
         catch (Exception ex)

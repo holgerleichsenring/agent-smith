@@ -27,8 +27,6 @@ docs/reference/skills/local-iteration.md	phase	1
 docs/trigger-it/labels.md	phase	1
 src/backend/AgentSmith.Application/Models/CallCostRecord.cs	Phase	1
 src/backend/AgentSmith.Application/Models/CallCostRecord.cs	phase	1
-src/backend/AgentSmith.Application/Models/SkillCallRequest.cs	Phase	1
-src/backend/AgentSmith.Application/Models/SkillCallRequest.cs	phase	1
 src/backend/AgentSmith.Application/Models/SkillExecutionPhase.cs	phase	1
 src/backend/AgentSmith.Application/Services/Events/AsyncLocalRunContextAccessor.cs	phase	3
 src/backend/AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs	Phase	2
@@ -37,7 +35,6 @@ src/backend/AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs	pha
 src/backend/AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs	phases	4
 src/backend/AgentSmith.Application/Services/Handlers/RunResultSectionWriter.cs	Phase	1
 src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs	phase	1
-src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs	Phase	2
 src/backend/AgentSmith.Application/Services/Loop/SkillCallScope.cs	Phase	4
 src/backend/AgentSmith.Application/Services/Loop/SkillCallScope.cs	phase	3
 src/backend/AgentSmith.Application/Services/Loop/SkillCostScopeManager.cs	phase	3
@@ -102,8 +99,6 @@ src/backend/AgentSmith.Contracts/Commands/RunBeat.cs	phases	1
 src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs	phase	1
 src/backend/AgentSmith.Contracts/Events/L2LlmEvents.cs	Phase	3
 src/backend/AgentSmith.Contracts/Events/L3ToolEvents.cs	Phase	3
-src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs	Phase	1
-src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs	phase	2
 src/backend/AgentSmith.Contracts/Models/RunCostSummary.cs	Phases	4
 src/backend/AgentSmith.Contracts/Models/RunCostSummary.cs	per-phase	1
 src/backend/AgentSmith.Contracts/Models/RunCostSummary.cs	phase	3
@@ -138,7 +133,6 @@ src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs	Phase	4
 src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs	phase	7
 src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs	phase	1
 src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkTagger.cs	phase	2
-src/dashboard/src/components/config/SettingsForm.tsx	phase	1
 src/dashboard/src/components/dialog/__tests__/conversationDelete.test.ts	phase	2
 src/dashboard/src/components/execution/__tests__/LlmRowPairing.test.tsx	phase	13
 src/dashboard/src/components/execution/bodies/CommandTimeline.tsx	phase	3
@@ -178,12 +172,6 @@ tests/AgentSmith.Tests/Events/fixtures/events/L2Llm/LlmCallStartedEvent.json	pha
 tests/AgentSmith.Tests/Events/fixtures/events/L3Tool/ToolCallEvent.json	phase	1
 tests/AgentSmith.Tests/Events/fixtures/events/L3Tool/ToolResultEvent.json	phase	1
 tests/AgentSmith.Tests/Factories/ChatClientFactoryDecorationTests.cs	phase	1
-tests/AgentSmith.Tests/Helpers/StubSkillCallRuntime.cs	Phase	4
-tests/AgentSmith.Tests/Integration/LiveSkillProbeTests.cs	Phase	5
-tests/AgentSmith.Tests/Integration/LiveSkillProbeTests.cs	phase	11
-tests/AgentSmith.Tests/Loop/SkillCallRuntimeIntegrationTests.cs	Phase	1
-tests/AgentSmith.Tests/Loop/SkillCallRuntimeTestSupport.cs	Phase	1
-tests/AgentSmith.Tests/Loop/SkillCallRuntimeTestSupport.cs	phase	2
 tests/AgentSmith.Tests/Loop/ToolKitTests.cs	per-phase	1
 tests/AgentSmith.Tests/Loop/ToolKitTests.cs	phase	1
 tests/AgentSmith.Tests/Persistence/RunDbProjectorTests.cs	Phase	1

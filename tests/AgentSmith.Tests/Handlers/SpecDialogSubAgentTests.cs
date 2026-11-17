@@ -115,7 +115,9 @@ public sealed class SpecDialogSubAgentTests
             loop, children, new LoopLimitsConfig { MaxSubAgentsPerDialogTurn = 2 });
 
         children.SeenWaves.Should().ContainSingle().Which.Should().HaveCount(2);
-        loop.SpawnResult.Should().Contain("budget_exhausted");
+        loop.SpawnResult.Should().Contain("budget_exhausted")
+            .And.Contain("the budget of 2 sub-agents is spent (limits.max_sub_agents_per_dialog_turn)")
+            .And.Contain("one design turn");
     }
 
     [Fact]
