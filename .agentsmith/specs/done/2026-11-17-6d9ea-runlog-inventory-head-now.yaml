@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-6d9ea
+goal: "The run page opens with a crumb, a title, one meta line and a Now block that follows the agent live and says how a finished run ended, with every act the operator needs."
+
+applies_to: "dashboard (components/jobs/runlog: RunPageHead, RunNow, runNowLines, runMetaWords, useRunTicket; app/jobs/[id] page)"
+
+requires: [2026-11-17-d6fbb]
+
+facts:
+  - claim: "The default view is RunLogView; the story with banner and side rail renders only with ?view=graph."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:171-216"
+  - claim: "Live, the run group carries steps, LLM calls, decisions, tool calls and sub-agent events but not SandboxCommand/SandboxResult (detail group, persisted, replayed on join); SandboxOutput is never stored; the live sandbox beat is a coalesced rollup."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/SandboxDetailEventClassifier.cs:15-20, src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:25-33, src/dashboard/src/hooks/useSandboxActivity.ts:17-31"
+  - claim: "Retry unchanged exists on the ticket page only, gated on runs.control and retriable(attempt)."
+    evidence: "src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:17-51"
+  - claim: "useRunTicket reads the ticket's attempts to name 'Run n of m'."
+    evidence: "src/dashboard/src/components/jobs/runlog/useRunTicket.ts:19-38"
+
+# The inventory of both old visualisations, taken 2026-11-17 at 90c0dec37. 'now' says where each element lives in the
+# new page (6d9ea head and Now block, 6d9eb sections, 6d9ec step detail) or why it is dropped. Line refs are pre-change.
+inventory:
+  story_view:
+    - { element: "storybar, five beats The ticket / The plan / Building / Verify / Outcome with state marker and caption", at: "story/StoryBar.tsx:68-96, story/RunStory.tsx:251-299", now: "merged into the log's sections (Ticket, The plan, each Spec, Checked against the spec, Delivered); each section line carries the state colour and the caption's facts (6d9eb)" }
+    - { element: "beat section head: icon, name, caption, state badge", at: "story/RunStory.tsx:117-132", now: "merged into the section line: dot colour, name, meta (6d9eb)" }
+    - { element: "Ticket beat: description, ticket id, state, source, labels, attachment count, ratified acceptance list, empty state", at: "story/TicketPanel.tsx:24-131", now: "Ticket section, plain; adds 'open in the tracker' (webUrl) and the ticket page link (6d9eb)" }
+    - { element: "Plan beat: the work spec (spec.md)", at: "story/SpecPlanPanels.tsx:14-29", now: "The plan section, 'the work spec' (6d9eb)" }
+    - { element: "Plan beat: the agreed plan (plan.md) with loading/empty hint", at: "story/SpecPlanPanels.tsx:32-54", now: "The plan section, 'the agreed plan' (6d9eb)" }
+    - { element: "Building beat: progress ledger rows (done/now/next, activity, target), live badge, foot bar and 'x done · y now · z to go'", at: "story/RunStory.tsx:139-154, story/LedgerPanel.tsx:37-77", now: "The plan section: one text line per entry and the foot count; the bar is dropped as redundant with the count (6d9eb)" }
+    - { element: "Building beat: Specs list with status badge, steps/decisions counts, verdict; open = decisions and the executed spec", at: "story/SpecsPanel.tsx:28-109, story/SpecOutcome.tsx:13-29", now: "each spec's section: title and status in the line, verdict in the meta, decisions and 'the spec it executed' in its body (6d9eb)" }
+    - { element: "Building beat: latest six decisions and file writes", at: "story/BuildNotes.tsx:35-98", now: "the Now block's live lines (newest decision, file written); the full decision list in each spec section and step detail (6d9ea, 6d9eb, 6d9ec)" }
+    - { element: "Verify beat: verdict badge, source sentence, criteria with mark, status, reason, citation; unmeasured accounts; declined criteria; ratified by", at: "story/VerifySummary.tsx:62-244, story/UnmeasuredAccounts.tsx:16-45", now: "Checked against the spec section, plain lines (6d9eb)" }
+    - { element: "overrule a criterion ('this verdict is wrong', status, reason, record, withdraw)", at: "story/CriterionJudgementControl.tsx:40-124", now: "kept in the Checked section as text links and a plain form (6d9eb)" }
+    - { element: "legacy verify from ExpectationRatified", at: "story/VerifySummary.tsx:254-292", now: "Checked section for runs without persisted acceptance (6d9eb)" }
+    - { element: "Outcome beat: badge, summary, PR buttons incl. URLs inside the summary, total cost / wall clock / LLM calls, result.md; 'lands here' hint", at: "story/OutcomePanel.tsx:42-154", now: "How it ended: outcome line and PR links (6d9ea); result.md as 'the run report' in Delivered (6d9eb); cost, elapsed and LLM calls are the meta line and details (6d9ea)" }
+    - { element: "pre-beats hint 'predates server-computed story beats'", at: "story/RunStory.tsx:194-197", now: "dropped, redundant: the log draws every run from its step rows, beats or not" }
+  banner_and_dialogue:
+    - { element: "waiting banner with the question, asked-at and 'Answer & resume'", at: "app/jobs/[id]/page.tsx:365-393", now: "Now block while waiting: the question and the answer form in place, held-compute sentence (6d9ea)" }
+    - { element: "dialogue drawer hosting PendingQuestionCard", at: "app/jobs/[id]/page.tsx:218-248", now: "merged into the Now block, no drawer (6d9ea)" }
+    - { element: "failure banner 'Stopped — did not reach a green outcome' + summary", at: "app/jobs/[id]/page.tsx:395-405", now: "How it ended: 'stopped' line with the summary, then the acts: retry unchanged, open the ticket, why it went this way (6d9ea)" }
+    - { element: "cancelled banner + summary", at: "app/jobs/[id]/page.tsx:407-417", now: "How it ended: 'cancelled' line with the summary (6d9ea)" }
+  side_rail:
+    - { element: "State (Needs you, Resuming · place n, Done, Failed...)", at: "RunSideRail.tsx:173-192", now: "first word of the meta line, coloured (6d9ea)" }
+    - { element: "Progress n of m steps", at: "RunSideRail.tsx:194-202", now: "meta line 'step n of m' while live, 'N steps' after (6d9ea)" }
+    - { element: "Compute pods · memory / calculating, and the pods list", at: "RunSideRail.tsx:206-220, 389-403", now: "meta line 'n pods · mem'; the pods list under 'details' (6d9ea)" }
+    - { element: "Cost of cap and tier", at: "RunSideRail.tsx:222-233", now: "meta line '$x of $cap'; tier under details (6d9ea)" }
+    - { element: "Budget bar", at: "RunSideRail.tsx:238-264", now: "merged: the cost text turns amber past 80% and red over the cap, the share is said under details; the bar itself is a box and goes (6d9ea)" }
+    - { element: "Shape and its reason", at: "RunSideRail.tsx:270-283", now: "meta line 'shape x'; the reason under details (6d9ea)" }
+    - { element: "Started (absolute time)", at: "RunSideRail.tsx:287-292", now: "details (6d9ea)" }
+    - { element: "Elapsed and LLM count", at: "RunSideRail.tsx:294-300", now: "meta line elapsed; LLM count under details and on every section and step line (6d9ea, 6d9eb)" }
+    - { element: "Sandbox beat (commands, last command)", at: "RunSideRail.tsx:302-310", now: "Now block line 'ran <last command>' and the count under details (6d9ea)" }
+    - { element: "Time split model / sandbox / scaffolding / throttled", at: "RunSideRail.tsx:319-344", now: "details (6d9ea); per step in the step detail (6d9ec)" }
+    - { element: "Compute while no pod has landed: 'Reserved at admission · live pods pending' with memory and CPU limits", at: "RunSideRail.tsx:150-160", now: "meta line 'compute calculating'; the reserved pods with their limits under details (6d9ea)" }
+    - { element: "Time split fallback for older servers (LLM time, throttled)", at: "RunSideRail.tsx:332-344", now: "details, same words (6d9ea)" }
+    - { element: "Pull request fallback for runs that only carry prUrl", at: "RunSideRail.tsx:77-92", now: "How it ended and Delivered read pullRequests, else prUrl (6d9ea, 6d9eb)" }
+    - { element: "Pull request block", at: "RunSideRail.tsx:350-377", now: "How it ended acts: one link per pull request (6d9ea); Delivered section (6d9eb)" }
+    - { element: "'No PR opened — see the Outcome beat'", at: "RunSideRail.tsx:378-387", now: "How it ended outcome line says 'no pull request opened' (6d9ea)" }
+    - { element: "Dialogue button", at: "RunSideRail.tsx:406-418", now: "merged into the Now block's question (6d9ea)" }
+    - { element: "Why this run did that", at: "RunSideRail.tsx:422-431", now: "kept: link under the log and in How it ended (6d9ea)" }
+    - { element: "Full pipeline · N steps", at: "RunSideRail.tsx:432-442", now: "merged: the log is the full pipeline (6d9eb)" }
+  graph_view:
+    - { element: "trace drawer, its resize handles and persisted widths", at: "app/jobs/[id]/page.tsx:87-111, 250-322", now: "dropped, not needed: no drawer; a step opens in place (6d9ec)" }
+    - { element: "'Full pipeline — step x/y' header", at: "app/jobs/[id]/page.tsx:275-277", now: "meta line 'step x of y' (6d9ea)" }
+    - { element: "planned, not yet reached rows", at: "lib/runStepRail.ts:50", now: "step lines in their section, muted, 'not reached yet' when opened (6d9eb, 6d9ec)" }
+    - { element: "live tail: the newest event under a running row", at: "execution/ExecutionNode.tsx, execution/LiveTail.tsx", now: "the Now block's lines (6d9ea)" }
+    - { element: "rail step rows: label, status, duration, cost · n LLM", at: "execution/NavRail.tsx:134-172, lib/runStepRail.ts:24-50", now: "step lines in their section: name, state colour, llm count, cost, time (6d9eb)" }
+    - { element: "spec group headers", at: "execution/NavRail.tsx:209-218", now: "one section per spec (6d9eb)" }
+    - { element: "mechanics rows collapsing internal steps and silent gates", at: "execution/NavRail.tsx:102-205", now: "kept: one 'n mechanics steps' line per section that opens in place (6d9eb)" }
+    - { element: "sub-agent child rows and their event drawers", at: "execution/NavRail.tsx:153-169, app/jobs/[id]/page.tsx:513-515", now: "step detail lines prefixed with the sub-agent's name (6d9ec)" }
+    - { element: "Overview Architecture: analyze.md", at: "execution/ArchitectureDetail.tsx:35", now: "step detail of Analyze codebase (6d9ec)" }
+    - { element: "Overview Architecture: topology star graph of the run and its sandboxes", at: "jobs/TopologyGraph.tsx", now: "dropped, redundant: the repositories are in details, each repository's outcome in the step detail, the pods in details" }
+    - { element: "Overview Architecture: per-sandbox output (TopologyDetail/SandboxBox)", at: "jobs/TopologyDetail.tsx", now: "step detail: 'output' per repository (6d9ec)" }
+    - { element: "Overview Plan", at: "execution/PlanDetail.tsx:10-35", now: "redundant with The plan section, merged there (6d9eb)" }
+    - { element: "Overview Result: PR buttons and result.md", at: "execution/ResultDetail.tsx:23-53", now: "Delivered section and How it ended (6d9ea, 6d9eb)" }
+    - { element: "step panel: breadcrumb 'Spec x ›', title, status pill, duration, cost · n LLM, time split, result message with PR links, repo summary, 'not reached yet'", at: "execution/DetailPane.tsx:50-161", now: "step line plus the detail's head line: status, time split, result message with links (6d9ec)" }
+    - { element: "older events notice and 'Load older events'", at: "app/jobs/[id]/page.tsx:494-510", now: "step detail line 'older events exist — load older' (6d9ec)" }
+    - { element: "event filters All/Findings/Obs/Tools/LLM/Files/Decisions, newest/oldest, find, show all", at: "execution/EventDrawer.tsx:57-169", now: "step detail: filters as text links, order link, find field, 'show all n' (6d9ec)" }
+    - { element: "command timeline: 'N actions · M writes · K llm · $X', LLM rows, command rows with repo, verb, exit, duration, timeout", at: "execution/bodies/CommandTimeline.tsx", now: "step detail summary and its llm/tool/write lines (6d9ec)" }
+    - { element: "LLM call: role or phase, model, tokens in/out, cached share, cost, duration, in flight / ended", at: "execution/bodies/CommandTimeline.tsx:155-187, hooks/execution-tree/llmPairing.ts", now: "step detail llm lines (6d9ec)" }
+    - { element: "per-repository sandbox result (passed / failed exit n / not run) and stdout", at: "execution/bodies/StepSandboxes.tsx", now: "step detail repository lines and their 'output' (6d9ec)" }
+    - { element: "pull request outcome per repository (opened, merged, still open, no changes, failed + reason)", at: "execution/bodies/PrOutcomeList.tsx", now: "step detail pr lines with their link (6d9ec)" }
+    - { element: "catalog binding (version, source, url, counts, cache, browse link)", at: "execution/bodies/CatalogLoadBody.tsx", now: "step detail catalog line and the browse link (6d9ec)" }
+    - { element: "ticket fetched body", at: "execution/bodies/FetchTicketBody.tsx", now: "step detail line; the ticket itself in the Ticket section (6d9ec, 6d9eb)" }
+  log_view_so_far:
+    - { element: "crumb, title, cancel/delete/connection, meta", at: "runlog/RunPageHead.tsx:32-95", now: "kept, reshaped to the mock (6d9ea)" }
+    - { element: "status sentence for running, queued (place n in line), waiting, resuming (place n), success, shortfall, cancelled, stopped; question card, PR buttons, note", at: "runlog/RunStatusBox.tsx:15-78", now: "the Now block's label and first line, each state kept (6d9ea)" }
+    - { element: "step lines with their result message", at: "runlog/runSections.ts:112-121", now: "the step detail's head line (6d9ec)" }
+    - { element: "verify pass per repository and stale derivations, under each Build and test line", at: "runlog/VerifyPassLines.tsx:24-50", now: "under each verify step line in its section, every pass (6d9eb); the last pass also in How it ended (6d9ea)" }
+    - { element: "facts line, shape reason, budget bar, pods disclosure", at: "runlog/RunFacts.tsx:11-48", now: "details under the meta line (6d9ea)" }
+    - { element: "progress strip of section nodes", at: "runlog/RunSectionLog.tsx:20-32", now: "dropped, redundant: each section line carries the same state colour" }
+    - { element: "'Show all steps and the raw trace', 'Show as graph'", at: "runlog/RunLogView.tsx:87-95", now: "merged: the log is every step; the graph is removed (6d9ed)" }
+    - { element: "'Why it went this way'", at: "runlog/RunLogView.tsx:91", now: "kept (6d9ea)" }
+  added:
+    - { element: "Retry unchanged on a finished run that is its ticket's newest retriable attempt", now: "How it ended acts, same endpoint and permission as the ticket page (6d9ea)" }
+
+scope:
+  in: "Crumb 'Runs / run id · ticket key · Run n of m'; title with connection, cancel and delete as text acts; one meta line (state coloured · steps · elapsed · cost of cap · pods · mem · shape) and a 'details' disclosure with every other recorded fact; the Now block: live lines from the hub's run events (current step, newest decision, tool call, file written, finding) and the sandbox beat from useSandboxActivity only (SandboxCommand reaches a page only on replay, so it is not read); queued and resuming say their place in line; the question with PendingQuestionCard reused unchanged (shared with the ticket page) while waiting, and on a finished run 'How it ended' (outcome; review from the review step's resultMessage and hasFinding; verify per repository from the last VerifyPassRecorded; why it stopped) with its acts (pull requests, retry unchanged, the ticket, why)."
+  out: "Sections and step detail (6d9eb, 6d9ec); deleting the graph view (6d9ed); backend changes."
+
+steps:
+  - id: words
+    action: "runMetaWords.ts: metaLine (state, steps, elapsed, cost of cap with its tone, pods and mem, shape) and detailLines (started, model and LLM calls, repositories, pipeline, run id, time split, budget share and tier, reserved Gi·min, shape reason, sandbox commands)."
+  - id: head
+    action: "RunPageHead draws the mock's crumb, title row with the acts as text, the meta line and the details disclosure with the pods."
+  - id: now
+    action: "runNowLines.ts derives the live lines from the run's events and step rows and the ended lines from the snapshot, steps and the last verify pass; RunNow draws them under 'Now — follows the agent', 'Waiting for your answer' or 'How it ended'."
+  - id: acts
+    action: "How it ended carries the pull request links, Retry unchanged (useRunTicket also returns the attempt and whether it is the newest), the ticket page and the Why page."
+  - id: wire
+    action: "RunLogView renders RunPageHead and RunNow in place of RunPageHead, RunFacts and RunStatusBox."
+
+tests:
+  - "runMetaWords: live and finished meta line, cost tone near/over cap, details lines."
+  - "runNowLines: live lines follow a new StepStarted, DecisionLogged and SubAgentFileWritten; ended lines for success with PRs, shortfall, failed with summary, cancelled; verify per repository."
+  - "RunNow: the label switches from 'Now — follows the agent' to 'How it ended' when the snapshot finishes; the question shows its answer form; PR links, retry, ticket and why acts render."
+  - "RunPageHead: crumb with run id, ticket and Run n of m; cancel while live, delete always."
+
+done:
+  - "The inventory above is in this spec and the PR body."
+  - "A live run's Now block updates when new hub events arrive; a finished run says how it ended and offers its acts."
+  - "pnpm test and build are green."

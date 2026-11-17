@@ -13,15 +13,6 @@
 .mock-viewer .rl-acts { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .mock-viewer .rl-meta { font-size: 13px; color: var(--ink-3); }
 
-.mock-viewer .rl-status { --tone: var(--ink-3); --wash: var(--panel); display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: var(--wash); border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--line)); }
-.mock-viewer .rl-status.ok { --tone: var(--ok); --wash: var(--ok-wash); }
-.mock-viewer .rl-status.run { --tone: var(--run); }
-.mock-viewer .rl-status.amber { --tone: var(--run); --wash: var(--run-wash); }
-.mock-viewer .rl-status.bad { --tone: var(--bad); --wash: var(--bad-wash); }
-.mock-viewer .rl-dot { flex: none; width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--tone); }
-.mock-viewer .rl-status-say { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.mock-viewer .rl-status-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; max-height: 12em; overflow-y: auto; }
-.mock-viewer .rl-prs { display: inline-flex; gap: 8px; flex-wrap: wrap; }
 
 .mock-viewer .rl-strip { display: flex; padding: 4px 0; }
 .mock-viewer .rl-node { --tone: var(--ok); position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; color: var(--ink-3); cursor: pointer; }
@@ -60,17 +51,8 @@
 .mock-viewer .rl-more { display: flex; gap: 6px 18px; flex-wrap: wrap; font-size: 13px; }
 .mock-viewer .rl-link { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 
-/* 2026-11-17-d6fbb: the side rail's facts as text under the meta line, and the story's panels inside a section in the
-   log's own look — no card chrome, headings as quiet labels. */
-.mock-viewer .rl-facts { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-3); }
-.mock-viewer .rl-budget { display: flex; align-items: center; gap: 10px; }
-.mock-viewer .rl-budget-bar { flex: 0 0 160px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.mock-viewer .rl-budget-bar > span { display: block; height: 100%; background: var(--ok); }
-.mock-viewer .rl-budget[data-tone="near"] .rl-budget-bar > span { background: var(--run); }
-.mock-viewer .rl-budget[data-tone="over"] .rl-budget-bar > span { background: var(--bad); }
-.mock-viewer .rl-pods > summary { cursor: pointer; color: var(--ink-2); }
-.mock-viewer .rl-pods .rl-line { margin-top: 4px; }
-.mock-viewer .rl-status-note { font-size: 13px; color: var(--ink-3); }
+/* 2026-11-17-d6fbb: the story's panels inside a section in the log's own look — no card chrome, headings as quiet
+   labels. */
 .mock-viewer .rl-slot { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .mock-viewer .rl-slot .card { border: 0; background: none; box-shadow: none; border-radius: 0; }
 .mock-viewer .rl-slot .card-h { padding: 0 0 6px; border: 0; background: none; }
@@ -86,3 +68,29 @@
 .mock-viewer .rl-pass-name { min-width: 8ch; }
 .mock-viewer .rl-pass-stale { color: var(--ink-3); }
 .mock-viewer .rl-pass-stale > summary { cursor: pointer; }
+
+/* 2026-11-17-6d9ea: the approved mock's head and Now block — hairlines and text colour only, no boxes. */
+.mock-viewer .rl-mono { font-family: var(--mono); font-size: 12px; }
+.mock-viewer .rl-meta [data-tone="ok"] { color: var(--ok); }
+.mock-viewer .rl-meta [data-tone="run"], .mock-viewer .rl-meta [data-tone="amber"], .mock-viewer .rl-meta [data-tone="near"] { color: var(--run); }
+.mock-viewer .rl-meta [data-tone="bad"], .mock-viewer .rl-meta [data-tone="over"] { color: var(--bad); }
+.mock-viewer .rl-details { font-size: 13px; color: var(--ink-3); display: flex; flex-direction: column; gap: 2px; }
+.mock-viewer .rl-details > summary { cursor: pointer; width: max-content; color: var(--ink-3); }
+.mock-viewer .rl-details > summary:hover { color: var(--ink-2); }
+.mock-viewer .rl-acts button { border: 0; background: none; padding: 0; text-decoration: underline; color: var(--ink-3); font-size: 13px; }
+.mock-viewer .rl-acts button:hover:not(:disabled) { color: var(--ink); }
+.mock-viewer .rl-lbl { font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-3); }
+.mock-viewer .rl-now { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.mock-viewer .rl-now-line { display: grid; grid-template-columns: 62px 92px minmax(0, 1fr); gap: 12px; font-family: var(--mono); font-size: 12px; line-height: 21px; color: var(--ink-2); }
+.mock-viewer .rl-now-line .rl-kind { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-viewer .rl-now-line .rl-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.mock-viewer .rl-now-line[data-tone="now"] .rl-text { color: var(--ink); }
+.mock-viewer .rl-now-line[data-tone="dim"] .rl-text { color: var(--ink-3); }
+.mock-viewer .rl-now-line[data-tone="ok"] .rl-text { color: var(--ok); }
+.mock-viewer .rl-now-line[data-tone="run"] .rl-text { color: var(--run); }
+.mock-viewer .rl-now-line[data-tone="bad"] .rl-text { color: var(--bad); }
+.mock-viewer .rl-now-acts { display: flex; gap: 6px 18px; flex-wrap: wrap; align-items: baseline; padding-top: 6px; font-size: 13px; }
+.mock-viewer .rl-now-acts a, .mock-viewer .rl-now-acts button { color: var(--ink-2); background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+.mock-viewer .rl-now-acts button:disabled { color: var(--ink-3); cursor: default; }
+.mock-viewer .rl-question { padding-top: 6px; }
+@media (max-width: 640px) { .mock-viewer .rl-now-line { grid-template-columns: minmax(0, 1fr); gap: 0; } .mock-viewer .rl-now-line .rl-at:empty { display: none; } }

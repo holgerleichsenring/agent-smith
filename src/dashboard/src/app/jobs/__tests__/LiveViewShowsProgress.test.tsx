@@ -98,7 +98,8 @@ describe("The live view", () => {
     renderLiveView();
 
     // 2026-11-16-6877b: what is happening, in one sentence, and where in the seven sections the run is.
-    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Working: Implement. Nothing for you to do.");
+    expect(await screen.findByTestId("run-now-label")).toHaveTextContent("Now — follows the agent");
+    expect(screen.getAllByTestId("run-now-line")[0]).toHaveTextContent("Implement");
     await waitFor(() => expect(screen.getByTestId("run-section-build")).toHaveAttribute("data-state", "running"));
     expect(screen.getByTestId("run-section-ready")).toHaveAttribute("data-state", "done");
     expect(screen.getByTestId("run-section-deliver")).toHaveAttribute("data-state", "pending");

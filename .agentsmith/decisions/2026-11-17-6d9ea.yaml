@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-6d9ea
+
+decisions:
+  - category: Behaviour
+    chose: "One meta line in the mock's order (state, steps, elapsed, cost of cap, pods, memory, shape) and every other recorded fact as a line under a 'details' disclosure"
+    over: "Keeping the d6fbb meta line plus a facts line, or dropping the facts the mock does not show"
+    reason: "The operator approved one meta line; the inventory forbids dropping a fact that is neither redundant nor unreadable, so the rest is one click away."
+  - category: Behaviour
+    chose: "The budget bar becomes the cost text's colour (amber past 80%, red over the cap) and a share line under details"
+    over: "Keeping a bar"
+    reason: "A bar is a box; the number and the colour say the same."
+  - category: Behaviour
+    chose: "The Now block reads the hub's run events (StepStarted, ToolCall intent, DecisionLogged, SubAgentFileWritten, ToolCall, SubAgentToolCall, SubAgentFinding, GateChecked) and the sandbox beat from useSandboxActivity; it never reads SandboxCommand"
+    over: "Reading SandboxCommand events for the last command"
+    reason: "SandboxCommand reaches the run group only on a join's replay, so a live and a reloaded page would show different lines."
+  - category: Behaviour
+    chose: "How it ended: the outcome line, the run's own end text, the step it stopped at and the end detail's instruction, the review step's result, the last verify pass per repository; then the acts: pull requests, Retry unchanged on the newest attempt, the setting, the ticket, the Why page"
+    over: "A banner per end state as the graph view had"
+    reason: "The operator must see why it stopped and act on it; the ticket page's stuckTitle and instruction already word a stop, exported rather than copied."
+  - category: Architecture
+    chose: "useRunTicket also returns this run's TicketAttempt and whether it is the newest, re-read when the run's status moves"
+    over: "A second ticket read in RunNow"
+    reason: "The crumb already reads the ticket detail; Retry unchanged needs the same attempt."
+  - category: Behaviour
+    chose: "PendingQuestionCard is reused unchanged in the Now block"
+    over: "A plain variant"
+    reason: "It is the answer form the ticket page and home share; its behaviour (quick replies, answered state) must not fork."
+  - category: Architecture
+    chose: "RunFacts and RunStatusBox are deleted with this spec, and costWords/progressWords with them"
+    over: "Leaving them for 6d9ed"
+    reason: "Nothing uses them once the head and the Now block replace them."

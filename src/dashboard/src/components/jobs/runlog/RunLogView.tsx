@@ -17,11 +17,10 @@ import type { RunStepRow } from "@/lib/runStepsApi";
 import { runTracePath } from "@/lib/runPath";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import "@/styles/run-log.css";
-import { RunFacts } from "./RunFacts";
+import { RunNow } from "./RunNow";
 import { RunPageHead } from "./RunPageHead";
 import { RunProgressStrip, RunSectionLog } from "./RunSectionLog";
 import { checkOf, runSections, type RunSection, type SectionId } from "./runSections";
-import { RunStatusBox } from "./RunStatusBox";
 import { outcomeSection, planSection, ticketSection } from "./storySections";
 import { useRunTicket } from "./useRunTicket";
 
@@ -62,10 +61,9 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
   const stepCount = steps.filter((s) => !s.planned).length;
   return (
     <div className="rl-page" data-testid="run-log">
-      <RunPageHead runId={runId} snapshot={snapshot} ticket={ticket} repoNames={repoNames}
+      <RunPageHead runId={runId} snapshot={snapshot} ticket={ticket} repoNames={repoNames} stepCount={stepCount}
         connectionState={connectionState} onDeleted={onDeleted} />
-      <RunFacts snapshot={snapshot} />
-      <RunStatusBox snapshot={snapshot} />
+      <RunNow runId={runId} snapshot={snapshot} events={events} steps={steps} ticket={ticket} />
       <RunProgressStrip sections={stepSections} open={open} onToggle={toggle} />
       <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{
         ticket: <TicketPanel snapshot={snapshot} events={events} />,

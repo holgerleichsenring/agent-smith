@@ -88,8 +88,9 @@ describe("The run page of a parked run", () => {
     renderPage(parked({ queuePosition: 3 }));
 
     // 1. the status sentence — 2026-11-16-6877b: the default view's one line, no question card.
-    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Resuming, place 3 in line. Nothing for you to do.");
-    expect(screen.getByTestId("run-status")).toHaveAttribute("data-tone", "run");
+    expect(await screen.findByTestId("run-now-line")).toHaveTextContent("Answered, place 3 in line. Nothing for you to do.");
+    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("resuming, place 3");
+    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "run");
     expect(screen.queryByTestId("run-question")).not.toBeInTheDocument();
     // 2. the graph view's wrapper class that themes it.
     fireEvent.click(screen.getByTestId("run-show-graph"));
@@ -108,8 +109,8 @@ describe("The run page of a parked run", () => {
   it("RunPage_AWaitingRunWithNoQueuePlace_StillSaysNeedsYou", async () => {
     renderPage(parked());
 
-    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Waiting for your answer.");
-    expect(screen.getByTestId("run-status")).toHaveAttribute("data-tone", "amber");
+    expect(await screen.findByTestId("run-now-label")).toHaveTextContent("Waiting for your answer");
+    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "amber");
     fireEvent.click(screen.getByTestId("run-show-graph"));
     expect(screen.getByTestId("run-viewer-root").className).toContain("is-blocked");
     expect(screen.getByTestId("run-banner")).toBeInTheDocument();
@@ -128,8 +129,8 @@ describe("The run page without the graph", () => {
     }
     fireEvent.click(screen.getByTestId("run-section-ticket").querySelector("button")!);
     expect(screen.getByTestId("ticket-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("run-meta")).toHaveTextContent("run r1");
-    expect(screen.getByTestId("run-status-note")).toHaveTextContent("Reserved compute is held");
+    expect(screen.getByTestId("run-details")).toHaveTextContent("run r1");
+    expect(screen.getByTestId("run-now")).toHaveTextContent("Reserved compute is held");
     expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();
   });
 

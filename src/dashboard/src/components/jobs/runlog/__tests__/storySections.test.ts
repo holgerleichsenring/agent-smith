@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunSnapshot } from "@/types/hub-events";
 import { outcomeSection, planSection, ticketSection } from "../storySections";
-import { statusNote } from "../RunStatusBox";
 
 // 2026-11-17-d6fbb: the log's Ticket, Spec and plan, and Outcome sections, and the status box's added note.
 
@@ -30,12 +29,5 @@ describe("storySections", () => {
     expect(outcomeSection(snap({ prUrl: "https://example.test/pr/1" }))).toMatchObject({ state: "done", summary: "1 pull request" });
     expect(outcomeSection(snap({ status: "failed" }))).toMatchObject({ state: "bad", summary: "stopped, no pull request opened" });
     expect(outcomeSection(snap({ status: "running" }))).toMatchObject({ state: "pending", summary: "not finished yet" });
-  });
-
-  it("statusNote_WaitingHoldsCompute_FinishedWithoutAPullRequestSaysSo", () => {
-    expect(statusNote(snap({ status: "waiting_for_input" }), true, false)).toBe("Reserved compute is held; no tokens are spent while it waits.");
-    expect(statusNote(snap(), false, false)).toBe("No pull request opened; the Outcome section says why.");
-    expect(statusNote(snap({ prUrl: "https://example.test/pr/1" }), false, false)).toBeNull();
-    expect(statusNote(snap({ status: "running" }), false, false)).toBeNull();
   });
 });
