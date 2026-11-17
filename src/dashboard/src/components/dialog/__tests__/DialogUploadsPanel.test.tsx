@@ -54,6 +54,16 @@ function renderPanel(held = session(), work: FiledWork | null = null) {
 }
 
 describe("DialogUploadsPanel", () => {
+  // 2026-11-17-d762c: an upload is a row under a hairline, its remove a text link — no card, no button box.
+  it("DialogUploadsPanel_Rows_AreHairlineRowsWithATextLinkRemove", () => {
+    renderPanel();
+
+    const row = screen.getByTestId("dialog-upload-a");
+    expect(row.className).toBe("dl-upload-row");
+    expect(screen.getByTestId("dialog-uploads").querySelector(".ecard, .btn")).toBeNull();
+    expect(screen.getByTestId("dialog-upload-remove-a")).toHaveClass("d-link");
+  });
+
   it("DialogUploadsPanel_SetsAndImages_ListedWithUsedAndLeft", () => {
     renderPanel();
 

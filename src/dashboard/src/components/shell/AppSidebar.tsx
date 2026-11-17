@@ -16,7 +16,7 @@ import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { bucketHref, RUNS_PATH, useRunBucketFilter } from "@/lib/RunBucketFilter";
 import { TICKETS_PATH, ticketBucketHref, useTicketBucketFilter, type TicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
-import { isTicketPage } from "@/lib/tickets/ticketAddress";
+import { hasSectionBar } from "@/lib/sectionBarPage";
 import { cn } from "@/lib/utils";
 import { ProfileMenu } from "./ProfileMenu";
 import { SidebarGroup, SidebarItem } from "./SidebarItem";
@@ -39,8 +39,9 @@ export function AppSidebar() {
   const pathname = usePathname() ?? "/";
   const [chosen, toggle] = useSidebarCollapsed();
   // 2026-11-17-8d1ca: a ticket page has its own section bar beside this one, so the sidebar shows icons only there.
-  const onTicketPage = isTicketPage(pathname);
-  const collapsed = chosen || onTicketPage;
+  // 2026-11-17-d762a: and so does Work it out, whose conversations are its bar.
+  const ownBar = hasSectionBar(pathname);
+  const collapsed = chosen || ownBar;
   const tickets = useTicketList().list?.counts;
   const ticketFilter = useTicketBucketFilter();
   const runFilter = useRunBucketFilter();
@@ -75,7 +76,7 @@ export function AppSidebar() {
       <div className="sb-brand">
         <Terminal size={20} strokeWidth={2} aria-hidden="true" />
         {!collapsed && <span className="sb-brand-name">Agent Smith</span>}
-        {!onTicketPage && <button
+        {!ownBar && <button
           type="button"
           className="sb-toggle"
           onClick={toggle}

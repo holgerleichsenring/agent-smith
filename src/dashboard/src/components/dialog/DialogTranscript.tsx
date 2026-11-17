@@ -36,6 +36,7 @@ import { sizeOf } from "./referenceSelection";
 // reply as the summary; only the proposal awaiting a decision carries the approve bar.
 // 2026-11-12-92e9c: every agent turn is one TurnMessage — steps, reply, spec lines, questions and its course — with no
 // control inside it; the approval card stands below the conversation.
+// 2026-11-17-d762b: the speakers are the words "you" and "agent", and an upload is one line of text.
 // 2026-11-12-92e9d: the decision moved to the composer. A decision and the notice that answers it (Filed, Rejected)
 // are quiet history lines: no speaker mark, muted, nothing new appended.
 
@@ -135,23 +136,22 @@ function Attached({ image }: { image: SpecDialogImage }) {
 }
 
 function ReferenceSetChip({ set, onOpen }: { set: SpecDialogReferenceSet; onOpen?: (setId: string) => void }) {
+  // 2026-11-17-d762b: one plain line — "upload name · n files · size · show files" — with show files a text link.
   return (
     <DialogMessage who="user" testId="dialog-turn-reference">
-      <div data-testid={`dialog-reference-${set.setId}`} className="ecard inert">
-        <div className="flex flex-wrap items-center gap-2.5 px-3 py-2">
-          <span className="ec-mark">upload</span>
-          <span className="ec-name sans min-w-0 flex-1 given">{set.name}</span>
-          <span className="ec-sub">
-            {set.files} {set.files === 1 ? "file" : "files"} · {sizeOf(set.bytes)}
-          </span>
-          {onOpen && (
-            <button type="button" className="btn" data-testid={`dialog-reference-open-${set.setId}`}
+      <p data-testid={`dialog-reference-${set.setId}`} className="dl-upload">
+        <span className="dl-dim">upload</span> <span className="mono given">{set.name}</span>
+        {` · ${set.files} ${set.files === 1 ? "file" : "files"} · ${sizeOf(set.bytes)}`}
+        {onOpen && (
+          <>
+            {" · "}
+            <button type="button" className="d-link" data-testid={`dialog-reference-open-${set.setId}`}
               onClick={() => onOpen(set.setId)}>
-              Show files
+              show files
             </button>
-          )}
-        </div>
-      </div>
+          </>
+        )}
+      </p>
     </DialogMessage>
   );
 }
@@ -196,12 +196,13 @@ export function DialogMessage({
   children: ReactNode;
 }) {
   return (
-    <div data-testid={testId} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2.5">
+    // 2026-11-17-d762b: the speaker is a small muted word in a narrow column, not a badge.
+    <div data-testid={testId} className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5">
       <div
         aria-hidden="true"
-        className={who === "user" ? "d-who mt-px" : "d-who agent mt-px"}
+        className={who === "user" ? "d-who" : "d-who agent"}
       >
-        {who === "user" ? "OP" : "AS"}
+        {who === "user" ? "you" : "agent"}
       </div>
       <div className="min-w-0">
         <span className="sr-only">{who === "user" ? "You:" : "agent-smith:"}</span>

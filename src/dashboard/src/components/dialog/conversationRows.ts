@@ -46,3 +46,9 @@ export function lastActive(at: string, now: Date = new Date()): string {
   if (days < 365) return `${Math.floor(days / 30)}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
 }
+
+/** 2026-11-17-d762a: the colour an outcome's words take in the bar — a partial filing is amber, a whole one green. */
+export function outcomeTone({ outcome }: SpecDialogSessionSummary): "ok" | "run" | "" {
+  if (!outcome) return "";
+  return outcome.partial ? "run" : "ok";
+}

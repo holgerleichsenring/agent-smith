@@ -162,6 +162,13 @@ describe("AppSidebar", () => {
     expect(screen.queryByTestId("sidebar-toggle")).toBeNull();
   });
 
+  // 2026-11-17-d762a: Work it out's conversations are its own bar, so the sidebar beside it shows icons only too.
+  it("Sidebar_OnWorkItOut_ShowsIconsOnly_WithoutTheToggle", () => {
+    renderAt("/spec-dialog");
+    expect(screen.getByTestId("app-sidebar")).toHaveAttribute("data-collapsed", "true");
+    expect(screen.queryByTestId("sidebar-toggle")).toBeNull();
+  });
+
   it("Sidebar_Recent_ListsTheTicketAndRunPagesOpened_NewestFirst", async () => {
     const first = renderAt("/tickets/shop/GH-101");
     first.unmount();

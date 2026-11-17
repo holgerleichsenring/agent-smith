@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d762c
+goal: "The Work it out pane is a narrow right column of plain text: tabs as words, scope repositories and templates as mono lines, uploads as hairline rows, no card."
+
+applies_to: "dashboard (DialogPane, DialogPaneTabs, DialogScopePanel, DialogUploadsPanel, spec-dialog.css)"
+
+requires: [2026-11-17-d762b]
+
+facts:
+  - claim: "The pane is an ecard whose tabs are filled dtab buttons."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:103, src/dashboard/src/components/dialog/DialogPaneTabs.tsx:40"
+  - claim: "Repositories and templates are ec-mark chips."
+    evidence: "src/dashboard/src/components/dialog/DialogScopePanel.tsx:111-133"
+  - claim: "An upload is an ecard list item."
+    evidence: "src/dashboard/src/components/dialog/DialogUploadsPanel.tsx:80"
+
+scope:
+  in: "Pane without card or border in a right column; tabs as plain words, the chosen one bright; scope as heading words and mono lines; uploads as rows under hairlines; marks inside the pane (filed, proposal) as coloured text without fill."
+  out: "The pane's tab logic and contents; backend."
+
+steps:
+  - id: pane
+    action: "DialogPane drops ecard for dl-side; DialogPaneTabs drops dtab for dl-tab."
+  - id: scope
+    action: "DialogScopePanel: repositories and templates as mono lines (dl-mono), the ticket id plain."
+  - id: uploads
+    action: "DialogUploadsPanel rows as dl-upload hairline rows."
+  - id: css
+    action: "spec-dialog.css: right column, tabs, ec-mark without fill inside the pane."
+  - id: tests
+    action: "Adapt scope assertions from ec-mark to plain mono text; assert the pane carries no ecard."
+
+decisions:
+  - "Scope and Uploads stay a right column rather than the bar's foot: the pane also holds the proposal, the filed runs and the approved spec, which are long — alternatives: the bar's foot like the ticket facts."
+
+tests:
+  - "SpecDialogSurface: the pane is not an ecard, repositories are plain mono text."
+  - "DialogUploadsPanel: rows carry no ecard."
+
+done:
+  - "The pane reads as plain text in a right column; every tab works as before."
+  - "pnpm test and pnpm build are green; the spec gate passes."

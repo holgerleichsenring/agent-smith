@@ -762,10 +762,30 @@ describe("SpecDialogSurface", () => {
     expect(root.className.split(/\s+/)).not.toContain("mock-config");
   });
 
-  // 2026-09-17-042ef: a repository and a template are each ONE mark, the Projects page's own.
-  // A template says where it comes from after its name — "repo@revision", or a plain
-  // repository where the scope pinned no revision.
-  it("SpecDialog_TheScopeColumn_ShowsEachRepositoryAndEachTemplateAsAMark", async () => {
+  // 2026-11-17-d762b: the conversation is plain text — the exchange is no card, its heading a plain h1.
+  it("SpecDialog_TheExchange_IsNoCard", async () => {
+    await renderSurface();
+
+    const exchange = screen.getByTestId("dialog-exchange");
+    expect(exchange.closest(".ecard")).toBeNull();
+    expect(exchange.className).toBe("dl-exchange");
+    expect((await screen.findByTestId("dialog-heading")).tagName).toBe("H1");
+  });
+
+  // 2026-11-17-d762c: the pane is a plain right column — no card, its tabs words rather than filled buttons.
+  it("SpecDialog_ThePane_IsNoCardAndItsTabsAreWords", async () => {
+    await renderSurface();
+
+    const pane = await screen.findByTestId("dialog-pane");
+    expect(pane.className.split(/\s+/)).not.toContain("ecard");
+    expect(pane.querySelector(".ecard, .dtab")).toBeNull();
+    expect(screen.getByRole("tab", { selected: true }).className).toBe("dl-tab");
+  });
+
+  // 2026-09-17-042ef: a repository and a template are each ONE entry. A template says where it comes from after its
+  // name — "repo@revision", or a plain repository where the scope pinned no revision.
+  // 2026-11-17-d762c: each is a plain mono line now, not a chip.
+  it("SpecDialog_TheScopeColumn_ShowsEachRepositoryAndEachTemplateAsAMonoLine", async () => {
     const unpinned = {
       name: "unpinned",
       repos: ["repo-b"],
@@ -775,13 +795,15 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
 
     for (const repo of ["repo-a", "repo-b"]) {
-      expect(screen.getByTestId(`dialog-scope-repo-${repo}`).className.split(/\s+/)).toContain("ec-mark");
+      const line = screen.getByTestId(`dialog-scope-repo-${repo}`);
+      expect(line.className.split(/\s+/)).toContain("dl-mono");
+      expect(line.className.split(/\s+/)).not.toContain("ec-mark");
     }
     const pinned = screen.getByTestId("dialog-scope-template-template:default");
-    expect(pinned.className.split(/\s+/)).toContain("ec-mark");
+    expect(pinned.className.split(/\s+/)).toContain("dl-mono");
     expect(pinned).toHaveTextContent("template-repo@v1.2");
     const loose = screen.getByTestId("dialog-scope-template-template:loose");
-    expect(loose.className.split(/\s+/)).toContain("ec-mark");
+    expect(loose.className.split(/\s+/)).toContain("dl-mono");
     expect(loose).toHaveTextContent("loose-repo");
     expect(loose.textContent).not.toContain("@");
   });
@@ -819,7 +841,7 @@ describe("SpecDialogSurface", () => {
 
     const template = screen.getByTestId(`dialog-scope-template-${templateName}`);
     expect(template.className.split(/\s+/)).toContain("given");
-    expect(template.textContent).toBe(`${templateName}a-template-repository@v1.2`);
+    expect(template.textContent).toBe(`${templateName} a-template-repository@v1.2`);
   });
 
   it("SpecDialog_TheScopeColumn_NamesTheRepositoriesAndTheTemplates", async () => {
@@ -984,18 +1006,16 @@ describe("SpecDialogSurface", () => {
     return { role: "user", text, at: "2026-09-15T09:00:00Z" };
   }
 
-  // 2026-09-18-e63d: the likelier case of the same bug. This column is 220px — 140px narrower
-  // than the scope pane — the title one line above it already needs truncation, and the project
-  // name is the operator's own. The mark carries the same modifier.
-  it("SpecDialog_AConversationsProjectMark_AsksToWrap", async () => {
+  // 2026-11-17-d762a: the project is plain text in the row's muted line — no chip, nothing boxed in the bar.
+  it("SpecDialog_AConversationsProject_IsPlainTextNotAChip", async () => {
     const projectName = "a-project-name-with-no-space-in-it-at-all";
     fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ project: projectName })]));
     await renderSurface();
 
-    const mark = (await screen.findByTestId("dialog-conversation-s-9"))
-      .querySelector(".ec-mark") as HTMLElement;
-    expect(mark.className.split(/\s+/)).toContain("given");
-    expect(mark.textContent).toBe(projectName);
+    const row = await screen.findByTestId("dialog-conversation-s-9");
+    expect(within(row).getByTestId("dialog-conversation-project-s-9")).toHaveTextContent(projectName);
+    expect(row.querySelector(".ec-mark")).toBeNull();
+    expect(screen.getByTestId("dialog-controls").querySelector(".ecard, .btn")).toBeNull();
   });
 
   it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
@@ -1030,7 +1050,7 @@ describe("SpecDialogSurface", () => {
     await screen.findByTestId("dialog-conversation-s-4");
     expect(screen.queryAllByTestId("dialog-conversation-day")).toEqual([]);
     const rows = [...screen.getByTestId("dialog-conversations")
-      .querySelectorAll<HTMLElement>(".d-conv")];
+      .querySelectorAll<HTMLElement>(".dl-conv")];
     expect(rows.map((row) => row.dataset.testid)).toEqual([
       "dialog-conversation-s-1", "dialog-conversation-s-2",
       "dialog-conversation-s-3", "dialog-conversation-s-4",
@@ -1086,7 +1106,7 @@ describe("SpecDialogSurface", () => {
 
     await screen.findByTestId("dialog-conversation-s-0");
     expect(screen.getByTestId("dialog-conversations")
-      .querySelectorAll(".d-conv")).toHaveLength(20);
+      .querySelectorAll(".dl-conv")).toHaveLength(20);
     expect(screen.queryByTestId("dialog-conversation-s-25")).not.toBeInTheDocument();
   });
 
@@ -1103,7 +1123,7 @@ describe("SpecDialogSurface", () => {
     expect(await screen.findByTestId("dialog-conversation-s-1"))
       .toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("dialog-conversations")
-      .querySelectorAll(".d-conv")).toHaveLength(21);
+      .querySelectorAll(".dl-conv")).toHaveLength(21);
   });
 
   // The cap is taken on the way to the screen and never on the array behind it: the predicate
@@ -1143,18 +1163,16 @@ describe("SpecDialogSurface", () => {
     expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
   });
 
-  // A subject is minted short, but nothing guarantees it — and a row that grew to four lines for
-  // one verbose subject would make a ragged column.
-  it("SpecDialog_ALongSubject_IsClampedRatherThanTruncatedAtOneLine", async () => {
-    fetchSpecDialogConversations.mockResolvedValue(listing([
-      conversation({ sessionId: "s-1", subject: "a subject long enough to need a second line" }),
-    ]));
+  // 2026-11-17-d762a: the bar's row is one line with an ellipsis, like a settings nav row; the whole subject is
+  // its tooltip, so nothing is lost to the cut.
+  it("SpecDialog_ALongSubject_IsOneLineWithTheWholeSubjectAsItsTooltip", async () => {
+    const subject = "a subject long enough to need a second line";
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-1", subject })]));
     await renderSurface();
 
-    const name = (await screen.findByTestId("dialog-conversation-s-1"))
-      .querySelector("span");
-    expect(name?.className).toContain("line-clamp-2");
-    expect(name?.className).not.toContain("truncate");
+    const name = (await screen.findByTestId("dialog-conversation-s-1")).querySelector("span");
+    expect(name?.className).toBe("dl-conv-title");
+    expect(name).toHaveAttribute("title", subject);
   });
 
   it("SpecDialog_AConversationWithAnOutcome_ShowsIt_OneWithoutShowsNone", async () => {
@@ -3154,7 +3172,7 @@ describe("SpecDialogSurface", () => {
 
     const turn = await screen.findByTestId("dialog-turn-agent");
     expect(turn.querySelector(".sr-only")).toHaveTextContent("agent-smith:");
-    expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent("AS");
+    expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent(/^agent$/);
     expect(within(turn).queryAllByRole("button")).toHaveLength(0);
     const selected = screen.getByRole("tab", { selected: true });
     const panel = screen.getByRole("tabpanel");
@@ -3391,7 +3409,7 @@ describe("SpecDialogSurface", () => {
     const pane = await screen.findByTestId("dialog-pane");
     expect(screen.getByTestId("dialog-tab-filed")).toHaveTextContent("Filed");
     expect(within(pane).queryByRole("heading")).toBeNull();
-    expect(pane.querySelector(".d-head .fl")).toHaveTextContent("");
+    expect(pane.querySelector(".dl-tabs .fl")).toHaveTextContent("");
   });
 
   // Dropping the panel's heading was right for a filing that worked and wrong for one that did
@@ -3403,7 +3421,7 @@ describe("SpecDialogSurface", () => {
     act(() => filings.emit(filing({ error: "the tracker refused" })));
 
     const pane = await screen.findByTestId("dialog-pane");
-    const eyebrow = pane.querySelector(".d-head .fl");
+    const eyebrow = pane.querySelector(".dl-tabs .fl");
     expect(eyebrow).toHaveTextContent("filing failed");
     expect(eyebrow?.className.split(/\s+/)).toContain("bad");
     // And the sentence under it went the other way when the heading left: it dropped to the
@@ -3424,7 +3442,7 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-tab-scope"));
 
     expect(screen.getByTestId("dialog-tab-scope")).toHaveTextContent("Scope");
-    expect(pane.querySelector(".d-head .fl")).toHaveTextContent("");
+    expect(pane.querySelector(".dl-tabs .fl")).toHaveTextContent("");
     expect(screen.getByTestId("dialog-scope")).toHaveTextContent("What this conversation may read.");
   });
 

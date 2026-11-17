@@ -17,6 +17,8 @@ import type {
 // on this page that looked like nothing else in the product. A template's mark names it and
 // then says where it comes from: "repo@revision", or a plain repository where the scope
 // pinned no revision.
+// 2026-11-17-d762c: and the marks became lines — a repository or a template is one mono line under its heading
+// word, a ticket id plain mono text — so the column reads as text beside the conversation, not as a box of chips.
 
 export function DialogScopePanel({
   session,
@@ -57,7 +59,7 @@ export function DialogScopePanel({
             <div data-testid="dialog-scope-starting" className="mb-3">
               <div className="fl">Ticket</div>
               <div className="ec-marks ec-sub items-center">
-                <span className="ec-mark filed">{starting.ticketId}</span>
+                <span className="dl-mono">{starting.ticketId}</span>
                 {starting.kind && <span>{starting.kind}</span>}
                 <span className="min-w-0 truncate text-ink">{starting.title}</span>
               </div>
@@ -81,7 +83,7 @@ function BoundTicket({ ticket }: { ticket: SpecDialogSessionTicket }) {
     <div data-testid="dialog-scope-ticket" className="mb-3">
       <div className="fl">Ticket</div>
       <div className="ec-marks ec-sub items-center">
-        <span className="ec-mark filed">{ticket.ticketId}</span>
+        <span className="dl-mono">{ticket.ticketId}</span>
         <span className="min-w-0 truncate text-ink">{ticket.title}</span>
       </div>
       <div className="ec-sub mt-1">
@@ -109,30 +111,30 @@ function Grounding({ project }: { project: SpecDialogProject }) {
       {project.repos.length === 0 ? (
         <div className="ec-sub">no repositories</div>
       ) : (
-        <div className="ec-marks">
+        <ul className="dl-lines">
           {project.repos.map((repo) => (
-            <span key={repo} data-testid={`dialog-scope-repo-${repo}`} className="ec-mark given">
+            <li key={repo} data-testid={`dialog-scope-repo-${repo}`} className="dl-mono given">
               {repo}
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       <div className="fl mt-2">Templates</div>
       {project.templates.length === 0 ? (
         <div className="ec-sub">no templates declared</div>
       ) : (
-        <div className="ec-marks">
+        <ul className="dl-lines">
           {project.templates.map((template) => (
-            <span
+            <li
               key={template.name}
               data-testid={`dialog-scope-template-${template.name}`}
-              className="ec-mark given"
+              className="dl-mono given"
             >
-              <span className="mn">{template.name}</span>
-              {template.revision ? `${template.repo}@${template.revision}` : template.repo}
-            </span>
+              <span className="mn">{template.name}</span>{" "}
+              <span className="dl-dim">{template.revision ? `${template.repo}@${template.revision}` : template.repo}</span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

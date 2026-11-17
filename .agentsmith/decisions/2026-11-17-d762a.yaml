@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d762a
+
+decisions:
+  - category: Architecture
+    chose: "The conversations become the page's own bar (dl-bar) built in the ticket bar's measures (236px, hairline right, 22px/12px padding) in a new styles/spec-dialog.css"
+    over: "SectionNav/SectionNavItem from settings"
+    reason: "SectionNavItem is a Link with an icon slot and a count pill and SectionNav brings 'Back to work'; a conversation row is a button that opens in place (resume needs the hook, not an address) with a delete beside it and two lines of text. The ticket bar is the approved plain look for exactly this: title, rows as text, foot under a hairline."
+  - category: Behaviour
+    chose: "The open conversation is bright text and weight, no fill"
+    over: "The settings nav's filled .nav.on"
+    reason: "The ticket bar made the same call (8d1ca: no filled backgrounds, the chosen section is the bright text); two bars side by side in one product should mark selection one way."
+  - category: Behaviour
+    chose: "A row is the title on one line with an ellipsis (whole subject in the title attribute) and one muted line 'project · ticket · n turns · age · outcome', the outcome green when filed and amber when partly filed"
+    over: "The two-line clamp and the chips"
+    reason: "The operator asked for one-line titles and state as coloured text; the tooltip keeps the full subject reachable."
+  - category: Behaviour
+    chose: "New conversation is a plain text row under the bar's title and All conversations sits at the bar's foot under a hairline, where the ticket bar keeps its facts"
+    over: "A primary button at the top and a link under the rows"
+    reason: "Operator's words: New as a plain row/link at the top, All conversations at the bottom."
+  - category: Architecture
+    chose: "hasSectionBar(pathname) in lib/sectionBarPage.ts answers for the ticket page and /spec-dialog; AppSidebar collapses and hides its toggle by it"
+    over: "A second isWorkItOutPage check in AppSidebar"
+    reason: "Generalises the ticket page's mechanism to the class of pages that bring their own bar; the conversations list (/spec-dialog/conversations) has no bar and keeps the sidebar."
+  - category: Behaviour
+    chose: "The PageHead is gone; 'Work it out' is the bar's title and the page is a grid bar | exchange | 320px pane, the pane dropping under the exchange below 1180px and everything stacking below 760px"
+    over: "Keeping the page head over the columns"
+    reason: "The ticket page has no page head beside its bar; the name in the bar is where the eye already is."
+  - category: Process
+    chose: "The container-query grid test is replaced by one that reads the frame from spec-dialog.css"
+    over: "Keeping the 300px/360px track assertions"
+    reason: "Those tracks no longer exist; the frame's widths now live in the sheet, which is what can be asserted without a layout engine."

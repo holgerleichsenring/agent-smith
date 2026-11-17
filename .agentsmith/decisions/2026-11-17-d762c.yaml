@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d762c
+
+decisions:
+  - category: Architecture
+    chose: "Scope, Uploads and the other pane tabs stay a narrow right column (320px, sticky beside the exchange), plain text without a card"
+    over: "Moving Scope and Uploads into the bar's foot like the ticket page's facts"
+    reason: "The ticket bar's foot holds four short facts. The pane also carries the proposal with its graph, the filed tickets and their runs, and the approved spec — long content that would crowd out the conversation list; splitting Scope/Uploads from those tabs would leave two homes for one pane. A plain column beside the reading column keeps the ticket page's look without that cost."
+  - category: Behaviour
+    chose: "Tabs are words on one line under a hairline, the chosen one bright and weighted (dl-tab), the status word kept at the right"
+    over: "The studio's filled dtab buttons"
+    reason: "The ticket bar marks its chosen section the same way; the tablist roles and aria wiring stay as they were."
+  - category: Behaviour
+    chose: "Repositories and templates are mono lines under their heading words (a template's source muted beside its name); the ticket id is plain mono text"
+    over: "ec-mark chips"
+    reason: "Operator: repository names as plain mono text, no chips."
+  - category: Behaviour
+    chose: "An upload is a row under a hairline with remove as a text link; cards and marks inside the pane (proposal, filed, approved) are flattened by the same spec-dialog.css rule as the exchange's"
+    over: "Restyling each panel component"
+    reason: "One rule covers every card a tab can hold; components and their tests keep their structure."
+  - category: Process
+    chose: "Tab-status tests read the status from .dl-tabs .fl"
+    over: "Keeping .d-head"
+    reason: "The tab row is no card head any more; the status word is the same element."

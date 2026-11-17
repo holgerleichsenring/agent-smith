@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d762b
+goal: "The Work it out conversation reads as plain text in a 720px column with no card, plain speaker words, a one-line upload and the composer under one hairline."
+
+applies_to: "dashboard (SpecDialogSurface exchange, DialogTranscript, DialogComposer, DialogDocumentCard, spec-dialog.css)"
+
+requires: [2026-11-17-d762a]
+
+assumptions:
+  - "The reading width and the composer's hairline follow the ticket page's What happened (2026-11-17-8d1cb)."
+
+facts:
+  - claim: "The exchange is an ecard with a head bar; the speakers are OP and AS badges; an upload is a card with a Show files button."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:359, src/dashboard/src/components/dialog/DialogTranscript.tsx:199-204, src/dashboard/src/components/dialog/DialogTranscript.tsx:134-149"
+  - claim: "The ticket composer drops its box for one top hairline."
+    evidence: "src/dashboard/src/styles/ticket-thread.css:153-155"
+
+scope:
+  in: "Exchange without a card: heading (title, project, identity, work picture) as plain lines; transcript at most 720px wide; speakers as small muted words; an upload as one line 'upload name · n files · size · show files' with show files a text link; a document as a hairline block; the composer sticky at the bottom with one top hairline, its field unboxed, File/Discard kept."
+  out: "The pane (d762c); the step lines' and question cards' content; backend."
+
+steps:
+  - id: exchange
+    action: "SpecDialogSurface: the exchange is a plain section (dl-exchange) with dl-head and dl-body."
+  - id: transcript
+    action: "DialogTranscript: speaker words, upload line with a text link."
+  - id: css
+    action: "spec-dialog.css: 720px column, document and question blocks flattened, composer hairline and sticky."
+  - id: tests
+    action: "Adapt the surface and reference tests; assert the upload is one line with a text link and no card."
+
+decisions:
+  - "Speakers become the words 'you' and 'agent', small and muted, in place of the OP/AS badges — alternatives: the badges without fill."
+
+tests:
+  - "DialogTranscriptReference: one line, no ecard, show files a text link that opens the upload."
+  - "SpecDialogSurface: the exchange has no ecard; the speaker is a word."
+
+done:
+  - "The conversation has no card, reads at most 720px wide, and its composer sits under one hairline with File/Discard working."
+  - "pnpm test and pnpm build are green; the spec gate passes."
