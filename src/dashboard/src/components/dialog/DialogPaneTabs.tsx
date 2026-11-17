@@ -25,7 +25,8 @@ export function DialogPaneTabs({
   bad: boolean;
 }) {
   return (
-    <div className="d-head items-center">
+    // 2026-11-17-d762c: the tabs are words on one line, the chosen one bright — the ticket bar's sections, across.
+    <div className="dl-tabs">
       <div role="tablist" className="flex flex-wrap gap-1">
         {offered.map((offer) => (
           <button
@@ -37,7 +38,7 @@ export function DialogPaneTabs({
             aria-selected={offer === tab}
             aria-controls={offer === tab ? panelId : undefined}
             onClick={() => onPick(offer)}
-            className="dtab"
+            className="dl-tab"
           >
             {TAB_LABEL[offer]}
           </button>

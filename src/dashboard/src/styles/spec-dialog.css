@@ -3,7 +3,7 @@
    Plain: hairlines and text colour, no panels, no pills, no filled backgrounds; the open conversation is the bright row. */
 .mock-dialog.dl-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 320px; align-items: start; min-height: 100%; }
 .mock-dialog.dl-shell > .dl-page { min-width: 0; max-width: none; padding: 28px 32px 20px; min-height: calc(100vh - var(--topbar-h, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
-.mock-dialog.dl-shell > .d-pane { margin: 28px 24px 20px 0; min-width: 0; }
+.mock-dialog.dl-shell > .d-pane { margin: 28px 24px 20px 0; min-width: 0; position: sticky; top: 28px; max-height: calc(100vh - var(--topbar-h, 0px) - 48px); overflow-y: auto; }
 
 /* the bar: the ticket bar's measures and colours */
 .mock-dialog .dl-bar { box-sizing: border-box; position: sticky; top: 0; height: calc(100vh - var(--topbar-h, 0px)); overflow-y: auto; border-right: 1px solid var(--line-2); padding: 22px 12px; display: flex; flex-direction: column; gap: 2px; }
@@ -18,7 +18,7 @@
 .mock-dialog .dl-conv-title { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-3); line-height: 20px; }
 .mock-dialog .dl-conv[aria-current="true"] .dl-conv-title { color: var(--ink); font-weight: 500; }
 .mock-dialog .dl-conv-meta { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; line-height: 17px; color: var(--ink-3); }
-.mock-dialog .dl-conv-meta > span + span::before { content: " · "; color: var(--ink-3); }
+.mock-dialog .dl-conv-meta > span + span::before { content: " · "; color: var(--ink-3); font-family: var(--sans); }
 .mock-dialog .dl-conv-meta .mono { font-family: var(--mono); }
 .mock-dialog .dl-tone.ok { color: var(--ok); }
 .mock-dialog .dl-tone.run { color: var(--run); }
@@ -44,27 +44,49 @@
 .mock-dialog .dl-upload { margin: 0; font-size: 13.5px; line-height: 21px; color: var(--ink-2); overflow-wrap: anywhere; }
 .mock-dialog .dl-upload .mono { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
 .mock-dialog .dl-dim { color: var(--ink-3); }
-.mock-dialog .dl-exchange .ecard { background: none; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; overflow: visible; }
-.mock-dialog .dl-exchange .ecard.waiting { border-left-color: var(--accent); }
-.mock-dialog .dl-exchange .d-strip { background: none; border-top: 0; padding-left: 12px; }
-.mock-dialog .dl-exchange .ec-mark { background: none; padding: 0; border-radius: 0; color: var(--ink-3); }
-.mock-dialog .dl-exchange .ec-mark.filed { color: var(--ok); }
-.mock-dialog .dl-exchange .ec-mark.warn { color: var(--run); }
-.mock-dialog .dl-exchange .ec-mark.bad { color: var(--bad); }
+.mock-dialog :is(.dl-exchange, .dl-side) .ecard { background: none; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; overflow: visible; }
+.mock-dialog :is(.dl-exchange, .dl-side) .ecard.waiting { border-left-color: var(--accent); }
+.mock-dialog :is(.dl-exchange, .dl-side) .d-strip { background: none; border-top: 0; padding-left: 12px; }
+.mock-dialog :is(.dl-exchange, .dl-side) .ec-mark { background: none; padding: 0; border-radius: 0; color: var(--ink-3); }
+.mock-dialog :is(.dl-exchange, .dl-side) .ec-mark.filed { color: var(--ok); }
+.mock-dialog :is(.dl-exchange, .dl-side) .ec-mark.warn { color: var(--run); }
+.mock-dialog :is(.dl-exchange, .dl-side) .ec-mark.bad { color: var(--bad); }
 .mock-dialog .dl-exchange .d-foot { position: sticky; bottom: 0; z-index: 5; margin-top: auto; padding: 12px 0 8px; border-top: 1px solid var(--line-2); background: var(--bg); }
 .mock-dialog .dl-exchange textarea.d-input { border: 0; background: none; box-shadow: none; padding: 4px 0; }
 .mock-dialog .dl-exchange textarea.d-input:focus { box-shadow: none; }
 .mock-dialog .dl-exchange button.d-icon:not(.send) { border-color: transparent; background: none; box-shadow: none; }
 .mock-dialog .dl-exchange button.d-icon.send { box-shadow: none; }
 
+/* 2026-11-17-d762c: the pane — a plain right column: the tabs as words on one line (the chosen one bright, like the
+   ticket bar's section), headings as small words, repositories and templates as mono lines, uploads under hairlines. */
+.mock-dialog .dl-side { font-size: 13px; }
+.mock-dialog .dl-tabs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line-2); }
+.mock-dialog .dl-tabs [role="tablist"] { gap: 4px 14px; }
+.mock-dialog button.dl-tab { font: inherit; padding: 0; border: 0; background: none; color: var(--ink-3); cursor: pointer; }
+.mock-dialog .dl-tab:hover { color: var(--ink-2); }
+.mock-dialog .dl-tab[aria-selected="true"] { color: var(--ink); font-weight: 500; }
+.mock-dialog .dl-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mock-dialog .dl-tabs .fl { margin-left: auto; }
+.mock-dialog .dl-panel { padding: 12px 0 0; }
+.mock-dialog .dl-side .d-head { padding-left: 0; padding-right: 0; }
+.mock-dialog .dl-side .d-body { padding-left: 0; padding-right: 0; }
+.mock-dialog .dl-lines { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.mock-dialog .dl-mono { font-family: var(--mono); font-size: 12px; line-height: 18px; color: var(--ink); overflow-wrap: anywhere; }
+.mock-dialog .dl-mono .mn { font-family: var(--sans); font-weight: 600; }
+.mock-dialog .dl-upload-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mock-dialog .dl-upload-row { border-bottom: 1px solid var(--line-2); padding: 4px 0; }
+.mock-dialog .dl-upload-row .d-upload-head { padding-left: 0; padding-right: 0; }
+.mock-dialog .dl-upload-row .d-tree-note { padding-left: 0; }
+.mock-dialog .dl-upload-row > .px-3 { padding-left: 0; padding-right: 0; }
+
 @media (max-width: 1180px) {
   .mock-dialog.dl-shell { grid-template-columns: 236px minmax(0, 1fr); }
-  .mock-dialog.dl-shell > .d-pane { grid-column: 2; margin: 0 32px 28px; }
+  .mock-dialog.dl-shell > .d-pane { grid-column: 2; margin: 0 32px 28px; position: static; max-height: none; }
 }
 @media (max-width: 760px) {
   .mock-dialog.dl-shell { grid-template-columns: minmax(0, 1fr); }
   .mock-dialog .dl-bar { position: static; height: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line-2); padding: 14px 16px; }
   .mock-dialog .dl-bar-all { margin-top: 8px; }
   .mock-dialog.dl-shell > .dl-page { padding: 18px 16px 20px; min-height: 0; }
-  .mock-dialog.dl-shell > .d-pane { grid-column: 1; margin: 0 16px 24px; }
+  .mock-dialog.dl-shell > .d-pane { grid-column: 1; margin: 0 16px 24px; position: static; max-height: none; }
 }

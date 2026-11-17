@@ -92,11 +92,12 @@ export function DialogPane({
 
   return (
     // 2026-11-12-92e9c: the inspect mark (2026-09-20-4b0ae) left with Inspect.
+    // 2026-11-17-d762c: a plain right column — no card, the tabs as words, the panel's marks as coloured text.
     <aside
       ref={paneRef}
       data-testid="dialog-pane"
       data-tab={tab}
-      className="ecard inert d-pane"
+      className="dl-side d-pane"
     >
       <DialogPaneTabs
         offered={offered}
@@ -116,7 +117,7 @@ export function DialogPane({
         id={panelId}
         aria-labelledby={offered.includes(tab) ? tabId(tab) : undefined}
         tabIndex={-1}
-        className="d-body d-panel"
+        className="dl-panel d-panel"
       >
         {tab === "filed" && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && (

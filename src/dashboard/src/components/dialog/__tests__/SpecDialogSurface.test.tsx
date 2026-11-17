@@ -772,10 +772,20 @@ describe("SpecDialogSurface", () => {
     expect((await screen.findByTestId("dialog-heading")).tagName).toBe("H1");
   });
 
-  // 2026-09-17-042ef: a repository and a template are each ONE mark, the Projects page's own.
-  // A template says where it comes from after its name — "repo@revision", or a plain
-  // repository where the scope pinned no revision.
-  it("SpecDialog_TheScopeColumn_ShowsEachRepositoryAndEachTemplateAsAMark", async () => {
+  // 2026-11-17-d762c: the pane is a plain right column — no card, its tabs words rather than filled buttons.
+  it("SpecDialog_ThePane_IsNoCardAndItsTabsAreWords", async () => {
+    await renderSurface();
+
+    const pane = await screen.findByTestId("dialog-pane");
+    expect(pane.className.split(/\s+/)).not.toContain("ecard");
+    expect(pane.querySelector(".ecard, .dtab")).toBeNull();
+    expect(screen.getByRole("tab", { selected: true }).className).toBe("dl-tab");
+  });
+
+  // 2026-09-17-042ef: a repository and a template are each ONE entry. A template says where it comes from after its
+  // name — "repo@revision", or a plain repository where the scope pinned no revision.
+  // 2026-11-17-d762c: each is a plain mono line now, not a chip.
+  it("SpecDialog_TheScopeColumn_ShowsEachRepositoryAndEachTemplateAsAMonoLine", async () => {
     const unpinned = {
       name: "unpinned",
       repos: ["repo-b"],
@@ -785,13 +795,15 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
 
     for (const repo of ["repo-a", "repo-b"]) {
-      expect(screen.getByTestId(`dialog-scope-repo-${repo}`).className.split(/\s+/)).toContain("ec-mark");
+      const line = screen.getByTestId(`dialog-scope-repo-${repo}`);
+      expect(line.className.split(/\s+/)).toContain("dl-mono");
+      expect(line.className.split(/\s+/)).not.toContain("ec-mark");
     }
     const pinned = screen.getByTestId("dialog-scope-template-template:default");
-    expect(pinned.className.split(/\s+/)).toContain("ec-mark");
+    expect(pinned.className.split(/\s+/)).toContain("dl-mono");
     expect(pinned).toHaveTextContent("template-repo@v1.2");
     const loose = screen.getByTestId("dialog-scope-template-template:loose");
-    expect(loose.className.split(/\s+/)).toContain("ec-mark");
+    expect(loose.className.split(/\s+/)).toContain("dl-mono");
     expect(loose).toHaveTextContent("loose-repo");
     expect(loose.textContent).not.toContain("@");
   });
@@ -829,7 +841,7 @@ describe("SpecDialogSurface", () => {
 
     const template = screen.getByTestId(`dialog-scope-template-${templateName}`);
     expect(template.className.split(/\s+/)).toContain("given");
-    expect(template.textContent).toBe(`${templateName}a-template-repository@v1.2`);
+    expect(template.textContent).toBe(`${templateName} a-template-repository@v1.2`);
   });
 
   it("SpecDialog_TheScopeColumn_NamesTheRepositoriesAndTheTemplates", async () => {
@@ -3397,7 +3409,7 @@ describe("SpecDialogSurface", () => {
     const pane = await screen.findByTestId("dialog-pane");
     expect(screen.getByTestId("dialog-tab-filed")).toHaveTextContent("Filed");
     expect(within(pane).queryByRole("heading")).toBeNull();
-    expect(pane.querySelector(".d-head .fl")).toHaveTextContent("");
+    expect(pane.querySelector(".dl-tabs .fl")).toHaveTextContent("");
   });
 
   // Dropping the panel's heading was right for a filing that worked and wrong for one that did
@@ -3409,7 +3421,7 @@ describe("SpecDialogSurface", () => {
     act(() => filings.emit(filing({ error: "the tracker refused" })));
 
     const pane = await screen.findByTestId("dialog-pane");
-    const eyebrow = pane.querySelector(".d-head .fl");
+    const eyebrow = pane.querySelector(".dl-tabs .fl");
     expect(eyebrow).toHaveTextContent("filing failed");
     expect(eyebrow?.className.split(/\s+/)).toContain("bad");
     // And the sentence under it went the other way when the heading left: it dropped to the
@@ -3430,7 +3442,7 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-tab-scope"));
 
     expect(screen.getByTestId("dialog-tab-scope")).toHaveTextContent("Scope");
-    expect(pane.querySelector(".d-head .fl")).toHaveTextContent("");
+    expect(pane.querySelector(".dl-tabs .fl")).toHaveTextContent("");
     expect(screen.getByTestId("dialog-scope")).toHaveTextContent("What this conversation may read.");
   });
 

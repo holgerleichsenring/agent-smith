@@ -45,7 +45,7 @@ export function DialogUploadsPanel({
       {notSeen(session) && (
         <p className="ec-sub mb-2" data-testid="dialog-uploads-not-seen">{notSeen(session)}</p>
       )}
-      <ul className="flex flex-col gap-2">
+      <ul className="dl-upload-rows">
         {uploadsOf(session).map((upload) => (
           <UploadRow
             key={upload.kind === "set" ? upload.set.setId : `image-${upload.image.id}`}
@@ -77,12 +77,12 @@ function UploadRow({ upload, approved, onRemove, body }: {
   const cited = upload.kind === "set" ? !!upload.set.cited : !!upload.image.cited;
   const id = upload.kind === "set" ? upload.set.setId : String(upload.image.id);
   return (
-    <li data-testid={`dialog-upload-${id}`} className="ecard inert">
+    <li data-testid={`dialog-upload-${id}`} className="dl-upload-row">
       {body(cited ? (
         <span className="ec-sub" data-testid={`dialog-upload-cited-${id}`}>cited by an approval</span>
       ) : (
-        <button type="button" className="btn" data-testid={`dialog-upload-remove-${id}`} onClick={onRemove}>
-          Remove
+        <button type="button" className="d-link" data-testid={`dialog-upload-remove-${id}`} onClick={onRemove}>
+          remove
         </button>
       ))}
       {/* The approval froze the list it cites — sets and, since 2026-10-08-e8b9k, images; one
