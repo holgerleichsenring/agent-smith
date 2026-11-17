@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-e061d
+
+decisions:
+  - category: Architecture
+    chose: "A person's act's follow-up files through the 'file' run as FilingRequest.FollowUp, planned as one work ticket with no series and no label and settled like every filed ticket"
+    over: "A 'follow-up' step that creates and stamps the ticket itself"
+    reason: "That step would be a second filer beside the 'file' run (no second path); the planner already plans a ticket with no series for a bug, and the start pass makes it claimable as StampAsync with no label did."
+  - category: Implementation
+    chose: "FilingRequest.Proposal is nullable; the planner answers a follow-up first and refuses a request with neither"
+    over: "Seeding a stand-in proposal kind for the act's text"
+    reason: "The act asked for no proposal; a stand-in would put a kind on the record that nobody approved."
+  - category: Implementation
+    chose: "Both link comments are posted by e061c's 'comment' run; a follow-up is therefore two runs, the filing and the link"
+    over: "A third step in a 'follow-up' preset reading the filed ticket from the report slot"
+    reason: "Both runs exist and each keeps one meaning; the link names what did not post as before. One preset for the pair is a later simplification, not a missing pipeline."
+  - category: Implementation
+    chose: "FollowUpLink.LinkAsync is PostLinksAsync"
+    over: "Leaving the follow-up callers in the server-writes baseline"
+    reason: "The ratchet's scanner matches '.LinkAsync(' for ITicketRequiresLink; the follow-up's name collided with it and kept two non-writers listed as writers."
+  - category: Tooling
+    chose: "Adversarial self-review: the lock and the spent key are still taken before the filing, so a redelivery files nothing; a filing with nothing filed keeps the key spent and logs, as a failed create did; the PR comment after a follow-up stays ReworkSpeech's"
+    over: "Building on the spec as written"
+    reason: "The guarantees of 9a59t sit around the filing, not inside it; the review checked they did not move."

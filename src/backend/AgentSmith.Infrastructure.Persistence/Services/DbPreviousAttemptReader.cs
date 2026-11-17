@@ -43,6 +43,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             StoppedOnPrecondition = run.FinishedAt is not null && run.Status == RunStatuses.Failed
                 && RunEndKinds.IsPrecondition(run.EndKind),
             EndKind = run.EndKind,
+            CancelReason = run.CancelReason, // 2026-11-17-166aa
             EndDetail = EndDetailJson.Read(run.EndDetailJson),
             // 2026-10-13-8762g: the RunSpec read only when the end is one a boundary can be.
             StoppedAtBoundary = run.FinishedAt is not null && SeriesBoundaryEnd.Ends(run.Status, run.CancelReason)

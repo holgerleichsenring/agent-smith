@@ -5,9 +5,10 @@ import { useLacksPermission } from "@/hooks/useLacksPermission";
 import { retryAttempt } from "@/lib/ticketsApi";
 import type { TicketAttempt } from "@/types/tickets";
 
-// 2026-10-13-9a59r: Retry unchanged — only for a newest attempt that ended on infrastructure, hidden only
-// from a caller known to lack runs.control. 9a59n decides; a refusal's text is shown as the server wrote it
-// (a closed ticket's points at the conversation).
+// 2026-10-13-9a59r: Retry unchanged, hidden only from a caller known to lack runs.control. 9a59n decides; a
+// refusal's text is shown as the server wrote it (a closed ticket's points at the conversation).
+// 2026-11-17-166ad: offered for a finished newest attempt that is neither a success nor handed back — the
+// server retries any such end, not only an infrastructure one.
 
 export const RUNS_CONTROL = "runs.control";
 
@@ -16,7 +17,7 @@ type Outcome = { kind: "idle" } | { kind: "sending" } | { kind: "requested" } | 
 export function RetryUnchanged({ attempt, project }: { attempt: TicketAttempt | null; project: string }) {
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
-  if (!attempt?.endedOnInfrastructure || lacks) return null;
+  if (!attempt || !retriable(attempt) || lacks) return null;
 
   const retry = async () => {
     setOutcome({ kind: "sending" });
@@ -42,4 +43,9 @@ export function RetryUnchanged({ attempt, project }: { attempt: TicketAttempt | 
       {outcome.kind === "said" && <span className="cp-note bad" data-testid="ticket-retry-refused">{outcome.text}</span>}
     </>
   );
+}
+
+/** 2026-11-17-166ad: the ends Retry starts again — finished, not a success, not handed back. */
+export function retriable(attempt: TicketAttempt): boolean {
+  return attempt.finishedAt !== null && attempt.status !== "success" && !attempt.handedBack;
 }

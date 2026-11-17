@@ -129,10 +129,9 @@ public sealed class SpawnPipelineRunsUseCaseTests
     }
 
     [Fact]
-    public async Task SpawnPipelineRuns_FailedStatusUnset_FallsBackToDoneStatusInContext()
+    public async Task SpawnPipelineRuns_FailedStatusUnset_SeedsNoFailedStatus()
     {
-        // p0261: failed_status unset → falls back to done_status, so a failed run still
-        // terminalizes (the ticket never stays New/Active).
+        // 2026-11-17-166aa: failed_status unset → nothing seeded; a failed run never moves to done_status.
         var harness = new Harness();
         var project = BuildProject("p1", repos: new[] { "repo-a" });
         var trigger = new WebhookTriggerConfig { DoneStatus = "Resolved" }; // FailedStatus null
@@ -140,7 +139,8 @@ public sealed class SpawnPipelineRunsUseCaseTests
         await harness.Sut.ExecuteAsync(
             ClaimableConfig, project, "code", Envelope("42"), trigger, CancellationToken.None);
 
-        harness.LastRequest!.InitialContext![ContextKeys.FailedStatus].Should().Be("Resolved");
+        harness.LastRequest!.InitialContext!.Should().NotContainKey(ContextKeys.FailedStatus);
+        harness.LastRequest!.InitialContext![ContextKeys.DoneStatus].Should().Be("Resolved");
     }
 
     private static ResolvedProject BuildProject(string name, string[] repos) => new()

@@ -16,8 +16,10 @@ public sealed class FilingPlanner(SeriesFilingPlan series, ListFilingPlan lists,
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(project);
+        if (request.FollowUp is { } followUp) return new FilingPlan([FollowUp(followUp)]);
         return new FilingPlan(request.Proposal switch
         {
+            null => throw new InvalidOperationException("The filing request carries neither a proposal nor a follow-up; nothing to file."),
             BugOutcome bug => [Bug(bug.Ticket)],
             SpecOutcome spec => series.Spec(request, project, spec),
             EpicOutcome epic => series.Epic(request, project, epic),
@@ -25,6 +27,11 @@ public sealed class FilingPlanner(SeriesFilingPlan series, ListFilingPlan lists,
             var other => throw new InvalidOperationException($"Outcome kind '{other.GetType().Name}' cannot be filed."),
         });
     }
+
+    // 2026-11-17-e061d: a person's act's follow-up — a work ticket with its text, no series and no label.
+    private static PlannedTicket FollowUp(FilingFollowUp followUp) =>
+        new("follow-up", TicketFilingRole.Work, _ => new SpecTicketContent(TicketTitle.Fit(followUp.Title), followUp.Body),
+            Series: null, followUp.Title, [], []);
 
     // A bug carries NO framework label, so the project's own rules decide which pipeline claims it. 2026-09-15-6d9c:
     // rendered, not composed here — the pane shows the same body first.

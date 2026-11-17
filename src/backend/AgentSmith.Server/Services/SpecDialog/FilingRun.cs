@@ -23,10 +23,15 @@ public sealed class FilingRun(IActRun runs) : IFilingRun
         var project = state.Scope?.Project ?? state.Project;
         if (string.IsNullOrWhiteSpace(project))
             return new FilingReport([], "The conversation has no active-scope project to file tickets into.");
+        return await RunRequestAsync(project, ConversationApproval.Request(state, proposal, mayStartRuns, proposalId));
+    }
+
+    public async Task<FilingReport> RunRequestAsync(string project, FilingRequest request)
+    {
         var slot = new FilingReportSlot();
         var result = await runs.RunAsync(project, PipelinePresets.FileName, new Dictionary<string, object>
         {
-            [ContextKeys.FilingRequest] = ConversationApproval.Request(state, proposal, mayStartRuns, proposalId),
+            [ContextKeys.FilingRequest] = request,
             [ContextKeys.FilingReport] = slot,
         });
         return slot.Report ?? new FilingReport([], result.Message ?? "The filing run ended before it filed anything.");

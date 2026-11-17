@@ -15,4 +15,8 @@ public sealed record ExternalWorkerCliOptions(
     /// production backoff.
     /// </summary>
     public TimeSpan RetryPause { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>2026-11-17-166ae: the binary is Claude Code's CLI, so the prompt's system part goes in through
+    /// <c>--system-prompt-file</c> — cached across calls — and only the input part on stdin.</summary>
+    public bool SystemPromptAsFile { get; init; }
 }

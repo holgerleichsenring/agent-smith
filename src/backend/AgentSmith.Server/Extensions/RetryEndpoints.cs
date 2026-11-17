@@ -5,7 +5,7 @@ using AgentSmith.Server.Services.SpecDialog;
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
-/// 2026-10-13-9a59n: POST /api/runs/{runId}/retry — an unchanged attempt after an infrastructure end, started
+/// 2026-10-13-9a59n: POST /api/runs/{runId}/retry — an unchanged attempt after any end but a success, started
 /// through the rework queue with the caller as its cause. 404 an unknown run, 400 a run with nothing to retry,
 /// 409 every refusal as one <see cref="RetryRefusalView"/>, 503 when the tracker could not be read, 202 requested.
 /// </summary>

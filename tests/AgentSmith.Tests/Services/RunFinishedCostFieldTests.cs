@@ -10,7 +10,7 @@ public sealed class RunFinishedCostFieldTests
     private const string RunId = "2026-05-28T09-00-00-rfin";
 
     [Fact]
-    public void RunSnapshot_ApplyRunFinishedWithCostUsd_OverridesAccumulatedTotal()
+    public void RunSnapshot_ApplyRunFinishedWithCostUsd_KeepsTheFoldedCallTotal()
     {
         // Per-call accumulation lands first (e.g. via factory-wrapped decorator).
         var snapshot = RunSnapshot.Empty(RunId)
@@ -27,12 +27,13 @@ public sealed class RunFinishedCostFieldTests
         snapshot.CostUsd.Should().Be(6.72m);
         snapshot.LlmCalls.Should().Be(2);
 
-        // RunFinished arrives with the tracker's truth → overrides accumulation.
+        // 2026-11-17-166ab: RunFinished carries the tracker's estimate (0 on a worker run); the
+        // snapshot keeps the sum of its calls.
         var finished = snapshot.Apply(new RunFinishedEvent(
             RunId, "success", PrUrl: null, Summary: "ok",
-            FinishedAt: DateTimeOffset.UtcNow, CostUsd: 7.0m));
+            FinishedAt: DateTimeOffset.UtcNow, CostUsd: 0m));
 
-        finished.CostUsd.Should().Be(7.0m);
+        finished.CostUsd.Should().Be(6.72m);
         finished.Status.Should().Be("success");
         finished.LlmCalls.Should().Be(2);
     }

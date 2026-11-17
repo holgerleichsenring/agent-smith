@@ -214,7 +214,7 @@ public sealed class ServerDiLifetimeTests
     // 2026-10-13-9a59t: the closed ticket's follow-up is a worker singleton; what it files with is scoped and
     // resolves inside the one scope it opens per call.
     [Fact]
-    public void ClosedTicketActFollowUp_ResolvesScopedStarterAndLinkInOneScope()
+    public void ClosedTicketActFollowUp_ResolvesScopedFilingAndLinkInOneScope()
     {
         var services = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices());
         services.AddReworkNudgeWorker();
@@ -224,7 +224,7 @@ public sealed class ServerDiLifetimeTests
         provider.GetRequiredService<AgentSmith.Server.Services.Rework.ReworkNudgeHandler>().Should().NotBeNull();
         using var scope = provider.CreateScope();
         var filing = AgentSmith.Server.Services.Rework.FollowUpServices.Of(scope.ServiceProvider);
-        filing.Starter.Should().NotBeNull();
+        filing.Filing.Should().NotBeNull(); // 2026-11-17-e061d: the follow-up files through the 'file' run
         filing.Link.Should().NotBeNull();
     }
 

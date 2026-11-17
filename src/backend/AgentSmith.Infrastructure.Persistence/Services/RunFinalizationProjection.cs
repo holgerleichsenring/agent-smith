@@ -76,13 +76,11 @@ public sealed class RunFinalizationProjection(
         run.Summary = e.Summary;
         run.EndKind = e.EndKind;
         run.EndDetailJson = EndDetailJson.Write(e.EndDetail);
-        // p0355: cost must be TRUE on revisit. The run-end total (RunFinishedEvent.
-        // CostUsd) is authoritative when present, but older/leaking producers emit
-        // null — and the DB projector never accumulated per-call cost onto the row,
-        // so those runs persisted $0 despite real RunLlmCall rows. Fall back to the
-        // sum of the persisted per-call costs so the detail read returns the real
-        // total, not a stale zero.
-        run.CostTotalUsd = e.CostUsd ?? await SumLlmCostAsync(uow, e.RunId, ct);
+        // p0355: cost must be TRUE on revisit. 2026-11-17-166ab: the total is the sum of the
+        // run's recorded calls, always. RunFinished.CostUsd is the pipeline tracker's priced
+        // estimate: it sees only the responses its call sites hand it and prices no worker
+        // call, so a worker run ended at $0 over $17.88 of recorded calls.
+        run.CostTotalUsd = await SumLlmCostAsync(uow, e.RunId, ct);
         // p0320c TOCTOU backstop: the orchestrator cannot reach this DB, so its
         // capacity rejection surfaces as RunFinished status="queued" — project a
         // queue entry from the run row so the next attempt reuses THIS row.
@@ -91,8 +89,7 @@ public sealed class RunFinalizationProjection(
         await uow.SaveChangesAsync(ct);
     }
 
-    // p0355: sum the run's persisted per-call costs — the fallback total when the
-    // run-end event carried no cost. Zero when no calls were recorded.
+    // p0355: sum the run's persisted per-call costs — the run's total. Zero when no calls were recorded.
     private static async Task<decimal> SumLlmCostAsync(
         IUnitOfWork uow, string runId, CancellationToken ct)
     {
