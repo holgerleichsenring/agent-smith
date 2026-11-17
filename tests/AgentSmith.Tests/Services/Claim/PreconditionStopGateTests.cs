@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -19,7 +20,7 @@ public sealed class PreconditionStopGateTests
     [Fact]
     public async Task Retrigger_TicketStoppedOnPrecondition_IsRefusedWithTheHeadline()
     {
-        var refusal = await Gate(Held(RunEndKinds.ImageUntrusted, Image)).RefusalAsync(Request(), CancellationToken.None);
+        var refusal = await Gate(Held(RunEndKinds.ImageUntrusted, Image)).RefusalAsync(Request(), Configured, CancellationToken.None);
 
         refusal!.Rejection.Should().Be(ClaimRejectionReason.TicketStuckOnPrecondition);
         refusal.Error.Should().Be("This ticket stopped on a precondition: Image node:22-bookworm (context default) is not "
@@ -31,7 +32,7 @@ public sealed class PreconditionStopGateTests
     {
         var byName = Request() with { InitialContext = new() { [ContextKeys.RequestedByName] = true } };
 
-        (await Gate(Held(RunEndKinds.Preflight, null)).RefusalAsync(byName, CancellationToken.None)).Should().BeNull();
+        (await Gate(Held(RunEndKinds.Preflight, null)).RefusalAsync(byName, Configured, CancellationToken.None)).Should().BeNull();
     }
 
     [Fact]
@@ -39,20 +40,20 @@ public sealed class PreconditionStopGateTests
     {
         var series = Request() with { InitialContext = new() { [ContextKeys.SeriesAutoStart] = true } };
 
-        (await Gate(Held(RunEndKinds.BootstrapMissing, null)).RefusalAsync(series, CancellationToken.None)).Should().BeNull();
+        (await Gate(Held(RunEndKinds.BootstrapMissing, null)).RefusalAsync(series, Configured, CancellationToken.None)).Should().BeNull();
     }
 
     [Fact]
     public async Task Retrigger_FailedWithoutPrecondition_IsClaimed() =>
         (await Gate(new PreviousAttempt("run-1", RunStatuses.Failed, DateTimeOffset.UtcNow, true) { EndKind = RunEndKinds.ReadinessUnknown })
-            .RefusalAsync(Request(), CancellationToken.None)).Should().BeNull();
+            .RefusalAsync(Request(), Configured, CancellationToken.None)).Should().BeNull();
 
     [Fact]
     public async Task Retrigger_BoundaryStop_KeepsTheBoundarySentence()
     {
         var both = new PreviousAttempt("run-1", RunStatuses.Success, DateTimeOffset.UtcNow, true) { StoppedAtBoundary = true };
 
-        var refusal = await Gate(both).RefusalAsync(Request(), CancellationToken.None);
+        var refusal = await Gate(both).RefusalAsync(Request(), Configured, CancellationToken.None);
 
         (refusal!.Rejection, refusal.Error).Should().Be((ClaimRejectionReason.TicketStoppedAtBoundary, BoundaryStopGate.Sentence));
     }
@@ -87,4 +88,17 @@ public sealed class PreconditionStopGateTests
     }
 
     private static ClaimRequest Request() => new("GitHub", "my-project", new TicketId("42"), "code");
+
+    // 2026-11-17-166aa: a project that configures failed_status, so only the precondition arm can hold.
+    private static readonly AgentSmithConfig Configured = new()
+    {
+        Projects = new()
+        {
+            ["my-project"] = new ResolvedProject
+            {
+                Name = "my-project", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "code", FailedStatus = "Failed" },
+            },
+        },
+    };
 }

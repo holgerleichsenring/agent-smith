@@ -26,7 +26,7 @@ public sealed class RetryingWorkerProcessRunnerTests
             .EnqueueRaw(stdout: string.Empty, exitCode: 1)
             .EnqueueText("recovered");
 
-        var result = await Wrap(inner).RunAsync("go", Options, CancellationToken.None);
+        var result = await Wrap(inner).RunAsync(new WorkerPrompt("", "go"), Options, CancellationToken.None);
 
         result.ExitCode.Should().Be(0);
         result.StandardOutput.Should().Contain("recovered");
@@ -38,7 +38,7 @@ public sealed class RetryingWorkerProcessRunnerTests
     {
         var inner = new ScriptedWorkerProcessRunner().EnqueueText("first and only");
 
-        await Wrap(inner).RunAsync("go", Options, CancellationToken.None);
+        await Wrap(inner).RunAsync(new WorkerPrompt("", "go"), Options, CancellationToken.None);
 
         inner.Prompts.Should().ContainSingle(
             "re-asking a worker that answered would double-spend the model and could "
@@ -54,7 +54,7 @@ public sealed class RetryingWorkerProcessRunnerTests
             .EnqueueRaw(stdout: "Prompt is too long", exitCode: 1)
             .EnqueueText("never reached");
 
-        var result = await Wrap(inner).RunAsync("go", Options, CancellationToken.None);
+        var result = await Wrap(inner).RunAsync(new WorkerPrompt("", "go"), Options, CancellationToken.None);
 
         result.ExitCode.Should().Be(1);
         inner.Prompts.Should().HaveCount(3, "a persistent failure is a failure, not a loop");
@@ -67,7 +67,7 @@ public sealed class RetryingWorkerProcessRunnerTests
             .EnqueueRaw(stdout: string.Empty, exitCode: -1, timedOut: true)
             .EnqueueText("recovered");
 
-        var result = await Wrap(inner).RunAsync("go", Options, CancellationToken.None);
+        var result = await Wrap(inner).RunAsync(new WorkerPrompt("", "go"), Options, CancellationToken.None);
 
         result.TimedOut.Should().BeFalse();
         inner.Prompts.Should().HaveCount(2);
@@ -88,7 +88,7 @@ public sealed class RetryingWorkerProcessRunnerTests
         var inner = new ScriptedWorkerProcessRunner()
             .EnqueueRaw(Silent).EnqueueRaw(Errored);
 
-        var result = await Wrap(inner).RunAsync("go", Options, CancellationToken.None);
+        var result = await Wrap(inner).RunAsync(new WorkerPrompt("", "go"), Options, CancellationToken.None);
 
         inner.Prompts.Should().HaveCount(2, "an empty answer inside an envelope is silence");
         result.Envelope!.FailureReason.Should().Contain("error_max_turns",

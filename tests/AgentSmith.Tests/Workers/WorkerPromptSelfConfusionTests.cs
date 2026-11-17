@@ -19,7 +19,7 @@ public sealed class WorkerPromptSelfConfusionTests
     [Fact]
     public void ThePrompt_TellsTheWorkerItHasNoFilesystemOfItsOwn()
     {
-        var prompt = new WorkerPromptRenderer(new WorkerJsonFormat()).Render(Request());
+        var prompt = new WorkerPromptRenderer(new WorkerJsonFormat()).Render(Request()).Text;
 
         prompt.Should().Contain("NO TOOLS AND NO FILESYSTEM");
         prompt.Should().Contain("not on any disk you can reach");
@@ -30,7 +30,7 @@ public sealed class WorkerPromptSelfConfusionTests
     [Fact]
     public void ThePrompt_SaysHowToGetAFileInstead()
     {
-        var prompt = new WorkerPromptRenderer(new WorkerJsonFormat()).Render(Request());
+        var prompt = new WorkerPromptRenderer(new WorkerJsonFormat()).Render(Request()).Text;
 
         prompt.Should().Contain("ask for the read as a tool call",
             "a prohibition without the alternative leaves the model with nowhere to go");

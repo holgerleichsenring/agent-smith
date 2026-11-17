@@ -686,7 +686,7 @@ export interface TicketApprovalPreview {
 
 /** Every 409 of POST /api/runs/{runId}/retry (2026-10-13-9a59n). */
 export interface RetryRefusal {
-  /** not-latest | handed-back | not-finished | not-infrastructure | closed-for-work | starting */
+  /** not-latest | handed-back | not-finished | delivered | closed-for-work | starting */
   reason: string;
   text: string;
   project: string;

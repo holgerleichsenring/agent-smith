@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-5701e
+goal: "A spec the design turn reviewed and passed is not reviewed again by the coding run once filed; the run reviews only a filed spec the turn never passed."
+
+applies_to: "default (filed series, approval record ReviewedClean, run spec review)"
+
+requires: [2026-11-17-5701b]
+
+facts:
+  - claim: "Filing carries a clean-review mark only for a draft whose exact text a review ended clean on."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledSeriesFactory.cs:72-78"
+  - claim: "The design turn's pass marks a draft clean only when its review ended clean; a build-with-cuts draft whose cuts the master applied carries no mark."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewSummary.cs:48"
+  - claim: "Within a turn a text that passed (build or build with cuts) is settled whatever it becomes; only a refused or unreviewed text is attacked again."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewLedger.cs:7-13, src/backend/AgentSmith.Application/Services/Specs/Review/ProposalReviewText.cs:15-27"
+  - claim: "The coding run spares a spec only when the record's ReviewedClean covers its exact text, and attacks every other unbuilt spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecsHandler.cs:33-37"
+  - claim: "NotReviewed lists only specs whose pass did not finish; null means all reviewed or no pass ran."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:36-38"
+  - claim: "Filing re-keys the proposal's review rounds, series rounds included, onto the filed ids."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledSeriesFactory.cs:50"
+
+scope:
+  in: "FiledSeriesFactory marks a filed draft reviewed in its filed text when its last re-keyed round passes by ProposalReviewText.PassedIn's rule (build, build with cuts, or a refusal waiting only on an owner decision) and its id is not in NotReviewed; the contract when the last series round passes (or the epic has no contract), the series token is not in NotReviewed and narrowing removed nothing. The coding run then spares them as it spares a clean text today; a draft with no round or a standing REFUSE is attacked."
+  out: "How many reviewers one review uses (spec_review.reviewers stays config). A ticket edit or a REFUSE answered on the ticket after filing: the run's existing review of a changed text applies, since a changed text no longer matches its hash."
+
+steps:
+  - id: mark
+    action: "CleanFiled keeps today's clean marks and adds ReviewedText.Of(filed id, filed yaml) for every ordered draft whose last round in source.ReviewRounds passes by the PassedIn rule (shared, not copied) and whose id is not in source.NotReviewed; the contract by the same rule over the series round, only when within.Removed is empty. Rename nothing on the record."
+  - id: words
+    action: "The comments of SpecApprovalRecord.ReviewedClean, FiledSeriesFactory.CleanFiled and ReviewSpecsHandler, and the handler's skip reason, say the text was reviewed and passed in the approving turn or answered build."
+
+tests:
+  - "FiledSeriesFactoryTests: a build-with-cuts draft edited after its review is marked; a draft in NotReviewed, with no round (design-turn review off, older row) or with a standing REFUSE is not; a refused series round or a narrowed contract leaves the contract unmarked"
+  - "ReviewSpecsHandlerTests: an approved set whose specs are all marked reviewed is skipped; a spec in NotReviewed is attacked"
+
+done:
+  - "A coding run on a ticket filed from a design turn whose review passed every spec makes no spec-attack review call for them."

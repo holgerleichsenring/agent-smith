@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-166ad
+goal: "Retry starts the latest attempt again after any end but a success or a hand-back, from the button by the same end rule as from the conversation."
+
+applies_to: "default (RunRetryGate) + dashboard (RetryUnchanged)"
+
+facts:
+  - claim: "RunRetryGate admits the conversation's Retry after any end but a delivered success and the button's only after an infrastructure end."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:40-43"
+  - claim: "Both origins already go one path: the request row and an Operator nudge through the rework queue, which starts the run by name."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:56-59, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:38"
+  - claim: "The dashboard shows Retry unchanged only for a newest attempt that ended on infrastructure."
+    evidence: "src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:19"
+  - claim: "In the replay restarting a failed run took a reply in the ticket conversation."
+    evidence: "observed: 2026-11-17, replay operator note"
+
+scope:
+  in: "The gate's end rule is the conversation's for both origins: refuse a success, admit failed, cancelled and shortfall ends (shortfall as the conversation admits it today). RetryOrigin only picks the hand-back wording. The not-infrastructure refusal goes; RunRetryGate drops InfrastructureEnd and TicketLaunchEnds. RetryUnchanged shows for a finished newest attempt that is not a success and not handed back; the attempts tab copy and the comments that said infrastructure-only follow."
+  out: "A second restart path: Retry stays the one request + rework nudge. The conversation's own pre-checks before it calls Retry (unmet requirements, a pending series edit) stay the conversation's. A success: a change is asked for in the conversation. The ticket page layout and the failure act's own button."
+
+steps:
+  - id: gate
+    action: "RunRetryGate: drop the InfrastructureEnd/TicketLaunchEnds arm; a success head is refused Delivered for both origins."
+  - id: refusals
+    action: "Remove RetryRefusals.NotInfrastructure and its text; the dashboard union comment loses not-infrastructure."
+  - id: button
+    action: "RetryUnchanged renders for attempt.finishedAt && status in failed|cancelled|shortfall && !handedBack."
+
+tests:
+  - "RetryTests: the button retries a failed non-infrastructure attempt and a cancelled one; refuses a delivered success with Delivered"
+  - "TicketThread tests: Retry unchanged shown for a failed non-infrastructure end and a cancelled one, hidden for success, running and handed back"
+
+done:
+  - "An operator restarts any ended attempt but a delivered one with Retry from the ticket, without a workaround."

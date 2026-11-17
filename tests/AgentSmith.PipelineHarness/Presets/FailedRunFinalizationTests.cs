@@ -66,6 +66,26 @@ public sealed class FailedRunFinalizationTests
         runner.LastContext!.Get<string>(ContextKeys.FailureReason).Should().Contain("cost budget");
     }
 
+    // 2026-11-17-166aa: a project with done_status and no failed_status — the failure comments and the ticket keeps
+    // its tracker status; nothing is ever finalized, so nothing reads done.
+    [Fact]
+    public async Task TwoSpecDerivation_NoFailedStatus_CommentsAndLeavesTheTicketStatus()
+    {
+        var tickets = new RecordingTicketProvider();
+        await using var harness = BuildHarness(tickets);
+        harness.ChatClient
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
+            .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
+
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = null };
+        var result = await runner.RunAsync("code");
+
+        result.IsSuccess.Should().BeFalse();
+        tickets.Finalized.Should().BeEmpty("without failed_status a failure moves no status, never to done");
+        tickets.Commented.Should().Contain(c => c.Comment.Contains("Agent Smith — Failed", StringComparison.Ordinal)
+            && c.Comment.Contains("cost budget", StringComparison.Ordinal));
+    }
+
     private static RealCompositionHarness BuildHarness(RecordingTicketProvider tickets) =>
         RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
         {

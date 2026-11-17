@@ -9,5 +9,5 @@ namespace AgentSmith.Infrastructure.Services.Workers;
 public interface IWorkerProcessRunner
 {
     Task<WorkerProcessResult> RunAsync(
-        string prompt, ExternalWorkerCliOptions options, CancellationToken cancellationToken);
+        WorkerPrompt prompt, ExternalWorkerCliOptions options, CancellationToken cancellationToken);
 }

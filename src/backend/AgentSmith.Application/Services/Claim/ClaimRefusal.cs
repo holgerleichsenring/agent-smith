@@ -32,7 +32,7 @@ internal sealed class ClaimRefusal(
         // 2026-09-18-c1a7: the ticket the last run could not move — one store read, before the
         // lock and before any tracker write.
         return await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, cancellationToken)
-            ?? await new BoundaryStopGate(attempts).RefusalAsync(request, cancellationToken) // 2026-10-13-8762g
+            ?? await new BoundaryStopGate(attempts).RefusalAsync(request, config, cancellationToken) // 2026-10-13-8762g
             ?? await new RequiresUnmetGate(requirements).RefusalAsync(request, config, cancellationToken);
     }
 }

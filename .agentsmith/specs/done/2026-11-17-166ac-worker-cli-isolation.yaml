@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-166ac
+goal: "The worker CLI runs in a dedicated empty directory, not the shared temp dir, and a Claude Code worker starts without built-in tools, MCP servers or saved sessions."
+
+applies_to: "default (external worker CLI options)"
+
+facts:
+  - claim: "The worker CLI's working directory is AGENTSMITH_WORKER_CWD or the system temp directory itself, shared with every sandbox clone."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerCliOptionsFactory.cs:56-58"
+  - claim: "The CLI is started with -p, --model and --output-format json only, so Claude Code's built-in file tools stay available to the worker."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerCliOptionsFactory.cs:31-41"
+  - claim: "The worker is the model and must not use tools of its own; the prompt says so."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerPromptRenderer.cs:25-30"
+  - claim: "In the replay 8 of 172 calls reported cache reads far beyond the CLI's own 12,149-token prompt (up to 230,866): the CLI took more than one turn, and the operator saw it scan the temp directory holding every sandbox clone."
+    evidence: "observed: 2026-11-17, replay RunLlmCalls CachedTokensIn for run 08-44-38-b43b"
+  - claim: "Measured on CLI 2.1.285: '--tools \"\" --strict-mcp-config' cut a one-word call from 32,852 input tokens to 953; --no-session-persistence is accepted."
+    evidence: "observed: 2026-11-17, probes 'Reply with the single word: pong' on claude -p --model haiku --output-format json"
+
+scope:
+  in: "One dedicated directory <temp>/agentsmith-worker, created when the options are built; AGENTSMITH_WORKER_CWD still overrides it. A stable directory, not one per call: the CLI names its working directory in its own system prompt and keeps a project folder per directory. For a Claude Code binary (worker_structured_result true, or the default binary name) the arguments gain --tools \"\", --strict-mcp-config and --no-session-persistence."
+  out: "A new config key. --setting-sources: it would also drop user settings an operator may rely on (env, proxy). The prompt split (166ae)."
+
+steps:
+  - id: dir
+    action: "ExternalWorkerCliOptionsFactory resolves the override or creates <temp>/agentsmith-worker."
+  - id: flags
+    action: "IsClaudeCode(agent, binary) = WorkerStructuredResult == true || default binary name; structured output keeps its own rule (explicit, else default name); IsClaudeCode adds the three isolation flags. Doc in AgentConfig, schema description, WORKER-MODE.md and ai-providers.md."
+
+tests:
+  - "ExternalWorkerCliOptionsFactory: working directory is <temp>/agentsmith-worker and exists; the env override wins"
+  - "default binary carries --tools \"\", --strict-mcp-config and --no-session-persistence, also with structured output off; a wrapper with worker_structured_result true carries them; an unknown binary without the opt-in carries none"
+
+done:
+  - "No worker call runs in the shared temp directory, and a Claude Code worker has no tool to read the disk with."

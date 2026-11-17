@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Workers;
 using AgentSmith.Contracts.Prompts;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Turns;
@@ -154,7 +155,10 @@ public sealed class EventPublishingChatClient(
                 runId, modelOut, scope?.Role ?? string.Empty,
                 Math.Max(0, (response?.Usage?.InputTokenCount ?? 0) - cache.InclusiveRead),
                 response?.Usage?.OutputTokenCount ?? 0,
-                costCalculator.ComputeCostUsd(modelOut, response?.Usage, cache),
+                // 2026-11-17-166ab: a worker call records what its CLI reported; the table would
+                // price the CLI's joined model name ("haiku+opus") at whichever entry matched.
+                (response is null ? null : WorkerCallAccounting.Of(response)?.ReportedCostUsd)
+                    ?? costCalculator.ComputeCostUsd(modelOut, response?.Usage, cache),
                 durationMs, DateTimeOffset.UtcNow, scope?.Phase, scope?.RepoName,
                 // p0323: cached share per call — the alarm that keeps a dead cache from
                 // being invisible again.

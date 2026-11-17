@@ -23,7 +23,7 @@ namespace AgentSmith.Server.Services.Tickets;
 public sealed class InfrastructureEnd
 {
     /// <summary>The reason StaleLeaseRelease cancels with.</summary>
-    public const string StaleLeaseReaped = "stale-lease-reaped";
+    public const string StaleLeaseReaped = OwedWorkCancel.StaleLeaseReaped;
 
     /// <param name="lastLaunch">The run's last segment and its sandbox ends; null reads the sandbox arm false.</param>
     public bool Holds(Run run, RunLastLaunch? lastLaunch = null) =>

@@ -92,6 +92,17 @@ public sealed class CancelEnforcementTests : IDisposable
             Times.Never);
     }
 
+    // 2026-11-17-166aa: no failed_status → the cancel comments and leaves the status; it never moves to done_status.
+    [Fact]
+    public async Task CancelledTicketFinalizer_NoFailedStatus_CommentsAndLeavesTheStatus()
+    {
+        await NewFinalizer(failedStatus: null).FinalizeAsync(Run("run-old"), "<b>cancelled</b>", CancellationToken.None);
+
+        _ticketProvider.Verify(p => p.UpdateStatusAsync(new TicketId("42"), "<b>cancelled</b>", It.IsAny<CancellationToken>()), Times.Once);
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static Run Run(string id, string pipeline = PipelinePresets.CodeName) =>
         new() { Id = id, Project = "p1", TicketId = "42", Pipeline = pipeline };
 
@@ -321,7 +332,7 @@ public sealed class CancelEnforcementTests : IDisposable
     // enforcement tests; the wall-time test lowers it.
     private OrchestratorGlobalConfig _orchestrator = new() { MaxRunWallTimeSeconds = 100_000 };
 
-    private CancelledTicketFinalizer NewFinalizer()
+    private CancelledTicketFinalizer NewFinalizer(string? failedStatus = "Rejected")
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(_ticketProvider.Object);
@@ -335,7 +346,7 @@ public sealed class CancelEnforcementTests : IDisposable
                     Tracker = new TrackerConnection { Type = TrackerType.GitHub },
                     GithubTrigger = new WebhookTriggerConfig
                     {
-                        TriggerStatuses = ["Approved"], DoneStatus = "closed", FailedStatus = "Rejected",
+                        TriggerStatuses = ["Approved"], DoneStatus = "closed", FailedStatus = failedStatus,
                     },
                 },
             },

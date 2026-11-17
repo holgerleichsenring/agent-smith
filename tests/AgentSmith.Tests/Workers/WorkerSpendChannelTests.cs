@@ -92,6 +92,21 @@ public sealed class WorkerSpendChannelTests
         }).Should().Contain("--output-format");
     }
 
+    // 2026-11-17-166ac: a Claude Code CLI starts without built-in tools, MCP servers or a saved session.
+    [Fact]
+    public void WorkerAgent_OnTheDefaultCli_StartsWithoutToolsEvenWithTheStructuredResultOff()
+    {
+        using var _ = new ClearedWorkerEnvironment();
+
+        Arguments(new AgentConfig()).Should().ContainInOrder(ExternalWorkerCliOptionsFactory.IsolationArguments);
+        Arguments(new AgentConfig { WorkerStructuredResult = false })
+            .Should().ContainInOrder(ExternalWorkerCliOptionsFactory.IsolationArguments, "the name says it is Claude Code");
+        Arguments(new AgentConfig { Endpoint = "/opt/e2e/claude-tee.sh", WorkerStructuredResult = true })
+            .Should().ContainInOrder(ExternalWorkerCliOptionsFactory.IsolationArguments, "a wrapper that opted in is Claude Code");
+        Arguments(new AgentConfig { Endpoint = "/opt/bin/my-own-worker" })
+            .Should().NotContain("--tools").And.NotContain("--strict-mcp-config").And.NotContain("--no-session-persistence");
+    }
+
     private static IReadOnlyList<string> Arguments(AgentConfig agent) =>
         new ExternalWorkerCliOptionsFactory()
             .Create(agent, new ModelAssignment { Model = "sonnet" }).Arguments;

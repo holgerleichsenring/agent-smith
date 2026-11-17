@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -62,9 +63,9 @@ public sealed class StaleLeaseRelease(
         // projection. p0459: the release names the lease's OWN run, never just the ticket.
         if (candidate.RunId is { Length: > 0 } runId)
         {
-            cancellationRegistry.TryCancel(runId, "stale-lease-reaped");
+            cancellationRegistry.TryCancel(runId, OwedWorkCancel.StaleLeaseReaped);
             await eventPublisher.PublishAsync(
-                new RunCancelRequestedEvent(runId, "stale-lease-reaped", timeProvider.GetUtcNow()),
+                new RunCancelRequestedEvent(runId, OwedWorkCancel.StaleLeaseReaped, timeProvider.GetUtcNow()),
                 cancellationToken);
         }
         await lease.ReleaseAsync(candidate.Project, candidate.TicketId, candidate.RunId, cancellationToken);

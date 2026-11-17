@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
@@ -53,7 +54,7 @@ public sealed class FiledSeriesFactory(
         var filed = new FiledSeries(series, drafts)
         {
             ReviewRounds = rounds,
-            ReviewedClean = CleanFiled(ordered, drafts, map, source),
+            ReviewedClean = CleanFiled(ordered, drafts, map, rounds, source),
             Sources = map.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal),
         };
         if ((source as EpicOutcome)?.Contract is not { } contract) return filed;
@@ -62,19 +63,28 @@ public sealed class FiledSeriesFactory(
             logger.LogInformation("Series {Series}: contract entries naming no filed spec removed: {Removed}",
                 series, string.Join("; ", within.Removed));
         // 2026-11-10-8e59: the contract's clean review follows our rename, and only when no entry was narrowed away.
-        var cleanContract = within.Removed.Count == 0 && within.Contract is { } kept && ReviewedText.Covers(source!.ReviewedClean, contract)
+        // 2026-11-17-5701e: so does a pass of the turn's last series round.
+        var cleanContract = within.Removed.Count == 0 && within.Contract is { } kept
+            && (ReviewedText.Covers(source!.ReviewedClean, contract) || PassedInTurn(ProposalReviewTokens.Series, ProposalReviewTokens.Series, rounds, source))
             ? [ReviewedText.Of(kept)] : Array.Empty<ReviewedText>();
         return filed with { Contract = within.Contract, ReviewedClean = [.. filed.ReviewedClean, .. cleanContract] };
     }
 
     // 2026-11-10-8e59: filing re-ids a draft, which is our rename and no change of content, so a clean review moves
-    // to the filed id and yaml — only when the source draft is exactly the text that review ended clean on.
+    // to the filed id and yaml — when the source draft is exactly the text that review ended clean on.
+    // 2026-11-17-5701e: or when the approving turn's last round of the draft passed it (build, build with cuts, or a
+    // refusal waiting only on an owner decision), whatever applying its cuts made of the text.
     private static List<ReviewedText> CleanFiled(IReadOnlyList<SpecDraft> ordered, IReadOnlyList<SpecDraft> drafts,
-        IReadOnlyDictionary<string, string> map, OutcomeProposal? source) =>
-        [.. ordered.Where(d => ReviewedText.Covers(source?.ReviewedClean, d.SpecId, d.Yaml) && map.ContainsKey(d.SpecId))
+        IReadOnlyDictionary<string, string> map, IReadOnlyList<ProposalReviewRound> rounds, OutcomeProposal? source) =>
+        [.. ordered.Where(d => map.ContainsKey(d.SpecId)
+                && (ReviewedText.Covers(source?.ReviewedClean, d.SpecId, d.Yaml) || PassedInTurn(d.SpecId, map[d.SpecId], rounds, source)))
             .Select(d => drafts.FirstOrDefault(f => f.SpecId == map[d.SpecId]))
             .OfType<SpecDraft>()
             .Select(f => ReviewedText.Of(f.SpecId, f.Yaml))];
+
+    // The source's own id is what NotReviewed names; the re-keyed rounds sit under the filed id.
+    private static bool PassedInTurn(string sourceId, string filedId, IReadOnlyList<ProposalReviewRound> rounds, OutcomeProposal? source) =>
+        source is not null && source.NotReviewed?.Contains(sourceId) != true && ProposalReviewText.LastRoundPassed(rounds, filedId);
 
     /// <summary>The base the ticket's approval record carries, or a fresh one for a record made
     /// before series existed.</summary>

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-166ab
+goal: "A run's recorded cost is the sum of its recorded calls, live and at its end; a worker call records the cost its CLI reported, not a table price."
+
+applies_to: "default (run finalization projection, live snapshot fold, LLM call event)"
+
+facts:
+  - claim: "At the run's end the projection overwrites the live per-call sum with RunFinished.CostUsd when present; the live fold does the same."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:85, src/backend/AgentSmith.Server/Services/Events/RunSnapshotFold.cs:32"
+  - claim: "RunFinished.CostUsd is the pipeline tracker's priced estimate, which excludes worker calls by design, so a worker run ends at 0."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:238, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:177"
+  - claim: "The tracker sees only the responses its call sites hand it; the event publisher wraps every provider round trip. In the replay the tracker counted 102 worker calls, the call table 172."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:22, observed: 2026-11-17, replay run 08-44-38-b43b result line '102 worker CLI calls' vs 172 RunLlmCalls rows"
+  - claim: "The per-call event prices a worker call from the model table under the CLI's joined model name; in the replay all 172 rows carry 'claude-haiku-4-5-20251001+claude-opus-5-5' and $18.07."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:157, observed: 2026-11-17, replay RunLlmCalls"
+  - claim: "The worker response carries the CLI's own per-call figure."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Workers/WorkerCallAccounting.cs:16-23"
+
+scope:
+  in: "EventPublishingChatClient: a worker response's CostUsd is WorkerCallAccounting.ReportedCostUsd. RunFinalizationProjection: CostTotalUsd = sum of the run's RunLlmCall rows. RunLlmCallProjection: a call projected after the finish still adds to the total (rows are written once since 2026-08-25-61f1). RunSnapshotFold: RunFinished keeps the folded per-call total. Supersedes b0d7's 'not this run's spend' for the recorded run cost: WORKER-MODE.md and docs/connect-your-stuff/ai-providers.md say the CLI figure is the run's recorded cost, and readers of CostTotalUsd (series runway budget, month cost, ticket list) now see worker spend."
+  out: "The pipeline tracker's budget fence and result.md (its USD arm stays unbound for worker spend). Removing RunFinishedEvent.CostUsd from the contract (26 test sites construct it positionally; it stays on the trail as the producer's figure, read by no projection). A live snapshot rebuilt from a capped stream may miss early calls; the database row is the record. The tracker's own undercount of loop iterations (listed in 166ae)."
+
+steps:
+  - id: call
+    action: "EventPublishingChatClient.PublishFinishedAsync: CostUsd = WorkerCallAccounting.Of(response)?.ReportedCostUsd ?? the table price."
+  - id: finish
+    action: "RunFinalizationProjection.FinishAsync: CostTotalUsd = SumLlmCostAsync, always."
+  - id: live
+    action: "RunSnapshotFold RunFinished arm: CostUsd stays snapshot.CostUsd."
+
+tests:
+  - "RunFinalizationProjection: a RunFinished carrying 0 after calls of 1.5 and 2.25 ends at 3.75; no calls ends at 0"
+  - "RunSnapshotFold: RunFinished with CostUsd 0 keeps the folded total"
+  - "RunLlmCallProjection: a call after the finish adds to the total; a replayed call (same seq) does not"
+  - "EventPublishingChatClient: a worker response publishes its reported cost; a provider response its table price"
+
+done:
+  - "A worker run's row shows the CLI-reported sum of every call while it runs and after it ends; a provider run shows the sum of its priced calls."
