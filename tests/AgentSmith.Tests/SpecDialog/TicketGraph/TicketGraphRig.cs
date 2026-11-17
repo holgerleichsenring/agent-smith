@@ -74,7 +74,7 @@ internal sealed class TicketGraphRig
         new UnmetTicketRequirements(Requirements, Facts, Approvals), FiledWorkDoubles.Starter(config ?? Config()),
         LinkPass(), NullLogger<TicketGraphStarts>.Instance);
 
-    public TicketGraphLinks LinkPass() => new(Factory().Object, Time, NullLogger<TicketGraphLinks>.Instance);
+    public TicketGraphLinks LinkPass() => new(Factory().Object, Time, new TicketsConfig(), NullLogger<TicketGraphLinks>.Instance);
 
     private Mock<ITicketProviderFactory> Factory()
     {

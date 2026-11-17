@@ -391,7 +391,6 @@
 1	AgentSmith.Server/Services/References/ReferenceUploadBody.cs
 3	AgentSmith.Server/Services/References/ReferenceUploadLimits.cs
 1	AgentSmith.Server/Services/References/ReferenceZipReader.cs
-2	AgentSmith.Server/Services/Rework/DependentsWake.cs
 1	AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs
 2	AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs
 1	AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs
@@ -414,7 +413,6 @@
 2	AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs
 1	AgentSmith.Server/Services/SpecDialog/SpecDialogConversationTitle.cs
 1	AgentSmith.Server/Services/SpecDialog/SpecDialogDigestWriter.cs
-1	AgentSmith.Application/Services/Filing/TicketGraphLinks.cs
 1	AgentSmith.Server/Services/SpecDialog/TicketRunText.cs
 2	AgentSmith.Server/Services/SpecDialog/TicketRunsReviews.cs
 2	AgentSmith.Server/Services/SpecDialog/TicketSearchAcrossTrackers.cs
@@ -423,7 +421,6 @@
 1	AgentSmith.Server/Services/Startup/StartupProbePass.cs
 1	AgentSmith.Server/Services/Startup/StartupProbeRunner.cs
 1	AgentSmith.Server/Services/Sweep/ChangeSweepCycle.cs
-4	AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs
 1	AgentSmith.Server/Services/Sweep/PrSweepComments.cs
 1	AgentSmith.Server/Services/Sweep/SweepCursorPolicy.cs
 1	AgentSmith.Server/Services/Tickets/Checks/TicketBetweenAttemptsChecker.cs

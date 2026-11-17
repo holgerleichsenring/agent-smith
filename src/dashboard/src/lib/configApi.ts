@@ -867,7 +867,8 @@ export type SettingKey =
   | "pipeline_data_flow"
   | "trace"
   | "spec_review"
-  | "series";
+  | "series"
+  | "tickets";
 
 export interface OrchestratorSetting {
   maxRunWallTimeSeconds: number;
@@ -1017,6 +1018,17 @@ export interface SeriesSetting {
   buildNoteMaxChars: number;
 }
 
+/** 2026-11-17-f9b0d: requires links, dependents wake and the pull-request re-read (agentsmith.yml tickets:). */
+export interface TicketsSetting {
+  requiresLinkDeadlineSeconds: number;
+  dependentsWakeWindowHours: number;
+  dependentsWakeCap: number;
+  prRereadIntervalSeconds: number;
+  prRereadStaleSeconds: number;
+  prRereadOpenCap: number;
+  prRereadMergedCap: number;
+}
+
 /** Maps each settings key to its wire shape. */
 export interface SettingShapes {
   orchestrator: OrchestratorSetting;
@@ -1033,6 +1045,7 @@ export interface SettingShapes {
   trace: TraceSetting;
   spec_review: SpecReviewSetting;
   series: SeriesSetting;
+  tickets: TicketsSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

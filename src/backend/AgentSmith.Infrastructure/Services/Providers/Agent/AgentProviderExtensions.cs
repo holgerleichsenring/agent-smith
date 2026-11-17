@@ -61,6 +61,7 @@ public static class AgentProviderExtensions
         services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Limits);
         // 2026-11-17-f9b0c: the dialogue: block (mock caps) is bound the same way.
         services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Dialogue);
+        services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Tickets); // 2026-11-17-f9b0d
         return services;
     }
 }
