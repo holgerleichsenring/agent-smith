@@ -23,5 +23,9 @@ internal static class WorkerSpendSectionWriter
         sb.AppendLine($"    cache_read: {spend.CacheReadTokens}");
         sb.AppendLine($"    cache_create: {spend.CacheCreationTokens}");
         sb.AppendLine(string.Format(ci, "    reported_usd: {0:F4}", spend.ReportedCostUsd));
+        // 2026-11-17-7c9bf: models the CLI used beside the calls' own; their usd is inside reported_usd.
+        foreach (var side in spend.Secondary ?? [])
+            sb.AppendLine(string.Format(ci, "    secondary: {0} ({1} in, {2} out, {3} cache read, {4:F4} usd)",
+                side.Model, side.InputTokens, side.OutputTokens, side.CacheReadTokens, side.CostUsd));
     }
 }

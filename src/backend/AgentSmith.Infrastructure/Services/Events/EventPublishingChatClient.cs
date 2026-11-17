@@ -171,7 +171,8 @@ public sealed class EventPublishingChatClient(
         // 2026-11-17-7c9bc: the run's ledger holds exactly what was just recorded.
         runContext.CurrentRecordedCalls?.Add(new RecordedCall(
             finished.Model, stage, finished.RepoName, finished.TokensIn, finished.TokensOut,
-            finished.CachedTokensIn, finished.CacheCreationTokensIn, finished.CostUsd, worker is not null));
+            finished.CachedTokensIn, finished.CacheCreationTokensIn, finished.CostUsd, worker is not null)
+            { Secondary = worker?.Secondary ?? [] });
     }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

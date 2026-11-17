@@ -70,4 +70,21 @@ public sealed class RecordedCallSummaryTests
         text.Should().Contain("total_usd: 27.0000").And.Contain("    calls: 36").And.Contain("  output: 72000");
         text.Should().NotContain("total_usd: 0.0000");
     }
+
+    /// <summary>2026-11-17-7c9bf: haiku's side use is summed per model and named beside the worker block.</summary>
+    [Fact]
+    public void ResultFrontmatter_SideModel_RendersASecondaryLineAndKeepsTheModelName()
+    {
+        var side = new AgentSmith.Contracts.Models.Workers.WorkerModelUsage("claude-haiku-4-5-20251001", 400, 20, 0, 0, 0.0005m);
+        var calls = Enumerable.Range(0, 2)
+            .Select(_ => new RecordedCall("claude-opus-5-5", "Plan", null, 2, 900, 0, 0, 0.42m, IsWorker: true) { Secondary = [side] })
+            .ToList();
+        var sb = new StringBuilder();
+
+        RunCostSectionWriter.AppendFrontmatter(sb, new Ticket(new TicketId("1"), "t", "d", null, "open", "jira", []),
+            "feat", 1, RecordedCallSummary.Of(calls, RecordedCallCarry.None, null));
+
+        sb.ToString().Should().Contain("    model: claude-opus-5-5\n")
+            .And.Contain("    secondary: claude-haiku-4-5-20251001 (800 in, 40 out, 0 cache read, 0.0010 usd)");
+    }
 }

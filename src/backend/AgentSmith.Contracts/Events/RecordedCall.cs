@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Workers;
+
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
@@ -14,4 +16,9 @@ public sealed record RecordedCall(
     long CachedTokensIn,
     long CacheCreationTokensIn,
     decimal CostUsd,
-    bool IsWorker);
+    bool IsWorker)
+{
+    /// <summary>2026-11-17-7c9bf: the other models a worker CLI used during the call; their cost is inside
+    /// <see cref="CostUsd"/>.</summary>
+    public IReadOnlyList<WorkerModelUsage> Secondary { get; init; } = [];
+}

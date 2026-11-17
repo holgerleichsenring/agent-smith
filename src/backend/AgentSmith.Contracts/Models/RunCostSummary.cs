@@ -33,7 +33,9 @@ public sealed record WorkerSpend(
     long OutputTokens,
     long CacheReadTokens,
     long CacheCreationTokens,
-    decimal ReportedCostUsd);
+    decimal ReportedCostUsd,
+    // 2026-11-17-7c9bf: what the CLI used beside the calls' own models, summed per model.
+    IReadOnlyList<Workers.WorkerModelUsage>? Secondary = null);
 
 /// <summary>
 /// Cost for a single execution phase.

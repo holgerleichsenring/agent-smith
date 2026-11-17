@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Workers;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services;
@@ -62,7 +63,19 @@ public static class RecordedCallSummary
         return worker.Count == 0
             ? null
             : new WorkerSpend(Models(worker), worker.Count, worker.Sum(c => c.TokensIn), worker.Sum(c => c.TokensOut),
-                worker.Sum(c => c.CachedTokensIn), worker.Sum(c => c.CacheCreationTokensIn), worker.Sum(c => c.CostUsd));
+                worker.Sum(c => c.CachedTokensIn), worker.Sum(c => c.CacheCreationTokensIn), worker.Sum(c => c.CostUsd),
+                Secondary(worker));
+    }
+
+    // 2026-11-17-7c9bf: the side models summed per model; their cost is already inside the calls' cost.
+    private static IReadOnlyList<WorkerModelUsage>? Secondary(IEnumerable<RecordedCall> worker)
+    {
+        var used = worker.SelectMany(c => c.Secondary).GroupBy(u => u.Model, StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new WorkerModelUsage(g.Key, g.Sum(u => u.InputTokens), g.Sum(u => u.OutputTokens),
+                g.Sum(u => u.CacheReadTokens), g.Sum(u => u.CacheCreationTokens), g.Sum(u => u.CostUsd)))
+            .ToList();
+        return used.Count == 0 ? null : used;
     }
 
     private static string Models(IEnumerable<RecordedCall> calls) => string.Join("+", calls
