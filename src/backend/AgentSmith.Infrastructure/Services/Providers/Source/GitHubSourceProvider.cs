@@ -276,11 +276,11 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         string prUrl, BranchName target, CancellationToken cancellationToken) =>
         _prTarget.MoveAsync(prUrl, target.Value, cancellationToken);
 
-    // p0490: the branch is what a LOCAL repository needs to finish a "pull request";
-    // GitHub recovers everything it needs from the URL.
+    // p0490: GitHub recovers the pull request from the URL. 2026-11-17-713eb: the branch is the
+    // head the merge then deletes, since GitHub has no per-pull-request delete option.
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
-        _merger.CompleteAsync(prUrl, cancellationToken);
+        _merger.CompleteAsync(prUrl, sourceBranch.Value, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);
@@ -311,6 +311,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         new GitHubPrReviewStateReader(CreateGitHubClient(), _address).ReadAsync(prUrl, cancellationToken);
 
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitHubPullRequestClose(_owner, _repo, CreateGitHubClient()).CloseAsync(prUrl, cancellationToken);
+
 
     public async Task<PullRequestHead> HeadAsync(string prNumber, CancellationToken cancellationToken)
     {

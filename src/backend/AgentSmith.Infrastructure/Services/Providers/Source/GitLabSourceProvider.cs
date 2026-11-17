@@ -116,12 +116,15 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        // 2026-11-17-713eb: a merge request from an agent-smith/ branch deletes it when it
+        // merges, a person's merge included — GitLab's own per-request option.
         request.Content = JsonContent.Create(new
         {
             source_branch = repository.CurrentBranch.Value,
             target_branch = target,
             title = mrTitle,
-            description = body
+            description = body,
+            remove_source_branch = WorkBranches.Owns(repository.CurrentBranch.Value),
         });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -292,6 +295,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitLabMrStateReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ReadAsync(prUrl, cancellationToken);
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitLabMergeRequestClose(_baseUrl, _projectPath, _privateToken, _httpClient).CloseAsync(prUrl, cancellationToken);
+
 
     private const int MaxNotePages = 50;
 

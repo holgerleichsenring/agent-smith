@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-713eb
+goal: "A pull request from an agent-smith/ branch deletes its branch when it merges: a merge the run performs on Azure Repos, GitHub and GitLab, and a GitLab merge by a person."
+
+applies_to: "default (source providers: Azure Repos auto-complete, GitHub merger, GitLab merge request create/ready/merge)"
+
+requires: [2026-11-17-713ea]
+
+facts:
+  - claim: "Azure Repos arms auto-complete with DeleteSourceBranch = false, kept on purpose by p0490."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:63-70"
+  - claim: "GitLab marks a merge request ready with remove_source_branch = false and merges with should_remove_source_branch = false; the create body sets neither."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestUpdater.cs:46, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestUpdater.cs:71, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:119-125"
+  - claim: "GitHub has no per-pull-request delete option; the merger returns Merged and leaves the head ref."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPullRequestMerger.cs:57-62"
+  - claim: "CompletePullRequestAsync receives the source branch, which the GitHub and GitLab providers ignore today."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:279-283"
+  - claim: "The branch prefix lives in Application, which Infrastructure does not reference."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:18, src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:4-6"
+  - claim: "Only InitComplete completes a pull request today."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCompleteHandler.cs:79"
+
+scope:
+  in: "WorkBranches.Prefix and Owns(branch) in Contracts, TicketBranchNamer.Prefix reading it; Azure Repos DeleteSourceBranch = true; GitLab should_remove_source_branch = true on merge, remove_source_branch = true on mark-ready and on create; GitHub deletes refs/heads/<source branch> after a merge when WorkBranches.Owns it, and a failed delete leaves the completion Merged and is logged."
+  out: "A person's merge on GitHub or Azure Repos leaves the branch: GitHub offers no per-PR option and the Azure web dialog does not read the PR's completion options; the sweep in 2026-11-17-713ec removes those branches. Repository settings (GitHub delete_branch_on_merge) are the owner's and are not changed."
+
+steps:
+  - id: prefix
+    action: "Contracts/Providers/WorkBranches: Prefix = \"agent-smith\", Owns(string? branch) true for a name under Prefix + '/'; TicketBranchNamer.Prefix = WorkBranches.Prefix."
+  - id: azure
+    action: "AzureReposAutoComplete.Arming sets DeleteSourceBranch = true; the comment names this spec."
+  - id: gitlab
+    action: "GitLabMergeRequestUpdater: should_remove_source_branch = true in CompleteAsync, remove_source_branch = true in MarkReadyAsync; GitLabSourceProvider.CreatePullRequestAsync sends remove_source_branch = true when WorkBranches.Owns the source branch."
+  - id: github
+    action: "GitHubPullRequestMerger.CompleteAsync takes the source branch; after a Merged result it deletes heads/<branch> through client.Git.Reference.Delete when WorkBranches.Owns it, catching and logging a failure (a repository that deletes on merge itself answers 422)."
+
+tests:
+  - "WorkBranches.Owns: agent-smith/42 and agent-smith/init yes; agent-smithy/x, feature/x, null no"
+  - "Azure: the armed update carries DeleteSourceBranch true"
+  - "GitLab: merge body should_remove_source_branch true; ready body remove_source_branch true; create body remove_source_branch true for an agent-smith/ branch"
+  - "GitHub: merged agent-smith/init deletes heads/agent-smith/init; a refused merge deletes nothing; a branch outside the prefix is not deleted; a delete that throws still answers Merged"
+
+done:
+  - "An init pull request the run completes leaves no agent-smith/init branch behind on any of the three hosts."

@@ -64,9 +64,9 @@ public sealed class AzureReposAutoComplete(
         GitPullRequest pr, Microsoft.VisualStudio.Services.WebApi.IdentityRef identity) => new()
         {
             AutoCompleteSetBy = identity,
-            // p0490 keeps the source branch: the init branch is the audit trail of what
-            // the run wrote, and deleting branches was explicitly out of scope.
-            CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = false },
+            // 2026-11-17-713eb: the merge deletes the source branch. p0490 kept it as an audit
+            // trail; the merged pull request is that trail, and a kept branch only went stale.
+            CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = true },
         };
 
     private PullRequestCompletion Interpret(GitPullRequest updated, int prId)
