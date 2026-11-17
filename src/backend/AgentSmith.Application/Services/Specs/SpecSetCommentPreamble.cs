@@ -41,8 +41,12 @@ public static class SpecSetCommentPreamble
         + "unstarted spec or re-cuts the unstarted tail. A spec that already ran is never "
         + "edited — a correction to it becomes a new spec.";
 
+    /// <summary>2026-11-17-dd05a: how the approved wording opens, so the ticket page tells an approved cut from a
+    /// derived one.</summary>
+    public const string ApprovedOpening = "This set was approved in a design conversation";
+
     private const string Approved =
-        "This set was approved in a design conversation and I started working. This is NOT a "
+        ApprovedOpening + " and I started working. This is NOT a "
         + "question and the run is not waiting — and an ordinary comment here will NOT change the "
         + "specification: no passing remark re-cuts a set somebody approved. To change it, edit "
         + "the specs on the ticket branch (they are open in the pull request linked below) "

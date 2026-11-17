@@ -59,6 +59,7 @@ internal static class OldShapeStore
             ContentJson = ApprovedSet(), ApprovedAt = T, ApprovedInConversation = "c", ApprovedBy = "b",
         });
         db.SpecDialogSessions.Add(Session());
+        db.AddRange(Proposals()); // 2026-11-17-a0b6d: a conversation's proposals are rows
         if (withStepRows) AddStepRows(db);
         await db.SaveChangesAsync();
     }
@@ -91,9 +92,15 @@ internal static class OldShapeStore
     {
         SessionId = "d1", Platform = "web", ChannelId = "c", ThreadId = "d1", UserId = "u", Project = "p",
         LastActivityAt = T, TranscriptJson = Transcript(), LatestFilingJson = Filing,
-        LatestProposalJson = Outcome(new SpecOutcome(Draft) { Findings = [new ProposalFinding("s1", "p", "w")] }),
-        ConfirmedOutcomeJson = Outcome(new EpicOutcome(Draft, [Draft with { SpecId = "s2" }])),
     };
+
+    private static SpecDialogProposal[] Proposals() =>
+    [
+        new() { SessionId = "d1", RunId = "proposal:a", ProposalId = "a", State = "awaiting",
+            ProposalJson = Outcome(new SpecOutcome(Draft) { Findings = [new ProposalFinding("s1", "p", "w")] }) },
+        new() { SessionId = "d1", RunId = "proposal:f", ProposalId = "f", State = "filing",
+            ProposalJson = Outcome(new EpicOutcome(Draft, [Draft with { SpecId = "s2" }])) },
+    ];
 
     private static RunEventRow Row(long seq, string type, string payload, string? phase = null) =>
         new() { RunId = RunId, Seq = seq, Type = type, Timestamp = T, PayloadJson = payload, Phase = phase };

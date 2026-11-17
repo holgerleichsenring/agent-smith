@@ -18,6 +18,7 @@ public static class FilingPipelineExtensions
     {
         services.TryAddTransient<SpecTicketRenderer>();
         services.TryAddTransient<BugTicketRenderer>();
+        services.TryAddTransient<SeriesTicketRegion>(); // 2026-11-17-dd05b
         services.AddTransient<FiledSeriesFactory>();
         services.AddScoped<ApprovedSpecSetRecorder>().AddScoped<FiledSpecBranchWrite>().AddScoped<ApprovedSetTicketFiler>();
         services.AddScoped<FiledWorkTagger>().AddScoped<FiledWorkMove>().AddScoped<FiledWorkStarter>();

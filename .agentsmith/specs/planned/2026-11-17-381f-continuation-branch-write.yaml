@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-381f
+goal: "A worked ticket's approved continuation and series edit are written to its branch by an 'amend' run, so every reader of the next series reads the branch."
+
+applies_to: "default (TicketContinuationAct, SeriesEditAct, PendingEditStart, NextAttemptSeriesReader, PendingSeriesEditReader, ApprovedContinuation, ApprovedSetHandoff, approval-set-readers ratchet)"
+
+requires: [2026-11-17-e061d]
+
+facts:
+  - claim: "A continued series and a series edit are stored as a pending approval record; nothing writes them to the branch at approval time."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:75, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:46"
+  - claim: "The next attempt merges the pending record over the branch set, because the server had no clone and a live run may hold the branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:9-21"
+  - claim: "Block 6 reads a ticket's set off its branch without a clone."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketBranchSeries.cs:17"
+  - claim: "The approval-set readers ratchet lists the continuation's readers as block 4's to retire."
+    evidence: "tests/AgentSmith.Tests/Architecture/approval-set-readers-baseline.tsv:11-12"
+
+scope:
+  in: "The continuation and the series edit run as an 'amend' run that reads the branch series, merges the edit with ContinuationMerge, writes the merged set to the branch under the ticket's lease check, and records the approval; NextAttemptSeriesReader, PendingSeriesEditReader, ApprovedContinuation and the one-time ApprovedSetHandoff then read the branch only and leave approval-set-readers-baseline.tsv."
+  out: "Filing (block 3), the never-worked amendment (e061c)."
+
+steps:
+  - id: decide
+    action: "Before building: decide with the operator how a branch write behaves while an attempt holds the branch (refuse as the amendment's lease check does, or queue for the run's end)."
+
+tests:
+  - "A continuation approved on a worked ticket is on the branch after one 'amend' run; the next attempt reads it there with no pending-record merge"
+
+done:
+  - "No reader of a ticket's next series reads the approval record's set; the continuation readers left the ratchet list."

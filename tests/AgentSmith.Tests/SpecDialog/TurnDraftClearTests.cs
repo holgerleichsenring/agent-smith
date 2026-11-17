@@ -64,19 +64,16 @@ public sealed class SpecDialogProposalStateTests : TurnDraftClearStore
 public sealed class SpecDialogProposalClaimTests : TurnDraftClearStore
 {
     [Fact]
-    public async Task ClearDraft_LegacyReviewingRow_Cleared()
+    public async Task ClearDraft_ReviewingRow_StaysTheTurnsProposalUnderReviewNoMore()
     {
         var harness = new SpecDialogDecisionHarness(Context);
-        await harness.OpenAsync("dashboard", Dialog);
-        var json = OutcomeProposalJson.Write(Draft("legacy draft"));
-        await Context.Set<SpecDialogSession>().Where(s => s.ThreadId == Dialog).ExecuteUpdateAsync(s => s
-            .SetProperty(r => r.LatestProposalJson, json).SetProperty(r => r.ReviewingProposalJson, json));
+        var state = await harness.OpenAsync("dashboard", Dialog);
+        await harness.Proposals.StoreReviewingAsync(state, Draft("a draft"), "run-a", default);
 
         await new SpecDialogProposalClaim(Context).ClearDraftAsync("dashboard", Dialog, default);
 
-        var row = await RowAsync();
-        row.ReviewingProposalJson.Should().BeNull();
-        row.LatestProposalJson.Should().BeNull("a row with no id would show it as the legacy fallback");
+        var row = (await StoredProposals.AllAsync(Context)).Single();
+        (row.RunId, row.State).Should().Be(("run-a", (string?)null));
     }
 
     [Fact]
@@ -89,10 +86,8 @@ public sealed class SpecDialogProposalClaimTests : TurnDraftClearStore
 
         await new SpecDialogProposalClaim(Context).ClearDraftAsync("dashboard", Dialog, default);
 
-        var row = await RowAsync();
-        row.ReviewingProposalJson.Should().BeNull();
-        row.AwaitingProposalJson.Should().NotBeNull();
-        row.LatestProposalJson.Should().NotBeNull("the awaiting proposal's mirror is not a draft");
+        (await StoredProposals.InStateAsync(Context, SpecDialogProposalClaim.Reviewing)).Should().BeNull();
+        (await StoredProposals.InStateAsync(Context, SpecDialogProposalClaim.Awaiting)).Should().NotBeNull("the awaiting proposal is not a draft");
     }
 }
 
@@ -104,8 +99,7 @@ public sealed class SpecDialogTurnProposalsTests : TurnDraftClearStore
         var harness = new SpecDialogDecisionHarness(Context);
         var state = await harness.OpenAsync("dashboard", Dialog);
         // Mid-turn, as DialogProposalObserver writes a draft under review.
-        await harness.Proposals.StoreReviewingAsync(state, Draft("draft the reply removed"), default);
-        await harness.TurnProposals.WriteAsync(state, "run-a", Draft("draft the reply removed"), default);
+        await harness.Proposals.StoreReviewingAsync(state, Draft("draft the reply removed"), "run-a", default);
         await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "removed it", null, null, default, runId: "run-a");
         await harness.Flow().HandleAsync(state, new AnswerOutcome(), default, runId: "run-a");
         Context.Add(new Run

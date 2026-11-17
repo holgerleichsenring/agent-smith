@@ -51,7 +51,7 @@ public sealed class TicketGraphStorageTests
     {
         var reader = new TicketTranscriptReader(Mock.Of<IServiceScopeFactory>(), NullLogger<TicketTranscriptReader>.Instance);
 
-        var view = reader.Proposal(TicketConversationFixtures.Session(Graph))!;
+        var view = reader.Proposal(TicketConversationFixtures.Session(), ("p-1", OutcomeProposalJson.Write(Graph)))!;
 
         view.Kind.Should().Be("tickets");
         view.Drafts.Should().BeEmpty();

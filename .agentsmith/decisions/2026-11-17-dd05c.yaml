@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-dd05c
+
+decisions:
+  - category: Architecture
+    chose: "TicketAmendment and SeriesEditAct each gain a ticket-keyed entry the conversation overload now calls; the dashboard edit calls those entries"
+    over: "A dashboard write path of its own, or synthesising a conversation state for the edit"
+    reason: "No second path: a never-worked edit is an 'amend' run (block 4's e061c) exactly as a conversation's approval is, a worked one is the series edit a conversation records for the next attempt. Neither entry needs a conversation once it has the approval source."
+  - category: Implementation
+    chose: "The edit is the spec's whole yaml, re-cut by SeriesEditList with its id kept"
+    over: "A form of goal, steps and criteria fields"
+    reason: "The yaml is what the branch holds and what the run reads; a form would drop the fields it does not show (facts, tests, contexts) or need one control per field, and the validator already checks a recut."
+  - category: Implementation
+    chose: "The approval source is the editor, with the ticket's approval record's conversation, repositories and owner words"
+    over: "An empty conversation, or the editor's own repositories"
+    reason: "The record's citations, scope and the operator's words belong to the approval being revised; dropping them would lose what the run is told. A derived set has no record, so its edit records an approval by the editor with no conversation."
+  - category: Implementation
+    chose: "A filed ticket with no run shows the Specs section's pane (its branch specs, editable, then its derivations) under the filed line"
+    over: "Editing only on tickets with runs"
+    reason: "A never-worked filed ticket is the main case for an edit and had no specs on its page at all; the pane is the existing Specs section, not a new element."

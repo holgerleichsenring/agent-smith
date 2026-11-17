@@ -421,11 +421,9 @@ public sealed class TicketAmendmentTests : IDisposable
         AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
         new(LiveConfig.Projects(Config()), Scopes(), new FiledWorkTrackerProjects(LiveConfig.Projects(Config())),
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
-            tracker, new SpecTicketRenderer(), new EpicChildOrderer(),
-            ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources(), mocks: mocks),
-            new TicketDescriptionRewrite(tracker, NullLogger<TicketDescriptionRewrite>.Instance),
-            NullLogger<TicketAmendment>.Instance);
+            new SpecTicketRenderer(), new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            ActSteps.Amend(Config(), tracker, ApprovedSetDoubles.Recorder(store), // 2026-11-17-e061c: an 'amend' run
+                ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources(), mocks: mocks)));
 
     private ActiveRunRepository Leases() => new(
         _context, new SqliteUniqueViolationTranslator(), TimeProvider.System,

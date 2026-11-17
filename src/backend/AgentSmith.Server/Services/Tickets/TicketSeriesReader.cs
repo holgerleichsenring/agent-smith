@@ -1,15 +1,20 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.Tickets;
 
 /// <summary>
-/// 2026-10-13-9a59e: a ticket's series as its attempts PUBLISHED it — the cut rows, never a git read.
-/// By default the latest cut with specs across the attempts, with a newer hand-back reported as the
-/// current state above it; asked for one attempt, that attempt's cut, its hand-back case and its gate.
-/// A reviewer's edit on the branch is not here until an attempt publishes it. With no cut at all in
-/// scope, the series is what the attempts recorded instead (<see cref="TicketRunRecordSeriesReader"/>).
+/// 2026-10-13-9a59e: a ticket's series as its attempts PUBLISHED it. By default the latest cut with specs
+/// across the attempts, with a newer hand-back reported as the current state above it; asked for one
+/// attempt, that attempt's cut, its hand-back case and its gate. With no cut at all in scope, the series is
+/// what the attempts recorded instead (<see cref="TicketRunRecordSeriesReader"/>).
+/// <para>
+/// 2026-11-17-a0b6b: the cut names which specs, in what order; their TEXT is the ticket branch's
+/// (<see cref="TicketBranchSpecs"/>), so a reviewer's edit shows at once. A ticket no code run touched shows
+/// the set its branch holds, every spec not started. A branch that could not be read is named on the view.
+/// </para>
 /// </summary>
 public sealed class TicketSeriesReader(
     TicketRunsQuery runQuery,
@@ -17,7 +22,8 @@ public sealed class TicketSeriesReader(
     TicketSeriesRecordsReader recordsReader,
     TicketSeriesSpecComposer specs,
     TicketRunRecordSeriesReader runRecords,
-    Runway.SeriesRunwayReader runway)
+    Runway.SeriesRunwayReader runway,
+    TicketBranchSpecs branchSpecs)
 {
     private const string Success = "success";
 
@@ -26,7 +32,8 @@ public sealed class TicketSeriesReader(
     {
         var code = (await runQuery.ForTicketAsync(project, ticketId, ct))
             .Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
-        if (code.Count == 0) return null;
+        var branch = await branchSpecs.ReadAsync(project, ticketId, ct);
+        if (code.Count == 0) return runId is null ? BranchOnly(project, ticketId, branch) : null;
         var numbers = attempts.Of(code).Select((a, i) => (a.Run.Id, Number: i + 1))
             .ToDictionary(a => a.Id, a => a.Number, StringComparer.Ordinal);
         if (runId is not null && !numbers.ContainsKey(runId)) return null;
@@ -43,16 +50,31 @@ public sealed class TicketSeriesReader(
                 ? new TicketSeriesView(project, ticketId, runId, runId is null ? null : numbers[runId], null, null,
                     Handback(handback, numbers), null, fromRuns.Specs, revisions, Recorded: true,
                     TicketSeriesSources.RunRecord, fromRuns.Unattributed)
-                : new TicketSeriesView(project, ticketId, null, null, null, null,
-                    Handback(handback, numbers), null, [], revisions, all.Count > 0);
+                : runId is null && branch.Set is not null
+                    ? BranchOnly(project, ticketId, branch)! with { Handback = Handback(handback, numbers), Revisions = revisions }
+                    : new TicketSeriesView(project, ticketId, null, null, null, null,
+                        Handback(handback, numbers), null, [], revisions, all.Count > 0, BranchUnread: branch.Why);
 
         var carried = TicketSeriesCuts.Carried(records, cut.RunId);
         var entries = TicketSeriesCuts.Entries(cut);
         return new TicketSeriesView(
             project, ticketId, cut.RunId, numbers[cut.RunId], cut.At, cut.SetKey,
             Handback(handback, numbers), Gate(cut, entries.Count, records),
-            [.. entries.Select(e => specs.Compose(e, cut.RunId, carried, records, numbers))],
-            revisions, Recorded: true, Budget: runId is null ? (await runway.ReadAsync(project, ticketId, ct))?.Page : null);
+            [.. entries.Select(e => specs.Compose(e, branch.Spec(e.SpecId), cut.RunId, carried, records, numbers))],
+            revisions, Recorded: true, Budget: runId is null ? (await runway.ReadAsync(project, ticketId, ct))?.Page : null,
+            BranchUnread: branch.Why);
+    }
+
+    // 2026-11-17-a0b6b: the set the branch holds before any attempt published a cut of it.
+    private TicketSeriesView? BranchOnly(string project, string ticketId, TicketBranchRead branch)
+    {
+        if (branch.Set is not { } set) return null;
+        var none = new TicketSeriesRecords([], [], new Dictionary<string, RunAttempt>(), new Dictionary<string, string>(), [],
+            new HashSet<string>());
+        return new TicketSeriesView(project, ticketId, null, null, null, set.Key, null, null,
+            [.. set.Specs.Select((s, i) => specs.Compose(new SpecCutEntry(s.SpecId, i + 1, s.FileStem, s.Draft.Goal, s.Draft.Repos),
+                s, string.Empty, [], none, new Dictionary<string, int>()))],
+            [], Recorded: true, TicketSeriesSources.Branch);
     }
 
     private static TicketSeriesHandbackView? Handback(RunSeriesCut? cut, IReadOnlyDictionary<string, int> numbers) =>

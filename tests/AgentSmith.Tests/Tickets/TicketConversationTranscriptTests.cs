@@ -48,7 +48,10 @@ public sealed class TicketConversationTranscriptTests : IDisposable
     }
 
     private Task SeedAsync(OutcomeProposal? proposal = null) => _h.AddAsync(
-        Attempt("r-1", 0), Session(proposal, Turn(TranscriptRole.User, "Can it be faster?", 90), Turn(TranscriptRole.Assistant, "Yes.", 91)));
+    [
+        Attempt("r-1", 0), Session(Turn(TranscriptRole.User, "Can it be faster?", 90), Turn(TranscriptRole.Assistant, "Yes.", 91)),
+        .. proposal is null ? Array.Empty<object>() : [Awaiting(proposal)],
+    ]);
 
     [Fact]
     public async Task TicketConversation_WithoutDialogWrite_TranscriptHiddenTrue()
@@ -84,7 +87,7 @@ public sealed class TicketConversationTranscriptTests : IDisposable
     [Fact]
     public async Task TicketConversation_TurnWithAuthor_ShowsTheName()
     {
-        await _h.AddAsync(Session(null,
+        await _h.AddAsync(Session(
             Turn(TranscriptRole.User, "Older.", 4), Turn(TranscriptRole.User, "Faster?", 5) with { Author = "Ada Lovelace" }));
 
         var view = await _h.Conversation.ReadAsync("alpha", "42", true, default);
@@ -103,16 +106,16 @@ public sealed class TicketConversationTranscriptTests : IDisposable
         (view.TranscriptHidden, view.SessionId).Should().Be((false, (string?)null));
     }
 
-    // 2026-11-10-ccd9 review (L2, L5): the ticket page backfills a pre-deploy row's id, and a question keeps only the ids
-    // of specs the person will approve — as the dialog page's own read keeps them.
+    // 2026-11-10-ccd9 review (L5): the ticket page's card carries its id, and a question keeps only the ids of specs the
+    // person will approve — as the dialog page's own read keeps them.
     [Fact]
-    public async Task TicketConversation_PreDeployRowWithQuestions_GetsAnIdAndKnownSpecIdsOnly()
+    public async Task TicketConversation_ProposalWithQuestions_HasItsIdAndKnownSpecIdsOnly()
     {
         await SeedAsync(Proposal with { Questions = [new OpenQuestion("Which store?", "Redis", ["2026-10-13-1a2b", "2026-10-13-gone"])] });
 
         var proposal = (await _h.Conversation.ReadAsync("alpha", "42", true, default))!.Proposal!;
 
-        proposal.ProposalId.Should().NotBeNullOrEmpty("Approve on the ticket page names the card it shows");
+        proposal.ProposalId.Should().Be(AwaitingId, "Approve on the ticket page names the card it shows");
         proposal.Questions.Single().SpecIds.Should().Equal("2026-10-13-1a2b");
     }
 
@@ -125,9 +128,7 @@ public sealed class TicketConversationTranscriptTests : IDisposable
         await using (var scope = _h.Services.CreateAsyncScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>();
-            // 2026-11-10-ccd9 review: the read above backfilled the row, so the awaiting slot is cleared with its mirror.
-            await uow.Set<SpecDialogSession>().ExecuteUpdateAsync(s => s.SetProperty(x => x.LatestProposalJson, (string?)null)
-                .SetProperty(x => x.AwaitingProposalJson, (string?)null));
+            await uow.Set<SpecDialogProposal>().ExecuteUpdateAsync(s => s.SetProperty(x => x.State, AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim.Rejected));
         }
 
         var view = (await _h.Conversation.ReadAsync("alpha", "42", true, default))!;
@@ -137,7 +138,7 @@ public sealed class TicketConversationTranscriptTests : IDisposable
     [Fact]
     public async Task TicketConversation_BoundSession_FoundWithoutTrackerRead()
     {
-        await _h.AddAsync(Session(null, Turn(TranscriptRole.User, "Before any run.", 5)));
+        await _h.AddAsync(Session(Turn(TranscriptRole.User, "Before any run.", 5)));
 
         var view = await _h.Conversation.ReadAsync("alpha", "42", true, default);
 

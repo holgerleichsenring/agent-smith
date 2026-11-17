@@ -98,7 +98,7 @@ public sealed class TicketContinuationActTests : IDisposable
     [Fact]
     public async Task BoundApproval_TicketWorkedBySiblingProject_IsWorked()
     {
-        await _h.WorkedAsync("r-beta", "beta", Series, [A, B], executed: [A]);
+        await _h.WorkedAsync("r-beta", "beta", Series, [A, B], executed: [A], carrier: "api");
         await _h.BindAsync(null);
 
         var outcome = await _h.ActAsync(Lone(Draft(B, "B, re-cut")));

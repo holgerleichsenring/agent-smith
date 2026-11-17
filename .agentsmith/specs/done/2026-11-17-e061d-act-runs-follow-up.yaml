@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-e061d
+goal: "A closed ticket's follow-up files through the 'file' run and links through the 'comment' run, whether an approval or a person's act asked for it."
+
+applies_to: "default (FilingRequest, FilingPlanner, FilingRun, ClosedTicketFollowUp, ClosedTicketActFollowUp, FollowUpLink, server-writes ratchet baseline)"
+
+requires: [2026-11-17-e061c]
+
+facts:
+  - claim: "An approval on a closed ticket files through the 'file' run, then the server posts the two link comments."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs:24-28, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs:42-54"
+  - claim: "A person's act on a closed ticket creates a work ticket, stamps it with no label and links it from the server, under the ticket's lock once the act's key is spent."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:48-83"
+  - claim: "The planner files a proposal kind and refuses any other; a bug is one ticket with no series and no label."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FilingPlanner.cs:15-34"
+  - claim: "e061c's 'comment' run posts agent-smith's comments on tickets and reports each."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PostTicketCommentsHandler.cs:16-31"
+
+scope:
+  in: "FilingRequest gains FollowUp (Title, Body) and its Proposal may be null for it; FilingPlanner plans a follow-up as one work ticket with no series and no label, settled like every filed ticket; FilingRun gains a launch from a ready FilingRequest. ClosedTicketActFollowUp keeps the lock and the spent key and files through IFilingRun; FollowUpLink posts both link comments in one 'comment' run. FollowUpLink, ClosedTicketFollowUp and ClosedTicketActFollowUp leave server-writes-baseline.txt."
+  out: "The PR comment the worker says after a follow-up stays ReworkSpeech's (run-lifecycle speech, listed). The chat create-ticket intent is block 3's filing, named as left in the PR."
+
+steps:
+  - id: request
+    action: "FilingFollowUp(Title, Body) as FilingRequest.FollowUp; FilingRequest.Proposal nullable; the planner answers a follow-up first and refuses a request with neither, naming both."
+  - id: launch
+    action: "IFilingRun.RunRequestAsync(project, FilingRequest) runs the 'file' run with a ready request; RunAsync builds the request and calls it."
+  - id: act
+    action: "ClosedTicketActFollowUp reads the closed ticket's title, builds the request (principal the act's author, runs.control true), files through IFilingRun, links the first filed ticket; a filing with nothing filed is logged and the key stays spent, as a failed create was."
+  - id: link
+    action: "FollowUpLink launches one 'comment' run with both comments and no activity nudge; it names the tickets whose comment did not post, as before."
+  - id: ratchet
+    action: "Remove FollowUpLink.cs, ClosedTicketFollowUp.cs and ClosedTicketActFollowUp.cs from server-writes-baseline.txt."
+
+tests:
+  - "FilingPlanTests: a follow-up plans one work ticket with no series or label; a request with neither refuses"
+  - "Closed-ticket follow-up suites keep their scenarios through the 'file' and 'comment' runs driven in process"
+  - "FollowUpActCompositionTests (PipelineHarness, real composition): a person's act on a closed ticket files the follow-up in a 'file' run and links it in a 'comment' run; both runs listed with their steps"
+
+done:
+  - "No server class creates or links a follow-up ticket outside a run; every post-filing act of the inventory has a run id."

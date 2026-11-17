@@ -38,4 +38,7 @@ public static class TicketConversationKinds
     public const string CommandAnswer = "command-answer";
     public const string Comment = "comment";
     public const string Turn = "turn";
+
+    /// <summary>2026-11-17-dd05a: a posted cut comment, read as one line (SpecSetCommentLine).</summary>
+    public const string SpecSet = "spec-set";
 }

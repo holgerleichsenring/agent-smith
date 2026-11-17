@@ -37,10 +37,8 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
             .OrderByDescending(s => s.Id)
             .FirstOrDefaultAsync(ct);
 
-    public Task<SpecDialogSession?> GetBySessionIdAsync(
-        string sessionId, CancellationToken ct) =>
-        unitOfWork.Set<SpecDialogSession>()
-            .FirstOrDefaultAsync(s => s.SessionId == sessionId, ct);
+    public Task<SpecDialogSession?> GetBySessionIdAsync(string sessionId, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogSession>().FirstOrDefaultAsync(s => s.SessionId == sessionId, ct);
 
     /// <summary>
     /// One owner's sessions on one platform, open or closed: the most recently CREATED ones,
@@ -89,10 +87,9 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
             .ExecuteDeleteAsync(ct);
 
     /// <summary>
-    /// 2026-09-22-2d11a: the liveness columns of MANY sessions in one query — what a
-    /// sandbox reaper needs for a whole scan. No transcript is read: a scan that opened
-    /// every transcript of every labelled sandbox would pay a design conversation's worth
-    /// of JSON every thirty seconds.
+    /// 2026-09-22-2d11a: the liveness columns of MANY sessions in one query — what a sandbox reaper needs for a
+    /// whole scan. No transcript is read: a scan that opened every transcript of every labelled sandbox would pay
+    /// a design conversation's worth of JSON every thirty seconds.
     /// </summary>
     public async Task<IReadOnlyList<SpecDialogSession>> ListBySessionIdsAsync(
         IReadOnlyCollection<string> sessionIds, CancellationToken ct) =>
@@ -108,6 +105,9 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
                     LastActivityAt = s.LastActivityAt
                 })
                 .ToListAsync(ct);
+
+    /// <summary>2026-11-17-a0b6d: the sessions' proposal rows, over the same unit of work.</summary>
+    public SpecDialogProposalRepository Proposals => new(unitOfWork);
 
     /// <summary>Persists changes staged on a tracked session entity.</summary>
     public Task SaveAsync(CancellationToken ct) => unitOfWork.SaveChangesAsync(ct);

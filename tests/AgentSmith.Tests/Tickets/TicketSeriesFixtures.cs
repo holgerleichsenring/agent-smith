@@ -6,12 +6,30 @@ using AgentSmith.Infrastructure.Persistence.Entities;
 
 namespace AgentSmith.Tests.Tickets;
 
+/// <summary>2026-11-17-a0b6b: specs on a ticket's branch, written by the harness through the filing branch write.</summary>
+internal sealed record TicketBranchSet(string TicketId, IReadOnlyList<DerivedSpec> Specs);
+
 /// <summary>2026-10-13-9a59e: cut, spec and attempt rows as the projections write them.</summary>
 internal static class TicketSeriesFixtures
 {
-    public static SpecCutEntry Entry(string specId, int ordinal, params string[] done) =>
-        new(specId, ordinal, $"{specId}-label", $"Goal of {specId}", ["api"],
-            [new SpecStep("s1", "Add the endpoint", "api:src/A.cs")], done, $"spec: {specId}\n");
+    public static SpecCutEntry Entry(string specId, int ordinal) =>
+        new(specId, ordinal, $"{specId}-label", $"Goal of {specId}", ["api"]);
+
+    /// <summary>2026-11-17-a0b6b: a spec as the ticket branch holds it — the text every reader shows.</summary>
+    public static DerivedSpec BranchSpec(string specId, params string[] done) =>
+        new(new AgentSmith.Application.Services.SpecDialog.SpecDraftReader().Read($$"""
+            spec: {{specId}}
+            goal: "Goal of {{specId}}"
+            repos: [api]
+            steps:
+              - id: s1
+                action: "Add the endpoint"
+                path: "api:src/A.cs"
+            done: [{{string.Join(", ", done.Select(d => $"\"{d}\""))}}]
+            """), "label", string.Empty, []);
+
+    /// <summary>2026-11-17-a0b6b: the set filed onto ticket 42's branch, as a row <see cref="TicketStoreHarness.AddAsync"/> writes.</summary>
+    public static TicketBranchSet OnBranch(params DerivedSpec[] specs) => new("42", specs);
 
     public static RunSeriesCut Cut(string runId, long seq, params SpecCutEntry[] specs) => new()
     {

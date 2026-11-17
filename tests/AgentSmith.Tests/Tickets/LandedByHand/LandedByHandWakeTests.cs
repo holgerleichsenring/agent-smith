@@ -91,13 +91,13 @@ public sealed class LandedByHandWakeTests : IDisposable
 
     private RequirementsMetStart Start()
     {
-        _scopes = new ServiceCollection().AddScoped(_ => FiledWorkDoubles.Move(_f.Config)).BuildServiceProvider();
+        _scopes = new ServiceCollection().AddScoped(_ => ActSteps.Start(_f.Config, FiledWorkDoubles.Move(_f.Config), _f.Tickets)).BuildServiceProvider();
         var fallback = new ReworkFallbackSpawn(_f.Loader.Object, new ServerContext("c.yml"), _f.Tickets,
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), FiledWorkDoubles.Resolver(), _spawn.Object,
             NullLogger<ReworkFallbackSpawn>.Instance);
         return new RequirementsMetStart(_f.Requirements,
             new TicketStartHold(_f.Landings, new ClosedTicketRepository(_f.Store.ScopeFactory), _f.Tickets, NullLogger<TicketStartHold>.Instance),
-            _f.Unmet, _f.Tickets,
+            _f.Unmet,
             _scopes.GetRequiredService<IServiceScopeFactory>(), fallback, NullLogger<RequirementsMetStart>.Instance);
     }
 }

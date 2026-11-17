@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-dd05b
+
+decisions:
+  - category: Architecture
+    chose: "A 'ticket-body' act run joins block 4's act table and launches through IActRun with an ActSlot"
+    over: "A second launcher modelled on FilingRun, or re-rendering inside the amend run"
+    reason: "Block 4 (2026-11-17-e061c) landed the one act entry; an overwrite of a worked ticket's body records no series, so it is not an amendment."
+  - category: Architecture
+    chose: "SeriesTicketRegion composes the one SpecTicketRenderer — a lone spec as a filed spec, several as their series under the goal"
+    over: "A renderer of its own for list tickets and re-renders"
+    reason: "A second rendering of a filed body would disagree with the first the moment either changed (AmendedSpecification's own warning). The cost: a body re-rendered from the branch shows an epic's goal and slices, because the parent's Why and What changes are not on the branch."
+  - category: Implementation
+    chose: "After the rewrite the step reads the ticket back and writes only the branch manifests with its fingerprint, recording the pointer"
+    over: "Leaving the fingerprint stale, or rewriting the whole set"
+    reason: "Review found a stale fingerprint makes the next run read our rewrite as a ticket edit — a kept notice on an approved set, a re-cut on a derived one. Writing only manifests moves no spec file; recording the pointer keeps the commit from reading as a reviewer's edit."
+  - category: Implementation
+    chose: "The overwrite places the region with ReplaceOrAppend: a body whose region a person removed takes it again below their text"
+    over: "The amendment's replace-only rule for a stamped ticket"
+    reason: "The overwrite is a person's explicit act on the ticket; appending loses none of their text and makes the tracker state the specs again, which replace-only would refuse for exactly the edit the overwrite answers."
+  - category: Implementation
+    chose: "TicketDescriptionRewrite gains RewriteAsync answering the tracker's result; WriteAsync keeps its sentence over it"
+    over: "Reading success out of the sentence"
+    reason: "The step fails or succeeds on the tracker's answer; the sentence is for the conversation."

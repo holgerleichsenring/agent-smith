@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-a0b6d
+goal: "A design conversation's proposals live in one table, one row per proposal with its id and state; the session row keeps no proposal JSON and no proposal state."
+
+applies_to: "default (spec-dialog proposal storage: SpecDialogProposalClaim, SpecDialogConfirmedSlot, SpecDialogTurnProposalRepository, their server stores, the three migration sets)"
+
+requires: []
+
+facts:
+  - claim: "The session row holds the proposal in four JSON columns and its id and state in three more; LatestProposalJson mirrors AwaitingProposalJson on every write and ConfirmedOutcomeJson is the awaiting JSON moved by the claim."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:32-57, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogProposalClaim.cs:40-81"
+  - claim: "Release copies the confirmed JSON back into the awaiting and latest columns; clear leaves the state at filing."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogConfirmedSlot.cs:15-32"
+  - claim: "Each turn's proposal is a second copy in SpecDialogTurnProposal, keyed by run id; its reader finds the awaiting one by comparing serialized JSON."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogTurnProposal.cs:8-20, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnProposals.cs:27-64"
+  - claim: "A pre-ccd9 row holding only LatestProposalJson is backfilled at read time from three call sites."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogProposalClaim.cs:101-114"
+  - claim: "Each provider has its own migration set; only the Postgres set is checked against the model."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:20-41, tests/AgentSmith.Tests/Persistence/PostgresqlMigrationSetTests.cs:20-25"
+  - claim: "The SQLite set is also MySQL's: its raw SQL quotes identifiers for the provider."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261012181922_AddRunSpecIdColumns.cs:33-41"
+  - claim: "An archive taken at another schema head is refused before anything is written."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveSchemaCheck.cs:19-31"
+  - claim: "A turn row no kept turn carries is classified by run liveness and listed as an interrupted turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnProposals.cs:33-41"
+  - claim: "The run id reaches the proposal writes only beside them: the outcome flow and the review observer write the turn row after the session row."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:54-62, src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:27-31"
+
+scope:
+  in: "Table SpecDialogTurnProposal renamed SpecDialogProposal with ProposalId and State added; every proposal transition (reviewing, awaiting, claim to filing, release, filed, reject, supersede) a compare-and-set on that table; the session's LatestProposalJson, AwaitingProposalJson, ReviewingProposalJson, ConfirmedOutcomeJson, ConfirmedProposalId, ProposalId and ProposalState dropped after their content is copied into rows; read-time backfill removed; readers (view, transcript, approval preview, continuity, conversation list, filed work, decisions, chat card, spec rename, data archive) read the table; one migration per provider."
+  out: "PostedProposalId, PostedAt, LatestFilingJson and RunningRunId stay on the session: the chat thread's binding and the filing's result are not proposal content. Filing itself (block 3, 2026-11-17-5701b). Spec text after approval (2026-11-17-a0b6a..c)."
+
+steps:
+  - id: entity
+    action: "SpecDialogProposal(Id, SessionId, RunId unique, ProposalJson, ProposalId nullable max PersistenceLimits.ProposalId and indexed, State nullable same length): State null is a turn's proposal that was never put to a decision; reviewing, awaiting, filing, filed, rejected, superseded are the lifecycle. A proposal stored without a run id gets RunId 'proposal:{ProposalId}' (a draft without one 'proposal:review:{SessionId}'); such unbound rows are never a turn's and the turn view leaves them out. A unique index on SessionId filtered to State 'awaiting' (SQLite, SQL Server, Postgres) is what keeps one awaiting row per session; MySQL has no partial index and relies on the compare-and-set alone."
+  - id: transitions
+    action: "SpecDialogProposalClaim and SpecDialogConfirmedSlot act on the rows of the thread's newest open session: SetAwaiting supersedes the awaiting row and writes this run's row awaiting under a fresh id; SetReviewing writes this run's row reviewing; ClearDraft drops reviewing rows back to null state; Claim moves awaiting to filing by id; Release moves filing back to awaiting only while no row awaits; Clear moves filing to filed; Reject and Supersede move awaiting to rejected and superseded. Each is one ExecuteUpdate guarded by id and state, so two replicas cannot both decide one proposal; an awaiting write that loses to the one-awaiting index supersedes the winner and writes once more, a release that loses returns false. SpecDialogProposalState and the outcome flow and review observer pass the run id through new overloads; existing public signatures stay. A transition leaves UpdatedAt alone, which dates the turn's proposal."
+  - id: readers
+    action: "SpecDialogAwaitingRow goes; SpecDialogLatestOutcomeStore, SpecDialogTurnProposals (matches the awaiting row by id, not JSON), TicketTranscriptReader, SpecDialogProposalContinuity, SpecDialogConversationList, FiledWorkFiling, TicketApprovalPreview, TicketConversationReader, SpecDialogDecisionPath, SpecDialogAnswerAdmission, SpecDialogConversationDeleter read the table; BackfillAsync and its three callers go; a SpecDialogProposals surface rewrites every proposal row's JSON as SpecDialogSessionSpecNames rewrites LatestFilingJson; the data archive exports and imports the table."
+  - id: migrate
+    action: "Migration MoveProposalsToOneTable in the SQLite, SQL Server and Postgres sets: rename the table, add the columns, then per session copy the awaiting JSON (its ProposalId, awaiting), the confirmed JSON (ConfirmedProposalId, filing), the reviewing JSON (reviewing) and a LatestProposalJson with no id (reviewing when its JSON carries underReview true, as the read-time backfill decided, else awaiting with id 'migrated-{SessionId}'; a confirmed JSON from before 205fe takes the filing ProposalId or 'migrated-confirmed-{SessionId}') — onto the turn row of the same session whose JSON is equal when there is one, else a new row with RunId 'proposal:{id}' — then drop the seven session columns and create the indexes. SQL is written per provider (the SQLite set quotes and concatenates for MySQL too); Down restores the columns from the rows and deletes the unbound rows."
+  - id: archive
+    action: "DataArchive schema and round-trip tests follow the renamed table and dropped columns. An archive written before is refused at its old schema head (ArchiveSchemaCheck), so it is imported into a store at that head and migrated, which copies it into rows; no import-time conversion."
+
+tests:
+  - "SpecDialogProposalTableTests (sqlite): awaiting replaces awaiting as superseded; claim then release; claim then clear is filed; reject; two claims of one id, one wins; reviewing never awaits"
+  - "ProposalMigrationTests (sqlite): a session with awaiting, filing, reviewing and latest-only proposals migrates into rows with their ids and states and the turn row is reused when its JSON is equal"
+  - "PostgresqlMigrationSetTests stays green (no pending model changes); a new SqlServer snapshot check asserts the session has no proposal JSON column"
+  - "Existing decision, transcript, continuity, interrupted-turn and spec-rename suites pass on the table"
+
+done:
+  - "No column of SpecDialogSession holds a proposal or its state; every proposal and its lifecycle is a row of SpecDialogProposal on all three providers, and stored proposals read back after the migration."

@@ -31,7 +31,8 @@ public sealed class TicketCloseCompositionTests
         provider.GetRequiredService<ITicketClosedMarkStore>().Should().BeOfType<ClosedTicketRepository>()
             .And.BeSameAs(provider.GetRequiredService<ITicketClosedMarkStore>());
         scope.ServiceProvider.GetRequiredService<TicketCloseAct>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<TicketCloseHostActs>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Acts.IActRun>().Should().BeOfType<AgentSmith.Server.Services.Acts.ActRun>();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.TicketActs.TicketCloseActs>().Should().NotBeNull(); // e061a
         provider.GetRequiredService<RequirementsMetStart>().Should().NotBeNull();
         provider.GetRequiredService<DependentsWake>().Should().NotBeNull();
     }

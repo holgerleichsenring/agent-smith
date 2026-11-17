@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-e061a
+goal: "Closing, withdrawing and reopening a ticket run as 'close' and 'reopen' pipelines with a run id, launched through one act-run entry the filing run shares."
+
+applies_to: "default (pipeline presets, Application/Services/TicketActs, TicketCloseAct, FiledTicketWithdrawal, FilingRun, server-writes ratchet baseline)"
+
+requires: [2026-11-17-5701b]
+
+facts:
+  # Inventory (block 4): every server path that writes the tracker or git outside a run, after 5701b.
+  - claim: "CLOSE: a person's close closes the ticket's pull requests and the tracker ticket from the server, then stores the mark."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Closing/TicketCloseAct.cs:51-55, src/backend/AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs:68-70, src/backend/AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs:80"
+  - claim: "CLOSE: a conversation withdraws a ticket it filed by closing it on the tracker from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs:80-81"
+  - claim: "REOPEN: reopening clears the close mark and nudges the page; it writes no tracker or repository."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Closing/TicketCloseAct.cs:62-69"
+  - claim: "DEPENDENTS-START: a landed requirement starts a waiting ticket by tagging and moving it through FiledWorkMove from the server, then spawns its run."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:38-41"
+  - claim: "START: an approval on a never-worked ticket starts it through FiledWorkMove from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:28-36"
+  - claim: "AMEND: an approval on a never-worked ticket rewrites its description, records the set and writes the branch from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:82-87, src/backend/AgentSmith.Server/Services/SpecDialog/TicketDescriptionRewrite.cs:32"
+  - claim: "AMEND: an approved comment in a ticket's conversation is posted on the ticket from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs:32"
+  - claim: "FOLLOW-UP: an approval on a closed ticket files through the 'file' run, then the server posts the two link comments."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs:24-28, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs:46"
+  - claim: "FOLLOW-UP: a person's act on a closed ticket creates, starts and links a follow-up ticket from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:75-78"
+  - claim: "FILING OUTSIDE 'file': a chat create-ticket intent creates a ticket from the server."
+    evidence: "src/backend/AgentSmith.Server/Services/Handlers/CreateTicketIntentHandler.cs:40"
+  - claim: "Database-only acts that write no tracker or repository: a continued series record, a series edit and a pending edit's start."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:75, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesEditAct.cs:46, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/PendingEditStart.cs:27"
+  - claim: "Run-lifecycle writes act for a run that has an id: cancel and delete finalize its ticket, park moves it, the worker's speech answers an act, a webhook with no match says so."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:129, src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:62, src/backend/AgentSmith.Server/Services/Lifecycle/ParkedTicketDialogue.cs:69, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:48, src/backend/AgentSmith.Server/Services/Rework/ReworkSpeech.cs:30-32, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:80"
+  # The shape to follow.
+  - claim: "FilingRun seeds a request and a report slot and runs the 'file' preset through ExecutePipelineUseCase on no token."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FilingRun.cs:26-37"
+  - claim: "A run without a ticket id attaches no lease, so a host act's run never holds or needs the ticket's claim."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:379-383"
+  - claim: "A close's failure class reads Octokit and Azure DevOps exceptions, which only the server references."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Closing/TicketCloseFailureReason.cs:14-24"
+
+scope:
+  in: "IActRun/ActRun: one server entry that runs a host-act preset with seeds on no token and answers its CommandResult; FilingRun runs on it. Presets 'close' [CloseTicket] and 'reopen' [ReopenTicket], host context only, not routable, no master. CloseTicketRequest/ReopenTicketRequest seeds and an ActSlot<T> the step fills. TicketCloseHostActs' writes move into Application/Services/TicketActs (TicketHostClose); TicketCloseReasons and the two outcome records move to Contracts/Tickets; the failure class is an ICloseFailureClassifier the server registers. TicketCloseAct validates and reads, then launches 'close'; FiledTicketWithdrawal launches 'close' with no mark; reopen reads the mark, then launches 'reopen'. TicketCloseHostActs and FiledTicketWithdrawal leave server-writes-baseline.txt."
+  out: "Start, amend, comment and follow-up (e061b-d). CreateTicketIntentHandler is filing, not a post-filing act: named in the PR as left for block 3's owner. The run-lifecycle writes act for a run with an id and stay. The database-only acts write no tracker or repository and stay."
+
+steps:
+  - id: act-run
+    action: "IActRun.RunAsync(project, pipeline, seeds) → CommandResult in AgentSmith.Server/Services/Acts; ActRun builds a headless PipelineRequest with no ticket id and runs it through ExecutePipelineUseCase on CancellationToken.None, turning a thrown prologue into a failed result. FilingRun keeps IFilingRun and runs through IActRun."
+  - id: presets
+    action: "PipelinePresets.CloseName 'close' = [CloseTicket], ReopenName 'reopen' = [ReopenTicket]; NeedsHostContext and NotRoutable name both; PipelineType Discussion; MasterFor empty; every command metadata map, context builder and data flow knows the two steps."
+  - id: close-step
+    action: "CloseTicketHandler reads CloseTicketRequest(TicketId, By, Note, PullRequests, CloseOnTracker, Resolution, Mark) and the ActSlot<TicketCloseOutcome>: closes each named pull request not already closed, closes the tracker ticket (closed_status on Jira/Azure DevOps, else CloseTicketAsync), and with Mark stores the TicketClosedMark of what closed and nudges refresh and activity; fills the slot and answers Ok. No request or slot fails with a message naming the key."
+  - id: reopen-step
+    action: "ReopenTicketHandler reads ReopenTicketRequest(TicketId, Key) and ActSlot<bool>, clears the mark, nudges activity, answers whether it cleared."
+  - id: callers
+    action: "TicketCloseAct keeps its refusals, reads the named pull requests, then launches 'close' and maps the slot to TicketCloseAnswer; a run that ended with no outcome answers 500 naming the run's message. ReopenAsync refuses a ticket with no mark before any run. FiledTicketWithdrawal launches 'close' with CloseOnTracker and no mark, and records the withdrawal only when the slot says the tracker closed."
+  - id: ratchet
+    action: "Remove TicketCloseHostActs.cs and FiledTicketWithdrawal.cs from server-writes-baseline.txt; the header names e061a."
+
+tests:
+  - "CloseTicketHandlerTests: pull requests closed except already-closed and unsupported, tracker closed with closed_status, mark stored with what closed, no mark when the request carries none, missing seeds fail naming the key"
+  - "ReopenTicketHandlerTests: clears and nudges; nothing to clear answers false"
+  - "TicketClose suites (existing) keep their scenarios through the 'close' run driven in process"
+  - "FiledTicketWithdrawalTests keep their scenarios; a refused tracker close records nothing"
+  - "CloseActCompositionTests (PipelineHarness, real composition): a close of a filed ticket runs one 'close' run with a run id and its CloseTicket step, closes the tracker ticket and stores the mark; a reopen runs one 'reopen' run and clears it; both runs are listed by the dashboard's run list"
+  - "Preset coverage tests know 'close' and 'reopen'; ServerWritesRatchetTests green with the shorter baseline"
+
+done:
+  - "A close, a withdrawal and a reopen each run as a pipeline with a run id the dashboard lists; the tracker and pull-request effects are the ones the server made before."
+  - "The inventory above is the list blocks 4's later specs (e061b-d) work through."

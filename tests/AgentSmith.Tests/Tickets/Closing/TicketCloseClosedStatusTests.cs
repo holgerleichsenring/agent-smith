@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;

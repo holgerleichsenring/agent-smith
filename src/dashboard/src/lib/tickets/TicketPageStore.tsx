@@ -85,6 +85,13 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
     };
   }, [hub, reads, project, ticketId]);
 
+  // 2026-11-17-dd05d: coming back to the page from the tracker re-reads the ticket's text at once.
+  useEffect(() => {
+    const returned = () => reads.textReturned();
+    window.addEventListener("focus", returned);
+    return () => window.removeEventListener("focus", returned);
+  }, [reads]);
+
   const current = snapshot ?? reads.snapshot;
   const liveAttempt = newestLive(current.detail.data);
   const liveEvents = useRunEvents(liveAttempt?.runId ?? null);
@@ -163,6 +170,12 @@ export function useTicketRequires(): Read<TicketRequires> & { landed: () => void
 export function useTicketDerivations(): { derivations: TicketDerivation[]; started: () => void } {
   const { snapshot, reads } = useStore();
   return { derivations: snapshot.detail.data?.derivations ?? [], started: () => reads.derivationStarted() };
+}
+
+/** 2026-11-17-dd05c: this page edited the ticket's specs — everything re-reads, as on the ticket's own nudge. */
+export function useTicketEdited(): () => void {
+  const { reads } = useStore();
+  return () => reads.ticketChanged();
 }
 
 /** The ticket itself — description, criteria and fields — read on its own tick, never on a RunsChanged. */

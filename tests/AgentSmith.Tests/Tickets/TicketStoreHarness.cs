@@ -62,7 +62,10 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
             AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u
         services.AddSingleton(Trackers.Object).AddSingleton(Activity.Object);
+        // 2026-11-17-a0b6b: the ticket branch answers what the harness filed onto it, unless a test sets the host up itself.
+        Sources.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns<RepoConnection>(r => Branches.Create(r));
         services.AddSingleton(Sources.Object); // 2026-10-15-114fa: the close act's pull-request hosts
+        services.AddSingleton<AgentSmith.Contracts.Specs.ISpecSetPointerStore>(Pointers);
         services.AddSingleton<TrackerIdentity>().AddTransient<AgentSmith.Application.Services.Tickets.TicketClosure>(); // 2026-10-15-114fc: the check asks it
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogProposalClaim>(); // ccd9 review: the reader backfills
@@ -73,6 +76,14 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<ITicketRequirementStore, TicketRequirementRepository>() // 2026-10-14-dbcen: never-run rows and the graph
             .AddSingleton<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>();
         services.AddTicketReaders();
+        // 2026-11-17-e061a: the close act's 'close' and 'reopen' runs, their real steps in process.
+        AgentSmith.Application.Services.TicketActs.TicketActPipelineExtensions.AddTicketActPipelines(services);
+        services.AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier,
+            AgentSmith.Server.Services.Tickets.Closing.TicketCloseFailureClassifier>();
+        services.AddSingleton<AgentSmith.Server.Services.Acts.IActRun>(sp => new AgentSmith.Tests.TestSupport.ActSteps(Config, sp));
+        services.AddScoped(_ => AgentSmith.Tests.TestSupport.FiledWorkDoubles.Move(Config)); // 2026-11-17-e061b: the start step's move
+        services.AddScoped(_ => AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Recorder(Approvals)) // e061c: the amend step's writes
+            .AddSingleton(AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Branch());
         services.AddTicketDefaults(); // 2026-10-13-8762p
         configure?.Invoke(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
@@ -88,13 +99,19 @@ internal sealed class TicketStoreHarness : IDisposable
     public Mock<ITicketActivityNudge> Activity { get; } = new();
     public Dictionary<string, int> Positions { get; } = new(StringComparer.Ordinal);
     public AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore Approvals { get; } = new();
+    public RecordingBranchSources Branches { get; } = new();
+    public AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore Pointers { get; } = new();
     public StaleLease? HeldLease { get; set; }
 
     public AgentSmithConfig Config { get; } = new()
     {
         Projects = new Dictionary<string, ResolvedProject>
         {
-            ["alpha"] = new() { Name = "alpha", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub } },
+            ["alpha"] = new()
+            {
+                Name = "alpha", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+                Repos = [new RepoConnection { Name = "api" }],
+            },
         },
     };
 
@@ -114,8 +131,27 @@ internal sealed class TicketStoreHarness : IDisposable
     public async Task AddAsync(params object[] rows)
     {
         await using var ctx = new AgentSmithDbContext(Options());
-        foreach (var row in rows) ctx.Add(row);
+        foreach (var row in rows)
+        {
+            if (row is TicketBranchSet branch) await FileOntoBranchAsync(branch);
+            else ctx.Add(row);
+        }
         await ctx.SaveChangesAsync();
+    }
+
+    // 2026-11-17-a0b6b: filing's own branch write, so the ticket readers read the branch as production leaves it.
+    private async Task FileOntoBranchAsync(TicketBranchSet branch)
+    {
+        var key = $"github-{branch.TicketId}";
+        var record = new AgentSmith.Contracts.Specs.SpecApprovalRecord(key,
+            new AgentSmith.Contracts.Specs.SpecSet(key, branch.Specs, AgentSmith.Contracts.Specs.SpecAccounting.Empty, [],
+                AgentSmith.Contracts.Specs.SpecSource.Approved,
+                Approval: new AgentSmith.Contracts.Specs.SpecApproval(T, "job-1", "sample.user"), Series: "2026-10-13-1234"),
+            ["api"], "gh", "api");
+        var ticket = new AgentSmith.Domain.Entities.Ticket(new TicketId(branch.TicketId), "t", "b", null, "open", "github", []);
+        var written = await ApprovedSetDoubles.Branch(Branches, Pointers)
+            .WriteAsync(Config.Projects["alpha"], record, new TicketId(branch.TicketId), ticket, CancellationToken.None);
+        if (!written.Written) throw new InvalidOperationException(written.Error);
     }
 
     public async Task<List<T>> ReadAllAsync<T>() where T : class

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-a0b6d
+
+decisions:
+  - category: Architecture
+    chose: "SpecDialogTurnProposal renamed SpecDialogProposal with ProposalId and State; every proposal (turn, awaiting, reviewing, filing) is a row, the session keeps only PostedProposalId/PostedAt, LatestFilingJson and RunningRunId"
+    over: "Keeping the awaiting/confirmed JSON on the session row beside the turn table"
+    reason: "Two copies of one proposal (session column and turn row) needed a JSON comparison to be joined; one row per proposal makes the id the join and each transition one row's compare-and-set."
+  - category: Architecture
+    chose: "A unique index over SessionId filtered to State 'awaiting' (SQLite, SQL Server, Postgres) keeps one awaiting row per session; an awaiting write that loses to it supersedes the winner and writes once more"
+    over: "Relying on the compare-and-set of each statement"
+    reason: "Two replicas putting up two proposals write two different rows; a state guard on one row cannot see the other, so only the index makes the second write fail. Later-write-wins is what the single session column did."
+  - category: Implementation
+    chose: "MySQL gets no one-awaiting index and relies on the compare-and-set statements alone"
+    over: "A generated column or trigger to emulate a partial index on MySQL"
+    reason: "MySQL has no partial index and no MySQL migration set or test runs here (it shares the SQLite set); follow-up: a MySQL one-awaiting guard, to be specced when a MySQL deployment exists."
+  - category: Implementation
+    chose: "Run ids reach the proposal writes through new SpecDialogProposalState/SpecDialogProposalClaim overloads (runId); the outcome flow and the review observer use them and the separate turn-row write is gone"
+    over: "Changing the existing public signatures"
+    reason: "Block 3 moves the filing callers concurrently; overloads keep every existing caller compiling untouched."
+  - category: Implementation
+    chose: "A proposal stored without a run is keyed 'proposal:{id}' (a draft 'proposal:review:{SessionId}'); the turn view and its read leave such rows out"
+    over: "A nullable RunId"
+    reason: "RunId stays unique and non-null on every provider (SQL Server treats NULLs as equal in a unique index); an unbound row shown as a turn would list as an interrupted turn."
+  - category: Implementation
+    chose: "A transition (supersede, claim, release, filed, reject) leaves UpdatedAt alone; only a JSON write dates the row"
+    over: "Stamping every change"
+    reason: "UpdatedAt dates the turn's proposal in the view; a reject must not move an interrupted turn's time."
+  - category: Implementation
+    chose: "The migration's copy SQL lives in ProposalTableMoveSql with a dialect per set (ANSI quotes and ||, brackets and +, backticks and CONCAT for MySQL on the SQLite set); UPDATEs select their rows through a derived table"
+    over: "Three hand-written copies of the statements"
+    reason: "One spelling of the per-state rules for three sets; MySQL refuses a subquery on the table being updated unless it is materialized."
+  - category: Implementation
+    chose: "A pre-ccd9 LatestProposalJson-only row migrates as reviewing when its JSON carries \"underReview\":true, else awaiting under 'migrated-{SessionId}'; a pre-205fe confirmed JSON takes the filing ProposalId or 'migrated-confirmed-{SessionId}'"
+    over: "Migrating every latest-only row as awaiting"
+    reason: "The read-time backfill made the same reviewing-or-awaiting call by parsing UnderReview; OutcomeProposalJson writes that member only when true, so the LIKE is exact."
+  - category: Implementation
+    chose: "The archive needs no import-time conversion: an archive from before is refused at its schema head (ArchiveSchemaCheck) and is imported into a store at that head, which the migration then copies into rows"
+    over: "Teaching the archive importer the old session columns"
+    reason: "The schema-head check already refuses a cross-head import before anything is written; the spec text assumed otherwise and was corrected."
+  - category: Implementation
+    chose: "SpecDialogSessionRepository exposes Proposals (a SpecDialogProposalRepository over its unit of work); SpecDialogLatestOutcomeStore and TicketTranscriptReader read the awaiting and reviewing rows through it"
+    over: "A new constructor dependency on every reader"
+    reason: "The readers already hold the session repository; the store keeps its constructor, so its many test constructions are unchanged."
+  - category: Implementation
+    chose: "SpecDialogProposalSpecNames rewrites proposal rows as a spec-rename surface of its own; SpecDialogSessionSpecNames keeps the filing and transcript"
+    over: "One surface rewriting two tables"
+    reason: "A surface is one table in the repair log; the JSON rewriter is shared."

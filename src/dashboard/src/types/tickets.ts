@@ -376,8 +376,11 @@ export interface TicketSeries {
   specs: TicketSeriesSpec[];
   revisions: Array<{ number: number; cause: string | null; runId: string; attempt: number; at: string | null }>;
   recorded: boolean;
-  /** cut | run-record — run-record when the attempts predate the cut and the specs come from their rows. */
+  /** cut | run-record | branch — run-record when the attempts predate the cut and the specs come from their rows;
+   *  branch when no attempt published a cut and the specs are the set the ticket branch holds. */
   source?: string;
+  /** 2026-11-17-a0b6b: why the ticket branch, where the specs' text lives, could not be read; null when it was. */
+  branchUnread?: string | null;
   unattributedCriteria?: TicketSeriesUnattributed[] | null;
   /** The series runway on the default read; null for a one-chunk ticket or a per-attempt read. */
   budget?: TicketSeriesBudget | null;
@@ -489,6 +492,14 @@ export interface TicketText {
   runId?: string | null;
   attempt?: number | null;
   reason?: TicketTextReason | null;
+  /** 2026-11-17-dd05d: on a live read, the approved spec goals the ticket's text no longer states; null when it states them. */
+  divergence?: TicketTextDivergence | null;
+}
+
+/** 2026-11-17-dd05d: how many specs the ticket's approved set holds, and the goals its tracker text does not state. */
+export interface TicketTextDivergence {
+  specs: number;
+  unsaid: string[];
 }
 
 export interface TicketConversationEntry {
@@ -496,7 +507,7 @@ export interface TicketConversationEntry {
   sourceId: string | null;
   prKey: string | null;
   source: TicketConversationSource;
-  /** edited | answer | default-answer | command-answer | comment | turn | question | hand-back | cut-review | … */
+  /** edited | answer | default-answer | command-answer | comment | turn | question | hand-back | cut-review | spec-set | … */
   kind: string;
   /** person | agent | system | reviewer */
   role: string;

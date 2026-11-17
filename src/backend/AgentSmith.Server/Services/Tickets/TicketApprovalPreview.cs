@@ -21,7 +21,7 @@ public sealed class TicketApprovalPreview(
         if (projects.Of(project) is not { } resolved) return null;
         // 2026-11-10-ccd9: the proposal awaiting a decision — the one the page's approve names by id.
         if (await transcript.SessionAsync(resolved, ticketId, ct) is not { } session
-            || SpecDialogAwaitingRow.Json(session) is not { } json) return null;
+            || await transcript.AwaitingAsync(session, ct) is not { Json: var json }) return null;
         if (Proposal(json) is not { } proposal) return null;
         var read = await reader.ReadAsync(project, ticketId, mayStartRuns, ct);
         if (read.State is not { } state) return new(null, read.Failure);

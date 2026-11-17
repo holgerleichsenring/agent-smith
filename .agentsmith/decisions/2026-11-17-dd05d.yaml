@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-dd05d
+
+decisions:
+  - category: Architecture
+    chose: "The ticket text read carries the divergence ApprovedSetDivergence already computes for the conversation"
+    over: "A second comparison, or a fingerprint comparison against the branch manifest"
+    reason: "Block 6 built the check on the branch; reusing it keeps one meaning of 'the ticket no longer says the specs'. The manifest fingerprint changes with every edit, including ones that keep every goal, and would name a divergence the operator cannot read."
+  - category: Implementation
+    chose: "Only an approved set is compared, over description and criteria as plain text"
+    over: "Every set, over the raw description with the title"
+    reason: "A derived set's ticket is a person's text the goals were never in; Azure DevOps answers HTML; a filed spec's title carries its goal and would hide a body that lost it."
+  - category: Implementation
+    chose: "The page re-reads the text past the server's cache when its window regains focus; an overwrite forgets the cached read"
+    over: "Tracker webhooks pushing an edit, or polling the tracker from the page"
+    reason: "Four trackers send four edit shapes and polling mode sends none; the operator sees the page when coming back to it, which is when the read happens. A focus is human-paced, so skipping the minute cache costs one tracker read per return. A polling interval would be a new limit."
+  - category: Implementation
+    chose: "The notice is one plain line in the What happened lead (and on a never-run ticket's page) with two buttons, hidden for a caller known to lack runs.control"
+    over: "A banner or a section of its own"
+    reason: "The operator asked for no frames, boxes or pills; the line uses the existing note style."

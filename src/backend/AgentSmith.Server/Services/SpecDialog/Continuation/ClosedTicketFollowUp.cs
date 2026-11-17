@@ -25,7 +25,7 @@ public sealed class ClosedTicketFollowUp(IFilingRun filing, FollowUpLink link)
         if (report.Filed.Count == 0)
             return new($"Ticket {ticketId} was closed by a person, and filing its follow-up failed: {report.Error}. "
                 + "Approve again once the tracker answers.", Acted: false, report, left);
-        var missed = await link.LinkAsync(project, ticketId, report.Filed[0], ct);
+        var missed = await link.PostLinksAsync(project, ticketId, report.Filed[0], ct);
         return new($"{decision.Reason} Filed: {string.Join(", ", report.Filed.Select(f => f.Key ?? f.Reference))}."
             + (report.Error is { } error ? $" Filing did not complete: {error}." : string.Empty)
             + (missed is null ? string.Empty : $" {missed}"), Acted: true, report, left);

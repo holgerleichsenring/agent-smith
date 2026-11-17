@@ -57,7 +57,7 @@ internal static class FilingDoubles
         var series = new SeriesFilingPlan(new SpecTicketRenderer(), new EpicChildOrderer(), new FiledSeriesFactory(
             ApprovedSetDoubles.SeriesIds(), ApprovedSetDoubles.DraftIds(), SeriesSettingsDoubles.Reader(settings),
             NullLogger<FiledSeriesFactory>.Instance));
-        return new FilingPlanner(series, new ListFilingPlan(existence ?? Existence(factory), new TicketGraphOrderer(), series),
+        return new FilingPlanner(series, new ListFilingPlan(existence ?? Existence(factory), new TicketGraphOrderer(), series, new SeriesTicketRegion(new SpecTicketRenderer())),
             new BugTicketRenderer());
     }
 

@@ -21,21 +21,20 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
     public async Task<SpecDialogSession?> SessionAsync(ResolvedProject project, string ticketId, CancellationToken ct)
     {
         var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
-        var session = await ReadAsync(project.Tracker.Name, key, ct);
-        // 2026-11-10-ccd9 review: a row from before the deploy is given its id here too, so its Approve can name it;
-        // re-read in a scope of its own, because the backfill's set-based write leaves a tracked row as it was.
-        if (session is not { IsOpen: true, ProposalId: null, LatestProposalJson: not null }) return session;
-        using (var scope = scopes.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<SpecDialogProposalClaim>()
-                .BackfillAsync(session.Platform, session.ThreadId, SpecDialogProposalState.UnderReview, ct);
-        return await ReadAsync(project.Tracker.Name, key, ct);
+        using var scope = scopes.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<SpecDialogSessionRepository>().GetByTicketAsync(project.Tracker.Name, key, ct);
     }
 
-    private async Task<SpecDialogSession?> ReadAsync(string tracker, string key, CancellationToken ct)
+    /// <summary>2026-11-17-a0b6d: the session's proposal awaiting a decision, with its id; null when none awaits.</summary>
+    public async Task<(string Id, string Json)?> AwaitingAsync(SpecDialogSession session, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<SpecDialogSessionRepository>().GetByTicketAsync(tracker, key, ct);
+        return await scope.ServiceProvider.GetRequiredService<SpecDialogSessionRepository>().Proposals.AwaitingAsync(session.SessionId, ct);
     }
+
+    /// <summary>The open proposal and its drafts; null when none awaits.</summary>
+    public async Task<TicketConversationProposalView?> ProposalAsync(SpecDialogSession session, CancellationToken ct) =>
+        Proposal(session, await AwaitingAsync(session, ct));
 
     public IEnumerable<TicketConversationEntryView> Turns(SpecDialogSession session) =>
         Read(session, () => SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson), [])
@@ -46,15 +45,15 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
                 turn.Author, turn.Role == TranscriptRole.Assistant, turn.At, null, null, turn.Text,
                 Format: turn.Role == TranscriptRole.User ? TicketTextFormat.Text : TicketTextFormat.Markdown));
 
-    /// <summary>The open proposal and its drafts; null when none is open.</summary>
-    public TicketConversationProposalView? Proposal(SpecDialogSession session)
+    /// <summary>The <paramref name="awaiting"/> proposal of <paramref name="session"/> and its drafts; null when none awaits.</summary>
+    public TicketConversationProposalView? Proposal(SpecDialogSession session, (string Id, string Json)? awaiting)
     {
         // 2026-11-10-ccd9: the proposal awaiting a decision, with the id the page's approve sends.
-        if (SpecDialogAwaitingRow.Json(session) is not { } json) return null;
+        if (awaiting is not { Id: var id, Json: var json }) return null;
         var ratified = Read(session, () => RatifiedMocks.Of(SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson)),
             new Dictionary<string, int>());
         return Read<TicketConversationProposalView?>(session,
-            () => Of(OutcomeProposalJson.Read(json), ratified) with { ProposalId = SpecDialogAwaitingRow.Id(session) }, null);
+            () => Of(OutcomeProposalJson.Read(json), ratified) with { ProposalId = id }, null);
     }
 
     private static TicketConversationProposalView Of(OutcomeProposal proposal, IReadOnlyDictionary<string, int> ratified) => (proposal switch
