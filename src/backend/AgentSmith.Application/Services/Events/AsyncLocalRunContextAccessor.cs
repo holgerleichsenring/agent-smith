@@ -20,12 +20,14 @@ public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
     private static readonly AsyncLocal<int?> CurrentStep = new();
     private static readonly AsyncLocal<string?> CurrentSpec = new();
     private static readonly AsyncLocal<int?> CurrentPass = new();
+    private static readonly AsyncLocal<RecordedCallLedger?> CurrentCalls = new();
 
     public string? CurrentRunId => CurrentRun.Value;
     public CallScope? CurrentCallScope => CurrentCall.Value;
     public int? CurrentStepIndex => CurrentStep.Value;
     public string? CurrentSpecId => CurrentSpec.Value;
     public int? CurrentMasterPass => CurrentPass.Value;
+    public RecordedCallLedger? CurrentRecordedCalls => CurrentCalls.Value;
 
     public IDisposable BeginScope(string runId) => Enter(CurrentRun, runId);
 
@@ -40,6 +42,9 @@ public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
 
     // 2026-10-13-9a59f: the master pass inside the step's frame.
     public IDisposable BeginMasterPassScope(int ordinal) => Enter(CurrentPass, ordinal);
+
+    // 2026-11-17-7c9bc: the run's call ledger, beside the run id.
+    public IDisposable BeginRecordedCallsScope(RecordedCallLedger ledger) => Enter(CurrentCalls, ledger);
 
     private static IDisposable Enter<T>(AsyncLocal<T> frame, T value)
     {

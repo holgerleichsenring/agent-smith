@@ -80,7 +80,7 @@ One entry per LLM configuration. A project names one with `agent:`.
 | `retry` | `max_retries` (5), `initial_delay_ms` (2000), `backoff_multiplier` (2.0), `max_delay_ms` (60000) |
 | `network_timeout_seconds` | how long one provider call may take, default 300 |
 | `rate_limit` | `requests_per_minute`, `input_tokens_per_minute`; unset takes the provider's default budget |
-| `compaction` | `is_enabled` (true), `max_context_tokens` (200000), `max_context_tokens_trigger_ratio` (0.7), `keep_recent_iterations` (3). It summarizes with the `summarization` role |
+| `compaction` | `is_enabled` (true), `max_context_tokens` (200000), `max_context_tokens_trigger_ratio` (0.7), `keep_recent_iterations` (3), `fold_target_ratio` (0.35, the share a fold shrinks the view to), `summary_budget_ratio` (0.1, past it the summary segments are merged). It summarizes with the `summarization` role |
 | loop tuning | `max_master_loop_iterations` (200), `max_sub_agent_loop_iterations` (100), `max_fix_iterations` (3), `ledger_reminder_every_n_iterations` (10), `reminder_drift_editless_iterations` (8), `verdict_owed_after_iterations` (3), `checkpoint_push_min_interval_seconds` (120), `supports_vision` (true) |
 | scan tuning | `scan_min_source_reads` (6), `scan_master_max_output_tokens` (32000), `scan_master_loop_iterations` (100), `scan_context_window_tokens` (200000) |
 | dialog tuning | `dialog_master_loop_iterations` (200), `dialog_sub_agent_loop_iterations` (100), `dialog_review_look_allowance` (24, the looks a design turn's proposal and plan reviewers may take), `dialog_context_window_tokens` (200000; a design turn replays the previous turn's thread only when it can fold against a window), `dialog_transcript` (`verbatim_chars` 60000, `keep_recent_chars` 30000, `min_recent_turns` 2, `max_fold_chars` 200000: past `verbatim_chars` a digest folds the older turns) |
@@ -225,6 +225,7 @@ A project wires one agent, one tracker and a set of repos, and says how a ticket
 | `pipelines` | pipelines this project hosts with their own overrides: `name`, `agent`, `skills_path`, `coding_principles_path` |
 | `coding_principles_path`, `skills_path` | project-level overrides |
 | `sandbox` | per-project sandbox overrides, see below |
+| `merge` | whether a green code run merges its own pull requests, see below |
 | `design_sources` | names from `design_sources:` this project may read designs from. See [Design sources](../../configure-it/design-sources.md) |
 
 ### Trigger blocks
@@ -259,6 +260,24 @@ Refused: an unknown project, a repo that project doesn't carry, a wildcard repo,
 | `secrets` | `env` (`VAR: "secretName:key"`) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
 
 Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.
+
+### projects.merge
+
+```yaml
+merge:
+  when: on_gate_green               # manual (default) | on_gate_green
+  respect_branch_protection: false  # default false
+  refresh_open_pull_requests: false # default false
+```
+
+| Key | Description |
+|-----|-------------|
+| `when` | `manual`: the run opens its pull requests and a person merges them. `on_gate_green`: a run whose every spec passed its verification merges its pull requests as its last step, and later work fixes forward. A red, partial or record-only run never merges. |
+| `respect_branch_protection` | `false`: merge past branch policies, protection rules and approval rules, which are there for people. That needs the token's permission: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with *Do not allow bypassing the above settings* off, or the token's actor on a ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow. `true`: Azure DevOps arms auto-complete, GitHub enables auto-merge, GitLab merges when the pipeline succeeds. |
+
+| `refresh_open_pull_requests` | `true`: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch unchanged and is said on the pull request. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |
+
+A merge the host refuses leaves the pull request open. The step result and the run's pull-request record name the reason; a missing bypass permission reads `cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true`. Repositories merge in order and the first refusal stops the rest. A pull request opened against a feature rung is left open. A local repository fast-forwards its default branch either way.
 
 ## secrets
 

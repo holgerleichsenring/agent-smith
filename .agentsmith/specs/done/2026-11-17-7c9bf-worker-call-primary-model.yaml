@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-7c9bf
+goal: "A worker call records the model its CLI session ran as the call's model; any other model the CLI used is kept as secondary usage, never joined into the name."
+
+applies_to: "default (WorkerCliEnvelope, WorkerCliStream, WorkerCallAccounting, EventPublishingChatClient, result.md worker block)"
+
+requires: [2026-11-17-7c9bd]
+
+facts:
+  - claim: "The call's model is every modelUsage key joined with '+'."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerCliEnvelope.cs:94-101"
+  - claim: "The worker CLI runs with stream-json output, whose first line is the system event; only the last (result) line is read."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/ExternalWorkerCliOptionsFactory.cs:30, src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerCliStream.cs:14-22"
+  - claim: "The recorded call's model is the response's ModelId, which the accounting sets; its cost is the CLI's total_cost_usd."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Workers/WorkerCallAccounting.cs:38, src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:152-161"
+  - claim: "Every recorded worker call in the replay reads 'claude-haiku-4-5-20251001+claude-opus-5-5'."
+    evidence: "observed: 2026-11-17 final replay, RunLlmCalls of runs 17-16-29-dbf5, 18-07-26-4fb8, 18-36-46-7a0b"
+
+scope:
+  in: "The primary model is the model of the stream's system init event (type system, subtype init) when modelUsage names it exactly, else the modelUsage entry with the most output tokens; with no modelUsage the model stays empty as today. WorkerCallAccounting.Model is the primary; Secondary lists every other entry (model, tokens, costUSD). Tokens and the call's cost stay the CLI's top-level usage and total_cost_usd, so pricing is unchanged. RecordedCall carries the secondary usage; result.md's worker_cli block names the primary models and adds a secondary line per model with its summed tokens and usd; the worker's answered log line names it. A resumed segment's prior secondary usage is not carried."
+  out: "A RunLlmCalls column for secondary usage (the row's cost already includes it)."
+
+steps:
+  - id: usage
+    action: "WorkerModelUsage record (Contracts/Models/Workers); WorkerCallAccounting.Secondary init property."
+  - id: read
+    action: "WorkerCliEnvelope reads modelUsage into entries and splits primary/secondary; WorkerCliStream hands the system event's model in."
+  - id: carry
+    action: "EventPublishingChatClient copies Secondary onto the RecordedCall; RecordedCallSummary sums it into WorkerSpend.Secondary; WorkerSpendSectionWriter renders it; ExternalWorkerChatClient logs it."
+
+tests:
+  - "WorkerCliEnvelopeTests: a stream whose init event (after a hook system event) names claude-opus-5-5 and whose modelUsage has haiku and opus → Model claude-opus-5-5, Secondary haiku with its tokens and cost; json without the system event → the entry with most output tokens; cost unchanged"
+  - "EventPublishingChatClientCostTests: the joined-name fixture is rewritten; the published model is the primary and the cost is the CLI total"
+  - "WorkerSpendSectionWriter test: a secondary line per model"
+  - "Real composition (ExternalWorkerHarness): a worker call answered with that stream records model claude-opus-5-5 and the CLI's cost"
+
+done:
+  - "Recorded worker calls name the model the session ran; haiku's internal use shows as secondary usage, and the call's cost is unchanged."

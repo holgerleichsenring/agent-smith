@@ -1,9 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -23,8 +20,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// apart in the per-repo record and in the sentence the operator reads.
 /// </summary>
 public sealed class InitCompleteHandler(
-    ISourceProviderFactory sourceFactory,
-    IEventPublisher events,
+    PullRequestCompleter completer, // 2026-11-17-023fa: the one completion a code run's merge shares
     ILogger<InitCompleteHandler> logger)
     : ICommandHandler<InitCompleteContext>
 {
@@ -59,8 +55,7 @@ public sealed class InitCompleteHandler(
                 logger.LogWarning("{Repo}: not found in Configs; skip", entry.RepoName);
                 continue;
             }
-            var completion = await CompleteOneAsync(repo, entry, context.SourceBranch, ct);
-            await PublishOutcomeAsync(context.Pipeline, entry, completion, ct);
+            var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, context.SourceBranch, null, ct);
             if (completion.Outcome is PullRequestCompletionOutcome.Refused)
                 refusals.Add($"{entry.RepoName}: {completion.Reason}");
             else if (completion.Outcome is PullRequestCompletionOutcome.Armed)
@@ -68,43 +63,4 @@ public sealed class InitCompleteHandler(
         }
         return (refusals, armed);
     }
-
-    private async Task<PullRequestCompletion> CompleteOneAsync(
-        RepoConnection repo, OpenedPullRequest entry, BranchName sourceBranch, CancellationToken ct)
-    {
-        try
-        {
-            var completion = await sourceFactory.Create(repo)
-                .CompletePullRequestAsync(entry.Url!, sourceBranch, ct);
-            logger.LogInformation(
-                "{Repo}: init PR {Outcome} ({Url}){Reason}", repo.Name, completion.Outcome, entry.Url,
-                completion.Reason is null ? string.Empty : $" - {completion.Reason}");
-            return completion;
-        }
-        catch (Exception ex)
-        {
-            // A provider that throws anyway must not take the run down with it — the
-            // files are committed and the pull request is open either way.
-            logger.LogWarning(ex, "{Repo}: completing the init PR threw", repo.Name);
-            return PullRequestCompletion.Refused(ex.Message);
-        }
-    }
-
-    // p0490: the completion outcome extends the SAME per-repo record p0347 already
-    // keeps (Runs.PullRequestsJson, upserted by repo), carrying the pull request's URL
-    // forward so a completed row still links to what was merged.
-    private async Task PublishOutcomeAsync(
-        PipelineContext pipeline, OpenedPullRequest entry,
-        PullRequestCompletion completion, CancellationToken ct)
-    {
-        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
-            return;
-        await events.PublishAsync(
-            new PullRequestOutcomeEvent(
-                runId!, entry.RepoName,
-                InitCompletionReport.StatusOf(completion),
-                DateTimeOffset.UtcNow, entry.Url, completion.Reason),
-            ct);
-    }
-
 }

@@ -31,6 +31,14 @@ internal sealed class GitSpecSetPublisher(CitationRepo repo, DateTimeOffset at) 
         return CommandResult.Ok($"Spec {set.Key} published");
     }
 
+    public Task<CommandResult> KeepAsync(
+        PipelineContext pipeline, SeriesScope scope, SpecSet set, string revisionSha, CancellationToken cancellationToken)
+    {
+        pipeline.Set(ContextKeys.SpecSet, set);
+        pipeline.Set(ContextKeys.SpecRevisionSha, revisionSha);
+        return Task.FromResult(CommandResult.Ok($"Spec {set.Key} kept"));
+    }
+
     /// <summary>The entry grounding over the real regrounder and this publisher.</summary>
     internal SpecEntryGrounding Grounding() =>
         new(CitationRepo.Regrounder(), new SpecReviewRevision(this), new SpecDraftReader(),

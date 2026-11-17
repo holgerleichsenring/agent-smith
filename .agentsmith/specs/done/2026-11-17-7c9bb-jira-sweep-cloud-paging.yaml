@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-7c9bb
+goal: "The Jira change sweep pages the way each endpoint answers: no startAt on the first request, nextPageToken on Cloud's search/jql, startAt only where the answer carries a total."
+
+applies_to: "default (JiraChangedTickets)"
+
+facts:
+  - claim: "Every first request carries startAt, also to Cloud's /rest/api/3/search/jql."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraChangedTickets.cs:39-41"
+  - claim: "Cloud's search/jql answers HTTP 400 'Invalid request payload' to a body with startAt and accepts the same body without it."
+    evidence: "observed: 2026-11-17 final replay, reproduced against the test Jira Cloud site; the sweep failed every 30 s"
+  - claim: "The default search endpoint is Cloud's search/jql; a Data Center overrides it with /rest/api/2/search, which pages by startAt and total."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraChangedTickets.cs:12, tests/AgentSmith.Tests/Rework/Sweep/ChangeListerTests.cs:20-33"
+  - claim: "The issue searcher already pages search/jql by nextPageToken alone and sends no startAt."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraIssueSearcher.cs:57-67"
+
+scope:
+  in: "The first request sends jql, fields and maxResults only. A next page follows nextPageToken when the answer has one; otherwise startAt + read when the answer carries a total that is not reached (Data Center). No new constant."
+  out: "The cursor, the minute overrun and the page budget are unchanged."
+
+steps:
+  - id: body
+    action: "JiraChangedTickets.Body: no startAt when it is the first page; token or startAt afterwards, as Next decided."
+
+tests:
+  - "ChangeListerTests: Cloud — a handler answering 400 to any body with startAt; two pages joined by nextPageToken, 150 items, neither body carries startAt"
+  - "ChangeListerTests: Data Center pages by startAt as before (the existing test, first body without startAt)"
+  - "Real composition: the Jira provider from ITicketProviderFactory, with an HTTP handler that answers like Cloud, lists the changed tickets"
+
+done:
+  - "On Jira Cloud the change sweep returns the changed tickets instead of HTTP 400."

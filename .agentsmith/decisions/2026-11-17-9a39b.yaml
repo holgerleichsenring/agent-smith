@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-9a39b
+
+decisions:
+  - category: Architecture
+    chose: "The stacked prerequisite rides the claim's initial context (ContextKeys.StackedOnTicket) and RunParentTicket.Of answers it before the label parent, so every base consumer — work branch, delivery diff, foreign-commit probe, branch-state preflight, premise base replay, pull-request target — reads one answer"
+    over: "A second ladder rung beside the parent; resolving the stack inside the run from the database"
+    reason: "The ladder, the rung checkout, the base merge on a reused branch and PullRequestTargets already do exactly what a stack needs for an epic rung; one more source of the same id keeps them in agreement. The run reads its context, not the server's stores."
+  - category: Implementation
+    chose: "The claim asks ForStartAsync again under its lock and refuses when the ticket is held now; a tip is stamped, none removes a stale stamp"
+    over: "Stamping only, after the gate's read"
+    reason: "Adversarial review: the gate runs before the lock; a requirement that turned unmet between the two reads would have cut the dependent from the default branch without its prerequisite. Reading under the lock also refreshes a stamp a capacity-queued request carried."
+  - category: Implementation
+    chose: "SandboxRungPublisher.EnsureAsync(publish: false) for a stacked run: a missing prerequisite branch falls through to the clone's base"
+    over: "Letting the publisher create it like an epic rung"
+    reason: "A landed prerequisite's branch is deleted on merge (2026-11-17-713eb); recreating it at the default branch's sha would give the dependent a pull request into a branch nobody merges."
+  - category: Scope
+    chose: "A run handed its branch (a pull-request command) keeps leaving its base alone; the stacked base is merged in on the next run composed from the ticket"
+    over: "Merging the prerequisite into handed branches too"
+    reason: "Adversarial review found the gap; the handed-branch rule protects contributors' branches and holds for epic rungs today. A rework from the ticket or a retry composes the branch and merges the base."
+  - category: Scope
+    chose: "A resumed run keeps the stamp it was claimed with"
+    over: "Re-reading the stack at resume"
+    reason: "Its pull request may be moved back onto a landed prerequisite's still-existing branch by its CommitAndPR; 9a39c's retarget runs on every nudge, including that run's end, and moves it off again."

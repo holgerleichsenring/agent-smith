@@ -48,7 +48,7 @@ public static partial class CommandDisplayNames
         [CommandNames.CloseTicket] = "Close the ticket", // 2026-11-17-e061a
         [CommandNames.ReopenTicket] = "Reopen the ticket", [CommandNames.StartTicket] = "Start the ticket",
         [CommandNames.AmendTicket] = "Record the approved series", [CommandNames.PostTicketComments] = "Post the comments", // e061c
-        [CommandNames.RenderTicketBody] = "Render the ticket body from its specs", // 2026-11-17-dd05b
+        [CommandNames.RenderTicketBody] = "Render the ticket body from its specs", [CommandNames.RetargetPullRequests] = "Move the pull requests off a landed branch", // dd05b, 9a39c
         [CommandNames.SpecGate] = "Validate the spec",
         [CommandNames.MasterOpenQuestions] = "Post master open questions",
         [CommandNames.WriteSpecRecord] = "Write spec record",
@@ -56,7 +56,7 @@ public static partial class CommandDisplayNames
         [CommandNames.CommitAndPR] = "Create pull request",
         [CommandNames.InitCommit] = "Commit init files",
         [CommandNames.PrCrossLink] = "Cross-link sibling pull requests",
-        [CommandNames.InitComplete] = "Complete the init pull requests",
+        [CommandNames.InitComplete] = "Complete the init pull requests", [CommandNames.CompletePullRequests] = "Merge the pull requests", [CommandNames.RefreshBranchBase] = "Merge the landed base", // 023fa, 023fb
         [CommandNames.CleanupWorkBranches] = "Remove finished branches", // 2026-11-17-713ec
         [CommandNames.GenerateTests] = "Generate tests",
         [CommandNames.GenerateDocs] = "Generate docs",

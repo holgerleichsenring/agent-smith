@@ -42,15 +42,17 @@ public sealed class SandboxRungPublisher(
     /// The base this repository's slice belongs on, with the rung published if it was this
     /// run's job to publish it. Never throws for a branch it could not create — a rung that
     /// cannot be published leaves the run exactly where it was before rungs existed.
+    /// 2026-11-17-9a39b: with <paramref name="publish"/> false — a stacked prerequisite's branch — a missing rung is
+    /// never created: a landed prerequisite's deleted branch must not come back at the clone's base.
     /// </summary>
     public async Task<ResolvedBase> EnsureAsync(
-        ISandbox sandbox, RepoConnection config, string? parentTicketId, CancellationToken ct)
+        ISandbox sandbox, RepoConnection config, string? parentTicketId, CancellationToken ct, bool publish = true)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(config);
 
         var resolved = await ladder.ResolveAsync(sandbox, parentTicketId, ct);
-        if (!resolved.FellThrough) return resolved;
+        if (!resolved.FellThrough || !publish) return resolved;
         if (string.IsNullOrWhiteSpace(parentTicketId)) return resolved;
         if (resolved.Ref is not { } baseRef)
         {

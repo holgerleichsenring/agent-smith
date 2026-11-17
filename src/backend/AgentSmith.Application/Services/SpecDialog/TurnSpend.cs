@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 
@@ -7,6 +8,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// <summary>
 /// 2026-11-10-d854a: a design turn's spend as its proposal carries it, read off the turn's own cost tracker: what it
 /// spent so far, its cap, the tier that sized the cap and whether the cap is exhausted. Null before anything was tracked.
+/// <para>2026-11-17-7c9bc: what it spent is the run's recorded calls (<see cref="RecordedCallLedger"/>), worker calls
+/// included — the tracker leaves those out, so a worker-mode turn read usd 0. Cap and exhaustion stay the tracker's.</para>
 /// </summary>
 public static class TurnSpend
 {
@@ -19,6 +22,9 @@ public static class TurnSpend
         var tier = pipeline.TryGet<ComplexityTier>(ContextKeys.ComplexityTier, out var t) && t != ComplexityTier.Unknown
             ? t.ToString().ToLowerInvariant()
             : null;
-        return new ProposalSpend(tracker.EstimateCostUsd(), tracker.CostCap?.Usd, tier, tracker.IsBudgetExhausted);
+        var spent = pipeline.TryGet<RecordedCallLedger>(ContextKeys.RecordedCalls, out var calls) && calls is not null
+            ? calls.CostUsd
+            : tracker.EstimateCostUsd();
+        return new ProposalSpend(spent, tracker.CostCap?.Usd, tier, tracker.IsBudgetExhausted);
     }
 }

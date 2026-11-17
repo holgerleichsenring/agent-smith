@@ -32,16 +32,17 @@ The estimate is a `chars / 4` count over message text and tool results. It only 
 ```
 [ system prompt(s)       ]   pinned, verbatim
 [ initial user message   ]   pinned, verbatim (ticket, conversation, attachments)
-[ context summary        ]   the folded middle, extended incrementally
-[ current state          ]   ledger + working state, re-rendered on every call
+[ summary, part 1..n     ]   one segment per fold, each left as its fold wrote it
+[ state at the last fold ]   ledger + working state, rendered once per fold
 [ recent tail            ]   the last rounds, verbatim
 ```
 
 - The initial user message is pinned. It carries the ticket and its attachments, and a paraphrase of it is how a model ends up re-deriving things the ticket spelled out.
-- The tail keeps roughly the last `keep_recent_iterations` rounds (at least four messages) and never starts on an orphaned tool result, so every provider still gets a valid call/result transcript.
-- The summary is framed as subordinate: where it conflicts, the ticket and the current-state block win.
+- A fold shrinks the view to `fold_target_ratio` × `max_context_tokens` (default 0.35). The tail keeps at most the last `keep_recent_iterations` rounds (at least four messages), fewer when they would not fit; it always keeps the newest assistant message and what follows it, and never starts on an orphaned tool result, so every provider still gets a valid call/result transcript. A tool result larger than the target stays while it is the newest message and goes into the summary at the next fold.
+- Each fold appends its summary as a new segment and leaves the earlier ones alone. When the segments would pass `summary_budget_ratio` × `max_context_tokens` (default 0.1), that fold summarizes them with the new middle into one segment.
+- The state block is rendered at the fold and kept until the next one; the messages after it are newer. The summary is framed as subordinate: where it conflicts, the ticket and the state block win.
 
-After the first fold the view grows append-only with a byte-stable prefix. A new fold happens only when the view itself crosses the threshold again. That keeps provider prompt caches warm between folds instead of rewriting the prefix every turn.
+After a fold the view grows append-only with a byte-stable prefix, and the next fold comes only when the view crosses the threshold again, the gap between target and trigger later. A fold that kept a fixed number of rounds used to leave the view over the trigger whenever a round carried a large tool result, so it folded on almost every call and rewrote what the provider had cached each time. Claude (the API and the CLI worker) caches up to the last block, so a fold call still reads only the system part; providers that cache any prefix, such as OpenAI, also read the unchanged head and earlier segments.
 
 ## The summarizer
 
@@ -63,7 +64,9 @@ agents:
       is_enabled: true                      # default true
       max_context_tokens: 200000            # default 200000
       max_context_tokens_trigger_ratio: 0.7 # default 0.7; 0 disables the trigger
-      keep_recent_iterations: 3             # size of the verbatim tail
+      keep_recent_iterations: 3             # most rounds the verbatim tail keeps
+      fold_target_ratio: 0.35               # a fold shrinks the view to this share
+      summary_budget_ratio: 0.1             # summary segments past this share are merged
     models:
       summarization:
         model: claude-haiku-4-5-20251001
@@ -72,5 +75,5 @@ agents:
 A successful fold logs one line:
 
 ```
-info  Compaction fold #1: 58 -> 12 messages (watermark 50, folded 44 new)
+info  Compaction fold #1: 58 -> 12 messages (watermark 50, folded 44 new, 1 summary segment(s))
 ```

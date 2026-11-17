@@ -51,13 +51,13 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
         services.AddSingleton<IStepDataFlow, CodeDataFlow>(); // p0393
-        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>(); services.AddSingleton<IStepDataFlow, BranchCleanupDataFlow>(); // 2026-11-17-713ec
+        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>(); services.AddSingleton<IStepDataFlow, BranchCleanupDataFlow>(); services.AddSingleton<IStepDataFlow, RefreshBaseDataFlow>(); // 713ec, 023fb
         services.AddSingleton<IStepDataFlow, SecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, ApiSecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>().AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>().AddSingleton<IStepDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>().AddSingleton<IStepDataFlow, SpecDeriveDataFlow>().AddSingleton<IStepDataFlow, FileDataFlow>() // bdd0a, 5701b
             .AddSingleton<IStepDataFlow, CloseDataFlow>().AddSingleton<IStepDataFlow, ReopenDataFlow>().AddSingleton<IStepDataFlow, StartDataFlow>() // e061a-b
-            .AddSingleton<IStepDataFlow, AmendDataFlow>().AddSingleton<IStepDataFlow, CommentDataFlow>().AddSingleton<IStepDataFlow, TicketBodyDataFlow>(); // e061c, dd05b
+            .AddSingleton<IStepDataFlow, AmendDataFlow>().AddSingleton<IStepDataFlow, CommentDataFlow>().AddSingleton<IStepDataFlow, TicketBodyDataFlow>().AddSingleton<IStepDataFlow, RetargetDataFlow>(); // e061c, dd05b, 9a39c
         services.AddSingleton<IStepDataFlowResolver, StepDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);

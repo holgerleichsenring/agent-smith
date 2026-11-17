@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
@@ -9,9 +10,13 @@ namespace AgentSmith.Application.Services.Claim;
 /// <see cref="RequiresUnmetGate"/> at every door and again by the wake under the dependent's lock, so the
 /// wake never starts what the gate would refuse. A requirement is met only when the required ticket LANDED,
 /// merged or marked done by hand.
+/// <para>2026-11-17-9a39a: <see cref="ForStartAsync"/> is the question a START asks: under the project's
+/// <see cref="RequiresStart.OnGreenPush"/> an unlanded requirement is lifted when its prerequisite pushed a green
+/// branch the ticket can stack on (<see cref="GreenPrerequisites"/>). Without the green reader it answers landings.</para>
 /// </summary>
 public sealed class UnmetTicketRequirements(
-    ITicketRequirementStore requirements, ITicketLandingStore landings, ISpecApprovalStore approvals)
+    ITicketRequirementStore requirements, ITicketLandingStore landings, ISpecApprovalStore approvals,
+    GreenPrerequisites? green = null)
 {
     /// <summary>
     /// Whether the ticket has requirement rows, and the edges whose required ticket has not landed, in the
@@ -26,6 +31,21 @@ public sealed class UnmetTicketRequirements(
         var landed = (await landings.LandedAsync(tracker, [.. edges.Select(e => e.RequiredTicketKey)], cancellationToken))
             .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
         return (true, [.. edges.Where(e => !landed.Contains(e.RequiredTicketKey))]);
+    }
+
+    /// <summary>
+    /// What holds the ticket from a start in this project. A dependent that already has a code attempt was stacked
+    /// once and is not held again — its rework is never refused while a prerequisite reworks — and stacks on the
+    /// chain's tip when there is one.
+    /// </summary>
+    public async Task<RequirementHold> ForStartAsync(ResolvedProject project, string ticketKey, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var (has, unmet) = await OfAsync(project.Tracker.Name, ticketKey, cancellationToken);
+        if (unmet.Count == 0 || project.RequiresStart != RequiresStart.OnGreenPush || green is null) return new(has, unmet);
+        var started = await green.StartedAsync(project.Name, unmet[0].TicketId, cancellationToken);
+        var tip = await green.TipAsync(project.Name, unmet, requireGreen: !started, cancellationToken);
+        return tip is not null || started ? new(has, [], tip, GreenLifts: true) : new(has, unmet, GreenLifts: true);
     }
 
     /// <summary>

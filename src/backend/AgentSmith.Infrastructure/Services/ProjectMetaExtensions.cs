@@ -31,6 +31,7 @@ public static class ProjectMetaExtensions
         services.AddSingleton<IContextYamlSectionUpsert, ContextYamlSectionUpsert>();
         // 2026-08-26-31e5: the state.done splice — the chronicle is edited, never rewritten.
         services.AddSingleton<IContextYamlStateDoneCodec, ContextYamlStateDoneCodec>();
+        services.AddSingleton<IContextYamlStateIndexUnion, ContextYamlStateIndexUnion>(); // 2026-11-17-023fb
         services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
         return services;
     }

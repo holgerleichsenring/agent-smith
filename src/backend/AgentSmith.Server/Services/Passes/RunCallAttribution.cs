@@ -25,7 +25,7 @@ public static class RunCallAttribution
         return Command(step.CommandName) switch
         {
             CommandNames.DeriveSpec => Bucket.Derive,
-            CommandNames.CommitAndPR or CommandNames.PrCrossLink => Bucket.Pr,
+            CommandNames.CommitAndPR or CommandNames.PrCrossLink or CommandNames.CompletePullRequests => Bucket.Pr,
             _ => Bucket.Other,
         };
     }

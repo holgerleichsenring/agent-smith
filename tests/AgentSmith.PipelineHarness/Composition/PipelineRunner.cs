@@ -122,6 +122,9 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public Contracts.Models.InlineTicket? InlineTicket { get; set; }
 
+    /// <summary>2026-11-17-023fa: the project's merge block; null is manual.</summary>
+    public MergePolicyConfig? MergeOverride { get; set; }
+
     public async Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -134,8 +137,12 @@ public sealed class PipelineRunner(IServiceProvider services)
         // p0427: ExecutePipelineUseCase opens the run scope in production; the harness
         // enters the executor directly, so it opens the same one. Without it the ambient
         // run id is null and everything keyed on it — events, the run trace — is dropped.
-        using var runScope = services.GetRequiredService<AgentSmith.Contracts.Events.IRunContextAccessor>()
-            .BeginScope(LastRunId!);
+        var runContext = services.GetRequiredService<AgentSmith.Contracts.Events.IRunContextAccessor>();
+        using var runScope = runContext.BeginScope(LastRunId!);
+        // 2026-11-17-7c9bc: and the run's call ledger beside it, as production does.
+        var recordedCalls = new AgentSmith.Contracts.Events.RecordedCallLedger();
+        using var callsScope = runContext.BeginRecordedCallsScope(recordedCalls);
+        AgentSmith.Application.Services.RecordedCallAttach.To(context, recordedCalls);
         return await executor.ExecuteAsync(preset, project, context, ct);
     }
 
@@ -150,6 +157,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             Agent = agent,
             Pipeline = presetName,
             Sandbox = SandboxOverride,
+            Merge = MergeOverride ?? new MergePolicyConfig(), // 2026-11-17-023fa
             // p0199c: leave CodingPrinciplesPath unset so LoadCodingPrinciplesHandler
             // resolves the default `.agentsmith/principles.md` AND keeps the
             // nested per-context fallback (`.agentsmith/contexts/<name>/coding-

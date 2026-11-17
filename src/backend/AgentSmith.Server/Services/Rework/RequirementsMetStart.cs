@@ -54,7 +54,7 @@ public sealed class RequirementsMetStart(
         var edges = await requirements.RequiredOfAsync(tracker, key, ct);
         if (edges.Count == 0) return true;
         if (await hold.MarkedAsync(project, ticketId, ct)) return true;
-        if ((await unmet.OfAsync(tracker, key, ct)).Unmet.Count > 0) return true;
+        if ((await unmet.ForStartAsync(project, key, ct)).Unmet.Count > 0) return true; // 2026-11-17-9a39a
         if (!await unmet.FiledCompletelyAsync(tracker, key, ct))
         {
             logger.LogWarning("Ticket {Project}/{Ticket}'s filing is incomplete; not started", project.Name, ticketId);

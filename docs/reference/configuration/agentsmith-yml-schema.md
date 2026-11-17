@@ -54,7 +54,7 @@ Required fields:
 - `repos` (always a list, even with one entry)
 
 Everything else (`resolution`, `templates`, `default_pipeline`,
-`pipelines`, `sandbox`) is listed in the [reference](agentsmith-yml.md#projects).
+`pipelines`, `sandbox`, `merge`) is listed in the [reference](agentsmith-yml.md#projects).
 The per-platform trigger blocks are retired; an old one is folded into the
 project and its tracker at load, and one that does not match the tracker's
 `type` is dropped with an advisory finding.

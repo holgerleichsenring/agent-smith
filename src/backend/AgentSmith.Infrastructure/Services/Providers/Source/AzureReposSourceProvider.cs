@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Sweep;
@@ -350,6 +351,10 @@ public sealed class AzureReposSourceProvider(
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _pullRequests.CompleteAsync(prUrl, cancellationToken);
+
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
+        _pullRequests.CompleteAsync(prUrl, protection, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);

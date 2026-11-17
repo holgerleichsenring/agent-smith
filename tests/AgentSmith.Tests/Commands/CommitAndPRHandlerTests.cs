@@ -81,7 +81,7 @@ public partial class CommitAndPRHandlerTests
                     new SandboxTargets(),
                     NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
-            new CompletedRunTicketSummary(),
+            new CompletedRunTicketSummary(AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create()),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
             AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(_ticketFactoryMock.Object),
             AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(_ticketFactoryMock.Object), NullLogger<CommitAndPRHandler>.Instance);

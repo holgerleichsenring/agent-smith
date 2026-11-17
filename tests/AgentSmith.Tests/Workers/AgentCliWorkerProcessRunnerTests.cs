@@ -33,6 +33,21 @@ public sealed class AgentCliWorkerProcessRunnerTests
         result.Duration.Should().BeGreaterThan(TimeSpan.Zero, "per-call latency is the real cost here");
     }
 
+    // 2026-11-17-cb32b: the options' variables reach the process, over the inherited ones.
+    [Fact]
+    public async Task Run_OptionsEnvironment_ReachesTheProcess()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var options = Shell("printf '%s' \"$CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC\"") with
+        {
+            Environment = new Dictionary<string, string> { ["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1" },
+        };
+
+        var result = await NewRunner().RunAsync(new WorkerPrompt("", "x"), options, CancellationToken.None);
+
+        result.StandardOutput.Should().Be("1");
+    }
+
     [Fact]
     public async Task Run_NonZeroExit_IsReportedWithItsStderr()
     {

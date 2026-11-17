@@ -15,7 +15,7 @@ internal static class WorkerCliStream
     {
         envelope = null!;
         if (!IsStream(text)) return false;
-        if (WorkerCliEnvelope.TryReadResult(LastLine(text), out envelope)) return true;
+        if (WorkerCliEnvelope.TryReadResult(LastLine(text), out envelope, SessionModel(text))) return true;
         envelope = new WorkerCliEnvelope(string.Empty, "the worker CLI's stream ended without a result", null, 0,
             new WorkerCallAccounting(string.Empty, 0, 0, 0, 0, 0m, 0));
         return true;
@@ -37,6 +37,33 @@ internal static class WorkerCliStream
             return false;
         }
     }
+
+    /// <summary>2026-11-17-7c9bf: the model the init event names — the session's model. Found by its subtype,
+    /// not its position: a CLI may print other system events (hooks) before it.</summary>
+    private static string? SessionModel(string text)
+    {
+        foreach (var line in text.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith('{') || !trimmed.Contains("\"init\"", StringComparison.Ordinal)) continue;
+            try
+            {
+                using var document = JsonDocument.Parse(trimmed);
+                var root = document.RootElement;
+                if (Is(root, "type", "system") && Is(root, "subtype", "init")
+                    && root.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.String)
+                    return model.GetString();
+            }
+            catch (JsonException)
+            {
+                // A line that only mentions init is no event; the next line decides.
+            }
+        }
+        return null;
+    }
+
+    private static bool Is(JsonElement root, string name, string value) =>
+        root.TryGetProperty(name, out var field) && field.ValueKind == JsonValueKind.String && field.GetString() == value;
 
     private static string LastLine(string text) => text[(text.LastIndexOf('\n') + 1)..].Trim();
 }

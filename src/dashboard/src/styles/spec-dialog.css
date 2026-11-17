@@ -3,6 +3,9 @@
    Plain: hairlines and text colour, no panels, no pills, no filled backgrounds; the open conversation is the bright row. */
 .mock-dialog.dl-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 320px; align-items: start; min-height: 100%; }
 .mock-dialog.dl-shell > .dl-page { min-width: 0; max-width: none; padding: 28px 32px 20px; min-height: calc(100vh - var(--topbar-h, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+/* 2026-11-17-76f1: a new conversation has no pane; its page is the home page's column. */
+.mock-dialog.dl-shell.dl-fresh { grid-template-columns: 236px minmax(0, 1fr); }
+.mock-dialog.dl-shell > .dl-page.mock-home { padding: 0; }
 .mock-dialog.dl-shell > .d-pane { margin: 28px 24px 20px 0; min-width: 0; position: sticky; top: 28px; max-height: calc(100vh - var(--topbar-h, 0px) - 48px); overflow-y: auto; }
 
 /* the bar: the ticket bar's measures and colours */
@@ -84,7 +87,7 @@
   .mock-dialog.dl-shell > .d-pane { grid-column: 2; margin: 0 32px 28px; position: static; max-height: none; }
 }
 @media (max-width: 760px) {
-  .mock-dialog.dl-shell { grid-template-columns: minmax(0, 1fr); }
+  .mock-dialog.dl-shell, .mock-dialog.dl-shell.dl-fresh { grid-template-columns: minmax(0, 1fr); }
   .mock-dialog .dl-bar { position: static; height: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line-2); padding: 14px 16px; }
   .mock-dialog .dl-bar-all { margin-top: 8px; }
   .mock-dialog.dl-shell > .dl-page { padding: 18px 16px 20px; min-height: 0; }

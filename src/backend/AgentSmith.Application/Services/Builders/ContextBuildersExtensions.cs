@@ -54,12 +54,15 @@ public static class ContextBuildersExtensions
         AddBuilder<AmendTicketContextBuilder>(services, CommandNames.AmendTicket); // 2026-11-17-e061c
         AddBuilder<RenderTicketBodyContextBuilder>(services, CommandNames.RenderTicketBody); // 2026-11-17-dd05b
         AddBuilder<PostTicketCommentsContextBuilder>(services, CommandNames.PostTicketComments);
+        AddBuilder<RetargetPullRequestsContextBuilder>(services, CommandNames.RetargetPullRequests); // 2026-11-17-9a39c
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);
         AddBuilder<PrCrossLinkContextBuilder>(services, CommandNames.PrCrossLink);
         AddBuilder<InitCompleteContextBuilder>(services, CommandNames.InitComplete); // p0490
+        AddBuilder<CompletePullRequestsContextBuilder>(services, CommandNames.CompletePullRequests); // 2026-11-17-023fa
         AddBuilder<CleanupWorkBranchesContextBuilder>(services, CommandNames.CleanupWorkBranches); // 2026-11-17-713ec
+        AddBuilder<RefreshBranchBaseContextBuilder>(services, CommandNames.RefreshBranchBase); // 2026-11-17-023fb
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);

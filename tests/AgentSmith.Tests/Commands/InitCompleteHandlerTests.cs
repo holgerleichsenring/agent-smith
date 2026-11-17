@@ -191,7 +191,8 @@ public sealed class InitCompleteHandlerTests
             pipeline.Set(ContextKeys.RunId, "2026-08-20T09-00-00-abcd");
             pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, _opened);
             var handler = new InitCompleteHandler(
-                _sources.Object, NewPublisher(), NullLogger<InitCompleteHandler>.Instance);
+                new PullRequestCompleter(_sources.Object, NewPublisher(), NullLogger<PullRequestCompleter>.Instance),
+                NullLogger<InitCompleteHandler>.Instance);
             return await handler.ExecuteAsync(
                 new InitCompleteContext(new BranchName(Branch), _repos, pipeline),
                 CancellationToken.None);

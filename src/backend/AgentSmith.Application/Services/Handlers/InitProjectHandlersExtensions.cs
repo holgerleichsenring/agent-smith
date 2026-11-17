@@ -24,6 +24,8 @@ public static class InitProjectHandlersExtensions
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
         services.AddTransient<ICommandHandler<PrCrossLinkContext>, PrCrossLinkHandler>();
         services.AddTransient<ICommandHandler<InitCompleteContext>, InitCompleteHandler>();
+        services.AddTransient<PullRequestCompleter>(); // 2026-11-17-023fa
+        services.AddTransient<ICommandHandler<CompletePullRequestsContext>, CompletePullRequestsHandler>();
         return services;
     }
 }

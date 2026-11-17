@@ -112,7 +112,7 @@ internal sealed class RepoCommitFixture
             new SpecOnlyPullRequests(factory.Object, new PullRequestOutcomePublisher(Events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
-            new CompletedRunTicketSummary(),
+            new CompletedRunTicketSummary(AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create()),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
             AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(), NullLogger<CommitAndPRHandler>.Instance);
     }

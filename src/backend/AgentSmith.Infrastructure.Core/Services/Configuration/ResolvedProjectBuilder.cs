@@ -38,13 +38,15 @@ public sealed class ResolvedProjectBuilder(
         var designSources = ProjectDesignSourceResolver.Resolve(
             name, raw.DesignSources, catalogs.DesignSources, findings);
 
+        var requiresStart = ResolveRequiresStart(name, raw.RequiresStart, findings);
         if (agent is null || tracker is null || repoList is null || pipelines is null
-            || designSources is null) return null;
+            || designSources is null || requiresStart is null) return null;
 
         return CreateProject(name, raw, agent, tracker, repoList, pipelines) with
         {
             Templates = templates,
             DesignSources = designSources,
+            RequiresStart = requiresStart.Value,
         };
     }
 
@@ -62,6 +64,15 @@ public sealed class ResolvedProjectBuilder(
 
         findings.Add(ProjectFindings.Blocking(project, "agent",
             $"Project '{project}': references agent '{agentName}' which is not defined in agents: catalog."));
+        return null;
+    }
+
+    // 2026-11-17-9a39a: a value the project cannot be read by is a finding naming it, as a bad reference is.
+    private static RequiresStart? ResolveRequiresStart(string project, string? written, List<StartupFinding> findings)
+    {
+        if (RequiresStartNames.Parse(written) is { } mode) return mode;
+        findings.Add(ProjectFindings.Blocking(project, "requires_start",
+            $"Project '{project}': requires_start '{written}' is neither '{RequiresStartNames.OnGreenPush}' nor '{RequiresStartNames.OnMerge}'."));
         return null;
     }
 
@@ -103,5 +114,6 @@ public sealed class ResolvedProjectBuilder(
             AzuredevopsTrigger = raw.AzuredevopsTrigger,
             Polling = raw.Polling,
             Sandbox = raw.Sandbox,
+            Merge = raw.Merge ?? new MergePolicyConfig(), // 2026-11-17-023fa
         };
 }

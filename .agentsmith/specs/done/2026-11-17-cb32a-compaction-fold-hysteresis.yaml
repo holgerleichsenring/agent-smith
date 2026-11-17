@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-cb32a
+goal: "Compaction folds rarely and in large steps: a fold shrinks the view below a target under the trigger, appends a summary segment and freezes its pin, so calls between folds extend a stable prefix."
+
+applies_to: "default (CompactingChatClient, CompactionConfig, WindowDerivedCompaction)"
+
+requires: [2026-11-17-d6f5]
+
+facts:
+  - claim: "In the replay of 2026-11-17 the design turn's executor (max_context_tokens 100000, trigger 0.7) folded on 14 of 50 calls; post-fold views held 8 messages and 426k to 516k chars, because the kept tail of three rounds carried tool results of up to 394k chars, so the next call crossed the trigger again."
+    evidence: "observed: 2026-11-17, replay prompt captures (executor calls: message count, chars per message, summary message size)"
+  - claim: "Each fold rewrites the one summary message (7k to 61k chars over the run) and the pin is re-rendered on every call ahead of the tail; a call after a fold read 20,020 tokens (the system part) and wrote 220k to 238k."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:109, src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:139-147; observed: replay captures"
+  - claim: "The tail is the last KeepRecentIterations × 2 messages (at least four) whatever their size."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:192-198"
+  - claim: "MasterLoopHooks documents the pin as rendered at compaction time."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/MasterLoopHooks.cs:40-46"
+  - claim: "Probe before this spec, haiku through the real worker runner, compaction window 20000 tokens, ten 1,500-word tool results: from call 5 on every call folds (7 folds in 7 calls), each reads 11,845 (the system part) and writes about 18,700; $0.529 for 11 calls."
+    evidence: "observed: 2026-11-17, probe on CLI 2.1.285"
+  - claim: "Claude Code and the native Claude client mark only the last block (and the system part) for caching, so a fold call reads only what an earlier call wrote: the system part. A stable head and earlier segments are read at a fold call only by providers that cache any prefix (OpenAI); for Claude the saving is fewer folds and no prefix break between them."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerStreamInput.cs:7, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:51-58"
+
+scope:
+  in: "CompactionConfig gains FoldTargetRatio (default 0.35) and SummaryBudgetRatio (default 0.1), bound from compaction.fold_target_ratio and compaction.summary_budget_ratio, copied by WindowDerivedCompaction, in the schema, the example and the docs. A fold picks its tail so the view estimates under FoldTargetRatio × MaxContextTokens: at most max(4, KeepRecentIterations × 2) messages as today, at least the last assistant message and everything after it (its tool results and a governor reminder), never starting on a tool result whose call is left out. Each fold appends its summary as a new segment message after the earlier ones and renders the pin once, labelled as the state at that fold and kept until the next fold. When the segments would pass SummaryBudgetRatio × MaxContextTokens, that fold summarizes the earlier segments with the new middle into one segment (one summarizer call either way). A pinned current prompt keeps its rule: straight after the head once folded, in the tail before that. The target is not clamped: a target at or above the trigger is the operator's choice and the schema says what it does."
+  out: "The summarizer's own prompt and output bound (CompactionSummaryRequest). The config studio, which carries neither the trigger ratio nor these keys. Tool-result size bounds."
+
+steps:
+  - id: config
+    action: "CompactionConfig.FoldTargetRatio and SummaryBudgetRatio with their reasons; WindowDerivedCompaction copies them; schema, example yml and docs list them."
+  - id: tail
+    action: "CompactingChatClient picks the tail by the fold target, walking back from the newest message, never starting on a tool result whose call is left out."
+  - id: segments
+    action: "Summary segments appended one message each; pin rendered at the fold and kept; a fold past the summary budget consolidates the segments into one."
+  - id: docs
+    action: "docs/reference/concepts/context-compaction.md describes the target, the segments and the frozen pin."
+
+tests:
+  - "CompactionCachePrefixTests: a function-invoking loop of 30 calls through CompactingChatClient and ExternalWorkerChatClient (scripted runner; window 10,000 tokens, trigger 0.7, target 0.35; 4,000-char tool results, about 1,000 tokens each, so a fold leaves about 3,500 and the next fold is 3 or more calls later): folds happen at least 3 calls apart; at every fold that is not a consolidation, the input blocks before the newest segment equal the previous call's blocks up to its pin; between folds each call's blocks extend the previous call's"
+  - "CompactionCachePrefixTests: a tool result larger than the fold target is kept while it is the newest, and folded on the next fold, so the call after that fold is under the trigger"
+  - "CompactingChatClientHysteresisTests: the summary budget consolidates the segments into one; a pin change between folds does not change the forwarded view until the next fold; a governor reminder at the end of the list keeps the tool result before it in the tail"
+  - "ScanContextWindowTests or a WindowDerivedCompaction test: the derived config keeps FoldTargetRatio and SummaryBudgetRatio"
+
+done:
+  - "The probe above, rerun on this spec's code, folds at most every third call and reads the previous call's prefix on every call that is not a fold."
+  - "The tests above are green, and the existing compaction tests still pass."

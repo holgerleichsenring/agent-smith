@@ -75,27 +75,6 @@ public interface ISpecSetWriter
 }
 
 /// <summary>
-/// p0393a: commits the revision, records the pointer, opens the draft pull request
-/// at that commit and publishes the set onto the run context. Split from the
-/// derivation handler because "produce the next revision" and "make it visible"
-/// are two reasons to change.
-/// <para>
-/// 2026-10-12-f5f7d: it places the set by the repositories its specs name within
-/// <c>scope</c> — no repository is picked by position.
-/// </para>
-/// </summary>
-public interface ISpecSetPublisher
-{
-    Task<CommandResult> PublishAsync(
-        PipelineContext pipeline,
-        string project,
-        SeriesScope scope,
-        SpecSet set,
-        IReadOnlyList<IgnoredInstruction> ignoredInstructions,
-        CancellationToken cancellationToken);
-}
-
-/// <summary>
 /// p0393a: opens the draft pull request AT THE SPEC COMMIT, not at the end of the
 /// run — otherwise there is nothing to review while the run is still working, and
 /// the reviewer's edit arrives too late to change the outcome. Accepted

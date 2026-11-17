@@ -65,7 +65,10 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     // 2026-10-14-dbceg: the landing recorder over the harness store.
     public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, new LandedTicketRepository(Store.ScopeFactory), Wake(),
-        Events.Object, Activity.Object, Clock, NullLogger<TicketLandingRecorder>.Instance);
+        Events.Object, Activity.Object, Subscribers, Clock, NullLogger<TicketLandingRecorder>.Instance);
+
+    /// <summary>2026-11-17-023fb: what the landing hook calls after a won insert.</summary>
+    public List<AgentSmith.Server.Contracts.ITicketLandedSubscriber> Subscribers { get; } = [];
 
     // 2026-10-14-dbceh: the wake over the harness store and its nudges; attempts, leases and approvals are the harness's.
     public Mock<IPreviousAttemptReader> Attempts { get; } = new();

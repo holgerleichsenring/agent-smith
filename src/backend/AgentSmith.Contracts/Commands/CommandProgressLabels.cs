@@ -54,13 +54,13 @@ public static partial class CommandNames
         [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets",
         [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [StartTicket] = "Starting the ticket",
         [AmendTicket] = "Recording the approved series", [PostTicketComments] = "Posting the comments", [SpecGate] = "Validating the spec",
-        [RenderTicketBody] = "Rendering the ticket body from its specs", // 2026-11-17-dd05b
+        [RenderTicketBody] = "Rendering the ticket body from its specs", [RetargetPullRequests] = "Moving the pull requests off a landed branch", // dd05b, 9a39c
         [MasterOpenQuestions] = "Posting master open questions",
         [WriteSpecRecord] = "Writing spec record",
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
-        [InitComplete] = "Completing init pull requests", [CleanupWorkBranches] = "Removing finished branches", // 2026-11-17-713ec
+        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", // 713ec, 023fa, 023fb
         [GenerateTests] = "Generating tests", [GenerateDocs] = "Generating docs",
         [Triage] = "Triaging ticket",
         [SwitchSkill] = "Switching skill",

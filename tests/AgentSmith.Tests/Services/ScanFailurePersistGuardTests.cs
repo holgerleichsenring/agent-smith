@@ -74,8 +74,9 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.StartName, false)]
     [InlineData(PipelinePresets.AmendName, false)]
     [InlineData(PipelinePresets.CommentName, false)]
-    [InlineData(PipelinePresets.TicketBodyName, false)] // 2026-11-17-dd05b
+    [InlineData(PipelinePresets.TicketBodyName, false)] [InlineData(PipelinePresets.RetargetName, false)] // dd05b, 9a39c
     [InlineData(PipelinePresets.BranchCleanupName, false)] // 2026-11-17-713ec
+    [InlineData(PipelinePresets.RefreshBaseName, false)] // 2026-11-17-023fb: a refresh run never force-pushes WIP
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -83,9 +84,9 @@ public sealed class ScanFailurePersistGuardTests
     public void PersistPolicy_TruthTable_CoversEveryPreset() =>
         PipelinePresets.Names.Should().BeEquivalentTo([PipelinePresets.CodeName, "mad-discussion", "pr-review", "security-scan",
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
-            PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
+            PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.TicketBodyName]);
+            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName]);
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

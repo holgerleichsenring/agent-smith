@@ -25,9 +25,11 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// must never reach it.
 /// </para>
 /// </summary>
-public sealed class WorkBranchBaseMerger(ILogger<WorkBranchBaseMerger> logger)
+public sealed class WorkBranchBaseMerger(
+    StateIndexConflictResolver stateIndex, // 2026-11-17-023fb: added state.done entries on both sides are no conflict
+    ILogger<WorkBranchBaseMerger> logger)
 {
-    private const int TimeoutSeconds = 300;
+    internal const int TimeoutSeconds = 300;
 
     /// <summary>Merges the resolved base into the sandbox's current HEAD.</summary>
     public async Task<BaseMergeResult> MergeIntoCurrentAsync(
@@ -58,6 +60,12 @@ public sealed class WorkBranchBaseMerger(ILogger<WorkBranchBaseMerger> logger)
         ISandbox sandbox, string baseRef, string? error, CancellationToken ct)
     {
         var conflicting = await ConflictingPathsAsync(sandbox, ct);
+        if (await stateIndex.TryResolveAsync(sandbox, conflicting, ct)
+            && (await RunAsync(sandbox, ["commit", "--no-edit"], ct)).ExitCode == 0)
+        {
+            logger.LogInformation("Merged {BaseRef}; state.done entries of both sides united", baseRef);
+            return BaseMergeResult.Merged(baseRef);
+        }
         var abort = await RunAsync(sandbox, ["merge", "--abort"], ct);
         if (abort.ExitCode != 0)
             logger.LogWarning("git merge --abort exited {Exit}: {Error}", abort.ExitCode, abort.ErrorMessage);
