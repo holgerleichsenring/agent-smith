@@ -10,9 +10,7 @@
 # waits	path (relative to tests/)	why the clock is the subject
 1	AgentSmith.Tests/Application/Services/Loop/SubAgentRunnerTests.cs	a stub child that finishes after its siblings, so the merge order cannot be the completion order
 2	AgentSmith.Tests/Infrastructure/ThrottleTimeLedgerTests.cs	a stub limiter whose wait IS the quantity the ledger reports upward
-1	AgentSmith.Tests/Loop/LimitEnforcerTests.cs	elapsing past a zero-second limit, which is the limit being enforced
 3	AgentSmith.Tests/Loop/SkillCallCostTrackingTests.cs	a call that must measurably last, and two calls that must order by start time
-2	AgentSmith.Tests/Loop/SkillCallRuntimeLimitTests.cs	a call that outlives a zero-second wall-clock limit
 1	AgentSmith.Tests/Services/Dialogue/RedisDialogueTransportTests.cs	the operator cancel the transport must map to a null answer
 2	AgentSmith.Tests/Services/Health/SubsystemHealthTests.cs	a change timestamp that must move, and one that must not
 1	AgentSmith.Tests/Services/Lifecycle/ActiveRunReaperTests.cs	the poll cadence of a wait already budgeted on STALL rather than on total time

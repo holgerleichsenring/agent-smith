@@ -13,6 +13,10 @@ public static class RetiredConfigKeys
         "No run spawns an orchestrator container any more: the pipeline runs in the server. "
         + "deployment.version still pins the sandbox agent image.";
 
+    private const string SkillCallRuntimeGone =
+        "It was read only by the skill-call runtime, which nothing had used since p0312, so it bounded "
+        + "nothing; the run's cost cap is the budget (2026-11-17-274cb). Remove the key from agentsmith.yml.";
+
     public static IReadOnlyList<RetiredConfigKey> All { get; } =
     [
         new("trackers.*.parent_link_type", "2026-09-28",
@@ -47,6 +51,13 @@ public static class RetiredConfigKeys
             + "any more: a run's markdown lives in the database (2026-10-02-5ab2f)."),
         new("limits.max_output_tokens_per_skill_call", "2026-11-12",
             "It was never enforced: the input-token and cost caps are the budget (2026-11-12-cd4cl)."),
+        new("limits.max_tool_calls_per_investigator", "2026-11-17", SkillCallRuntimeGone),
+        new("limits.max_tool_calls_per_verifier", "2026-11-17", SkillCallRuntimeGone),
+        new("limits.max_llm_calls_per_skill", "2026-11-17", SkillCallRuntimeGone),
+        new("limits.max_input_tokens_per_skill_call", "2026-11-17", SkillCallRuntimeGone),
+        new("limits.max_concurrent_skill_calls", "2026-11-17", SkillCallRuntimeGone),
+        new("limits.max_skills_per_phase", "2026-11-17",
+            "Nothing read it after triage retired (p0312); the skills a stage runs are its master's choice."),
         new("limits.max_dialog_sub_agent_loop_iterations", "2026-11-12",
             "A design turn's child reads its ceiling from agents.<name>.dialog_sub_agent_loop_iterations (2026-11-12-cd4cl)."),
     ];

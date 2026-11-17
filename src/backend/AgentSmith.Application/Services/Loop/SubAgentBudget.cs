@@ -17,14 +17,23 @@ public sealed class SubAgentBudget
     private readonly object _lock = new();
     private int _used;
 
+    public const string RunKey = "limits.max_sub_agents_per_run";
+    public const string DialogTurnKey = "limits.max_sub_agents_per_dialog_turn";
+
     public int MaxPerRun { get; }
     public int Used { get { lock (_lock) return _used; } }
     public int Remaining => Math.Max(0, MaxPerRun - Used);
 
-    public SubAgentBudget(int maxPerRun)
+    /// <summary>2026-11-17-274ca: what a task past the budget is told — the value, the key it is
+    /// set under and what it bounds.</summary>
+    public string Exhausted { get; }
+
+    public SubAgentBudget(int maxPerRun, string configKey = RunKey, string scope = "run")
     {
         if (maxPerRun < 0) throw new ArgumentOutOfRangeException(nameof(maxPerRun));
         MaxPerRun = maxPerRun;
+        Exhausted = $"the budget of {maxPerRun} sub-agents is spent ({configKey}); "
+            + $"it bounds what one {scope} spends on children";
     }
 
     /// <summary>

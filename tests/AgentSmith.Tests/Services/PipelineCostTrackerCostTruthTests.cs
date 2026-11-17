@@ -83,7 +83,7 @@ public sealed class PipelineCostTrackerCostTruthTests
         {
             tracker.Track(BuildResponse("expensive", input: 1_000_000, output: 0)); // $10
             tracker.Track(BuildResponse("cheap", input: 1_000_000, output: 0));     // $0.10 — and last
-            tracker.EndCall(scope, null);
+            tracker.EndCall(scope);
         }
 
         var summary = tracker.BuildSummary()!;
@@ -114,7 +114,7 @@ public sealed class PipelineCostTrackerCostTruthTests
         var tracker = new PipelineCostTracker();
         var scope = tracker.BeginCall("master", "coder", SkillExecutionPhase.Implementation);
         scope.SetDuplicateToolCalls(3);
-        tracker.EndCall(scope, null);
+        tracker.EndCall(scope);
 
         tracker.PerSkillBreakdown.Single().DuplicateToolCallCount.Should().Be(3);
     }

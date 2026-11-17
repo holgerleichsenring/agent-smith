@@ -34,12 +34,12 @@ public sealed class SkillCostScopeManager
         return scope;
     }
 
-    public void EndCall(SkillCallScope scope, LimitEnforcer? enforcer)
+    public void EndCall(SkillCallScope scope)
     {
         if (!ReferenceEquals(_activeScope.Value, scope))
             return;
         _activeScope.Value = null;
-        lock (_gate) _records.Add(scope.BuildRecord(enforcer));
+        lock (_gate) _records.Add(scope.BuildRecord());
     }
 
     public void AttributeTokens(long input, long output, long cacheCreate, long cacheRead)
