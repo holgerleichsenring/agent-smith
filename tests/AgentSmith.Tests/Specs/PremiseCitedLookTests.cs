@@ -1,4 +1,6 @@
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
@@ -21,6 +23,30 @@ public sealed class PremiseCitedLookTests
         await new RepositorySearchTool(look, NullLogger.Instance).SearchRepository(Repo, "Empty|Payload", "src");
 
         look.Evidence.Looks.Single().Pattern.Should().Be("Empty|Payload", "never read back out of the prose 'what'");
+    }
+
+    // 2026-11-17-5701f: the replay's run read '<repo>/<path>' inside the repository, found nothing and stopped.
+    [Fact]
+    public async Task PremiseCheckLook_APrefixedPathInARunKeyedDefault_ReadsTheRealFile()
+    {
+        var files = new InMemorySandboxFileReader();
+        files.Files["/work/src/Data/AppDbContext.cs"] = "class AppDbContext {}";
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandboxes,
+            (IReadOnlyDictionary<string, ISandbox>)
+            new Dictionary<string, ISandbox> { ["default"] = new CountingSandbox(0) });
+        pipeline.Set(ContextKeys.SandboxDiscoveries,
+            (IReadOnlyDictionary<string, RemoteContextDiscovery>)
+            new Dictionary<string, RemoteContextDiscovery>());
+        pipeline.Set(ContextKeys.SandboxRepos,
+            (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["default"] = Repo });
+        var look = Factory(new FixedReaderFactory(files)).ForPremiseCheck(pipeline)!;
+
+        var answer = await new RepositoryFileReadTool(look, new FixedReaderFactory(files), NullLogger.Instance)
+            .ReadFile("default", $"{Repo}/src/Data/AppDbContext.cs");
+
+        answer.Should().Contain("class AppDbContext {}").And.NotContain("has nothing at");
+        look.Evidence.Looks.Single().ExitCode.Should().Be(0, "a read that found the file is no evidence of an absence");
     }
 
     [Fact]

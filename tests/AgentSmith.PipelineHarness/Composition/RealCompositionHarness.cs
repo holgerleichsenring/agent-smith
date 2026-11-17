@@ -84,6 +84,7 @@ public sealed class RealCompositionHarness : IAsyncDisposable
             throw new ArgumentNullException(nameof(session),
                 "Docker backend requires a DockerHarnessSession (bare repo + working copy).");
 
+        configPath = HarnessSkillsCache.Isolate(configPath); // 2026-11-17-5701b: no shared catalog extraction
         var services = new ServiceCollection();
         ConfigureLogging(services, backend);
 

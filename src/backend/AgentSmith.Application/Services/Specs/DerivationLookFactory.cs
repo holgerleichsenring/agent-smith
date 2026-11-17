@@ -30,7 +30,8 @@ public sealed class DerivationLookFactory(
             "The derivation may look into {Count} repositor{Plural}: {Repos}",
             sandboxes.Count, sandboxes.Count == 1 ? "y" : "ies", string.Join(", ", sandboxes.Keys));
         return new DerivationLook(
-            sandboxes, files, ecosystems, logger, templates.For(pipeline), activity: turnActivity);
+            sandboxes, files, ecosystems, logger, templates.For(pipeline), activity: turnActivity,
+            names: Review.SpecReviewRepositories.Names(pipeline));
     }
 
     /// <summary>
@@ -65,7 +66,7 @@ public sealed class DerivationLookFactory(
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
             Review.ReviewReferences.Beside(pipeline, sandboxes)!, files, ecosystems, logger, borrowed, terms, activity: turnActivity,
-            stages: stages, borrowsTemplates: borrowed is not null);
+            stages: stages, borrowsTemplates: borrowed is not null, names: Review.SpecReviewRepositories.Names(pipeline));
     }
 
     /// <summary>
@@ -101,7 +102,7 @@ public sealed class DerivationLookFactory(
     private DerivationLook? ForProposal(PipelineContext pipeline, DerivationLookTerms terms) =>
         Review.ReviewReferences.Beside(pipeline, ProposalRepositories(pipeline)) is { } readable
             ? new DerivationLook(readable, files, ecosystems, logger, templates: null,
-                terms, audits: false, activity: turnActivity)
+                terms, audits: false, activity: turnActivity, names: Review.SpecReviewRepositories.Names(pipeline))
             : null;
 
     /// <summary>2026-10-02-3f06c: the turn's repositories as the proposal review reads them, one

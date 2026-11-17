@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-5701f
+goal: "A run's look reads a path that starts with its repository's name as that repository's file, so a filed spec's citations written in the design turn resolve in the coding run."
+
+applies_to: "default (derivation look read and search tools: premise check, cut review, contradiction check, attack review, rederiver, series contract round, diff review)"
+
+requires: [2026-11-17-5701b]
+
+facts:
+  - claim: "The design partner writes cited paths with and without the repository-name prefix, and the turn's evidence probe and file tools route both by the longest repository name the path starts with."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:8-11, src/backend/AgentSmith.Application/Services/Tools/RepoPathRouter.cs:5-40"
+  - claim: "The run's look opens a repository by its sandbox key and reads the path as given, relative to that repository's root."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:31-50, src/backend/AgentSmith.Application/Services/Specs/DerivationLookGate.cs:52-64"
+  - claim: "A single-repository run keys its sandbox by a key that is not the repository's name; the key-to-name map is ContextKeys.SandboxRepos."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxKeyComposer.cs:28-31, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRepositories.cs:32-44"
+  - claim: "The premise check runs on a look over the run's sandboxes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:51-71"
+  - claim: "A coding run of a filed design-turn spec stopped at its premise check because every premise path carried the repository-name prefix and was read as a path inside the repository."
+    evidence: "observed: 2026-11-17, e2e replay run 2026-11-17T14-48-20-e2ef, CheckSpecPremises: 'Reading the path the premise names, <repo>/<project>/Services/ApplicationDbContext.cs, found no file in the default repository'"
+
+scope:
+  in: "DerivationLook knows each key's repository name (ContextKeys.SandboxRepos); RepositoryFileReadTool and RepositorySearchTool fall back to the path without a leading '<that key's repository name>/' when the given path does not exist; keys stay the only names a look opens."
+  out: "Rewriting spec text at filing (the spec stays as reviewed). Opening a look by repository name (stages and evidence are keyed by sandbox key). Templates and reference sets keep their own addressing. SpecRoundEvidence, the citation regrounder and the master's tools already route the prefix."
+
+steps:
+  - id: names
+    action: "DerivationLookFactory passes the SandboxRepos map to the look, which answers the repository name of an opened key."
+  - id: prefix
+    action: "read_file falls back only when the read ran and found nothing (Ran and Content null); search_repository only when the path filter does not exist (grep exit 2, and the source-scope engine's equivalent), never on no matches; the fallback strips the key's repository name by RepoPathRouter's rule (the name, then '/'), reuses the sandbox already opened without charging the allowance again, and the evidence id and log name the path that was read."
+
+tests:
+  - "DerivationLookTests: '<repo>/src/a.cs' in key default of repository <repo> reads src/a.cs; a repository holding a folder of its own name reads that folder first; a read that did not run never falls back; one allowance is charged"
+  - "DerivationLookTests: a search whose prefixed path filter does not exist searches the stripped path; a search with no matches does not"
+  - "PremiseCitedLookTests: a premise citing a prefixed path in a run keyed default reads the real file and is not admitted as false"
+
+done:
+  - "A premise citing '<repo>/<path>' in a single-repository coding run is read at <path> of that repository."
