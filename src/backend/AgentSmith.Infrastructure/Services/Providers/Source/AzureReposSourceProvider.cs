@@ -20,7 +20,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -310,6 +310,12 @@ public sealed class AzureReposSourceProvider(
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken ct) => Reviews().ChangesRequestedAsync(prUrl, ct);
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken ct) => Reviews().ReadAsync(prUrl, ct);
     public Task CloseAsync(string prUrl, CancellationToken ct) => new AzureReposPullRequestClose(_project, _repoName, clientFactory, _organizationUrl, _personalAccessToken).CloseAsync(prUrl, ct);
+
+    // 2026-11-17-713ec: the branch-cleanup run's reads and delete.
+    private AzureReposWorkBranches WorkBranchHost() => new(_project, _repoName, CreateConnectionAsync);
+    public Task<IReadOnlyList<WorkBranchTip>> ListWorkBranchesAsync(CancellationToken ct) => WorkBranchHost().ListWorkBranchesAsync(ct);
+    public Task<BranchPullRequests> PullRequestsOfAsync(string branch, CancellationToken ct) => WorkBranchHost().PullRequestsOfAsync(branch, ct);
+    public Task<bool> DeleteBranchAsync(WorkBranchTip branch, CancellationToken ct) => WorkBranchHost().DeleteBranchAsync(branch, ct);
 
     private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl);
 

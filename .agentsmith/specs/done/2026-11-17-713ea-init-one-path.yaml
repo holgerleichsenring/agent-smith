@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-713ea
+goal: "Every door that starts init runs the same pipeline: init mode comes from the pipeline name, the init branch is cut fresh from its base each run, and its pull requests always complete."
+
+applies_to: "default (ExecutePipelineUseCase, run branch, init tail, init launch request, CLI init, dashboard init action)"
+
+requires: [2026-11-16-f3fbc]
+
+facts:
+  - claim: "Init has four doors: the dashboard's POST /api/projects/{name}/init and the chat intent (text and Slack modal) both reach InitRunLauncher; the CLI's `init` builds its own request; a tracker label mapped to init-project starts it through the poller like any routed preset."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ProjectInitEndpoints.cs:24, src/backend/AgentSmith.Server/Services/Handlers/InitProjectIntentHandler.cs:25, src/backend/AgentSmith.Cli/Commands/InitCommand.cs:42, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Routing.cs:13"
+  - claim: "Init mode and the init branch are set only when the caller passes IsInit; the label door passes none, so it runs on the ticket's branch outside init mode."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:328-331"
+  - claim: "WriteRunResult decides init mode from a missing ticket and plan, so a label-started init, which fetched its ticket, takes the ticket-driven write."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:89-90"
+  - claim: "A handed branch that already exists is checked out as it is and its base is left alone, so a second init builds on whatever an earlier init left on agent-smith/init."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:52-61"
+  - claim: "InitComplete completes only when the launch carried AutoCompletePullRequests; the chat door and the CLI never carry it, the dashboard checkbox defaults on."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCompleteHandler.cs:41, src/dashboard/src/components/system/ProjectInitAction.tsx:46"
+  - claim: "InitCommit always creates a pull request; CommitAndPR finds an open one on the branch first and refreshes it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:128, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:330-332"
+  - claim: "The work-branch push forces with a lease and refreshes a lease a deleted or rewritten remote branch can no longer satisfy."
+    evidence: "src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:9-15"
+  - claim: "Operator decision 2026-11-16: dashboard, CLI, chat and label go one way; every init gets a fresh branch and auto-complete is on everywhere."
+    evidence: "observed: 2026-11-16, consolidation plan block 2 as agreed with the operator"
+
+scope:
+  in: "PipelinePresets.InitProjectName and IsInit(name); ExecutePipelineUseCase sets InitMode and the init branch from the pipeline name; PipelineRequest.IsInit removed; RunBranch.CutFresh for the init branch, honoured by SandboxWorkBranchCheckout; WriteRunResult reads ContextKeys.InitMode; InitCommit find-or-create; InitComplete always completes, so ContextKeys.AutoCompletePullRequests, InitLaunchRequest.AutoCompletePullRequests, InitCompleteContext.AutoComplete and the dashboard checkbox go."
+  out: "Deleting the init branch after merge (2026-11-17-713eb). Refresh principles stays a per-launch choice of the dashboard and the CLI, an operator option rather than a second path. The double-start guard stays with InitRunLauncher; a label start goes through the poller's claim, which holds the ticket's lease."
+
+steps:
+  - id: name
+    action: "PipelinePresets.InitProjectName = \"init-project\" and IsInit(string?) (case-insensitive); InitRunLauncher.PipelineName, InitCommand and the preset map read it."
+  - id: mode
+    action: "ExecutePipelineUseCase: when PipelinePresets.IsInit(request.PipelineName), set ContextKeys.InitMode and CheckoutBranch = TicketBranchNamer.InitBranch. Drop PipelineRequest.IsInit and every caller's IsInit argument; a stored request carrying IsInit still deserializes (unknown members are ignored)."
+  - id: fresh
+    action: "RunBranch gains CutFresh; RunBranchResolver sets it when the pipeline is in InitMode. SandboxWorkBranchCheckout.SwitchAsync with CutFresh skips the existing-branch checkout and creates the branch from the resolved base, so the push replaces whatever the remote init branch held."
+  - id: record
+    action: "WriteRunResultHandler.IsInitMode reads the InitMode flag instead of the absent ticket and plan."
+  - id: commit
+    action: "InitCommitHandler finds an open pull request on the init branch before creating one and refreshes its body, as CommitAndPR does."
+  - id: complete
+    action: "InitCompleteHandler completes every opened pull request; InitCompleteContext loses AutoComplete, InitCompletionReport.Untouched goes, ContextKeys.AutoCompletePullRequests and InitLaunchRequest.AutoCompletePullRequests go; ProjectInitAction drops the auto-accept checkbox and projectInitApi sends refreshPrinciples only."
+
+tests:
+  - "ExecutePipelineUseCase / prologue: an init-project request with a ticket and without one both carry InitMode and the init branch; a code request carries neither"
+  - "RunBranchResolver: init mode gives CutFresh; SandboxWorkBranchCheckout with CutFresh creates from base even when the branch exists"
+  - "WriteRunResult: InitMode with a fetched ticket takes the init fan-out"
+  - "InitCommit: an open pull request on the branch is reused, not created again"
+  - "InitComplete: every opened pull request is completed without any launch flag"
+  - "InitRunLauncher / chat / QueuedRunSweeper tests updated; dashboard ProjectInitAction tests: no checkbox, body carries refreshPrinciples"
+  - "Harness: init-project through the real composition with a ticket id runs in init mode on agent-smith/init"
+
+done:
+  - "A label-started, chat-started, dashboard-started and CLI-started init produce the same run: init mode, a fresh agent-smith/init cut from base, pull requests completed."

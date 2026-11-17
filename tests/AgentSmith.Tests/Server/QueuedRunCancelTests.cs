@@ -262,7 +262,7 @@ public sealed class QueuedRunCancelTests : IDisposable
             runId, NewRepository(), _queue, _events, NewFinalizer(),
             NewTerminalWriter(), CancellationToken.None);
         _published.Clear();
-        await NewConsumer(new PipelineRequest("p1", "init-project", IsInit: true, Headless: true, RunId: runId))
+        await NewConsumer(new PipelineRequest("p1", "init-project", Headless: true, RunId: runId))
             .RunAsync(CancellationToken.None);
 
         handled.Should().BeTrue();

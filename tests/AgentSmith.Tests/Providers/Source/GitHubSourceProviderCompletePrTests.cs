@@ -23,6 +23,7 @@ public sealed class GitHubSourceProviderCompletePrTests
     private const string Token = "ghp-test";
 
     private readonly Mock<IPullRequestsClient> _pullRequests = new();
+    private readonly Mock<IReferencesClient> _references = new();
     // 2026-10-25-9dbbc: the repository's merge settings; merge commits allowed unless a test says otherwise.
     private Repository _repository = WithMergeSettings(mergeCommit: true, squash: true, rebase: true);
 
@@ -88,6 +89,51 @@ public sealed class GitHubSourceProviderCompletePrTests
     }
 
     [Fact]
+    public async Task CompleteAsync_MergedAgentSmithBranch_DeletesTheHead()
+    {
+        SetupMerge(PullRequestMergeMethod.Merge).ReturnsAsync(Merged());
+
+        var completion = await Complete("agent-smith/init");
+
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
+        _references.Verify(r => r.Delete("example", "sample-server", "heads/agent-smith/init"), Times.Once);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_RefusedMerge_DeletesNothing()
+    {
+        SetupMerge(PullRequestMergeMethod.Merge).ThrowsAsync(NotMergeable("At least 1 approving review is required by reviewers."));
+        _repository = WithMergeSettings(mergeCommit: true, squash: false, rebase: false);
+
+        await Complete("agent-smith/init");
+
+        _references.Verify(r => r.Delete(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ABranchOutsideThePrefix_IsNeverDeleted()
+    {
+        SetupMerge(PullRequestMergeMethod.Merge).ReturnsAsync(Merged());
+
+        await Complete("feature/somebody");
+
+        _references.Verify(r => r.Delete(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_DeleteFails_IsStillMerged()
+    {
+        SetupMerge(PullRequestMergeMethod.Merge).ReturnsAsync(Merged());
+        _references.Setup(r => r.Delete(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new InvalidOperationException("Reference does not exist"));
+
+        var completion = await Complete("agent-smith/42");
+
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged,
+            "a repository that deletes merged branches itself has already removed the ref");
+    }
+
+    [Fact]
     public async Task CompleteAsync_NoMethodAllowed_RefusesNamingTheSettings()
     {
         _repository = WithMergeSettings(mergeCommit: false, squash: false, rebase: false);
@@ -147,6 +193,9 @@ public sealed class GitHubSourceProviderCompletePrTests
         var repositories = new Mock<IRepositoriesClient>();
         repositories.Setup(r => r.Get("example", "sample-server")).ReturnsAsync(() => _repository);
         client.SetupGet(c => c.Repository).Returns(repositories.Object);
+        var git = new Mock<IGitDatabaseClient>();
+        git.SetupGet(g => g.Reference).Returns(_references.Object);
+        client.SetupGet(c => c.Git).Returns(git.Object);
         var factory = new Mock<IGitHubClientFactory>();
         factory.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), Token)).Returns(client.Object);
         return new GitHubSourceProvider(
@@ -154,8 +203,8 @@ public sealed class GitHubSourceProviderCompletePrTests
             factory.Object, NullLogger<GitHubSourceProvider>.Instance);
     }
 
-    private Task<PullRequestCompletion> Complete() =>
-        CreateSut().CompletePullRequestAsync(PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
+    private Task<PullRequestCompletion> Complete(string branch = "agentsmith/init") =>
+        CreateSut().CompletePullRequestAsync(PrUrl, new BranchName(branch), CancellationToken.None);
 
     private Moq.Language.Flow.ISetup<IPullRequestsClient, Task<PullRequestMerge>> SetupMerge(PullRequestMergeMethod method) =>
         _pullRequests.Setup(c => c.Merge("example", "sample-server", 7, It.Is<MergePullRequest>(m => m.MergeMethod == method)));

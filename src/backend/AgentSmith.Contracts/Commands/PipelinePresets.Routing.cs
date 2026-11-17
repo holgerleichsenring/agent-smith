@@ -37,5 +37,7 @@ public static partial class PipelinePresets
             + "or the dashboard supplies, so a ticket routed to it fails when it starts",
         [SpecDeriveName] = "a spec derivation moves no ticket status, so the poller would derive the same ticket "
             + "again on every poll; start it from the ticket page or the ticket's conversation",
+        [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
+            + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };
 }

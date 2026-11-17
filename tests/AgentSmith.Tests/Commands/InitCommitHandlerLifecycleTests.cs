@@ -76,6 +76,25 @@ public sealed class InitCommitHandlerLifecycleTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_AnInitPullRequestIsAlreadyOpen_RefreshesItInsteadOfOpeningAnother()
+    {
+        // 2026-11-17-713ea: the init branch is cut fresh each run, so an init PR an earlier run
+        // left open carries this run's work once pushed — opening a second one would be refused.
+        _sourceProviderMock.Setup(s => s.FindOpenPullRequestAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://github.com/test/repo/pull/3");
+
+        var result = await _sut.ExecuteAsync(CreateContext(NewPipelineWithSandbox()), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("pull/3");
+        _sourceProviderMock.Verify(s => s.UpdatePullRequestBodyAsync(
+            "https://github.com/test/repo/pull/3", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(),
+            It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_TicketIdWithDoneStatus_FinalizesAtomicallyWithStatus()
     {
         var pipeline = NewPipelineWithSandbox();

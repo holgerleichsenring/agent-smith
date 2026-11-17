@@ -288,6 +288,15 @@
         "recheck_interval_seconds": { "type": "integer", "minimum": 60, "description": "Seconds between two passes over the stuck tickets. An init lands by a person or a pipeline and nothing reports it, so this interval is what notices it. Under 60 is refused: each pass probes the stuck tickets' repositories over the host API, which rate-limits. Default 300." }
       }
     },
+    "branch_cleanup": {
+      "type": "object",
+      "description": "How often the server starts a branch-cleanup run per project, which deletes every agent-smith/ branch whose pull request merged or closed and that has not moved since. A person's merge on GitHub or Azure Repos and every closed pull request leave the branch behind, and nothing reports either. Global.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Whether the server starts branch-cleanup runs. Default true." },
+        "interval_seconds": { "type": "integer", "minimum": 1, "description": "Seconds between two branch-cleanup runs of a project. Each run lists every agent-smith/ branch and its pull requests over the host API, so a short interval spends that host's rate limit; how often is the operator's choice. Zero or less is refused. Default 86400." }
+      }
+    },
     "dialogue": {
       "type": "object",
       "description": "How a run waits for a person, and where that person answers.",

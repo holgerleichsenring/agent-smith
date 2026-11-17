@@ -48,6 +48,7 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Singleton(ConfigDocTypes.SpecReview, r => r.SpecReview, (r, v) => r.SpecReview = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Series, r => r.Series, (r, v) => r.Series = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Preconditions, r => r.Preconditions, (r, v) => r.Preconditions = v),
+        ConfigDocDescriptor.Singleton(ConfigDocTypes.BranchCleanup, r => r.BranchCleanup, (r, v) => r.BranchCleanup = v),
         // 2026-08-25-1806: the role mapping is a singleton doc like any other, which is
         // what gives it the studio form, the attributed change row and the live epoch
         // without a second mechanism being written for it.
