@@ -12,7 +12,8 @@ namespace AgentSmith.Server.Services.Preconditions;
 /// 2026-11-16-f3fbc: the 'preconditions' subsystem — under its own leader lease, rebuilt by
 /// <see cref="LeaderEpochLoop"/> whenever the config epoch advances, so a settings save that trusts an image or
 /// completes a config re-checks at once; then every preconditions.recheck_interval_seconds, which notices an init
-/// that landed, since nothing reports one.
+/// that landed, since nothing reports one. An epoch start is no evidence by itself: a server restart or a lease
+/// handover starts one too, so every pass judges each stop by what changed after it.
 /// </summary>
 public sealed class PreconditionReleaseHostedService(
     IServiceProvider services,
@@ -33,18 +34,16 @@ public sealed class PreconditionReleaseHostedService(
             services.GetRequiredService<LeaderEpochLoop>().RunAsync(Subsystem, PassesAsync, ct), retry, stoppingToken);
     }
 
-    /// <summary>The passes of one config epoch: the first is the epoch's start, the rest follow the interval.</summary>
+    /// <summary>The passes of one config epoch: the first runs at once, the rest follow the interval.</summary>
     public async Task PassesAsync(AgentSmithConfig config, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(config);
         var pass = services.GetRequiredService<PreconditionReleasePass>();
         var interval = TimeSpan.FromSeconds(config.Preconditions.RecheckIntervalSeconds);
-        var epochStart = true;
         while (!ct.IsCancellationRequested)
         {
-            try { await pass.RunAsync(config, epochStart, ct); }
+            try { await pass.RunAsync(config, ct); }
             catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "Precondition pass failed; retried next interval"); }
-            epochStart = false;
             await Task.Delay(interval, ct);
         }
     }

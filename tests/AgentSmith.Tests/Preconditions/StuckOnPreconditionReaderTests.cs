@@ -56,6 +56,43 @@ public sealed class StuckOnPreconditionReaderTests : IDisposable
             Row("2026-11-16T09-00-00-e", "5", RunStatuses.Failed, RunEndKinds.Preflight, pipeline: "spec-derive"));
 
         stuck.Select(s => (s.TicketId, s.EndKind)).Should().Equal(("1", RunEndKinds.ImageUntrusted), ("2", RunEndKinds.BootstrapMissing));
-        stuck[0].Should().Match<StuckOnPrecondition>(s => s.RunId == "2026-11-16T09-00-00-a" && s.Detail!.Subject == "subject 1");
+        stuck[0].Should().Match<StuckOnPrecondition>(s => s.RunId == "2026-11-16T09-00-00-a" && s.Detail!.Subject == "subject 1"
+            && s.FinishedAt == T0.AddMinutes(1));
+    }
+
+    [Fact]
+    public async Task List_ClosedOrLandedTicket_Left()
+    {
+        await using (var db = Db())
+        {
+            db.Add(new ClosedTicket { Tracker = "t", TicketKey = "github-1", TicketId = "1", Project = "p", ClosedAt = T0, By = "a" });
+            db.Add(new LandedTicket { Tracker = "t", TicketKey = "github-2", TicketId = "2", Project = "p", Kind = "pr", LandedAt = T0 });
+            db.Add(new ClosedTicket { Tracker = "t", TicketKey = "github-3", TicketId = "3", Project = "other", ClosedAt = T0, By = "a" });
+            await db.SaveChangesAsync();
+        }
+
+        var stuck = await ListAsync(
+            Row("2026-11-16T09-00-00-a", "1", RunStatuses.Failed, RunEndKinds.ImageUntrusted),
+            Row("2026-11-16T09-00-00-b", "2", RunStatuses.Failed, RunEndKinds.BootstrapMissing),
+            Row("2026-11-16T09-00-00-c", "3", RunStatuses.Failed, RunEndKinds.Preflight));
+
+        stuck.Select(s => s.TicketId).Should().Equal(["3"], "a closed or landed ticket is never released, so it is not listed");
+    }
+
+    [Fact]
+    public async Task ConfigChangeClock_NewestVersionRow_IsTheLastChange()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => Db());
+        var clock = new DbConfigChangeClock(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+        (await clock.LastChangedAtAsync(CancellationToken.None)).Should().BeNull("nothing was ever stored");
+
+        await using (var db = Db())
+        {
+            db.Add(new ConfigEntityVersion { EntityType = "agent", EntityId = "a", Version = 1, Doc = "{}", ChangedBy = "x" });
+            await db.SaveChangesAsync();
+        }
+
+        (await clock.LastChangedAtAsync(CancellationToken.None)).Should().NotBeNull();
     }
 }

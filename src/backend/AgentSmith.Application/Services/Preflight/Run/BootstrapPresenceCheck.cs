@@ -29,25 +29,18 @@ public sealed class BootstrapPresenceCheck(RepoReadiness readiness) : IRunPrefli
         var run = RunBranchResolver.Resolve(pipeline);
         var verdicts = new List<(string Repo, RemoteBootstrapVerdict Verdict)>();
         foreach (var repo in repos)
-            verdicts.Add((repo.Name, await readiness.ReadAsync(
-                repo, await BaseOfAsync(run, repo, cancellationToken), run?.Name, cancellationToken)));
+            verdicts.Add((repo.Name, await readiness.ReadForRunAsync(repo, run?.Name, run?.ParentTicketId, cancellationToken)));
         var incomplete = verdicts.Where(v => v.Verdict.State == RemoteBootstrapState.Incomplete).ToList();
-        if (incomplete.Count > 0) return Missing(pipeline, incomplete);
+        if (incomplete.Count > 0) return Missing(pipeline, run, incomplete);
         var unknown = verdicts.Where(v => v.Verdict.State == RemoteBootstrapState.Unknown).ToList();
         return unknown.Count > 0
             ? Unreadable(unknown)
             : RunPreflightFinding.Pass(Name, $"{verdicts.Count} repository(ies) carry their bootstrap");
     }
 
-    // A slice starts from its parent's rung once it is published, every other run from the repository's default branch.
-    private Task<BranchName?> BaseOfAsync(RunBranch? run, RepoConnection repo, CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(run?.ParentTicketId))
-            return readiness.SliceBaseAsync(repo, TicketBranchNamer.Compose(new TicketId(run.ParentTicketId.Trim())), ct);
-        return Task.FromResult<BranchName?>(string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : new BranchName(repo.DefaultBranch));
-    }
-
-    private RunPreflightFinding Missing(PipelineContext pipeline, List<(string Repo, RemoteBootstrapVerdict Verdict)> incomplete)
+    // The detail records the run's branch and parent, so a release reads the repositories as this check did.
+    private RunPreflightFinding Missing(
+        PipelineContext pipeline, RunBranch? run, List<(string Repo, RemoteBootstrapVerdict Verdict)> incomplete)
     {
         var project = pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var p) && p is not null ? p.Name : "";
         var message = string.Join("; ", incomplete.Select(i =>
@@ -55,7 +48,8 @@ public sealed class BootstrapPresenceCheck(RepoReadiness readiness) : IRunPrefli
         return RunPreflightFinding.Fail(Name, message, Lever) with
         {
             Kind = RunEndKinds.BootstrapMissing,
-            Detail = new EndDetail(project, [.. incomplete.Select(i => i.Repo)], "Initialise", project, "/config/projects"),
+            Detail = new EndDetail(project, [.. incomplete.Select(i => i.Repo)], "Initialise", project, "/config/projects",
+                run?.Name.Value, string.IsNullOrWhiteSpace(run?.ParentTicketId) ? null : run.ParentTicketId.Trim()),
         };
     }
 

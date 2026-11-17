@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Preflight.Run;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
@@ -45,6 +46,7 @@ public sealed class BootstrapPresenceCheckTests
             [new RepoConnection { Name = "web-api", Url = "https://github.com/o/web-api", Type = RepoType.GitHub }]);
         pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "demo" });
         if (ticket is not null) pipeline.Set(ContextKeys.Ticket, ticket);
+        if (ticket is not null) pipeline.Set(ContextKeys.TicketId, ticket.Id);
         return new BootstrapPresenceCheck(new RepoReadiness(probe, hosts.Object, NullLogger<RepoReadiness>.Instance))
             .RunAsync(pipeline, CancellationToken.None);
     }
@@ -95,6 +97,20 @@ public sealed class BootstrapPresenceCheckTests
 
         (await RunAsync(slice)).Verdict.Should().Be(RunPreflightVerdict.Pass,
             "the first slice's checkout publishes the parent's rung, so before it there is none to read");
+    }
+
+    [Fact]
+    public async Task RunAsync_UninitialisedSlice_RecordsTheBranchAndParentItRead()
+    {
+        Serves(principles: false);
+        _host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var slice = new Ticket(new TicketId("43"), "Slice", "", null, "New", "test",
+            labels: [FiledTicketLabels.ParentStamp("42")]);
+
+        var detail = (await RunAsync(slice)).Detail!;
+
+        detail.Branch.Should().Be(TicketBranchNamer.Compose(new TicketId("43")).Value);
+        detail.ParentTicketId.Should().Be("42", "a release reads the repositories by the same rule, from the same inputs");
     }
 
     [Fact]

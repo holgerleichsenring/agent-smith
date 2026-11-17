@@ -42,3 +42,19 @@ decisions:
     chose: "This spec closes the 'starts by itself once that holds' gap decisions/2026-11-16-f3fbb.yaml recorded; f3fbb's files are unchanged"
     over: "Rewording f3fbb's refusal sentence"
     reason: "The sentence now holds: an image trusted by a settings save is released on the epoch's first pass, a landed init within one recheck interval, a config stop on the next config epoch."
+  - category: Implementation
+    chose: "Review fix: the bootstrap check records the run's branch and a slice's parent ticket on EndDetail (Branch, ParentTicketId), and the release reads every named repository through RepoReadiness.ReadForRunAsync, the rule BootstrapPresenceCheck now calls too — a slice's published parent rung else the default branch, plus the run's branch when the host has it"
+    over: "Probing only the default branch in the release (the first cut), or recording the probed base branch per repository"
+    reason: "A slice whose parent rung lacked the bootstrap was released whenever main carried it, and stopped again on the rung, once per pass: the release read a branch the run never reads. Recording the rule's inputs rather than its output keeps one rule: a rung published after the stop is read by both. Run has no branch or parent column, EndDetail already round-trips through Run.EndDetailJson and the TS mirror, so two optional fields and no table."
+  - category: Implementation
+    chose: "Review fix: a preflight stop is released only when the newest ConfigEntityVersions row is newer than the attempt's FinishedAt (IConfigChangeClock, DbConfigChangeClock); an epoch start is no evidence, and the pass lost its epochStart flag"
+    over: "Releasing every preflight stop on each epoch start, or reading ConfigEntities.UpdatedAt"
+    reason: "An epoch also starts on a server restart, a leader lease handover, an unrelated save or an automatic registry trust, so each restarted the ticket and posted another failure. The version history is append-only and carries deletes, which UpdatedAt loses; ordered by Id because SQLite cannot order a DateTimeOffset. Any stored change counts, a run's registry trust included: the release stays one attempt per change, and narrowing to 'related' settings would be a second guess at what the preflight reads. A config edited only in the YAML file leaves no version row; that ticket is started by a reply, as f3fbb admits. decider: operator (approved block 1 on 2026-11-16) — the config change is the new release trigger for a preflight stop, replacing the epoch start."
+  - category: Implementation
+    chose: "Review fix: DbStuckOnPreconditionReader leaves out tickets with a close mark or a landing (ClosedTickets, LandedTickets, matched by project and ticket id) in its query; an image stop still needs the live Judge to accept the image"
+    over: "Listing every stuck ticket and letting TicketStartHold skip the closed ones in the handler"
+    reason: "A closed or landed ticket is never released, so listing it made each pass probe and nudge for tickets that grow without bound. The query cannot reach the tracker key (it needs the project's tracker config), so it matches the project and ticket id both stores carry; the handler's TicketStartHold still answers by key, and a reopen deletes the close mark, which lists the ticket again."
+  - category: Implementation
+    chose: "PreconditionReleasePassTests pins the loop guard: a ticket released once that stops again on the same end kind and the same EndDetail is not nudged on later passes until its evidence changes (a newer config change, a trusted image, the rung carrying the bootstrap)"
+    over: "Relying on the per-kind tests alone"
+    reason: "The operator's complaint is a released ticket restarting in a loop; the guard follows from the two fixes above and is now held by one test across all three kinds."

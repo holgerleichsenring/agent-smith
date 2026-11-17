@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -112,6 +113,30 @@ public sealed class RepoReadinessTests
 
         (await ReadAsync()).State.Should().Be(RemoteBootstrapState.Incomplete);
         _provider.Verify(p => p.TryReadFileAsync(It.IsAny<string>(), new BranchName(Run), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static readonly RepoConnection Defaulted =
+        new() { Name = "r", Url = "https://github.com/o/r", Type = RepoType.GitHub, DefaultBranch = Base };
+
+    [Fact]
+    public async Task ReadForRunAsync_SliceWithPublishedRung_ReadsTheRungNotTheDefault()
+    {
+        var rung = TicketBranchNamer.Compose(new TicketId("7")).Value;
+        Branch(Base, principles: true);
+        Branch(rung, principles: false);
+
+        (await Readiness().ReadForRunAsync(Defaulted, null, "7", CancellationToken.None)).State
+            .Should().Be(RemoteBootstrapState.Incomplete, "a slice is cut from its parent's rung once the host has it");
+    }
+
+    [Fact]
+    public async Task ReadForRunAsync_NoParent_ReadsTheDefaultAndTheRunBranch()
+    {
+        Branch(Base, principles: false);
+        Branch(Run, principles: true);
+
+        (await Readiness().ReadForRunAsync(Defaulted, new BranchName(Run), null, CancellationToken.None)).State
+            .Should().Be(RemoteBootstrapState.Complete);
     }
 
     [Fact]

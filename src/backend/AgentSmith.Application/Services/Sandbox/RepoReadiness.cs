@@ -33,6 +33,23 @@ public sealed class RepoReadiness(
     }
 
     /// <summary>
+    /// 2026-11-16-f3fbc: the one readiness rule for a run — its base (a slice's parent rung once published, every
+    /// other run's default branch) and its own branch. The run's bootstrap check and a precondition release ask
+    /// here, so a release never reads a branch the run would not.
+    /// </summary>
+    /// <param name="runBranch">The run's branch; null when the run has none.</param>
+    /// <param name="parentTicketId">The parent ticket of a slice; null for every other run.</param>
+    public async Task<RemoteBootstrapVerdict> ReadForRunAsync(
+        RepoConnection repo, BranchName? runBranch, string? parentTicketId, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(repo);
+        var baseBranch = string.IsNullOrWhiteSpace(parentTicketId)
+            ? DefaultOf(repo)
+            : await SliceBaseAsync(repo, TicketBranchNamer.Compose(new TicketId(parentTicketId.Trim())), ct);
+        return await ReadAsync(repo, baseBranch, runBranch, ct);
+    }
+
+    /// <summary>
     /// The base a slice is cut from: its parent's rung once the host has it, otherwise the repository's
     /// default branch — the first slice's checkout publishes the rung at that branch (SandboxRungPublisher),
     /// so before it does there is no rung to read and reading one would answer Unknown for every first slice.
@@ -40,9 +57,11 @@ public sealed class RepoReadiness(
     public async Task<BranchName?> SliceBaseAsync(RepoConnection repo, BranchName rung, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(repo);
-        if (await ExistsAsync(repo, rung, ct)) return rung;
-        return string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : new BranchName(repo.DefaultBranch);
+        return await ExistsAsync(repo, rung, ct) ? rung : DefaultOf(repo);
     }
+
+    private static BranchName? DefaultOf(RepoConnection repo) =>
+        string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : new BranchName(repo.DefaultBranch);
 
     private async Task<bool> ExistsAsync(RepoConnection repo, BranchName branch, CancellationToken ct)
     {

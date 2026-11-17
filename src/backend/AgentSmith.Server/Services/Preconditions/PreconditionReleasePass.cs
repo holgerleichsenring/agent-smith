@@ -15,14 +15,15 @@ public sealed class PreconditionReleasePass(
     IStuckOnPreconditionReader stuck,
     PreconditionHoldCheck check,
     RepoReadiness readiness,
+    IConfigChangeClock configClock,
     IReworkNudges nudges,
     ILogger<PreconditionReleasePass> logger)
 {
     /// <summary>Answers how many nudges the pass enqueued.</summary>
-    public async Task<int> RunAsync(AgentSmithConfig config, bool epochStart, CancellationToken ct)
+    public async Task<int> RunAsync(AgentSmithConfig config, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(config);
-        var scope = new PreconditionPassScope(epochStart, new RepoReadinessPass(readiness));
+        var scope = new PreconditionPassScope(await configClock.LastChangedAtAsync(ct), new RepoReadinessPass(readiness));
         var nudged = 0;
         foreach (var ticket in await stuck.ListAsync(ct))
             if (config.Projects.TryGetValue(ticket.Project, out var project) && await HoldsAsync(ticket, project, scope, ct))

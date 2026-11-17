@@ -7,9 +7,11 @@ namespace AgentSmith.Server.Services.Preconditions;
 
 /// <summary>
 /// 2026-11-16-f3fbc: whether the precondition a ticket stopped on holds now. An untrusted image holds once the live
-/// registry boundary accepts it; a missing bootstrap once every repository it named reads Complete on its base
-/// branch; a config check on a pass the config epoch started, since a saved config is the only thing that changes
-/// it — the run's own RunConfigPreflight answers before any sandbox. A detail that names nothing never holds.
+/// registry boundary accepts it; a missing bootstrap once every repository it named reads Complete by the run's own
+/// readiness rule, on the branch and parent the attempt recorded; a config check once the stored configuration
+/// changed after the attempt ended, since a saved config is the only thing that changes it — the run's own
+/// RunConfigPreflight answers before any sandbox. A detail that names nothing never holds, so an attempt that stops
+/// again on the same evidence is not released again until that evidence changes.
 /// </summary>
 public sealed class PreconditionHoldCheck(ContextImageBoundary images)
 {
@@ -23,7 +25,7 @@ public sealed class PreconditionHoldCheck(ContextImageBoundary images)
         {
             RunEndKinds.ImageUntrusted => images.RefusedImage(stuck.Detail) is { } image && images.Judge(image) is null,
             RunEndKinds.BootstrapMissing => await BootstrappedAsync(stuck, project, pass.Readiness, ct),
-            RunEndKinds.Preflight => pass.EpochStart,
+            RunEndKinds.Preflight => pass.ConfigChangedAt is { } changed && changed > stuck.FinishedAt,
             _ => false,
         };
     }
@@ -31,12 +33,11 @@ public sealed class PreconditionHoldCheck(ContextImageBoundary images)
     private static async Task<bool> BootstrappedAsync(
         StuckOnPrecondition stuck, ResolvedProject project, RepoReadinessPass readiness, CancellationToken ct)
     {
-        var names = stuck.Detail?.Repos ?? [];
-        if (names.Count == 0) return false;
-        foreach (var name in names)
+        if (stuck.Detail is not { Repos.Count: > 0 } detail) return false;
+        foreach (var name in detail.Repos)
         {
             var repo = project.Repos.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.Ordinal));
-            if (repo is null || (await readiness.ReadAsync(repo, ct)).State != RemoteBootstrapState.Complete) return false;
+            if (repo is null || (await readiness.ReadAsync(repo, detail, ct)).State != RemoteBootstrapState.Complete) return false;
         }
         return true;
     }

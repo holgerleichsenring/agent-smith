@@ -104,6 +104,10 @@ export interface EndDetail {
   setTo: string | null;
   /** The dashboard page that holds the control; null when there is none. */
   settingsPath: string | null;
+  /** 2026-11-16-f3fbc: the run's branch a bootstrap read covered; absent or null when it had none. */
+  branch?: string | null;
+  /** 2026-11-16-f3fbc: the parent ticket a slice's base was read from; absent or null for every other run. */
+  parentTicketId?: string | null;
 }
 
 export interface SandboxCreatedEvent extends RunEventBase {

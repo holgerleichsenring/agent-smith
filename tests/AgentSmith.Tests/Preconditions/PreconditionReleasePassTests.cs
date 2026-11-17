@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models.Sandbox;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -16,8 +17,9 @@ namespace AgentSmith.Tests.Preconditions;
 
 /// <summary>
 /// 2026-11-16-f3fbc: one pass over the stuck tickets nudges PreconditionsMet only for those whose precondition holds
-/// now — an image the live boundary accepts, repositories whose base reads Complete (each probed once per pass), a
-/// config check on the epoch's first pass only.
+/// now — an image the live boundary accepts, repositories that read Complete by the run's own rule on the branch and
+/// parent the attempt recorded (each probed once per pass), a config check once the stored config changed after the
+/// attempt ended. An attempt that stops again on the same evidence is not released again until it changes.
 /// </summary>
 public sealed class PreconditionReleasePassTests
 {
@@ -26,6 +28,8 @@ public sealed class PreconditionReleasePassTests
     private readonly List<ReworkNudgeRequest> _nudged = [];
     private readonly Dictionary<string, Mock<ISourceProvider>> _repos = new(StringComparer.Ordinal);
     private SandboxGlobalConfig _sandbox = new();
+    private DateTimeOffset? _configChangedAt;
+    private static readonly DateTimeOffset T0 = new(2026, 11, 16, 9, 0, 0, TimeSpan.Zero);
 
     private static readonly AgentSmithConfig Config = new()
     {
@@ -43,7 +47,8 @@ public sealed class PreconditionReleasePassTests
         public RegistryTrustBoundary InForce() => RegistryTrustBoundary.From(sandbox());
     }
 
-    private void Stuck(string ticket, string kind, EndDetail? detail) => _stuck.Add(new("p", ticket, $"run-{ticket}", kind, detail));
+    private void Stuck(string ticket, string kind, EndDetail? detail, DateTimeOffset? finishedAt = null) =>
+        _stuck.Add(new("p", ticket, $"run-{ticket}", kind, detail, finishedAt ?? T0));
 
     private static EndDetail ImageDetail() => new(ContextImageDetail(), ["api"]);
 
@@ -51,6 +56,11 @@ public sealed class PreconditionReleasePassTests
         new ContextImageBoundary(new FixedTrust(() => new SandboxGlobalConfig())).Detail(Image, "default", "api").Subject;
 
     private static EndDetail Bootstrap(params string[] repos) => new("p", repos, "Initialise", "p", "/config/projects");
+
+    private static EndDetail SliceBootstrap(string branch, string parent) =>
+        new("p", ["api"], "Initialise", "p", "/config/projects", branch, parent);
+
+    private static string Rung(string parent) => TicketBranchNamer.Compose(new TicketId(parent)).Value;
 
     // A repository whose main branch carries a context, with or without its principles.
     private Mock<ISourceProvider> Repo(string name, bool complete)
@@ -71,7 +81,22 @@ public sealed class PreconditionReleasePassTests
         return provider;
     }
 
-    private Task<int> PassAsync(bool epochStart)
+    // A repository whose listed branches exist and carry their bootstrap as given; any other branch is absent.
+    private void RepoOnBranches(string name, Dictionary<string, bool> branches)
+    {
+        var provider = Repo(name, complete: false);
+        provider.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((BranchName b, CancellationToken _) => branches.ContainsKey(b.Value));
+        provider.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, BranchName b, CancellationToken _) => path switch
+            {
+                ".agentsmith/contexts/api/context.yaml" when branches.ContainsKey(b.Value) => "meta:\n  project: api\n  workdir: .\nstack:\n  lang: csharp\n",
+                ".agentsmith/contexts/api/principles.md" when branches.GetValueOrDefault(b.Value) => "# principles",
+                _ => null,
+            });
+    }
+
+    private Task<int> PassAsync()
     {
         var stuck = new Mock<IStuckOnPreconditionReader>();
         stuck.Setup(s => s.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync(() => [.. _stuck]);
@@ -85,8 +110,10 @@ public sealed class PreconditionReleasePassTests
         var readiness = new RepoReadiness(new RemoteBootstrapProbe(sources.Object, resolver, NullLogger<RemoteBootstrapProbe>.Instance),
             sources.Object, NullLogger<RepoReadiness>.Instance);
         var check = new PreconditionHoldCheck(new ContextImageBoundary(new FixedTrust(() => _sandbox)));
-        return new PreconditionReleasePass(stuck.Object, check, readiness, nudges.Object, NullLogger<PreconditionReleasePass>.Instance)
-            .RunAsync(Config, epochStart, CancellationToken.None);
+        var clock = new Mock<IConfigChangeClock>();
+        clock.Setup(c => c.LastChangedAtAsync(It.IsAny<CancellationToken>())).ReturnsAsync(() => _configChangedAt);
+        return new PreconditionReleasePass(stuck.Object, check, readiness, clock.Object, nudges.Object,
+            NullLogger<PreconditionReleasePass>.Instance).RunAsync(Config, CancellationToken.None);
     }
 
     private IEnumerable<string> Nudged() => _nudged.Select(n => n.TicketId);
@@ -97,7 +124,7 @@ public sealed class PreconditionReleasePassTests
         Stuck("1", RunEndKinds.ImageUntrusted, ImageDetail());
         _sandbox = new SandboxGlobalConfig { AllowedRegistries = ["sbtscala/"] };
 
-        (await PassAsync(epochStart: false)).Should().Be(1);
+        (await PassAsync()).Should().Be(1);
 
         _nudged.Should().ContainSingle().Which.Should().Be(new ReworkNudgeRequest("p", "1", ReworkNudgeOrigin.PreconditionsMet));
     }
@@ -107,7 +134,7 @@ public sealed class PreconditionReleasePassTests
     {
         Stuck("1", RunEndKinds.ImageUntrusted, ImageDetail());
 
-        (await PassAsync(epochStart: true)).Should().Be(0);
+        (await PassAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -117,7 +144,7 @@ public sealed class PreconditionReleasePassTests
         Repo("web", complete: true);
         Stuck("2", RunEndKinds.BootstrapMissing, Bootstrap("api", "web"));
 
-        await PassAsync(epochStart: false);
+        await PassAsync();
 
         Nudged().Should().Equal("2");
     }
@@ -131,7 +158,7 @@ public sealed class PreconditionReleasePassTests
         Stuck("3", RunEndKinds.BootstrapMissing, Bootstrap("api", "gone"));
         Stuck("4", RunEndKinds.BootstrapMissing, new EndDetail("p", []));
 
-        await PassAsync(epochStart: false);
+        await PassAsync();
 
         Nudged().Should().BeEmpty("an incomplete, unconfigured or unnamed repository is never proof the init landed");
     }
@@ -141,20 +168,84 @@ public sealed class PreconditionReleasePassTests
     {
         Stuck("2", RunEndKinds.BootstrapMissing, Bootstrap("api"));
 
-        await PassAsync(epochStart: false);
+        await PassAsync();
 
         Nudged().Should().BeEmpty("an unknown answer is not Complete");
     }
 
     [Fact]
-    public async Task Pass_Preflight_NudgedOnlyOnTheEpochStart()
+    public async Task Pass_Preflight_NudgedOnlyByAConfigChangeAfterTheAttempt()
     {
         Stuck("5", RunEndKinds.Preflight, new EndDetail("agents.a.model", []));
 
-        await PassAsync(epochStart: false);
-        Nudged().Should().BeEmpty("only a saved config changes a config check");
-        await PassAsync(epochStart: true);
+        await PassAsync();
+        Nudged().Should().BeEmpty("no config was ever stored, so nothing changed");
+        _configChangedAt = T0.AddMinutes(-1);
+        await PassAsync();
+        Nudged().Should().BeEmpty("a save before the attempt ended is what the attempt already read");
+        _configChangedAt = T0.AddMinutes(1);
+        await PassAsync();
         Nudged().Should().Equal("5");
+    }
+
+    [Fact]
+    public async Task Pass_SliceWhoseParentRungLacksTheBootstrap_DoesNotNudge()
+    {
+        var branch = TicketBranchNamer.Compose(new TicketId("11")).Value;
+        RepoOnBranches("api", new() { ["main"] = true, [Rung("10")] = false });
+        Stuck("11", RunEndKinds.BootstrapMissing, SliceBootstrap(branch, "10"));
+
+        await PassAsync();
+
+        Nudged().Should().BeEmpty("the run reads the published rung, not main, so a release must too");
+    }
+
+    [Fact]
+    public async Task Pass_SliceBeforeItsParentRungExists_ReadsTheDefaultBranch()
+    {
+        var branch = TicketBranchNamer.Compose(new TicketId("11")).Value;
+        RepoOnBranches("api", new() { ["main"] = true });
+        Stuck("11", RunEndKinds.BootstrapMissing, SliceBootstrap(branch, "10"));
+
+        await PassAsync();
+
+        Nudged().Should().Equal("11");
+    }
+
+    [Fact]
+    public async Task Pass_RunBranchCarriesTheBootstrap_Nudges()
+    {
+        var branch = TicketBranchNamer.Compose(new TicketId("12")).Value;
+        RepoOnBranches("api", new() { ["main"] = false, [branch] = true });
+        Stuck("12", RunEndKinds.BootstrapMissing, new EndDetail("p", ["api"], Branch: branch));
+
+        await PassAsync();
+
+        Nudged().Should().Equal(["12"], "the run reads its own branch when the host has it");
+    }
+
+    [Fact]
+    public async Task Pass_ReleasedThenStoppedAgainOnTheSameEvidence_NotReleasedUntilItChanges()
+    {
+        var branch = TicketBranchNamer.Compose(new TicketId("11")).Value;
+        RepoOnBranches("api", new() { ["main"] = true, [Rung("10")] = false });
+        _configChangedAt = T0.AddMinutes(1);
+        Stuck("5", RunEndKinds.Preflight, new EndDetail("agents.a.model", []));
+        Stuck("6", RunEndKinds.ImageUntrusted, ImageDetail());
+        Stuck("11", RunEndKinds.BootstrapMissing, SliceBootstrap(branch, "10"));
+        await PassAsync();
+        Nudged().Should().Equal("5");
+
+        _nudged.Clear();
+        _stuck[0] = _stuck[0] with { RunId = "run-5b", FinishedAt = T0.AddMinutes(2) };
+        for (var pass = 0; pass < 3; pass++) await PassAsync();
+        Nudged().Should().BeEmpty("the same stop on the same evidence is not released again");
+
+        _configChangedAt = T0.AddMinutes(3);
+        _sandbox = new SandboxGlobalConfig { AllowedRegistries = ["sbtscala/"] };
+        RepoOnBranches("api", new() { ["main"] = true, [Rung("10")] = true });
+        await PassAsync();
+        Nudged().Should().Equal("5", "6", "11");
     }
 
     [Fact]
@@ -164,7 +255,7 @@ public sealed class PreconditionReleasePassTests
         Stuck("2", RunEndKinds.BootstrapMissing, Bootstrap("api"));
         Stuck("3", RunEndKinds.BootstrapMissing, Bootstrap("api"));
 
-        await PassAsync(epochStart: false);
+        await PassAsync();
 
         Nudged().Should().Equal("2", "3");
         api.Verify(p => p.TryReadFileAsync(".agentsmith/contexts/api/principles.md", It.IsAny<BranchName>(), It.IsAny<CancellationToken>()),
@@ -174,8 +265,9 @@ public sealed class PreconditionReleasePassTests
     [Fact]
     public async Task Pass_ProjectNoLongerConfigured_Skipped()
     {
-        _stuck.Add(new("gone", "9", "run-9", RunEndKinds.Preflight, null));
+        _configChangedAt = T0.AddMinutes(1);
+        _stuck.Add(new("gone", "9", "run-9", RunEndKinds.Preflight, null, T0));
 
-        (await PassAsync(epochStart: true)).Should().Be(0);
+        (await PassAsync()).Should().Be(0);
     }
 }
