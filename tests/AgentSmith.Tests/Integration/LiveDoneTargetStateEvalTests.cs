@@ -82,7 +82,7 @@ public sealed class LiveDoneTargetStateEvalTests(ITestOutputHelper output) : IDi
         var bad = new List<string>();
         for (var run = 1; run <= Runs; run++)
         {
-            await using var look = await LookAsync(DerivationLookTerms.AttackReviewFor(draft));
+            await using var look = await LookAsync(DerivationLookTerms.AttackReviewFor(draft, new SpecReviewConfig().AttackLookFloor));
             var result = await reviewer.ReviewAsync(input, look, new AgentConfig(), Cost(), CancellationToken.None);
             output.WriteLine($"attack run {run}: {result?.Verdict ?? "(none)"}");
             foreach (var cut in result?.Cuts ?? []) output.WriteLine($"  cut {cut.Register}: \"{cut.Quote}\" -> {cut.Replacement}");

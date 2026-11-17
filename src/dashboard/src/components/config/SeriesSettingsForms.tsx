@@ -24,6 +24,16 @@ export function SpecReviewForm({ value, onChange }: { value: SpecReviewSetting; 
         help="share of the run's cost cap and wall clock review may use" />
       <CheckField label="Review Work it out proposals" value={value.designTurn ?? true}
         onChange={(v) => set({ designTurn: v })} testId="setting-specreview-designturn" />
+      <NumberField label="Attack look floor" value={value.attackLookFloor}
+        onChange={(v) => set({ attackLookFloor: keep(v, value.attackLookFloor) })} testId="setting-specreview-lookfloor"
+        help="the fewest file looks one reviewer gets; a spec citing many paths gets its paths plus 12" />
+      <NumberField label="Re-ground read budget" value={value.regroundReadBudget}
+        onChange={(v) => set({ regroundReadBudget: keep(v, value.regroundReadBudget) })} testId="setting-specreview-reground"
+        help="file reads that re-check the citations of the spec a run enters; past it a citation is left unchecked" />
+      <NumberField label="Series contract characters" value={value.seriesContractMaxChars}
+        onChange={(v) => set({ seriesContractMaxChars: keep(v, value.seriesContractMaxChars) })}
+        testId="setting-specreview-contractchars"
+        help="members shown whole to the series contract reviewer; past it each is shown in part" />
     </>
   );
 }

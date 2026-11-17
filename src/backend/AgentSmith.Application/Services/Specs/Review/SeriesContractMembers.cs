@@ -28,7 +28,8 @@ internal static class SeriesContractMembers
         }
         var inPart = input.Members.Where((_, i) => !whole[i]).Select(m => m.Draft.SpecId).ToList();
         var text = (inPart.Count == 0 ? string.Empty
-                : $"Shown in part (goal, scope, steps and the lines naming the contract): {string.Join(", ", inPart)}.\n\n")
+                : $"Shown in part (goal, scope, steps and the lines naming the contract), because the members are shown whole only "
+                    + $"within spec_review.series_contract_max_chars = {input.MaxChars} characters: {string.Join(", ", inPart)}.\n\n")
             + string.Join("\n", parts.Select((p, i) => whole[i] ? p.Whole : p.Partial));
         return text.Length <= budget ? text : text[..Math.Max(0, budget - CutOff.Length)] + CutOff;
     }

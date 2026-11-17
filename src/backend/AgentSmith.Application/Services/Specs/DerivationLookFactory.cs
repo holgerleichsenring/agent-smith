@@ -96,8 +96,8 @@ public sealed class DerivationLookFactory(
             DerivationLookTerms.ProposalReviewWith(agent.DialogReviewLookAllowance), audits: false, activity: turnActivity);
 
     /// <summary>2026-10-13-8762i: one attack reviewer's look at one proposal draft, on that draft's attack terms.</summary>
-    public DerivationLook? ForProposalAttack(PipelineContext pipeline, Contracts.Models.SpecDraft draft) =>
-        ForProposal(pipeline, DerivationLookTerms.AttackReviewFor(draft));
+    public DerivationLook? ForProposalAttack(PipelineContext pipeline, Contracts.Models.SpecDraft draft, int floor) =>
+        ForProposal(pipeline, DerivationLookTerms.AttackReviewFor(draft, floor));
 
     private DerivationLook? ForProposal(PipelineContext pipeline, DerivationLookTerms terms) =>
         Review.ReviewReferences.Beside(pipeline, ProposalRepositories(pipeline)) is { } readable

@@ -119,14 +119,12 @@
 1	AgentSmith.Application/Services/Specs/ReferenceScopeName.cs
 3	AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs
 1	AgentSmith.Application/Services/Specs/Review/SeriesContractAdmission.cs
-1	AgentSmith.Application/Services/Specs/Review/SeriesContractPrompt.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecAttackAdmission.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecCitationHistory.cs
 3	AgentSmith.Application/Services/Specs/Review/SpecCitationLocator.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecCutReviser.cs
 2	AgentSmith.Application/Services/Specs/Review/SpecEntryGrounding.cs
-1	AgentSmith.Application/Services/Specs/Review/SpecRegroundSession.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecRevisionLists.cs
 1	AgentSmith.Application/Services/Specs/SandboxEvidenceRead.cs
 1	AgentSmith.Application/Services/Specs/SearchCommands.cs
