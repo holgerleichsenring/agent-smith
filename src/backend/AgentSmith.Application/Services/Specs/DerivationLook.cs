@@ -47,7 +47,7 @@ public sealed class DerivationLook : IAsyncDisposable
         IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null,
         DerivationLookTerms? terms = null, bool audits = true,
         TurnActivityTools? activity = null, DerivationLookStages? stages = null,
-        bool borrowsTemplates = false)
+        bool borrowsTemplates = false, IReadOnlyDictionary<string, string>? names = null)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
         _stages = stages;
@@ -55,7 +55,7 @@ public sealed class DerivationLook : IAsyncDisposable
         _templates = templates
             ?? new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer);
         Terms = terms ?? DerivationLookTerms.Derivation;
-        _gate = new DerivationLookGate(sandboxes, _templates, Terms);
+        _gate = new DerivationLookGate(sandboxes, _templates, Terms, names);
         Evidence = new DerivationEvidence(Terms.EvidencePrefix, $"the {Terms.Actor}");
         var tools = DerivationTools.Over(
             new RepositorySearchTool(this, logger),
@@ -105,6 +105,9 @@ public sealed class DerivationLook : IAsyncDisposable
     /// a refusal is the sentence the model is answered with, and nothing has run.</summary>
     internal bool TryOpen(string repository, out ISandbox sandbox, out string refusal) =>
         _gate.TryOpen(repository, out sandbox, out refusal);
+
+    /// <summary>2026-11-17-5701f: see <see cref="DerivationLookGate.WithoutRepositoryName"/>.</summary>
+    public string? WithoutRepositoryName(string key, string path) => _gate.WithoutRepositoryName(key, path);
 
     // 2026-10-25-54beb: borrowed templates belong to the run's RunTemplateScopes, which disposes them.
     public async ValueTask DisposeAsync()

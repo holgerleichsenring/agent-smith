@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-2772
+
+decisions:
+  - category: Architecture
+    chose: "A `tools` slot on DialogComposer; given, the text field takes its own row and the plus, the tools and send share the row below"
+    over: "Restacking every composer, or a home-only composer"
+    reason: "One component stays one component. Work it out and the ticket composer have no picker, so they keep their layout and pass nothing."
+  - category: UX
+    chose: "A native select with appearance none, no fill or frame, the plus's 34px height and a drawn chevron; a focus-visible ring and aria-label Project"
+    over: "The bordered 30px chip above the text field"
+    reason: "The operator asked for a picker that reads like a chat composer's model picker. The native select keeps keyboard behaviour without extra code."
+  - category: UX
+    chose: "The picked-files note stays above the text field, shown only when files are picked"
+    over: "Putting it in the lower row"
+    reason: "The lower row keeps the three controls, and the note goes with what is sent. With no files, nothing sits above the text field."

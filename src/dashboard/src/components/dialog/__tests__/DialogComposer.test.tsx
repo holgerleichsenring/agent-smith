@@ -35,6 +35,28 @@ describe("DialogComposer", () => {
     expect(plus.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  // 2026-11-17-2772: tools join the plus and send in a row of their own; the text field sits above it.
+  it("DialogComposer_Tools_SitBetweenAttachAndSend_InARowUnderTheText", () => {
+    renderComposer({ tools: <span data-testid="tool">shop</span> });
+    const row = screen.getByTestId("dialog-composer-tools");
+    const [attach, tool, send] = [screen.getByRole("button", { name: "Attach" }), screen.getByTestId("tool"),
+      screen.getByRole("button", { name: "Send" })];
+
+    expect(Array.from(row.children)).toEqual([attach.parentElement, tool, expect.anything(), send]);
+    expect(row).not.toContainElement(screen.getByTestId("dialog-composer-text"));
+    expect(screen.getByTestId("dialog-composer-text").compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+  });
+
+  it("DialogComposer_WithoutTools_KeepsTheTextBetweenAttachAndSend", () => {
+    renderComposer();
+    const text = screen.getByTestId("dialog-composer-text");
+
+    expect(screen.queryByTestId("dialog-composer-tools")).toBeNull();
+    expect(text.previousElementSibling).toBe(screen.getByRole("button", { name: "Attach" }).parentElement);
+    expect(text.nextElementSibling).toBe(screen.getByRole("button", { name: "Send" }));
+  });
+
   it("DialogComposer_TheAttachControl_OpensAMenuRatherThanThePickerDirectly", () => {
     renderComposer();
     const picked = watchPicker();

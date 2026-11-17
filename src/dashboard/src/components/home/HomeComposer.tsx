@@ -39,18 +39,14 @@ export function HomeComposer() {
         placeholder="Describe new work, paste a ticket link, or add files"
         onAttach={(file) => setImages((held) => [...held, file])}
         onAttachSite={(files, leftOut) => setSets((held) => [...held, { files, leftOut }])}
-        actions={
-          <div className="home-composer-row">
-            <ProjectPick projects={projects.map((p) => p.name)} read={read} value={project} onPick={setPicked} />
-            {fileCount > 0 && (
-              <span className="home-files" data-testid="home-composer-files">
-                {fileCount === 1 ? "1 file goes with your message" : `${fileCount} files go with your message`}
-                <button type="button" className="home-link" onClick={() => { setImages([]); setSets([]); }}
-                  data-testid="home-composer-files-clear">Remove</button>
-              </span>
-            )}
-          </div>
-        }
+        tools={<ProjectPick projects={projects.map((p) => p.name)} read={read} value={project} onPick={setPicked} />}
+        actions={fileCount > 0 && (
+          <span className="home-files" data-testid="home-composer-files">
+            {fileCount === 1 ? "1 file goes with your message" : `${fileCount} files go with your message`}
+            <button type="button" className="home-link" onClick={() => { setImages([]); setSets([]); }}
+              data-testid="home-composer-files-clear">Remove</button>
+          </span>
+        )}
       />
     </section>
   );
@@ -66,9 +62,11 @@ function ProjectPick({ projects, read, value, onPick }: {
   }
   if (projects.length === 1) return <span className="home-project" data-testid="home-composer-project">{projects[0]}</span>;
   return (
-    <select className="home-project" aria-label="Project" value={value} onChange={(event) => onPick(event.target.value)}
-      data-testid="home-composer-project">
-      {projects.map((name) => <option key={name} value={name}>{name}</option>)}
-    </select>
+    <span className="home-project-pick">
+      <select className="home-project" aria-label="Project" value={value} onChange={(event) => onPick(event.target.value)}
+        data-testid="home-composer-project">
+        {projects.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+    </span>
   );
 }

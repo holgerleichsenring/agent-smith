@@ -52,6 +52,32 @@ describe("HomeView", () => {
     expect(takeHandover()).toEqual({ text: "add a health endpoint", project: "api", images: [], sets: [] });
   });
 
+  // 2026-11-17-2772: the picker sits in the composer's lower row, attach then project then send, under the text field.
+  it("Home_ComposerRow_IsAttachThenProjectThenSend_UnderTheText", async () => {
+    render(<HomeView />);
+    const picker = await screen.findByRole("combobox", { name: "Project" });
+    const row = screen.getByTestId("dialog-composer-tools");
+    const attach = screen.getByRole("button", { name: "Attach" });
+    const send = screen.getByRole("button", { name: "Send" });
+    const text = screen.getByTestId("dialog-composer-text");
+
+    for (const control of [attach, picker, send]) expect(row).toContainElement(control);
+    expect(row).not.toContainElement(text);
+    const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(follows(text, attach)).toBe(true);
+    expect(follows(attach, picker)).toBe(true);
+    expect(follows(picker, send)).toBe(true);
+  });
+
+  it("Home_ComposerRow_ChosenProjectTravelsWithTheMessage", async () => {
+    render(<HomeView />);
+    fireEvent.change(await screen.findByRole("combobox", { name: "Project" }), { target: { value: "api" } });
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "rename the cart" } });
+    fireEvent.keyDown(screen.getByTestId("dialog-composer-text"), { key: "Enter" });
+
+    expect(takeHandover()).toEqual({ text: "rename the cart", project: "api", images: [], sets: [] });
+  });
+
   it("Home_NoProject_CannotSend", async () => {
     hoisted.fetchSpecDialog.mockResolvedValue({ projects: [], session: null });
     render(<HomeView />);

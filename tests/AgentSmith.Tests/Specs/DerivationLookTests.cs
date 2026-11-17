@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using static AgentSmith.Tests.Specs.DerivationTestLooks;
@@ -151,6 +152,135 @@ public sealed class DerivationLookTests
         var look = await AuditWith(exitCode: 1, "/work/package.json", "{}");
 
         look.Evidence.Looks.Single().Ran.Should().BeTrue("npm audit exits 1 when it finds advisories");
+    }
+
+    // 2026-11-17-5701f: a single-repository run keys its sandbox 'default'; the design turn cited the repository's name.
+    [Fact]
+    public async Task ReadFile_APathPrefixedWithTheKeysRepositoryName_ReadsBelowTheName()
+    {
+        var files = new InMemorySandboxFileReader();
+        files.Files["/work/src/a.cs"] = "class A {}";
+        var look = Keyed(new CountingSandbox(0), files, DerivationLookTerms.ProposalReviewWith(2));
+        var read = Reader(look, files);
+
+        var answer = await read.ReadFile(Key, $"{Repo}/src/a.cs");
+
+        answer.Should().Contain($"] {Key}/src/a.cs:").And.Contain("class A {}");
+        look.Evidence.Looks.Single().Path.Should().Be("src/a.cs", "the evidence names the path that was read");
+        (await read.ReadFile(Key, "src/a.cs")).Should().Contain("class A {}", "the fallback charged one look, not two");
+        (await read.ReadFile(Key, "src/a.cs")).Should().Be(look.Budget.Exhausted);
+    }
+
+    [Fact]
+    public async Task ReadFile_ARepositoryHoldingAFolderOfItsOwnName_ReadsThatFolderFirst()
+    {
+        var files = new InMemorySandboxFileReader();
+        files.Files[$"/work/{Repo}/src/a.cs"] = "inner";
+        files.Files["/work/src/a.cs"] = "outer";
+        var look = Keyed(new CountingSandbox(0), files);
+
+        var answer = await Reader(look, files).ReadFile(Key, $"{Repo}/src/a.cs");
+
+        answer.Should().Contain("inner").And.NotContain("outer");
+    }
+
+    [Fact]
+    public async Task ReadFile_AReadThatDidNotRun_NeverFallsBack()
+    {
+        var scope = new RefusingScope();
+        var look = Keyed(scope, new InMemorySandboxFileReader());
+
+        var answer = await Reader(look, new InMemorySandboxFileReader()).ReadFile(Key, $"{Repo}/src/a.cs");
+
+        answer.Should().Contain("could not be read");
+        scope.Ran.Should().ContainSingle("a read that could not run says nothing about the path");
+    }
+
+    [Fact]
+    public async Task SearchRepository_APrefixedPathFilterThatDoesNotExist_SearchesBelowTheName()
+    {
+        var sandbox = new PathFilterSandbox();
+        var look = Keyed(sandbox, new InMemorySandboxFileReader());
+
+        var answer = await new RepositorySearchTool(look, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance)
+            .SearchRepository(Key, "class A", $"{Repo}/src");
+
+        sandbox.Ran.Select(s => s.Args![^1]).Should().Equal($"{Repo}/src", "src");
+        answer.Should().Contain("src/a.cs:1:class A");
+        look.Evidence.Looks.Single().Path.Should().Be("src");
+        look.Evidence.Lines.Single().Should().Contain("grep -E 'class A' src'");
+    }
+
+    [Fact]
+    public async Task SearchRepository_APrefixedPathWithNoMatches_DoesNotFallBack()
+    {
+        var sandbox = new CountingSandbox(exitCode: 1);
+        var look = Keyed(sandbox, new InMemorySandboxFileReader());
+
+        await new RepositorySearchTool(look, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance)
+            .SearchRepository(Key, "class A", $"{Repo}/src");
+
+        sandbox.Ran.Should().ContainSingle("no match is an answer about the path searched");
+    }
+
+    [Fact]
+    public void WithoutRepositoryName_OnlyAKeyThatNamesARepository_Strips()
+    {
+        var look = Keyed(new CountingSandbox(0), new InMemorySandboxFileReader());
+
+        look.WithoutRepositoryName(Key, $"{Repo}/src/a.cs").Should().Be("src/a.cs");
+        look.WithoutRepositoryName(Key, $"{Repo}.Tests/a.cs").Should().BeNull("the name, then a slash");
+        look.WithoutRepositoryName("other", $"{Repo}/src/a.cs").Should().BeNull();
+    }
+
+    private const string Key = "default";
+
+    private static DerivationLook Keyed(
+        ISandbox sandbox, InMemorySandboxFileReader files, DerivationLookTerms? terms = null) =>
+        new(new Dictionary<string, ISandbox> { [Key] = sandbox }, new FixedReaderFactory(files),
+            new AgentSmith.Application.Services.Sandbox.PackageEcosystemDetector(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, terms: terms,
+            names: new Dictionary<string, string> { [Key] = Repo });
+
+    private static RepositoryFileReadTool Reader(DerivationLook look, InMemorySandboxFileReader files) =>
+        new(look, new FixedReaderFactory(files), Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+
+    /// <summary>grep as it answers a path filter: exit 2 for one under the repository's name, a match below it.</summary>
+    private sealed class PathFilterSandbox : ISandbox
+    {
+        public string JobId => "path-filter";
+        public List<Step> Ran { get; } = [];
+
+        public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
+        {
+            Ran.Add(step);
+            var missing = step.Args![^1].StartsWith($"{Repo}/", StringComparison.Ordinal);
+            return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId,
+                missing ? 2 : 0, false, 0.1, null, missing ? "No such file or directory" : "src/a.cs:1:class A {}"));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>A source scope that opens and then refuses every read for a reason that is not an absence.</summary>
+    private sealed class RefusingScope : ISourceScopeSandbox
+    {
+        public List<Step> Ran { get; } = [];
+        public string RepoName => Repo;
+        public bool IsMaterialized => true;
+        public string? ResolvedSha => "sha";
+        public string JobId => "refusing";
+
+        public Task<string> MaterializeAsync(CancellationToken ct) => Task.FromResult("sha");
+
+        public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
+        {
+            Ran.Add(step);
+            return Task.FromResult(new StepResult(
+                StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1, "the reader was refused", null));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private static async Task<DerivationLook> AuditWith(int exitCode, string path, string content)
