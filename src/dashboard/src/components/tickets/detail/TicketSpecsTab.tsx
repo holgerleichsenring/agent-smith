@@ -39,6 +39,11 @@ export function TicketSpecsTab() {
     <>
       <SpecsHead specs={specs} />
       {runRecord && <div className="msub" data-testid="specs-run-record">{RUN_RECORD_LINE}</div>}
+      {series.data?.branchUnread && (
+        <div className="msub" data-testid="specs-branch-unread">
+          The spec text lives on the ticket branch, which could not be read: {series.data.branchUnread}
+        </div>
+      )}
       <div className="sp-grid">
         <div className="sp-list" aria-label="Specs of this ticket" data-testid="specs-list">
           {specs.map((spec) => (

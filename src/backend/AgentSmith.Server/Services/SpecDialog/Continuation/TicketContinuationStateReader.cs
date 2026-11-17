@@ -14,14 +14,15 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// 2026-10-13-9a59l: reads what <see cref="TicketContinuation.Decide"/> decides over. WORKED is a code
 /// attempt in ANY project sharing the tracker — one record serves them all, so a sibling's run read as
 /// never-worked would write a fresh branch set over the one that run published; a ticket only a
-/// pr-review or scan run touched is never-worked. The basis is the latest cut with specs its attempts
-/// published, with the pointer's executed ids, else the approval record's set. A ticket the tracker
-/// cannot answer for is not guessed about: the read fails with the reason.
+/// pr-review or scan run touched is never-worked. 2026-11-17-a0b6b: the basis is the set the ticket branch
+/// holds, each spec's state from the latest cut that names it, with the pointer's executed ids; the approval
+/// record is read for its metadata, never its text. A ticket the tracker or the branch cannot answer for is
+/// not guessed about: the read fails with the reason.
 /// </summary>
 public sealed class TicketContinuationStateReader(
     TicketProjects projects, FiledWorkTrackerProjects trackerProjects, ITicketProviderFactory trackers,
     TicketClosure closure, TicketRunsQuery runs, TicketAttempts attempts, TicketSeriesRecordsReader seriesRecords,
-    ISpecSetPointerStore pointers, ApprovedSpecSetRecorder approvals, OperatorStartArm startArm,
+    ISpecSetPointerStore pointers, ApprovedSpecSetRecorder approvals, OperatorStartArm startArm, TicketBranchSpecs branchSpecs,
     ILogger<TicketContinuationStateReader> logger)
 {
     /// <param name="mayStartRuns">2026-10-13-9a59m: whether the approver holds runs.control — the start arm's input.</param>
@@ -53,10 +54,14 @@ public sealed class TicketContinuationStateReader(
         var pointer = basisRun is null ? null : await pointers.GetAsync(basisRun.Run.Project,
             TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value, ct);
         var carried = cut is null ? [] : TicketSeriesCuts.Carried(records, cut.RunId);
-        IReadOnlyList<BasisSpec> basis = cut is not null
-            ? [.. TicketSeriesCuts.Entries(cut).Select(e => new BasisSpec(e.SpecId, e.Goal, e.Yaml,
-                TicketSeriesCuts.StateOf(records, cut.RunId, carried, e.SpecId)))]
-            : [.. record?.Set.Specs.Select(s => new BasisSpec(s.SpecId, s.Draft.Goal, s.Draft.Yaml)) ?? []];
+        // 2026-11-17-a0b6b: the basis is the branch's set; the cut says only how far each spec got.
+        var branch = await branchSpecs.ReadAsync(basisRun?.Run.Project ?? projectName, ticketId, ct);
+        if (branch.Why is { } unread)
+            return TicketContinuationRead.Failed($"The specs of ticket {ticketId} could not be read from its branch ({unread}), so "
+                + "what an approval continues from is unknown. Nothing was recorded; approve again once the branch reads.");
+        var inCut = cut is null ? [] : TicketSeriesCuts.Entries(cut).Select(e => e.SpecId).ToHashSet(StringComparer.Ordinal);
+        IReadOnlyList<BasisSpec> basis = [.. (branch.Set?.Specs ?? []).Select(s => new BasisSpec(s.SpecId, s.Draft.Goal, s.Draft.Yaml,
+            inCut.Contains(s.SpecId) ? TicketSeriesCuts.StateOf(records, cut!.RunId, carried, s.SpecId) : TicketSeriesCuts.NotStarted))];
         var executed = pointer is null ? []
             : pointer.ExecutedIds is { Count: > 0 } ids ? ids : [.. basis.Take(pointer.ExecutedThrough).Select(b => b.SpecId)];
         var series = (basisRun is null ? null : records.Attempts.GetValueOrDefault(basisRun.Run.Id)?.SeriesId)

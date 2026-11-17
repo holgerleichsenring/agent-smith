@@ -788,16 +788,13 @@ export interface SpecReviewResidue {
   quote: string;
 }
 
-/** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry. */
+/** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry; its text is the branch's (2026-11-17-a0b6b). */
 export interface SpecCutEntry {
   specId: string;
   ordinal: number;
   fileStem: string;
   goal: string;
   repos: string[];
-  steps: { id: string; action: string; target?: string | null }[];
-  done: string[];
-  yaml: string;
 }
 
 export type RunEvent =

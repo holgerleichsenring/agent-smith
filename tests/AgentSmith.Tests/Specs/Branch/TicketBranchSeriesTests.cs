@@ -7,7 +7,6 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Specs.Branch;
 
@@ -85,7 +84,7 @@ public sealed class TicketBranchSeriesTests
     }
 
     internal static TicketBranchSeries Reader(RecordingBranchSources sources, ISpecSetPointerStore pointers) =>
-        new(pointers, sources, SeriesDoubles.SubSeries(), SeriesDoubles.Composer(), NullLogger<TicketBranchSeries>.Instance);
+        SeriesDoubles.BranchSeries(sources, pointers);
 
     internal static IReadOnlyList<DerivedSpec> Specs(params (string Id, string Repo)[] specs) =>
         [.. specs.Select(s => new DerivedSpec(new SpecDraftReader().Read(Yaml(s.Id, s.Repo)), "read-back", string.Empty, []))];

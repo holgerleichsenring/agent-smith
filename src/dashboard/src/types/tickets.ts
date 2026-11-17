@@ -376,8 +376,11 @@ export interface TicketSeries {
   specs: TicketSeriesSpec[];
   revisions: Array<{ number: number; cause: string | null; runId: string; attempt: number; at: string | null }>;
   recorded: boolean;
-  /** cut | run-record — run-record when the attempts predate the cut and the specs come from their rows. */
+  /** cut | run-record | branch — run-record when the attempts predate the cut and the specs come from their rows;
+   *  branch when no attempt published a cut and the specs are the set the ticket branch holds. */
   source?: string;
+  /** 2026-11-17-a0b6b: why the ticket branch, where the specs' text lives, could not be read; null when it was. */
+  branchUnread?: string | null;
   unattributedCriteria?: TicketSeriesUnattributed[] | null;
   /** The series runway on the default read; null for a one-chunk ticket or a per-attempt read. */
   budget?: TicketSeriesBudget | null;

@@ -31,12 +31,8 @@ public static class SpecDerivationRegistrations
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
     services.AddTransient<ISpecSetReader, SeriesReader>();
-    services.AddTransient<SeriesManifestFinder>();
     // 2026-10-12-f5f7b: every run repository's sub-series, joined into one set.
-    services.AddTransient<SubSeriesReader>().AddTransient<SeriesJoin>();
-    services.AddTransient<SubSeriesFiles>().AddTransient<SeriesComposer>().AddTransient<TicketBranchSeries>(); // 2026-11-17-a0b6a: checkout or branch
-    services.AddTransient<SeriesNewestManifest>().AddTransient<SeriesJoinOrder>();
-    services.AddTransient<SeriesSpecFileReader>();
+    services.AddTransient<SubSeriesReader>().AddBranchSeriesRead(); // 2026-11-17-a0b6b: the reading shared with the ticket readers
     services.AddTransient<ISpecSetWriter, SeriesWriter>();
     services.AddTransient<SeriesMemberCommit>().AddTransient<SeriesWriteRollback>(); // 2026-10-12-f5f7f
     // 2026-10-12-f5f7d: each spec placed in the repository it names; read, ids, filing per member.
@@ -47,7 +43,6 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedSpecYamlRenderer>();
-    services.AddTransient<SeriesManifest>();
     // 2026-09-22-b6ad: the files a series holds, for the run's publish and for the checkout-free
     // write filing makes onto the ticket branch.
     services.AddTransient<SeriesFiles>();

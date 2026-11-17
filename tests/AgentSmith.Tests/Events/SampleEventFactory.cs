@@ -41,7 +41,7 @@ internal static class SampleEventFactory
         if (declared == typeof(IReadOnlyList<string>)) return new[] { "one", "two" };
         if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Specs.SpecCutEntry>)) // 2026-10-13-9a59e
             return new[] { new AgentSmith.Contracts.Specs.SpecCutEntry("2026-10-13-1234a", 1, "2026-10-13-1234a-x", "goal",
-                ["api"], [new AgentSmith.Contracts.Models.SpecStep("s1", "do it", "src/A.cs")], ["it builds"], "spec: x") };
+                ["api"]) };
         if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Passes.MasterPassCriterion>)) // 2026-10-13-9a59f
             return new[] { new AgentSmith.Contracts.Passes.MasterPassCriterion("it builds", "met", "src/A.cs") };
         if (declared == typeof(IReadOnlyList<AgentSmith.Domain.Models.CutFinding>)) // 2026-10-13-9a59g

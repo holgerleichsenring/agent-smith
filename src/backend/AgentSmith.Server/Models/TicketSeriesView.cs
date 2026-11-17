@@ -9,11 +9,14 @@ namespace AgentSmith.Server.Models;
 /// <param name="Attempt">That attempt's number, from 1 by run id.</param>
 /// <param name="Handback">A hand-back as the current state: newer than the cut with specs, or the
 /// asked attempt's own case.</param>
-/// <param name="Recorded">False when no attempt published a cut and no attempt recorded a spec row.</param>
+/// <param name="Recorded">False when no attempt published a cut, no attempt recorded a spec row and the ticket branch
+/// holds no set (2026-11-17-a0b6b).</param>
 /// <param name="Source">cut, or run-record when no cut is in scope and the specs come from the attempts'
 /// spec rows, spec records and acceptance (<see cref="TicketSeriesSources"/>).</param>
 /// <param name="UnattributedCriteria">Run acceptance a run-record read could not tie to one spec, per run.</param>
 /// <param name="Budget">2026-10-13-8762v: the series runway on the default read of a real series, else null.</param>
+/// <param name="BranchUnread">2026-11-17-a0b6b: why the ticket branch, where the specs' text lives, could not be
+/// read; null when it was read or holds nothing.</param>
 public sealed record TicketSeriesView(
     string Project,
     string TicketId,
@@ -28,4 +31,5 @@ public sealed record TicketSeriesView(
     bool Recorded,
     string Source = TicketSeriesSources.Cut,
     IReadOnlyList<TicketSeriesUnattributedView>? UnattributedCriteria = null,
-    TicketSeriesBudgetView? Budget = null);
+    TicketSeriesBudgetView? Budget = null,
+    string? BranchUnread = null);
