@@ -93,11 +93,18 @@ an empty answer would become a failed run where it used to be a nudge.
 | --- | --- | --- |
 | `AGENTSMITH_WORKER_CLI` | CLI binary; wins over `agent.endpoint` | `claude` |
 | `AGENTSMITH_WORKER_CLI_ARGS` | extra CLI arguments, space-separated | – |
-| `AGENTSMITH_WORKER_CWD` | working directory of the CLI process | the temp dir |
+| `AGENTSMITH_WORKER_CWD` | working directory of the CLI process | `<temp>/agentsmith-worker` |
 
-The working directory defaults to a neutral temp directory on purpose: the worker answers
-a model call, so it must not pick up the project instructions or the source tree of the
-repo the run is changing.
+The working directory defaults to its own empty directory under the temp directory on
+purpose: the worker answers a model call, so it must not pick up the project instructions,
+the source tree of the repo the run is changing, or the sandbox clones that live in the
+temp directory itself.
+
+A Claude Code CLI — the default `claude` binary, or any binary an agent sets
+`worker_structured_result: true` for — is also started with `--tools ""`,
+`--strict-mcp-config` and `--no-session-persistence`: no built-in file tools, no MCP
+servers, no session saved per call. Measured on CLI 2.1.285, that took a one-word call from
+32,852 input tokens to 953 (2026-11-17-166ac).
 
 ## What goes over the wire
 

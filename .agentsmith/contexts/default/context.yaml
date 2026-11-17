@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-166ac: "WORKER CLI ISOLATION (ExternalWorkerCliOptionsFactory). The worker CLI runs in its own empty <temp>/agentsmith-worker, not the temp dir that holds sandbox clones; a Claude Code binary starts with --tools \"\", --strict-mcp-config and --no-session-persistence. -> .agentsmith/specs/done/2026-11-17-166ac-worker-cli-isolation.yaml"
     2026-11-17-166ab: "RUN COST PER CALL (RunFinalizationProjection, RunLlmCallProjection, RunSnapshotFold, EventPublishingChatClient). A run's recorded cost is the sum of its recorded calls, live, at the end and after it; a worker call records the cost its CLI reported, not a table price. -> .agentsmith/specs/done/2026-11-17-166ab-run-cost-per-call.yaml"
     2026-11-17-166aa: "FAILURE STATUS KEPT (TicketParkStatuses, PipelineErrorHandler, CancelledTicketFinalizer, BoundaryStopGate, OwedWorkCancel). A failed or cancelled attempt moves its ticket to failed_status only; without one it comments, keeps the tracker status, and automatic claims are held until Retry or a reply. -> .agentsmith/specs/done/2026-11-17-166aa-failure-status-kept.yaml"
     2026-11-17-d6fbe: "DASHBOARD TESTS RESTORED (shortRepo, ProfileMenu, SystemSectionNav, AppSidebar suites). Assertions the redesign deleted without replacement are back on the components that now hold the behaviour: short repository names, session-end wording, the observed tracker name with live dot and freshness, a calm zero count. -> .agentsmith/specs/done/2026-11-17-d6fbe-dashboard-tests-restored.yaml"

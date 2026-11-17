@@ -594,7 +594,7 @@
         "verdict_owed_after_iterations": { "type": "integer", "description": "Default 3." },
         "worker_structured_result": {
           "type": "boolean",
-          "description": "external_worker only: whether the CLI is asked for a structured result."
+          "description": "external_worker only: whether the CLI is asked for a structured result. true also marks the binary as Claude Code's CLI, started with --tools \"\", --strict-mcp-config and --no-session-persistence (always so for the default claude binary)."
         },
         "scan_min_source_reads": { "type": "integer", "description": "Default 6." },
         "scan_master_max_output_tokens": { "type": "integer", "description": "Default 32000." },
