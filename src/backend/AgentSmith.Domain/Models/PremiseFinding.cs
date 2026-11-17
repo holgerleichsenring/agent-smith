@@ -22,6 +22,11 @@ namespace AgentSmith.Domain.Models;
 /// 2026-11-04-6768a: <see cref="CitedId"/> is the id of the ONE look the admission chose, so the
 /// series-base replay resolves exactly that look rather than applying a second resolution rule.
 /// </para>
+/// <para>
+/// 2026-11-17-c47ea: <see cref="Breaks"/> is the done criterion, as the spec states it, that this false premise makes
+/// impossible to meet or test as written — null when every criterion still can be. On an approved spec it decides
+/// between a correction the master builds on and the hand-back.
+/// </para>
 /// </summary>
 public sealed record PremiseFinding(
     string Premise,
@@ -30,4 +35,5 @@ public sealed record PremiseFinding(
     string? Cites = null,
     string? Evidence = null,
     string? Looked = null,
-    string? CitedId = null);
+    string? CitedId = null,
+    string? Breaks = null);

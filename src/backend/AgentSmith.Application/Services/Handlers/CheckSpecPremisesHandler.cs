@@ -22,6 +22,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// satisfies drops it with the rest of the work (<see cref="PipelinePresets.SpecWorkSteps"/>),
 /// because a spec that needs no work needs no premise check.
 /// </para>
+/// <para>2026-11-17-c47ea: an approved spec's false premise breaking no criterion is a <see cref="PremiseCorrection"/>.</para>
 /// </summary>
 public sealed class CheckSpecPremisesHandler(
     ISpecPremiseChecker checker,
@@ -29,6 +30,7 @@ public sealed class CheckSpecPremisesHandler(
     ISpecProgressRecorder progress,
     PremiseHandbackNotice notice,
     PremiseSupersessionFilter supersession, // 2026-11-04-6768a: a sibling's own work is no false premise
+    PremiseCorrection correction, // 2026-11-17-c47ea: replaced at every spec entry
     ILogger<CheckSpecPremisesHandler> logger)
     : ICommandHandler<CheckSpecPremisesContext>
 {
@@ -36,6 +38,7 @@ public sealed class CheckSpecPremisesHandler(
         CheckSpecPremisesContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        context.Pipeline.Set<IReadOnlyList<string>>(ContextKeys.PremiseCorrections, []);
         if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return Skipped("no spec is current, so there are no premises to check");
 
@@ -59,13 +62,13 @@ public sealed class CheckSpecPremisesHandler(
             draft.SpecId, context.AgentConfig,
             PipelineCostTracker.GetOrCreate(context.Pipeline), cancellationToken);
         var sorted = await supersession.SortAsync(context.Pipeline, draft, check.False, look, cancellationToken);
-        return sorted.StillFalse.Count == 0
-            ? Held(draft, check, sorted.Superseded)
+        return sorted.StillFalse.Count == 0 ? Held(draft, check, sorted.Superseded)
+            : PremiseCorrection.Applies(context.Pipeline, sorted.StillFalse)
+            ? CommandResult.Ok(await correction.ApplyAsync(context.Pipeline, draft, sorted.StillFalse, cancellationToken))
             : await HandBackAsync(context, draft, check with { False = sorted.StillFalse }, cancellationToken);
     }
 
-    /// <summary>The question was put and produced no answer. Failing open is right; calling it
-    /// a skip is not — an operator must be able to tell it from a decision not to ask.</summary>
+    /// <summary>No answer came back: failing open is right, calling it a skip is not.</summary>
     private CommandResult NotTaken(string reason)
     {
         var message = $"The premise check could not be taken: {reason}. The spec runs unchecked.";
@@ -99,10 +102,8 @@ public sealed class CheckSpecPremisesHandler(
     /// The premise, the finding and its evidence go as ONE argument, because the recorder
     /// publishes failingCommand ?? note and a second argument would be dropped silently.
     /// <para>
-    /// The standing is <see cref="SpecRunState.HandedBack"/>, never <c>Failed</c>: a red build
-    /// is fixed by working the code and a false premise by amending the specification, and a
-    /// reader that had to tell the two apart by parsing this verdict string would be deriving
-    /// what the producer already knows.
+    /// The standing is <see cref="SpecRunState.HandedBack"/>, never <c>Failed</c>: a red build is fixed by working the
+    /// code, a false premise by amending the specification, and no reader should parse the verdict to tell them apart.
     /// </para>
     /// </summary>
     private async Task<CommandResult> HandBackAsync(

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-c47ea
+goal: "A false premise in an approved spec becomes a corrected fact the master builds on and the run's decision log records; only a broken done criterion still hands back."
+
+applies_to: "default (CheckSpecPremisesHandler, PremiseCheckAdmission, PremiseCheckPrompt, PremiseFinding, SpecExecutionPromptFactory)"
+
+requires: [2026-11-04-6768a]
+
+facts:
+  - claim: "A false premise that survives the supersession filter hands the spec back and fails the step, whatever approved the spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:62-64, src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:108-118"
+  - claim: "A set a person approved carries its approval; a derived set carries none."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:18-21, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:35"
+  - claim: "The checker's answer has premise, verdict, why and cites; nothing says whether a done criterion still holds."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseFindingWire.cs:12-17, src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:66-73"
+  - claim: "The master prompt already carries per-spec framework hints read from the pipeline (stale citations)."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:66, src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:78-82"
+  - claim: "The hand-back already writes its notice into the run's decision log."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:46"
+
+scope:
+  in: "The checker also names, per finding, the done criterion (verbatim) the false premise makes impossible to meet or test as written, or none. Admission resolves it against the spec's done list; an unresolved name counts as none. For a spec whose set carries an approval and whose still-false premises name no criterion, each is a CORRECTION — the step succeeds, the spec row keeps a progress note (SpecRunState.InProgress), the run's decision log gets one entry per correction (spec claimed, look showed, evidence id), and the master prompt carries a 'Corrected premises' block replaced at every spec entry. When any still-false premise names a criterion, the spec keeps today's hand-back for ALL its false premises (spec row handed back, notice, ticket comment) and no correction is recorded — the existing question to the operator. A set without an approval (derived) keeps today's hand-back for every false premise."
+  out: "A new question mechanism; rewriting the spec text; any change to unproven findings or the supersession filter."
+
+steps:
+  - id: finding
+    action: "PremiseFinding gains Breaks (string?, appended last); PremiseFindingWire reads 'breaks'; PremiseCheckPrompt asks for it, and its paragraph forbidding criterion reports is reworded: name a criterion only when the false premise makes it impossible to meet or test as written, never because it is not met yet."
+  - id: admission
+    action: "PremiseCheckAdmission resolves Breaks against draft.Done with SpecQuotableText.Resolve; unresolved → null, logged."
+  - id: split
+    action: "PremiseCorrection (Application/Services/Specs) decides over still-false findings: approved set and no finding with Breaks → corrections; otherwise the whole list is handed back. It records the progress note and the decision-log entries and sets ContextKeys.PremiseCorrections."
+  - id: handler
+    action: "CheckSpecPremisesHandler clears PremiseCorrections at entry, applies the decision after supersession: corrections succeed, otherwise today's hand-back."
+  - id: prompt
+    action: "SpecExecutionPromptBlocks.PremiseCorrections renders the block after the stale citations; it tells the master to build on what the look showed and to call ask_human if a done criterion cannot be met or tested."
+
+tests:
+  - "PremiseCorrectionTests: an approved set's false premise without a broken criterion → step Ok, no hand-back state, one decision entry naming claim, finding and evidence id, PremiseCorrections set; with a criterion named on one finding → every finding handed back, no correction recorded; an unapproved set → hand-back as today"
+  - "PremiseCheckTests: a 'breaks' that names no done entry is dropped"
+  - "SpecExecutionPromptFactory test: the corrected-premises block renders when set and is absent otherwise"
+  - "PremiseCheckSpecBlockTests (real composition): an approved set's second spec with a false premise is built and delivered; its master prompt carries the correction"
+
+done:
+  - "On an approved spec a false premise no longer stops the run unless it breaks a done criterion; the master gets the corrected fact and the run's decision log records the deviation."
