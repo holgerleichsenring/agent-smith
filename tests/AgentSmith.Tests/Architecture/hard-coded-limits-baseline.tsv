@@ -418,7 +418,7 @@
 2	AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs
 1	AgentSmith.Server/Services/SpecDialog/SpecDialogConversationTitle.cs
 1	AgentSmith.Server/Services/SpecDialog/SpecDialogDigestWriter.cs
-1	AgentSmith.Server/Services/SpecDialog/TicketGraphLinks.cs
+1	AgentSmith.Application/Services/Filing/TicketGraphLinks.cs
 1	AgentSmith.Server/Services/SpecDialog/TicketRunText.cs
 2	AgentSmith.Server/Services/SpecDialog/TicketRunsReviews.cs
 2	AgentSmith.Server/Services/SpecDialog/TicketSearchAcrossTrackers.cs
