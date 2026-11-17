@@ -32,11 +32,15 @@ public sealed class SpecDialogThreadStore(
         if (row is null || row.TranscriptFrom > state.Transcript.Count) return null;
         var delivered = DeliveredOf(row.Delivered); // 2026-11-12-a1fa: handed over with a tool result, so seen
         var unseen = Enumerable.Range(row.TranscriptFrom, state.Transcript.Count - row.TranscriptFrom)
-            .Where(i => i != row.ReplyAt && !delivered.Contains(i) && state.Transcript[i].Kind != SpecDialogTurnKind.Digest)
+            .Where(i => i != row.ReplyAt && !delivered.Contains(i) && state.Transcript[i].Kind != SpecDialogTurnKind.Digest
+                && !AddressedToRun(state.Transcript[i]))
             .Select(i => state.Transcript[i]).ToList();
         if (!unseen.Any(t => t.Role == TranscriptRole.User)) return null;
         return new DialogThread(row.Stewarded, codec.Decode(row.MessagesJson), SpecDialogTurnSeeds.MapTranscript(unseen));
     }
+
+    // 2026-11-17-4860b: an operator message the conversation addressed to a running code attempt was that run's to read.
+    private static bool AddressedToRun(TranscriptTurn turn) => turn is { Role: TranscriptRole.User, RunId: not null };
 
     /// <summary>Stores the turn's thread; nothing when the turn captured none. <paramref name="kept"/> is the state
     /// the reply was appended into, whose last turn is that reply.</summary>

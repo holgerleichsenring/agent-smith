@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-4860b
+
+decisions:
+  - category: Architecture
+    chose: "The conversation stamps the stored message with the running attempt's id and the run reads stamped turns from the stored transcript through a Contracts port, past a transcript-index cursor kept in the pipeline"
+    over: "a1fa's per-process inbox, or a timestamp cursor over every operator turn"
+    reason: "The attempt may run on another replica, so only the stored transcript reaches it. No transcript field tells an ordinary message from an answer or an undecided card word, and a parked run's restored timestamp cursor would hand it messages the steward already answered; a stamp says exactly which run a message is for, and an index needs no clock agreement between replicas."
+  - category: Architecture
+    chose: "The delivery reuses a1fa's IMidTurnMessages and MidTurnMessageAIFunction, made asynchronous, and MidTurnMessageTools builds the code run's view"
+    over: "A second wrapper or a polling step for code runs"
+    reason: "Operator: reuse the a1fa delivery mechanism, no parallel path. The message arrives with the next tool result exactly as in Work it out."
+  - category: Implementation
+    chose: "Each drain first reads only the conversation's LastActivityAt; the transcript is read when it moved"
+    over: "Reading the transcript on every tool call, or a polling interval"
+    reason: "A coding master makes hundreds of tool calls and the transcript is one unbounded JSON column; a one-column read keeps the per-call cost flat and needs no interval that would delay a message."
+  - category: Implementation
+    chose: "Only a poster with runs.control steers a running attempt; others get a conversation turn as before"
+    over: "Diverting every poster's message"
+    reason: "A ticket's conversation is shared by every dialog.write holder; changing what a running attempt builds is a run control."
+  - category: Implementation
+    chose: "The master revising its own spec on the branch (with one review of that spec) is split into its own follow-up; until then a change to goal or criteria goes through ask_human"
+    over: "Building a revise-spec tool in this spec"
+    reason: "That tool needs validation, the active spec's branch write, a review round and re-seeding the done criteria inside a running spec — a spec of its own; delivery is useful and complete without it."
+  - category: Implementation
+    chose: "The conversation's next turn skips run-stamped operator turns when rendering unseen turns"
+    over: "Rendering them again after the run ends"
+    reason: "They were the run's to act on; a steward turn acting on them again would do the work twice. They stay visible in the transcript."

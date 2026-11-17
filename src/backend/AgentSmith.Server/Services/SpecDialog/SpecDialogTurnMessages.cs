@@ -14,10 +14,10 @@ public sealed class SpecDialogTurnMessages(
 {
     public void Lead(bool stewarded) => gate.Lead(sessionId, stewarded);
 
-    public IReadOnlyList<MidTurnMessage> Drain()
+    public ValueTask<IReadOnlyList<MidTurnMessage>> DrainAsync(CancellationToken cancellationToken)
     {
         var drained = inbox.Drain(sessionId, poster);
         foreach (var message in drained) capture.Drained(message.Index);
-        return [.. drained.Select(m => new MidTurnMessage(m.Text, m.At))];
+        return ValueTask.FromResult<IReadOnlyList<MidTurnMessage>>([.. drained.Select(m => new MidTurnMessage(m.Text, m.At))]);
     }
 }

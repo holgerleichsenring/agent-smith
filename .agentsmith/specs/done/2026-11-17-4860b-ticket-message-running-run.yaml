@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-4860b
+goal: "A message written in a ticket's conversation while a code attempt works the ticket reaches that run's master with its next tool result; no conversation turn runs meanwhile."
+
+applies_to: "default (SpecDialogRouter, MidTurnMessageTools, MidTurnMessageAIFunction, IMidTurnMessages, AgenticMasterHandler)"
+
+requires: [2026-11-12-a1fa, 2026-11-17-4860a]
+
+facts:
+  - claim: "A design turn's master gets operator messages appended to its next tool result through IMidTurnMessages, which the server seeds into the design turn's pipeline only."
+    evidence: "src/backend/AgentSmith.Application/Services/Turns/MidTurnMessageTools.cs:15-24, src/backend/AgentSmith.Application/Services/Turns/MidTurnMessageAIFunction.cs:28-34, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:376"
+  - claim: "The router stores every message in the conversation's transcript first, then runs a turn for it (or queues it for a running design turn on this process)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:73-86"
+  - claim: "A ticket's conversation is found by the tracker and the ticket key."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:33-38, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:25"
+  - claim: "A code attempt runs in-process on one server replica; the lease names the run that holds a ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:40-44, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStartArm.cs:19-24"
+
+scope:
+  in: "Router: an ordinary message (no answer, no card decision; a cardless approve/reject word is taken back first) from a poster with runs.control, in a conversation bound to a ticket whose lease names its newest code attempt (any project sharing the ticket's tracker), runs no turn: the stored turn is stamped with the run's id (TranscriptTurn.RunId) and a Notice turn says 'Run R is working this ticket; your message reaches its agent with its next tool result.' — this replaces the ticket steward's turn for such messages while the attempt runs. IMidTurnMessages.Drain becomes DrainAsync. Run side: MidTurnMessageTools also wraps a code spec run's master tools (ContextKeys.CurrentSpec, a ticket, a project, a run id) through a Contracts port ITicketConversationMessages the server registers; each drain first reads only the conversation's LastActivityAt and reads the transcript only when it moved, taking the turns stamped with this run's id past a transcript-index cursor in the pipeline (ContextKeys.TicketMessagesThrough), so each message is handed over once across specs, replicas and a resume. The master prompt says such a message may change its work, and that a change to the goal or criteria goes through ask_human, which pauses the run. The conversation's next turn does not render run-stamped turns as unseen. A process without the port (CLI) delivers nothing; with no attempt running the conversation works as today."
+  out: "The master revising its own spec on the branch with one review of that spec is its own follow-up (a revise-spec tool: validate, write the active spec, one SpecReviewLoop round, re-seed the done criteria); until then a change to the spec goes through ask_human. A message stamped for a run that ended before its next tool call is not re-read by the conversation; it stays visible in the transcript."
+
+steps:
+  - id: contract
+    action: "IMidTurnMessages.DrainAsync; ITicketConversationMessages (LastActivityAsync, AddressedToAsync) in Contracts.Turns; ContextKeys.TicketMessagesThrough."
+  - id: run
+    action: "TicketRunMessages (Application/Services/Turns); MidTurnMessageTools builds it for a code spec run; AgenticMasterHandler passes every master's tools through MidTurnMessageTools; the spec contract names operator messages."
+  - id: server
+    action: "TicketConversationMessages implements the port; TicketRunningAttempt names the running attempt; SpecDialogRunDivert stamps and tells; SpecDialogRouter calls it before the turn gate; SpecDialogThreadStore skips run-stamped turns; AddTicketRunMessages registers them."
+
+tests:
+  - "TicketRunMessagesTests: a message is handed over once across two masters; no transcript read without a change; a cursor back from a checkpoint is read"
+  - "TicketMessageToRunTests: a bound ticket held by its code attempt runs no turn, stamps the message and says so; the port reads it once by index and only for that run; no lease, or a poster without runs.control, runs a turn as before"
+  - "TicketMessageCompositionTests (real composition): a code run's master sees the conversation message appended to a tool result"
+
+done:
+  - "A conversation message during a running attempt reaches that run's master with its next tool result; with no attempt running nothing changed."

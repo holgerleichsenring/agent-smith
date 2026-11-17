@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Turns;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Turns;
@@ -9,18 +10,31 @@ namespace AgentSmith.Application.Services.Turns;
 /// 2026-11-12-a1fa: builds the design master's tool surface that hands on what the operator wrote mid-turn. Only the
 /// master's own functions are wrapped — sub-agents are built elsewhere and never drain — and only when the turn runner
 /// seeded the turn's messages. The ticket steward's turn is told it leads and gets the surface unchanged.
+/// <para>2026-11-17-4860b: a code run working a spec of a ticket gets the same surface over the messages its ticket's
+/// conversation addressed to it (<see cref="TicketRunMessages"/>), where the server registered the conversations.</para>
 /// </summary>
-public sealed class MidTurnMessageTools
+public sealed class MidTurnMessageTools(ITicketConversationMessages? conversations = null)
 {
     public IList<AITool> Delivering(IList<AITool> tools, AgenticMasterContext context)
     {
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(context);
-        if (!context.Pipeline.TryGet<IMidTurnMessages>(ContextKeys.SpecDialogOperatorMessages, out var messages)
-            || messages is null)
-            return tools;
+        var messages = Seeded(context) ?? OfTicket(context.Pipeline);
+        if (messages is null) return tools;
         messages.Lead(context.IsTicketSteward);
         if (context.IsTicketSteward) return tools;
         return [.. tools.Select(tool => tool is AIFunction f ? new MidTurnMessageAIFunction(f, messages) : tool)];
     }
+
+    private static IMidTurnMessages? Seeded(AgenticMasterContext context) =>
+        context.Pipeline.TryGet<IMidTurnMessages>(ContextKeys.SpecDialogOperatorMessages, out var seeded) ? seeded : null;
+
+    // A spec of a ticket, worked by a run with an id, in a named project.
+    private TicketRunMessages? OfTicket(PipelineContext pipeline) =>
+        conversations is not null && pipeline.Has(ContextKeys.CurrentSpec)
+        && pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) && ticket is not null
+        && pipeline.TryGet<string>(ContextKeys.RunId, out var run) && !string.IsNullOrEmpty(run)
+        && pipeline.TryGet<string>(ContextKeys.ProjectName, out var project) && !string.IsNullOrEmpty(project)
+            ? new TicketRunMessages(conversations, pipeline, project, ticket.Id.Value, run)
+            : null;
 }

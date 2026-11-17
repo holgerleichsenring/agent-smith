@@ -50,7 +50,7 @@ public sealed class MidTurnMessageToolsTests
     public async Task MidTurnMessageAIFunction_NothingWaiting_ReturnsTheResultUntouched()
     {
         var messages = new Mock<IMidTurnMessages>();
-        messages.Setup(m => m.Drain()).Returns([]);
+        messages.Setup(m => m.DrainAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
         var inner = AIFunctionFactory.Create(() => "file text", "read_file");
 
         var result = await new MidTurnMessageAIFunction(inner, messages.Object).InvokeAsync(new AIFunctionArguments());

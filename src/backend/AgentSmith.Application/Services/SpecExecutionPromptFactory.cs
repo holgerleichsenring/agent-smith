@@ -82,6 +82,8 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
             When you are genuinely blocked on missing input, call ask_human once: the
             question is posted to the ticket and this run pauses for the answer.
+            The operator may write to you while you work; such a message arrives after a tool result. Adjust your
+            work to it; when it changes the spec's goal or done criteria, say so with ask_human, which pauses the run.
             {AgentPromptBuilder.BuildOperatorAnswersSection(answers)}
             """;
     }

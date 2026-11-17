@@ -66,7 +66,7 @@ internal static class SpecDialogExtensions
         // which is where it stores the subject. The edit re-entry shares that unit of work for
         // the same reason.
         services.AddScoped<SpecDialogSubjectStore>().AddScoped<SpecDialogWorkPictureStore>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
-        services.AddScoped<SpecDialogRouter>().AddScoped<SpecDialogTurnDelivery>().AddScoped<SpecDialogQueuedTurns>(); // a1fa
+        services.AddScoped<SpecDialogRouter>().AddScoped<SpecDialogTurnDelivery>().AddScoped<SpecDialogQueuedTurns>().AddTicketRunMessages(); // a1fa, 4860b
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>().AddScoped<MockRatification>();

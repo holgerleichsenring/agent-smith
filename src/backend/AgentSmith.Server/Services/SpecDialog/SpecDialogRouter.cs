@@ -32,7 +32,8 @@ public sealed class SpecDialogRouter(
     SpecDialogOperatorInbox inbox,
     SpecDialogAnswerAdmission admission,
     SpecDialogTurnKeeper keeper,
-    ILogger<SpecDialogRouter> logger)
+    ILogger<SpecDialogRouter> logger,
+    RunMessages.SpecDialogRunDivert? runs = null) // 2026-11-17-4860b: a message while a code attempt works the ticket is for it
 {
     /// <summary>
     /// Routes the message if it belongs to the spec-dialog flow. Returns true when handled; false hands
@@ -78,6 +79,7 @@ public sealed class SpecDialogRouter(
         if (admitted.Decision is { } named && proposalId is not null)
             return SpecDialogDecisionOutcome.Routed(await decisions.DecideAsync(state, named, proposalId, poster.MayStartRuns, ct));
 
+        if (runs is not null && await runs.DivertAsync(admitted, poster, ct)) return SpecDialogRouted.Handled;
         // 2026-11-12-a1fa: a held gate queues the message for the running design turn or answers that a turn runs.
         if (!turnGate.TryEnterTurn(state.JobId)
             && !await queued.EnterOrWaitAsync(admitted, poster, channelId, threadId, platform, ct))
