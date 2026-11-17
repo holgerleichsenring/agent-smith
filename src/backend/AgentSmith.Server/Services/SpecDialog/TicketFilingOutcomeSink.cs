@@ -17,14 +17,14 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// an open ticket — it goes to <see cref="TicketContinuationAct"/>, and is answered as a FILING turn,
 /// because the conversation has changed work on a tracker.
 /// </para>
-/// <para>2026-10-14-dbcel: a list of tickets goes to <see cref="TicketGraphFiler"/> — and is refused in a ticket's own
-/// conversation, which continues that ticket. Once a ticket exists the rest runs on CancellationToken.None.</para>
+/// <para>2026-11-17-5701b: a spec, an epic, a list and a bug are all filed by one 'file' run (<see cref="FilingRun"/>),
+/// which runs on no token once the approval is claimed; a list is refused in a ticket's own conversation, which
+/// continues that ticket.</para>
 /// <para>2026-11-10-ccd9 review: it says whether it acted, so a refused approval goes back to awaiting.</para>
 /// </summary>
 public sealed class TicketFilingOutcomeSink(
     AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot confirmed,
-    OutcomeTicketFiler filer,
-    TicketGraphFiler graphs,
+    IFilingRun filing,
     TicketContinuationAct continuation,
     SpecDialogSessionManager sessions,
     SpecDialogMessenger messenger,
@@ -45,9 +45,7 @@ public sealed class TicketFilingOutcomeSink(
         if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketCommentOutcome)
             return await ContinueAsync(state, proposal, mayStartRuns, proposalId, cancellationToken);
         // 2026-11-11-205fe: the claim wrote the confirmed slot with its id; a second writer here was the defect.
-        var report = proposal is TicketGraphOutcome graph
-            ? await graphs.FileAsync(state, graph, mayStartRuns, cancellationToken)
-            : await filer.FileAsync(state, proposal, mayStartRuns, cancellationToken);
+        var report = await filing.RunAsync(state, proposal, mayStartRuns, proposalId);
         // A created ticket must not lose its report, its notice or its turn to a cancellation.
         var ct = report.Filed.Count > 0 ? CancellationToken.None : cancellationToken;
         if (report.Succeeded)

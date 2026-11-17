@@ -11,6 +11,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http.HttpResults;
 using static AgentSmith.Tests.Tickets.TicketStoreHarness;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.Tickets;
 
@@ -162,7 +163,7 @@ public sealed class TicketReviewsReadTests : IDisposable
 
     private async Task RecordAsync(FiledSeries series) =>
         await ApprovedSetDoubles.Recorder(_store.Approvals).RecordAsync(
-            ContinuationHarness.State(), _store.Config.Projects["alpha"], "42", series, "goal", default);
+            ConversationApproval.Of(ContinuationHarness.State()), _store.Config.Projects["alpha"], "42", series, "goal", default);
 
     private static RunSpecReviewRound Row(
         string runId, long seq, string? specId, int round, int reviewer, string verdict,

@@ -7,10 +7,10 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// <summary>
 /// 2026-10-13-9a59l: an approval in the conversation of a ticket a PERSON closed files one follow-up
 /// ticket — the proposal's drafts minus what already ran on the closed ticket — through the ordinary
-/// filer, and links the two. The conversation stays the closed ticket's; a later approval there files
+/// filing (2026-11-17-5701b: a 'file' run, <see cref="FilingRun"/>), and links the two. The conversation stays the closed ticket's; a later approval there files
 /// another follow-up.
 /// </summary>
-public sealed class ClosedTicketFollowUp(OutcomeTicketFiler filer, FollowUpLink link)
+public sealed class ClosedTicketFollowUp(IFilingRun filing, FollowUpLink link)
 {
     public async Task<TicketContinuationOutcome> FileAsync(
         ConversationState state, OutcomeProposal proposal, TicketContinuationDecision decision,
@@ -21,7 +21,7 @@ public sealed class ClosedTicketFollowUp(OutcomeTicketFiler filer, FollowUpLink 
         OutcomeProposal left = proposal is EpicOutcome epic && decision.Drafts.Count > 1
             ? epic with { Children = decision.Drafts }
             : new SpecOutcome(decision.Drafts[0]) { ReviewRounds = proposal.ReviewRounds };
-        var report = await filer.FileAsync(state, left, mayStartRuns, ct);
+        var report = await filing.RunAsync(state, left, mayStartRuns);
         if (report.Filed.Count == 0)
             return new($"Ticket {ticketId} was closed by a person, and filing its follow-up failed: {report.Error}. "
                 + "Approve again once the tracker answers.", Acted: false, report, left);

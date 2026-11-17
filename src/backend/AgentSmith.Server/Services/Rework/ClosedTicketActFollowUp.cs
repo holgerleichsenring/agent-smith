@@ -10,6 +10,7 @@ using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.SpecDialog.Continuation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.Rework;
 

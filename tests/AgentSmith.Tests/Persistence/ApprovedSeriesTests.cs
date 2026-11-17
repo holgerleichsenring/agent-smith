@@ -13,6 +13,7 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.Persistence;
 
@@ -116,7 +117,7 @@ public sealed class ApprovedSeriesTests : IDisposable
 
     private Task<SpecApprovalRecord> FileAsync() =>
         ApprovedSetDoubles.Recorder(Store()).RecordAsync(
-            State(), Project(), TicketId,
+            ConversationApproval.Of(State()), Project(), TicketId,
             new FiledSeries(Series, [new SpecDraft($"{Series}a", "Do it", $"spec: {Series}a", [])]),
             "The epic's goal", default);
 

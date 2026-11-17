@@ -24,7 +24,8 @@ public static partial class PipelinePresets
     /// <summary>True for a preset whose run is launched with context no ticket carries, so a
     /// label map or a default pipeline naming it routes a ticket to a run that cannot start.</summary>
     public static bool NeedsHostContext(string pipelineName) =>
-        string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase);
+        string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(pipelineName, FileName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Why a label cannot start this preset, in the words a configuration finding uses;
     /// null for a preset a ticket can be routed to.</summary>
@@ -37,5 +38,7 @@ public static partial class PipelinePresets
             + "or the dashboard supplies, so a ticket routed to it fails when it starts",
         [SpecDeriveName] = "a spec derivation moves no ticket status, so the poller would derive the same ticket "
             + "again on every poll; start it from the ticket page or the ticket's conversation",
+        [FileName] = "its run needs an approved proposal and a report slot, which only a design conversation's approval "
+            + "supplies, so a ticket routed to it fails when it starts",
     };
 }

@@ -10,11 +10,12 @@ using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 
-/// <summary>2026-10-14-dbcel: the parts of a list's filing — the ticket body, the ticket-text approval record, the
-/// shared labels and the start pass's wording.</summary>
+/// <summary>2026-10-14-dbcel: the parts of a list's filing — the ticket body, the approval record (2026-11-17-5701b: the
+/// ticket's own specs), the shared labels and the start pass's wording.</summary>
 public sealed class GraphTicketFilingPartsTests
 {
     [Fact]
@@ -28,7 +29,7 @@ public sealed class GraphTicketFilingPartsTests
             + "## Acceptance criteria\n- ui works\n- ui is tested\n\n"
             + "## Requires\nMerge these first; this ticket starts once each is merged or marked done by hand.\n"
             + "- #101 — Title api\n- #41\n\n"
-            + "Filed from design conversation `conv-9`; its specs are derived by the run that starts it.\n\n"
+            + "Filed from design conversation `conv-9`.\n\n"
             + "LABEL NOTE\n");
     }
 
@@ -50,38 +51,33 @@ public sealed class GraphTicketFilingPartsTests
     }
 
     [Fact]
-    public async Task GraphTicketApproval_Record_CitesEverySetAndImageWithTheProjectAndTicketText()
+    public async Task ListTicketRecord_Filed_CitesEverySetAndImageWithItsOwnSpecsAndRepos()
     {
-        var store = new InMemorySpecApprovalStore();
-        var references = new HeldMaterial(["set-a", "set-b"], ["img-1"]);
-        var rig = new TicketGraphRig();
-        var approval = new GraphTicketApproval(store, references, new SeriesRepos(), TimeProvider.System, NullLogger<GraphTicketApproval>.Instance);
+        var rig = new TicketGraphRig { References = new HeldMaterial(["set-a", "set-b"], ["img-1"]) };
 
-        var record = await approval.RecordAsync(State(), rig.Project, "101", Ticket("api") with { Repos = ["sample-api"] }, CancellationToken.None);
+        await rig.FileAsync(List(Ticket("api") with { Repos = ["sample-api"] }));
 
+        var record = (await rig.Approvals.GetAsync("sample-tracker", rig.KeyOf("101"), CancellationToken.None))!;
         record.Should().BeEquivalentTo(new
         {
-            Key = rig.KeyOf("101"), Tracker = "sample-tracker", TicketId = "101", Project = "proj", TicketText = true,
+            Key = rig.KeyOf("101"), Tracker = "sample-tracker", TicketId = "101", Project = "proj", TicketText = false,
             Repositories = new[] { "sample-api" }, CarryingRepo = "sample-api",
             CitedSets = new[] { "set-a", "set-b" }, CitedImages = new[] { "img-1" },
         });
-        record.Set.Specs.Should().BeEmpty();
+        record.Set.Specs.Should().ContainSingle().Which.Draft.Goal.Should().Be("Goal of api");
         record.Set.Goal.Should().Be("Title api");
         record.Approval!.Conversation.Should().Be(ConversationId);
-        (await store.GetAsync("sample-tracker", rig.KeyOf("101"), CancellationToken.None)).Should().NotBeNull();
     }
 
     [Fact]
-    public async Task GraphTicketApproval_TicketWithoutRepos_TakesTheConversationsRepositories()
+    public async Task ListTicketRecord_TicketWithoutRepos_TakesTheConversationsRepositories()
     {
-        var rig = new TicketGraphRig();
-        var approval = new GraphTicketApproval(new InMemorySpecApprovalStore(), new HeldMaterial([], []), new SeriesRepos(),
-            TimeProvider.System, NullLogger<GraphTicketApproval>.Instance);
+        var rig = new TicketGraphRig { References = new HeldMaterial([], []) };
 
-        var record = await approval.RecordAsync(State(), rig.Project, "101", Ticket("api"), CancellationToken.None);
+        await rig.FileAsync(List(Ticket("api")));
 
+        var record = (await rig.Approvals.GetAsync("sample-tracker", rig.KeyOf("101"), CancellationToken.None))!;
         record.Repositories.Should().Equal("sample-api", "sample-web");
-        record.CarryingRepo.Should().BeEmpty("two repositories leave the carrier to the run");
     }
 
     [Theory]
@@ -114,7 +110,7 @@ public sealed class GraphTicketFilingPartsTests
         List<FiledTicket> filed = [new("https://tracker.test/101", "t") { TicketId = "101" }];
 
         await rig.Starts().SettleAsync(rig.Tracker, rig.Project,
-            [new CreatedGraphTicket(new CreatedTicket(new TicketId("101"), null), [], Complete: false)], ["stamp"], true, filed);
+            [new CreatedGraphTicket(new CreatedTicket(new TicketId("101"), null), [], Complete: false, ["stamp"])], true, filed);
 
         filed[0].Start.Should().Be(new FiledWorkStart(FiledStartState.NotStarted, "created but not stored — do not trigger it; close it"));
         rig.Tracker.Labels.Should().BeEmpty();

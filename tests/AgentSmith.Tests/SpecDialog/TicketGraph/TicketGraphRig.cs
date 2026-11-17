@@ -20,6 +20,7 @@ using AgentSmith.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.Services.Common;
 using Moq;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 
@@ -55,14 +56,18 @@ internal sealed class TicketGraphRig
 
     public TimeProvider Time { get; set; } = TimeProvider.System;
 
-    public TicketGraphFiler Filer()
+    /// <summary>2026-11-17-5701b: the remote each list ticket's set is written to.</summary>
+    public RecordingBranchSources Sources { get; } = new();
+
+    /// <summary>2026-11-17-5701b: the 'file' run's steps over this rig's tracker, stores and REAL existence read.</summary>
+    public FilingSteps Filer()
     {
         var factory = Factory();
-        var config = Config();
-        return new TicketGraphFiler(LiveConfig.Projects(config), factory.Object, new TicketExistence(factory.Object, NullLogger<TicketExistence>.Instance),
-            new TicketGraphOrderer(), Requirements,
-            new GraphTicketApproval(Approvals, References, new SeriesRepos(), TimeProvider.System, NullLogger<GraphTicketApproval>.Instance),
-            Starts(config), ApprovedSetDoubles.Kinds(), TimeProvider.System, NullLogger<TicketGraphFiler>.Instance);
+        return FilingDoubles.Steps(Config(), factory.Object, new FilingDoubles.Parts
+        {
+            Store = Approvals, References = References, Facts = Facts, Requirements = Requirements, Time = Time, Sources = Sources,
+            Starter = FiledWorkDoubles.Starter(Config()),
+        });
     }
 
     public TicketGraphStarts Starts(AgentSmithConfig? config = null) => new(
@@ -82,6 +87,10 @@ internal sealed class TicketGraphRig
     public Task<FilingReport> FileAsync(TicketGraphOutcome graph, bool mayStartRuns = true, CancellationToken ct = default) =>
         Filer().FileAsync(State(), graph, mayStartRuns, ct);
 
+    /// <summary>2026-11-17-5701a: the spec a list ticket carries; the ticket's key is its label.</summary>
+    public static SpecDraft SpecOf(string key, params string[] requires) => new(
+        $"{key}-spec", $"Goal of {key}", $"spec: {key}-spec\ngoal: \"Goal of {key}\"\n", requires) { Repos = ["sample-api"] };
+
     public string KeyOf(string id) => TicketKey.For(Type.ToString().ToLowerInvariant(), id).Value;
 
     public void Land(string id) => Facts.Landed.Add(new TicketLandingFact(
@@ -94,8 +103,9 @@ internal sealed class TicketGraphRig
         Scope = new ActiveScope { Project = "proj", Repos = ["sample-api", "sample-web"] },
     };
 
+    /// <summary>A list ticket carrying one spec of its own (2026-11-17-5701b: a ticket without one is refused).</summary>
     public static GraphTicket Ticket(string key, params string[] requires) =>
-        new(key, $"Title {key}", $"Requirement of {key}.", [$"{key} works", $"{key} is tested"], requires, []);
+        new(key, $"Title {key}", $"Requirement of {key}.", [$"{key} works", $"{key} is tested"], requires, []) { Specs = [SpecOf(key)] };
 
     public static TicketGraphOutcome List(params GraphTicket[] tickets) => new(tickets);
 

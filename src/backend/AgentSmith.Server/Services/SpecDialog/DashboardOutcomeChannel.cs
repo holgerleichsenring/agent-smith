@@ -3,6 +3,7 @@ using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 

@@ -6,6 +6,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 

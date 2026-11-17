@@ -25,11 +25,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using static AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 
-/// <summary>2026-10-14-dbcel: the server's own composition files a list through the sink, and resolves the deriver
-/// with the carry it runs before the model.</summary>
+/// <summary>2026-10-14-dbcel: the server's own composition resolves the requires links and the deriver with the carry it
+/// runs before the model. 2026-11-17-5701b: a list's filing through the real composition is FilePipelineCompositionTests'.</summary>
 [Trait("TestProcess", "env-1")]
 [Collection(EnvVarCollection.Name)]
 public sealed class TicketGraphCompositionTests : IDisposable
@@ -42,72 +43,6 @@ public sealed class TicketGraphCompositionTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
         MigratedStoreTemplate.CopyInto(_context);
-    }
-
-    [Fact]
-    public async Task TicketFilingOutcomeSink_FromRealServiceCollection_FilesATwoTicketList()
-    {
-        var rig = new TicketGraphRig();
-        var adapter = new Mock<IPlatformAdapter>();
-        adapter.SetupGet(a => a.Platform).Returns("graph-test");
-        var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(rig.Tracker);
-        factory.Setup(f => f.CreateRequiresLink(It.IsAny<TrackerConnection>())).Returns(rig.Links);
-        var approvals = new InMemorySpecApprovalStore();
-        var services = Composition();
-        services.AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(rig.Config())).AddSingleton(factory.Object).AddSingleton(adapter.Object)
-            .AddSingleton<ITicketRequirementStore>(rig.Facts).AddSingleton<ITicketLandingStore>(rig.Facts)
-            .AddSingleton<ISpecApprovalStore>(approvals).AddSingleton<IReferenceSetReader, NoReferenceSetReader>()
-            .AddScoped(_ => new SpecDialogSessionRepository(_context));
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-        var sessions = scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>();
-        var state = await sessions.OpenAsync("graph-test", "C1", "th-1", "U1",
-            new ActiveScope { Project = "proj", Repos = ["sample-api"] }, CancellationToken.None);
-
-        await scope.ServiceProvider.GetRequiredService<IOutcomeSink>()
-            .AcceptAsync(state, List(Ticket("api"), Ticket("ui", "api")), true, CancellationToken.None);
-
-        rig.Tracker.Created.Select(c => c.Title).Should().Equal("Title api", "Title ui");
-        rig.Facts.Edges.Should().ContainSingle().Which.RequiredTicketId.Should().Be("101");
-        (await approvals.GetAsync("sample-tracker", rig.KeyOf("102"), CancellationToken.None))!.TicketText.Should().BeTrue();
-        adapter.Verify(a => a.SendInfoAsync("C1", It.IsAny<string>(),
-            It.Is<string>(t => t.Contains("Filed a list of 2 tickets") && t.Contains("held: waits for #101")),
-            "th-1", It.IsAny<CancellationToken>()), Times.Once);
-        rig.Links.Calls.Should().Equal([("102", "101")]);
-    }
-
-    [Fact]
-    public async Task TicketFilingOutcomeSink_FromRealServiceCollection_RecordCarriesTheOperatorsWords()
-    {
-        var rig = new TicketGraphRig();
-        var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(rig.Tracker);
-        factory.Setup(f => f.CreateRequiresLink(It.IsAny<TrackerConnection>())).Returns(rig.Links);
-        var adapter = new Mock<IPlatformAdapter>();
-        adapter.SetupGet(a => a.Platform).Returns("graph-test");
-        var approvals = new InMemorySpecApprovalStore();
-        var services = Composition();
-        services.AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(rig.Config())).AddSingleton(factory.Object).AddSingleton(adapter.Object)
-            .AddSingleton<ITicketRequirementStore>(rig.Facts).AddSingleton<ITicketLandingStore>(rig.Facts)
-            .AddSingleton<ISpecApprovalStore>(approvals).AddSingleton<IReferenceSetReader, NoReferenceSetReader>()
-            .AddScoped(_ => new SpecDialogSessionRepository(_context));
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-        var sessions = scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>();
-        await sessions.OpenAsync("graph-test", "C1", "th-1", "U1", new ActiveScope { Project = "proj", Repos = ["sample-api"] }, CancellationToken.None);
-        await sessions.AppendTurnAsync("graph-test", "th-1", TranscriptRole.User, "I take all your proposals; file the tickets.",
-            null, null, CancellationToken.None, author: "Sample Operator");
-        var state = (await sessions.AppendTurnAsync("graph-test", "th-1", TranscriptRole.Assistant, "Proposal: page size 50.",
-            SpecDialogTurnKind.Answer, null, CancellationToken.None))!;
-
-        await scope.ServiceProvider.GetRequiredService<IOutcomeSink>().AcceptAsync(state,
-            List(Ticket("api")) with { Questions = [new OpenQuestion("Which page size?", "50", [])] }, true, CancellationToken.None);
-
-        var words = (await approvals.GetAsync("sample-tracker", rig.KeyOf("101"), CancellationToken.None))!.OwnerWords;
-        words.Should().ContainSingle("the design partner's turn is not the operator's").Which.Should()
-            .Match<OwnerWord>(w => w.Author == "Sample Operator" && w.Text == "I take all your proposals; file the tickets." && w.At != default);
-        rig.Tracker.Created.Single().Body.Should().Contain(DecidedQuestionLines.Heading).And.Contain("Which page size? — decided: 50");
     }
 
     [Theory]
@@ -141,7 +76,7 @@ public sealed class TicketGraphCompositionTests : IDisposable
 
         scope.ServiceProvider.GetRequiredService<ISpecSetDeriver>().Should().BeOfType<SpecSetDeriver>();
         scope.ServiceProvider.GetRequiredService<ReferenceMaterializer>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<TicketGraphFiler>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IFilingRun>().Should().BeOfType<FilingRun>(); // 2026-11-17-5701b
     }
 
     private static ServiceCollection Composition()

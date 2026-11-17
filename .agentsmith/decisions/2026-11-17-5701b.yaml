@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-5701b
+
+decisions:
+  - category: Architecture
+    chose: "The filing services live in AgentSmith.Application/Services/Filing; FilingPlanner (SeriesFilingPlan, ListFilingPlan) plans, FilingPlanFiler files through PlannedTicketFiler and settles through TicketGraphStarts; the 'file' preset's two handlers are thin over them, carrying FilingRequest in and FilingReportSlot out"
+    over: "Putting the planning and filing logic inside the two handlers"
+    reason: "Amend, close, reopen, follow-up and dependents-start become pipelines next: they reuse the request and slot pattern and the planner, filer and start pass without going through a handler."
+  - category: Architecture
+    chose: "AddFilingPipeline registers the handlers and services and is called by the server's AddSpecDialogServices; the two context builders sit in AddContextBuilders with the others"
+    over: "Registering the builders in AddFilingPipeline too"
+    reason: "The builders have no dependencies, and the preset contract test resolves every builder from the production registry. The handlers need ITicketExistence and the requirement store, which only the server registers, so the CLI's ValidateOnBuild provider never sees them."
+  - category: TradeOff
+    chose: "Filing goes through the full run prologue: the skills catalog is resolved, a project with no repositories refuses, and the run is registered with an id, cost and events"
+    over: "A lighter in-process launch that skips the prologue"
+    reason: "A run with a run id is the working rule (everything is a pipeline). A project that files tickets with no repository to write the branch to was already a broken filing. The catalog resolution is cached after the first run."
+  - category: Implementation
+    chose: "An epic or list ticket longer than series.max_specs files as parts; each later part requires the one before through a stored requires edge and is held until that part merges"
+    over: "Starting only the first part and leaving a note telling the operator to start the rest by hand"
+    reason: "The requirements table and the wake already start a held ticket when its requirement merges. A note asked a person to do what the system does for a list. A dependent of a split ticket requires its last part."
+  - category: Implementation
+    chose: "Every filed ticket is settled through TicketGraphStarts with its own labels (CreatedGraphTicket.Labels): a lone spec, an epic's parts, a list ticket and a bug"
+    over: "Keeping the lone-spec and bug paths on FiledWorkStarter directly"
+    reason: "One start pass means a bug starts with no label and a stamped ticket with its stamp. A ticket whose record or edges failed is never started, whatever kind it is."
+  - category: Implementation
+    chose: "FilingRun runs the pipeline on CancellationToken.None; inside the run, a cancel between tickets still stops the loop, but only the first create runs on the run's token, and the start pass always runs"
+    over: "Passing the caller's token into the run"
+    reason: "The approval is already claimed when FilingRun starts. Once a ticket exists, a cancelled filing must still start its root, because nothing else would. The sink test that cancelled the caller now proves the whole list is filed."
+  - category: Implementation
+    chose: "ConversationOwnerWords leaves out the user turn whose Decision is Approved and whose DecisionProposalId is the proposal being filed; without an id, the last turn when it carries an approval"
+    over: "Leaving out every turn that carries a decision"
+    reason: "The admission stores the approve word or click as a user turn with the decision and the proposal it decides, before the sink runs. An older approval of an earlier card is a different turn, and the spec asks to leave out exactly this one."
+  - category: Implementation
+    chose: "FileTicketsContextBuilder hands the step the project with the run's ContextKeys.Repos, the list CheckoutSource clones, and the branch is written through the same ISourceProviderFactory.Create(repo) the cloner uses"
+    over: "Writing the branch through the configured project as the server's TicketProjects read it"
+    reason: "The run's prologue resolves the repositories once (overrides applied, ProjectConfig with them) and every step reads that list. The filing branch now goes where the run's checkout reads, through the same entry."
+  - category: Implementation
+    chose: "FiledTicketKey moved to Application as a public class with its Of members; how a notice links a key (Named) moved to a server-only FiledTicketNaming beside SpecDialogMarkup"
+    over: "Moving SpecDialogMarkup into Application with it"
+    reason: "The plan and the start pass need the key. The chat markup is the server's, and the server is the only one that renders a notice."
+  - category: Architecture
+    chose: "The sink and ClosedTicketFollowUp depend on IFilingRun; FilingRun is the production implementation, and the tests drive the real PlanFiling and FileTickets handlers in process (FilingSteps)"
+    over: "Depending on the concrete FilingRun"
+    reason: "FilingRun needs the whole run lifecycle. The sink suites keep each scenario over the real steps, and the real-composition test (FilePipelineCompositionTests) proves the run itself."
+  - category: Implementation
+    chose: "MasterFor('file') is empty; the master-routing and control-flow master tests cover only presets that run a master loop"
+    over: "Letting 'file' inherit the coding master by default"
+    reason: "The spec names no master for 'file', and a diagram row labelled with a master the run never loads would be false."
+  - category: Implementation
+    chose: "FilePipelineCompositionTests runs in the PipelineHarness over RealCompositionHarness with a dedicated fixture (agentsmith-filing.yml: a tracker triggering on 'open', a project resolving by its own tag)"
+    over: "Adding a tracker and project to the shared agentsmith.yml fixture"
+    reason: "The harness already supplies the database-backed stores, the stub catalog and the stub source remote. A shared fixture change would shift every other harness test's configuration."

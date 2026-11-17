@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.TestSupport;
 

@@ -13,6 +13,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.References;
 
@@ -50,11 +51,7 @@ public sealed class ReferenceApprovalCiteTests
         var recorder = new ApprovedSpecSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
             TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
-        var record = await recorder.RecordAsync(new ConversationState
-        {
-            JobId = ReferenceSandboxFixture.Conversation, ChannelId = "c", UserId = "u", Platform = "dashboard",
-            Project = "sample", TicketId = string.Empty, StartedAt = Noon,
-        }, new ResolvedProject
+        var record = await recorder.RecordAsync(new ApprovalSource(ReferenceSandboxFixture.Conversation, "u", [], []), new ResolvedProject
         {
             Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
             Repos = [new RepoConnection { Name = "sample-api" }],
@@ -111,11 +108,7 @@ public sealed class ReferenceApprovalCiteTests
         var recorder = new ApprovedSpecSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
             TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
-        var record = await recorder.RecordAsync(new ConversationState
-        {
-            JobId = ReferenceSandboxFixture.Conversation, ChannelId = "c", UserId = "u", Platform = "dashboard",
-            Project = "sample", TicketId = string.Empty, StartedAt = Noon,
-        }, new ResolvedProject
+        var record = await recorder.RecordAsync(new ApprovalSource(ReferenceSandboxFixture.Conversation, "u", [], []), new ResolvedProject
         {
             Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
             Repos = [new RepoConnection { Name = "sample-api" }],

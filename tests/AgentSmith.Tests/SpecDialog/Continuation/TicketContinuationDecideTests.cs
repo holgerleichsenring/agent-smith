@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.SpecDialog.Continuation;
 using FluentAssertions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.Continuation;
 

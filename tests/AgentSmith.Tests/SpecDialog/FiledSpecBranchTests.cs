@@ -20,6 +20,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -536,12 +537,8 @@ public sealed class FiledSpecBranchTests
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(provider ?? new JournallingProvider());
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(config ?? Config()), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.SetFiler(store, starter, sources ?? new RecordingBranchSources(), pointers),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
-            NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(config ?? Config(), factory.Object, new FilingDoubles.Parts
+            { Store = store, Starter = starter, Sources = sources ?? new RecordingBranchSources(), Pointers = pointers });
         var set = specs ?? [Draft("p9000a")];
         OutcomeProposal proposal = set.Count == 1
             ? new SpecOutcome(set[0])

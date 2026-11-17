@@ -31,6 +31,7 @@ public static partial class PipelinePresets
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
+            [FileName] = File, // 2026-11-17-5701b
         };
         Names = All.Keys.ToList();
         Routable = [.. Names.Where(n => NotRoutableBecause(n) is null)];
@@ -51,6 +52,7 @@ public static partial class PipelinePresets
         ["pr-review"] = PipelineType.Structured,
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
+        [FileName] = PipelineType.Discussion,
     };
 
     /// <summary>

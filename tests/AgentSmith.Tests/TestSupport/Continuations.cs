@@ -22,7 +22,7 @@ namespace AgentSmith.Tests.TestSupport;
 /// </summary>
 internal static class Continuations
 {
-    internal static TicketContinuationAct Unused(OutcomeTicketFiler filer)
+    internal static TicketContinuationAct Unused(IFilingRun filer)
     {
         var config = LiveConfig.Projects(new AgentSmithConfig());
         var trackers = new Mock<ITicketProviderFactory>().Object;

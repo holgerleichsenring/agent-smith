@@ -1,6 +1,10 @@
 # 2026-11-16-3596: server files that write to a tracker or a repository directly, measured when the
 # ratchet was installed. No file may join; a file that stops writing must leave. Paths are relative
 # to src/backend. Blocks 3 and 4 of the consolidation plan move these writes into pipeline steps.
+# 2026-11-17-5701b: the filers moved into the 'file' pipeline (AgentSmith.Application/Services/Filing) and left this
+# list. Server callers that still move ticket status through those Application services, outside a run, are debt the
+# scanner cannot see and block 4 removes: Services/SpecDialog/Continuation/OperatorStart.cs and
+# Services/Rework/RequirementsMetStart.cs (both through FiledWorkMove).
 AgentSmith.Server/Extensions/QueuedRunCancel.cs
 AgentSmith.Server/Extensions/RunControlEndpoints.cs
 AgentSmith.Server/Services/CapacityQueueDrop.cs
@@ -13,18 +17,11 @@ AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs
 AgentSmith.Server/Services/Rework/ReworkParkCheck.cs
 AgentSmith.Server/Services/Rework/ReworkSpeech.cs
 AgentSmith.Server/Services/Rework/WaitingRunCloser.cs
-AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs
 AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs
-AgentSmith.Server/Services/SpecDialog/FiledWorkMove.cs
-AgentSmith.Server/Services/SpecDialog/FiledWorkTagger.cs
-AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs
 AgentSmith.Server/Services/SpecDialog/TicketDescriptionRewrite.cs
-AgentSmith.Server/Services/SpecDialog/TicketGraphFiler.cs
-AgentSmith.Server/Services/SpecDialog/TicketGraphLinks.cs
-AgentSmith.Server/Services/SpecDialog/TicketGraphStarts.cs
 AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs
 AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs
 AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs

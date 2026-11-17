@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 

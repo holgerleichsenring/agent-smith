@@ -129,15 +129,11 @@ public sealed class TicketTitleTests
         },
     };
 
-    private static OutcomeTicketFiler Filer(ITicketProvider provider)
+    private static FilingSteps Filer(ITicketProvider provider)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
-        return new OutcomeTicketFiler(
-            LiveConfig.Projects(Config()), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            TestSupport.ApprovedSetDoubles.SetFiler(),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        return FilingDoubles.Steps(Config(), factory.Object);
     }
 
     private static ConversationState State() => new()

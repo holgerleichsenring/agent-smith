@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 

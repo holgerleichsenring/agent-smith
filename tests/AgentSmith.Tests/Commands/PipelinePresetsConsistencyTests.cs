@@ -22,6 +22,8 @@ public sealed class PipelinePresetsConsistencyTests
         var preset = PipelinePresets.TryResolve(presetName)!.ToList();
 
         preset.Should().NotBeEmpty();
+        // 2026-11-17-5701b: a filing reads no skill, so it binds no catalog step; its prologue still resolves one.
+        if (presetName == PipelinePresets.FileName) return;
         preset[0].Should().Be(CommandNames.LoadCatalog,
             $"preset '{presetName}' must bind the skill catalog as its first visible step (p0205)");
     }

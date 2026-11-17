@@ -68,13 +68,15 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.SpecDialogName, false)]
     [InlineData("init-project", false)]
     [InlineData(PipelinePresets.SpecDeriveName, false)]
+    [InlineData(PipelinePresets.FileName, false)]
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
     [Fact]
     public void PersistPolicy_TruthTable_CoversEveryPreset() =>
         PipelinePresets.Names.Should().BeEquivalentTo([PipelinePresets.CodeName, "mad-discussion", "pr-review", "security-scan",
-            "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName]);
+            "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
+            PipelinePresets.FileName]);
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

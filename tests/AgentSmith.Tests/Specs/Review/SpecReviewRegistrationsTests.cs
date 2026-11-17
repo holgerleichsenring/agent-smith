@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.Specs.Review;
 
@@ -118,7 +119,7 @@ public sealed class SpecReviewRegistrationsTests
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SeriesContractReader>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SeriesContractCheck>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SpecDerivationParser>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.FiledSeriesFactory>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Filing.FiledSeriesFactory>().Should().NotBeNull();
     }
 
     [Fact]

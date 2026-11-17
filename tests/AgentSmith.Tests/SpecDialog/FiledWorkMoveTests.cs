@@ -8,6 +8,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 

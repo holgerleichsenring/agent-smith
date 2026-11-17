@@ -184,6 +184,8 @@ public sealed class ServerDiLifetimeTests
     {
         foreach (var services in new[] { BuildServerLikeServices(), BuildServerLikeServices().AddDashboardApi() })
         {
+            // 2026-11-17-5701b: the sink files through a 'file' run, whose use case reads the configuration it runs on.
+            services.AddSingleton<IConfigurationLoader>(new AgentSmith.Tests.TestSupport.FixedConfigurationLoader(new AgentSmithConfig()));
             using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             using var scope = provider.CreateScope();
 

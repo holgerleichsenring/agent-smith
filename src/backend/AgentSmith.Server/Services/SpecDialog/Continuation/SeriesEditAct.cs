@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 
@@ -42,7 +43,7 @@ public sealed class SeriesEditAct(
         var edited = decision with { Start = null };
         try
         {
-            await approvals.RecordAsync(SpecDialogSessionMapper.ToState(session) with { UserId = principal }, project, ticketId,
+            await approvals.RecordAsync(ConversationApproval.Of(SpecDialogSessionMapper.ToState(session) with { UserId = principal }), project, ticketId,
                 new FiledSeries(state.Series ?? string.Empty, edited.Drafts), goal, ct, edited.Continuation, state.Scope);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

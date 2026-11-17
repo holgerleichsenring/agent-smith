@@ -30,6 +30,7 @@ public static partial class CommandStepClasses
         [CommandNames.VerifySpec] = Milestone,
         [CommandNames.ReviewSpecDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
+        [CommandNames.FileTickets] = Milestone, // 2026-11-17-5701b: it creates the tickets
         [CommandNames.InitCommit] = Milestone,
         [CommandNames.GenerateTests] = Milestone,
         [CommandNames.GenerateDocs] = Milestone,
@@ -96,6 +97,7 @@ public static partial class CommandStepClasses
         [CommandNames.SpecSequence] = Internal,         // splice mechanics
         [CommandNames.SelectSpec] = Internal,           // the spec header already tells this
         [CommandNames.CollectSpecDialogReply] = Internal,
+        [CommandNames.PlanFiling] = Internal,
         [CommandNames.WriteSpecRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
