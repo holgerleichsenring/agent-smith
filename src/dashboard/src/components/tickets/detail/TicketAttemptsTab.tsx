@@ -32,7 +32,7 @@ export function TicketAttemptsTab() {
           <div className="bt">The next attempt starts from the conversation.</div>
           <div className="bs">
             Say what should change; approving the revised series there starts the next attempt with that conversation as
-            its cause. An attempt that ended on infrastructure also offers <b>Retry unchanged</b> there.
+            its cause. An attempt that ended without delivering also offers <b>Retry unchanged</b> there.
           </div>
         </div>
         <button className="btn primary" type="button" data-testid="attempts-continue"

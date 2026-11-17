@@ -464,7 +464,7 @@ describe("Ticket thread", () => {
     expect(screen.queryByTestId("ticket-effect")).toBeNull();
   });
 
-  it("RetryUnchanged_AppearsOnlyAfterAnInfrastructureEnd_AndA409ShowsItsReasonText", async () => {
+  it("RetryUnchanged_AfterAnInfrastructureEnd_A409ShowsItsReasonText", async () => {
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
     ticketsApi.retry.mockResolvedValue({ kind: "refused", refusal: { reason: "closed-for-work", text: "the ticket was closed in its tracker — approving a change in the ticket conversation files a follow-up", project: "shop", ticketId: "101" } });
     await open();
@@ -474,11 +474,23 @@ describe("Ticket thread", () => {
     expect(screen.getByTestId("ticket-retry-refused")).toHaveTextContent("approving a change in the ticket conversation files a follow-up");
   });
 
-  it("RetryUnchanged_IsHiddenForANonInfrastructureEnd_AndFromACallerKnownToLackRunsControl", async () => {
-    world.detail = detail([attempt({ status: "failed" })]);
-    await open();
-    expect(screen.queryByTestId("ticket-retry")).toBeNull();
-    cleanup();
+  // 2026-11-17-166ad: any end but a success is retried, not only an infrastructure one.
+  it("RetryUnchanged_IsOfferedForAFailureOrACancel_AndHiddenForASuccessARunAndAHandBack", async () => {
+    for (const status of ["failed", "cancelled"]) {
+      world.detail = detail([attempt({ status })]);
+      await open();
+      expect(screen.getByTestId("ticket-retry")).toBeInTheDocument();
+      cleanup();
+    }
+    for (const shape of [{ status: "success" }, { status: "running", finishedAt: null }, { status: "failed", handedBack: true }]) {
+      world.detail = detail([attempt(shape)]);
+      await open();
+      expect(screen.queryByTestId("ticket-retry")).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("RetryUnchanged_IsHiddenFromACallerKnownToLackRunsControl", async () => {
     identity.lacks = ["runs.control"];
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
     await open();

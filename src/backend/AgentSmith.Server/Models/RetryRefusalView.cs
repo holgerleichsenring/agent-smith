@@ -13,7 +13,6 @@ public static class RetryRefusals
     public const string NotLatest = "not-latest";
     public const string HandedBack = "handed-back";
     public const string NotFinished = "not-finished";
-    public const string NotInfrastructure = "not-infrastructure";
     public const string ClosedForWork = "closed-for-work";
     public const string Starting = "starting";
     public const string Delivered = "delivered";
@@ -27,9 +26,6 @@ public static class RetryRefusals
         "the latest attempt delivered its work — say what should change before another attempt starts";
 
     public const string StartingText = "an attempt is already starting on this ticket";
-
-    public const string NotInfrastructureText =
-        "only an infrastructure end retries unchanged — say what should change in the ticket conversation";
 
     public const string ClosedForWorkText =
         "the ticket was closed in its tracker — approving a change in the ticket conversation files a follow-up";

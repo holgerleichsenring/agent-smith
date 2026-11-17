@@ -37,7 +37,7 @@ public sealed class WorkerWorkingDirectoryTests
     {
         if (OperatingSystem.IsWindows()) return;
         using var _ = new CwdOverride(null);
-        var options = Options() with { Binary = "/bin/sh", Arguments = ["-c", "pwd -P"] };
+        var options = Options() with { Binary = "/bin/sh", Arguments = ["-c", "cat >/dev/null; pwd -P"] };
 
         var result = await new AgentCliWorkerProcessRunner(NullLogger<AgentCliWorkerProcessRunner>.Instance)
             .RunAsync("{}", options, CancellationToken.None);

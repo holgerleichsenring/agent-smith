@@ -11,12 +11,12 @@ namespace AgentSmith.Server.Services.Rework;
 /// attempt is retried — a newer queued reservation is an attempt already starting, which the previous-attempt
 /// reader cannot see. The run asked must also be the latest the rework worker reads, or the stored request
 /// would hang on a run the worker never looks at. A hand-back parks waiting with no finish, so it is answered
-/// before "not finished". The button's end must be one <see cref="InfrastructureEnd"/> holds for — the same rule
-/// the ticket's attempt marks read; the conversation's end may be anything but a delivered success.
+/// before "not finished".
+/// <para>2026-11-17-166ad: one end rule for both origins — any end but a success is retried: failed, cancelled and
+/// shortfall. The button used to admit only an infrastructure end, so restarting a failed attempt took a reply in
+/// the conversation. The origin only words the hand-back answer.</para>
 /// </summary>
-public sealed class RunRetryGate(
-    TicketRunsQuery runQuery, TicketAttempts attempts, IPreviousAttemptReader worker, InfrastructureEnd infrastructure,
-    TicketLaunchEnds launchEnds)
+public sealed class RunRetryGate(TicketRunsQuery runQuery, TicketAttempts attempts, IPreviousAttemptReader worker)
 {
     /// <summary>Null when the run may be retried.</summary>
     public async Task<RetryRefusalView?> CheckAsync(
@@ -37,10 +37,7 @@ public sealed class RunRetryGate(
                 ? RetryRefusals.HandedBackConversationText : RetryRefusals.HandedBackText);
         if (head.FinishedAt is null)
             return Refuse(RetryRefusals.NotFinished, $"run {runId} has not finished — it is {head.Status}");
-        if (origin == RetryOrigin.Conversation)
-            return head.Status == RunStatuses.Success ? Refuse(RetryRefusals.Delivered, RetryRefusals.DeliveredText) : null;
-        var launch = (await launchEnds.ForAsync([runId], ct)).GetValueOrDefault(runId);
-        return infrastructure.Holds(head, launch) ? null : Refuse(RetryRefusals.NotInfrastructure, RetryRefusals.NotInfrastructureText);
+        return head.Status == RunStatuses.Success ? Refuse(RetryRefusals.Delivered, RetryRefusals.DeliveredText) : null;
     }
 
     private static string NotLatest(string headId) =>
