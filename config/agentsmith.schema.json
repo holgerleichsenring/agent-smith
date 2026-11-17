@@ -112,14 +112,8 @@
       "description": "Hard limits for the agentic loops.",
       "additionalProperties": false,
       "properties": {
-        "max_tool_calls_per_skill": { "type": "integer", "description": "Default 30." },
-        "max_tool_calls_per_investigator": { "type": "integer", "description": "Default 10." },
-        "max_tool_calls_per_verifier": { "type": "integer", "description": "Default 20." },
-        "max_llm_calls_per_skill": { "type": "integer", "description": "Default 15." },
-        "max_input_tokens_per_skill_call": { "type": "integer", "description": "Default 500000." },
-        "max_seconds_per_skill_call": { "type": "integer", "description": "Default 300." },
-        "max_concurrent_skill_calls": { "type": "integer", "description": "Default 10." },
-        "max_skills_per_phase": { "type": "integer", "description": "Default 5." },
+        "max_tool_calls_per_skill": { "type": "integer", "description": "Tool-loop iterations of one scout call. Default 30." },
+        "max_seconds_per_skill_call": { "type": "integer", "description": "Wall-clock bound of one scout call, in seconds. Default 300." },
         "max_concurrent_sub_agents": { "type": "integer", "description": "Sub-agents running at once. Default 4." },
         "max_sub_agents_per_run": {
           "type": "integer",

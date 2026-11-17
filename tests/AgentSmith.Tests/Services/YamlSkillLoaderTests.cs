@@ -61,7 +61,7 @@ public sealed class YamlSkillLoaderTests : IDisposable
         config.Roles.Should().ContainKey("architect");
         config.Roles["architect"].Enabled.Should().BeTrue();
         config.Roles["tester"].Enabled.Should().BeFalse();
-        config.Discussion.MaxRounds.Should().Be(5);
+        // 2026-11-17-274cb: the discussion block bounded nothing and is no longer modelled; it is ignored.
     }
 
     [Fact]

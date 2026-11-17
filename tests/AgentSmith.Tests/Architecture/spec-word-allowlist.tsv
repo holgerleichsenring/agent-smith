@@ -69,7 +69,6 @@ BeginCallWithRepoName_BuildSummary_GroupsRecordsByRepoAndPhase	anywhere	G2	test 
 Bootstrap-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 BuildSummary_MixedModels_PhaseCostsSumToHeadlineAccrual	anywhere	G2	test name about the execution stage of a model call
 CodingPresets_DoNotContainRunVerifyPhase_PostP0179b	anywhere	G2	test name about the execution stage of a model call
-ExecuteAsync_PlanPhase_UsesSkillToolCallCap	anywhere	G2	test name about the execution stage of a model call
 GetPhaseBreakdown	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 GetToolsFor_BootstrapPhase_IncludesWriteFileAndRunCommand	anywhere	G2	test name about the execution stage of a model call
 GetToolsFor_FixBugImplementationPhase_AllToolsAvailable	anywhere	G2	test name about the execution stage of a model call
@@ -87,15 +86,12 @@ GetTools_EveryReadPhase_ExposesRunCommand	anywhere	G2	test name about the execut
 GetTools_ImplementationPhase_ReturnsAllTools	anywhere	G2	test name about the execution stage of a model call
 GetTools_PlanPhase_IncludesRunCommandForRecon	anywhere	G2	test name about the execution stage of a model call
 GetTools_VerifyPhase_IncludesRunCommandExcludesWriteFile	anywhere	G2	test name about the execution stage of a model call
-MaxSkillsPerPhase	anywhere	G2	skills per triage stage; persisted config key
 NonImplementationPresets_DoNotContainRunVerifyPhase	anywhere	G2	test name about the execution stage of a model call
 Per-phase	listed	G2	per execution stage (cost breakdown, tool filter)
 PhaseCost	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
 PhaseUsage	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 Plan-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
-PlanPhaseUserPrompt	anywhere	G2	live skill probe prompts for the Plan and Review stages
 Review-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
-ReviewPhaseUserPrompt	anywhere	G2	live skill probe prompts for the Plan and Review stages
 RunFinalPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 RunFinalPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 RunReviewPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
@@ -115,9 +111,7 @@ _currentPhase	anywhere	G2	TokenUsageTracker: scout / planning / primary / compac
 _phases	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 _writePhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
 beatPhase	anywhere	G2	dashboard run-story display state (running / needsYou / relaunching)
-final-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 lastPhase	anywhere	G2	Kubernetes pod phase
-maxSkillsPerPhase	anywhere	G2	skills per triage stage; persisted config key
 max_skills_per_phase	anywhere	G2	skills per triage stage; persisted config key
 per-phase	listed	G2	per execution stage (cost breakdown, tool filter)
 phase-based	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
@@ -125,9 +119,7 @@ phase-discipline	anywhere	G2	skill reference document phase-discipline (skills r
 phase-matrix	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 phase-only	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 phaseUsage	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
-plan-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 receivedPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
-review-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
 storyPhase	anywhere	G2	dashboard run-story display state (running / needsYou / relaunching)
 unk-phase	anywhere	G2	dashboard test id of an LLM call whose role falls back to its stage
 verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)

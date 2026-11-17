@@ -25,3 +25,7 @@ decisions:
   - category: TradeOff
     chose: "Fixing the binding lets operator-set limits take effect immediately"
     reason: "An installation whose stored limits differ from the defaults (for example an example-file copy) runs under those values from this release on; the live keys are the scout seconds and tool calls and the three sub-agent numbers."
+  - category: Implementation
+    chose: "An unreadable config store is one more catalog state for CurrentConfigSnapshot: it loads once through the loader, which degrades to the empty configuration and records why"
+    over: "Letting the store's exception escape every LoopLimitsConfig resolution"
+    reason: "The AgentSmithConfig singleton it replaces degrades the same way (DbConfigurationLoader); the server compositions in tests without a database resolve the master's tools and must keep doing so. Recorded during 274cb, where the full suite surfaced it."

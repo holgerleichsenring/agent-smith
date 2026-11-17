@@ -38,15 +38,10 @@ const FIXTURES: Record<string, unknown> = {
   },
   limits: {
     maxToolCallsPerSkill: 30,
-    maxToolCallsPerInvestigator: 10,
-    maxToolCallsPerVerifier: 20,
-    maxLlmCallsPerSkill: 15,
-    maxInputTokensPerSkillCall: 500000,
     maxSecondsPerSkillCall: 300,
-    maxConcurrentSkillCalls: 10,
-    maxSkillsPerPhase: 5,
     maxConcurrentSubAgents: 4,
     maxSubAgentsPerRun: 20,
+    maxSubAgentsPerDialogTurn: 4,
   },
 };
 
@@ -178,7 +173,9 @@ describe("SettingsStudio", () => {
     await screen.findByTestId("setting-limits-maxToolCallsPerSkill");
     // The 11 flat fields are grouped into three labelled sections.
     expect(screen.getByTestId("setting-limits-calls")).toBeInTheDocument();
-    expect(screen.getByTestId("setting-limits-budgets")).toBeInTheDocument();
+    expect(screen.queryByTestId("setting-limits-budgets")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("setting-limits-maxLlmCallsPerSkill")).not.toBeInTheDocument();
+    expect(screen.getByTestId("setting-limits-maxSubAgentsPerDialogTurn")).toHaveValue(4);
     expect(screen.getByTestId("setting-limits-subagents")).toBeInTheDocument();
     // Fields land under their group and load their values.
     expect(screen.getByTestId("setting-limits-maxToolCallsPerSkill")).toHaveValue(30);

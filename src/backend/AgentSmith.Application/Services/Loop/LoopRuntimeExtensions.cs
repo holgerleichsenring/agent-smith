@@ -9,20 +9,17 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.Application.Services.Loop;
 
 /// <summary>
-/// Skill-call loop runtime: PipelineConcurrencyGate (scoped — one per pipeline-run
-/// DI scope), OutcomeClassifier / RetryCoordinator / NoOpSkillOutputValidator
-/// (stateless singletons), RuntimeObservationFactory (p0147b — stateless factory
-/// that maps Incomplete/FailedRuntime outcomes into typed observations so silent
-/// skill drops become pipeline-visible), the scoped SkillCallRuntime that composes
-/// the collaborators, the schema validators + factory (JsonSchemaLoader caches the
-/// four hand-written schemas at boot for the process lifetime — singleton), and the
-/// in-memory run-artifact store (the server replaces it with the database store).
+/// Agentic loop collaborators: the web tool host, the result-bound reporter, trace and secret
+/// plumbing, the sub-agent runner and its per-run budget, the schema validators + factory
+/// (JsonSchemaLoader caches the hand-written schemas at boot — singleton), and the in-memory
+/// run-artifact store (the server replaces it with the database store). 2026-11-17-274cb: the
+/// skill-call runtime and its gate, classifier, retry coordinator and observation factory are
+/// gone — nothing had resolved them since p0312.
 /// </summary>
 public static class LoopRuntimeExtensions
 {
     public static IServiceCollection AddLoopRuntime(this IServiceCollection services)
     {
-        services.AddScoped<PipelineConcurrencyGate>();
         // p0353: web_fetch tool host as a typed HttpClient (DI, not a per-run `new`).
         // 2026-10-25-c5a7f: it dials only public addresses, checked at every hop and at the dial.
         services.AddSingleton<GuardedConnectCallback>();
@@ -32,11 +29,8 @@ public static class LoopRuntimeExtensions
         services.AddHttpClient<WebToolHost>()
             .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<WebToolHostHandler>().Build())
             .AddHttpMessageHandler<GuardedRedirectHandler>();
-        services.AddSingleton<OutcomeClassifier>();
         services.AddSingleton<NoOpSkillOutputValidator>();
         services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
-        services.AddSingleton<RetryCoordinator>();
-        services.AddSingleton<RuntimeObservationFactory>();
         // p0423: the bound's report channel (AsyncLocal, so one instance serves every
         // concurrent tool call) and the prompt dump, both services the composition root
         // can see rather than statics the runtime reaches for.
@@ -57,8 +51,6 @@ public static class LoopRuntimeExtensions
         // 2026-10-02-5f89g: clone, fetch and push read the repo's own auth secret the same way.
         services.TryAddSingleton<IGitTokenResolver, GitTokenResolver>();
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();
-        services.AddSingleton<SkillPromptLogger>();
-        services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
 
         // p0177: agentic loop core + sub-agent collaborators.
         // SubAgentBudget is scoped per run; one pipeline-execution scope ==
