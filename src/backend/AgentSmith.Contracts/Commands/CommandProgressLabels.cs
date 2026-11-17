@@ -59,7 +59,7 @@ public static partial class CommandNames
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
-        [InitComplete] = "Completing init pull requests",
+        [InitComplete] = "Completing init pull requests", [CleanupWorkBranches] = "Removing finished branches", // 2026-11-17-713ec
         [GenerateTests] = "Generating tests",
         [GenerateDocs] = "Generating docs",
         [Triage] = "Triaging ticket",

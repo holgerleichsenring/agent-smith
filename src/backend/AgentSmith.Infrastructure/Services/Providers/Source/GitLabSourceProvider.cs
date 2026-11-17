@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -296,6 +296,11 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
         new GitLabMrStateReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ReadAsync(prUrl, cancellationToken);
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitLabMergeRequestClose(_baseUrl, _projectPath, _privateToken, _httpClient).CloseAsync(prUrl, cancellationToken);
 
+    // 2026-11-17-713ec: the branch-cleanup run's reads and delete.
+    private GitLabWorkBranches WorkBranchHost() => new(_baseUrl, _projectPath, _privateToken, _httpClient);
+    public Task<IReadOnlyList<WorkBranchTip>> ListWorkBranchesAsync(CancellationToken ct) => WorkBranchHost().ListWorkBranchesAsync(ct);
+    public Task<BranchPullRequests> PullRequestsOfAsync(string branch, CancellationToken ct) => WorkBranchHost().PullRequestsOfAsync(branch, ct);
+    public Task<bool> DeleteBranchAsync(WorkBranchTip branch, CancellationToken ct) => WorkBranchHost().DeleteBranchAsync(branch, ct);
 
     private const int MaxNotePages = 50;
 

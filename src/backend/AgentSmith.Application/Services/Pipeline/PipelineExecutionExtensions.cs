@@ -51,7 +51,7 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
         services.AddSingleton<IStepDataFlow, CodeDataFlow>(); // p0393
-        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>();
+        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>(); services.AddSingleton<IStepDataFlow, BranchCleanupDataFlow>(); // 2026-11-17-713ec
         services.AddSingleton<IStepDataFlow, SecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, ApiSecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>();

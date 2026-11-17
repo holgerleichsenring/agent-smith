@@ -671,6 +671,15 @@ series:
 preconditions:
   recheck_interval_seconds: 300
 
+# 2026-11-17-713ec: the server starts a branch-cleanup run per project on this interval. It
+# deletes every agent-smith/ branch whose pull request merged or closed and that has not moved
+# since: a person's merge on GitHub or Azure Repos, and every closed pull request, leave the
+# branch behind, and nothing reports either. Under 3600 is refused: each run lists every
+# agent-smith/ branch and its pull requests over the host API, which rate-limits. Defaults shown.
+branch_cleanup:
+  enabled: true
+  interval_seconds: 86400
+
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

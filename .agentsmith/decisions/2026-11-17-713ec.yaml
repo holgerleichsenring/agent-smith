@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-713ec
+
+decisions:
+  - category: Architecture
+    chose: "The cleanup is a pipeline preset, branch-cleanup = [CleanupWorkBranches], started per project by a leader subsystem that only writes the queued row and dispatches"
+    over: "A server sweep that deletes branches itself, as the change sweep reads pull requests"
+    reason: "A branch delete writes to a repository, and the working rule is that such work is a step of a run with a run id; the ServerWritesRatchet would also have refused the server-side write. The run is visible on the dashboard like any other."
+  - category: Architecture
+    chose: "Delete only a branch whose pull request merged or closed, whose head the tip still equals, with no open pull request from or into it; a branch that never had a pull request is kept and counted"
+    over: "Also deleting branches of failed runs that never opened a pull request"
+    reason: "A branch without a pull request may belong to a live or parked run (Stuck, waiting for an answer); telling those apart needs the run state, which the step does not read. The run reports how many it kept for that reason; deleting them is left for a spec that reads the run store."
+  - category: Implementation
+    chose: "No capacity admission for the launch, and the run row keeps trigger 'manual'"
+    over: "Admitting through InitRunAdmission, or a new 'schedule' trigger"
+    reason: "The preset takes no sandbox, so reserving a footprint would only block it when the cluster is full. ExecutePipelineUseCase stamps every ticketless run 'manual' when it starts, so a different word on the queued row would be overwritten."
+  - category: Implementation
+    chose: "branch_cleanup.enabled (default true) and branch_cleanup.interval_seconds (default 86400, under 3600 refused) as a stored settings block like preconditions"
+    over: "Hard-coded daily interval"
+    reason: "A new limit lives in config and its refusal names the value, the reason (host API rate limits) and the key."
+  - category: Implementation
+    chose: "Azure Repos deletes with the listed tip as OldObjectId; GitHub and GitLab delete by name"
+    over: "Re-reading the tip before each delete"
+    reason: "Azure offers a compare-and-delete; the other two do not, and the pull requests were read moments before. A run pushing in between recreates the branch on its next push (the lease refresh handles a deleted remote)."
+  - category: Review
+    chose: "Adversarial self-review: a rung (agent-smith/<parent>) whose slices still have open pull requests must survive; a project sharing a repository with another is swept twice"
+    over: "Ignoring either"
+    reason: "The verdict keeps a branch any open pull request targets. A second sweep of a shared repository finds nothing left to delete; deduplicating across projects was not worth a second key."

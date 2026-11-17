@@ -541,6 +541,11 @@ public sealed class ConfigStudioApiSmokeTests
     public Task ConfigSettings_PreconditionsUnder60_Is400AndNotSaved() =>
         RefusedAndNotSavedAsync("preconditions", """{"recheckIntervalSeconds":30}""", "preconditions.recheck_interval_seconds");
 
+    // 2026-11-17-713ec: a branch-cleanup interval under an hour is refused on save as it is at load.
+    [Fact]
+    public Task ConfigSettings_BranchCleanupUnder3600_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("branch_cleanup", """{"intervalSeconds":60}""", "branch_cleanup.interval_seconds");
+
     private static async Task RefusedAndNotSavedAsync(string type, string body, params string[] fields)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-refused-{Guid.NewGuid():N}.yml");

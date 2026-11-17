@@ -119,7 +119,7 @@ public static class PipelineHandlersExtensions
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
-        services.AddInitProjectHandlers(); // p0490: init commit + cross-link + complete
+        services.AddInitProjectHandlers().AddBranchCleanupHandlers(); // p0490 init tail; 2026-11-17-713ec
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();

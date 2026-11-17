@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly GitHubRepoAddress _address;
     private readonly string _owner;
@@ -312,6 +312,11 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
 
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitHubPullRequestClose(_owner, _repo, CreateGitHubClient()).CloseAsync(prUrl, cancellationToken);
 
+    // 2026-11-17-713ec: the branch-cleanup run's reads and delete.
+    private GitHubWorkBranches WorkBranchHost() => new(_owner, _repo, CreateGitHubClient);
+    public Task<IReadOnlyList<WorkBranchTip>> ListWorkBranchesAsync(CancellationToken ct) => WorkBranchHost().ListWorkBranchesAsync(ct);
+    public Task<BranchPullRequests> PullRequestsOfAsync(string branch, CancellationToken ct) => WorkBranchHost().PullRequestsOfAsync(branch, ct);
+    public Task<bool> DeleteBranchAsync(WorkBranchTip branch, CancellationToken ct) => WorkBranchHost().DeleteBranchAsync(branch, ct);
 
     public async Task<PullRequestHead> HeadAsync(string prNumber, CancellationToken cancellationToken)
     {
