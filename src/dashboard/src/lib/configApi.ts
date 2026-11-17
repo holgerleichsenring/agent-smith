@@ -867,7 +867,8 @@ export type SettingKey =
   | "pipeline_data_flow"
   | "trace"
   | "spec_review"
-  | "series";
+  | "series"
+  | "tickets";
 
 export interface OrchestratorSetting {
   maxRunWallTimeSeconds: number;
@@ -955,6 +956,10 @@ export interface QueueSetting {
 export interface DialogueSetting {
   hotWaitSeconds: number;
   approvalTimeoutSeconds: number;
+  /** 2026-11-17-f9b0c: the design conversation's mock caps. */
+  mockMaxChars: number;
+  mockVersionsPerSpec: number;
+  mockVersionsPerConversation: number;
 }
 
 export interface DeploymentSetting {
@@ -993,6 +998,12 @@ export interface SpecReviewSetting {
   budgetSharePercent: number;
   /** 2026-11-12-cd4ch: one advisory review pass after a design turn; 2026-11-12-7c1c: on by default. */
   designTurn?: boolean;
+  /** 2026-11-17-f9b0b: the fewest looks one attack reviewer gets. */
+  attackLookFloor: number;
+  /** 2026-11-17-f9b0b: the file reads one entered spec's citations are re-grounded against. */
+  regroundReadBudget: number;
+  /** 2026-11-17-f9b0b: the characters of members the series-contract reviewer is shown whole. */
+  seriesContractMaxChars: number;
 }
 
 /** A ticket's spec series and its automatic continuation (agentsmith.yml series:). */
@@ -1003,6 +1014,19 @@ export interface SeriesSetting {
   budgetUsd: number;
   wallClockHours: number;
   continueAfterWallTime: boolean;
+  /** 2026-11-17-f9b0c: the characters of earlier specs' build notes the next spec is shown. */
+  buildNoteMaxChars: number;
+}
+
+/** 2026-11-17-f9b0d: requires links, dependents wake and the pull-request re-read (agentsmith.yml tickets:). */
+export interface TicketsSetting {
+  requiresLinkDeadlineSeconds: number;
+  dependentsWakeWindowHours: number;
+  dependentsWakeCap: number;
+  prRereadIntervalSeconds: number;
+  prRereadStaleSeconds: number;
+  prRereadOpenCap: number;
+  prRereadMergedCap: number;
 }
 
 /** Maps each settings key to its wire shape. */
@@ -1021,6 +1045,7 @@ export interface SettingShapes {
   trace: TraceSetting;
   spec_review: SpecReviewSetting;
   series: SeriesSetting;
+  tickets: TicketsSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

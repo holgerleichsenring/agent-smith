@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// needs a person only when <see cref="RunQueuePlace"/> gives it no place — the gate the runs
 /// list and the run detail share — so the ticket list never says needs-you while the runs page
 /// says queued to resume.
-/// <para>Precedence is needs_you > working > closed > waiting_on_review > done > closed (tracker) > stuck > pr_closed > failed > idle;
+/// <para>Precedence is needs_you > working > closed > waiting_on_review > done > closed (tracker) > stuck > pr_closed > failed (or cancelled) > done (delivered, no pull request) > idle;
 /// the pull requests' records decide waiting on review, done and the landing every arm carries.</para>
 /// <para>2026-10-13-9a59h: stuck is the stuck rule's observation, passed in — never assumed here. A landed
 /// merge outranks it: a person merged what the failed attempt opened.</para>
@@ -22,10 +22,14 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <para>2026-10-16-7ed3a: an open pull request answers waiting on review only while the newest attempt did not fail;
 /// a failed head carries its open pull requests into stuck or failed, and a tracker close does not hide them.</para>
 /// <para>2026-11-16-f3fbb: a failed head whose end kind is a precondition is stuck by itself, whatever the check saw.</para>
+/// <para>2026-11-17-f9b0a (contract Q2, ratified by the operator 2026-11-17): a cancelled head is failed, and a delivered
+/// head that reaches the ended arms — no pull request open, merged or closed for it — is done at its end; idle keeps
+/// only what ended neither way.</para>
 /// </summary>
 public sealed class TicketBucketRule
 {
     private const string Running = "running";
+    private const string Cancelled = "cancelled";
 
     public TicketBucketState Of(
         Run newest, TicketLiveState live, IReadOnlyList<TicketPullRequestView> pullRequests, bool stuck = false,
@@ -66,7 +70,8 @@ public sealed class TicketBucketRule
         var held = newest.Status == RunStatuses.Failed && RunEndKinds.IsPrecondition(newest.EndKind);
         var bucket = stuck || held ? TicketBucket.Stuck
             : landing == TicketLanding.Unmerged ? TicketBucket.PrClosed
-            : newest.Status == RunStatuses.Failed ? TicketBucket.Failed
+            : newest.Status is RunStatuses.Failed or Cancelled ? TicketBucket.Failed
+            : RunStatuses.IsDelivered(newest.Status) ? TicketBucket.Done
             : TicketBucket.Idle;
         return new(bucket, null, newest.FinishedAt, newest.Status, null, null, landing);
     }

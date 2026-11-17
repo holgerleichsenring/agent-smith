@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Specs.Review;
@@ -25,7 +26,7 @@ public sealed class ProposalSeriesRound(
         if (Settled(session, epic) is { } settled) return outcome with { Rounds = [.. outcome.Rounds, .. settled] };
         var turn = session.Turn;
         var spent = session.CostCapReached();
-        var review = spent is not null ? SeriesContractReview.Failed(spent) : await ReviewAsync(turn, epic, contract, ct);
+        var review = spent is not null ? SeriesContractReview.Failed(spent) : await ReviewAsync(turn, epic, contract, session.Settings.Review, ct);
         var parent = epic.Parent.SpecId;
         if (review.Result is not { } result)
         {
@@ -56,13 +57,14 @@ public sealed class ProposalSeriesRound(
             : null;
 
     private async Task<SeriesContractReview> ReviewAsync(
-        ProposalTurn turn, EpicOutcome epic, Contracts.Specs.SeriesContract contract, CancellationToken ct)
+        ProposalTurn turn, EpicOutcome epic, Contracts.Specs.SeriesContract contract, SpecReviewConfig config, CancellationToken ct)
     {
-        var input = new SeriesContractInput(contract, [.. epic.Children.Select(child => new SeriesContractMember(child))], InRun: false)
+        var input = new SeriesContractInput(
+            contract, [.. epic.Children.Select(child => new SeriesContractMember(child))], InRun: false, config.SeriesContractMaxChars)
         {
             RepositoryNames = SpecReviewRepositories.Names(turn.Pipeline),
         };
-        await using var look = looks.ForProposalAttack(turn.Pipeline, epic.Parent);
+        await using var look = looks.ForProposalAttack(turn.Pipeline, epic.Parent, config.AttackLookFloor);
         return await reviewer.ReviewAsync(input, look, turn.Agent, turn.CostTracker, ct);
     }
 

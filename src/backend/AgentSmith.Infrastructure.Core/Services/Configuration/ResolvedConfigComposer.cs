@@ -36,6 +36,7 @@ public sealed class ResolvedConfigComposer
             PipelineCostCap = raw.PipelineCostCap,
             SpecReview = raw.SpecReview, Series = raw.Series, // 2026-10-13-8762g, 8762u
             Preconditions = raw.Preconditions, BranchCleanup = raw.BranchCleanup, // 2026-11-16-f3fbc, 2026-11-17-713ec
+            Tickets = raw.Tickets, // 2026-11-17-f9b0d
         };
 
     private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)

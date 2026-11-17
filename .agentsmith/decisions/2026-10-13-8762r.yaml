@@ -34,7 +34,7 @@ decisions:
     over: "Serving the html inline or opening it in an iframe"
     reason: "Served from this origin the model's HTML would run as the dashboard; the precedent is SpecDialogReferenceFileEndpoints.ContentAsync. The route template carries ':int' so a non-number version is a 404 before the handler."
   - category: Defaults
-    chose: "Caps 90 000 characters per mock, 20 versions per spec, 100 versions per conversation, each refusal naming its cap — default, pending operator ratification"
+    chose: "Caps 90 000 characters per mock, 20 versions per spec, 100 versions per conversation, each refusal naming its cap — default, ratified by the operator 2026-11-17: the same caps moved to dialogue: (2026-11-17-f9b0c), the compare stays a finding"
     over: "No caps, or the 100 000-character tool-result bound itself"
     reason: "Every tool result is cut to 100 000 characters keeping head and tail; a mock at 90 000 plus read_mock's one header line reads back whole (ReadMock_MockAtTheCap_ReadsBackWhole). Mock rows are outside the upload byte cap, so without the conversation cap invented spec ids would store without bound."
   - category: UI

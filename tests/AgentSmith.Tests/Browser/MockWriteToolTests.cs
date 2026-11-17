@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using System.Net;
 using System.Text;
 using AgentSmith.Application.Services.Browser;
@@ -107,8 +108,9 @@ public sealed class MockWriteToolTests
     [Fact]
     public async Task ReadMock_MockAtTheCap_ReadsBackWhole()
     {
-        var html = "<p>" + new string('x', IConversationMocks.MaxChars - 7) + "</p>";
-        html.Length.Should().Be(IConversationMocks.MaxChars);
+        var cap = new DialogueGlobalConfig().MockMaxChars;
+        var html = "<p>" + new string('x', cap - 7) + "</p>";
+        html.Length.Should().Be(cap);
         await _mocks.AddAsync(BrowserRenderFixture.Conversation, "spec-a", html, default);
         var read = new AgentSmith.Application.Services.Loop.BoundedResultAIFunction(
             Host().GetTools(null, null).Single(t => t.Name == "read_mock"));

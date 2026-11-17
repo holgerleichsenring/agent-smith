@@ -14,28 +14,28 @@ decisions:
     chose: "Refuse a close exactly when the bucket rule's Done arm would answer (records merged, else the stored landing, and the newest attempt started no later)"
     over: "Refusing on any stored landing, or on the stored landing only"
     reason: |
-      Contract default 3 (amended r1), pending operator ratification. A stored landing alone would refuse a ticket
+      Contract default 3 (amended r1), ratified by the operator 2026-11-17: as built. A stored landing alone would refuse a ticket
       re-worked after a merge, which the list shows as not Done; the landing row alone would accept a ticket whose
       records already read merged before the refresh wrote the row.
   - category: Architecture
     chose: "With 'also close its pull requests', any merged pull request of the ticket answers 409 and nothing is closed"
     over: "Closing the open rest"
     reason: |
-      Contract default 19, pending operator ratification. Closing the rest makes every record ended with one
+      Contract default 19, ratified by the operator 2026-11-17: as built. Closing the rest makes every record ended with one
       merged, which the refresh writes as a Merged landing that wakes every dependent — a close must never turn
       into a landing.
   - category: Architecture
     chose: "The host acts run first, the mark is always written after them on CancellationToken.None, and lists only what actually closed"
     over: "Stopping on the first refused host call, or writing the mark before the hosts"
     reason: |
-      Contract defaults 6 and 7, pending operator ratification. A refused pull request does not undo the person's
+      Contract defaults 6 and 7, ratified by the operator 2026-11-17: as built. A refused pull request does not undo the person's
       decision to stop; the 200 answer names each failure by a class (unsupported, refused, already-closed or a
       read class), never the host's text.
   - category: Architecture
     chose: "Every pull-request URL the ticket's code runs named is answered once; a record already closed answers already-closed and is not tried"
     over: "Closing only the open records"
     reason: |
-      Contract default 20, pending operator ratification. The records miss an unread pull request that may still be
+      Contract default 20, ratified by the operator 2026-11-17: as built. The records miss an unread pull request that may still be
       open and one the refresh has not recorded yet; reading the named URLs as the refresh does lets the answer
       name every pull request, so nobody believes one closed that was skipped.
   - category: Architecture
@@ -62,7 +62,7 @@ decisions:
     chose: "RequirementsMetStart holds and the DependentsWake recovery skips a never-run ticket with a close mark"
     over: "Cancelling queued nudges or series continuations on close"
     reason: |
-      Contract defaults 18 and 21, pending operator ratification. A Blocked filing a person closed would otherwise be
+      Contract defaults 18 and 21, ratified by the operator 2026-11-17: as built. A Blocked filing a person closed would otherwise be
       tagged, moved and spawned once its requirement landed. A queued nudge or a run end's continuation is not
       cancelled: what it starts is a new attempt, which by the operator's rule brings the ticket back.
   - category: Architecture

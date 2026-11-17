@@ -43,7 +43,7 @@ scope:
     asks for a checker.
 
 decisions:
-  - key: "THE REVIEW CUTS IT; THE GREP SCOPE STAYS. Adding .agentsmith to GrepScope would hide specs and run records from the design partner, which must read them. The lens is the one place every attack reviewer reads, run time and design turn alike, so one sentence there turns every whole-tree absence criterion into a cut. Contract section 5 default 3 (default, pending operator ratification)."
+  - key: "THE REVIEW CUTS IT; THE GREP SCOPE STAYS. Adding .agentsmith to GrepScope would hide specs and run records from the design partner, which must read them. The lens is the one place every attack reviewer reads, run time and design turn alike, so one sentence there turns every whole-tree absence criterion into a cut. Contract section 5 default 3 (default, ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b))."
   - key: "THE CUT RESTS ON A FILE THAT HOLDS X TODAY. Admission drops a cut without an own read at a returned line (SpecAttackAdmission.cs:46-48), and the design-turn look cannot read the draft spec (DerivationLookFactory.cs:100-107); a file holding X must exist because the criterion asks for X's removal, so the lens names that read."
   - key: "THE SCOPE IS .agentsmith/, NOT .agentsmith/specs/. The committed spec is the first file that quotes X, but decisions and run records under the same root quote it too; the criterion is scoped to the whole methodology directory, spelled from ProjectMetaPaths.Root rather than SeriesPaths.SpecsRoot. DEVIATION (wider): contract section 1 row c names SeriesPaths.SpecsRoot as the reason; the sentence names the whole root."
 

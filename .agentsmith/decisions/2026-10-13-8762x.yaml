@@ -7,7 +7,7 @@ decisions:
     over: "An earlier release after 8762k so live design turns emit contract: sooner"
     reason: |
       Contract decision 22: the pin moves once and no member waits mid-series on an operator merge.
-      Default, pending operator ratification.
+      Default, ratified by the operator 2026-11-17: moot, shipped long ago and the pins have moved since.
   - category: Process
     chose: "DEVIATION: x cut the skills branch fresh from origin/main (f9655e8, release 5.15.1) and applied all 13 member sentences itself, in one commit"
     over: "Rebasing a skills branch carrying the members' own commits, as the spec's assumption describes"
@@ -22,7 +22,7 @@ decisions:
     over: "A bump per member edit"
     reason: |
       Five members edited design-partner-master on one unreleased branch; a bump each would leave a version
-      history naming nothing that shipped. Main-thread decision 16. Default, pending operator ratification.
+      history naming nothing that shipped. Main-thread decision 16. Default, ratified by the operator 2026-11-17: moot, shipped long ago and the pins have moved since.
   - category: Implementation
     chose: "Each sentence sits on ONE line of its master, placed beside its siblings: 8762r as a list bullet after **A design mock.**; 8762j design-partner as a Rules bullet after the first rule of ## Proposing an epic; 8762j spec-derivation as its own paragraph after the JSON shape and the question hand-back example; 8762i as its own paragraph after the outcome list; 8762m directly under ## Your verdict; 8762o design-partner as a bullet after the ask_human bullet; 8762u's spec-derivation sentence rejoined onto one line"
     over: "Wrapping the sentences across lines like the surrounding prose"

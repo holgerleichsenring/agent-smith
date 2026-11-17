@@ -141,7 +141,7 @@ public sealed class SpecBuildNoteTests
 
         var bare = Pipeline(executed: [First], withThird: true);
         PrecedingSpecs.NotesOf(bare, Second).Single().Note.Should().BeNull("no context note and no record note");
-        SpecBuildNoteSection.Render(PrecedingSpecs.NotesOf(bare, Second)).Should().Contain(SpecBuildNoteSection.NoNote);
+        SpecBuildNoteSection.Render(PrecedingSpecs.NotesOf(bare, Second), 8000).Should().Contain(SpecBuildNoteSection.NoNote);
     }
 
     [Fact]
@@ -151,12 +151,13 @@ public sealed class SpecBuildNoteTests
             $"2026-10-14-000{i}", $".agentsmith/specs/done/2026-10-14-000{i}-x.yaml",
             new SpecBuildNote($"2026-10-14-000{i}", [], [], [], [new string((char)('a' + i), 250)]))).ToList();
 
-        var text = SpecBuildNoteSection.Render(notes, maxChars: 700);
+        var text = SpecBuildNoteSection.Render(notes, 1000);
 
-        text.Length.Should().BeLessThanOrEqualTo(700);
+        text.Length.Should().BeLessThanOrEqualTo(1000);
         text.Should().Contain("### 2026-10-14-0005").And.NotContain("### 2026-10-14-0001");
-        text.Should().Contain("2026-10-14-0001 (.agentsmith/specs/done/2026-10-14-0001-x.yaml)");
-        SpecBuildNoteSection.Render(notes).Should().NotContain("Dropped", "five short notes fit the default bound");
+        text.Should().Contain("2026-10-14-0001 (.agentsmith/specs/done/2026-10-14-0001-x.yaml)")
+            .And.Contain("series.build_note_max_chars = 1000 characters", "2026-11-17-f9b0c: the cut names its key");
+        SpecBuildNoteSection.Render(notes, 8000).Should().NotContain("Dropped", "five short notes fit the default bound");
     }
 
     [Fact]
@@ -169,7 +170,7 @@ public sealed class SpecBuildNoteTests
         pipeline.Set(ContextKeys.CurrentSpec, Draft(Second));
         pipeline.Set(ContextKeys.MemoryIndex, "- [bus-name](bus-name.md) — the bus is MessageBus now");
 
-        var prompt = new SpecExecutionPromptFactory().Build(pipeline,
+        var prompt = new SpecExecutionPromptFactory(new LoaderSeriesSettingsReader()).Build(pipeline,
             new Ticket(new TicketId("7"), "t", "d", null, "open", "test"),
             new Repository(new BranchName("main"), "https://example.test/shop.git"), ["shop"], string.Empty, string.Empty);
 

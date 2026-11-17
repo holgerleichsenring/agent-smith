@@ -18,7 +18,7 @@ decisions:
     reason: |
       The operator asked for the overrule act first. The only overrule path is CriterionJudgementControl, which is a
       label by design (2026-08-25-e257): it does not re-open the gate. The act says so, and the series report asks the
-      operator to confirm a label as the primary act or to spec an act that makes an overruled criterion count.
+      operator to confirm a label as the primary act or to spec an act that makes an overruled criterion count. Ratified by the operator 2026-11-17: the label is kept, an act that makes an overruled criterion count would be its own spec.
   - category: Architecture
     chose: "The header loses its 'attempt n <status>' part, its primary Continue button and, for run-bearing tickets, the closed line"
     over: "Keeping them beside the block"

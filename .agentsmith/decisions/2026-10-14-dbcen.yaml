@@ -3,10 +3,10 @@ spec: 2026-10-14-dbcen
 
 decisions:
   - category: Scope
-    chose: "The mock's four sections (list-buckets, graph-view, never-run-page, done-by-hand) were appended to ticket-graph.html FIRST, before any code, each with a footer line naming the endpoint it reads; the code was then built per the mock without waiting (default, pending operator ratification)"
+    chose: "The mock's four sections (list-buckets, graph-view, never-run-page, done-by-hand) were appended to ticket-graph.html FIRST, before any code, each with a footer line naming the endpoint it reads; the code was then built per the mock without waiting (default, ratified by the operator 2026-11-17: moot, already done)"
     over: "Waiting for the operator to ratify the mock before the backend steps"
     reason: |
-      The operator said build; the ratification is contract section 5 default 27, pending operator ratification.
+      The operator said build; the ratification is contract section 5 default 27, ratified by the operator 2026-11-17: moot, already done.
       The mock-parity test reads design/mockups/ticket-graph.html and fails when a class the product draws for these
       surfaces is missing from it, so the commit ships the mock and the page that renders it together.
   - category: Architecture
@@ -29,7 +29,7 @@ decisions:
       The spec allows 'title (else the key)'; the list reads no tracker (TicketListReader's own rule) and the filing
       records are already parsed once through SpecApprovalJson.Read.
   - category: Implementation
-    chose: "Never-run rows lead page one ON TOP of the run page, so the first page can hold more rows than the page size; the cursor and NextCursor stay over the run rows (default, pending operator ratification)"
+    chose: "Never-run rows lead page one ON TOP of the run page, so the first page can hold more rows than the page size; the cursor and NextCursor stay over the run rows (default, ratified by the operator 2026-11-17: moot, overtaken by the ticket-page restructuring that owns these looks (6877a and after))"
     over: "Shrinking the run page by the number of never-run rows"
     reason: |
       Shrinking would make the run page depend on a second id space, the seam the spec's decision avoids; blocked and
@@ -58,7 +58,7 @@ decisions:
     over: "Hiding the two buckets from the rail"
     reason: "The rail mirrors TICKET_BUCKETS, and totalTickets sums all eight counts, so the rail total and the sections agree."
   - category: Implementation
-    chose: "'Filed, no run on record' copy, the List | Graph switch as ?view=graph on /tickets, a never-run done row only under the done filter, and By shown as stored are BUILT as the spec states them (defaults, pending operator ratification)"
+    chose: "'Filed, no run on record' copy, the List | Graph switch as ?view=graph on /tickets, a never-run done row only under the done filter, and By shown as stored are BUILT as the spec states them (defaults, ratified by the operator 2026-11-17: moot, overtaken by the ticket-page restructuring that owns these looks (6877a and after))"
     over: "A 'not started' wording, a /tickets/graph route, or a read-time name lookup"
     reason: "Contract section 5 defaults 21, 22, 33 and the spec's decisions; recorded here so the ratification has one place to point at."
   - category: TradeOff

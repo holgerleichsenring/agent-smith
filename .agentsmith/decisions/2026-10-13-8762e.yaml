@@ -6,7 +6,7 @@ decisions:
     chose: "The attack brief is the spec-first plugin's line 31 (skills/review-spec/SKILL.md at 965aa65), verbatim, as SpecAttackPrompt.Brief in code"
     over: "A skill carrying the brief, or a paraphrase"
     reason: |
-      Contract decision 7 (default, pending operator ratification): no skills release mid-series, and a
+      Contract decision 7 (default, ratified by the operator 2026-11-17: moot, shipped long ago and the pins have moved since): no skills release mid-series, and a
       paraphrase would be a second brief to drift from the one the supervised session ran. A test pins the
       constant against the plugin's sentence.
   - category: Architecture
@@ -62,7 +62,7 @@ decisions:
     chose: "DerivationLookTerms.AttackReview (actor 'attack review', letter A, numbered reads, no stage, floor 24) and AttackReviewFor(draft) = max(24, distinct cited paths + 12); the counting lives in Review/SpecCitations"
     over: "A flat allowance of 12"
     reason: |
-      Default, pending operator ratification (contract section 5 default 13). The brief says open every cited
+      Default, ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b) (contract section 5 default 13). The brief says open every cited
       file and follow fields to their sinks; members of this series cite 23-44 files. The count is
       (qualifier, path) pairs over every fact's references. It lives outside DerivationLookTerms because the
       file had a 104-line budget (now exactly 104).

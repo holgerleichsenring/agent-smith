@@ -9,7 +9,7 @@ decisions:
   - category: API
     chose: "POST /api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify body {version}, dialog.write, in 8762r's SpecDialogMockEndpoints; MockRatification answers 404 for an unreachable conversation, 404 naming the version when ListAsync does not hold it, 409 only while Liveness(sessionId).Computing, and never takes the turn gate"
     over: "TryEnter/Exit on the turn gate (409 on the replica running the turn during the approval wait, 200 on any other)"
-    reason: "Series main-thread decision 10. The gate stays entered across the approval wait, which is exactly when the proposal is on screen; computing is the span of real work. Default, pending operator ratification (contract section 5 default 60)."
+    reason: "Series main-thread decision 10. The gate stays entered across the approval wait, which is exactly when the proposal is on screen; computing is the span of real work. Default, ratified by the operator 2026-11-17: the same caps moved to dialogue: (2026-11-17-f9b0c), the compare stays a finding (contract section 5 default 60)."
   - category: Architecture
     chose: "SpecDialogSessionRepository.GetOpenByThreadAsync re-reads a found row with unitOfWork.Update(open).ReloadAsync(ct) (119 -> 120 lines); the manager is untouched"
     over: "Reloading only in the manager's two transcript writers (manager at 120/120); a new repository method (repository at 127); AsNoTracking reads (every writer would save nothing)"
@@ -37,7 +37,7 @@ decisions:
   - category: Behaviour
     chose: "THE COMPARE IS A FINDING. RatifiedMockReview resolves the ratified mock (the set's DerivedSpec by id, {id}-mock-v{n}.html in MockPaths) and candidates (every .html in the diff outside .agentsmith/, repository-qualified); with both and the browser, the reviewer gets RenderReferenceToolFactory.Tools(pipeline, false), MaxIterations + 3 and the SpecReview terms with Allowance + 1, taken on the existing OnTerms line"
     over: "A verify stage that fails the spec on a pixel difference"
-    reason: "Default, pending operator ratification (contract decision 21): a pixel or style difference is judgement and rides the diff review's one fix pass. The admission keeps only findings on a read line, so the prompt asks for that read and the allowance pays for it."
+    reason: "Default, ratified by the operator 2026-11-17: the same caps moved to dialogue: (2026-11-17-f9b0c), the compare stays a finding (contract decision 21): a pixel or style difference is judgement and rides the diff review's one fix pass. The admission keeps only findings on a read line, so the prompt asks for that read and the allowance pays for it."
   - category: Behaviour
     chose: "The step result says why no compare happened: 'not beside the spec', 'the spec built no static page', 'the run has no browser', or 'offered, not compared' when no comparison was recorded (VisualComparisonRecorder.Recorded counted before and after)"
     over: "Counting an offer as a compare"

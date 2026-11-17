@@ -3,13 +3,13 @@ spec: 2026-10-14-dbcej
 
 decisions:
   - category: Architecture
-    chose: "A list proposal carries ticket TEXTS (key, title, requirement, done, requires, repos) and no spec; each ticket's run derives its specs at start (main-thread decision D1, default pending operator ratification)"
+    chose: "A list proposal carries ticket TEXTS (key, title, requirement, done, requires, repos) and no spec; each ticket's run derives its specs at start (main-thread decision D1, default ratified by the operator 2026-11-17: moot, specs are the truth and TicketGraphLimits is gone (cd4cc/cd4cd))"
     over: "A graph of tickets each holding full spec mappings"
     reason: |
       The design reply is capped at 8192 output tokens; twenty tickets of full specs cannot fit, and a run that derives
       against the code merged when it starts reads a truer base than a spec written weeks earlier.
   - category: Architecture
-    chose: "TicketGraphLimits as code constants: 2..20 tickets, title 120, requirement 1200, 1..8 done items of 240 (contract section 5 defaults 12, 13, 14, 25, 29, pending operator ratification)"
+    chose: "TicketGraphLimits as code constants: 2..20 tickets, title 120, requirement 1200, 1..8 done items of 240 (contract section 5 defaults 12, 13, 14, 25, 29, ratified by the operator 2026-11-17: moot, specs are the truth and TicketGraphLimits is gone (cd4cc/cd4cd))"
     over: "Configurable caps and bounds"
     reason: |
       The committed 20-ticket fixture measures 21,175 characters for its outcome block, pinned at or under 24,000 by

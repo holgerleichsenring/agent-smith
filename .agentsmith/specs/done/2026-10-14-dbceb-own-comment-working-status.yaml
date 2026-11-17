@@ -53,7 +53,7 @@ scope:
     "Agent Smith —". The AzDO "Wait for author" vote by the creator identity — 2026-10-14-dbcee.
 
 decisions:
-  - key: "OURS BY TEXT, IN THE FORM EVERY READER ALREADY KNOWS. The working comment is reworded into the 'Agent Smith —' form rather than adding a sixth unrelated marker, so one marker family covers every comment we post. Contract decision 14 and section 5 default 2 (default, pending operator ratification)."
+  - key: "OURS BY TEXT, IN THE FORM EVERY READER ALREADY KNOWS. The working comment is reworded into the 'Agent Smith —' form rather than adding a sixth unrelated marker, so one marker family covers every comment we post. Contract decision 14 and section 5 default 2 (default, ratified by the operator 2026-11-17: all as shipped)."
   - key: "THE OLD TEXT STAYS A MARKER. Without it, every ticket that already carries the old working comment keeps the loop until a new comment is posted; the marker is the substring 'Agent Smith is working on this issue', which a person's reply does not contain unless it quotes ours."
   - key: "THE GUARD PINS PipelineErrorHandler's LITERALS, NOT EVERY POSTER. The other UpdateStatusAsync / FinalizeAsync texts already carry 'Agent Smith —'; a guard over every poster in the code base would be a new mechanism this defect does not need (no over-engineering). Accepted gap: a future poster that drops the marker is caught only by its own test."
   - key: "THE CONSTANT LIVES IN OwnTicketComment. Placing it beside the markers lets one test assert IsOurs over every literal PipelineErrorHandler posts, and keeps PipelineErrorHandler at net zero (contract section 4)."

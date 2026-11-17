@@ -49,7 +49,7 @@ public sealed class SpecReviewPanelTests
         answers.Should().HaveCount(3).And.OnlyContain(a => a != null);
         peak.Should().Be(2, "two reviewers ran together and the third waited for a slot");
         looks.Should().HaveCount(3).And.OnlyHaveUniqueItems().And.NotContainNulls();
-        looks.Should().OnlyContain(l => l!.Terms.Allowance == DerivationLookTerms.AttackReviewFor(Input().Draft).Allowance);
+        looks.Should().OnlyContain(l => l!.Terms.Allowance == DerivationLookTerms.AttackReviewFor(Input().Draft, 24).Allowance);
     }
 
     [Fact]

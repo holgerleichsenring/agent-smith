@@ -17,9 +17,9 @@ public sealed class SeriesContractRound(
     ISeriesContractReviewer reviewer, DerivationLookFactory looks, ISpecCutReviser reviser, SpecCutResidues residues,
     SpecReviewRevision revision, SpecReviewRoundPublisher rounds, SpecReviewLoop loop)
 {
-    /// <summary>The run look: cleared members plus 12 looks, never below 8762e's 24.</summary>
-    public static DerivationLookTerms Terms(int cleared) =>
-        DerivationLookTerms.AttackReview with { Allowance = Math.Max(DerivationLookTerms.AttackReview.Allowance, cleared + 12) };
+    /// <summary>The run look: cleared members plus 12 looks, never below spec_review.attack_look_floor.</summary>
+    public static DerivationLookTerms Terms(int cleared, int floor) =>
+        DerivationLookTerms.AttackReviewWith(Math.Max(floor, cleared + 12));
 
     /// <param name="reviewed">The specs 8762g's loop reviewed in this attempt.</param>
     /// <param name="contractClean">2026-11-10-8e59: a review ended clean on exactly this contract.</param>
@@ -33,12 +33,13 @@ public sealed class SeriesContractRound(
         if (SeriesRoundScope.Skip(set, prefix, reviewed, contractClean) is { } skip) return new($"series contract round skipped: {skip}");
         var tracker = PipelineCostTracker.GetOrCreate(run.Pipeline);
         if (tracker.IsBudgetExhausted) return NotTaken(prefix, CostCapStop.Describe(tracker), contractClean);
-        var input = new SeriesContractInput(set.Contract!, SeriesRoundScope.Members(set, prefix), InRun: true, run.QuestionPin)
+        var input = new SeriesContractInput(
+            set.Contract!, SeriesRoundScope.Members(set, prefix), InRun: true, run.Settings.Review.SeriesContractMaxChars, run.QuestionPin)
         {
             RepositoryNames = SpecReviewRepositories.Names(run.Pipeline),
         };
         SeriesContractReview review;
-        await using (var look = looks.OnTerms(run.Pipeline, Terms(prefix.Count)))
+        await using (var look = looks.OnTerms(run.Pipeline, Terms(prefix.Count, run.Settings.Review.AttackLookFloor)))
             review = await reviewer.ReviewAsync(input, look, run.Agent, tracker, ct);
         if (review.Result is not { } result) return NotTaken(prefix, review.NotTaken ?? "no answer", contractClean);
         var split = SeriesRoundScope.Split(result, set, prefix, reviewed);

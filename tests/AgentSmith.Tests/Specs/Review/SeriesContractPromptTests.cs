@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -39,12 +40,13 @@ public sealed class SeriesContractPromptTests
                 .Replace("decisions:\n", "decisions:\n" + padding + "\n", StringComparison.Ordinal);
             return new SeriesContractMember(new SpecDraft(id, "goal", yaml, []), SeriesContractMember.Cleared);
         }).ToList();
-        members.Sum(m => m.Draft.Yaml.Length).Should().BeGreaterThan(SeriesContractPrompt.MaxMembersChars, "the set does not fit whole");
+        var cap = new SpecReviewConfig().SeriesContractMaxChars;
+        members.Sum(m => m.Draft.Yaml.Length).Should().BeGreaterThan(cap, "the set does not fit whole");
 
         var prompt = SeriesContractPrompt.For(Input() with { Members = members }, look: null);
 
-        prompt.Length.Should().BeLessThanOrEqualTo(SeriesContractPrompt.MaxMembersChars);
-        prompt.Should().Contain("Shown in part");
+        prompt.Length.Should().BeLessThanOrEqualTo(cap);
+        prompt.Should().Contain($"Shown in part").And.Contain($"spec_review.series_contract_max_chars = {cap} characters");
         members.Should().AllSatisfy(m => prompt.Should().Contain($"### {m.Draft.SpecId} (cleared)"));
         prompt.Should().Contain("export file", "a done line naming a contract datum is kept when shown in part");
     }

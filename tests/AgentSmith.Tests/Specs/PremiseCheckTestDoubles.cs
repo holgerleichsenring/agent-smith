@@ -113,6 +113,7 @@ internal static class PremiseCheckTestDoubles
             new SpecPremiseChecker(
                 new CutReviewTestDoubles.CappingFactory(provider),
                 new Application.Services.Events.AsyncLocalRunContextAccessor(),
+                new LoaderSeriesSettingsReader(),
                 NullLogger<SpecPremiseChecker>.Instance),
             Factory(),
             progress,

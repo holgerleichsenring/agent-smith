@@ -23,6 +23,18 @@ public sealed class SpecReviewConfig
     /// 2026-11-12-7c1c: on by default.</summary>
     public bool DesignTurn { get; set; } = true;
 
+    /// <summary>2026-11-17-f9b0b: the fewest looks one attack reviewer gets; a spec citing many paths gets its
+    /// distinct cited paths plus 12 instead. Ratified 24 by the operator 2026-11-17.</summary>
+    public int AttackLookFloor { get; set; } = 24;
+
+    /// <summary>2026-11-17-f9b0b: the distinct (repository, path) pairs, each candidate read counted as one more, one
+    /// entered spec's citations are re-grounded against; a citation past it is left unchecked.</summary>
+    public int RegroundReadBudget { get; set; } = 24;
+
+    /// <summary>2026-11-17-f9b0b: the characters of members the series-contract reviewer is shown whole; past it a
+    /// member is shown in part.</summary>
+    public int SeriesContractMaxChars { get; set; } = 60_000;
+
     /// <summary>What is wrong with these values, one sentence each; empty when nothing is. The ONE rule —
     /// a run refuses what this names, never clamping it.</summary>
     public IReadOnlyList<string> Problems()
@@ -33,6 +45,10 @@ public sealed class SpecReviewConfig
         if (MaxConcurrent < 1) problems.Add($"spec_review.max_concurrent is {MaxConcurrent}; it must be 1 or more");
         if (BudgetSharePercent is < 1 or > 100)
             problems.Add($"spec_review.budget_share_percent is {BudgetSharePercent}; it must be between 1 and 100");
+        if (AttackLookFloor < 1) problems.Add($"spec_review.attack_look_floor is {AttackLookFloor}; it must be 1 or more");
+        if (RegroundReadBudget < 1) problems.Add($"spec_review.reground_read_budget is {RegroundReadBudget}; it must be 1 or more");
+        if (SeriesContractMaxChars < 1)
+            problems.Add($"spec_review.series_contract_max_chars is {SeriesContractMaxChars}; it must be 1 or more");
         return problems;
     }
 }

@@ -148,4 +148,24 @@ describe("ticketState", () => {
       expect(view.act).toBeNull();
     }
   });
+
+  // 2026-11-17-f9b0a: the operator's answer to contract Q2.
+  it("ticketState_CancelledHeadInFailed_SaysCancelled", () => {
+    const view = state(failedTicket({ status: "cancelled" }));
+    expect(view.pill).toBe("Cancelled");
+    expect(view.sentence).toBe("Attempt 2 was cancelled.");
+    expect(view.act).toEqual(CONTINUE);
+  });
+
+  it("ticketState_DoneWithoutPullRequest_NamesTheAttempt", () => {
+    const d = detail([attempt({ status: "success" })]);
+    d.summary = { ...d.summary, bucket: "done", pullRequests: [] };
+    expect(state(d).sentence).toBe("Done — attempt 1 finished without a pull request.");
+  });
+
+  it("ticketState_DoneWithMergedPullRequest_SaysMerged", () => {
+    const d = detail([attempt({ status: "success" })]);
+    d.summary = { ...d.summary, bucket: "done", pullRequests: [pr()] };
+    expect(state(d).sentence).toBe("Done — the pull requests are merged.");
+  });
 });

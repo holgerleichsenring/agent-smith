@@ -6,13 +6,11 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// <summary>
 /// 2026-10-13-8762k: what the one fresh series-contract reviewer is asked — whether the members of a set keep the
 /// contract they agreed on. The brief is in code: no skills release mid-series. Members are rendered whole while
-/// the prompt stays under <see cref="MaxMembersChars"/>; past that each is shown in part — its goal, scope and
+/// the prompt stays under the input's MaxChars (spec_review.series_contract_max_chars, 2026-11-17-f9b0b); past that each is shown in part — its goal, scope and
 /// steps, and every fact and done line naming a path, name or datum of the contract — and the prompt says which.
 /// </summary>
 public static class SeriesContractPrompt
 {
-    public const int MaxMembersChars = 60_000;
-
     public const string Brief =
         "Check this series against its contract before any more of it is built. For every member ask: does it "
         + "mint a name, number or table the contract gives another member or does not list; persist a datum "
@@ -48,7 +46,7 @@ public static class SeriesContractPrompt
             ## The members
 
             """;
-        return head + SeriesContractMembers.Render(input, MaxMembersChars - head.Length);
+        return head + SeriesContractMembers.Render(input, input.MaxChars - head.Length);
     }
 
     private static string Evidence(bool inRun) => inRun

@@ -13,7 +13,7 @@ decisions:
   - category: Implementation
     chose: "The chain is every attempt numbered from budget.chainFrom to the newest, an arrow into an attempt whose cause channel is series marked 'auto'; a bar is hot (--bad) when its value is at or past its cap, a zero cap reading full"
     over: "Eliding the middle of a long chain; the run colour for a reached cap"
-    reason: "Attempts are few per chain and the strip wraps; a reached cap is a stop, like the cost tab's .capmark.over. Look is a default, pending operator ratification (contract section 5 default 74)."
+    reason: "Attempts are few per chain and the strip wraps; a reached cap is a stop, like the cost tab's .capmark.over. Look is a default, ratified by the operator 2026-11-17: moot, overtaken by the ticket-page restructuring that owns these looks (6877a and after) (contract section 5 default 74)."
   - category: Implementation
     chose: "The forms show the server's 400 through the existing settings-save-error (saveSetting already throws the guard's {error} text); no client-side bound and no settingRefusal case"
     over: "Bounding the inputs in the form"

@@ -59,4 +59,5 @@ public sealed class RawAgentSmithConfig
     public SeriesConfig Series { get; set; } = new(); // 2026-10-13-8762u
     public PreconditionsConfig Preconditions { get; set; } = new(); // 2026-11-16-f3fbc
     public BranchCleanupConfig BranchCleanup { get; set; } = new(); // 2026-11-17-713ec
+    public TicketsConfig Tickets { get; set; } = new(); // 2026-11-17-f9b0d
 }

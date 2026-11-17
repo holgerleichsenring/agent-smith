@@ -92,14 +92,16 @@ public sealed record DerivationLookTerms(
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
         NumberedReads: true, MayRunAStage: false);
 
-    /// <summary>2026-10-13-8762e: a fresh reviewer attacking a spec before it is built; at least 24 looks.</summary>
-    public static DerivationLookTerms AttackReview { get; } = new(
-        "attack review", 24, "A", "Answer on what you opened; claim nothing about a cited file you did not open.",
+    /// <summary>2026-10-13-8762e: a fresh reviewer attacking a spec before it is built. 2026-11-17-f9b0b: its allowance
+    /// is never below spec_review.attack_look_floor, and the look past it says so.</summary>
+    public static DerivationLookTerms AttackReviewWith(int allowance) => new(
+        "attack review", allowance, "A",
+        "Answer on what you opened; claim nothing about a cited file you did not open. The allowance is the larger of "
+        + "spec_review.attack_look_floor and the spec's cited paths plus 12, so one review stays inside its share of the run.",
         "a cut or finding you report cites that id in \"cites\", and one that cites none is discarded.",
         NumberedReads: true, MayRunAStage: false);
 
-    /// <summary>2026-10-13-8762e: sized to one spec — its distinct cited paths plus 12, never below 24.</summary>
-    public static DerivationLookTerms AttackReviewFor(Contracts.Models.SpecDraft draft) =>
-        AttackReview with
-        { Allowance = Math.Max(AttackReview.Allowance, Review.SpecCitations.DistinctPaths(draft) + 12) };
+    /// <summary>2026-10-13-8762e: sized to one spec — its distinct cited paths plus 12, never below the floor.</summary>
+    public static DerivationLookTerms AttackReviewFor(Contracts.Models.SpecDraft draft, int floor) =>
+        AttackReviewWith(Math.Max(floor, Review.SpecCitations.DistinctPaths(draft) + 12));
 }

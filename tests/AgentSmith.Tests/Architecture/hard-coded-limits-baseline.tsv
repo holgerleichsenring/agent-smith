@@ -119,21 +119,18 @@
 1	AgentSmith.Application/Services/Specs/ReferenceScopeName.cs
 3	AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs
 1	AgentSmith.Application/Services/Specs/Review/SeriesContractAdmission.cs
-1	AgentSmith.Application/Services/Specs/Review/SeriesContractPrompt.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecAttackAdmission.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecCitationHistory.cs
 3	AgentSmith.Application/Services/Specs/Review/SpecCitationLocator.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecCutReviser.cs
 2	AgentSmith.Application/Services/Specs/Review/SpecEntryGrounding.cs
-1	AgentSmith.Application/Services/Specs/Review/SpecRegroundSession.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecRevisionLists.cs
 1	AgentSmith.Application/Services/Specs/SandboxEvidenceRead.cs
 1	AgentSmith.Application/Services/Specs/SearchCommands.cs
 1	AgentSmith.Application/Services/Specs/SearchOutcome.cs
 1	AgentSmith.Application/Services/Specs/SeriesIdFactory.cs
 5	AgentSmith.Application/Services/Specs/SourceScopeLook.cs
-1	AgentSmith.Application/Services/Specs/SpecBuildNoteSection.cs
 1	AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs
 1	AgentSmith.Application/Services/Specs/SpecCutReviewer.cs
 1	AgentSmith.Application/Services/Specs/SpecDerivationCall.cs
@@ -196,7 +193,6 @@
 1	AgentSmith.Contracts/Runs/RunMetricsContracts.cs
 1	AgentSmith.Contracts/Runs/RunStatisticsFold.cs
 1	AgentSmith.Contracts/Runs/SecretMasker.cs
-3	AgentSmith.Contracts/Sandbox/IConversationMocks.cs
 1	AgentSmith.Contracts/Sandbox/ReferenceCoverage.cs
 3	AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs
 1	AgentSmith.Contracts/Services/ToolResultBound.cs
@@ -395,7 +391,6 @@
 1	AgentSmith.Server/Services/References/ReferenceUploadBody.cs
 3	AgentSmith.Server/Services/References/ReferenceUploadLimits.cs
 1	AgentSmith.Server/Services/References/ReferenceZipReader.cs
-2	AgentSmith.Server/Services/Rework/DependentsWake.cs
 1	AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs
 2	AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs
 1	AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs
@@ -418,7 +413,6 @@
 2	AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs
 1	AgentSmith.Server/Services/SpecDialog/SpecDialogConversationTitle.cs
 1	AgentSmith.Server/Services/SpecDialog/SpecDialogDigestWriter.cs
-1	AgentSmith.Application/Services/Filing/TicketGraphLinks.cs
 1	AgentSmith.Server/Services/SpecDialog/TicketRunText.cs
 2	AgentSmith.Server/Services/SpecDialog/TicketRunsReviews.cs
 2	AgentSmith.Server/Services/SpecDialog/TicketSearchAcrossTrackers.cs
@@ -427,7 +421,6 @@
 1	AgentSmith.Server/Services/Startup/StartupProbePass.cs
 1	AgentSmith.Server/Services/Startup/StartupProbeRunner.cs
 1	AgentSmith.Server/Services/Sweep/ChangeSweepCycle.cs
-4	AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs
 1	AgentSmith.Server/Services/Sweep/PrSweepComments.cs
 1	AgentSmith.Server/Services/Sweep/SweepCursorPolicy.cs
 1	AgentSmith.Server/Services/Tickets/Checks/TicketBetweenAttemptsChecker.cs
