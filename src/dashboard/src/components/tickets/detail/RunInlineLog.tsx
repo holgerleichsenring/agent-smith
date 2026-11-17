@@ -29,7 +29,7 @@ export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
   });
   return (
     <div className="tk-runlog" data-testid={`thread-runlog-${attempt.number}`}>
-      <RunSectionLog sections={sections} open={open} onToggle={toggle} check={
+      <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{ check: 
         (acceptance?.criteria ?? []).length === 0
           ? <div className="rl-line rl-dim">No verdict recorded.</div>
           : acceptance!.criteria.map((c) => (
@@ -38,7 +38,7 @@ export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
               <span>{c.text}{c.reason && <span className="rl-dim">: {c.reason}</span>}</span>
             </div>
           ))
-      } />
+      }} />
     </div>
   );
 }

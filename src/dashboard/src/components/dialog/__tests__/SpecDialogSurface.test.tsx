@@ -4625,3 +4625,32 @@ describe("The ticket search", () => {
     expect(screen.queryByTestId("dialog-ticket-hit-DPG-1239")).not.toBeInTheDocument();
   });
 });
+
+// 2026-11-17-d6fba: a first message typed on the home page is handed over and sent here, through this page's own
+// attach and send — the files first, then the text, on the project it was typed for.
+describe("SpecDialogSurface hand-over", () => {
+  const OTHER = { name: "other", repos: ["repo-b"], templates: [] };
+  it("Handover_HeldFirstMessage_IsSentOnceOnItsProject", async () => {
+    const { handOver } = await import("@/lib/workItOutHandover");
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
+    const image = new File(["x"], "sketch.png", { type: "image/png" });
+    uploadSpecDialogImage.mockClear();
+    handOver({ text: "a widget that reads the ledger", project: "other", images: [image], sets: [] });
+
+    await renderSurface();
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "a widget that reads the ledger", "other"));
+    expect(uploadSpecDialogImage).toHaveBeenCalledWith(heldDialogId(), "other", image);
+    expect(uploadSpecDialogImage.mock.invocationCallOrder[0])
+      .toBeLessThan(postSpecDialogMessage.mock.invocationCallOrder[0]);
+    expect(postSpecDialogMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("Handover_NoneHeld_SendsNothing", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE] }));
+    await renderSurface();
+    await screen.findByTestId("dialog-composer-text");
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+  });
+});

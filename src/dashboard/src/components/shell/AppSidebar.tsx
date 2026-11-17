@@ -13,7 +13,7 @@ import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { totalTickets } from "@/components/tickets/ticketSections";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
-import { bucketHref, useRunBucketFilter } from "@/lib/RunBucketFilter";
+import { bucketHref, RUNS_PATH, useRunBucketFilter } from "@/lib/RunBucketFilter";
 import { TICKETS_PATH, ticketBucketHref, useTicketBucketFilter, type TicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import { isTicketPage } from "@/lib/tickets/ticketAddress";
@@ -124,7 +124,7 @@ export function AppSidebar() {
         label="Runs"
         href={bucketHref("all")}
         icon={CirclePlay}
-        active={pathname === "/" || under("/jobs")}
+        active={under(RUNS_PATH) || under("/jobs")}
         collapsed={collapsed}
         count={inFlight}
         onClick={chooseRuns}

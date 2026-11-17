@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { Suspense } from "react";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import JobsPage from "@/app/page";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import RunsPage from "@/app/runs/page";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { ConfigStudio } from "@/components/config/ConfigStudio";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
@@ -190,6 +190,9 @@ const withStore = (node: React.ReactElement) => (
 );
 
 describe("Mock parity", () => {
+  // 2026-11-17-d6fbb: the run graph is an address (?view=graph); a case that opened it must not hand it to the next.
+  beforeEach(() => window.history.replaceState(null, "", "/"));
+
   it("MockParity_StructuralClasses_PresentPerSurface", async () => {
     // ---- runs home (runs-list.html) ----
     overviewRef.current = {
@@ -215,7 +218,7 @@ describe("Mock parity", () => {
       recent: [snap({ runId: "r3", status: "success", finishedAt: "2026-07-17T10:30:00Z" })],
       systemActivity: null,
     };
-    const home = render(withStore(<JobsPage />));
+    const home = render(withStore(<RunsPage />));
     const homeRoot = screen.getByTestId("runs-home");
     expect(homeRoot.className).toContain("mock-shell");
     expect(homeRoot.className).toContain("mock-runs");

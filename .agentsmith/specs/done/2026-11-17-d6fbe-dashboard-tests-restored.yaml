@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d6fbe
+goal: "Restore the dashboard tests the redesign deleted without replacement: shortRepo, the session-end wording, the observed tracker and live dot, and the hot Your move count."
+
+applies_to: "dashboard (tests for shortRepo, ProfileMenu, SystemSectionNav, AppSidebar)"
+
+requires: [2026-11-16-0440c]
+
+facts:
+  - claim: "shortRepo was tested in attemptChips.test.ts, which was deleted."
+    evidence: "src/dashboard/src/lib/shortRepo.ts:1-6"
+  - claim: "The session-end wording (expired, renewal refused, never signed in, signed in after expiry) was tested on the deleted AppHeader."
+    evidence: "src/dashboard/src/components/shell/ProfileMenu.tsx:29-33, src/dashboard/src/components/shell/ProfileMenu.tsx:50-55"
+  - claim: "SystemSectionNav names the tracker from its newest event and draws each subsystem's live dot and freshness; the sidebar's count is hot only for an attention item with a non-zero count."
+    evidence: "src/dashboard/src/components/system/SystemSectionNav.tsx:28-37, src/dashboard/src/components/system/SystemSectionNav.tsx:44-48, src/dashboard/src/components/shell/SidebarItem.tsx:27"
+
+scope:
+  in: "shortRepo.test.ts; ProfileMenu session-end tests (renewal refused, never signed in, signed in after expiry); SystemSectionNav observed tracker name with live dot and freshness; AppSidebar zero count calm (the non-zero hot case already had a test)."
+  out: "Behaviour changes; a test for code that no longer exists."
+
+steps:
+  - id: read
+    action: "Read the deleted suites at 13f5057c0 and the current components; port each assertion whose behaviour still exists."
+  - id: write
+    action: "Write the tests next to the components they cover."
+
+tests:
+  - "The four suites above."
+
+done:
+  - "Every listed behaviour has a test again."
+  - "pnpm test is green."

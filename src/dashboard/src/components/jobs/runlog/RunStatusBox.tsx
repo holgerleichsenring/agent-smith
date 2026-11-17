@@ -44,11 +44,13 @@ export function RunStatusBox({ snapshot }: { snapshot: RunSnapshot | null }) {
   const { tone, text } = runStatusWords(snapshot);
   const question = snapshot.status === "waiting_for_input" && !isRelaunching(snapshot) ? snapshot.pendingQuestion ?? null : null;
   const prs = (snapshot.pullRequests ?? []).filter((p) => p.url);
+  const note = statusNote(snapshot, snapshot.status === "waiting_for_input" && !isRelaunching(snapshot), prs.length > 0);
   return (
     <section className={`rl-status ${tone}`} data-testid="run-status" data-tone={tone} aria-live="polite">
       <span className="rl-dot" aria-hidden="true" />
       <div className="rl-status-say">
         <div className="rl-status-text" data-testid="run-status-text">{text}</div>
+        {note && <div className="rl-status-note" data-testid="run-status-note">{note}</div>}
         {question && (
           <div className="rl-question" data-testid="run-question">
             <PendingQuestionCard runId={snapshot.runId} question={question} />
@@ -62,4 +64,15 @@ export function RunStatusBox({ snapshot }: { snapshot: RunSnapshot | null }) {
       )}
     </section>
   );
+}
+
+const FINISHED = new Set(["success", "shortfall", "failed", "error", "cancelled"]);
+
+/** 2026-11-17-d6fbb: what the graph view's banner and side rail added — a waiting run holds its compute and burns no
+ *  tokens; a finished run that opened no pull request says so. */
+export function statusNote(snapshot: RunSnapshot, asking: boolean, hasPullRequest: boolean): string | null {
+  if (asking) return "Reserved compute is held; no tokens are spent while it waits.";
+  const status = (snapshot.status ?? "").toLowerCase();
+  if (FINISHED.has(status) && !hasPullRequest && !snapshot.prUrl) return "No pull request opened; the Outcome section says why.";
+  return null;
 }

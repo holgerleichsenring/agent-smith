@@ -76,7 +76,7 @@ describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
   });
@@ -88,6 +88,16 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-tickets-count")).toHaveTextContent("12");
     expect(screen.getByTestId("sidebar-runs-count")).toHaveTextContent("2");
     expect(await screen.findByTestId("sidebar-pull-requests-count")).toHaveTextContent("2");
+  });
+
+  // 2026-11-17-d6fbe: restored from the deleted AppRail suite — only a non-zero waiting count is hot; zero stays calm,
+  // and a count that asks for no answer (Tickets) is never hot.
+  it("Sidebar_YourMoveZero_StaysCalm_AndTicketsIsNeverHot", () => {
+    hoisted.tickets = list([], { needsYou: 0, working: 2 });
+    renderAt("/");
+    expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("sidebar-your-move-count").className).not.toContain("hot");
+    expect(screen.getByTestId("sidebar-tickets-count").className).not.toContain("hot");
   });
 
   it("Sidebar_UnknownCounts_ShowNoNumber", () => {
@@ -110,7 +120,14 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-your-move")).not.toHaveAttribute("aria-current");
   });
 
-  it("Sidebar_RunsIsMarkedOnTheHomeAndARun_NewWorkOnWorkItOut", () => {
+  it("Sidebar_RunsIsMarkedOnTheRunsListAndARun_NewWorkOnWorkItOut", () => {
+    const list = renderAt("/runs");
+    expect(screen.getByTestId("sidebar-runs")).toHaveAttribute("aria-current", "page");
+    list.unmount();
+    // 2026-11-17-d6fba: / is the input page, not the runs list.
+    const home = renderAt("/");
+    expect(screen.getByTestId("sidebar-runs")).not.toHaveAttribute("aria-current");
+    home.unmount();
     const view = renderAt("/jobs/2026-08-17T21-30-46-a98c");
     expect(screen.getByTestId("sidebar-runs")).toHaveAttribute("aria-current", "page");
     view.unmount();

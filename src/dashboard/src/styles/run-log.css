@@ -59,3 +59,30 @@
 
 .mock-viewer .rl-more { display: flex; gap: 6px 18px; flex-wrap: wrap; font-size: 13px; }
 .mock-viewer .rl-link { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+
+/* 2026-11-17-d6fbb: the side rail's facts as text under the meta line, and the story's panels inside a section in the
+   log's own look — no card chrome, headings as quiet labels. */
+.mock-viewer .rl-facts { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-3); }
+.mock-viewer .rl-budget { display: flex; align-items: center; gap: 10px; }
+.mock-viewer .rl-budget-bar { flex: 0 0 160px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.mock-viewer .rl-budget-bar > span { display: block; height: 100%; background: var(--ok); }
+.mock-viewer .rl-budget[data-tone="near"] .rl-budget-bar > span { background: var(--run); }
+.mock-viewer .rl-budget[data-tone="over"] .rl-budget-bar > span { background: var(--bad); }
+.mock-viewer .rl-pods > summary { cursor: pointer; color: var(--ink-2); }
+.mock-viewer .rl-pods .rl-line { margin-top: 4px; }
+.mock-viewer .rl-status-note { font-size: 13px; color: var(--ink-3); }
+.mock-viewer .rl-slot { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.mock-viewer .rl-slot .card { border: 0; background: none; box-shadow: none; border-radius: 0; }
+.mock-viewer .rl-slot .card-h { padding: 0 0 6px; border: 0; background: none; }
+.mock-viewer .rl-slot .card-h h3 { font-size: 12px; font-weight: 500; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-3); }
+.mock-viewer .rl-slot .card-b { padding: 0; }
+
+/* 2026-11-17-d6fbc: a verify pass under its Build and test line — a line per repository, the stale derivations as one
+   muted line with the files behind a disclosure. */
+.mock-viewer .rl-pass { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.mock-viewer .rl-pass-repo { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; color: var(--ink-2); }
+.mock-viewer .rl-pass-repo.done .rl-pass-mark { color: var(--ok); }
+.mock-viewer .rl-pass-repo.bad, .mock-viewer .rl-pass-repo.bad .rl-pass-mark { color: var(--bad); }
+.mock-viewer .rl-pass-name { min-width: 8ch; }
+.mock-viewer .rl-pass-stale { color: var(--ink-3); }
+.mock-viewer .rl-pass-stale > summary { cursor: pointer; }

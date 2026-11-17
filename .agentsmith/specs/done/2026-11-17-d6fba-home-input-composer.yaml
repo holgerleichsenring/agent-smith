@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d6fba
+goal: "The home page asks what to work on: one composer that starts a Work it out conversation, then what waits on you and recent tickets; the runs list moves to /runs."
+
+applies_to: "dashboard (app/page.tsx, a new app/runs page, components/home, the Work it out hand-over in SpecDialogSurface, RunBucketFilter, places, AppSidebar, RunPageHead)"
+
+requires: [2026-11-16-0440c, 2026-11-16-6877b]
+
+facts:
+  - claim: "/ renders the Runs heading, the inflow pill and MissionControl."
+    evidence: "src/dashboard/src/app/page.tsx:9-23"
+  - claim: "Work it out sends the first message with the picked project through useSpecDialog's send, attach and attachSite."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:446-461"
+  - claim: "The dialog id the surface starts on is the browser's held id; startNewDialog mints and holds a fresh one."
+    evidence: "src/dashboard/src/lib/specDialogSession.ts:15-29"
+  - claim: "The sidebar's Your move count is the ticket list's needsYou count from the shared TicketListProvider read."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:40, src/dashboard/src/components/shell/AppSidebar.tsx:95-105"
+  - claim: "The runs filter is addressed at / (HOME) and the sidebar marks Runs active on / and /jobs."
+    evidence: "src/dashboard/src/lib/RunBucketFilter.tsx:32-36, src/dashboard/src/components/shell/AppSidebar.tsx:119-128"
+  - claim: "The run page's breadcrumb links Runs to / and a deleted run returns to /."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunPageHead.tsx:44, src/dashboard/src/app/jobs/[id]/page.tsx:177"
+
+scope:
+  in: "Home: heading, the composer (text, project choice, image/files/folder) handed to /spec-dialog, at most three Your move rows from the ticket list's needs-you bucket, recent tickets. /runs: the old home (MissionControl, RunStatePills via it, inflow pill). Every link and test that assumed runs at /."
+  out: "The ticket page layout; a second conversation flow; new backend reads."
+
+steps:
+  - id: handover
+    action: "workItOutHandover.ts holds one pending first message (text, project, images, file sets) in memory; SpecDialogSurface takes it once on mount, picks its project and, once the dialog view is read, attaches the files and sends the text through the hook's own attach, attachSite and send."
+  - id: home
+    action: "app/page.tsx renders HomeView: HomeComposer (DialogComposer with a project select; send mints a fresh held dialog id, hands over and navigates to /spec-dialog), HomeYourMove (≤3 needs-you tickets, oldest first) and HomeRecent (newest tickets that are not needs-you), mapped by homeItems.ts."
+  - id: runs
+    action: "app/runs/page.tsx carries the old home; RunBucketFilter's HOME becomes /runs; places names / Home and /runs Runs; the sidebar marks Runs on /runs and /jobs; RunPageHead and the run page's delete return to /runs."
+  - id: tests
+    action: "Move the old home test to the runs page; mock-parity and layout-shell follow the move; home and hand-over tests."
+
+tests:
+  - "homeItems.test.ts: at most three needs-you rows oldest first; recent excludes them, newest first."
+  - "Home page test: composer, project select with several projects, sending hands over and navigates, Your move rows link to their ticket, recent tickets listed."
+  - "SpecDialogSurface hand-over test: a held hand-over sends its text with its project once."
+  - "Runs page test (moved), AppSidebar Runs href /runs, places, RunPageHead breadcrumb."
+
+done:
+  - "/ shows the composer, at most three Your move rows and recent tickets."
+  - "Sending from / opens Work it out with the conversation started on the chosen project."
+  - "/runs shows the runs list with its state pills; the sidebar Runs item opens it."
+  - "pnpm test and build are green."

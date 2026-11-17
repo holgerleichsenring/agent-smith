@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import JobsPage from "../page";
+import RunsPage from "../page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 
@@ -18,11 +18,11 @@ vi.mock("@/hooks/useJobsHub", () => ({
 const renderPage = () =>
   render(
     <EventStoreProvider store={silentEventStore()}>
-      <JobsPage />
+      <RunsPage />
     </EventStoreProvider>,
   );
 
-describe("JobsPage (root /)", () => {
+describe("RunsPage (/runs)", () => {
   it("renders the Runs heading", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: /runs/i })).toBeInTheDocument();

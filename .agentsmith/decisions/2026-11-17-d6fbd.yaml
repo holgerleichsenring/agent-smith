@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d6fbd
+
+decisions:
+  - category: Behaviour
+    chose: "YourMoveBox passes the head attempt's endDetail (ticketState's view.attempt) to yourMove"
+    over: "Reading endDetail from the ticket summary"
+    reason: "The detail belongs to the attempt that stopped; view.attempt is the head attempt ticketState already chose, so the box and the state sentence speak of the same run."
+  - category: Behaviour
+    chose: "The ledger tick strokes currentColor and the done box sets color: var(--on-fill)"
+    over: "A hard-coded dark stroke"
+    reason: "--on-fill is the token every filled mark on the page uses for what sits on it; a hex would drift from the theme."
+  - category: Behaviour
+    chose: "ToolCallRow and ToolResultRow change with RunToolsPanel and ToolPairCard"
+    over: "Changing only the two named containers"
+    reason: "Their light stone and amber-300 text was drawn for the old dark container; on a dark app-panel it would read dark on dark."
+  - category: Behaviour
+    chose: "Remove only the rules whose classes no .ts or .tsx source names; .ts-cause and .ts-links stay (YourMoveBox uses them, styled under .tk-move-why in ticket-thread.css); .ts-say leaves the text-wrap :is lists and their test"
+    over: "Deleting the whole 9a59r conversation block"
+    reason: ".chip, .conv and .msg are still drawn by the thread; a grep per class is what proves a rule dead."
