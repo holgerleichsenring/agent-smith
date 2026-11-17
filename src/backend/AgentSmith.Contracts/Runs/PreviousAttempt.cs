@@ -15,6 +15,9 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// runs — the pull requests a rework reads its review from.</summary>
     public IReadOnlyDictionary<string, string> PullRequestUrls { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>2026-11-17-9a39a: whether THIS attempt opened a pull request — its own row, not an earlier run's.</summary>
+    public bool OpenedPullRequest { get; init; }
+
     /// <summary>2026-10-08-0781: when the run read the ticket and its pull requests — taken before the
     /// reads, kept across a resume. Null on a run that never read them (or an older row).</summary>
     public DateTimeOffset? ActsReadAt { get; init; }

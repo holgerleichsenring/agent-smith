@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-9a39a
+
+decisions:
+  - category: Architecture
+    chose: "'Met for stacking' is read off the prerequisite's newest code Run row (Success, no boundary stop, opened a pull request itself) plus its closed mark — no new record"
+    over: "A stored 'green push' fact beside the landing row"
+    reason: "The run row already is the record of the attempt and its pull requests; a second table would have to be written by the run's end and kept in step with rework."
+  - category: Implementation
+    chose: "PreviousAttempt.OpenedPullRequest from the newest run's own PullRequestsJson"
+    over: "PullRequestUrls, the newest opened URL per repo over the last 20 runs"
+    reason: "Adversarial review: a Success that opened nothing would pass on an earlier attempt's pull request."
+  - category: Architecture
+    chose: "Several unlanded prerequisites stack only when they form one chain: the tip whose requirement chain reaches every other is the base; two independent ones hold the dependent"
+    over: "Merging the other prerequisites' branches into the cut; picking one by graph order and ignoring the rest"
+    reason: "The tip's branch already carries its ancestors (it was itself stacked), so no foreign merge is needed; a merge of independent branches can conflict in a run nobody asked to resolve it in, and a pull request can target only one branch. A dependent of independent prerequisites waits for all but one to land, as before."
+  - category: Implementation
+    chose: "A dependent that already has a code attempt is not held by its requirements under on_green_push, and stacks on the chain's tip without requiring it green"
+    over: "Asking greenness on every claim"
+    reason: "Adversarial review: the gate covers rework claims too; a prerequisite reworking (running or red) would refuse the dependent's own rework, which on_merge never did because a dependent had no attempt before its requirements landed."
+  - category: Product
+    chose: "Default requires_start on_green_push; on_merge opts a project out; an unknown value is a blocking finding naming it"
+    over: "Default on_merge"
+    reason: "The operator asked for parallel series (2026-11-17). Existing projects change: a dependent starts once its prerequisite delivered green, stacked on its branch, its pull request targeting that branch until the prerequisite lands. The dependent's work is additive and cannot merge into the default branch before its prerequisite."
+  - category: Implementation
+    chose: "UnmetTicketRequirements.ForStartAsync over an optional GreenPrerequisites, used by every start decision (gate, RequirementsMetStart, TicketGraphStarts, a person's starts); OfAsync stays the landing-only read the ticket list shows"
+    over: "Changing OfAsync's meaning; a new parallel read"
+    reason: "One answer per question: 'may it start' and 'did it land' differ now. The optional dependency keeps every composition without the green reader on landing-only, today's behaviour."
+  - category: Implementation
+    chose: "The green wake runs on every nudge of a ticket with a finished attempt, right after the attempt read, and throws on a failed read or enqueue"
+    over: "A periodic recovery like DependentsWake.RecoverAsync"
+    reason: "The prerequisite's RunEnd nudge is a durable row; a throw reschedules it, which recovers the wake without a second store to re-derive it from. Placed before the live-lease and queued returns so a run end that races a lease still wakes."
+  - category: Implementation
+    chose: "A prerequisite closed only on the tracker (no close mark) still counts green"
+    over: "Reading the tracker for every green check (TicketStartHold.OpenAsync)"
+    reason: "The check runs inside the claim gate and every nudge; a tracker read there costs a provider call per claim. agent-smith's own close writes the mark and closes the pull requests."
+  - category: Tooling
+    chose: "Adversarial review by a fresh subagent before building (BUILD WITH CUTS); its fixes folded into the spec: citation of the success rule, own-run pull request, started dependents not held, TicketGraphStarts switched, wake placement and recovery stated"
+    over: "Building on the spec as first written"
+    reason: "Each finding named a reachable wrong start or a refused rework."

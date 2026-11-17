@@ -27,7 +27,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
                 && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
                 && (excludingRunId == null || r.Id != excludingRunId))
             .OrderByDescending(r => r.Id)
-            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt, r.CancelReason, r.EndKind, r.EndDetailJson })
+            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt, r.CancelReason, r.EndKind, r.EndDetailJson, r.PullRequestsJson })
             .FirstOrDefaultAsync(cancellationToken);
         if (run is null) return null;
         // 2026-10-13-9a59n: the Retry a person asked of this attempt, a row of the run.
@@ -38,6 +38,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             RetryRequestedBy = retry?.RequestedBy,
             RetryRequestedAt = retry?.RequestedAt,
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
+            OpenedPullRequest = OpenedAny(run.PullRequestsJson), // 2026-11-17-9a39a: this attempt's own
             ActsReadAt = run.ActsReadAt,
             // 2026-11-16-f3fbb: a failed end a precondition decided holds the ticket until it holds or a person starts it.
             StoppedOnPrecondition = run.FinishedAt is not null && run.Status == RunStatuses.Failed
@@ -56,6 +57,11 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
                 .Where(d => d.Verdict == DefaultDecisionVerdicts.Overruled)],
         };
     }
+
+    private static bool OpenedAny(string? json) =>
+        json is not null && (RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? []).Any(Opened);
+
+    private static bool Opened(RunPullRequestView pr) => pr.Status == "opened" && !string.IsNullOrEmpty(pr.Url);
 
     // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
     public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken)
@@ -78,7 +84,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         var urls = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var json in rows)
             foreach (var pr in RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? [])
-                if (pr.Status == "opened" && !string.IsNullOrEmpty(pr.Url)) urls.TryAdd(pr.Repo, pr.Url!);
+                if (Opened(pr)) urls.TryAdd(pr.Repo, pr.Url!);
         return urls;
     }
 }

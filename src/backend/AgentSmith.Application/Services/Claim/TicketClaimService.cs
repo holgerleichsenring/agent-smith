@@ -47,10 +47,13 @@ public sealed class TicketClaimService(
 
         try
         {
+            // 2026-11-17-9a39b: asked again under the lock; the answer is the run's stacked base.
+            var (stamped, held) = await StackedBaseStamp.ApplyAsync(request, config, requirements, ct);
+            if (held is not null) return LogOne(request, held);
             var tracker = config.Projects[request.ProjectName].Tracker;
             var registrar = new ClaimedTicketRegistrar(lease, takenTickets);
             var executor = new SingleClaimRegionExecutor(transitionerFactory, jobQueue, registrar, logger);
-            return LogOne(request, await executor.ExecuteAsync(request, tracker, ct));
+            return LogOne(request, await executor.ExecuteAsync(stamped, tracker, ct));
         }
         finally
         {

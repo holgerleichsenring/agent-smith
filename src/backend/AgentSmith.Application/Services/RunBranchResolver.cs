@@ -26,7 +26,8 @@ public static class RunBranchResolver
                 CutFresh: InitRunSeed.IsInitRun(pipeline)); // 2026-11-17-713ea
 
         return pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) && ticketId is not null
-            ? new RunBranch(TicketBranchNamer.Compose(ticketId), ComposedFromTicket: true, parent)
+            ? new RunBranch(TicketBranchNamer.Compose(ticketId), ComposedFromTicket: true, parent,
+                Stacked: RunParentTicket.IsStacked(pipeline)) // 2026-11-17-9a39b
             : null;
     }
 }

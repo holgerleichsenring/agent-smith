@@ -39,4 +39,7 @@ public sealed record ResolvedProject
     public WebhookTriggerConfig? AzuredevopsTrigger { get; init; }
     public PollingConfig Polling { get; init; } = new();
     public SandboxConfig? Sandbox { get; init; }
+
+    /// <summary>2026-11-17-9a39a: when a ticket that requires another may start.</summary>
+    public RequiresStart RequiresStart { get; init; } = RequiresStart.OnGreenPush;
 }

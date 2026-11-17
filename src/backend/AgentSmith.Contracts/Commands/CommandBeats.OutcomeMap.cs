@@ -35,5 +35,6 @@ public static partial class CommandBeats
         [CommandNames.ReopenTicket] = RunBeat.Outcome, [CommandNames.StartTicket] = RunBeat.Outcome,
         [CommandNames.AmendTicket] = RunBeat.Outcome, [CommandNames.PostTicketComments] = RunBeat.Outcome, // e061c
         [CommandNames.RenderTicketBody] = RunBeat.Outcome, // 2026-11-17-dd05b
+        [CommandNames.RetargetPullRequests] = RunBeat.Outcome, // 2026-11-17-9a39c
     };
 }

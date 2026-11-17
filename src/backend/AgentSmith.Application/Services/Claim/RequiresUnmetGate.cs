@@ -24,19 +24,24 @@ public sealed class RequiresUnmetGate(UnmetTicketRequirements requirements)
             || !config.Projects.TryGetValue(request.ProjectName, out var project)) return null;
         var tracker = project.Tracker;
         var key = TicketKey.For(tracker.Type.ToString().ToLowerInvariant(), request.TicketId.Value).Value;
-        var (hasRequirements, unmet) = await requirements.OfAsync(tracker.Name, key, cancellationToken);
-        if (!hasRequirements) return null;
+        var hold = await requirements.ForStartAsync(project, key, cancellationToken); // 2026-11-17-9a39a
+        if (!hold.HasRequirements) return null;
         if (!await requirements.FiledCompletelyAsync(tracker.Name, key, cancellationToken))
             return ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, IncompleteFiling);
-        return unmet.Count == 0 ? null : ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, Sentence(unmet));
+        return hold.Unmet.Count == 0 ? null
+            : ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, Sentence(hold.Unmet, hold.GreenLifts));
     }
 
-    /// <summary>What the ticket waits for, each required ticket named "#n" when its id is numeric and as written otherwise.</summary>
-    public static string Sentence(IReadOnlyList<TicketRequirementEdge> unmet)
+    /// <summary>What the ticket waits for, each required ticket named "#n" when its id is numeric and as written otherwise.
+    /// 2026-11-17-9a39a: under on_green_push a green pushed branch is named as the other way to start it.</summary>
+    public static string Sentence(IReadOnlyList<TicketRequirementEdge> unmet, bool greenLifts = false)
     {
         ArgumentNullException.ThrowIfNull(unmet);
         var named = string.Join(", ", unmet.Select(e => Named(e.RequiredTicketId)));
-        return $"This ticket waits for {named} to be merged first; merge them, or mark them done by hand.";
+        return greenLifts
+            ? $"This ticket waits for {named} to push a green branch it can build on (requires_start: on_green_push), or to be merged; "
+              + "merge them, or mark them done by hand."
+            : $"This ticket waits for {named} to be merged first; merge them, or mark them done by hand.";
     }
 
     private static string Named(string id) => id.Length > 0 && id.All(char.IsAsciiDigit) ? $"#{id}" : id;

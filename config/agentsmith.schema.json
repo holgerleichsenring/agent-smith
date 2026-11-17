@@ -803,6 +803,11 @@
           "minItems": 1
         },
         "default_pipeline": { "type": "string" },
+        "requires_start": {
+          "type": "string",
+          "enum": ["on_green_push", "on_merge"],
+          "description": "When a ticket that requires another may start: on_green_push (default) once each prerequisite pushed a green branch, stacked on it; on_merge once each landed."
+        },
         "coding_principles_path": { "type": "string" },
         "skills_path": { "type": "string" },
         "resolution": {

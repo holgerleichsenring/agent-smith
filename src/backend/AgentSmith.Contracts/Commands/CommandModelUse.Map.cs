@@ -85,7 +85,7 @@ public static partial class CommandModelUse
         CommandNames.PlanFiling, CommandNames.FileTickets, // 2026-11-17-5701b
         CommandNames.CloseTicket, CommandNames.ReopenTicket, CommandNames.StartTicket, // 2026-11-17-e061a, e061b
         CommandNames.AmendTicket, CommandNames.PostTicketComments, // 2026-11-17-e061c
-        CommandNames.RenderTicketBody, // 2026-11-17-dd05b
+        CommandNames.RenderTicketBody, CommandNames.RetargetPullRequests, // 2026-11-17-dd05b, 9a39c
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
         CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches,

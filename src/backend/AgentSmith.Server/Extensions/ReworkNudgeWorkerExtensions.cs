@@ -22,6 +22,7 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b
         services.AddSingleton<TicketLandingRecorder>(); // 2026-10-14-dbceg
         services.AddSingleton<DependentsWake>().AddSingleton<RequirementsMetStart>(); // 2026-10-14-dbceh
+        services.AddSingleton<StackedDependentsWake>().AddSingleton<StackedPullRequestRetarget>().AddSingleton<StackedTicketUpkeep>(); // 9a39a/c
         services.AddSingleton<TicketStartHold>().AddSingleton<PreconditionRelease>(); // 2026-11-16-f3fbc
         services.AddSingleton<ReworkNoActTail>().AddSingleton<ISeriesAutoStart, SeriesAutoStart>(); // 2026-10-13-8762v
         services.AddSingleton<ReworkNudgeWorker>();

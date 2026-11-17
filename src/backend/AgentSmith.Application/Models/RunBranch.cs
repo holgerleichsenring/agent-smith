@@ -24,6 +24,10 @@ namespace AgentSmith.Application.Models;
 /// whatever the remote already holds — the init branch, so a second init never builds on what
 /// an earlier one left there.
 /// </para>
+/// <para>
+/// 2026-11-17-9a39b: <see cref="Stacked"/> says <see cref="ParentTicketId"/> is an unlanded prerequisite whose pushed
+/// branch is the rung — found, never published: a missing one falls through to the clone's base.
+/// </para>
 /// </summary>
 public sealed record RunBranch(
-    BranchName Name, bool ComposedFromTicket, string? ParentTicketId = null, bool CutFresh = false);
+    BranchName Name, bool ComposedFromTicket, string? ParentTicketId = null, bool CutFresh = false, bool Stacked = false);
