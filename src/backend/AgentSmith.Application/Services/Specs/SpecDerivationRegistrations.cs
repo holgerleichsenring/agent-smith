@@ -34,6 +34,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SeriesManifestFinder>();
     // 2026-10-12-f5f7b: every run repository's sub-series, joined into one set.
     services.AddTransient<SubSeriesReader>().AddTransient<SeriesJoin>();
+    services.AddTransient<SubSeriesFiles>().AddTransient<SeriesComposer>().AddTransient<TicketBranchSeries>(); // 2026-11-17-a0b6a: checkout or branch
     services.AddTransient<SeriesNewestManifest>().AddTransient<SeriesJoinOrder>();
     services.AddTransient<SeriesSpecFileReader>();
     services.AddTransient<ISpecSetWriter, SeriesWriter>();

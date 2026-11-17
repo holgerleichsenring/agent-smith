@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-a0b6a
+
+decisions:
+  - category: Architecture
+    chose: "One reading, two file sources: SubSeriesFiles reads a sub-series from any ISandboxFileReader and SeriesComposer joins and composes; the run's SubSeriesReader hands it the checkout, TicketBranchSeries hands it BranchFiles over the host API"
+    over: "A second, host-side series parser beside the run's"
+    reason: "Two parsers of one branch layout answer two sets the day the layout changes; the run's finder, spec-file reader, join and manifest composition already carry every rule (done/ wins, label from the file, lagging members, contract)."
+  - category: Implementation
+    chose: "The repositories read are the ticket pointer's (its carrier and every repository it holds a sha for); no pointer reads as nothing on the branch"
+    over: "Reading every repository of the project on the ticket branch"
+    reason: "Filing and every run publish record the pointer with the sha per repository they wrote, so it names exactly the members; probing every configured repository costs a host call per repository per page view and finds nothing more."
+  - category: Implementation
+    chose: "The revision sha a host read answers is the pointer's sha for that repository"
+    over: "Asking the host for the last commit touching the series paths"
+    reason: "Readers outside a run show content; only a run compares the sha to tell its own revision from a reviewer's edit, and it reads its checkout with git."
+  - category: Implementation
+    chose: "A host error is answered Unreadable naming the branch and the first line of the error"
+    over: "Letting the exception reach the caller"
+    reason: "The three answers a series read already has (nothing, unreadable, answered) are what every caller switches on; a page that cannot reach the host says so instead of failing whole."
+  - category: Testing
+    chose: "RecordingBranchSources answers branch reads from what it recorded, newest write of a path winning, and throws on read when ReadThrows is set"
+    over: "A second in-memory branch fake"
+    reason: "Filing's tests already write through it, so a test can file through the real FiledSpecBranch and read back through the real reader; a read of a branch nothing wrote still answers null as before."

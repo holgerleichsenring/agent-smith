@@ -20,12 +20,18 @@ internal static class SeriesDoubles
             files, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     internal static SeriesReader Reader(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>
-        new(new SubSeriesReader(files, git ?? Git(files),
-                new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
-                new SeriesSpecFileReader(new SpecDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
-                new SeriesManifest(), new SandboxTargets()),
-            new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()),
-            new SeriesManifest(), NullLogger<SeriesReader>.Instance);
+        new(new SubSeriesReader(files, git ?? Git(files), SubSeries(), new SandboxTargets()), Composer());
+
+    /// <summary>2026-11-17-a0b6a: the sub-series reading shared by the checkout and the branch read.</summary>
+    internal static SubSeriesFiles SubSeries() =>
+        new(new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
+            new SeriesSpecFileReader(new SpecDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
+            new SeriesManifest());
+
+    /// <summary>2026-11-17-a0b6a: the join and composition shared by both reads.</summary>
+    internal static SeriesComposer Composer() =>
+        new(new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()), new SeriesManifest(),
+            NullLogger<SeriesComposer>.Instance);
 
     /// <summary>2026-10-12-f5f7d: DeriveSpec's branch read over <paramref name="reader"/>; done/ is
     /// listed through <paramref name="files"/>, empty when none is given.</summary>
