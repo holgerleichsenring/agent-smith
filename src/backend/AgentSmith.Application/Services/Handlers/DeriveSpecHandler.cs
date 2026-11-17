@@ -16,11 +16,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// repositories have been read. An unanswered question from the last run is pinned as
 /// the answer before the model runs, and the ticket is told which reading was taken.
 /// <para>
-/// The accounting is the safeguard: every ticket segment is carried by a named spec
-/// or discarded with a reason. If it cannot be produced, the run does NOT split at
-/// all — one spec with the whole ticket, and a run event naming why. Fail safe means
-/// falling back to a shape that is known to work, not partially applying one that
-/// is not.
+/// The accounting is the safeguard: every ticket segment is carried by a named spec or discarded
+/// with a reason. If it cannot be produced, the run does NOT split at all — one spec with the whole
+/// ticket, and a run event naming why: fall back to a shape known to work.
 /// </para>
 /// <para>
 /// 2026-09-17-0e79a/b: a set a person APPROVED is never re-cut — a comment, a ticket edit or a
@@ -29,6 +27,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// record is resolved for the repositories it names and hands the set over once, on a branch
 /// that carries nothing at the path. A filed ticket whose branch carries no readable set PARKS.
 /// </para>
+/// <para>2026-11-17-7c9ba: a plain re-trigger over the branch set as it is writes no revision and says nothing.</para>
 /// </summary>
 public sealed class DeriveSpecHandler(
     ISpecSetDeriver deriver,
@@ -44,7 +43,7 @@ public sealed class DeriveSpecHandler(
     SpecCutGate gate,
     UnansweredQuestionPin questionPin,
     UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf, ForeignCommitProbe expiry,
-    ILogger<DeriveSpecHandler> logger)
+    SpecSetUnchanged unchanged, ILogger<DeriveSpecHandler> logger)
     : ICommandHandler<DeriveSpecContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -80,12 +79,15 @@ public sealed class DeriveSpecHandler(
             ? await DeriveAsync(context, decision, key.Value, series, segments, cancellationToken)
             : (decision.Set! with { Series = series }, (IReadOnlyList<IgnoredInstruction>)[]);
 
-        // Reported BEFORE the publish, because the publish is what clears the input: a hand-back
-        // must not suppress it, and an unreported input must not be marked as dealt with.
+        // Reported BEFORE the publish, which clears the input: an unreported input is never marked as dealt with.
         var reported = await keptNotice.PostAsync(
             context.Pipeline, context.Tracker, set, decision.Cause!, decision.Discarded, cancellationToken);
         var finalized = SpecRevisionHeader.Finalize(
             set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported, decision.Approval);
+        if (unchanged.Holds(finalized, previous, decision, unanswered is not null,
+                context.Pipeline.Flag(ContextKeys.SpecDerivationPreview)))
+            return await publisher.KeepAsync(context.Pipeline, branch.Scope,
+                finalized with { Revisions = previous!.Set.Revisions }, previous.LastCommitSha, cancellationToken);
         var result = await publisher.PublishAsync(
             context.Pipeline, project, branch.Scope, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)
@@ -112,9 +114,8 @@ public sealed class DeriveSpecHandler(
                 ?? fallback.Build(key, series, context.Ticket!, segments, [], decision.Source, scope), []);
         }
 
-        // p0447: the deriver kept the least-objected cut instead of discarding it. The
-        // objection is not obeyed, but it is not swallowed either — a reviewer's finding
-        // that nobody can see is the same as no review.
+        // p0447: the deriver kept the least-objected cut; its objection is reported, not obeyed — a
+        // reviewer's finding nobody can see is the same as no review.
         if (error is not null)
             await gate.KeptDespiteAsync(context.Pipeline, context.Ticket!.Id.Value, error, ct);
 
@@ -127,8 +128,7 @@ public sealed class DeriveSpecHandler(
             derivation.IgnoredInstructions);
     }
 
-    // Non-blocking ratification: the cut is posted as "this is how I understood it" and
-    // the run proceeds — blocking would reintroduce the wait Approval was deleted for.
+    // Non-blocking ratification: the cut is posted and the run proceeds — blocking would reintroduce the wait.
     private async Task AnnounceAsync(
         DeriveSpecContext context, SpecSet finalized, UnansweredQuestion? unanswered, CancellationToken ct)
     {

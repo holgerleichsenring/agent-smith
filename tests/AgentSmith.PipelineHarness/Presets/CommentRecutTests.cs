@@ -20,7 +20,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// comment after our derivation-time comment, the derivation is called again with the
 /// set, keeps the executed spec, re-cuts the tail with the comment in view, only the
 /// tail runs, and the ticket is told. With no comment, the tail continues exactly as it
-/// was cut and nothing is derived.
+/// was cut and nothing is derived — and, since 2026-11-17-7c9ba, nothing is written or posted.
 /// <para>
 /// The branch artifact is stood in for at its port, as the ticket-edit tests do — the
 /// fast tier's sandbox is fresh per run.
@@ -83,10 +83,13 @@ public sealed class CommentRecutTests
 
         result.IsSuccess.Should().BeTrue(result.Message);
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
-        set.Current.Cause.Should().Be(SpecRevisionCause.Retrigger, "the marker's commit is this system's own");
+        set.Revisions.Should().ContainSingle("the marker's commit is this system's own, so nothing arrived and "
+            + "the unchanged set gets no revision (2026-11-17-7c9ba)").Which.Cause.Should().Be(SpecRevisionCause.Initial);
         set.Specs[1].Draft.Goal.Should().Be(TailAsCut, "nothing was derived");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().NotContain(c => c.Comment.Contains("was commented on"));
+        tickets.Commented.Should().NotContain(c => c.Comment.Contains(SpecSetComment.CutMarker),
+            "an unchanged set is not announced on the ticket again");
     }
 
     // The set the previous run cut from the ticket as it still reads, its first spec run.
