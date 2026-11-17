@@ -57,7 +57,7 @@ public sealed class TicketGraphStarts(
         try
         {
             var key = ApprovedSpecSetRecorder.KeyFor(project, ticket.Id.Value).Value;
-            return (await requirements.OfAsync(project.Tracker.Name, key, CancellationToken.None)).Unmet;
+            return (await requirements.ForStartAsync(project, key, CancellationToken.None)).Unmet; // 2026-11-17-9a39a
         }
         catch (Exception ex)
         {

@@ -40,7 +40,7 @@ public sealed class EventPublishingChatClientCostTests
         var stub = new StubChat("haiku", input: 1_000_000, output: 1_000_000)
         {
             Worker = new AgentSmith.Contracts.Models.Workers.WorkerCallAccounting(
-                "claude-haiku-4-5+claude-opus-5-5", 2, 900, 12_149, 57_017, 0.4213m, 1),
+                "claude-opus-5-5", 2, 900, 12_149, 57_017, 0.4213m, 1),
         };
         var client = NewClient(stub, recorder, resolver);
 

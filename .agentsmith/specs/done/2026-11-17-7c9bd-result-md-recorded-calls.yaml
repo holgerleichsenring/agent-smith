@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-7c9bd
+goal: "result.md's tokens, total_usd, phases and worker_cli block are summed from the run's recorded calls, so they match the run row instead of the cost tracker's partial view."
+
+applies_to: "default (WriteRunResultHandler, RecordedCallSummary)"
+
+requires: [2026-11-17-7c9bc]
+
+facts:
+  - claim: "result.md's cost sections come from the cost tracker's summary unless the context carries one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:424-429"
+  - claim: "The tracker's phases and total leave worker calls out, and its worker ledger counts only the responses call sites hand it."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:252-311, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:176"
+  - claim: "166ab left result.md on the tracker; the run row is the sum of recorded calls."
+    evidence: ".agentsmith/specs/done/2026-11-17-166ab-run-cost-per-call.yaml"
+  - claim: "In the replay result.md said tokens 0, total_usd 0 and 29 worker calls while 36 calls were recorded."
+    evidence: "observed: 2026-11-17 final replay, run 2026-11-17T18-36-46-7a0b result.md vs RunLlmCalls (36 rows, 27.62 USD)"
+
+scope:
+  in: "When the run's RecordedCallLedger holds calls, ResolveCostAndDuration (all three callers: single, multi-repo, init) builds the RunCostSummary from it: phases keyed by the call's CallScope phase ('Other' when none) — a vocabulary that differs from the tracker's skill phases, so the per-skill breakdown below them keeps its own names — with the models named, tokens and cost summed; TotalCost = every call's cost, worker calls included, plus the ledger's carried figure from earlier segments (shown as a 'Prior segments' phase); PerRepo by the call's repository; WorkerSpend = the worker calls' count, tokens and cost; UnpricedTokensByModel stays the tracker's. Without a ledger or calls, the tracker's summary as today. An explicit RunCostSummary on the context is unchanged. This supersedes 166ab's choice to keep result.md on the tracker; the RunCostSummary and WorkerSpendSectionWriter comments say so."
+  out: "The tracker and its budget fence. The call count of a resumed segment counts this segment's calls, as the tracker's did."
+
+steps:
+  - id: summary
+    action: "RecordedCallSummary.Of(calls, unpriced) in Application/Services builds the RunCostSummary."
+  - id: wire
+    action: "WriteRunResultHandler.ResolveCostAndDuration prefers it when the ledger has calls."
+  - id: writer
+    action: "WorkerSpendSectionWriter's comment drops 'not part of total_usd'; the block stays as the worker share."
+
+tests:
+  - "RecordedCallSummaryTests: worker and provider calls in two phases and two repositories sum to total, phases, per repo and worker share; a call without phase lands in Other; a carried figure adds to the total as Prior segments"
+  - "WriteRunResult test: a ledger of 36 worker calls renders calls: 36, tokens and total_usd from them while the tracker counted 29"
+  - "Real composition: the harness composition with publishing chat clients runs WriteRunResult; result.md's total_usd equals the sum of the run's LlmCallFinished costs"
+
+done:
+  - "A worker-mode run's result.md shows the tokens, cost and call count of every recorded call."

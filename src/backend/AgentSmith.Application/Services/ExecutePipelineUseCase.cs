@@ -50,6 +50,8 @@ public sealed class ExecutePipelineUseCase(
         var runId = request.RunId ?? RunIdGenerator.Generate(runStartedAt);
         using var logScope = logger.BeginScope("run={RunId}", runId);
         using var runScope = runContext.BeginScope(runId);
+        var recordedCalls = new RecordedCallLedger();
+        using var callsScope = runContext.BeginRecordedCallsScope(recordedCalls); // 2026-11-17-7c9bc
 
         var ticketDesc = request.TicketId is not null ? $" ticket #{request.TicketId.Value}" : "";
         logger.LogInformation(
@@ -76,6 +78,7 @@ public sealed class ExecutePipelineUseCase(
 
         var projectConfig = prologue.Project;
         var pipeline = prologue.Pipeline;
+        RecordedCallAttach.To(pipeline, recordedCalls);
         var resumePlan = prologue.Resume;
 
         await PublishRunStartedAsync(runId, runStartedAt, request, prologue.Repos, projectConfig, cancellationToken);

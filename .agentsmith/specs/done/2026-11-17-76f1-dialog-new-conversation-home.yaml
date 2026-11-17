@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-76f1
+goal: "A new Work it out conversation looks and starts like the home page: the same question and line, the same composer with the project beside the plus; an open conversation stays as it is."
+
+applies_to: "dashboard (components/dialog/SpecDialogSurface, useComposerHandover, components/home/HomeComposer, HomeView, styles/spec-dialog.css)"
+
+requires: [2026-11-17-d6fba, 2026-11-17-2772, 2026-11-17-d762c]
+
+facts:
+  - claim: "With no session open, Work it out shows the heading New conversation, the dialog id line, the ticket search, then the project choice (several projects) or the greeting and its own composer, and the pane lists project candidates."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:353-467"
+  - claim: "The home page shows What should we work on?, the waiting sentence, and HomeComposer: DialogComposer with the project picker in its tools slot, files held until send, then handed to Work it out."
+    evidence: "src/dashboard/src/components/home/HomeView.tsx:24-29, src/dashboard/src/components/home/HomeComposer.tsx:18-53"
+  - claim: "Work it out sends a handed-over first message through its own attach, attachSite and send, files first."
+    evidence: "src/dashboard/src/components/dialog/useComposerHandover.ts:12-31"
+
+scope:
+  in: "HomeComposer's composer becomes NewWorkComposer (projects, read state, onStart); HomeComposer wraps it with its project read and the hand-over. HomeView's header becomes NewWorkHead. useComposerHandover returns start/started so the page sends a handover of its own. SpecDialogSurface renders NewWorkHead, NewWorkComposer and the ticket search beneath it in place of the exchange while the conversation is new, and hides the pane."
+  out: "An open conversation, the conversation rail, a new conversation with a ticket in play (address, picked search hit, project question) and the hook's send path."
+
+steps:
+  - id: home
+    action: "Split HomeComposer into NewWorkComposer (state and markup) and HomeComposer (useComposerProjects + navigation); export NewWorkHead from HomeView."
+  - id: handover
+    action: "useComposerHandover returns start(handover) and started; start picks the project and sends through the same effect a home hand-over uses; started ends when the dialog id changes."
+  - id: surface
+    action: "SpecDialogSurface: fresh = no session, nothing started, no entries, not working, no ticket in play; then main is .mock-home with NewWorkHead and NewWorkComposer over the view's projects, and the shell drops the pane column (dl-fresh)."
+  - id: tests
+    action: "Empty state renders heading, composer and attach < project < send in order; sending posts the text with the chosen project; attaching holds the file until send; once the session exists the d762 exchange and pane return. Existing cases that typed into a fresh conversation adapt to the held-files start."
+
+tests:
+  - "SpecDialogSurface.test.tsx, describe A new conversation reads like new work: empty-state order, send with the chosen project, held files go first, open conversation unchanged."
+  - "HomeView.test.tsx stays green unchanged."
+
+done:
+  - "On /spec-dialog with no conversation the page reads like /: question, line, composer with plus, project, send; no right pane."
+  - "Sending starts the conversation with the picked project and the held files; the page then shows the d762 exchange."
+  - "pnpm test and pnpm build in src/dashboard are green."

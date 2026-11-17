@@ -58,6 +58,18 @@ public sealed class ScanContextWindowTests
             "the forwarded copy is re-cut to the finaliser's bound");
     }
 
+    // 2026-11-17-cb32a: the fold target and the summary budget reach a loop whose compaction is derived from a window.
+    [Fact]
+    public void WindowDerivedCompaction_KeepsTheFoldTargetAndTheSummaryBudget()
+    {
+        var derived = new WindowDerivedCompaction().Derive(
+            new CompactionConfig { FoldTargetRatio = 0.2, SummaryBudgetRatio = 0.05 }, windowTokens: 50_000);
+
+        derived!.FoldTargetRatio.Should().Be(0.2);
+        derived.SummaryBudgetRatio.Should().Be(0.05);
+        derived.MaxContextTokens.Should().Be(50_000);
+    }
+
     [Fact]
     public void ScanMaster_ARoleThatStatesItsOwnWindow_KeepsIt()
     {

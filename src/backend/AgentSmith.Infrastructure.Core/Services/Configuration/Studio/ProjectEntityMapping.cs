@@ -26,7 +26,7 @@ internal static class ProjectEntityMapping
             project.DefaultPipeline,
             ToTemplates(project),
             ToSandbox(project),
-            [.. project.DesignSources]);
+            [.. project.DesignSources], RequiresStartNames.Written(project.RequiresStart)); // 2026-11-17-9a39a
     }
 
     /// <summary>

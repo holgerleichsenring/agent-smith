@@ -15,9 +15,9 @@ public sealed record RunCostSummary(
     // means TotalCost is a LOWER BOUND — result.md renders a cost_incomplete
     // block so a missing price can never masquerade as a free run.
     IReadOnlyDictionary<string, long>? UnpricedTokensByModel = null,
-    // 2026-09-01-b0d7: what an external agent CLI reported for the calls it answered.
-    // Never part of TotalCost — that transport spends no money against an agent budget —
-    // and never an unpriced-model alarm, because it has no table price by design.
+    // 2026-09-01-b0d7: what an external agent CLI reported for the calls it answered; never an
+    // unpriced-model alarm. 2026-11-17-7c9bd: a summary built from the recorded calls includes it
+    // in TotalCost (the tracker's own summary still leaves it out).
     WorkerSpend? WorkerSpend = null);
 
 /// <summary>
@@ -33,7 +33,9 @@ public sealed record WorkerSpend(
     long OutputTokens,
     long CacheReadTokens,
     long CacheCreationTokens,
-    decimal ReportedCostUsd);
+    decimal ReportedCostUsd,
+    // 2026-11-17-7c9bf: what the CLI used beside the calls' own models, summed per model.
+    IReadOnlyList<Workers.WorkerModelUsage>? Secondary = null);
 
 /// <summary>
 /// Cost for a single execution phase.

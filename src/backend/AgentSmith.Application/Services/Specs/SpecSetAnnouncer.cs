@@ -13,11 +13,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecSetAnnouncer(IEventPublisher events, ILogger<SpecSetAnnouncer> logger)
 {
+    /// <param name="withRevision">2026-11-17-7c9ba: false when the run kept the branch set unchanged — the
+    /// attempt wrote no revision of its own, so the event carries none and the attempt's revision stays empty.</param>
     public Task AnnounceAsync(
-        PipelineContext pipeline, SpecSet set, bool committed, CancellationToken cancellationToken)
+        PipelineContext pipeline, SpecSet set, bool committed, CancellationToken cancellationToken,
+        bool withRevision = true)
     {
         ArgumentNullException.ThrowIfNull(set);
-        return PublishAsync(pipeline, set.Key, runId => Build(runId, set, committed), cancellationToken);
+        return PublishAsync(pipeline, set.Key, runId => Build(runId, set, committed, withRevision), cancellationToken);
     }
 
     /// <summary>
@@ -50,9 +53,9 @@ public sealed class SpecSetAnnouncer(IEventPublisher events, ILogger<SpecSetAnno
         }
     }
 
-    private static SpecSetPublishedEvent Build(string runId, SpecSet set, bool committed)
+    private static SpecSetPublishedEvent Build(string runId, SpecSet set, bool committed, bool withRevision)
     {
-        var revision = set.Revisions.Count > 0 ? set.Current : null;
+        var revision = withRevision && set.Revisions.Count > 0 ? set.Current : null;
         return new SpecSetPublishedEvent(
             runId, DateTimeOffset.UtcNow,
             revision?.Number, revision?.Cause, set.Series, set.Executed,

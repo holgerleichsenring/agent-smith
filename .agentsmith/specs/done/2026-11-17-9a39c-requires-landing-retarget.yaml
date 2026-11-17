@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-9a39c
+goal: "When a prerequisite lands, the stacked dependent's open pull requests move from its branch to the base it landed on, in a 'retarget' run."
+
+applies_to: "default (pipeline presets, Application/Services/Handlers, Server/Services/Rework)"
+
+requires: [2026-11-17-9a39b]
+
+facts:
+  - claim: "A landing nudges RequirementsMet for every dependent; a dependent with an attempt goes the attempt path and is never retargeted."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:33-50, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:39-42"
+  - claim: "A live run's CommitAndPR moves an open pull request back onto the rung it resolved."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:355-363"
+  - claim: "Reading a pull request's base and moving it are provider members; a read null means do not move."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.Targeting.cs:31-41"
+  - claim: "A server file that calls RetargetPullRequestAsync is a server write the ratchet refuses; act runs go through IActRun."
+    evidence: "tests/AgentSmith.Tests/Architecture/ServerWritesScanner.cs:18-22, src/backend/AgentSmith.Server/Services/Acts/TicketStartRun.cs:13-24"
+
+scope:
+  in: "Preset 'retarget' [RetargetPullRequests], host act, not routable, no master; RetargetPullRequestsRequest(TicketId, Moves) of PullRequestMove(Repo, Url, From, To) and an ActSlot<int>. The step moves each pull request still based on From onto To. StackedPullRequestRetarget (server, reads only): on EVERY nudge of an attempted dependent that has a landed requirement and no live lease (idempotent; a nudge merged into another origin, or consumed while a run held the ticket, is caught by the run's end nudge), each opened pull request whose base is a landed prerequisite's branch gets the new tip's branch, else the base of the prerequisite's own pull request in that repo (the providers read a merged pull request's base), else the repo's configured default branch, else it is logged and left; any move launches one 'retarget' run. A provider that refuses a move (a closed pull request, a deleted base) is reported in the step's result line and logged; the branch-cleanup sweep never deletes a branch an open pull request targets. After a squash merge the moved pull request shows the prerequisite's commits until the dependent's next run merges its base."
+  out: "Completing or merging pull requests, and refreshing siblings on landing (merge-policy work)."
+
+steps:
+  - id: preset
+    action: "PipelinePresets.RetargetName 'retarget' = [RetargetPullRequests] joins the host acts and every command metadata map, builder and data flow."
+  - id: step
+    action: "RetargetPullRequestsHandler reads the request and slot; per move resolves the repo, reads the base, retargets when it is still From; fills the slot with the count moved."
+  - id: server
+    action: "StackedPullRequestRetarget computes the moves and launches 'retarget' through IActRun; ReworkNudgeHandler calls it for every nudge with an attempt and no live lease, before the attempt path."
+
+tests:
+  - "RetargetPullRequestsHandlerTests: a PR on From moves to To; a PR already moved is left; missing seeds fail naming the key"
+  - "StackedPullRequestRetargetTests: a PR on the landed prerequisite's branch moves to the prerequisite PR's base; a PR on another branch, a live lease, or no landed requirement launch nothing"
+  - "StackedStartCompositionTests: the prerequisite lands by hand, the dependent's RequirementsMet nudge runs one 'retarget' run that moves its pull request to main"
+  - "Preset coverage tests know 'retarget'"
+
+done:
+  - "A stacked dependent's pull request ends on the real base once its prerequisite lands, moved by a 'retarget' run with a run id."

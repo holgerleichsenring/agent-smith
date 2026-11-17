@@ -786,13 +786,16 @@ describe("SpecDialogSurface", () => {
   // name — "repo@revision", or a plain repository where the scope pinned no revision.
   // 2026-11-17-d762c: each is a plain mono line now, not a chip.
   it("SpecDialog_TheScopeColumn_ShowsEachRepositoryAndEachTemplateAsAMonoLine", async () => {
-    const unpinned = {
-      name: "unpinned",
-      repos: ["repo-b"],
-      templates: [{ name: "template:loose", repo: "loose-repo", revision: "" }],
+    // 2026-11-17-76f1: a new conversation has no pane, so the column is read for an open conversation's project.
+    const both = {
+      name: "both",
+      repos: ["repo-a", "repo-b"],
+      templates: [SAMPLE_SCOPE.templates[0], { name: "template:loose", repo: "loose-repo", revision: "" }],
     };
-    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, unpinned] }));
+    const base = view();
+    fetchSpecDialog.mockResolvedValue(view({ session: { ...base.session!, scope: both }, projects: [both] }));
     await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-tab-scope"));
 
     for (const repo of ["repo-a", "repo-b"]) {
       const line = screen.getByTestId(`dialog-scope-repo-${repo}`);
@@ -820,15 +823,15 @@ describe("SpecDialogSurface", () => {
     const projectName = "a_project_name_with_no_break_opportunity";
     const repoName = "a-repository-name-with-no-space-in-it-at-all";
     const templateName = "template:a-name-nobody-here-chose";
-    fetchSpecDialog.mockResolvedValue(view({
-      session: null,
-      projects: [{
-        name: projectName,
-        repos: [repoName],
-        templates: [{ name: templateName, repo: "a-template-repository", revision: "v1.2" }],
-      }],
-    }));
+    const project = {
+      name: projectName,
+      repos: [repoName],
+      templates: [{ name: templateName, repo: "a-template-repository", revision: "v1.2" }],
+    };
+    const base = view();
+    fetchSpecDialog.mockResolvedValue(view({ session: { ...base.session!, scope: project }, projects: [project] }));
     await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-tab-scope"));
 
     const heading = screen.getByTestId(`dialog-scope-project-${projectName}`)
       .querySelector(".ec-name") as HTMLElement;
@@ -860,18 +863,16 @@ describe("SpecDialogSurface", () => {
   // apart that an empty project list cannot.
   const OTHER = { name: "other", repos: ["repo-b"], templates: [] };
 
-  it("SpecDialogSurface_NoSessionAndNoProject_ShowsTheChoiceAndNoComposer", async () => {
+  it("SpecDialogSurface_NoSessionAndSeveralProjects_PicksBesideThePlus", async () => {
+    // 2026-11-17-76f1: the choice is the home composer's picker now, not a column of its own.
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
     await renderSurface();
 
-    expect(await screen.findByTestId("dialog-project-choice")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-choice-project")).toBeInTheDocument();
-    // No box to refuse a message, and no transcript behind it either: the column IS the choice.
-    expect(screen.queryByTestId("dialog-composer-text")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("home-composer-project")).toHaveValue("sample");
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
     expect(screen.queryByTestId("dialog-transcript-empty")).not.toBeInTheDocument();
-    // And exactly one select on the whole surface — the list no longer carries a second.
+    // And exactly one select on the whole surface.
     expect(screen.getAllByLabelText("Project")).toHaveLength(1);
-    expect(screen.queryByTestId("dialog-project-picker")).not.toBeInTheDocument();
   });
 
   it("SpecDialogSurface_ViewNotYetRead_SaysItIsLoading", async () => {
@@ -881,10 +882,9 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
 
-    expect(await screen.findByTestId("dialog-project-choice-loading"))
-      .toHaveTextContent("Reading the configured projects");
-    expect(screen.queryByTestId("dialog-choice-project")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-project-choice-none")).not.toBeInTheDocument();
+    expect(await screen.findByText("Reading the projects…")).toBeInTheDocument();
+    expect(screen.queryByTestId("home-composer-project")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("home-composer-no-project")).not.toBeInTheDocument();
   });
 
   it("SpecDialogSurface_ViewFailed_DoesNotSitInLoadingForever", async () => {
@@ -892,10 +892,10 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockRejectedValue(new Error("the dialog could not be read"));
     render(<SpecDialogSurface />);
 
-    expect(await screen.findByTestId("dialog-project-choice-failed"))
+    expect(await screen.findByTestId("home-composer-projects-failed"))
       .toHaveTextContent("could not be read");
-    expect(screen.queryByTestId("dialog-project-choice-loading")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-choice-project")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reading the projects…")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("home-composer-project")).not.toBeInTheDocument();
   });
 
   it("SpecDialogSurface_NoConfiguredProject_SaysSoAndOffersNoSelect", async () => {
@@ -903,10 +903,10 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [] }));
     await renderSurface();
 
-    expect(await screen.findByTestId("dialog-project-choice-none"))
+    expect(await screen.findByTestId("home-composer-no-project"))
       .toHaveTextContent("No project is configured");
-    expect(screen.queryByTestId("dialog-choice-project")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-project-choice-loading")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("home-composer-project")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-composer-send")).toBeDisabled();
   });
 
   it("SpecDialogSurface_SingleConfiguredProject_OpensStraightIntoTheComposer", async () => {
@@ -926,33 +926,30 @@ describe("SpecDialogSurface", () => {
         heldDialogId(), "a widget that reads the ledger", "sample"));
   });
 
-  it("SpecDialogSurface_StartNew_ReturnsToTheChoice", async () => {
+  it("SpecDialogSurface_StartNew_ReturnsToTheNewWorkComposer", async () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
     await renderSurface();
-    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
-      target: { value: "other" },
-    });
-    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    fireEvent.change(await screen.findByTestId("home-composer-project"), { target: { value: "other" } });
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "a widget" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await waitFor(() => expect(screen.queryByTestId("dialog-new-work")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("dialog-new"));
 
-    // The pick is the surface's own state, so nothing the hook clears would clear it: a new
-    // conversation that kept it would open on a project it never asked about.
-    expect(await screen.findByTestId("dialog-project-choice")).toBeInTheDocument();
-    expect(await screen.findByTestId("dialog-choice-project")).toHaveValue("");
-    expect(screen.queryByTestId("dialog-composer-text")).not.toBeInTheDocument();
+    // A new conversation that kept the last one's pick would open on a project it never asked about.
+    expect(await screen.findByTestId("dialog-new-work")).toBeInTheDocument();
+    expect(await screen.findByTestId("home-composer-project")).toHaveValue("sample");
   });
 
   it("SpecDialogSurface_ProjectPickedInTheChoice_PostsOnThatProject", async () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
     await renderSurface();
 
-    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
+    fireEvent.change(await screen.findByTestId("home-composer-project"), {
       target: { value: "other" },
     });
 
-    // Picking leaves the choice, and what was picked is what the first message opens on.
-    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+    // What was picked is what the first message opens on.
     fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "a widget that reads the ledger" },
     });
@@ -979,7 +976,7 @@ describe("SpecDialogSurface", () => {
 
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     expect(postSpecDialogMessage).not.toHaveBeenCalled();
-    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
+    fireEvent.change(await screen.findByTestId("home-composer-project"), {
       target: { value: "other" },
     });
     fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
@@ -1887,7 +1884,7 @@ describe("SpecDialogSurface", () => {
 
     fireEvent.click(screen.getByTestId("dialog-new"));
 
-    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
+    fireEvent.change(await screen.findByTestId("home-composer-project"), {
       target: { value: "other" },
     });
     fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
@@ -3634,7 +3631,8 @@ describe("SpecDialogSurface", () => {
   // card exists to somebody who came here on purpose. Replaced rather than repaired: the words it
   // pinned are deliberately gone.
   it("SpecDialogSurface_AnEmptyConversation_GreetsAndSaysNothingElse", async () => {
-    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+    // 2026-11-17-76f1: an open conversation with no turns yet; a new one shows the home composer instead.
+    fetchSpecDialog.mockResolvedValue(view());
 
     render(<SpecDialogSurface />);
 
@@ -4252,8 +4250,8 @@ describe("The ticket search", () => {
     searchTickets.mockResolvedValue(found([JIRA_HIT]));
     await renderSurface();
 
-    expect(screen.getByTestId("dialog-project-choice")).toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-composer-text")).not.toBeInTheDocument();
+    // 2026-11-17-76f1: a new conversation is the home composer, with the ticket search beneath it.
+    expect(screen.getByTestId("dialog-new-work")).toBeInTheDocument();
 
     await type("cannot log in");
     await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
@@ -4261,7 +4259,9 @@ describe("The ticket search", () => {
 
     // One routed project IS the project: send is a no-op without one and the server drops the
     // ticket without a word, so a pick that did not resolve one could not be discussed at all.
-    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-exchange")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-new-work")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
     expect(screen.getByTestId("dialog-ticket-picked").textContent).toContain("DPG-1239");
   });
@@ -4484,6 +4484,7 @@ describe("The ticket search", () => {
   });
 
   it("SpecDialogScopePanel_AnUnboundConversation_IsUntouchedByThisSpec", async () => {
+    fetchSpecDialog.mockResolvedValue(view());
     await renderSurface();
 
     fireEvent.click(screen.getByTestId("dialog-tab-scope"));
@@ -4496,7 +4497,8 @@ describe("The ticket search", () => {
   // is in play. The field is ONE component holding the search input, the sentence saying why a
   // ticket named no project, the picked row and the control that unbinds it; removing it while a
   // ticket is picked would delete all three while the composer went on sending the ticket.
-  it("SpecDialogSurface_AProjectPickedByHandWithNoTicket_RemovesTheSearchInput", async () => {
+  it("SpecDialogSurface_AProjectPickedInTheComposer_KeepsTheSearchInput", async () => {
+    // 2026-11-17-76f1: the composer's pick is the composer's own; the search beneath it stays until a message is sent.
     fetchSpecDialog.mockResolvedValue(
       view({
         session: null,
@@ -4505,11 +4507,9 @@ describe("The ticket search", () => {
     );
     await renderSurface();
 
-    expect(screen.getByTestId("dialog-ticket-query")).toBeInTheDocument();
-    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+    fireEvent.change(await screen.findByTestId("home-composer-project"), { target: { value: "beta" } });
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("dialog-ticket-search")).not.toBeInTheDocument());
+    expect(screen.getByTestId("dialog-ticket-query")).toBeInTheDocument();
   });
 
   it("SpecDialogSurface_AProjectPickedByHandForAPickedTicket_KeepsTheRowAndTheUnbind", async () => {
@@ -4544,7 +4544,8 @@ describe("The ticket search", () => {
 
   // 2026-09-27-481bd: the pane branched on whether a session was open and on nothing else, so it
   // offered every project as a candidate while the composer said one had been settled.
-  it("SpecDialogScopePanel_AProjectSettledWithoutASession_ShowsThatOneNotAllOfThem", async () => {
+  it("SpecDialogScopePanel_ANewConversation_HasNoPane", async () => {
+    // 2026-11-17-76f1: nothing is read, proposed or filed before the first message, so the pane is not drawn.
     fetchSpecDialog.mockResolvedValue(
       view({
         session: null,
@@ -4553,15 +4554,9 @@ describe("The ticket search", () => {
     );
     await renderSurface();
 
-    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
-    expect(screen.getByTestId("dialog-scope-project-sample")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dialog-scope-project-sample")).not.toBeInTheDocument());
-    expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-new-work")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-tab-scope")).not.toBeInTheDocument();
+    expect(screen.getByTestId("spec-dialog").className).toContain("dl-fresh");
   });
 
 
@@ -4670,5 +4665,73 @@ describe("SpecDialogSurface hand-over", () => {
     await renderSurface();
     await screen.findByTestId("dialog-composer-text");
     expect(postSpecDialogMessage).not.toHaveBeenCalled();
+  });
+});
+
+// 2026-11-17-76f1: a new conversation is the home page's question and composer — text on top, then the plus, the
+// project and send in one row — and sending starts the conversation the way a home hand-over does: files first, then
+// the text, on the project picked beside the plus. Once the conversation exists the exchange and the pane return.
+describe("A new conversation reads like new work", () => {
+  const OTHER = { name: "other", repos: ["repo-b"], templates: [] };
+  const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it("NewConversation_RendersTheHomeComposerPiecesInTheHomeOrder", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
+    await renderSurface();
+
+    const page = await screen.findByTestId("dialog-new-work");
+    const heading = within(page).getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent("What should we work on?");
+    const composer = within(page).getByTestId("home-composer");
+    const text = within(composer).getByTestId("dialog-composer-text");
+    expect(text).toHaveAttribute("placeholder", "Describe new work, paste a ticket link, or add files");
+    const row = within(composer).getByTestId("dialog-composer-tools");
+    const attach = within(row).getByRole("button", { name: "Attach" });
+    const picker = within(row).getByRole("combobox", { name: "Project" });
+    const send = within(row).getByRole("button", { name: "Send" });
+    expect(follows(heading, composer)).toBe(true);
+    expect(follows(text, attach)).toBe(true);
+    expect(follows(attach, picker)).toBe(true);
+    expect(follows(picker, send)).toBe(true);
+    // Not the open conversation's frame: no heading of its own, no dialog id line, no pane.
+    expect(screen.queryByTestId("dialog-heading")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-identity")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-tab-scope")).not.toBeInTheDocument();
+  });
+
+  it("NewConversation_Send_StartsTheConversationOnTheChosenProjectWithItsFilesFirst", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
+    uploadSpecDialogImage.mockClear();
+    await renderSurface();
+
+    fireEvent.change(await screen.findByRole("combobox", { name: "Project" }), { target: { value: "other" } });
+    const image = new File(["x"], "sketch.png", { type: "image/png" });
+    fireEvent.change(screen.getByTestId("dialog-composer-image"), { target: { files: [image] } });
+    // Held, as on the home page, until the message goes.
+    expect(await screen.findByTestId("home-composer-files")).toHaveTextContent("1 file goes with your message");
+    expect(uploadSpecDialogImage).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "rename the cart" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "rename the cart", "other"));
+    expect(uploadSpecDialogImage).toHaveBeenCalledWith(heldDialogId(), "other", image);
+    expect(uploadSpecDialogImage.mock.invocationCallOrder[0])
+      .toBeLessThan(postSpecDialogMessage.mock.invocationCallOrder[0]);
+    expect(postSpecDialogMessage).toHaveBeenCalledTimes(1);
+    // Under way: the exchange is back.
+    expect(screen.queryByTestId("dialog-new-work")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-exchange")).toBeInTheDocument();
+  });
+
+  it("OpenConversation_KeepsTheExchangeAndThePane", async () => {
+    fetchSpecDialog.mockResolvedValue(view());
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-heading")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-tab-scope")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-new-work")).not.toBeInTheDocument();
+    expect(screen.getByTestId("spec-dialog").className).not.toContain("dl-fresh");
   });
 });

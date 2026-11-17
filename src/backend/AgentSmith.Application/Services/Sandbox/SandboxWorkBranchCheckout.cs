@@ -66,7 +66,7 @@ public sealed class SandboxWorkBranchCheckout(
                 branch);
             return WorkBranchPlacement.On(null);
         }
-        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct);
+        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct, publish: !requested.Stacked);
         var problem = report.Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
         return problem is null ? Placed(resolved) : WorkBranchPlacement.Stop(problem);
     }
@@ -80,7 +80,7 @@ public sealed class SandboxWorkBranchCheckout(
         ISandbox sandbox, RepoConnection config, RunBranch requested, CancellationToken ct)
     {
         var branch = requested.Name.Value;
-        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct);
+        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct, publish: !requested.Stacked);
         // A ladder that FELL THROUGH names the clone's own base, which is where a fresh
         // clone's HEAD already stands — checking it out would be a no-op dressed as a
         // decision, and on a tree some other step positioned it would silently move the

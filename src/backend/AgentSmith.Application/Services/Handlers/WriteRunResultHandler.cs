@@ -426,7 +426,7 @@ public sealed class WriteRunResultHandler(
         var cost = pipeline.TryGet<RunCostSummary>(ContextKeys.RunCostSummary, out var explicitCost)
             && explicitCost is not null
             ? explicitCost
-            : PipelineCostTracker.GetOrCreate(pipeline).BuildSummary();
+            : RecordedCallSummary.For(pipeline) ?? PipelineCostTracker.GetOrCreate(pipeline).BuildSummary(); // 7c9bd
         // 2026-10-13-3890b: wall clock — a parked-then-resumed run counts its parked time.
         var duration = pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var startedAt)
             ? (int)Math.Max(0, (DateTimeOffset.UtcNow - startedAt).TotalSeconds)

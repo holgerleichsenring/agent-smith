@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-9a39a
+goal: "Under requires_start on_green_push, a dependent ticket starts once its prerequisite's newest code run delivered green and pushed, not only once it merged."
+
+applies_to: "default (Application/Services/Claim, Server/Services/Rework, project configuration and its studio entity)"
+
+requires: [2026-11-17-e061b]
+
+facts:
+  - claim: "A requirement is met only when the required ticket landed — merged or marked done by hand."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:10-11, src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:26-28"
+  - claim: "Dependents are woken only by a won landing insert."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:64, src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:33-50"
+  - claim: "Every code run's end upserts a RunEnd nudge for its ticket; the nudge handler reads the ticket's newest attempt first."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-48, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:39-41"
+  - claim: "The newest attempt carries its status, whether it stopped at a series boundary, and each repo's opened pull-request URL."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:36-51"
+  - claim: "A run is Success unless it delivered a shortfall; a series boundary stop also ends Success, told apart by a not-started spec."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunTerminalStatus.cs:19-20, src/backend/AgentSmith.Contracts/Runs/SeriesBoundaryEnd.cs:14-16, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:45-46"
+  - claim: "PullRequestUrls is the newest opened URL per repo over the ticket's last 20 code runs, not the newest attempt's own."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:71-82"
+  - claim: "The claim gate, the RequirementsMet start and a person's start all ask UnmetTicketRequirements."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:27, src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:56-58, src/backend/AgentSmith.Server/Services/SpecDialog/ConversationAttemptStart.cs:34, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:30, src/backend/AgentSmith.Application/Services/Filing/TicketGraphStarts.cs:60"
+
+scope:
+  in: "RequiresStart {OnMerge, OnGreenPush} on ResolvedProject, YAML requires_start (on_merge | on_green_push), default on_green_push, an unknown value a blocking finding; ProjectEntity.RequiresStart round-trips through the studio mapping and patch. GreenPrerequisites: a prerequisite is green when its newest code attempt finished Success, did not stop at a series boundary, opened a pull request itself (PreviousAttempt.OpenedPullRequest, from that run's own row) and the ticket carries no closed mark; the stack tip is the one unlanded prerequisite whose requirement chain reaches every other unlanded one. UnmetTicketRequirements.ForStartAsync(project, key) answers RequirementHold(HasRequirements, Unmet, StackedOn): under on_green_push every unlanded edge is lifted when all are green and a tip exists; a dependent that already has a code attempt was stacked once and is not held again (its rework is never refused while the prerequisite reworks), its tip found by the chain alone. Default on_green_push: existing projects change to stacked starts; on_merge opts out. The gate (and so ClaimRefusal, the spawn funnel and its deferral), RequirementsMetStart, TicketGraphStarts and the person's starts ask ForStartAsync; the refusal sentence names green push under on_green_push. StackedDependentsWake: a nudge whose ticket's newest attempt is green nudges RequirementsMet for each never-attempted, ready dependent; it throws on a failed read or enqueue so the durable nudge reschedules, which is its recovery."
+  out: "The run's base and the pull-request target (9a39b). Retargeting on landing (9a39c). The ticket list's blocked/ready marker keeps reading landings only. A dashboard control for the setting (the studio API carries it; the form is a later spec)."
+
+steps:
+  - id: setting
+    action: "RequiresStart enum and ResolvedProject.RequiresStart; RawProjectEntry.RequiresStart string; ResolvedProjectBuilder parses it (null = OnGreenPush, unknown = blocking finding naming the value and the two allowed); ProjectEntity.RequiresStart + ProjectEntityMapping + RawProjectPatch."
+  - id: green
+    action: "GreenPrerequisites(IPreviousAttemptReader, ITicketClosedMarkStore, ITicketRequirementStore): IsGreen(PreviousAttempt) and TipAsync(project, tracker, unmet edges) → the tip edge or null."
+  - id: hold
+    action: "UnmetTicketRequirements takes GreenPrerequisites optionally and adds ForStartAsync; RequirementHold record; RequiresUnmetGate, RequirementsMetStart.HeldAsync, TicketGraphStarts, ConversationAttemptStart and OperatorStart use it."
+  - id: wake
+    action: "StackedDependentsWake.WakeAsync(project, ticketId, attempt): OnGreenPush and a green finished attempt nudge RequirementsMet for every distinct dependent that is ready (StartsWhenMet, not closed, ForStartAsync unmet empty, filed completely, no attempt, not queued, not leased). ReworkNudgeHandler calls it right after reading the attempt, before the live-lease, queued, release and tail returns."
+  - id: attempt
+    action: "PreviousAttempt.OpenedPullRequest: the newest attempt's own PullRequestsJson holds an opened entry."
+
+tests:
+  - "GreenPrerequisitesTests: success+PR green; shortfall, failed, boundary stop, no PR, closed not green; a chain's tip found; two independent prerequisites give no tip"
+  - "UnmetTicketRequirementsForStartTests: on_merge keeps unlanded edges; on_green_push lifts a green chain and names the tip; a non-green prerequisite holds"
+  - "StackedDependentsWakeTests: green prerequisite nudges a ready dependent once; on_merge, a red attempt, an attempted dependent nudge nothing"
+  - "ResolvedProjectBuilder / studio mapping tests for requires_start"
+
+done:
+  - "With on_green_push, a filed dependent's RequirementsMet nudge is enqueued when its prerequisite's run ends green with a pull request, and the gate admits its claim; a project set to on_merge keeps today's behaviour."

@@ -542,7 +542,15 @@
               "type": "number",
               "description": "Compaction fires past this share of max_context_tokens. Default 0.7; 0 or less disables it."
             },
-            "keep_recent_iterations": { "type": "integer", "description": "Default 3." }
+            "keep_recent_iterations": { "type": "integer", "description": "Default 3. A fold keeps at most this many recent rounds verbatim, fewer when they would not fit fold_target_ratio." },
+            "fold_target_ratio": {
+              "type": "number",
+              "description": "A fold shrinks the forwarded view to this share of max_context_tokens, so the gap to the trigger passes before the next fold. Default 0.35. Keep it below max_context_tokens_trigger_ratio: at or above it, every call past the trigger folds."
+            },
+            "summary_budget_ratio": {
+              "type": "number",
+              "description": "Each fold appends a summary segment; segments that would pass this share of max_context_tokens are summarized into one. Default 0.1."
+            }
           }
         },
         "catalog": {
@@ -795,6 +803,11 @@
           "minItems": 1
         },
         "default_pipeline": { "type": "string" },
+        "requires_start": {
+          "type": "string",
+          "enum": ["on_green_push", "on_merge"],
+          "description": "When a ticket that requires another may start: on_green_push (default) once each prerequisite pushed a green branch, stacked on it; on_merge once each landed."
+        },
         "coding_principles_path": { "type": "string" },
         "skills_path": { "type": "string" },
         "resolution": {
