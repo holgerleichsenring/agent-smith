@@ -15,7 +15,7 @@ facts:
     evidence: "observed: 2026-11-17, replay RunLlmCalls and server.3.log for run 08-44-38-b43b"
   - claim: "The CLI reported $91.74 for the 102 calls the tracker saw (12.30M tokens); the other 70 calls are uncounted there."
     evidence: "observed: 2026-11-17, replay server.3.log 10:28:26 result line"
-  - claim: "By role: agentic-executor 80 calls, 10.4M of the cache-write tokens; spec-attack-reviewer 53 calls, 3.0M; diff-reviewer 12 and accountant 8, 1.6M together. Of 20.4M prompt chars, 2.4M are tool schemas and 4.4M leading system messages (33 %); the executor's share is 43 %."
+  - claim: "By role (cache-write tokens): agentic-executor 80 calls, 8.6M; spec-attack-reviewer 53 calls, 2.2M; diff-reviewer 12 and accountant 8, 1.6M together. Of 20.4M prompt chars, 2.4M are tool schemas and 4.4M leading system messages (33 %); the executor's share is 43 %."
     evidence: "observed: 2026-11-17, replay RunLlmCalls grouped by Role and PromptRecords/PromptBlocks for the run"
   - claim: "A stdin prompt is one content block, so a repeated prefix inside it is never read from cache; a --system-prompt-file is cached and read on the next call."
     evidence: "observed: 2026-11-17, probes on CLI 2.1.285: same 58k-char prefix on stdin, second call read 6,235 and created 24,652; as --system-prompt-file, second call read 23,756 and created 911"
