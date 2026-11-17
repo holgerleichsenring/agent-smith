@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d6fba
+
+decisions:
+  - category: Architecture
+    chose: "The home composer hands its first message (text, project, picked files) to /spec-dialog through an in-memory hand-over; the Work it out page sends it with useSpecDialog's own attach, attachSite and send"
+    over: "Posting the message from the home page with its own useSpecDialog instance, or a second home-only post path"
+    reason: "One way a conversation starts. The home page would otherwise have to own a dialog subscription it leaves the moment it navigates; files cannot travel in an address, and a client-side navigation keeps module state."
+  - category: Behaviour
+    chose: "Sending from home holds a fresh dialog id first (startNewDialog)"
+    over: "Sending onto the browser's held id"
+    reason: "The held id may carry an open conversation; the home message would land in it instead of starting new work. The old one stays in the recents."
+  - category: Behaviour
+    chose: "The project list is read through the dialog view of an id minted for the read and never held; the first project is preselected"
+    over: "A new projects endpoint, or the big DialogProjectChoice block above the composer"
+    reason: "The view is how Work it out already reads the projects; a preselected project chip matches the approved mock and keeps the composer usable without a choice step."
+  - category: Behaviour
+    chose: "Your move = the ticket list's needs_you rows, oldest first, at most three, with a link to the whole bucket; recent = the other rows of the same first page, newest since first, at most eight"
+    over: "A separate read for the home page"
+    reason: "The sidebar's Your move count is that bucket's count from the same TicketListProvider read, so the page and the count cannot disagree."
+  - category: Architecture
+    chose: "The runs list moves to /runs (RUNS_PATH in RunBucketFilter); / is 'Home' in the places table"
+    over: "/jobs as the list route"
+    reason: "The sidebar item and the page are called Runs; /jobs/{id} stays the run address."

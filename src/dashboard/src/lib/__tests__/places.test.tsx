@@ -82,7 +82,7 @@ describe("Places", () => {
   it("Places_EveryFormerRailDestination_IsStillLinked", () => {
     const hrefs = shellHrefs();
     for (const href of [
-      "/", "/tickets", "/tickets?bucket=needs-you", "/pull-requests", "/spec-dialog", "/overview", "/delivery",
+      "/runs", "/tickets", "/tickets?bucket=needs-you", "/pull-requests", "/spec-dialog", "/overview", "/delivery",
       "/system/tracker", "/system/webhooks", "/system/chat", "/system/config", "/system/catalog",
       "/config", "/config/projects", "/config/access", "/config/installation", "/config/connection-check",
       "/config/changes", "/config/settings/orchestrator", "/system",
@@ -109,14 +109,19 @@ describe("Places", () => {
     expect(placeForPath("/spec-dialog")).toBe("Work it out");
   });
 
-  it("Places_TheHomePath_IsOnePlaceNotFiveBuckets", () => {
+  it("Places_TheRunsPath_IsOnePlaceNotFiveBuckets", () => {
     // The five run buckets differ only by a query the root layout may not read, so
     // they are one place — and the table holds one row for them, not five.
     for (const bucket of ["all", "needs-you", "running", "queued", "finished"]) {
-      const href = bucket === "all" ? "/" : `/?bucket=${bucket}`;
+      const href = bucket === "all" ? "/runs" : `/runs?bucket=${bucket}`;
       expect(placeForPath(href)).toBe("Runs");
     }
-    expect(Object.keys(PLACES).filter((path) => path.startsWith("/?"))).toEqual([]);
+    expect(Object.keys(PLACES).filter((path) => path.includes("?"))).toEqual([]);
+  });
+
+  // 2026-11-17-d6fba: / is the input page.
+  it("Places_TheRoot_IsHome", () => {
+    expect(placeForPath("/")).toBe("Home");
   });
 
   it("Places_ARunUrl_IsNamedWithoutBeingListed", () => {
@@ -128,7 +133,7 @@ describe("Places", () => {
 
   it("Places_APathTheTableDoesNotHold_IsNoPlace", () => {
     expect(placeForPath("/something-nobody-named")).toBeNull();
-    expect(placeForPath(null)).toBe("Runs");
+    expect(placeForPath(null)).toBe("Home");
   });
 
   it("Places_TheConfigSubtree_IsDerivedFromTheCatalogAndSettings", () => {

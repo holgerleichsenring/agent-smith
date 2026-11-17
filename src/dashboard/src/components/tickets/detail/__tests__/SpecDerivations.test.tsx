@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub, ticket } from "../../__tests__/ticketFixtures";
-import { conversation, defaults, detail, reviews, series, ticketText } from "./detailFixtures";
+import { attempt, conversation, defaults, detail, reviews, series, ticketText } from "./detailFixtures";
 import type { RunEvent } from "@/types/hub-events";
 import type { TicketDerivation, TicketDetail, TicketRequires } from "@/types/tickets";
 
@@ -10,8 +10,9 @@ import type { TicketDerivation, TicketDetail, TicketRequires } from "@/types/tic
 
 const NONE: RunEvent[] = [];
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => NONE }));
+const nav = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => new URLSearchParams(nav.search),
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
   usePathname: () => "/tickets/shop/59",
 }));
@@ -59,6 +60,7 @@ async function open() {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  nav.search = "";
   for (const fn of Object.values(api)) fn.mockClear();
   deriveSpecs.mockReset();
 });
@@ -89,7 +91,7 @@ describe("SpecDerivations", () => {
     await open();
 
     expect(screen.getByTestId("spec-derivation-cost-d-1")).toHaveTextContent(/^\$1\.38$/);
-    expect(screen.getByTestId("spec-derivation-d-1")).toHaveTextContent("4 min · $1.38");
+    expect(screen.getByTestId("spec-derivation-d-1")).toHaveTextContent("4m 0s · $1.38");
     expect(screen.getByTestId("spec-derivation-cost-d-2")).toHaveTextContent("$0.12 so far");
   });
 
@@ -117,5 +119,18 @@ describe("SpecDerivations", () => {
     expect(deriveSpecs).toHaveBeenCalledWith("shop", "59", "branch");
     expect(screen.getByTestId("derive-specs-started")).toHaveTextContent("Spec derivation started.");
     expect(api.detail.mock.calls.length).toBeGreaterThan(reads);
+  });
+
+  // 2026-11-17-8d1cd: a ticket with runs lists its derivations in the Specs section, with their duration and Derive again.
+  it("SpecDerivations_OnATicketWithRuns_AreInTheSpecsSection_WithDurationAndDeriveAgain", async () => {
+    world.detail = { ...detail([attempt()]), derivations: [
+      derivation({ runId: "d-2", outcome: "not-finished", status: "failed", startedAt: "2026-10-26T10:00:00Z", finishedAt: "2026-10-26T10:02:30Z", summary: "timed out" }),
+    ] };
+    nav.search = "section=specs";
+    await open();
+    const line = screen.getByTestId("spec-derivation-d-2");
+    expect(screen.getByTestId("ticket-pane-specs")).toContainElement(line);
+    expect(line).toHaveTextContent("2m 30s");
+    expect(line).toHaveTextContent("Derive again");
   });
 });

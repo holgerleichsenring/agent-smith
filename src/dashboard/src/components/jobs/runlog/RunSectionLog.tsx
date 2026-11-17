@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { sectionDuration, type RunSection, type SectionId } from "./runSections";
+import { VerifyPassLines } from "./VerifyPassLines";
 
 // 2026-11-16-6877b: the run as text. A thin strip with one node per section (green done, amber a finding or running,
 // red a stop, hollow not reached) above seven sections that all start closed; a node opens its section. An open
@@ -11,11 +12,12 @@ interface Props {
   sections: RunSection[];
   open: ReadonlySet<SectionId>;
   onToggle: (id: SectionId) => void;
-  /** The criteria with their overrule control, drawn inside the check section. */
-  check: ReactNode;
+  /** What a section draws instead of step lines: the criteria with their overrule control in the check section;
+   *  2026-11-17-d6fbb: the ticket, the spec and plan, and the outcome in their own sections. */
+  slots: Partial<Record<SectionId, ReactNode>>;
 }
 
-export function RunProgressStrip({ sections, open, onToggle }: Omit<Props, "check">) {
+export function RunProgressStrip({ sections, open, onToggle }: Omit<Props, "slots">) {
   return (
     <div className="rl-strip" role="group" aria-label="Where the run is" data-testid="run-strip">
       {sections.map((s) => (
@@ -29,7 +31,7 @@ export function RunProgressStrip({ sections, open, onToggle }: Omit<Props, "chec
   );
 }
 
-export function RunSectionLog({ sections, open, onToggle, check }: Props) {
+export function RunSectionLog({ sections, open, onToggle, slots }: Props) {
   return (
     <div className="rl-sections" data-testid="run-sections">
       {sections.map((s) => {
@@ -45,13 +47,20 @@ export function RunSectionLog({ sections, open, onToggle, check }: Props) {
             </button>
             {isOpen && (
               <div className="rl-sec-body" id={`run-sec-${s.id}`}>
-                {s.id === "check" ? check : s.lines.length === 0 ? <div className="rl-line rl-dim">Nothing ran here.</div> : s.lines.map((l) => (
+                {slots[s.id] !== undefined ? <div className="rl-slot">{slots[s.id]}</div> : s.lines.length === 0 ? <div className="rl-line rl-dim">Nothing ran here.</div> : s.lines.map((l) => (
                   <div key={l.stepIndex} className={`rl-line ${l.state}`} data-testid="run-log-line">
                     <span className="rl-at">{l.at ?? ""}</span>
-                    <span>
-                      {l.text}
-                      {l.detail && <span className="rl-dim">: {l.detail}</span>}
-                    </span>
+                    {l.verify ? (
+                      <div>
+                        {l.text} <span className="rl-dim">{l.verify.result}</span>
+                        <VerifyPassLines pass={l.verify} />
+                      </div>
+                    ) : (
+                      <span>
+                        {l.text}
+                        {l.detail && <span className="rl-dim">: {l.detail}</span>}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

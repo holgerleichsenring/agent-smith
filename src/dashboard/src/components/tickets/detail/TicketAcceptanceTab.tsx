@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { runPath } from "@/lib/runPath";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketSeriesCriterion, TicketSeriesUnattributed } from "@/types/tickets";
 import { CriterionRejection } from "./CriterionRejection";
-import { acceptanceTally, criterionRow, isRunRecord, overruleWords, RUN_RECORD_LINE, verdictRow } from "./specWords";
+import { acceptanceTally, criterionRow, isRunRecord, overruleWords, rejectionOf, RUN_RECORD_LINE, verdictRow } from "./specWords";
 
 // 2026-10-13-9a59r: acceptance PER SPEC — each spec's done list (a run's acceptance contract is the current
 // spec's), every criterion with its mark and the attempt that verified it, "verify pending" or "not started";
@@ -11,6 +13,8 @@ import { acceptanceTally, criterionRow, isRunRecord, overruleWords, RUN_RECORD_L
 // run viewer: nothing here records one. A run-record series says a spec whose run judged nothing recorded no
 // verdict, and lists the run criteria it could not tie to one spec.
 // 2026-10-16-86e6e: a criterion the gate did not accept says why, with the run where it can be overruled.
+// 2026-11-17-8d1cd: plain lines (TicketRail mock) — the criterion, the reason its verdict was given, and "overrule" as a
+// text link to the run that judged it; recording the overrule stays on the run page.
 
 export function TicketAcceptanceTab() {
   const series = useTicketSeries();
@@ -76,15 +80,22 @@ interface LineProps {
 
 function CriterionLine({ criterion, row, judgedBy }: LineProps) {
   const overruled = overruleWords(criterion);
+  const rejected = rejectionOf(criterion) !== null;
   return (
     <div className="ci" data-testid="acceptance-criterion">
       <span className={`m ${row.mark}`}>{row.glyph}</span>
       <span>
         {criterion.text}
+        {criterion.note && !rejected && <span className="tk-crit-why" data-testid="acceptance-reason">{criterion.note}</span>}
         {overruled && <span className="dim-line" data-testid="acceptance-overruled"> · {overruled}</span>}
         <CriterionRejection criterion={criterion} judgedBy={judgedBy} />
       </span>
-      <span className="cw">{row.who}</span>
+      <span className="cw">
+        {row.who}
+        {judgedBy && criterion.verdict && !overruled && !rejected && (
+          <Link className="tk-overrule" href={runPath(judgedBy)} data-testid="acceptance-overrule">overrule</Link>
+        )}
+      </span>
     </div>
   );
 }

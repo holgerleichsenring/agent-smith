@@ -195,7 +195,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.SpecDeliveryAccounting>().AddTransient<Specs.SpecEntryAccount>();
-        services.AddTransient<ICommandHandler<VerifySpecContext>, VerifySpecHandler>(); // p0393
+        services.AddTransient<ICommandHandler<VerifySpecContext>, VerifySpecHandler>().AddTransient<VerifyPassReporter>(); // p0393, d6fbc
         services.AddTransient<ICommandHandler<ReviewSpecDiffContext>, ReviewSpecDiffHandler>(); // 042eh
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();

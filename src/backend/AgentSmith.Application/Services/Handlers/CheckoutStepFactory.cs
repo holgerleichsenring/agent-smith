@@ -70,6 +70,16 @@ internal static class CheckoutStepFactory
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
+    /// <summary>2026-11-17-d5cc: whether /work already is a checkout's root — a local repo's bind mount — or
+    /// still empty. The prefix is empty only at a work tree's root, so a work dir that merely sits inside
+    /// some other repository is not mistaken for the checkout.</summary>
+    public static Step BuildIsWorkTreeStep() =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: new[] { "rev-parse", "--show-prefix" },
+            WorkingDirectory: Repository.SandboxWorkPath,
+            TimeoutSeconds: CheckoutTimeoutSeconds);
+
     /// <summary>2026-09-13-9802: what the tree is actually on, asked of the clone.</summary>
     public static Step BuildResolveHeadStep() =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,

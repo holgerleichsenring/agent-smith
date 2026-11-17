@@ -171,6 +171,7 @@ public sealed class SandboxTreeSyncVerifyTests
         new SpecProgressRecorder(events ?? new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
         TestSpecReview.Revert(),
+        new VerifyPassReporter(new NoOpEventPublisher(), TimeProvider.System, NullLogger<VerifyPassReporter>.Instance),
         NullLogger<VerifySpecHandler>.Instance);
 
     private sealed class RecordingAccountant : ISpecAccountant

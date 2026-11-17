@@ -62,6 +62,7 @@ public static class EventTypeResolver
         EventType.DefaultDecisionTaken => typeof(DefaultDecisionTakenEvent), // 2026-10-13-8762o
         EventType.MemoryUseRecorded => typeof(MemoryUseRecordedEvent), // 2026-10-25-9324b
         EventType.DialogActivity => typeof(DialogActivityEvent), // 2026-11-10-d854c
+        EventType.VerifyPassRecorded => typeof(VerifyPassRecordedEvent), // 2026-11-17-d6fbc
         _ => null
     };
 
