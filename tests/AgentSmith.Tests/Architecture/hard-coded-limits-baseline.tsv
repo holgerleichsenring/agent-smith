@@ -131,7 +131,6 @@
 1	AgentSmith.Application/Services/Specs/SearchOutcome.cs
 1	AgentSmith.Application/Services/Specs/SeriesIdFactory.cs
 5	AgentSmith.Application/Services/Specs/SourceScopeLook.cs
-1	AgentSmith.Application/Services/Specs/SpecBuildNoteSection.cs
 1	AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs
 1	AgentSmith.Application/Services/Specs/SpecCutReviewer.cs
 1	AgentSmith.Application/Services/Specs/SpecDerivationCall.cs
@@ -194,7 +193,6 @@
 1	AgentSmith.Contracts/Runs/RunMetricsContracts.cs
 1	AgentSmith.Contracts/Runs/RunStatisticsFold.cs
 1	AgentSmith.Contracts/Runs/SecretMasker.cs
-3	AgentSmith.Contracts/Sandbox/IConversationMocks.cs
 1	AgentSmith.Contracts/Sandbox/ReferenceCoverage.cs
 3	AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs
 1	AgentSmith.Contracts/Services/ToolResultBound.cs

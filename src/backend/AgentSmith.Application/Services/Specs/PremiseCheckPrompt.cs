@@ -30,7 +30,7 @@ public static class PremiseCheckPrompt
 
     public static string For(
         SpecDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote>? notes = null)
+        IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes, int noteMaxChars)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(premises);
@@ -83,7 +83,7 @@ public static class PremiseCheckPrompt
                 "breaks": "<a completion criterion verbatim from the spec, or null>"}]
 
             An empty array means every premise below still holds.
-            {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan, notes ?? [])}}
+            {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan, notes, noteMaxChars)}}
             THE SPEC
             {{SpecQuotableText.Render(draft)}}
 
@@ -98,7 +98,7 @@ public static class PremiseCheckPrompt
     /// against the state the earlier ones leave — and a reader who is not told this reports every
     /// one of them as broken. 2026-10-13-8762m: with the build notes they handed forward.
     /// </summary>
-    private static string AlreadyRan(IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes)
+    private static string AlreadyRan(IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes, int noteMaxChars)
     {
         if (alreadyRan.Count == 0) return string.Empty;
         return "\n## Specs of this series that have already run\n"
@@ -107,6 +107,6 @@ public static class PremiseCheckPrompt
             + "below was written against the state they leave. A premise is not broken merely "
             + "because one of them changed what it describes — that is the sequence working. "
             + "Report a premise only where what the spec rests on is not so even after they ran.\n"
-            + SpecBuildNoteSection.Render(notes);
+            + SpecBuildNoteSection.Render(notes, noteMaxChars);
     }
 }

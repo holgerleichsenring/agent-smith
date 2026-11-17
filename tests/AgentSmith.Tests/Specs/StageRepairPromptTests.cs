@@ -79,7 +79,7 @@ public sealed class StageRepairPromptTests
     }
 
     private static string Build(PipelineContext pipeline) =>
-        new SpecExecutionPromptFactory().Build(pipeline,
+        new SpecExecutionPromptFactory(new LoaderSeriesSettingsReader()).Build(pipeline,
             new Ticket(new TicketId("7"), "title", "body", null, "open", "test"),
             new Repository(new BranchName("agent-smith/7"), "/work"), ["shop-dotnet"], string.Empty, string.Empty);
 }

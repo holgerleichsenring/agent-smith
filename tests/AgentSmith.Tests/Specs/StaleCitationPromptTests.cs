@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Entities;
@@ -17,7 +18,7 @@ public sealed class StaleCitationPromptTests
         pipeline.Set<IReadOnlyList<string>>(ContextKeys.StaleCitations,
             ["src/Api/Orders.cs:2-3 (shop): its lines changed since 1a2b3c4d and their text was found nowhere"]);
 
-        var prompt = new SpecExecutionPromptFactory().Build(pipeline,
+        var prompt = new SpecExecutionPromptFactory(new LoaderSeriesSettingsReader()).Build(pipeline,
             new Ticket(new TicketId("7"), "t", "d", null, "open", "test"),
             new Repository(new BranchName("main"), "https://example.test/shop.git"), ["shop"], string.Empty, string.Empty);
 

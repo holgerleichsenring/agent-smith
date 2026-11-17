@@ -280,7 +280,8 @@
         },
         "budget_usd": { "type": "number", "minimum": 0, "description": "The USD one chain of attempts may spend (each attempt's run cost, its review of the unbuilt tail included) before agent-smith holds the next automatic attempt. 0 turns automatic continuation off. Default 150." },
         "wall_clock_hours": { "type": "number", "minimum": 0, "description": "The summed RUN hours of one chain of attempts (time held between attempts not counted) before the next automatic attempt is held. Default 12." },
-        "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." }
+        "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." },
+        "build_note_max_chars": { "type": "integer", "minimum": 1, "description": "The characters of the build notes of the specs that already ran, shown to the next spec's master and premise check; past it the oldest notes are dropped first and named. Default 8000." }
       }
     },
     "preconditions": {
@@ -316,7 +317,10 @@
         "dashboard_url": {
           "type": "string",
           "description": "This deployment's dashboard address. A ticket comment that asks a question links to the run's page here; unset, it carries no link."
-        }
+        },
+        "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
+        "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
+        "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." }
       }
     },
     "persistence": {

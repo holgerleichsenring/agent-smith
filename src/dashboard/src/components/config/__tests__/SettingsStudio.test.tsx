@@ -25,7 +25,7 @@ const FIXTURES: Record<string, unknown> = {
   registries: [],
   trace: { enabled: false },
   spec_review: { rounds: 4, reviewers: 2, maxConcurrent: 2, budgetSharePercent: 40, attackLookFloor: 24, regroundReadBudget: 24, seriesContractMaxChars: 60000 },
-  series: { maxSpecs: 24, specsPerAttempt: 8, secondsPerSpec: 0, budgetUsd: 150, wallClockHours: 12, continueAfterWallTime: true },
+  series: { maxSpecs: 24, specsPerAttempt: 8, secondsPerSpec: 0, budgetUsd: 150, wallClockHours: 12, continueAfterWallTime: true, buildNoteMaxChars: 8000 },
   sandbox: {
     agentRegistry: "ghcr.io/x",
     agentVersion: "0.48.0",
@@ -389,7 +389,7 @@ describe("SettingsStudio", () => {
     fireEvent.click(screen.getByTestId("settings-save"));
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
     expect(saveSetting).toHaveBeenCalledWith("series", {
-      maxSpecs: 20, specsPerAttempt: 6, secondsPerSpec: 600, budgetUsd: 0, wallClockHours: 8.5, continueAfterWallTime: false,
+      maxSpecs: 20, specsPerAttempt: 6, secondsPerSpec: 600, budgetUsd: 0, wallClockHours: 8.5, continueAfterWallTime: false, buildNoteMaxChars: 8000,
     });
   });
 

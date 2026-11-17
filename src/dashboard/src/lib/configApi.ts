@@ -955,6 +955,10 @@ export interface QueueSetting {
 export interface DialogueSetting {
   hotWaitSeconds: number;
   approvalTimeoutSeconds: number;
+  /** 2026-11-17-f9b0c: the design conversation's mock caps. */
+  mockMaxChars: number;
+  mockVersionsPerSpec: number;
+  mockVersionsPerConversation: number;
 }
 
 export interface DeploymentSetting {
@@ -1009,6 +1013,8 @@ export interface SeriesSetting {
   budgetUsd: number;
   wallClockHours: number;
   continueAfterWallTime: boolean;
+  /** 2026-11-17-f9b0c: the characters of earlier specs' build notes the next spec is shown. */
+  buildNoteMaxChars: number;
 }
 
 /** Maps each settings key to its wire shape. */

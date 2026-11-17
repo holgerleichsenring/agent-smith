@@ -59,6 +59,9 @@ export function SeriesForm({ value, onChange }: { value: SeriesSetting; onChange
         help="summed run time of one chain of attempts; time held between attempts does not count" />
       <CheckField label="Continue after a wall-time cancel" value={value.continueAfterWallTime}
         onChange={(v) => set({ continueAfterWallTime: v })} testId="setting-series-continue" />
+      <NumberField label="Build note characters" value={value.buildNoteMaxChars}
+        onChange={(v) => set({ buildNoteMaxChars: keep(v, value.buildNoteMaxChars) })} testId="setting-series-buildnote"
+        help="earlier specs' build notes the next spec is shown; past it the oldest are dropped and named" />
     </>
   );
 }

@@ -442,6 +442,14 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label="Approval timeout (seconds)" value={value.approvalTimeoutSeconds}
         onChange={(v) => set({ approvalTimeoutSeconds: keep(v, value.approvalTimeoutSeconds) })} testId="setting-dialogue-approval"
         help="when it elapses on a parked run, the persisted default answer applies" />
+      <NumberField label="Mock size (characters)" value={value.mockMaxChars}
+        onChange={(v) => set({ mockMaxChars: keep(v, value.mockMaxChars) })} testId="setting-dialogue-mockchars"
+        help="the longest HTML mock a design conversation keeps" />
+      <NumberField label="Mock versions per spec" value={value.mockVersionsPerSpec}
+        onChange={(v) => set({ mockVersionsPerSpec: keep(v, value.mockVersionsPerSpec) })} testId="setting-dialogue-mockspec" />
+      <NumberField label="Mock versions per conversation" value={value.mockVersionsPerConversation}
+        onChange={(v) => set({ mockVersionsPerConversation: keep(v, value.mockVersionsPerConversation) })}
+        testId="setting-dialogue-mockconversation" />
     </>
   );
 }

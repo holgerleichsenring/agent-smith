@@ -27,4 +27,14 @@ public sealed class DialogueGlobalConfig
     /// means the comment carries no link at all.
     /// </summary>
     public string? DashboardUrl { get; set; }
+
+    /// <summary>2026-11-17-f9b0c: the longest HTML mock a design conversation keeps, below the tool-result bound
+    /// so it reads back whole.</summary>
+    public int MockMaxChars { get; set; } = 90_000;
+
+    /// <summary>2026-11-17-f9b0c: the most mock versions one spec keeps in a conversation.</summary>
+    public int MockVersionsPerSpec { get; set; } = 20;
+
+    /// <summary>2026-11-17-f9b0c: the most mock versions a conversation keeps over all its specs.</summary>
+    public int MockVersionsPerConversation { get; set; } = 100;
 }

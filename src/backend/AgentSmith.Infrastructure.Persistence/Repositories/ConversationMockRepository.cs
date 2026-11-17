@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -15,7 +16,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// conversation, so two writes that overlap still get two numbers once both are committed.
 /// </para>
 /// </summary>
-public sealed class ConversationMockRepository(IUnitOfWork unitOfWork)
+public sealed class ConversationMockRepository(IUnitOfWork unitOfWork, DialogueGlobalConfig caps)
 {
     public async Task<(MockVersion? Version, string? Refusal)> AddAsync(
         string sessionId, string specId, string html, CancellationToken ct)
@@ -54,13 +55,16 @@ public sealed class ConversationMockRepository(IUnitOfWork unitOfWork)
 
     private async Task<string?> CapAsync(string sessionId, string specId, string html, CancellationToken ct)
     {
-        if (html.Length > IConversationMocks.MaxChars)
-            return $"the mock is {html.Length} characters, over the cap of {IConversationMocks.MaxChars} characters per mock";
+        if (html.Length > caps.MockMaxChars)
+            return $"the mock is {html.Length} characters, over dialogue.mock_max_chars = {caps.MockMaxChars}, the cap that keeps "
+                + "a mock readable back whole";
         var pages = Pages(sessionId);
-        if (await pages.CountAsync(f => f.RelativePath == MockRows.PathOf(specId), ct) >= IConversationMocks.MaxVersionsPerSpec)
-            return $"{specId} already has {IConversationMocks.MaxVersionsPerSpec} versions, the cap per spec";
-        return await pages.CountAsync(ct) >= IConversationMocks.MaxVersionsPerConversation
-            ? $"this conversation already holds {IConversationMocks.MaxVersionsPerConversation} mock versions, the cap per conversation"
+        if (await pages.CountAsync(f => f.RelativePath == MockRows.PathOf(specId), ct) >= caps.MockVersionsPerSpec)
+            return $"{specId} already has {caps.MockVersionsPerSpec} versions, dialogue.mock_versions_per_spec; revise the "
+                + "newest instead of adding one";
+        return await pages.CountAsync(ct) >= caps.MockVersionsPerConversation
+            ? $"this conversation already holds {caps.MockVersionsPerConversation} mock versions, "
+                + "dialogue.mock_versions_per_conversation, the bound on what one conversation stores"
             : null;
     }
 

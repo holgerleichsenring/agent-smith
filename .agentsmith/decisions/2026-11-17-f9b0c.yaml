@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f9b0c
+
+decisions:
+  - category: Architecture
+    chose: "The build-note cap is series.build_note_max_chars (8000), read through ISeriesSettingsReader by SpecExecutionPromptFactory and SpecPremiseChecker; SpecBuildNoteSection.Render takes it without a default"
+    over: "spec_review:; a default parameter"
+    reason: "The operator ratified decision 12 on 2026-11-17: same value, moved to config. Build notes pass between the specs of one series, which series: governs; a default bound would reach a caller that forgot the setting silently."
+  - category: Architecture
+    chose: "The mock caps are dialogue.mock_max_chars (90000), mock_versions_per_spec (20) and mock_versions_per_conversation (100); the server registers DialogueGlobalConfig transient from CurrentConfigSnapshot and ConversationMockRepository refuses by it"
+    over: "A new block for design conversations; a stored-settings reader in Persistence"
+    reason: "The operator ratified decision 11 on 2026-11-17: same values, moved to config, the compare stays a finding. dialogue: is the block for how the agent and a person talk; the snapshot is how 274ca made the limits block follow the store without a restart."
+  - category: Implementation
+    chose: "write_mock keeps its shape checks and leaves the size cap to the store, whose refusal it already relays"
+    over: "Injecting the caps into the tool as well"
+    reason: "Two checks of one cap were two places to keep in step; the store's refusal names value, key and reason and reaches the agent unchanged."
+  - category: Scope
+    chose: "HandForwardToolHost's 20 x 300 entry bound stays listed debt"
+    reason: "Decision 12 named only the section cap; the entry bound is its own limit with its own owner."
