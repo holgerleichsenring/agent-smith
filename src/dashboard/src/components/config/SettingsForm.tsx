@@ -16,12 +16,15 @@ import type {
   SandboxSetting,
   SeriesSetting,
   SettingKey,
+  PreconditionsSetting,
+  BranchCleanupSetting,
   SettingValue,
   SkillsSetting,
   SpecReviewSetting,
 } from "@/lib/configApi";
 import { CheckField, DrawerSection, NumberField, TextField, keep, patcher } from "./formFields";
 import { SeriesForm, SpecReviewForm } from "./SeriesSettingsForms";
+import { BranchCleanupForm, PreconditionsForm } from "./SweepSettingsForms";
 import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
@@ -98,6 +101,10 @@ export function SettingsForm({
       return <SpecReviewForm value={value as SpecReviewSetting} onChange={onChange} />;
     case "series":
       return <SeriesForm value={value as SeriesSetting} onChange={onChange} />;
+    case "preconditions":
+      return <PreconditionsForm value={value as PreconditionsSetting} onChange={onChange} />;
+    case "branch_cleanup":
+      return <BranchCleanupForm value={value as BranchCleanupSetting} onChange={onChange} />;
   }
 }
 

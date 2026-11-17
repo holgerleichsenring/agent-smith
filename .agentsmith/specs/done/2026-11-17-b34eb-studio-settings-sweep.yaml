@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-b34eb
+goal: "Every setting added on 2026-11-16/17 is editable in the dashboard: merge, requires_start, compaction ratios, branch_cleanup and preconditions; a save keeps them."
+
+applies_to: "dashboard (config studio forms) and default (studio entities, capabilities)"
+
+requires: [2026-11-17-023fb, 2026-11-17-9a39a, 2026-11-17-cb32a, 2026-11-17-713ec, 2026-11-16-f3fbc]
+
+facts:
+  - claim: "The project entity carries requires_start but no merge block; the project form draws neither."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ProjectEntity.cs:43-45, src/dashboard/src/components/config/ProjectForm.tsx:134-149"
+  - claim: "merge.when and requires_start are closed enums in the schema; the capabilities descriptor is where a form takes a closed list from."
+    evidence: "config/agentsmith.schema.json:806-834, src/backend/AgentSmith.Contracts/Models/ConfigStudio/ConfigCapabilities.cs:6-12"
+  - claim: "The agent entity's compaction subset leaves out the trigger ratio and cb32a's fold_target_ratio and summary_budget_ratio."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/AgentEntity.cs:48-56, .agentsmith/specs/done/2026-11-17-cb32a-compaction-fold-hysteresis.yaml"
+  - claim: "branch_cleanup and preconditions are settings singletons the server already reads and writes; the dashboard rail lists neither."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:50-51, src/dashboard/src/components/config/settings.ts:12-27"
+  - claim: "limits (274ca/274cb) and sandbox.allow_new_registries (f3fbd) already have fields."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:255-286, src/dashboard/src/components/config/SandboxImageTrustFields.tsx:67"
+  - claim: "Operator requirement 2026-11-17 23:20: every configuration setting is available in the dashboard, options from the schema."
+    evidence: "observed: 2026-11-17, coordinator relay of the operator requirement"
+
+upgrade_impact: "None: every new entity member is nullable and written only when sent, so an older client's save keeps the stored values."
+
+scope:
+  in: "ConfigCapabilities.MergeWhen and RequiresStart, the snake_case names of the MergeWhen and RequiresStart enums (a member added to either shows up in the form). ProjectEntity.Merge (ProjectMerge: When, RespectBranchProtection, RefreshOpenPullRequests), null when the project has no block, written only when sent; an unknown when is refused naming value, allowed values and key. AgentCompactionSettings gains MaxContextTokensTriggerRatio, FoldTargetRatio, SummaryBudgetRatio, nullable and written only when sent. Dashboard: a 'merge' tab on the project form with requires_start, merge when, respect branch protection and refresh open pull requests; three ratio fields in the agent's compaction section; branch_cleanup and preconditions settings forms."
+  out: "Settings older than 2026-11-16. Validation beyond what the server's load rules already refuse."
+
+steps:
+  - id: capabilities
+    action: "ConfigStudioCapabilities.SnakeNames<TEnum>, MergeWhenNames, RequiresStartNames lists set on Build."
+  - id: entities
+    action: "ProjectMerge + ProjectMergeMapping (ToEntity, Apply); ProjectEntityMapping and RawProjectPatch call it; AgentCompactionSettings ratios mapped in ConfigCatalogMapper and RawConfigPatch."
+  - id: dashboard
+    action: "configApi types; ProjectForm merge tab (ProjectMergeSection); AgentTuningTab ratio fields; settings.ts and SettingsForm cases for branch_cleanup and preconditions."
+
+tests:
+  - "Capabilities: merge_when is [manual, on_gate_green] from the enum; requires_start [on_merge, on_green_push]"
+  - "Studio round trip: a project saved with merge {on_gate_green, true, true} reads back the same; a save without merge keeps a stored block; an unknown when is refused naming merge.when"
+  - "Agent compaction ratios round-trip; a save without them keeps stored ratios"
+  - "ProjectForm: merge tab draws options from capabilities and patches project.merge and requiresStart"
+  - "SettingsForm: branch_cleanup and preconditions forms patch their fields"
+
+done:
+  - "An operator sets merge, requires_start, the compaction ratios, branch_cleanup and preconditions in the config studio; saving keeps them."
