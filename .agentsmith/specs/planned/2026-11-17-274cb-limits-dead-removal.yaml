@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-274cb
+goal: "Limits that bound nothing go: the unused skill-call runtime with its six keys, the never-built FileToolHandler, four unused AgentDefaults caps, the skill.yaml discussion block and a dead tick."
+
+applies_to: "default (loop runtime, loop limits config, Studio limits form, config schema, agent provider defaults, project skill config)"
+
+requires: [2026-11-17-274ca]
+
+facts:
+  - claim: "ISkillCallRuntime is registered and never resolved in src; its last consumer left with p0312 (Triage retires)."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:61, src/backend/AgentSmith.Application/Services/Loop/ISkillCallRuntime.cs:13"
+  - claim: "Only SkillCallRuntime constructs LimitEnforcer and PipelineConcurrencyGate and calls ResolveToolCallCap; RecordLlmCall has no production caller, so the token cap never fires."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:71,117,173, src/backend/AgentSmith.Contracts/Models/RunCostSummary.cs:43"
+  - claim: "MaxToolCallsPerInvestigator, MaxToolCallsPerVerifier, MaxInputTokensPerSkillCall and MaxConcurrentSkillCalls are read only through that runtime; MaxLlmCallsPerSkill only by the config snapshot; MaxSkillsPerPhase by nothing."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:10-30,61-66, src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs:111-113"
+  - claim: "A retired key is one row in RetiredConfigKeys; stored documents carrying it raise an advisory finding and the yaml loader ignores it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Retired/RetiredConfigKeys.cs:5-9,46-49, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:68"
+  - claim: "The Studio limits form, its types and two tests name the retired fields."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:270-292, src/dashboard/src/lib/configApi.ts:117-122, src/dashboard/src/lib/configApi.ts:876-890, src/dashboard/src/components/system/__tests__/ConfigView.test.tsx:62, src/dashboard/src/components/config/__tests__/SettingsStudio.test.tsx:40-50"
+  - claim: "FileToolHandler (100 KB read cap) is never constructed; FileReadTracker is used only by it and its own test."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/FileToolHandler.cs:13-18, src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/FileReadTracker.cs:8, tests/AgentSmith.Tests/Providers/FileReadTrackerTests.cs"
+  - claim: "AgentDefaults.DefaultMaxTokens, CompactionMaxTokens, MaxFileStructureLines and MaxTextContentLength have no reader."
+    evidence: "src/backend/AgentSmith.Infrastructure/Models/AgentDefaults.cs:10-19"
+  - claim: "SkillConfig.Discussion is read only by a loader test, and the skill.yaml deserializer ignores unmatched keys."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SkillConfig.cs:12,54-59, tests/AgentSmith.Tests/Services/YamlSkillLoaderTests.cs:52,64, src/backend/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs:28-30"
+  - claim: "SandboxRedisChannel.EventBlockTick is declared and never read."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs:16"
+
+scope:
+  in: "Delete SkillCallRuntime, ISkillCallRuntime, SkillCallRequest, SkillCallResult, SkillCallOutcome, OutcomeClassifier, ClassificationInput, LimitEnforcer, LimitDecision, LimitDecisionKind, PipelineConcurrencyGate, RuntimeObservationFactory, TracingChatClient, TracingAIFunction, LoopTraceCollector, SkillPromptLogger and RetryCoordinator with RetryOutcome(Kind) where nothing else reads them, their registrations and tests (StubSkillCallRuntime, the SkillCallRuntime test classes, LiveSkillProbeTests); SkillCallScope.Finalize, BuildRecord and both EndCalls lose the enforcer parameter, and CallCostRecord.HitLimit with its RunResultSectionWriter suffix goes (always null since the runtime lost its consumer); LoopLimitsConfig keeps MaxToolCallsPerSkill, MaxSecondsPerSkillCall and the three sub-agent numbers; RetiredConfigKeys rows for limits.max_tool_calls_per_investigator, max_tool_calls_per_verifier, max_llm_calls_per_skill, max_input_tokens_per_skill_call, max_concurrent_skill_calls, max_skills_per_phase; schema, example yml, ConfigGlobals, snapshot mapper, Studio form, configApi types and tests; spec-word allowlist and file rows that go stale; FileToolHandler, FileReadTracker and its test; the four AgentDefaults constants; DiscussionConfig and SkillConfig.Discussion; EventBlockTick."
+  out: "EventPublishingAIFunction, BoundedResultAIFunction, ResultBoundReporter and RecordingAIFunction stay: deleting the only producer of tool-call events is an events decision (no live run publishes them today, which the report names as its own finding). The skill-output validator cluster and SkillConfig (LoadProjectSkills has no caller) are dead-code questions, not limits; the report names them."
+
+steps:
+  - id: runtime
+    action: "Delete the listed types, their DI registrations and tests; drop the enforcer parameter and HitLimit as listed; prune file-length-baseline.tsv and wall-clock-baseline.tsv rows of deleted files."
+  - id: retire
+    action: "Drop the six properties and ResolveToolCallCap from LoopLimitsConfig; add the six RetiredConfigKeys rows (reason: nothing enforced them since the skill-call runtime lost its consumer; the run's cost cap is the budget); update schema, example yml, ConfigGlobals/snapshot, SettingsForm, configApi, ConfigView.test, SettingsStudio.test, LoopLimitsConfigBindingTests, spec-word-allowlist.tsv (rows the scan no longer finds) and spec-word-files.tsv."
+  - id: rest
+    action: "Delete FileToolHandler, FileReadTracker, FileReadTrackerTests, the four AgentDefaults constants, DiscussionConfig with SkillConfig.Discussion (YamlSkillLoaderTests stops asserting it) and EventBlockTick."
+
+tests:
+  - "RetiredConfigKey detection reports each of the six keys in a stored limits document"
+  - "LoopLimitsConfigBindingTests binds the five kept keys"
+  - "YamlSkillLoaderTests loads a skill.yaml that still carries a discussion block"
+  - "SettingsStudio and ConfigView tests pass without the retired fields"
+
+done:
+  - "No SkillCallRuntime, ResolveToolCallCap or retired limit property remains in src, config or the dashboard; the six keys are retired rows."
+  - "Build, dashboard tests and full suite green at the spec gate."
