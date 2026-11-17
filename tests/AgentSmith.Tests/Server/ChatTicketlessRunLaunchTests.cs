@@ -58,7 +58,7 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
 
         var request = _enqueued.Should().ContainSingle().Subject;
         request.PipelineName.Should().Be(InitRunLauncher.PipelineName);
-        request.IsInit.Should().BeTrue();
+        PipelinePresets.IsInit(request.PipelineName).Should().BeTrue();
         request.Context.Should().Contain(ContextKeys.RefreshPrinciples, false,
             "a chat command never refreshes principles — that is the launching click's word");
         RunRow(request.RunId!).Status.Should().Be("queued");
@@ -73,7 +73,7 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
         var request = _enqueued.Should().ContainSingle().Subject;
         request.PipelineName.Should().Be("security-scan");
         request.TicketId.Should().BeNull("a chat security review has no ticket and fabricates none");
-        request.IsInit.Should().BeFalse();
+        PipelinePresets.IsInit(request.PipelineName).Should().BeFalse();
         var run = RunRow(request.RunId!);
         run.Status.Should().Be("queued");
         run.Trigger.Should().Be(InitRunRepository.ManualTrigger);

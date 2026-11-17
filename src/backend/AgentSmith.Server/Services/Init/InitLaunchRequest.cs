@@ -1,20 +1,10 @@
 namespace AgentSmith.Server.Services.Init;
 
 /// <summary>
-/// p0490: the body of POST /api/projects/{name}/init — what the operator ticked on the
-/// init they are starting. Auto-accept rides the LAUNCH, not project configuration: a
-/// per-project setting would silently apply to whatever opens a pull request next,
-/// while consent belongs to the click that started THIS run.
-/// <para>
-/// A request that says nothing does not auto-accept. The dashboard's checkbox defaults
-/// to ON and states its choice explicitly; a caller that omits the field never merges
-/// anything by accident.
-/// </para>
-/// <para>
-/// 2026-10-04-2bf2: <c>RefreshPrinciples</c> rides the launch for the same reason — the
-/// operator's word to recompose an existing principles.md on THIS init. The two are
-/// independent; a request that omits it preserves the file.
-/// </para>
+/// p0489: the body of POST /api/projects/{name}/init — what the operator chose on the init
+/// they are starting. 2026-10-04-2bf2: <c>RefreshPrinciples</c> is the operator's word to
+/// recompose an existing principles.md on THIS init; a request that omits it preserves the file.
+/// 2026-11-17-713ea: auto-accept is no longer a launch choice — every init completes its pull
+/// requests, whichever door started it; a body that still sends the old field is ignored.
 /// </summary>
-public sealed record InitLaunchRequest(
-    bool AutoCompletePullRequests = false, bool RefreshPrinciples = false);
+public sealed record InitLaunchRequest(bool RefreshPrinciples = false);

@@ -12,8 +12,9 @@ namespace AgentSmith.Server.Services.Init;
 /// <summary>
 /// p0489: starts the init-project pipeline for a configured project on the
 /// operator's word. ResumeRunLauncher's shape — admit, record, enqueue — with no
-/// claim and no tracker call: init-project is ticketless by design, so the request
-/// carries no TicketId and no ticket is created, read or transitioned. The queue
+/// claim and no tracker call: the request carries no TicketId and no ticket is created,
+/// read or transitioned. 2026-11-17-713ea: the dashboard and chat doors; what makes the run
+/// an init is its pipeline name (InitRunSeed), the same for the CLI and a tracker label. The queue
 /// consumer then runs it exactly like a polled run, which is where the ledger,
 /// cancel, delete and cost accounting come from.
 /// </summary>
@@ -29,7 +30,7 @@ public sealed class InitRunLauncher(
 {
     /// <summary>The only pipeline this launcher starts — init is the one thing an
     /// operator triggers by hand, so the surface takes no pipeline parameter.</summary>
-    public const string PipelineName = "init-project";
+    public const string PipelineName = PipelinePresets.InitProjectName;
 
     private const string QueuedSummary = "starting — initialization requested";
 
@@ -38,9 +39,8 @@ public sealed class InitRunLauncher(
     // the admission's probe; the release is a CAS, so an expired lock is never deleted.
     private static readonly TimeSpan LaunchLockTtl = TimeSpan.FromSeconds(30);
 
-    /// <param name="request">What the operator ticked on THIS launch — auto-accept (p0490)
-    /// and refresh principles (2026-10-04-2bf2). Both ride the enqueued request into the
-    /// pipeline context, where the init pipeline's steps read them.</param>
+    /// <param name="request">What the operator chose on THIS launch — refresh principles
+    /// (2026-10-04-2bf2), which rides the enqueued request into the pipeline context.</param>
     public async Task<InitLaunchResult> LaunchAsync(
         string projectName, InitLaunchRequest request, CancellationToken ct)
     {
@@ -93,10 +93,9 @@ public sealed class InitRunLauncher(
 
     private static PipelineRequest ToRequest(
         string projectName, string runId, InitLaunchRequest launch) => new(
-        projectName, PipelineName, TicketId: null, IsInit: true, Headless: true, RunId: runId,
+        projectName, PipelineName, TicketId: null, Headless: true, RunId: runId,
         Context: new Dictionary<string, object>
         {
-            [ContextKeys.AutoCompletePullRequests] = launch.AutoCompletePullRequests,
             [ContextKeys.RefreshPrinciples] = launch.RefreshPrinciples,
         });
 }

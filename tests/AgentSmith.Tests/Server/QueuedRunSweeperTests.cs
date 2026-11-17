@@ -44,7 +44,7 @@ public sealed class QueuedRunSweeperTests : IDisposable
 
         var pushed = _pushed.Should().ContainSingle().Subject;
         pushed.RunId.Should().Be("lost");
-        ((JsonElement)pushed.Context![ContextKeys.AutoCompletePullRequests]).GetBoolean().Should().BeTrue();
+        ((JsonElement)pushed.Context![ContextKeys.RefreshPrinciples]).GetBoolean().Should().BeTrue();
         Row("lost").RequestEnqueuedAt.Should().BeAfter(_now.AddSeconds(-1), "the push time is renewed");
         Row("lost").CancelRequested.Should().BeFalse();
     }
@@ -117,8 +117,8 @@ public sealed class QueuedRunSweeperTests : IDisposable
     private void Seed(
         string id, DateTimeOffset enqueued, DateTimeOffset? claimed = null, DateTimeOffset? beat = null, bool flagged = false)
     {
-        var request = new PipelineRequest("p1", "init-project", IsInit: true, Headless: true, RunId: id,
-            Context: new Dictionary<string, object> { [ContextKeys.AutoCompletePullRequests] = true });
+        var request = new PipelineRequest("p1", "init-project", Headless: true, RunId: id,
+            Context: new Dictionary<string, object> { [ContextKeys.RefreshPrinciples] = true });
         using var db = MigratedStoreTemplate.Context(_connection);
         db.Runs.Add(new Run
         {

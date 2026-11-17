@@ -45,6 +45,13 @@ public sealed class SandboxWorkBranchCheckout(
     {
         if (requested is null) return WorkBranchPlacement.On(null);
         var branch = requested.Name.Value;
+        // 2026-11-17-713ea: a branch cut fresh never reads what the remote holds — the push
+        // that follows replaces it with this run's work, cut from the resolved base.
+        if (requested.CutFresh)
+        {
+            logger.LogInformation("{Branch} is cut fresh from its base, whatever the remote holds", branch);
+            return await CreateAsync(sandbox, config, requested, ct);
+        }
 
         // `git checkout` on the branch we are already on is a harmless no-op, so the
         // switch is unconditional — CheckoutAsync only ECHOES the requested branch back.

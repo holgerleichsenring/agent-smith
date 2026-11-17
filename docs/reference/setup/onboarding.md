@@ -8,7 +8,7 @@ Before codeably can run a code-touching pipeline (`code`, `security-scan`, `api-
 - `.agentsmith/contexts/<name>/context.yaml` — the component's fingerprint: stack, toolchain image, how it is verified. See [The context file](../concepts/context-file.md).
 - `.agentsmith/contexts/<name>/principles.md` — the constraints codeably respects when changing code.
 
-The `init-project` pipeline produces them. Running it once per repository is the prerequisite. There are two ways to start it: the **Initialize** button on a project in the dashboard, or a labelled issue. Either way codeably opens a PR with the generated files.
+The `init-project` pipeline produces them. Running it once per repository is the prerequisite. It can be started from the **Initialize** button on a project in the dashboard, from chat, from the CLI (`init --project`), or by a labelled issue. All four start the same run: it works on a fresh `agent-smith/init` branch cut from the base, opens a PR with the generated files and completes it.
 
 > Works the same way on GitHub, GitLab, Azure DevOps, and Jira. Webhook-based or polling-based — both paths feed the same trigger and route via `pipeline_from_label`.
 
@@ -16,13 +16,13 @@ The `init-project` pipeline produces them. Running it once per repository is the
 
 Every project card in the Config studio (and the project panel under System) has an **Initialize** button. It starts `init-project` for that project with no ticket; the run is stamped as a manual one. While it runs the button turns into **Initializing — view run**, which opens the live run, and pressing it again never starts a second one. Pressing it on a repository that is already initialized is safe: a re-run that changes nothing opens no PR. It needs the `operator` role (see [Access control](../security/access-control.md)).
 
-Next to it sits **Auto-accept PRs**, on by default. With it on, the run completes the init pull requests it opened, one repo at a time. The outcome per repo is one of three:
+Every init completes the pull requests it opened, one repo at a time, so the bootstrap lands and a run that stopped on a missing bootstrap starts again by itself. The outcome per repo is one of three:
 
 - merged;
 - armed: on Azure Repos, a PR behind a required-build policy is approved and set to auto-complete, and merges itself once the build passes;
 - refused: a branch policy, a required reviewer or a failing build said no. The PR stays open with the reason recorded for that repo, and the run does not fail over it.
 
-Untick it when you want to review the generated files yourself.
+To review the generated files before they land, protect the default branch with a required reviewer: the PR then stays open with that reason recorded.
 
 The rest of this page walks the ticket-labelled path, which works the same on GitHub, GitLab, Azure DevOps and Jira.
 
@@ -80,17 +80,17 @@ That's the entire trigger. codeably picks it up via webhook delivery (sub-second
 
 codeably runs the `init-project` pipeline:
 
-1. Checks out the branch `agent-smith/init` on each repository (the same `agent-smith/` prefix every run uses) and analyzes it.
+1. Cuts the branch `agent-smith/init` fresh from the base on each repository (the same `agent-smith/` prefix every run uses), whatever an earlier init left on it, and analyzes it.
 2. Discovers the repository's components. A component is something built and shipped on its own; the internal layer projects of one solution (a `Domain` or `Infrastructure` project, say) belong to the component that ships them and get no context of their own.
 3. Runs one bootstrap round per component, on the agent's `context_generation` model. The round reads that component's subtree through tools and writes its `context.yaml`, including `stack.image` and a `verify` block derived from the CI pipeline the repository already runs.
 4. Transfers the coding principles into each `principles.md`: the universal core, the delta for the component's language, and every framework overlay whose declared dependency is found at the component root (Spark via `org.apache.spark`, `pyspark` or `databricks-connect`), from the skills catalog. An existing `principles.md` is left untouched unless the init was launched with **Refresh principles**, which recomposes it and keeps its **Project Specifics** section verbatim.
    When the principles declare size limits, the init measures every file the component owns and writes the units already past their tolerance band to `structure-baseline.tsv` beside `principles.md`. From then on only what gets worse fails a spec; see [Structure limits](../../how-it-works/structure-limits.md#the-baseline).
-5. Commits with message `chore: initialize .agentsmith/ directory` and opens a PR per repo (cross-linked when there are several).
-6. With auto-accept on, completes the PRs as described above; on the ticket path it comments on the init issue with the PR link and transitions it to `done_status`.
+5. Commits with message `chore: initialize .agentsmith/ directory` and opens a PR per repo (cross-linked when there are several); an init PR an earlier run left open is refreshed instead.
+6. Completes the PRs as described above; on the ticket path it comments on the init issue with the PR link and transitions it to `done_status`.
 
 Typical wall-clock: a few minutes, depending on repository size and the number of components.
 
-## Step 4 — Review and merge
+## Step 4 — Review
 
 The PR body says, per context, what the run did with the principles (transferred from the core and language delta plus any overlays it names, refreshed with or without Project Specifics carried over, already present and left untouched, or authored by the skill) and, per file the language delta ships, whether it was written, already present, or not written and why. It also says, per context, how many units the structure baseline records, or why none was written. Review the files like any other PR:
 
@@ -98,9 +98,9 @@ The PR body says, per context, what the run did with the principles (transferred
 - **`principles.md`** — the constraints codeably will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, a refresh included, and merging this PR is where you ratify it.
 - **`structure-baseline.tsv`** — the existing excess the size limits tolerate. A later refresh never raises an entry; see [Structure limits](../../how-it-works/structure-limits.md#the-baseline).
 
-Edit any of these files in the PR before merging. codeably respects whatever lands on the default branch, not the initially-generated content.
+The run completes the PR itself, so these files usually land without a stop; where a branch policy holds the PR open, edit them in the PR and merge it. Either way, edit them on the default branch afterwards whenever they need it: codeably respects whatever lands on the default branch, not the initially-generated content.
 
-Merge the PR. The repo is now bootstrapped.
+Once the PR is merged the repo is bootstrapped.
 
 To check which repositories already are, open **System → Config file reads**, pick the project under **Resolved configuration**, and read the mark on each repository: `initialised`, `not initialised` with the missing files listed, or why the host couldn't be read. It's read live from the default branch each time you open it. A command on a pull request of a repository that isn't bootstrapped is answered with the same list instead of starting a run (see [PR comments](../integrations/pr-comments.md#what-a-command-starts)).
 
