@@ -40,6 +40,9 @@ public sealed record ResolvedProject
     public PollingConfig Polling { get; init; } = new();
     public SandboxConfig? Sandbox { get; init; }
 
+    /// <summary>2026-11-17-023fa: whether a green code run merges its own pull requests.</summary>
+    public MergePolicyConfig Merge { get; init; } = new();
+
     /// <summary>2026-11-17-9a39a: when a ticket that requires another may start.</summary>
     public RequiresStart RequiresStart { get; init; } = RequiresStart.OnGreenPush;
 }

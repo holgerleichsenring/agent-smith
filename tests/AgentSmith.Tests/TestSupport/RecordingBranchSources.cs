@@ -134,5 +134,10 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
         public Task<PullRequestCompletion> CompletePullRequestAsync(
             string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
             throw new NotSupportedException(Inert);
+
+        public Task<PullRequestCompletion> MergePullRequestAsync(
+            string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException(Inert);
     }
 }

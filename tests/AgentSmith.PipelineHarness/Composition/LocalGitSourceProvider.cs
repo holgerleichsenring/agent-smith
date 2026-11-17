@@ -119,4 +119,16 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 
     /// <summary>Pull requests this run completed.</summary>
     public static List<string> Completed { get; } = [];
+
+    // 2026-11-17-023fa: a code run's merge is recorded with the mode it asked for.
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        CancellationToken cancellationToken)
+    {
+        Merged.Add((prUrl, protection));
+        return Task.FromResult(PullRequestCompletion.Merged());
+    }
+
+    /// <summary>Pull requests a code run merged, with the protection mode.</summary>
+    public static List<(string Url, AgentSmith.Contracts.Models.Configuration.BranchProtection Protection)> Merged { get; } = [];
 }

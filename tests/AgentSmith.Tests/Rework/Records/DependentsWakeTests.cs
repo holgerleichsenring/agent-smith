@@ -78,7 +78,7 @@ public sealed class DependentsWakeTests : IDisposable
         List<ReworkNudgeRequest> nudgedA = [], nudgedB = [];
         TicketLandingRecorder Replica(List<ReworkNudgeRequest> nudged) =>
             new(store!.ScopeFactory, new LandedTicketRepository(store.ScopeFactory), WakeOver(store, Nudges(nudged)),
-                Mock.Of<ISystemEventPublisher>(), Mock.Of<ITicketActivityNudge>(), _h.Clock, NullLogger<TicketLandingRecorder>.Instance);
+                Mock.Of<ISystemEventPublisher>(), Mock.Of<ITicketActivityNudge>(), [], _h.Clock, NullLogger<TicketLandingRecorder>.Instance);
         using var racing = new ServerStateStore(unitOfWork: db => new RacingUnitOfWork(db, async () =>
         {
             if (fired) return;

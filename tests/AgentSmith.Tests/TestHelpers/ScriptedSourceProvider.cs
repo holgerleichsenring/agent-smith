@@ -91,6 +91,11 @@ internal sealed class ScriptedSourceProvider(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         throw new NotSupportedException(Inert);
 
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException(Inert);
+
     private const string Inert = "A design turn writes nothing; this member is not served.";
 }
 

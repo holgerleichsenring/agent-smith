@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
@@ -16,6 +17,7 @@ public sealed class AzureReposPullRequestUpdater(
     string organizationUrl, string personalAccessToken, ILogger logger)
 {
     private readonly AzureReposAutoComplete _autoComplete = new(project, repoName, logger);
+    private readonly AzureReposPolicyBypass _bypass = new(project, repoName, logger); // 2026-11-17-023fa
 
     public async Task<bool> UpdateBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
@@ -62,8 +64,12 @@ public sealed class AzureReposPullRequestUpdater(
     // p0501: an immediate merge (Status = Completed) is the one thing a branch policy
     // refuses, so the pull request is APPROVED and ARMED instead and finishes itself when
     // the required build goes green. See AzureReposAutoComplete for why that identity.
+    public Task<PullRequestCompletion> CompleteAsync(string prUrl, CancellationToken cancellationToken) =>
+        CompleteAsync(prUrl, BranchProtection.Respect, cancellationToken);
+
+    // 2026-11-17-023fa: Bypass completes now past the policies; Respect approves and arms as init does.
     public async Task<PullRequestCompletion> CompleteAsync(
-        string prUrl, CancellationToken cancellationToken)
+        string prUrl, BranchProtection protection, CancellationToken cancellationToken)
     {
         if (!TryParsePullRequestId(prUrl, out var prId))
             return PullRequestCompletion.Refused($"'{prUrl}' is not an Azure Repos pull request URL.");
@@ -72,7 +78,9 @@ public sealed class AzureReposPullRequestUpdater(
             var client = CreateGitClient();
             var pr = await client.GetPullRequestAsync(
                 project, repoName, prId, cancellationToken: cancellationToken);
-            return await _autoComplete.ArmAsync(client, pr, prId, cancellationToken);
+            return protection == BranchProtection.Bypass
+                ? await _bypass.CompleteAsync(client, pr, prId, cancellationToken)
+                : await _autoComplete.ArmAsync(client, pr, prId, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -100,6 +101,10 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _fastForward.RunAsync(basePath, sourceBranch.Value, DefaultBranch, cancellationToken);
+
+    public Task<PullRequestCompletion> MergePullRequestAsync( // 2026-11-17-023fa: nothing protects a local branch
+        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
+        CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
 
     // 2026-09-22-b6ad: the same trust in the bind-mounted tree the checkout already places — git
     // plumbing against a scratch index, so the operator's working tree and their staged changes

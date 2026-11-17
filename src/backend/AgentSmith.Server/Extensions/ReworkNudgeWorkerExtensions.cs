@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Rework;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -21,6 +22,10 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<ReworkNudgeHandler>().AddSingleton<ClosedTicketActFollowUp>(); // 2026-10-13-9a59t
         services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b
         services.AddSingleton<TicketLandingRecorder>(); // 2026-10-14-dbceg
+        // 2026-11-17-023fb: the landing hook's first subscriber, and the scoped launch it starts runs with.
+        services.AddSingleton<ITicketLandedSubscriber, Services.Branches.SiblingBaseRefresh>();
+        services.TryAddScoped<Infrastructure.Persistence.Repositories.InitRunRepository>();
+        services.AddScoped<Services.Branches.BaseRefreshLauncher>();
         services.AddSingleton<DependentsWake>().AddSingleton<RequirementsMetStart>(); // 2026-10-14-dbceh
         services.AddSingleton<StackedDependentsWake>().AddSingleton<StackedPullRequestRetarget>().AddSingleton<StackedTicketUpkeep>(); // 9a39a/c
         services.AddSingleton<TicketStartHold>().AddSingleton<PreconditionRelease>(); // 2026-11-16-f3fbc

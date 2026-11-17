@@ -820,6 +820,16 @@
         "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
         "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
         "jira_trigger": { "$ref": "#/$defs/jiraTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
+        "merge": {
+          "type": "object",
+          "description": "2026-11-17-023fa: whether a green code run merges its own pull requests. Absent means manual.",
+          "additionalProperties": false,
+          "properties": {
+            "when": { "type": "string", "enum": ["manual", "on_gate_green"], "description": "manual (default): pull requests stay open for a person. on_gate_green: a run whose every spec verified green merges its pull requests at its end." },
+            "refresh_open_pull_requests": { "type": "boolean", "description": "2026-11-17-023fb: when a ticket lands, merge its base into every other open agent-smith pull request on that repository and base, as a run per pull request. Default false." },
+            "respect_branch_protection": { "type": "boolean", "description": "false (default): merge past branch policies, protection rules and approval rules, which needs the token's bypass permission (Azure: Bypass policies when completing pull requests; GitHub: admin or ruleset bypass). true: arm auto-complete / auto-merge and let the host's rules decide." }
+          }
+        },
         "polling": {
           "type": "object",
           "description": "Deprecated: polling belongs on the tracker (trackers.<name>.polling).",

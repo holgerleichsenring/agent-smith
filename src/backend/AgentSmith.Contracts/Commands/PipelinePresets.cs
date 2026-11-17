@@ -32,7 +32,7 @@ public static partial class PipelinePresets
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
             [FileName] = File, // 2026-11-17-5701b
-            [BranchCleanupName] = BranchCleanup, // 2026-11-17-713ec
+            [BranchCleanupName] = BranchCleanup, [RefreshBaseName] = RefreshBase, // 2026-11-17-713ec, 023fb
         };
         foreach (var (name, steps) in HostActSteps) All[name] = steps; // 2026-11-17-e061: the acts on a filed ticket
         Names = All.Keys.ToList();
@@ -55,7 +55,7 @@ public static partial class PipelinePresets
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
         [FileName] = PipelineType.Discussion,
-        [BranchCleanupName] = PipelineType.Structured, // 2026-11-17-713ec
+        [BranchCleanupName] = PipelineType.Structured, [RefreshBaseName] = PipelineType.Structured, // 713ec, 023fb
     };
 
     /// <summary>

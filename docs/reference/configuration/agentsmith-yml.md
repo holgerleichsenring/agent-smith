@@ -225,6 +225,7 @@ A project wires one agent, one tracker and a set of repos, and says how a ticket
 | `pipelines` | pipelines this project hosts with their own overrides: `name`, `agent`, `skills_path`, `coding_principles_path` |
 | `coding_principles_path`, `skills_path` | project-level overrides |
 | `sandbox` | per-project sandbox overrides, see below |
+| `merge` | whether a green code run merges its own pull requests, see below |
 | `design_sources` | names from `design_sources:` this project may read designs from. See [Design sources](../../configure-it/design-sources.md) |
 
 ### Trigger blocks
@@ -259,6 +260,24 @@ Refused: an unknown project, a repo that project doesn't carry, a wildcard repo,
 | `secrets` | `env` (`VAR: "secretName:key"`) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
 
 Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.
+
+### projects.merge
+
+```yaml
+merge:
+  when: on_gate_green               # manual (default) | on_gate_green
+  respect_branch_protection: false  # default false
+  refresh_open_pull_requests: false # default false
+```
+
+| Key | Description |
+|-----|-------------|
+| `when` | `manual`: the run opens its pull requests and a person merges them. `on_gate_green`: a run whose every spec passed its verification merges its pull requests as its last step, and later work fixes forward. A red, partial or record-only run never merges. |
+| `respect_branch_protection` | `false`: merge past branch policies, protection rules and approval rules, which are there for people. That needs the token's permission: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with *Do not allow bypassing the above settings* off, or the token's actor on a ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow. `true`: Azure DevOps arms auto-complete, GitHub enables auto-merge, GitLab merges when the pipeline succeeds. |
+
+| `refresh_open_pull_requests` | `true`: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch unchanged and is said on the pull request. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |
+
+A merge the host refuses leaves the pull request open. The step result and the run's pull-request record name the reason; a missing bypass permission reads `cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true`. Repositories merge in order and the first refusal stops the rest. A pull request opened against a feature rung is left open. A local repository fast-forwards its default branch either way.
 
 ## secrets
 

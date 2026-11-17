@@ -73,5 +73,8 @@ public static partial class PipelinePresets
         CommandNames.SpecSequence,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
+        // 2026-11-17-023fa: LAST — the cross-link pass edits the bodies before a merge closes them. Merges only
+        // when the project says merge: on_gate_green and CommitAndPR published its pull requests as gate-passed.
+        CommandNames.CompletePullRequests,
     ];
 }

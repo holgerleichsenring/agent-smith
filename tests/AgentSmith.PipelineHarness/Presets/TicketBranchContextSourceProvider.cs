@@ -80,6 +80,11 @@ internal sealed class TicketBranchContextSourceProvider(string ticketBranch, str
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _inner.CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
 
+    public Task<PullRequestCompletion> MergePullRequestAsync(
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        CancellationToken cancellationToken) =>
+        _inner.MergePullRequestAsync(prUrl, sourceBranch, protection, cancellationToken);
+
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message, CancellationToken cancellationToken) =>
         _inner.WriteFilesToBranchAsync(branch, files, message, cancellationToken);

@@ -26,7 +26,10 @@ public static class TestGit
         new(BaseLadder, RunStartCommit,
             NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance);
 
-    public static WorkBranchBaseMerger Merger => new(NullLogger<WorkBranchBaseMerger>.Instance);
+    public static WorkBranchBaseMerger Merger => new(
+        new StateIndexConflictResolver(new AgentSmith.Infrastructure.Services.ContextYamlStateIndexUnion(),
+            NullLogger<StateIndexConflictResolver>.Instance), // 2026-11-17-023fb
+        NullLogger<WorkBranchBaseMerger>.Instance);
 
     public static WorkBranchBaseMergeReport MergeReport =>
         new(NullLogger<WorkBranchBaseMergeReport>.Instance);
