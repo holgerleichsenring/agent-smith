@@ -28,7 +28,7 @@ public sealed class TicketSeriesReadTests : IDisposable
     [Fact]
     public async Task TicketSeries_Read_HandbackAfterCut_KeepsTheSpecs()
     {
-        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Cut(R1, 3, Entry(A, 1), Entry(B, 2)),
+        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Cut(R1, 3, Entry(A, 1), Entry(B, 2)), OnBranch(BranchSpec(A), BranchSpec(B)),
             Run(R2, status: "waiting_for_input"), Step(R2), Handback(R2, 4, "Refused"));
 
         var series = await ReadAsync();
@@ -39,6 +39,44 @@ public sealed class TicketSeriesReadTests : IDisposable
         series.Specs[0].Repos.Should().Equal("api");
         series.Specs[0].Steps.Single().Target.Should().Be("api:src/A.cs");
         series.Handback.Should().BeEquivalentTo(new TicketSeriesHandbackView("Refused", R2, 2, T.AddMinutes(4)));
+    }
+
+    // 2026-11-17-a0b6b: the branch is the text — a reviewer's commit after the cut shows on the page.
+    [Fact]
+    public async Task TicketSeries_Read_ABranchEditAfterTheCut_IsWhatThePageShows()
+    {
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A, "the build exits 0")));
+        await _store.AddAsync(OnBranch(BranchSpec(A, "the build exits 0", "a reviewer added this")));
+
+        (await ReadAsync()).Specs.Single().Done.Select(d => d.Text).Should().Equal("the build exits 0", "a reviewer added this");
+    }
+
+    // 2026-11-17-a0b6b: a filed ticket no attempt has run shows the set its branch holds.
+    [Fact]
+    public async Task TicketSeries_Read_AFiledTicketWithoutARun_ShowsItsBranchSet()
+    {
+        await _store.AddAsync(OnBranch(BranchSpec(A, "it builds"), BranchSpec(B)));
+
+        var series = await ReadAsync();
+
+        series.Source.Should().Be(TicketSeriesSources.Branch);
+        series.Specs.Select(s => (s.SpecId, s.State)).Should().Equal((A, "not_started"), (B, "not_started"));
+        series.Specs[0].Goal.Should().Be($"Goal of {A}");
+        series.Specs[0].Done.Single().Text.Should().Be("it builds");
+    }
+
+    // 2026-11-17-a0b6b: a host that cannot be asked is named; the cut still says which specs.
+    [Fact]
+    public async Task TicketSeries_Read_AnUnreadableBranch_IsNamedAndTheIdsStillShow()
+    {
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A)));
+        _store.Branches.ReadThrows = new HttpRequestException("503 from the host");
+
+        var series = await ReadAsync();
+
+        series.BranchUnread.Should().Contain("503 from the host");
+        series.Specs.Single().SpecId.Should().Be(A);
+        series.Specs[0].Yaml.Should().BeEmpty("the text is the branch's and the branch did not answer");
     }
 
     [Fact]
@@ -77,7 +115,7 @@ public sealed class TicketSeriesReadTests : IDisposable
     [Fact]
     public async Task TicketSeries_Read_AppliesOperatorJudgementByCriterionText()
     {
-        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1, "the  build exits 0", "docs updated")),
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A, "the  build exits 0", "docs updated")),
             SpecRow(R1, A, "done", Acceptance(("the build exits 0", "unmet"))),
             new RunCriterionJudgement
             {
@@ -97,7 +135,7 @@ public sealed class TicketSeriesReadTests : IDisposable
     [Fact]
     public async Task TicketSeriesSpecComposer_EndedRow_IsServedAsJudgedBy()
     {
-        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1, "the build exits 0")),
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1)), OnBranch(BranchSpec(A, "the build exits 0")),
             SpecRow(R1, A, "failed", Acceptance(("the build exits 0", "unmet"))));
 
         (await ReadAsync()).Specs.Single().JudgedBy.Should().Be(R1); // 2026-10-16-86e6e

@@ -1,3 +1,5 @@
+using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Server.Services.Tickets.Checks;
@@ -21,6 +23,7 @@ internal static class TicketReadExtensions
     {
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddTransient<SpecDraftReader>();
+        services.AddBranchSeriesRead(); // 2026-11-17-a0b6b
         services.TryAddTransient<SpecRecordReader>();
         services.AddTransient<TicketAttempts>()
             .AddTransient<InfrastructureEnd>()
@@ -43,7 +46,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketRunsQuery>() // 2026-10-13-9a59e
             .AddTransient<TicketSeriesRecordsReader>()
             .AddTransient<TicketSeriesSpecComposer>()
-            .AddTransient<TicketSeriesReader>()
+            .AddTransient<TicketSeriesReader>().AddTransient<TicketBranchSpecs>() // 2026-11-17-a0b6b: the branch is the text
             .AddTransient<SeriesHolds>().AddTransient<SeriesRunwayReader>() // 2026-10-13-8762v
             .AddTransient<TicketReviewsReader>() // 2026-10-13-8762l
             .AddTransient<TicketSpecRecordsReader>()
@@ -65,9 +68,10 @@ internal static class TicketReadExtensions
             .AddTransient<TicketConversationReader>()
             .AddSingleton<TicketTrackerTextReader>()
             .AddTransient<TicketTextSnapshotReader>()
-            .AddTransient<TicketTextReader>()
-            .AddTransient<TicketCloseHostActs>().AddTransient<TicketCloseAct>() // 2026-10-15-114fa
+            .AddTransient<TicketTextReader>().AddTransient<TicketTextDivergence>() // 2026-11-17-dd05d
+            .AddTransient<TicketCloseAct>() // 2026-10-15-114fa; e061a: its acts are close and reopen runs
             .AddMemoryCache();
+        services.TryAddTransient<ApprovedSetDivergence>(); // 2026-11-17-dd05d: the ticket text's divergence, as the dialog asks it
         return services;
     }
 }

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-dd05d
+goal: "When the tracker text of a ticket with approved specs no longer states them, its page says so at once and offers editing the specs or overwriting the tracker from them."
+
+applies_to: "default (TicketTextReader, TicketTrackerTextReader, ApprovedSetDivergence, ticket text and body endpoints), dashboard (TicketPageReads, TicketTextDivergence)"
+
+requires: [2026-11-17-dd05c]
+
+facts:
+  - claim: "ApprovedSetDivergence compares the ticket text with the goals of the set on the ticket branch; only the conversation's turn reads it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetDivergence.cs:42"
+  - claim: "The ticket text is its own read on the ticket page, re-read on the ticket's activity nudge, and answers nothing for a ticket with no code run."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketTextEndpoints.cs:14, src/backend/AgentSmith.Server/Services/Tickets/Text/TicketTextReader.cs:22"
+  - claim: "A tracker read is cached for 60 seconds."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Text/TicketTrackerTextReader.cs:18"
+  - claim: "Azure DevOps answers descriptions as HTML, which the fingerprint already reads through TicketHtmlConverter."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketTextFingerprint.cs:30"
+
+scope:
+  in: "The text view carries the divergence (spec count, goals unsaid) of a live tracker read whose branch set is APPROVED, computed by ApprovedSetDivergence over the description and criteria as plain text (the title carries a filed spec's goal) (TicketHtmlConverter). A ticket with no code run is read from its tracker too. The page re-reads the text, past the cache, when its window regains focus — the moment the operator comes back from the tracker; an overwrite forgets the cached read. What happened (and a never-run ticket's page) shows one plain line naming the unsaid goals, with 'Edit the specs' (the Specs section, dd05c) and 'Overwrite the tracker from the specs' (POST /api/tickets/{project}/{ticketId}/body, runs.control, a dd05b 'ticket-body' run); both acts hide for a caller known to lack runs.control."
+  out: "A derived set: its ticket is a person's text the goals were never in. A push from tracker webhooks: four trackers deliver four shapes and polling mode none; the focus read covers the operator returning from the tracker. A tracker edit that keeps every goal but changes other text is not named: goals are what the comparison has, and the run's own fingerprint check reports any edit when it starts."
+
+steps:
+  - id: divergence
+    action: "ApprovedSetDivergence.ForAsync gains approvedOnly; TicketTextDivergence (server) builds the plain text and asks it."
+  - id: view
+    action: "TicketTextView.Divergence; TicketTextReader reads the tracker for a ticket with no code run and fills the divergence on a live read; ReadAsync(fresh) skips the cache; TicketTrackerTextReader.Forget."
+  - id: endpoints
+    action: "GET .../text?fresh=true; POST .../body → TicketBodyOverwrite (which forgets the cached read): 200, 404, 409 as sentences."
+  - id: dashboard
+    action: "TicketPageReads.textReturned() on window focus (fresh); TicketTextDivergence line in the What happened lead and on the never-run page; overwriteTicketBody in ticketBodyApi."
+
+tests:
+  - "TicketTextDivergenceTests: an approved set whose goal the HTML description lacks yields it; a description stating every goal and a derived set yield none"
+  - "TicketTextRead tests: a ticket with no code run is read from its tracker; fresh skips the cache"
+  - "TicketBodyActCompositionTests: the overwrite forgets the cached text, so the next read carries no divergence"
+  - "TicketTextDivergence.test.tsx: shows the unsaid goals and both acts; Overwrite posts and shows the sentence; no divergence draws nothing; a focus re-reads the text"
+
+done:
+  - "A tracker edit that drops an approved goal shows on the ticket page when the operator returns to it, with both ways to settle it."

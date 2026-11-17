@@ -287,7 +287,8 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
 
     private FiledTicketWithdrawal Withdraw(
         ITicketProvider? tracker = null, FiledWorkNudge? nudge = null) =>
-        new(Scopes(), LiveConfig.Projects(Config()), Factory(tracker ?? _tracker),
+        new(Scopes(), LiveConfig.Projects(Config()),
+            ActSteps.Over(Config(), s => s.AddSingleton(Factory(tracker ?? _tracker))), // 2026-11-17-e061a: a 'close' run
             new FiledWorkTrackerProjects(LiveConfig.Projects(Config())),
             nudge, NullLogger<FiledTicketWithdrawal>.Instance);
 

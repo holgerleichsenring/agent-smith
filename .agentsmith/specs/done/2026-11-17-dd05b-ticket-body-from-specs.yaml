@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-dd05b
+goal: "A filed ticket's body is rendered from its approved specs, and a 'ticket-body' run re-renders it from the specs on the ticket branch."
+
+applies_to: "default (Application/Services/Filing, SeriesTicketRegion, Application/Services/TicketActs, SeriesFingerprintStamp, act presets, Server TicketBodyOverwrite)"
+
+requires: [2026-11-17-dd05a, 2026-11-17-e061c]
+
+facts:
+  - claim: "A Work it out list was filed with each ticket's free text — the requirement and its done items — although its approved specs went to its branch."
+    evidence: "observed: ListFilingPlan rendered GraphTicketBody.Render(shown, required, conversation, note), whose body was the ticket's Requirement and Done lines, 2026-11-17"
+  - claim: "A spec and an epic are filed with a region the one renderer builds from their drafts."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/SeriesFilingPlan.cs:13-20"
+  - claim: "After filing, only an 'amend' run rewrites the region, before its branch write."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketActs/TicketAmendmentWrite.cs:24-29"
+  - claim: "Act runs are one table of presets launched through IActRun with an ActSlot."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.TicketActs.cs:38-41, src/backend/AgentSmith.Server/Services/Acts/IActRun.cs:1"
+  - claim: "The branch manifest carries the ticket fingerprint the next run compares; a changed one reads as a ticket edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:109, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:83"
+
+scope:
+  in: "SeriesTicketRegion composes the one SpecTicketRenderer: a lone spec renders as a filed spec, several as their series under its goal. A list ticket is filed with it plus its Requires lines. Act preset 'ticket-body' = [RenderTicketBody]: reads TicketBodyRequest(TicketId, By), reads the ticket branch's set, renders the region (the set's approval conversation, the board's approved-set note), rewrites it through TicketDescriptionRewrite, reads the ticket back and stamps the new fingerprint into the branch manifest (SeriesFingerprintStamp: manifest files only, pointer recorded), so the next run does not read its own rewrite as a person's edit; the outcome goes into an ActSlot<TicketBodyOutcome>. TicketBodyOverwrite (server) refuses an unknown project and a ticket a run holds, launches it through IActRun and nudges the ticket's views."
+  out: "A run's re-cut does not re-render: the operator's overwrite (dd05d) does. An epic re-rendered from its branch shows goal and slices: its parent's Why and What changes are not on the branch. A ticket filed before this spec without region markers and with the approved-set stamp is refused by the rewriter's replace-only rule, which says so."
+
+steps:
+  - id: region
+    action: "SeriesTicketRegion; ListFilingPlan renders each part with it; GraphTicketBody appends the Requires lines below the region."
+  - id: rewrite-result
+    action: "TicketDescriptionRewrite.RewriteAsync answers the tracker's TicketRewriteResult; WriteAsync keeps its sentence over it."
+  - id: stamp
+    action: "SeriesFingerprintStamp.StampAsync(project, set, ticket): nothing when the fingerprint is unchanged; else each member's manifest written with it and the pointer recorded; answers the failure or null."
+  - id: preset
+    action: "PipelinePresets.TicketBodyName 'ticket-body' joins HostActSteps; CommandNames.RenderTicketBody in every command map; ContextKeys.TicketBodyRequest; builder and data flow."
+  - id: step
+    action: "TicketBodyRender + RenderTicketBodyHandler: missing seeds fail naming the keys; no set on the branch, a refused rewrite or a failed stamp answer not rewritten with the reason."
+  - id: server
+    action: "TicketBodyOverwrite.OverwriteAsync(project, ticketId, by) → TicketBodyOutcome."
+
+tests:
+  - "GraphTicketFilingPartsTests: a list ticket's body is its specs' region then Requires; one spec equals the filed spec body; several list their slices"
+  - "SeriesFingerprintStampTests: unchanged fingerprint writes nothing; changed writes only manifests and records the pointer"
+  - "RenderTicketBodyHandlerTests: rewrites from the branch set and stamps; no seeds, no set, refused rewrite each answer with a reason"
+  - "TicketBodyActCompositionTests (real composition): a filed ticket whose tracker body was edited is overwritten by one 'ticket-body' run with a run id; the body holds the region again and the branch fingerprint is the read-back ticket's"
+  - "Preset tests know 'ticket-body'; the control-flow diagram is regenerated"
+
+done:
+  - "No filed ticket's body is a free-text copy; a 'ticket-body' run re-renders a ticket's body from its branch and leaves the next run nothing to mistake for a person's edit."

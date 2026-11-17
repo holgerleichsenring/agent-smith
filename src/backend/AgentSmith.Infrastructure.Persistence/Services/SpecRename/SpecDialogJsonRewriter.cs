@@ -18,7 +18,7 @@ public sealed class SpecDialogJsonRewriter(SpecRenameJson json, SpecMemberRewrit
 
     private static readonly JsonNamingPolicy Camel = JsonNamingPolicy.CamelCase;
 
-    /// <summary>LatestProposalJson / ConfirmedOutcomeJson; null when nothing moved.</summary>
+    /// <summary>A stored proposal (SpecDialogProposal.ProposalJson); null when nothing moved.</summary>
     public string? RewriteOutcome(string? outcome) =>
         json.Rewrite(outcome, node => node is JsonObject dto
             && (RenameKind(dto) | json.Move(dto, OldSpecKind, SpecKind)

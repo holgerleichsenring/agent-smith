@@ -1,6 +1,5 @@
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -15,7 +14,7 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// attempt the worker could reopen, so it is started the way a filed ticket is: tagged and moved.
 /// </summary>
 public sealed class OperatorStart(
-    IReworkNudges nudges, ITicketProviderFactory trackers, FiledWorkMove move, ILogger<OperatorStart> logger,
+    IReworkNudges nudges, Acts.TicketStartRun starts, ILogger<OperatorStart> logger,
     UnmetTicketRequirements requirements)
 {
     /// <summary>The sentence the thread is told about the start.</summary>
@@ -30,7 +29,8 @@ public sealed class OperatorStart(
             var key = AgentSmith.Contracts.Specs.TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
             var (_, unmet) = await requirements.OfAsync(project.Tracker.Name, key, ct); // 2026-10-14-dbceh: the wake starts it
             if (unmet.Count > 0) return RequiresUnmetGate.Sentence(unmet);
-            var started = await move.StartExistingAsync(trackers.Create(project.Tracker), project, ticketId, mayStartRuns: true, ct);
+            var (started, ended) = await starts.StartAsync(project, ticketId, mayStartRuns: true); // 2026-11-17-e061b: a 'start' run
+            if (started is null) return $"Ticket {ticketId} was not started: {ended}";
             return started.State == FiledStartState.Started
                 ? $"Ticket {ticketId}'s first attempt starts: {started.Reason}"
                 : $"Ticket {ticketId} was not started: {started.Reason}";

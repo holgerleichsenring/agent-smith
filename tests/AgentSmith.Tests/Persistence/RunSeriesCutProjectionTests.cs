@@ -51,6 +51,30 @@ public sealed class RunSeriesCutProjectionTests : IDisposable
         _connection.Dispose();
     }
 
+    // 2026-11-17-a0b6b: the branch is the text; the cut row stores ids, order, stems, repos and goals only.
+    [Fact]
+    public async Task SpecCut_Published_StoresNoStepsDoneOrYaml()
+    {
+        await ApplyAsync(Published([], Entry(A, 1)));
+
+        var json = (await CutsAsync()).Single().SpecsJson;
+
+        json.Should().Contain(A).And.NotContainAny("\"steps\"", "\"done\"", "\"yaml\"");
+    }
+
+    // 2026-11-17-a0b6b: a row stored before still reads, its text fields ignored.
+    [Fact]
+    public void SpecCut_StoredWithTheOldFields_ReadsBack()
+    {
+        var old = new RunSeriesCut
+        {
+            SpecsJson = $$"""[{"specId":"{{A}}","ordinal":1,"fileStem":"{{A}}-x","goal":"Goal","repos":["api"],"steps":[{"id":"s1","action":"do"}],"done":["it builds"],"yaml":"spec: x"}]""",
+        };
+
+        AgentSmith.Server.Services.Tickets.TicketSeriesCuts.Entries(old).Should()
+            .ContainSingle().Which.Should().BeEquivalentTo(new SpecCutEntry(A, 1, $"{A}-x", "Goal", ["api"]));
+    }
+
     [Fact]
     public async Task SpecCut_Published_CreatesNotStartedRowsForUnexecutedSpecsOnly()
     {
@@ -116,7 +140,7 @@ public sealed class RunSeriesCutProjectionTests : IDisposable
     }
 
     private static SpecCutEntry Entry(string specId, int ordinal) =>
-        new(specId, ordinal, $"{specId}-x", $"Goal of {specId}", ["api"], [new SpecStep("s1", "do", null)], ["it builds"], "spec: x");
+        new(specId, ordinal, $"{specId}-x", $"Goal of {specId}", ["api"]);
 
     private static SpecSetPublishedEvent Published(IReadOnlyList<string> carried, params SpecCutEntry[] specs) =>
         new(RunId, T, 1, "initial", "2026-10-13-1234", carried, Committed: true, SetKey: "github-42", Specs: specs);

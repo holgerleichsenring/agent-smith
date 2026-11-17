@@ -82,7 +82,7 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<ActiveRunRepository>().AddScoped<ActiveRunLivenessRepository>();
         services.AddScoped<RunArtifactRepository>();
         // p0315a: volatile Redis must never be the only holder of a design transcript; 8e51c: nor
-        services.AddScoped<SpecDialogSessionRepository>().AddReferenceFiles().AddScoped<SpecDialogThreadRepository>().AddScoped<SpecDialogTurnProposalRepository>() // + 283da, d854c
+        services.AddScoped<SpecDialogSessionRepository>().AddReferenceFiles().AddScoped<SpecDialogThreadRepository>().AddScoped<SpecDialogProposalRepository>() // + 283da, d854c
             .AddScoped<SpecDialogTicketTextRepository>().AddScoped<SpecDialogProposalClaim>().AddScoped<SpecDialogConfirmedSlot>(); // + ticket text, ccd9 claim, 205fe slot
 
         services.RemoveAll<IActiveRunLease>();

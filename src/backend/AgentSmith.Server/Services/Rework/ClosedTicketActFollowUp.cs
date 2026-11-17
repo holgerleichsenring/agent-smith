@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
@@ -67,19 +66,24 @@ public sealed class ClosedTicketActFollowUp(
     {
         try
         {
-            var provider = tickets.Create(project.Tracker);
-            var closed = await provider.GetTicketAsync(new TicketId(ticketId), ct);
-            var title = TicketTitle.Fit($"Follow-up: {closed.Title}");
+            // 2026-11-17-e061d: filed in a 'file' run and linked in a 'comment' run, each with a run id.
+            var closed = await tickets.Create(project.Tracker).GetTicketAsync(new TicketId(ticketId), ct);
             var body = ReworkTexts.FollowUpBody(act.Text ?? act.PrUrl ?? string.Empty,
                 FiledTicketKey.Of(project.Tracker.Type, ticketId), act.Act.Author);
-            var created = await provider.CreateAsync(title, body, [], services.Kinds.For(project, TicketFilingRole.Work), ct);
-            List<FiledTicket> filed = [FiledTicket.Of(created, title, project)];
-            await services.Starter.StampAsync(provider, project, created, [], mayStartRuns: true, filed, ct);
-            await services.Link.LinkAsync(project, ticketId, filed[0], ct, askedBy: act.Act.Author);
+            var request = new FilingRequest(string.Empty, act.Act.Author, [], [], Proposal: null, MayStartRuns: true)
+                { FollowUp = new FilingFollowUp($"Follow-up: {closed.Title}", body) };
+            var report = await services.Filing.RunRequestAsync(project.Name, request);
+            if (report.Filed is not [var filed, ..])
+            {
+                logger.LogWarning("The follow-up of closed ticket {Project}/#{Ticket} was not filed ({Error}); its act stays spent",
+                    project.Name, ticketId, report.Error);
+                return;
+            }
+            await services.Link.PostLinksAsync(project, ticketId, filed, ct, askedBy: act.Act.Author);
             if (act.Repo is not null)
                 await speech.SayOnceAsync(project, ticketId, act, runId, "followed-up", string.Empty,
-                    ReworkTexts.PrFollowedUp(ticketId, filed[0].Key ?? filed[0].Reference), ct);
-            logger.LogInformation("Closed ticket {Project}/#{Ticket} followed up as {FollowUp}", project.Name, ticketId, created.Id.Value);
+                    ReworkTexts.PrFollowedUp(ticketId, filed.Key ?? filed.Reference), ct);
+            logger.LogInformation("Closed ticket {Project}/#{Ticket} followed up as {FollowUp}", project.Name, ticketId, filed.TicketId);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -94,9 +98,9 @@ public sealed class ClosedTicketActFollowUp(
 
 /// <summary>2026-10-13-9a59t: what one follow-up filing resolves inside its one scope.</summary>
 internal sealed record FollowUpServices(
-    ReworkLedgerRepository Ledger, FiledWorkTrackerProjects Projects, TicketKindResolver Kinds, FiledWorkStarter Starter, FollowUpLink Link)
+    ReworkLedgerRepository Ledger, FiledWorkTrackerProjects Projects, IFilingRun Filing, FollowUpLink Link)
 {
     internal static FollowUpServices Of(IServiceProvider sp) => new(
         sp.GetRequiredService<ReworkLedgerRepository>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
-        sp.GetRequiredService<TicketKindResolver>(), sp.GetRequiredService<FiledWorkStarter>(), sp.GetRequiredService<FollowUpLink>());
+        sp.GetRequiredService<IFilingRun>(), sp.GetRequiredService<FollowUpLink>());
 }

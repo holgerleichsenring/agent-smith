@@ -59,7 +59,7 @@ export interface TicketPageApi {
   conversation(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketConversation>;
   reviews(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketReviews>;
   defaults(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDefaults>;
-  text(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText>;
+  text(project: string, ticketId: string, signal?: AbortSignal, fresh?: boolean): Promise<TicketText>;
   requires(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketRequires>;
   passes(runId: string, signal?: AbortSignal): Promise<RunPasses>;
   /** The run detail; a 404 rejects like any other read. */
@@ -74,7 +74,7 @@ export const TICKET_PAGE_API: TicketPageApi = {
   conversation: (project, ticketId, signal) => fetchTicketConversation(project, ticketId, signal),
   reviews: (project, ticketId, signal) => fetchTicketReviews(project, ticketId, signal),
   defaults: (project, ticketId, signal) => fetchTicketDefaults(project, ticketId, signal),
-  text: (project, ticketId, signal) => fetchTicketText(project, ticketId, signal),
+  text: (project, ticketId, signal, fresh) => fetchTicketText(project, ticketId, signal, fresh),
   requires: (project, ticketId, signal) => fetchTicketRequires(project, ticketId, signal),
   passes: (runId, signal) => fetchRunPasses(runId, signal),
   run: async (runId, signal) => {
@@ -111,7 +111,8 @@ export class TicketPageReads {
     () => this.snap.reviews, (reviews) => this.publish({ ...this.snap, reviews })); // 2026-10-13-8762l
   private readonly defaults = new TicketOwnRead((signal) => this.api.defaults(this.project, this.ticketId, signal),
     () => this.snap.defaults, (defaults) => this.publish({ ...this.snap, defaults })); // 2026-10-13-8762q
-  private readonly text = new TicketOwnRead((signal) => this.api.text(this.project, this.ticketId, signal),
+  private freshText = false; // 2026-11-17-dd05d: the next text read goes past the server's cache
+  private readonly text = new TicketOwnRead((signal) => this.api.text(this.project, this.ticketId, signal, this.takeFresh()),
     () => this.snap.text, (text) => this.publish({ ...this.snap, text }));
   private readonly requires = new TicketOwnRead((signal) => this.api.requires(this.project, this.ticketId, signal),
     () => this.snap.requires, (requires) => this.publish({ ...this.snap, requires }));
@@ -167,6 +168,19 @@ export class TicketPageReads {
     this.defaults.within(TICKET_READ_MS);
     this.text.within(TICKET_READ_MS);
     this.requires.within(TICKET_READ_MS);
+  }
+
+  /** (h) 2026-11-17-dd05d: the window came back into focus — the operator may have edited the ticket in its tracker,
+   *  so the text is read now, past the server's cache. */
+  textReturned(): void {
+    this.freshText = true;
+    this.text.now();
+  }
+
+  private takeFresh(): boolean {
+    const fresh = this.freshText;
+    this.freshText = false;
+    return fresh;
   }
 
   /** (g) 2026-10-14-dbcen: a ticket was marked done by hand from this page — its requires and its detail, at once. */

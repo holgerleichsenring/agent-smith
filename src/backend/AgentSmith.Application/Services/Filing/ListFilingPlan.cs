@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Filing;
 /// any. A ticket without a spec, a requires cycle or a <c>ticket:&lt;id&gt;</c> the tracker lacks refuses the whole
 /// list before anything exists.
 /// </summary>
-public sealed class ListFilingPlan(ITicketExistence existence, TicketGraphOrderer orderer, SeriesFilingPlan series)
+public sealed class ListFilingPlan(
+    ITicketExistence existence, TicketGraphOrderer orderer, SeriesFilingPlan series, SeriesTicketRegion regions)
 {
     public async Task<IReadOnlyList<PlannedTicket>> PlanAsync(
         FilingRequest request, ResolvedProject project, TicketGraphOutcome list, CancellationToken ct)
@@ -44,9 +45,9 @@ public sealed class ListFilingPlan(ITicketExistence existence, TicketGraphOrdere
             IReadOnlyList<string> requires = i == 0
                 ? [.. ticket.Requires.Distinct(StringComparer.Ordinal).Select(r => GraphTicketRequire.ExistingId(r) is null ? last[r] : r)]
                 : [planned[^1].Key];
+            var region = regions.Render(shown.Title, parts[i].Id, parts[i].Drafts, request.Conversation, note);
             planned.Add(new PlannedTicket(SeriesFilingPlan.PartKey(ticket.Key, i, parts.Count), TicketFilingRole.Work,
-                required => DecidedQuestionLines.Appended(
-                    GraphTicketBody.Render(shown, required, request.Conversation, note), list.Questions),
+                required => DecidedQuestionLines.Appended(GraphTicketBody.Render(shown, region, required), list.Questions),
                 parts[i], shown.Title, requires, labels) { Repos = ticket.Repos });
         }
         last[ticket.Key] = planned[^1].Key;

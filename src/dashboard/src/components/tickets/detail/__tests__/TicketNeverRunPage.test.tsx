@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub, ticket } from "../../__tests__/ticketFixtures";
-import { conversation, defaults, detail, reviews, series, ticketText } from "./detailFixtures";
+import { conversation, defaults, detail, reviews, series, spec, ticketText } from "./detailFixtures";
 import type { RunEvent } from "@/types/hub-events";
 import type { TicketDetail, TicketRequirement, TicketRequires } from "@/types/tickets";
 
@@ -28,10 +28,13 @@ const entry = (over: Partial<TicketRequirement>): TicketRequirement => ({
   ticketId: "58", key: "#58", title: "Orders: API", state: "ready", hasPage: true, ...over,
 });
 
-const world = { detail: null as unknown as TicketDetail, requires: { requires: [], requiredBy: [] } as TicketRequires };
+const noSpecs = () => series("", [], { runId: null, gate: null, recorded: false });
+const world = {
+  detail: null as unknown as TicketDetail, requires: { requires: [], requiredBy: [] } as TicketRequires, series: noSpecs(),
+};
 const api = {
   detail: vi.fn(() => Promise.resolve(world.detail)),
-  series: vi.fn(() => Promise.resolve(series("", [], { runId: null, gate: null, recorded: false }))),
+  series: vi.fn(() => Promise.resolve(world.series)),
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn(() => Promise.reject(new Error("unused"))),
@@ -67,6 +70,7 @@ beforeEach(() => {
   mark.fn.mockReset();
   for (const fn of Object.values(api)) fn.mockClear();
   world.detail = neverRun();
+  world.series = noSpecs();
   world.requires = {
     requires: [entry({}), entry({ ticketId: "41", key: "#41", title: "#41", state: "idle", hasPage: false })],
     requiredBy: [entry({ ticketId: "60", key: "#60", title: "Orders: export", state: "blocked" })],
@@ -75,6 +79,14 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("TicketPage, never run", () => {
+  // 2026-11-17-dd05c: a filed ticket's specs are on its branch before any run — shown, and editable, on its page.
+  it("TicketPage_AFiledTicketWithNoRun_ShowsItsBranchSpecsWithEdit", async () => {
+    world.series = series("", [spec({ specId: "s1", state: "pending", executedBy: null, executedByAttempt: null })], { runId: null });
+    await open();
+    expect(screen.getByTestId("specs-list")).toHaveTextContent("Port the publishers");
+    expect(screen.getByTestId("spec-edit")).toBeInTheDocument();
+  });
+
   it("TicketPage_ATicketWithNoAttempt_ShowsHeaderWaitsForRequiredByTheFiledLineAndTheWorkItOutLink", async () => {
     await open();
 

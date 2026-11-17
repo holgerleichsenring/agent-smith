@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-a0b6a
+goal: "A ticket's spec set is read off its branch without a clone through the same finder, spec reader, join and composition a run's checkout uses: one reader, two file sources."
+
+applies_to: "default (Application/Services/Specs series reading)"
+
+requires: [2026-11-17-5701c]
+
+# The block-6 inventory, taken 2026-11-17 at a96b70cff: where spec text and proposal state are kept
+# outside the branch, who reads them as the spec's truth, and which spec of this series removes each.
+inventory:
+  spec_text_stores:
+    - store: "ApprovedSeries.ContentJson (SpecApprovalRecord.Set: drafts with goal, steps, done, yaml)"
+      written: "Repositories/ApprovedSeriesRepository.cs:99 from ApprovedSpecSetRecorder (filing, amend, series edit, continuation) and PendingEditStart.cs:27"
+      read_as_truth: "ApprovedSetForConversation.cs:27-37 (dialog pane), ApprovedSetDivergence.cs:31-35, TicketContinuationStateReader.cs:58 (basis without a cut), NextAttemptSeriesReader.cs:25-27 and PendingSeriesEditReader.cs:18-21 (pending edit), ApprovedContinuation.cs:24-27 and ApprovedSetHandoff.cs:25-41 (run), FiledSpecBranch.cs:66 (branch write), FiledTicketRows.cs:50-80 (title)"
+      removed_by: "a0b6c moves the pane, divergence and basis to the branch; what stays reads the set only as a write not yet on the branch (filing's branch write, the run's one-time hand-off, a pending edit) and a ratchet names those files"
+    - store: "RunSeriesCut.SpecsJson (SpecCutEntry goal, steps, done, yaml) and the SpecSetPublished event payload"
+      written: "Services/RunSeriesCutProjection.cs:30 from SpecSetAnnouncer.cs:34-62 via SpecCutContent.cs:14-16"
+      read_as_truth: "TicketSeriesReader.cs:37-54 via TicketSeriesSpecComposer.cs:29 (ticket page Specs), TicketContinuationStateReader.cs:50-56 (continuation basis)"
+      removed_by: "a0b6b: the entry keeps id, ordinal, stem and repos; the ticket page reads content from the branch"
+    - store: "RunSpec.Title and RunArtifact spec_record:{id}"
+      written: "RunSpecProjection.cs:37,55-62, RunSeriesCutProjection.cs:52-55"
+      read_as_truth: "none: the run page and delivery show what a run executed, the record is the executed spec's history"
+      removed_by: "kept: a run's own history, not the spec's current text"
+    - store: "QueuedTicket.InitialContextJson, Run.QueuedRequestJson, RunCheckpoint.ContextJson (ContextKeys.ApprovedSpecSet carried copy)"
+      written: "SpawnRequestBuilder.cs:78-79, ApprovedSpecSetCarrier.cs:32-37"
+      read_as_truth: "ApprovedSpecSetResolver.cs:43-97 only, which hands it to the same run-side writes as the record"
+      removed_by: "kept with the record's pending-write role; named in a0b6c's ratchet"
+    - store: "SpecDialogSession Latest/Awaiting/Reviewing/ConfirmedOutcomeJson and SpecDialogTurnProposal.ProposalJson (drafts before approval)"
+      written: "SpecDialogProposalClaim.cs:40-118, SpecDialogConfirmedSlot.cs:15-32, SpecDialogTurnProposalRepository.cs:14-27"
+      read_as_truth: "proposal views, decisions, transcript; drafts, never the approved spec"
+      removed_by: "a0b6d: one SpecDialogProposal table"
+  counts_before: "spec text kept in 6 stores outside the branch (approval record, cut rows, event trail, run spec rows and records, carried run context, proposal columns); 9 readers took the approval record's or a cut's text as the spec; proposal state in 7 session columns plus 1 table; 13 entry paths into runs (5 build approved specs, 6 derive, 2 no run)"
+  branch_readers_before: "SeriesReader, SubSeriesReader, SeriesManifestFinder, SeriesSpecFileReader, SeriesBranchRead, SeriesTakenIds: all over a sandbox clone; no reader of .agentsmith/specs or series/ without a clone"
+
+facts:
+  - claim: "A run reads its set from the checkout: SubSeriesReader finds the manifest and reads every listed spec through an ISandboxFileReader of the repository's sandbox, and takes the revision sha from git."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SubSeriesReader.cs:23-46, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:18-33"
+  - claim: "SeriesReader joins the sub-series and composes the SpecSet with the manifest's accounting, revisions, hand-back, approval, goal and contract."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:34-93"
+  - claim: "A source provider reads a file and lists a directory on a named branch without a checkout; the listing answers names."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchRead.cs:21-35, tests/AgentSmith.PipelineHarness/Composition/LocalGitSourceProvider.cs:77-86"
+  - claim: "Filing writes the set to TicketBranchNamer.Compose(ticket) of each placed repository and records the pointer with the sha per repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:82-97, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:59"
+
+scope:
+  in: "SubSeriesFiles: the manifest lookup and the spec reads over any ISandboxFileReader, used by SubSeriesReader; SeriesComposer: the join and the set composition, used by SeriesReader; BranchFiles: a read-only ISandboxFileReader over ISourceProvider on one branch; TicketBranchSeries.ReadAsync(project, ticket key, ticket id) reading every repository the ticket's pointer names on the ticket branch, the pointer's sha per repository as the revision sha."
+  out: "Switching readers to it (a0b6b, a0b6c). Reading at a past commit: the branch head is the truth."
+
+steps:
+  - id: split
+    action: "Extract SubSeriesFiles.ReadAsync(ISandboxFileReader files, string repo, TicketKey ticket) from SubSeriesReader (without the sha); SubSeriesReader resolves the sandbox, calls it and adds the git sha. Extract SeriesComposer.Compose(ticket, carrying, reads) from SeriesReader; SeriesReader reads and calls it."
+  - id: files
+    action: "BranchFiles(ISourceProvider, BranchName): TryRead and Exists through TryReadFileAsync(path, branch), List through ListDirectoryAsync(path, branch) answering '<path>/<name>', ReadRequired throws naming the path, Write throws NotSupported."
+  - id: reader
+    action: "TicketBranchSeries.ReadAsync: no pointer for (project, key) answers Nothing; otherwise each repository of the pointer's ShaByRepo and carrying repo is read with SubSeriesFiles over BranchFiles of project.Repos' connection on TicketBranchNamer.Compose(ticket id) (a name not in the project reads NotCheckedOut), its sha the pointer's; the reads go through SeriesComposer; a provider that throws answers Unreadable naming the repository and the error."
+  - id: wire
+    action: "Register SubSeriesFiles, SeriesComposer and TicketBranchSeries in SpecDerivationRegistrations."
+
+tests:
+  - "TicketBranchSeriesTests: a set filed to a fake branch reads back with goals, steps, done and yaml; no pointer is Nothing; a provider that throws is Unreadable naming the repo; a two-repository series joins"
+  - "BranchFilesTests: listing answers paths, a missing file is null, writing throws"
+  - "Existing SeriesReader and SubSeriesReader suites pass unchanged"
+
+done:
+  - "TicketBranchSeries reads a filed ticket's set off its branch with no sandbox, through the parsing and joining code a run uses."

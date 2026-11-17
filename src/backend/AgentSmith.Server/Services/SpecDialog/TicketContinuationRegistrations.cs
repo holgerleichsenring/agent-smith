@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.SpecDialog.Continuation;
 using AgentSmith.Server.Services.Tickets;
@@ -21,9 +22,12 @@ internal static class TicketContinuationRegistrations
         services.TryAddTransient<TicketRunsQuery>();
         services.TryAddTransient<TicketSeriesRecordsReader>();
         services.TryAddTransient<TicketProjects>();
+        services.AddBranchSeriesRead().TryAddTransient<TicketBranchSpecs>(); // 2026-11-17-a0b6b: the basis is the branch's
         services.TryAddTransient<Tickets.Conversation.TicketTranscriptReader>();
         services.TryAddScoped<FiledWorkTagger>();
         services.TryAddScoped<FiledWorkMove>();
+        services.TryAddScoped<Acts.IActRun, Acts.ActRun>(); // 2026-11-17-e061b: the never-worked start is a 'start' run
+        services.TryAddScoped<Acts.TicketStartRun>();
         // Starting the next attempt from a bound turn: the pending edit as its approval, else a conversation Retry.
         services.AddRunRetry().AddTransient<PendingSeriesEditReader>().AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
         // Reading and editing the series from a bound turn: the series as the next attempt reads it, an edit as an approval without a start.

@@ -86,8 +86,9 @@ export async function postDefaultVerdicts(
 }
 
 /** The ticket itself, read from its tracker (a minute's cache on the server), else an attempt's copy. */
-export function fetchTicketText(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText> {
-  return getJson<TicketText>(`/api${ticketPath(project, ticketId)}/text`, signal);
+/** 2026-11-17-dd05d: fresh reads the tracker past the server's minute cache. */
+export function fetchTicketText(project: string, ticketId: string, signal?: AbortSignal, fresh = false): Promise<TicketText> {
+  return getJson<TicketText>(`/api${ticketPath(project, ticketId)}/text${fresh ? "?fresh=true" : ""}`, signal);
 }
 
 export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {

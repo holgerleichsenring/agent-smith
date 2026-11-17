@@ -137,8 +137,30 @@ public sealed class TicketTextReadTests : IDisposable
     {
         await _h.AddAsync(Run("r-1", pipeline: "pr-review"));
 
-        var result = await TicketTextEndpoints.TextAsync("alpha", "42", Reader, CancellationToken.None);
+        var result = await TicketTextEndpoints.TextAsync("alpha", "42", null, Reader, CancellationToken.None);
 
         result.Should().BeOfType<NotFound>();
+    }
+
+    // 2026-11-17-dd05d: a filed ticket no run worked is read from its tracker too.
+    [Fact]
+    public async Task TicketText_NoCodeRun_TrackerAnswers_ServesTheTicket()
+    {
+        Tracker(Live);
+
+        (await ReadAsync()).Title.Should().Be("Export it");
+    }
+
+    // 2026-11-17-dd05d: a fresh read goes past the minute's cache — the operator came back from the tracker.
+    [Fact]
+    public async Task TicketText_Fresh_ReadsTheTrackerPastTheCache()
+    {
+        await _h.AddAsync(Attempt("r-1", 0));
+        Tracker(Live);
+        await ReadAsync();
+        Tracker(new Ticket(new TicketId("42"), "Export it now", "d", null, "Active", "AzureDevOps", []));
+
+        (await ReadAsync()).Title.Should().Be("Export it", "a plain read is served from the cache");
+        (await Reader.ReadAsync("alpha", "42", default, fresh: true))!.Title.Should().Be("Export it now");
     }
 }

@@ -1,7 +1,8 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
-using AgentSmith.Domain.Models;
+using AgentSmith.Application.Services.TicketActs;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Server.Services.Acts;
 using AgentSmith.Server.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -19,13 +20,15 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// in the reply. The alternative is the one failure this path exists to prevent, a filing that
 /// says withdrawn about a ticket still sitting on the board.
 /// </para>
+/// <para>2026-11-17-e061a: the close is a 'close' run (<see cref="IActRun"/>) with no mark; a tracker that did not
+/// close, threw or a run that ended first records nothing.</para>
 /// <para>Its own scope: the read, the claim questions and the write are a unit of work of their
 /// own, opened while a turn is mid-flight over the scope serving the operator's message.</para>
 /// </summary>
 public sealed class FiledTicketWithdrawal(
     IServiceScopeFactory scopeFactory,
     Tickets.TicketProjects projects,
-    ITicketProviderFactory ticketFactory,
+    IActRun acts,
     FiledWorkTrackerProjects trackerProjects,
     FiledWorkNudge? nudge,
     ILogger<FiledTicketWithdrawal> logger) : IFiledTicketWithdrawal
@@ -74,24 +77,18 @@ public sealed class FiledTicketWithdrawal(
         FiledTicket ticket, string sessionId, string displayKey, string ticketId, string reason,
         CancellationToken ct)
     {
-        bool closed;
-        try
+        // 2026-11-17-e061a: the close is a 'close' run with a run id; the record follows what its step reports.
+        var slot = new ActSlot<TicketCloseOutcome>();
+        var result = await acts.RunAsync(project.Name, PipelinePresets.CloseName, new Dictionary<string, object>
         {
-            closed = await ticketFactory.Create(project.Tracker)
-                .CloseTicketAsync(new TicketId(ticketId), Resolution(reason), ct);
-        }
-        // A tracker that threw closed nothing, and the conversation is told rather than the turn failing.
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            [ContextKeys.CloseTicketRequest] = new CloseTicketRequest(ticketId, Resolution(reason), [], CloseOnTracker: true, Mark: null),
+            [ContextKeys.ActOutcome] = slot,
+        });
+        if (slot.Value?.Tracker is not { Closed: true })
         {
-            logger.LogWarning(ex, "Withdrawing filed ticket {Ticket} threw", ticketId);
-            return Refused($"{displayKey} could not be closed: {ex.Message}");
-        }
-        if (!closed)
-        {
-            logger.LogInformation(
-                "The tracker did not close filed ticket {Ticket}; its filing record is unchanged", ticketId);
-            return Refused(
-                $"{project.Tracker.Type} did not close {displayKey} — it is still open and the "
+            var why = slot.Value?.Tracker?.Reason ?? result.Message;
+            logger.LogInformation("The tracker did not close filed ticket {Ticket} ({Reason}); its filing record is unchanged", ticketId, why);
+            return Refused($"{project.Tracker.Type} did not close {displayKey} ({why}) — it is still open and the "
                 + "filing record is unchanged.");
         }
 
