@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d5cc
+
+decisions:
+  - category: Architecture
+    chose: "A Local repo whose sandbox holds no checkout goes through the remote clone loop, with the repo's url (else its path) as clone source and the empty credential a local repo already resolves to"
+    over: "Setting the pipeline's source path so the in-process sandbox works inside the configured working copy"
+    reason: "A run inside the operator's working copy would commit on whatever branch it has checked out and two runs on one repo would share one tree; a clone gives each run its own tree, its own branch switch and a push back to the repo, as every remote repo's run has. No parallel path: the existing clone and branch-switch code runs."
+  - category: Implementation
+    chose: "The probe is `git rev-parse --show-prefix` at /work: a checkout only when it exits 0 with an empty prefix"
+    over: "`--is-inside-work-tree`"
+    reason: "A temp work dir that happens to sit inside some other repository answers true to --is-inside-work-tree; only a work tree's root has an empty prefix, which is what a bind mount at /work is."

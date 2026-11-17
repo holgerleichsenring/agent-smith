@@ -11,8 +11,8 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Commands;
 
 /// <summary>
-/// p0490: the init pipeline's tail — where completion sits in the preset, and how the
-/// operator's auto-accept gets from the launch request to the step that reads it.
+/// p0490: the init pipeline's tail — where completion sits in the preset, and what the
+/// completion step is built from.
 /// </summary>
 public sealed class InitProjectTailTests
 {
@@ -32,34 +32,19 @@ public sealed class InitProjectTailTests
     }
 
     [Fact]
-    public void InitComplete_TheLaunchFlag_SurvivesTheJobQueue_AndReachesTheStep()
+    public void InitComplete_TheBuilder_CarriesTheWorkBranchAndRepos_AndNoConsentFlag()
     {
-        // The launch rides the Redis job queue as JSON, and a Dictionary<string, object>
-        // comes back out of System.Text.Json as JsonElement — the round-trip p0327's
-        // resume payload works around by riding as a string. Seed the context the way
-        // ExecutePipelineUseCase does (one Set per request-context entry) and let the
-        // REAL builder read it, because that is where a silently-false flag would hide.
+        // 2026-11-17-713ea: every init completes its pull requests — the launch carries no
+        // auto-accept, so the builder reads none; a stored request that still names the old
+        // key changes nothing.
         var request = new PipelineRequest(
-            "sample", "init-project", IsInit: true, Headless: true, RunId: "run-1",
-            Context: new Dictionary<string, object>
-            {
-                [ContextKeys.AutoCompletePullRequests] = true,
-            });
+            "sample", PipelinePresets.InitProjectName, Headless: true, RunId: "run-1",
+            Context: new Dictionary<string, object> { ["AutoCompletePullRequests"] = false });
 
         var context = BuildFrom(Requeue(request));
 
-        context.AutoComplete.Should().BeTrue();
         context.SourceBranch.Value.Should().Be("agentsmith/init");
-    }
-
-    [Fact]
-    public void InitComplete_ALaunchThatSaidNothing_DoesNotAutoComplete()
-    {
-        var request = new PipelineRequest("sample", "init-project", IsInit: true, RunId: "run-1");
-
-        var context = BuildFrom(Requeue(request));
-
-        context.AutoComplete.Should().BeFalse("consent is given, never assumed");
+        context.Configs.Should().ContainSingle().Which.Name.Should().Be("a");
     }
 
     private static PipelineRequest Requeue(PipelineRequest request) =>

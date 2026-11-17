@@ -10,8 +10,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0490: finishes the pull requests InitCommit opened, one repo at a time, when the
-/// launch carried the operator's auto-accept. Nobody reviews an init pull request —
+/// p0490: finishes the pull requests InitCommit opened, one repo at a time.
+/// 2026-11-17-713ea: always — auto-complete is on for every init, whichever door started it,
+/// so the bootstrap lands and a run parked on it restarts by itself. Nobody reviews an init pull request —
 /// it is generated .agentsmith/ context on a repo that had none — so completing it
 /// skips a step that was not happening anyway. A repo whose pull request was skipped
 /// or failed is never completed, and a completion a branch policy, a required reviewer
@@ -38,8 +39,6 @@ public sealed class InitCompleteHandler(
         var completable = opened
             .Where(o => o.Status == OpenStatus.Opened && o.Url is not null)
             .ToList();
-        if (!context.AutoComplete)
-            return CommandResult.Ok(InitCompletionReport.Untouched(completable.Count));
         if (completable.Count == 0)
             return CommandResult.Ok("No open pull request to complete.");
 

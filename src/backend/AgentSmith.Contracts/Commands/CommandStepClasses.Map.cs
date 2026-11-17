@@ -102,6 +102,7 @@ public static partial class CommandStepClasses
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
         [CommandNames.InitComplete] = Internal,
+        [CommandNames.CleanupWorkBranches] = Internal, // 2026-11-17-713ec
         [CommandNames.SwitchSkill] = Internal,
         [CommandNames.SessionSetup] = Internal,
         [CommandNames.PersistWorkBranch] = Internal,

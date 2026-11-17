@@ -74,7 +74,7 @@ public sealed class PipelineQueueConsumerClaimTests : IDisposable
     }
 
     private static PipelineRequest Request(string runId) =>
-        new("p1", "init-project", IsInit: true, Headless: true, RunId: runId);
+        new("p1", "init-project", Headless: true, RunId: runId);
 
     private void Seed(string id, string? request)
     {

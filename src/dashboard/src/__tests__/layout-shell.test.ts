@@ -16,6 +16,7 @@ const srcDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const MOCK_SURFACES = [
   "app/page.tsx",
+  "app/runs/page.tsx",
   "app/jobs/[id]/page.tsx",
   "components/config/ConfigStudio.tsx",
   "components/system/SystemView.tsx",

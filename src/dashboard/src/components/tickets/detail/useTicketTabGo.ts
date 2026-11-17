@@ -3,19 +3,37 @@
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
+import { SECTION_PARAM, TAB_PARAM, sectionIdOf } from "./ticketSectionNames";
 
-// 2026-10-13-9a59r: the ticket page's address beyond the route — ?tab=, the selected spec (?spec=) and
-// the attempt whose cause the Conversation tab scrolls to (?causeOf=). Every cross-link (Continue in
-// conversation, Open specs, Open the spec, Discuss in conversation) goes through go().
+// 2026-10-13-9a59r: the ticket page's address beyond the route — the section, the selected spec (?spec=) and the
+// attempt whose cause What happened scrolls to (?causeOf=). Every cross-link (read, Open specs, Open the spec,
+// Discuss) goes through go(). 2026-11-17-8d1ca: go() writes ?section= and drops the older ?tab=; a name the section
+// table does not know (an old tab id such as "conversation") is written as the section it lands on.
 
-export const TAB_PARAM = "tab";
+export { SECTION_PARAM, TAB_PARAM } from "./ticketSectionNames";
 export const SPEC_PARAM = "spec";
 export const CAUSE_PARAM = "causeOf";
 
 export interface TicketAddress {
   param: (name: string) => string | null;
-  /** Selects a tab, or clears it (null); `extra` sets (a string) or clears (null) further parameters. */
-  go: (tab: string | null, extra?: Record<string, string | null>) => void;
+  /** Shows a section, or What happened (null); `extra` sets (a string) or clears (null) further parameters. */
+  go: (section: string | null, extra?: Record<string, string | null>) => void;
+}
+
+/** The query a go() writes: the section first (What happened is the default and left out), never ?tab=, then the
+ *  other parameters as they were with `extra` applied. */
+export function addressQuery(search: string, section: string | null, extra: Record<string, string | null> = {}): string {
+  const next = new URLSearchParams();
+  const name = sectionIdOf(section);
+  if (name !== "happened") next.set(SECTION_PARAM, name);
+  for (const [key, value] of new URLSearchParams(search)) {
+    if (key !== TAB_PARAM && key !== SECTION_PARAM) next.append(key, value);
+  }
+  for (const [key, value] of Object.entries(extra)) {
+    if (value === null) next.delete(key);
+    else next.set(key, value);
+  }
+  return next.toString();
 }
 
 export function useTicketTabGo(): TicketAddress {
@@ -23,15 +41,9 @@ export function useTicketTabGo(): TicketAddress {
   const router = useRouter();
   const pathname = usePathname() ?? TICKETS_PATH;
   const search = params?.toString() ?? "";
-  const go = useCallback((tab: string | null, extra: Record<string, string | null> = {}) => {
-    const next = new URLSearchParams(search);
-    if (tab === null) next.delete(TAB_PARAM);
-    else next.set(TAB_PARAM, tab);
-    for (const [name, value] of Object.entries(extra)) {
-      if (value === null) next.delete(name);
-      else next.set(name, value);
-    }
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  const go = useCallback((section: string | null, extra: Record<string, string | null> = {}) => {
+    const query = addressQuery(search, section, extra);
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [search, router, pathname]);
   const param = useCallback((name: string) => new URLSearchParams(search).get(name), [search]);
   return { param, go };

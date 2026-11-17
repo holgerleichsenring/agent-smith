@@ -30,22 +30,15 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
             projects: {}
             limits:
               max_tool_calls_per_skill: 42
-              max_tool_calls_per_investigator: 7
-              max_tool_calls_per_verifier: 19
-              max_llm_calls_per_skill: 12
-              max_input_tokens_per_skill_call: 123456
               max_seconds_per_skill_call: 240
-              max_concurrent_skill_calls: 4
+              max_concurrent_sub_agents: 3
+              max_sub_agents_per_run: 9
+              max_sub_agents_per_dialog_turn: 2
             secrets: {}
             """);
 
-        cfg.Limits.MaxToolCallsPerSkill.Should().Be(42);
-        cfg.Limits.MaxToolCallsPerInvestigator.Should().Be(7);
-        cfg.Limits.MaxToolCallsPerVerifier.Should().Be(19);
-        cfg.Limits.MaxLlmCallsPerSkill.Should().Be(12);
-        cfg.Limits.MaxInputTokensPerSkillCall.Should().Be(123456);
-        cfg.Limits.MaxSecondsPerSkillCall.Should().Be(240);
-        cfg.Limits.MaxConcurrentSkillCalls.Should().Be(4);
+        (cfg.Limits.MaxToolCallsPerSkill, cfg.Limits.MaxSecondsPerSkillCall, cfg.Limits.MaxConcurrentSubAgents,
+            cfg.Limits.MaxSubAgentsPerRun, cfg.Limits.MaxSubAgentsPerDialogTurn).Should().Be((42, 240, 3, 9, 2));
     }
 
     [Fact]
@@ -56,48 +49,25 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
             secrets: {}
             """);
 
-        cfg.Limits.MaxToolCallsPerSkill.Should().Be(30);
-        cfg.Limits.MaxToolCallsPerInvestigator.Should().Be(10);
-        cfg.Limits.MaxToolCallsPerVerifier.Should().Be(20);
-        cfg.Limits.MaxLlmCallsPerSkill.Should().Be(15);
-        cfg.Limits.MaxInputTokensPerSkillCall.Should().Be(500_000); // p0236: raised 200k → 500k
-        cfg.Limits.MaxSecondsPerSkillCall.Should().Be(300);
-        cfg.Limits.MaxConcurrentSkillCalls.Should().Be(10);
+        (cfg.Limits.MaxToolCallsPerSkill, cfg.Limits.MaxSecondsPerSkillCall, cfg.Limits.MaxConcurrentSubAgents,
+            cfg.Limits.MaxSubAgentsPerRun, cfg.Limits.MaxSubAgentsPerDialogTurn).Should().Be((30, 300, 4, 20, 4));
     }
 
+    // 2026-11-17-274cb: a retired key in an old file still loads; the loader ignores it.
     [Fact]
-    public void ResolveToolCallCap_VerifyDiffMode_ReturnsVerifierCap()
+    public void BindFromYaml_RetiredKeys_StillLoad()
     {
-        var limits = new LoopLimitsConfig();
-        limits.ResolveToolCallCap("verify_diff").Should().Be(limits.MaxToolCallsPerVerifier);
-    }
+        var cfg = Load("""
+            projects: {}
+            limits:
+              max_tool_calls_per_skill: 12
+              max_llm_calls_per_skill: 15
+              max_input_tokens_per_skill_call: 200000
+              max_skills_per_phase: 5
+            secrets: {}
+            """);
 
-    [Fact]
-    public void ResolveToolCallCap_VerifyHintMode_ReturnsInvestigatorCap()
-    {
-        var limits = new LoopLimitsConfig();
-        limits.ResolveToolCallCap("verify_hint").Should().Be(limits.MaxToolCallsPerInvestigator);
-    }
-
-    [Fact]
-    public void ResolveToolCallCap_SurveyMode_ReturnsInvestigatorCap()
-    {
-        var limits = new LoopLimitsConfig();
-        limits.ResolveToolCallCap("survey").Should().Be(limits.MaxToolCallsPerInvestigator);
-    }
-
-    [Fact]
-    public void ResolveToolCallCap_NullMode_ReturnsSkillCap()
-    {
-        var limits = new LoopLimitsConfig();
-        limits.ResolveToolCallCap(null).Should().Be(limits.MaxToolCallsPerSkill);
-    }
-
-    [Fact]
-    public void ResolveToolCallCap_UnknownMode_FallsBackToSkillCap()
-    {
-        var limits = new LoopLimitsConfig();
-        limits.ResolveToolCallCap("not-a-real-mode").Should().Be(limits.MaxToolCallsPerSkill);
+        cfg.Limits.MaxToolCallsPerSkill.Should().Be(12);
     }
 
     // 2026-11-12-cd4cl: a design turn's budgets are read off the agent, beside its compaction.

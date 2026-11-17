@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationEntry } from "../ConversationEntry";
 import { entry } from "./detailFixtures";
@@ -9,14 +9,6 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
-
-/** jsdom draws nothing: a clamped box reports `scroll` tall content while closed, its own height once open. */
-function drawn(scroll: number, client = 117) {
-  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
-    return this.classList.contains("closed") ? scroll : client;
-  });
-  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(client);
-}
 
 function show(over: Parameters<typeof entry>[0]) {
   render(<ConversationEntry entry={entry(over)} attemptNumber={() => 1} started={null} />);
@@ -47,46 +39,30 @@ describe("ConversationEntry", () => {
     expect(body.textContent).not.toContain("<h2");
   });
 
-  it("ConversationEntry_Overflowing_ShowsShowMore_AndOpensAndClosesTheClamp", () => {
-    drawn(400);
-    show({ source: "ticket", kind: "comment", role: "agent", text: "Preflight failed:\n" + "a check\n".repeat(30) });
-
-    const clamp = screen.getByTestId("conv-clamp");
-    expect(clamp).toHaveClass("m-clamp", "closed", "over");
-    const more = screen.getByTestId("conv-more");
-    expect(more).toHaveTextContent("Show more");
-    expect(more).toHaveAttribute("aria-expanded", "false");
-
-    fireEvent.click(more);
-    expect(clamp).not.toHaveClass("closed");
-    expect(screen.getByTestId("conv-more")).toHaveTextContent("Show less");
-    fireEvent.click(screen.getByTestId("conv-more"));
-    expect(clamp).toHaveClass("closed");
-  });
-
-  it("ConversationEntry_Fitting_ShowsNoToggle_AndNoFade", () => {
-    drawn(60, 60);
-    show({ text: "Keep the outbox?" });
+  // 2026-11-17-8d1cb: a conversation shows long texts in full — one line of What happened, no clamp and no toggle.
+  it("ConversationEntry_LongText_IsShownInFull_WithNoToggle", () => {
+    const text = "Preflight failed:\n" + "a check\n".repeat(30) + "the last line";
+    show({ source: "ticket", kind: "comment", role: "agent", text });
 
     expect(screen.queryByTestId("conv-more")).toBeNull();
-    expect(screen.getByTestId("conv-clamp")).not.toHaveClass("over");
+    expect(screen.queryByTestId("conv-clamp")).toBeNull();
+    expect(screen.getByTestId("conv-entry")).toHaveTextContent("the last line");
   });
 
-  it("ConversationEntry_Opened_KeepsShowLess_ThoughTheOpenBoxNoLongerOverflows", () => {
-    drawn(400);
-    show({ text: "long" });
+  it("ConversationEntry_IsOneLine_TimeWhoWhereAndText_APersonInTheBrightColour", () => {
+    show({ source: "conversation", kind: "turn", role: "person", author: "Ada", text: "Move the check into a helper." });
 
-    fireEvent.click(screen.getByTestId("conv-more"));
-    expect(screen.getByTestId("conv-more")).toHaveTextContent("Show less");
+    const line = screen.getByTestId("conv-entry");
+    expect(line).toHaveClass("tk-line", "you");
+    expect(line.querySelector(".tk-who")).toHaveTextContent("Ada");
+    expect(line.querySelector(".tk-text")).toHaveTextContent("ticket conversationMove the check into a helper.");
   });
 
-  it("ConversationEntry_CutReviewFindings_AreInsideTheClamp", () => {
-    drawn(400);
+  it("ConversationEntry_CutReviewFindings_ShowUnderTheText", () => {
     show({ source: "spec-cut", kind: "cut-review", role: "system", text: "The cut leaves a criterion uncovered.",
       detail: { findings: [{ specId: "s1", criterion: "Builds", problem: "No step builds the worker.", cites: ["portal-worker/Program.cs:12"] }] } });
 
-    const clamp = screen.getByTestId("conv-clamp");
-    expect(clamp.querySelector("[data-testid=conv-detail]")).toHaveTextContent("No step builds the worker.");
-    expect(clamp).toHaveTextContent("The cut leaves a criterion uncovered.");
+    expect(screen.getByTestId("conv-detail")).toHaveTextContent("No step builds the worker.");
+    expect(screen.getByTestId("conv-entry")).toHaveTextContent("The cut leaves a criterion uncovered.");
   });
 });

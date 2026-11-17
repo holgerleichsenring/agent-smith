@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-8d1cd
+
+decisions:
+  - category: Architecture
+    chose: "Specs, Acceptance and Defaults keep their panes' markup and data logic; ticket-thread.css flattens them inside .tk-pane — no panels, filled cells, pills or button frames, hairlines and text colour only"
+    over: "Rewriting the three panes"
+    reason: "The brief: restyle, not rewrite, where the data logic is sound; their tests keep passing unchanged."
+  - category: Behaviour
+    chose: "The ticket's spec derivations close the Specs section on every ticket, with start, duration in a run's words ('4m 10s'), cost, what came of each and Derive again after an unfinished one"
+    over: "Showing them only on a ticket without runs"
+    reason: "The audit: SpecDerivations was not rendered once a ticket had runs, so Derive again and the durations were unreachable there. Derive specs stays in ···."
+  - category: Behaviour
+    chose: "A judged criterion shows the reason its verdict was given under it and 'overrule' as a text link to the run that judged it; a rejected one keeps its own reason and link; an overruled one says so and offers none"
+    over: "Recording overrules on the ticket page"
+    reason: "Recording a judgement is the run page's act (VerifySummary); a second write path from the ticket page would be a second path for one act."
+  - category: Behaviour
+    chose: "The Defaults section stays the ticket's taken defaults (ratify or overrule) drawn as key/value lines; no 'Change for this ticket' settings link"
+    over: "The mock's model, budget and token-cap lines with a link to change them"
+    reason: "No per-ticket configuration exists to read or change; the mock's sample lines name settings the page has no data for. The defaults pane is what the section held."

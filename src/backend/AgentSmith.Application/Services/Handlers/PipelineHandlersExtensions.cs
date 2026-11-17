@@ -119,7 +119,7 @@ public static class PipelineHandlersExtensions
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
-        services.AddInitProjectHandlers(); // p0490: init commit + cross-link + complete
+        services.AddInitProjectHandlers().AddBranchCleanupHandlers(); // p0490 init tail; 2026-11-17-713ec
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();
@@ -195,7 +195,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.SpecDeliveryAccounting>().AddTransient<Specs.SpecEntryAccount>();
-        services.AddTransient<ICommandHandler<VerifySpecContext>, VerifySpecHandler>(); // p0393
+        services.AddTransient<ICommandHandler<VerifySpecContext>, VerifySpecHandler>().AddTransient<VerifyPassReporter>(); // p0393, d6fbc
         services.AddTransient<ICommandHandler<ReviewSpecDiffContext>, ReviewSpecDiffHandler>(); // 042eh
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();

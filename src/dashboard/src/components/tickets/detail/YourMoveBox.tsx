@@ -31,7 +31,7 @@ export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
   const series = useTicketSeries().data;
   const view = ticketState({ detail, liveEvents: live.events, series });
   if (!view) return null;
-  const move = yourMove(view, detail.summary.bucket, detail.summary.kind);
+  const move = yourMove(view, detail.summary.bucket, detail.summary.kind, view.attempt?.endDetail);
   const review = detail.summary.bucket === "waiting_on_review";
   const openPrs = view.pullRequests.filter((pr) => pr.state === "open");
   const prAct: StateAct | null = review && openPrs.length === 1

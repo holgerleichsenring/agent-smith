@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-8d1cc
+goal: "The Runs section lists every attempt in one line with outcome, end kind, start, duration, cost and run link; Cost shows the total against the budget and per-run lines."
+
+applies_to: "dashboard (a TicketRunsSection, TicketCostTab, CostSection, ComputeSection, SeriesRunway, ticket-thread.css)"
+
+requires: [2026-11-17-8d1cb]
+
+
+assumptions:
+  - "Layout and wording follow the operator-approved 2026-11-17 mock: TicketRail.dc.html: Runs and Cost sections."
+
+facts:
+  - claim: "The Attempts pane draws one card per attempt with its story and compute; only the head attempt's outcome reached the page after the chips were removed."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketAttemptsTab.tsx:47-55"
+  - claim: "The series budget (spent, cap) is the page store's default series read, drawn by SeriesRunway."
+    evidence: "src/dashboard/src/components/tickets/detail/SeriesRunway.tsx:20-30"
+
+scope:
+  in: "Runs: one line per attempt and derivation, newest first: outcome dot, number, sentence with end-kind words, start, duration, cost, link to the run; the change that started it as a link to What happened. Cost: total and budget, thin bar, per-run lines (cost, tokens or calls when read), compute figures as plain lines."
+  out: "New backend data; the run page."
+
+steps:
+  - id: runs
+    action: "runLines.ts and TicketRunsSection replace TicketAttemptsTab and AttemptCard."
+  - id: cost
+    action: "TicketCostTab: total vs budget line and bar, per-run lines; ComputeSection kept, restyled."
+
+decisions:
+  - "Runs replaces the Attempts cards; the card's per-step story is the run page's — alternatives: keep cards."
+
+tests:
+  - "runLines.test.ts; TicketAttemptsCost suite adapted."
+
+done:
+  - "Every attempt shows its outcome and end kind in Runs, each line links to its run."
+  - "pnpm test, build and gen:hub-events are green; the spec gate passes."

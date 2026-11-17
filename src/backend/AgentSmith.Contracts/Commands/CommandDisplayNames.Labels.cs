@@ -54,6 +54,7 @@ public static partial class CommandDisplayNames
         [CommandNames.InitCommit] = "Commit init files",
         [CommandNames.PrCrossLink] = "Cross-link sibling pull requests",
         [CommandNames.InitComplete] = "Complete the init pull requests",
+        [CommandNames.CleanupWorkBranches] = "Remove finished branches", // 2026-11-17-713ec
         [CommandNames.GenerateTests] = "Generate tests",
         [CommandNames.GenerateDocs] = "Generate docs",
         [CommandNames.Triage] = "Triage ticket",

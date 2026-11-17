@@ -14,6 +14,7 @@ import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { RunSideRail } from "@/components/jobs/RunSideRail";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RunStory } from "@/components/jobs/story/RunStory";
+import { useRunJudgements } from "@/components/jobs/story/useRunJudgements";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { PaneResizeHandle } from "@/components/execution/PaneResizeHandle";
 import { DetailPane } from "@/components/execution/DetailPane";
@@ -31,6 +32,7 @@ import { isRelaunching, statusSpill } from "@/components/jobs/runStatus";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { usePersistedPaneWidth } from "@/hooks/usePersistedPaneWidth";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
+import { RUNS_PATH } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -84,7 +86,8 @@ function RunDetail({ runId }: { runId: string }) {
   const events = useRunEvents(runId);
   const [traceOpen, setTraceOpen] = useState(false);
   const [dialogueOpen, setDialogueOpen] = useState(false);
-  const [graph, setGraph] = useState(false);
+  // 2026-11-17-d6fbb: the graph view is an address (?view=graph), so a reload or a shared link keeps it.
+  const [graph, setGraph] = useGraphView();
   // p0395: the trace drawer resizes on two axes — its own width (left-edge
   // handle) and the master/detail split (handle on the rail's edge) — and both
   // survive a reload. p0395a: both persist as fractions of their basis (the
@@ -160,6 +163,9 @@ function RunDetail({ runId }: { runId: string }) {
   // the wrapper), the phrase beside it, the banner, the side rail and the story spine all
   // have to agree about whether this run is still asking the operator for something.
   const relaunching = isRelaunching(snapshot);
+  // 2026-11-17-d6fbb: ONE read of the judgements for both views, so an overrule made in either shows in both.
+  // 2026-08-25-e257: only fetched where there is a verdict to judge.
+  const judged = useRunJudgements(runId, Boolean(snapshot?.acceptance));
   const spill = statusSpill(snapshot?.status ?? null, relaunching);
 
   return (
@@ -171,10 +177,11 @@ function RunDetail({ runId }: { runId: string }) {
         steps={steps}
         repoNames={repoNames}
         connectionState={connectionState}
+        judged={judged}
         graph={graph}
         onGraph={() => setGraph(!graph)}
         onOpenTrace={() => setTraceOpen(true)}
-        onDeleted={() => router.push("/")}
+        onDeleted={() => router.push(RUNS_PATH)}
       />
 
       {graph && (
@@ -183,6 +190,7 @@ function RunDetail({ runId }: { runId: string }) {
           runId={runId}
           snapshot={snapshot}
           events={events}
+          judged={judged}
           banner={
             <RunBanner snapshot={snapshot} onAnswer={() => setDialogueOpen(true)} />
           }
@@ -314,6 +322,29 @@ function RunDetail({ runId }: { runId: string }) {
       </aside>
     </div>
   );
+}
+
+const VIEW_PARAM = "view";
+const GRAPH_VIEW = "graph";
+
+/** 2026-11-17-d6fbb: whether the address asks for the graph view, and the switch that rewrites it. Read after mount
+ *  through the History API, like the runs filter: the address is the browser's, not the prerendered page's. */
+function useGraphView(): [boolean, (on: boolean) => void] {
+  const [graph, setGraph] = useState(false);
+  useEffect(() => {
+    const read = () => setGraph(new URLSearchParams(window.location.search).get(VIEW_PARAM) === GRAPH_VIEW);
+    read();
+    window.addEventListener("popstate", read);
+    return () => window.removeEventListener("popstate", read);
+  }, []);
+  const set = (on: boolean) => {
+    const url = new URL(window.location.href);
+    if (on) url.searchParams.set(VIEW_PARAM, GRAPH_VIEW);
+    else url.searchParams.delete(VIEW_PARAM);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    setGraph(on);
+  };
+  return [graph, set];
 }
 
 // The mock's .banner — only for states that genuinely need attention. The

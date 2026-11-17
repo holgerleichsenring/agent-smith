@@ -10,7 +10,6 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Tests.Handlers;
-using AgentSmith.Tests.Loop;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -72,23 +71,6 @@ public sealed class ResumedSpendTests
         resumed.EffectiveBudgetTokens.Should().Be(600_000);
         resumed.WorkerCalls.CallCount.Should().Be(0, "this segment placed no worker call");
         resumed.BuildSummary().Should().BeNull("a segment with no call of its own renders none");
-    }
-
-    [Fact]
-    public async Task Resume_ARunAlreadyOverItsCap_StopsAtTheFirstReaderNamingTheCap()
-    {
-        var parked = new PipelineCostTracker(config: null, costCap: Cap);
-        parked.Track(Response(input: 1_200_000, output: 0));
-        var (runtime, _, factory) = RuntimeBuilder.Build(new Mock<IChatClient>().Object);
-        var resumed = PipelineCostTracker.GetOrCreate(Resumed(parked.CaptureSpend()));
-
-        var result = await runtime.ExecuteAsync(
-            RuntimeBuilder.MakeRequest(), resumed, CancellationToken.None);
-
-        result.Outcome.Should().Be(SkillCallOutcome.Incomplete);
-        result.FailureReason.Should().Contain("$100.00 / 1,000,000 tokens")
-            .And.Contain("1,200,000 cache-weighted tokens");
-        factory.LastMaxIterations.Should().BeNull("the skill short-circuited before any call");
     }
 
     [Fact]

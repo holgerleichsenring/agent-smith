@@ -71,6 +71,8 @@ function renderPage(snapshot: RunSnapshot) {
 }
 
 beforeEach(() => {
+  // 2026-11-17-d6fbb: the graph view is an address now; a case that opened it must not hand it to the next.
+  window.history.replaceState(null, "", "/");
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (String(url).includes("/steps/")) {
       return { ok: true, json: async () => ({ events: [], newestSeq: 0, hasOlder: false }) };
@@ -113,5 +115,33 @@ describe("The run page of a parked run", () => {
     expect(screen.getByTestId("run-banner")).toBeInTheDocument();
     expect(screen.getByTestId("side-rail-state")).toHaveTextContent("Needs you");
     expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("paused · needs you");
+  });
+});
+
+// 2026-11-17-d6fbb: the default log is complete without the graph, and the graph is an address.
+describe("The run page without the graph", () => {
+  it("RunPage_DefaultLog_CarriesTheTicketPlanAndOutcomeSections_Closed", async () => {
+    renderPage(parked());
+    for (const id of ["ticket", "plan", "outcome"]) {
+      const section = await screen.findByTestId(`run-section-${id}`);
+      expect(section.querySelector("button")).toHaveAttribute("aria-expanded", "false");
+    }
+    fireEvent.click(screen.getByTestId("run-section-ticket").querySelector("button")!);
+    expect(screen.getByTestId("ticket-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("run-meta")).toHaveTextContent("run r1");
+    expect(screen.getByTestId("run-status-note")).toHaveTextContent("Reserved compute is held");
+    expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();
+  });
+
+  it("RunPage_ShowAsGraph_WritesViewGraph_AndAnAddressWithItOpensTheGraph", async () => {
+    renderPage(parked());
+    fireEvent.click(await screen.findByTestId("run-show-graph"));
+    expect(window.location.search).toBe("?view=graph");
+    fireEvent.click(screen.getByTestId("run-show-graph"));
+    expect(window.location.search).toBe("");
+
+    window.history.replaceState(null, "", "/jobs/r1?view=graph");
+    const second = renderPage(parked());
+    expect(await second.findByTestId("run-viewer-root")).toBeInTheDocument();
   });
 });

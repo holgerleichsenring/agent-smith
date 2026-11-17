@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-8d1cb
+goal: "What happened reads as one plain line per event, repeats folded, a run line opening its sectioned log inline, the Your move line on top and the composer under a hairline."
+
+applies_to: "dashboard (TicketThread, a storyLines mapper over threadItems, a StoryLine and an inline run log over components/jobs/runlog, ticket-thread.css)"
+
+requires: [2026-11-17-8d1ca, 2026-11-16-6877b]
+
+
+assumptions:
+  - "Layout and wording follow the operator-approved 2026-11-17 mock: TicketRail.dc.html and TicketSide.dc.html: time, who, one sentence, duration, chevron; 'Runs 3–6 · 4× same cause'."
+
+facts:
+  - claim: "threadItems orders entries, attempt reports, derivations and folds repeats, the fold only for failed attempts with equal end kind and summary and no entries."
+    evidence: "src/dashboard/src/components/tickets/detail/threadItems.ts:26-41, src/dashboard/src/components/tickets/detail/threadItems.ts:73-84"
+  - claim: "RunSectionLog draws a run's seven sections from step rows; fetchRunSteps reads those rows."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunSectionLog.tsx:36-63, src/dashboard/src/lib/runStepsApi.ts:72-76"
+  - claim: "Your move is a boxed block in the bottom dock."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketThread.tsx:80-86, src/dashboard/src/styles/ticket-thread.css:100"
+
+scope:
+  in: "Story lines from threadItems (ticket, entries, run, derivation, fold); fold label 'Runs 3–6 · 4× same cause'; a run line opens its log (RunSectionLog, sections with a stop or finding open) and the run link; entries and long texts in full when opened; Your move as a line on top (CSS only on YourMoveBox); composer under a hairline; end-kind words on run lines."
+  out: "New backend data; StepStarted timestamps per log line; YourMoveBox's props."
+
+steps:
+  - id: words
+    action: "attemptOutcome.ts: outcome words and end-kind words for any attempt (END_KIND_WORDS restored)."
+  - id: lines
+    action: "storyLines.ts maps ThreadItem[] to lines: at, who, text, meta, tone, fold label."
+  - id: view
+    action: "TicketThread draws lines; a run line toggles its report body and an inline RunInlineLog."
+  - id: css
+    action: "ticket-thread.css: hairlines and text colour only; Your move without box; dock with a top hairline."
+
+decisions:
+  - "Finished attempts with equal outcome fold like failed ones only when their outcome words and summaries match — alternatives: fold failures only."
+
+tests:
+  - "storyLines.test.ts and attemptOutcome.test.ts; TicketThread suite: a run line opens its log, a fold reads 'Runs n–m · k× same cause'."
+
+done:
+  - "What happened shows one line per event with folds; a run line opens its sectioned log."
+  - "pnpm test, build and gen:hub-events are green; the spec gate passes."

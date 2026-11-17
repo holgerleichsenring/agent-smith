@@ -109,8 +109,8 @@ public static class ConfigSnapshotMapper
             config.Sandbox.StepTimeoutSeconds, config.Sandbox.RunCommandTimeoutSeconds),
         Orchestrator: new ConfigOrchestrator(config.Orchestrator.MaxRunWallTimeSeconds),
         Limits: new ConfigLimits(
-            config.Limits.MaxToolCallsPerSkill, config.Limits.MaxLlmCallsPerSkill,
-            config.Limits.MaxConcurrentSkillCalls, config.Limits.MaxSubAgentsPerRun),
+            config.Limits.MaxToolCallsPerSkill, config.Limits.MaxSecondsPerSkillCall,
+            config.Limits.MaxSubAgentsPerRun),
         CostCap: new ConfigCostCap(config.PipelineCostCap.Default.Usd, config.PipelineCostCap.Default.Tokens),
         PersistenceProvider: config.Persistence.Provider);
 

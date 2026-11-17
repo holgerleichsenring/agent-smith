@@ -23,28 +23,13 @@ public sealed class InitCompleteHandlerTests
     private const string Branch = "agentsmith/init";
 
     [Fact]
-    public async Task InitComplete_FlagOff_LeavesEveryPullRequestOpen()
+    public async Task InitComplete_WithoutAnyLaunchFlag_CompletesEachOpenedPullRequest()
     {
         var harness = new Harness()
             .WithOpened("a", "https://x/a/pull/1")
             .WithOpened("b", "https://x/b/pull/2");
 
-        var result = await harness.RunAsync(autoComplete: false);
-
-        result.IsSuccess.Should().BeTrue();
-        harness.Completed.Should().BeEmpty("no consent was given on this launch");
-        harness.Outcomes.Should().BeEmpty("nothing happened, so nothing is recorded");
-        result.Message.Should().Contain("stay open");
-    }
-
-    [Fact]
-    public async Task InitComplete_FlagOn_CompletesEachOpenedPullRequest()
-    {
-        var harness = new Harness()
-            .WithOpened("a", "https://x/a/pull/1")
-            .WithOpened("b", "https://x/b/pull/2");
-
-        var result = await harness.RunAsync(autoComplete: true);
+        var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
         harness.Completed.Should().BeEquivalentTo(["https://x/a/pull/1", "https://x/b/pull/2"]);
@@ -60,7 +45,7 @@ public sealed class InitCompleteHandlerTests
         var harness = new Harness()
             .WithArmed("a", "https://x/a/pull/1", "Waiting on the build policy.");
 
-        var result = await harness.RunAsync(autoComplete: true);
+        var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
         var outcome = harness.Outcomes.Single();
@@ -80,7 +65,7 @@ public sealed class InitCompleteHandlerTests
             .WithArmed("armed", "https://x/a/pull/2", "Waiting on the build policy.")
             .WithRefusal("refused", "https://x/r/pull/3", "Requires two reviewers.");
 
-        var result = await harness.RunAsync(autoComplete: true);
+        var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("Merged 1/3");
@@ -102,7 +87,7 @@ public sealed class InitCompleteHandlerTests
             .WithOpened("a", "https://x/a/pull/1")
             .WithRefusal("b", "https://x/b/pull/2", "At least 1 approving review is required.");
 
-        var result = await harness.RunAsync(autoComplete: true);
+        var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue("a refused completion is not a failed run");
         harness.Completed.Should().ContainSingle().Which.Should().Be("https://x/a/pull/1");
@@ -116,7 +101,7 @@ public sealed class InitCompleteHandlerTests
             .WithOpened("a", "https://x/a/pull/1")
             .WithRefusal("b", "https://x/b/pull/2", "At least 1 approving review is required.");
 
-        await harness.RunAsync(autoComplete: true);
+        await harness.RunAsync();
 
         var refused = harness.Outcomes.Single(o => o.Repo == "b");
         refused.Status.Should().Be(PullRequestStatuses.CompletionRefused);
@@ -133,7 +118,7 @@ public sealed class InitCompleteHandlerTests
             .WithSkipped("b")
             .WithFailedOpen("c");
 
-        await harness.RunAsync(autoComplete: true);
+        await harness.RunAsync();
 
         harness.Completed.Should().ContainSingle().Which.Should().Be("https://x/a/pull/1");
         harness.Outcomes.Select(o => o.Repo).Should().BeEquivalentTo(["a"]);
@@ -145,7 +130,7 @@ public sealed class InitCompleteHandlerTests
         var harness = new Harness()
             .WithThrowingProvider("a", "https://x/a/pull/1", "the remote hung up");
 
-        var result = await harness.RunAsync(autoComplete: true);
+        var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
         harness.Outcomes.Single().Status.Should().Be(PullRequestStatuses.CompletionRefused);
@@ -157,7 +142,7 @@ public sealed class InitCompleteHandlerTests
     {
         var harness = new Harness();
 
-        var result = await harness.RunAsync(autoComplete: true);
+        var result = await harness.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
         harness.Completed.Should().BeEmpty();
@@ -200,7 +185,7 @@ public sealed class InitCompleteHandlerTests
             return this;
         }
 
-        public async Task<CommandResult> RunAsync(bool autoComplete)
+        public async Task<CommandResult> RunAsync()
         {
             var pipeline = new PipelineContext();
             pipeline.Set(ContextKeys.RunId, "2026-08-20T09-00-00-abcd");
@@ -208,7 +193,7 @@ public sealed class InitCompleteHandlerTests
             var handler = new InitCompleteHandler(
                 _sources.Object, NewPublisher(), NullLogger<InitCompleteHandler>.Instance);
             return await handler.ExecuteAsync(
-                new InitCompleteContext(autoComplete, new BranchName(Branch), _repos, pipeline),
+                new InitCompleteContext(new BranchName(Branch), _repos, pipeline),
                 CancellationToken.None);
         }
 

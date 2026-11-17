@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d5cc
+goal: "A code run on a local repository whose sandbox holds no checkout clones the repository into it and switches to the run's branch, as a remote repository's run does."
+
+applies_to: "default (SandboxRepoCloner)"
+
+requires: []
+
+facts:
+  - claim: "A Local provider skips the clone and the branch switch, trusting a bind-mounted checkout at /work."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxRepoCloner.cs:41-44"
+  - claim: "The in-process sandbox reuses a host directory only when the pipeline set a source path; otherwise /work is a fresh empty temp dir."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandboxFactory.cs:20-25, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:233-235"
+  - claim: "A local repo with an origin remote is pushed; one without is record-only."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:243"
+
+scope:
+  in: "SandboxRepoCloner through LocalRepoCheckout: for a Local provider, probe each sandbox with `git rev-parse --show-prefix`; a sandbox whose /work is a work tree root keeps today's path (identity only); otherwise the remote path runs, cloning the repo's url, else its path, with the empty credential a local repo has."
+  out: "Docker bind-mount behaviour (its /work is a work tree and is untouched). Pull request creation for a local repo, which stays a recorded branch."
+
+steps:
+  - id: probe
+    action: "CheckoutStepFactory.BuildIsWorkTreeStep; SandboxRepoCloner asks it of every sandbox of a Local repo."
+  - id: clone
+    action: "When any sandbox is not a work tree and the repo has a url or path, the clone loop runs with the url, else the path, as clone source; with neither the checkout fails naming the repo."
+
+tests:
+  - "SandboxRepoClonerIdentityTests: a bind-mounted local repo is not cloned; a local repo in an empty sandbox is cloned from its url and switched to the run branch; with no url the path is the clone source"
+
+done:
+  - "The e2e replay's first filed ticket on a local repository under SANDBOX_TYPE=inprocess passes CheckoutSource instead of failing with 'not in a git directory'."

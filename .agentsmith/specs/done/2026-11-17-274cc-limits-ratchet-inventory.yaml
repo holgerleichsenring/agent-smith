@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-274cc
+goal: "Every hard-coded limit left in src/backend is listed debt: a ratchet counts them per file so none may join, and a committed inventory gives each its class, reason and owner."
+
+applies_to: "default (architecture tests, methodology notes)"
+
+requires: [2026-11-17-274cb]
+
+facts:
+  - claim: "Rule 4 says the limits that predate it are listed debt, and no list exists."
+    evidence: ".agentsmith/contexts/default/principles.md:34"
+  - claim: "The ratchet shape is established: a pure scanner, a TSV baseline of count and file, three tests (no new file, no count grows, a cleared file leaves)."
+    evidence: "tests/AgentSmith.Tests/Architecture/PendingRatificationRatchetTests.cs:11-48, tests/AgentSmith.Tests/Architecture/PendingRatificationScanner.cs:10-17"
+  - claim: "Architecture tests reach the backend source through ArchitectureSources."
+    evidence: "tests/AgentSmith.Tests/Architecture/ArchitectureSources.cs:10-26"
+  - claim: "About 650 hard-coded bounds exist in src/backend today: numeric and TimeSpan const/static readonly fields, inline TimeSpan.From* literals, .Take(n) and Task.Delay/CancelAfter literals."
+    evidence: "observed: 2026-11-17, three read-only sweeps of src/backend (Application, Server, the rest) classifying each as agent guard, resource, display or poll"
+  - claim: "A methodology note directory already holds inventories."
+    evidence: ".agentsmith/notes/2026-10-12-967a-phase-inventory.md"
+
+scope:
+  in: "HardCodedLimitScanner(text) counts lines that declare a numeric or TimeSpan const/static readonly whose initializer holds a digit, or call TimeSpan.From*, Take/TakeLast, Task.Delay or CancelAfter with a numeric literal, skipping comment lines, settable config-property lines ('{ get; set; }' or '{ get; init; }') and any line carrying '// not a limit: <reason>' with a non-empty reason; HardCodedLimitRatchetTests over src/backend with hard-coded-limits-baseline.tsv; scanner unit tests; .agentsmith/notes/2026-11-17-274c-limits-inventory.md with each limit's class, disposition and owning block."
+  out: "Converting the listed debt; the agent-guard limits tied to open operator questions (decide_by_default caps, build-note cap, mock caps, series and review budgets) are converted by the spec that records the operator's answer to each; the note names the question per item."
+
+steps:
+  - id: scanner
+    action: "HardCodedLimitScanner in tests/AgentSmith.Tests/Architecture, a pure function over a file's text, with the four patterns and the three skips; one line counts once, so a declaration whose literal sits on its next line counts once."
+  - id: ratchet
+    action: "HardCodedLimitRatchetTests: no file outside the baseline holds a match, no listed count grows, a file at zero leaves. Failure text names rule 4: put the bound in config and name value, reason and key in its message, or mark a constant that bounds nothing '// not a limit: <why>'."
+  - id: baseline
+    action: "Generate hard-coded-limits-baseline.tsv from the tree after 274ca and 274cb."
+  - id: inventory
+    action: "Write the inventory note at file and symbol level, without line numbers or counts (the TSV holds the counts): per class (agent guard, resource, poll, display) the shared reason, the agent-guard items one by one with file and disposition, the items in areas other work is rebuilding (init and branch cleanup; filing, spec dialog and proposal or spec storage; the in-process sandbox's local clone) named by area, and what 274ca/274cb removed or configured."
+
+tests:
+  - "HardCodedLimitScannerTests: each pattern counts; a comment line, a 'not a limit: why' line and a settable or init config property count zero, a get-only static property counts; a bare 'not a limit:' marker without a reason still counts; an alias const without a digit counts zero"
+  - "HardCodedLimitRatchetTests pass on the tree"
+
+done:
+  - "The ratchet passes on the tree and fails on a new hard-coded limit in any backend file; the inventory note is committed."
+  - "Build and full suite green at the spec gate."

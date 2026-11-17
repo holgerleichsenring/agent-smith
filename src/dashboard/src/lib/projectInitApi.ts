@@ -23,12 +23,9 @@ interface InitLaunchBody {
   reason?: string | null;
 }
 
-// p0490: what the operator ticked on THIS launch travels with it. Auto-accept is not
-// project configuration — consent belongs to the click that started this run — so it is
-// stated explicitly on every request rather than remembered anywhere.
-// 2026-10-04-2bf2: refresh principles rides the launch the same way, independent of it.
+// 2026-10-04-2bf2: what the operator chose on THIS launch travels with it — refresh
+// principles. 2026-11-17-713ea: auto-accept is gone; every init completes its pull requests.
 export interface InitOptions {
-  autoCompletePullRequests: boolean;
   refreshPrinciples: boolean;
 }
 

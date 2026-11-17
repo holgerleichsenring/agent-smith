@@ -79,35 +79,20 @@ describe("ProjectCard init action", () => {
     );
   });
 
-  it("InitializeAction_AutoAcceptCheckbox_DefaultsToOn_AndTravelsWithTheLaunch", async () => {
+  it("InitializeAction_OffersNoAutoAccept_AndLaunchesWithRefreshOnly", async () => {
     const fetchMock = respond(200, { runId: "2026-08-20T09-00-00-abcd", reason: null });
     vi.stubGlobal("fetch", fetchMock);
     renderCard();
 
-    const checkbox = screen.getByTestId("project-init-auto-accept-sample");
-    // Nobody reviews an init PR, so the honest default is the tick already set.
-    expect(checkbox).toBeChecked();
-
+    // 2026-11-17-713ea: every init completes its pull requests — there is no consent to tick.
+    expect(screen.queryByTestId("project-init-auto-accept-sample")).toBeNull();
     fireEvent.click(screen.getByTestId("project-init-sample"));
 
     await screen.findByTestId("project-init-running-sample");
-    expect(bodyOf(fetchMock)).toEqual({ autoCompletePullRequests: true, refreshPrinciples: false });
+    expect(bodyOf(fetchMock)).toEqual({ refreshPrinciples: false });
   });
 
-  it("InitializeAction_AutoAcceptUnticked_LaunchesWithoutIt", async () => {
-    const fetchMock = respond(200, { runId: "2026-08-20T09-00-00-abcd", reason: null });
-    vi.stubGlobal("fetch", fetchMock);
-    renderCard();
-
-    fireEvent.click(screen.getByTestId("project-init-auto-accept-sample"));
-    fireEvent.click(screen.getByTestId("project-init-sample"));
-
-    await screen.findByTestId("project-init-running-sample");
-    // The consent is per launch — untick it and this run merges nothing.
-    expect(bodyOf(fetchMock)).toEqual({ autoCompletePullRequests: false, refreshPrinciples: false });
-  });
-
-  it("InitializeAction_RefreshPrinciples_DefaultsToOff_AndTravelsIndependentOfAutoAccept", async () => {
+  it("InitializeAction_RefreshPrinciples_DefaultsToOff_AndTravelsWithTheLaunch", async () => {
     const fetchMock = respond(200, { runId: "2026-08-20T09-00-00-abcd", reason: null });
     vi.stubGlobal("fetch", fetchMock);
     renderCard();
@@ -117,15 +102,10 @@ describe("ProjectCard init action", () => {
     expect(refresh).not.toBeChecked();
 
     fireEvent.click(refresh);
-    // Ticking refresh leaves auto-accept exactly as it was — the two are independent.
-    expect(screen.getByTestId("project-init-auto-accept-sample")).toBeChecked();
-    expect(screen.getByTestId("project-init-auto-accept-sample")).not.toBeDisabled();
-    fireEvent.click(screen.getByTestId("project-init-auto-accept-sample"));
-    expect(refresh).toBeChecked();
     fireEvent.click(screen.getByTestId("project-init-sample"));
 
     await screen.findByTestId("project-init-running-sample");
-    expect(bodyOf(fetchMock)).toEqual({ autoCompletePullRequests: false, refreshPrinciples: true });
+    expect(bodyOf(fetchMock)).toEqual({ refreshPrinciples: true });
   });
 
   it("ProjectCard_Refusal_RendersInline_AndTheActionStaysPressable", async () => {

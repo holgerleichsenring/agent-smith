@@ -2,8 +2,6 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  EventType,
-  type ProgressLedgerEntry,
   type RunBeats,
   type RunEvent,
   type RunSnapshot,
@@ -18,10 +16,9 @@ import { TicketPanel } from "./TicketPanel";
 import { BuildNotes } from "./BuildNotes";
 import { SpecsPanel } from "./SpecsPanel";
 import { OutcomePanel } from "./OutcomePanel";
-import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
-import { useSpecMarkdown } from "@/hooks/useSpecMarkdown";
-import { ResultDocument } from "@/components/jobs/ResultTab";
-import { useRunJudgements } from "./useRunJudgements";
+import { PlanPanel, SpecPanel } from "./SpecPlanPanels";
+import { runLedger } from "./runLedger";
+import type { RunJudgements } from "./useRunJudgements";
 import { isRelaunching } from "@/components/jobs/runStatus";
 
 // p0344b/p0343c: the run as a STORY with the run-viewer.html mock's
@@ -65,12 +62,12 @@ interface RunStoryProps {
   banner?: ReactNode;
   /** The mock's right .sidebox (metrics + drawer entry points). */
   sidebox?: ReactNode;
+  /** 2026-11-17-d6fbb: the page's one read of the run's judgements, shared with the run log so an overrule made in
+   *  either view shows in both. */
+  judged: RunJudgements;
 }
 
-export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryProps) {
-  // 2026-08-25-e257: only fetched where there is a verdict to judge. A run with no
-  // dispositions has nothing to be wrong about.
-  const judged = useRunJudgements(runId, Boolean(snapshot?.acceptance));
+export function RunStory({ runId, snapshot, events, banner, sidebox, judged }: RunStoryProps) {
   const fallback = useMemo(() => buildVerifyFallback(events), [events]);
   const [picked, setPicked] = useState<BeatKey | null>(null);
 
@@ -87,8 +84,8 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
   // RunStoryRecorded event on the stream so a finished run does not show a false
   // "no ledger" negative.
   const ledger = useMemo(
-    () => snapshot?.progressLedger ?? ledgerFromEvents(events),
-    [snapshot?.progressLedger, events],
+    () => runLedger(snapshot, events),
+    [snapshot, events],
   );
   const hasLedger = !!ledger && ledger.length > 0;
   // 2026-09-22-7c41c: a third state, never a negated flag. A parked run whose relaunch is
@@ -207,52 +204,6 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
   );
 }
 
-// p0390: the work spec — WHAT this run must make true, and every revision with
-// the cause that produced it. It sits ABOVE the plan because it is the statement
-// of the work; the plan is how that work gets done. Absent for presets that
-// derive no spec, and then the beat looks exactly as it did before.
-function SpecPanel({ runId }: { runId: string }) {
-  const { content, loading } = useSpecMarkdown(runId);
-  if (loading || !content) return null;
-  return (
-    <section className="card" data-testid="spec-panel">
-      <div className="card-h">
-        <h3>The work spec</h3>
-      </div>
-      <div className="card-b">
-        <div data-testid="spec-markdown">
-          <ResultDocument content={content} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// The Plan beat's stage — the cached plan.md, in the mock's card chrome.
-function PlanPanel({ runId }: { runId: string }) {
-  const { content, loading } = usePlanMarkdown(runId);
-  return (
-    <section className="card" data-testid="plan-panel">
-      <div className="card-h">
-        <h3>The agreed plan</h3>
-      </div>
-      <div className="card-b">
-        {content ? (
-          <div data-testid="plan-markdown">
-            <ResultDocument content={content} />
-          </div>
-        ) : (
-          <p className="hint">
-            {loading
-              ? "Loading…"
-              : "No plan recorded for this run yet — the master writes plan.md during the run; it appears here once cached."}
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
 // 2026-09-22-7c41c: what the spine reads off the run. A parked run's relaunch is under way
 // when the server carried it a place in the capacity queue (or the 0 that says its launcher
 // already holds the lease); everything else that is not parked is simply running.
@@ -293,55 +244,6 @@ function defaultBeat(beats: RunSnapshot["beats"]): BeatKey {
   if (active) return active;
   if (BEAT_ORDER.every((k) => beats[k] === "done" || beats[k] === "skipped")) return "outcome";
   return "ticket";
-}
-
-// p0355: recover the persisted progress ledger from the run's RunStoryRecorded
-// event when the snapshot did not carry it (list-snapshot window / failed detail
-// fetch). The event's progressLedgerJson is the serialized ledger; normalize
-// defensively across camelCase/PascalCase so a producer casing change can't turn
-// a real ledger into a false "no ledger" state.
-function ledgerFromEvents(events: RunEvent[]): ProgressLedgerEntry[] | null {
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i];
-    if (e.type !== EventType.RunStoryRecorded) continue;
-    if (!e.progressLedgerJson) return null;
-    try {
-      return normalizeLedger(JSON.parse(e.progressLedgerJson));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-function normalizeLedger(raw: unknown): ProgressLedgerEntry[] | null {
-  if (!Array.isArray(raw)) return null;
-  const out: ProgressLedgerEntry[] = [];
-  for (const r of raw) {
-    if (!r || typeof r !== "object") continue;
-    const o = r as Record<string, unknown>;
-    const id = (o.id ?? o.Id) as string | undefined;
-    const activity = (o.activity ?? o.Activity) as string | undefined;
-    const rawStatus = (o.status ?? o.Status) as string | undefined;
-    const target = (o.target ?? o.Target ?? null) as string | null;
-    const status = normalizeLedgerStatus(rawStatus);
-    if (!id || !activity || !status) continue;
-    out.push({ id, activity, status, target });
-  }
-  return out.length > 0 ? out : null;
-}
-
-function normalizeLedgerStatus(s: string | undefined): ProgressLedgerEntry["status"] | null {
-  switch ((s ?? "").toLowerCase().replace(/[^a-z]/g, "")) {
-    case "done":
-      return "done";
-    case "inprogress":
-      return "in_progress";
-    case "pending":
-      return "pending";
-    default:
-      return null;
-  }
 }
 
 // Real, per-beat sub captions — derived from snapshot fields only. Beats are the

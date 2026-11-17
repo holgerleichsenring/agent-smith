@@ -32,6 +32,7 @@ import { DialogGreeting } from "./DialogGreeting";
 import { DialogTranscript } from "./DialogTranscript";
 import { DialogWorkPicture } from "./DialogWorkPicture";
 import { DialogWorking } from "./DialogWorking";
+import { useComposerHandover } from "./useComposerHandover";
 
 // 2026-09-15-cb3e: the design conversation, in the dashboard.
 // 2026-09-17-c7aed: Work it out, in three columns — the caller's conversations, the exchange,
@@ -208,6 +209,8 @@ export function SpecDialogSurface() {
   // With a single configured project there is no picker and no choice to make.
   const projects = dialog.view?.projects ?? [];
   const [picked, setPicked] = useState("");
+  // 2026-11-17-d6fba: a first message typed on the home page, sent here as this page's own composer would.
+  useComposerHandover(dialog, setPicked);
   // 2026-09-27-5c1eb: and the picked TICKET beside it, for the same reason — sending needs it, and
   // the component that offers it is unmounted the moment a project is resolved.
   const [pickedTicket, setPickedTicket] = useState<TicketSearchFound | null>(null);
