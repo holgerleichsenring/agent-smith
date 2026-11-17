@@ -1,8 +1,8 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
 import {
-  attempt, compute, conversation, defaults, detail, entry, pass, passes, reviews, runDetail, segment, series, spec, ticketText,
+  attempt, budget, compute, conversation, defaults, detail, pass, passes, reviews, runDetail, segment, series, spec, ticketText,
 } from "./detailFixtures";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
@@ -12,7 +12,7 @@ import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSer
 
 const NONE: RunEvent[] = [];
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => NONE }));
-const nav = vi.hoisted(() => ({ search: "tab=attempts", replace: vi.fn() }));
+const nav = vi.hoisted(() => ({ search: "section=runs", replace: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
   useRouter: () => ({ replace: nav.replace, push: vi.fn() }),
@@ -59,7 +59,7 @@ const calls = (fn: { mock: { calls: unknown[][] } }, runId: string) => fn.mock.c
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-09-04T20:00:00Z"));
-  nav.search = "tab=attempts";
+  nav.search = "section=runs";
   nav.replace.mockClear();
   Object.values(api).forEach((fn) => fn.mockClear());
   world.detail = detail([
@@ -85,28 +85,59 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("Ticket attempts tab", () => {
-  it("AttemptsAreNewestFirst_OrderedByRunId_TheLiveOneExpanded", async () => {
+describe("Ticket runs section", () => {
+  // 2026-11-17-8d1cc: one line per run, newest first — outcome with its end kind, its own first line, start, duration,
+  // cost — each opening its run, with what started it under it.
+  it("EveryRun_IsOneLine_NewestFirst_WithOutcomeEndKindStartDurationCostAndItsRunLink", async () => {
+    world.detail.attempts = world.detail.attempts.map((a) => (a.number === 1 ? { ...a, endKind: "image-untrusted", summary: "Registry not trusted" } : a));
     await open();
-    const cards = screen.getAllByTestId(/^attempt-\d$/).map((c) => c.getAttribute("data-testid"));
-    expect(cards).toEqual(["attempt-3", "attempt-2", "attempt-1"]);
-    expect(screen.getByTestId("attempt-head-3")).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("attempt-body-3")).toBeVisible();
-    expect(screen.getByTestId("attempt-head-2")).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(screen.getByTestId("attempt-head-2"));
-    expect(screen.getByTestId("attempt-head-2")).toHaveAttribute("aria-expanded", "true");
+    const lines = screen.getAllByTestId(/^run-line-\d$/).map((c) => c.getAttribute("data-testid"));
+    expect(lines).toEqual(["run-line-3", "run-line-2", "run-line-1"]);
+    expect(screen.getByTestId("run-line-1")).toHaveTextContent("Run 1handed back · image not trusted · Registry not trusted");
+    expect(screen.getByTestId("run-line-2")).toHaveTextContent(/succeeded · .*\$3\.05/);
+    expect(screen.getByTestId("run-link-r-2")).toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-section-runs")).toHaveTextContent("Runs3");
-    expect(within(screen.getByTestId("attempt-1")).getByTestId("attempt-ended")).toHaveTextContent("Handed back as not implementable.");
   });
 
-  it("TheLiveAttempt_ShowsDeriving_WhileTheSeriesReadsCutCameFromAnEarlierAttempt", async () => {
+  it("SpecDerivations_AreRunLinesToo", async () => {
+    world.detail = { ...world.detail, derivations: [
+      { runId: "d-1", status: "success", startedAt: "2026-09-04T19:00:00Z", finishedAt: "2026-09-04T19:05:00Z", cost: 1.25, outcome: "derived", specCount: 2, pullRequests: [], summary: null },
+    ] };
     await open();
-    expect(within(screen.getByTestId("attempt-3")).getByTestId("attempt-specs")).toHaveTextContent("deriving");
-    expect(within(screen.getByTestId("attempt-3")).getByTestId("attempt-doing")).toHaveTextContent("Deriving the series");
-    cleanup();
-    world.series.default = series("r-3", [spec({ specId: "s1", state: "carried" }), spec({ specId: "s2", ordinal: 2, state: "in_progress" })], { attempt: 3 });
+    expect(screen.getByTestId("run-line-d-1")).toHaveTextContent("Derivationderived · Spec derivation found 2 specs.");
+    expect(screen.getAllByTestId(/^run-line-/)[0]).toBe(screen.getByTestId("run-line-d-1"));
+  });
+
+  it("ReadOnACommentCausedChange_OpensTheConversationAtThatCause_OnAStatusMoveTheTabOnly", async () => {
     await open();
-    expect(within(screen.getByTestId("attempt-3")).getByTestId("attempt-specs")).toHaveTextContent("spec 2 of 2");
+    const anchored = screen.getByTestId("attempt-change-read-3");
+    expect(anchored).toHaveAttribute("href", "/tickets/shop/101?causeOf=r-3");
+    fireEvent.click(anchored);
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?causeOf=r-3", { scroll: false });
+    expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("Started by pull-request review");
+    expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("m.reviewer on #813");
+    expect(screen.getByTestId("attempt-change-2")).toHaveTextContent("Started by status move to Ready · h.operator on the ticket");
+    fireEvent.click(screen.getByTestId("attempt-change-read-2"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101", { scroll: false });
+    expect(screen.getByTestId("attempt-change-1")).toHaveTextContent("Started by status move to Ready");
+  });
+});
+
+describe("Ticket cost and compute tab", () => {
+  beforeEach(() => {
+    nav.search = "tab=cost";
+  });
+
+  it("CarriedSpecs_AppearAtZeroInThePartsText_EachRunLineNamesItsCallsAndCap", async () => {
+    await open();
+    expect(screen.getByTestId("cost-parts-3")).toHaveTextContent("derive $0.22 · S1 carried $0 · so far");
+    expect(screen.getByTestId("cost-parts-2")).toHaveTextContent("derive $0.90 · S1 $2.00");
+    expect(screen.getByTestId("cost-row-2")).toHaveTextContent("Run 2$3.05");
+    expect(screen.getByTestId("cost-figures-2")).toHaveTextContent("41 LLM calls · run cap $15.00");
+    expect(screen.getByTestId("cost-budget")).toHaveTextContent("spent on this ticket");
+    expect(screen.queryByTestId("cost-budget-bar")).toBeNull();
+    expect(screen.getByTestId("ticket-section-cost")).toHaveTextContent("$5.36");
+    expect(screen.queryByTestId("cost-derivations")).toBeNull();
   });
 
   it("ATerminalAttemptsReads_AreFetchedOnce_AWaitingForInputAttemptsAreRefetchedOnANudge", async () => {
@@ -129,44 +160,6 @@ describe("Ticket attempts tab", () => {
     }
   });
 
-  it("Trace_LinksToTheWhyView_AndOpenRunViewerToTheRun", async () => {
-    await open();
-    fireEvent.click(screen.getByTestId("attempt-head-2"));
-    const card = screen.getByTestId("attempt-2");
-    expect(within(card).getByTestId("attempt-viewer")).toHaveAttribute("href", "/jobs/r-2");
-    expect(within(card).getByTestId("attempt-trace")).toHaveAttribute("href", "/jobs/r-2/why");
-    expect(within(card).getByTestId("attempt-trace")).toHaveTextContent("Trace · 41 LLM calls");
-  });
-
-  it("ReadOnACommentCausedChange_OpensTheConversationAtThatCause_OnAStatusMoveTheTabOnly", async () => {
-    await open();
-    const anchored = screen.getByTestId("attempt-change-read-3");
-    expect(anchored).toHaveAttribute("href", "/tickets/shop/101?causeOf=r-3");
-    fireEvent.click(anchored);
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?causeOf=r-3", { scroll: false });
-    expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("Pull-request review");
-    expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("m.reviewer on #813");
-    fireEvent.click(screen.getByTestId("attempt-change-read-2"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101", { scroll: false });
-    expect(screen.queryByTestId("attempt-change-1")).toBeNull();
-  });
-});
-
-describe("Ticket cost and compute tab", () => {
-  beforeEach(() => {
-    nav.search = "tab=cost";
-  });
-
-  it("CarriedSpecs_AppearAtZeroInThePartsText_AndAddNothingToTheBar", async () => {
-    await open();
-    expect(screen.getByTestId("cost-parts-3")).toHaveTextContent("derive $0.22 · S1 carried $0 · so far");
-    expect(screen.getByTestId("cost-bar-3").querySelectorAll("span")).toHaveLength(1);
-    expect(screen.getByTestId("cost-parts-2")).toHaveTextContent("derive $0.90 · S1 $2.00");
-    expect(screen.getByTestId("cost-scale")).toHaveTextContent("the $15.00 run cap is the full width");
-    expect(screen.getByTestId("ticket-section-cost")).toHaveTextContent("$5.36");
-    expect(screen.queryByTestId("cost-derivations")).toBeNull();
-  });
-
   it("SpecDerivations_HaveTheirOwnLine_AndTheTotalAndCounterIncludeThem", async () => {
     world.detail = {
       ...world.detail,
@@ -176,7 +169,7 @@ describe("Ticket cost and compute tab", () => {
       ],
     };
     await open();
-    expect(screen.getByTestId("cost-derivations")).toHaveTextContent("Spec derivations: 2, not attempts · so far");
+    expect(screen.getByTestId("cost-derivations")).toHaveTextContent("2 spec derivations, not runs · so far");
     expect(screen.getByTestId("cost-derivations")).toHaveTextContent("$1.75");
     expect(screen.queryByTestId("cost-row-4")).toBeNull();
     expect(screen.getByTestId("cost-total")).toHaveTextContent("$7.11");
@@ -202,27 +195,13 @@ describe("Ticket cost and compute tab", () => {
     await open();
     const tile = screen.getByTestId("compute-reserved");
     expect(tile).toHaveTextContent("4.0 Gi·h");
-    expect(tile).toHaveTextContent("a reservation · finished attempts only");
+    expect(tile).toHaveTextContent("a reservation · finished runs only");
   });
 
-  it("AnAttemptWithNoSandboxRecords_ShowsItsRowWithoutPods_RatherThanZero", async () => {
-    world.compute["r-1"] = compute("r-1", { spawns: [] });
+  it("ASeriesBudget_IsTheTotalsMeasure_WithOneThinBar", async () => {
+    world.series.default = { ...world.series.default, budget: budget({ spentUsd: 6, capUsd: 12 }) };
     await open();
-    const row = screen.getByTestId("compute-row-1");
-    expect(within(row).getByTestId("compute-pods-1")).toHaveTextContent("no sandbox recorded");
-    expect(row.querySelectorAll(".c-n")[0]).toHaveTextContent("—");
-    expect(row.querySelectorAll(".c-n")[1]).toHaveTextContent("—");
-    expect(within(screen.getByTestId("compute-row-2")).getByTestId("compute-pods-2")).toHaveTextContent("portal-api · 29m · released at run end");
-  });
-});
-
-describe("Ticket attempts — a cut review on the Did list", () => {
-  it("ACutReviewEntry_OfThisAttempt_IsListedWithItsVerdict", async () => {
-    world.conversation = conversation([
-      entry({ id: "c", source: "spec-cut", kind: "cut-review", attemptRunId: "r-2", detail: { attempt: 1, deliverable: "accepted", findings: [] } }),
-    ]);
-    await open();
-    fireEvent.click(screen.getByTestId("attempt-head-2"));
-    expect(within(screen.getByTestId("attempt-2")).getByTestId("attempt-did")).toHaveTextContent("Cut 1: accepted by the reviewer");
+    expect(screen.getByTestId("cost-budget")).toHaveTextContent("on this ticket · $6.00 of $12.00 series budget spent");
+    expect(screen.getByTestId("cost-budget-bar").firstElementChild).toHaveStyle({ width: "50%" });
   });
 });

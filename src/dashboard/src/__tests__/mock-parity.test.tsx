@@ -390,8 +390,9 @@ describe("Mock parity", () => {
       requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string, string[]]> = [
-      ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],
-      ["cost", "compute-table", [".costs", ".cr", ".cl", ".track", ".bar", ".parts", ".cv", ".cr.total", ".capmark", ".health.four", ".metric", ".metric.hot", ".banner.need", ".compute", ".c-head", ".c-row", ".c-a", ".c-track", ".c-bar", ".seg", ".park", ".c-figs", ".c-pods", ".pd", ".c-n", ".c-legend"]],
+      // 2026-11-17-8d1cc: the Runs and Cost sections of the TicketRail mock — plain lines, one thin bar.
+      ["runs", "runs-list", [".tk-runs", ".tk-run", ".tk-run-line", ".tk-dot", ".tk-who", ".tk-text", ".tk-outcome", ".tk-meta", ".tk-chev"]],
+      ["cost", "cost-rows", [".tk-cost-head", ".tk-cost-total", ".tk-cost-lines", ".tk-cost-line", ".tk-cost-who", ".tk-cost-usd", ".tk-sub-head", ".tk-kv", ".tk-kv-row", ".k", ".v", ".tk-wait-line"]],
     ];
     for (const [tab, ready, classes] of tabs) {
       search.current = `tab=${tab}`;
@@ -401,7 +402,7 @@ describe("Mock parity", () => {
         </TicketPageStore>,
       );
       await screen.findByTestId(ready);
-      await screen.findAllByText(/LLM calls|call time/);
+      if (tab === "cost") await screen.findAllByText(/LLM calls|call time/);
       const root = screen.getByTestId("ticket-page");
       // Some classes draw from later reads (the budget cap mark needs the run detail), so wait for them.
       await waitFor(() => {

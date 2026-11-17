@@ -3,7 +3,7 @@ import type { TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets
 import { money, ticketCost } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
 import { TicketAcceptanceTab } from "./TicketAcceptanceTab";
-import { TicketAttemptsTab } from "./TicketAttemptsTab";
+import { TicketRunsSection } from "./TicketRunsSection";
 import { TicketCostTab } from "./TicketCostTab";
 import { TicketDefaultsTab } from "./TicketDefaultsTab";
 import { TicketSpecsTab } from "./TicketSpecsTab";
@@ -53,7 +53,7 @@ export const ticketSections: TicketSection[] = [
       return tally ? { text: `${tally.verified}/${tally.total}`, ok: tally.total > 0 && tally.verified === tally.total } : null;
     },
   },
-  { id: "runs", label: "Runs", Pane: TicketAttemptsTab, counter: (detail) => ({ text: String(detail.attempts.length) }) },
+  { id: "runs", label: "Runs", Pane: TicketRunsSection, counter: (detail) => ({ text: String(detail.attempts.length) }) },
   {
     id: "cost", label: "Cost", Pane: TicketCostTab,
     counter: (detail) => ({ text: money(ticketCost(detail.attempts, detail.derivations ?? [])) }),
