@@ -19,7 +19,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// 2026-10-14-dbcen: the tickets filed here that have no code run on record — one row per approved series
 /// carrying a project whose (tracker connection, ticket key) no code run resolves to. The record of the
 /// filing is the content: its goal is the title and its flag tells a ticket text from a filed spec. Held
-/// (blocked) by what <see cref="UnmetTicketRequirements"/> says, done when a landing of either kind is stored.
+/// (blocked) by what <see cref="UnmetTicketRequirements"/> says to a start (2026-11-17-b34ec), done when a landing of
+/// either kind is stored.
 /// </summary>
 public sealed class FiledTicketRows(
     IServiceScopeFactory scopes, TicketProjects projects, TicketKeyResolver keys,
@@ -72,7 +73,10 @@ public sealed class FiledTicketRows(
         var rows = new List<TicketSummaryView>(records.Count);
         foreach (var (filing, record) in records)
         {
-            var unmet = (await requirements.OfAsync(filing.Tracker, filing.TicketKey, ct)).Unmet;
+            // 2026-11-17-b34ec: the rule a start reads, so a dependent stacked on a green prerequisite reads ready.
+            var unmet = Of(filing.Project) is { } owner
+                ? (await requirements.ForStartAsync(owner, filing.TicketKey, ct)).Unmet
+                : (await requirements.OfAsync(filing.Tracker, filing.TicketKey, ct)).Unmet;
             var type = Of(filing.Project)?.Tracker.Type;
             string Name(string id) => type is { } t ? FiledTicketKey.Of(t, id) : id;
             var waits = unmet.Select(e => new TicketWaitsForView(e.RequiredTicketId, filing.Project, Name(e.RequiredTicketId),
