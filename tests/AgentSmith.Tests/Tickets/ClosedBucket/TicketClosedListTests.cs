@@ -57,7 +57,7 @@ public sealed class TicketClosedListTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketList_Counts_CountClosedFailedAndPrClosedAndKeepIdleForTheRest()
+    public async Task TicketList_Counts_CountClosedFailedPrClosedAndDone()
     {
         await _h.AddAsync(Run("r-1", "41", status: "failed"), Step("r-1"), Run("r-2", "42", status: "failed"), Step("r-2"),
             Run("r-3", "43"), Step("r-3"), Record("3", PrReviewStates.Closed, ticket: "43"),
@@ -66,7 +66,8 @@ public sealed class TicketClosedListTests : IDisposable
 
         var counts = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Counts;
 
-        (counts.Closed, counts.Failed, counts.PrClosed, counts.Idle).Should().Be((1, 1, 1, 2));
+        // 2026-11-17-f9b0a: the cancelled r-4 is failed, the delivered r-5 without a pull request is done.
+        (counts.Closed, counts.Failed, counts.PrClosed, counts.Done, counts.Idle).Should().Be((1, 2, 1, 1, 0));
     }
 
     [Fact]

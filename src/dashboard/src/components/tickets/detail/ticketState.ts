@@ -1,6 +1,6 @@
 import { runPath } from "@/lib/runPath";
 import { EventType, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
-import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketPullRequest, type TicketSeries } from "@/types/tickets";
+import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketPullRequest, type TicketSeries, type TicketSummary } from "@/types/tickets";
 import { closedWords } from "../TicketActivity";
 import { liveSpec } from "./attemptStory";
 
@@ -64,7 +64,7 @@ function stateOf({ detail, liveEvents, series }: TicketStateInput): TicketStateV
     case "stuck": return failed(detail, head, "Stuck");
     case "pr_closed":
       return { ...base(head), tone: "bad", pill: "PR closed", sentence: "Every pull request was closed without a merge.", act: CONTINUE };
-    case "done": return { ...base(head), quiet: true, tone: "ok", pill: "Done", sentence: "Done — the pull requests are merged." };
+    case "done": return { ...base(head), quiet: true, tone: "ok", pill: "Done", sentence: doneSentence(summary, head) };
     case "closed": return { ...base(head), quiet: true, tone: "q", pill: "Closed", sentence: capital(closedWords(summary)) };
     case "idle": return { ...base(head), quiet: true, tone: "q", pill: "Ended", sentence: endedSentence(head) };
     default: return null;
@@ -126,7 +126,18 @@ export function detailSentence(head: TicketAttempt): string | null {
 }
 
 function failed(detail: TicketDetail, head: TicketAttempt, pill: string): TicketStateView {
+  // 2026-11-17-f9b0a: a cancelled head is in the failed bucket and says it was cancelled.
+  if (head.status === "cancelled")
+    return { ...base(head), tone: "bad", pill: "Cancelled", sentence: `Attempt ${head.number} was cancelled.`, act: CONTINUE };
   return { ...base(head), tone: "bad", pill, ...failureAct(head, detail.summary.project) };
+}
+
+/** 2026-11-17-f9b0a: done without a pull request is an attempt delivered without one, or a landing marked by hand. */
+function doneSentence(summary: TicketSummary, head: TicketAttempt): string {
+  if ((summary.pullRequests ?? []).length > 0) return "Done — the pull requests are merged.";
+  return head.status === "success" || head.status === "shortfall"
+    ? `Done — attempt ${head.number} finished without a pull request.`
+    : "Done — marked done by hand.";
 }
 
 function needsYou(detail: TicketDetail, head: TicketAttempt): TicketStateView {

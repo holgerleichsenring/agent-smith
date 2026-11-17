@@ -35,7 +35,7 @@ public sealed class TicketListPagingTests : IDisposable
         await _store.AddAsync(
             Run(Id(1), ticket: "1", status: "running"), Step(Id(1)),
             Run(Id(2), ticket: "2", status: "waiting_for_input"), Step(Id(2)),
-            Run(Id(3), ticket: "3", status: "success"), Step(Id(3)));
+            Run(Id(3), ticket: "3", status: "rejected"), Step(Id(3)));
 
         var result = await ListAsync(new TicketListRequest(ProjectScope.Everything, TicketBucket.Idle, null, 1));
 
