@@ -3,7 +3,7 @@ spec: 2026-10-14-dbceb
 
 decisions:
   - category: Architecture
-    chose: "Reword the working status to 'Agent Smith — working on this issue…' so the existing 'Agent Smith —' marker matches it (contract decision 14, section 5 default 2; default, pending operator ratification)"
+    chose: "Reword the working status to 'Agent Smith — working on this issue…' so the existing 'Agent Smith —' marker matches it (contract decision 14, section 5 default 2; default, ratified by the operator 2026-11-17: all as shipped)"
     over: "A sixth, unrelated marker for the old wording, or an author-identity check"
     reason: |
       One marker family covers every comment we post. An author check cannot work: the bot and a person may

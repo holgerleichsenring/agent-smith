@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f9b0e
+
+decisions:
+  - category: Process
+    chose: "Each marker phrase is replaced in place by 'ratified by the operator 2026-11-17: <choice>', the choice per question from the 2026-11-17 write-up; no other text of a historical record changes"
+    over: "Rewriting the decisions to read as ratified; a separate ratification log"
+    reason: "The operator accepted every recommendation ('ich folge deinen Empfehlungen'). Editing the marker line is the ratification itself and what the ratchet baseline exists for; a second log would be a second copy that disagrees with the records."
+  - category: Process
+    chose: "The five moot questions are recorded as moot with the reason from the write-up, and question 14 as overtaken by the ticket-page restructuring"
+    over: "Ratifying looks and mechanisms that no longer exist"
+    reason: "M1-M5 name code that is gone or a one-off that already happened; the ticket page owns the 14 looks now and ratifying them here would only constrain that work."
+  - category: Scope
+    chose: "Question 15 keeps 'Overrule in the run' as a label; an act that makes an overruled criterion count is named for its own spec and not built here"
+    reason: "Re-opening the gate is new behaviour with its own design questions; the operator accepted keeping the label for now."
+  - category: Implementation
+    chose: "Questions 3 and 15, found by equivalent phrasing rather than the marker, get the ratified line appended to their marker sentence"
+    reason: "The ratchet does not count them, but they asked the same open question and now carry the same answer."
+  - category: Implementation
+    chose: "pending-ratification-baseline.tsv keeps its header and a line saying no file is left; the limits inventory's ask items become config (moved by f9b0b-d) or debt (ratified as built)"
+    reason: "A cleared file must leave the baseline; the inventory's ask disposition meant 'waits for the operator', which no item does now."

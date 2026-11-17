@@ -19,7 +19,7 @@ Every item also has one of four dispositions:
 - **removed**: the limit is gone.
 - **config**: the limit lives in config and its message names the key.
 - **debt**: the limit is kept for the class reason below and waits to be moved to config.
-- **ask**: the limit is tied to an open operator question, so it waits for that answer.
+- **ask**: the limit is tied to an open operator question, so it waits for that answer. None is left: the operator answered every one on 2026-11-17 (2026-11-17-f9b0e).
 
 ## Done in this series
 
@@ -44,14 +44,14 @@ agent should either become harness or move to config with a message that names t
 
 ### Look allowances and loop ceilings
 
-These are **ask** (open question: the spec review loop and attack budgets).
+These were **ask** (the spec review loop and attack budgets). The operator kept them as built on 2026-11-17, so they are **debt**, except the two moved to **config** below.
 
-- `Application/Services/Specs/DerivationLookTerms`: DerivationAllowance 12, CutReviewAllowance 6, SpecReviewAllowance 8, AttackReview 24 (+12 over a spec's cited paths).
+- `Application/Services/Specs/DerivationLookTerms`: DerivationAllowance 12, CutReviewAllowance 6, SpecReviewAllowance 8, AttackReview (**config**: spec_review.attack_look_floor, 2026-11-17-f9b0b; +12 over a spec's cited paths).
 - `Specs/Review/SeriesContractRound`: +12 over the cleared entries.
 - `Specs/SpecDerivationCall`, `SpecCutReviewer`, `SpecPremiseChecker`, `ContradictionChecker`, `SpecDiffReviewer`: each MaxIterations, set to the allowance plus 2.
 - `Specs/RatifiedMockReview.ExtraIterations` 3.
 - `Specs/AccountSearchBudget.PerPass` 12, with `AccountTools.MaxIterations`. The refusal names the value and no key.
-- `Specs/Review/SpecRegroundSession.MaxPairs` 24.
+- `Specs/Review/SpecRegroundSession` read budget (**config**: spec_review.reground_read_budget, 2026-11-17-f9b0b).
 - `Specs/SpecSetDeriver.MaxAttempts` 3.
 
 These are **debt**:
@@ -66,7 +66,7 @@ These are **debt**:
 
 ### Tool-argument refusals
 
-These are **ask**:
+These were **ask**; the operator ratified both features as built on 2026-11-17, so both are **debt**:
 
 - `Tools/DefaultDecisionToolHost`, under the open question about the product's decide-by-default feature: question 500, chosen 500, why 1000, alternatives 8 × 300.
 - `Tools/HandForwardToolHost`, under the open question about the build-note cap: 20 entries × 300 chars.
@@ -124,7 +124,7 @@ once these move to config.
 
 ### Prompt sections
 
-All of these are **debt**, except where marked **ask**.
+All of these are **debt**, except where marked **config**.
 
 - `PrDiffPromptRenderer.MaxRenderedLines` 4000.
 - `SwaggerSpecCompressor`: 100,000 / 240.
@@ -136,8 +136,8 @@ All of these are **debt**, except where marked **ask**.
   - DiffWindows 400,000.
   - SpecReviewPrompt 40,000 / 20,000.
   - SpecCutReviewPrompt 200,000.
-  - Review/SeriesContractPrompt 60,000 (**ask**: series contract).
-  - SpecBuildNoteSection 8,000 (**ask**: build-note cap).
+  - Review/SeriesContractPrompt (**config**: spec_review.series_contract_max_chars, 2026-11-17-f9b0b).
+  - SpecBuildNoteSection (**config**: series.build_note_max_chars, 2026-11-17-f9b0c).
 - `SpecExecution/SpecFormatFailureRecorder` 800. `SpecExecutionPromptBlocks` 6 staged lines.
 - `Handlers/WorkingStateSection`: 30 paths, 12 decisions, 6 staged lines.
 - `Handlers/AcceptanceClaimNudge` 30. `GateRetryCoordinator` 2,000. `ObservationRecoveryHelper` 2,000.
@@ -211,9 +211,9 @@ sandbox step.
 - **Server reads and pages**:
   - delivery reader 5000, offset 1000.
   - PR list 200.
-  - change sweeps: 10 pages, 10 PRs per cycle, 50 / 50 re-reads.
+  - change sweeps: 10 pages, 10 PRs per cycle. The 50 / 50 re-read caps are **config** (tickets:, 2026-11-17-f9b0d).
   - rework nudges: batch 10, backoff 15 s → 900 s.
-  - dependents wake: 24 h, 50 (**ask**: dependents wake).
+  - dependents wake and the pull-request re-read (**config**: tickets:, 2026-11-17-f9b0d).
 - **Persistence**:
   - SQLite busy 5 s.
   - lease attach 2.
@@ -243,7 +243,7 @@ may last before the loop acts. Both depend on the deployment more than on the ag
   - agent heartbeat 2 s, key TTL 10 s, idle 60 s × 30.
 - **Buses and streams**: Redis bus 500 ms, dialogue 500 ms, job queue 1 s, broadcaster 200 ms. DB discovery 30 s. Trail flush 500 ms.
 - **Sweeps**:
-  - PR re-read 5 min, staleness 15 min. Recent PR records 24 h.
+  - PR re-read interval and staleness (**config**: tickets:, 2026-11-17-f9b0d). Recent PR records 24 h.
   - change sweep floor 10 s, budget half the interval.
   - cursor margin 5 s. Tracker look-back overlaps of 60 s.
 - **Other**:
@@ -284,7 +284,7 @@ These are not changed here and are listed for whoever rebuilds the area.
     - SpecDialogWorkPictureStore and `Contracts/Models/WorkPictureLimits` 2000
     - FiledWorkRunsReader 10
     - TicketSearchAcrossTrackers 3 / 20
-    - TicketGraphLinks 60 s
+    - TicketGraphLinks (**config**: tickets.requires_link_deadline_seconds, 2026-11-17-f9b0d)
     - SpecDialogConversationList 50 / 200
     - SpecDialogConversationTitle 120
     - RunningDialogTurn 50
@@ -293,7 +293,7 @@ These are not changed here and are listed for whoever rebuilds the area.
     - SpecDialogImageBody 5 MiB
   - `Application/Services/SpecDialog/RepositoryLayoutReader`: 40 / 20 / 4 / 10 min.
   - `Contracts`:
-    - IConversationMocks 90,000 / 20 / 100 (**ask**: mock caps)
+    - IConversationMocks caps (**config**: dialogue.mock_*, 2026-11-17-f9b0c)
     - ReferenceCoverage 25
     - SeededTicketLimits 20,000
     - ConversationSubjectLimits 120

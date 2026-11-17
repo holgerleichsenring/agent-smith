@@ -3,7 +3,7 @@ spec: 2026-10-14-dbcec
 
 decisions:
   - category: Architecture
-    chose: "One sentence in SpecAttackPrompt.DecidabilityLens cuts a whole-tree 'no file contains X' criterion to 'no file outside .agentsmith/ contains X' (contract section 5 default 3; default, pending operator ratification)"
+    chose: "One sentence in SpecAttackPrompt.DecidabilityLens cuts a whole-tree 'no file contains X' criterion to 'no file outside .agentsmith/ contains X' (contract section 5 default 3; default, ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b))"
     over: "Adding .agentsmith to GrepScope.ExcludedDirsText, or a mechanical absence checker"
     reason: |
       The grep scope is also the design partner's search scope, which must keep reading specs and run records.

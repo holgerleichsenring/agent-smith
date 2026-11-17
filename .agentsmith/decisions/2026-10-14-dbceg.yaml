@@ -3,7 +3,7 @@ spec: 2026-10-14-dbceg
 
 decisions:
   - category: Architecture
-    chose: "A LandedTickets table, insert-only and never deleted, UNIQUE(Tracker, TicketKey), applied from TicketRecordConfigurations with no DbSet (contract §5 default 8, pending operator ratification)"
+    chose: "A LandedTickets table, insert-only and never deleted, UNIQUE(Tracker, TicketKey), applied from TicketRecordConfigurations with no DbSet (contract §5 default 8, ratified by the operator 2026-11-17: as built, with the four re-read sweep values moved to the tickets: block (2026-11-17-f9b0d))"
     over: "Deriving the landing from the PrReviewRecords at read time only"
     reason: |
       The records die with their newest run (RunDeletionRepository) and with a refresh no run names any more; a
@@ -32,7 +32,7 @@ decisions:
       The re-read takes the oldest-checked records first; a record whose read keeps failing would otherwise hold
       its place for ever and starve every record behind it.
   - category: Architecture
-    chose: "PrRecordReReadHostedService under lease agentsmith:leader:pr-record-reread, every 5 minutes, open/unread records unchecked for 15 minutes capped at 50, unlanded merged records capped at 50 over all connections, one Refresh nudge per (project, ticket) (contract §5 default 9, pending operator ratification)"
+    chose: "PrRecordReReadHostedService under lease agentsmith:leader:pr-record-reread, every 5 minutes, open/unread records unchecked for 15 minutes capped at 50, unlanded merged records capped at 50 over all connections, one Refresh nudge per (project, ticket) (contract §5 default 9, ratified by the operator 2026-11-17: as built, with the four re-read sweep values moved to the tickets: block (2026-11-17-f9b0d))"
     over: "Folding the re-read into polling mode's change sweep, which idles without a polling tracker"
     reason: |
       Webhook mode had no periodic read of an open record. Open records of polling trackers are left to the PR

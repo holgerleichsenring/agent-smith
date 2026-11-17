@@ -45,7 +45,7 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51, src/backend/AgentSmith.Server/Services/SpecDialog/TicketContinuationRegistrations.cs:28, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:41,43-44"
 
 assumptions:
-  - "2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync(project, provider, ticket) (Application, async) answers closed-for-work: in the tracker's closed category and not done_status, failed_status, needs_clarification_status or not_implementable_status, nor a run's own close when no done_status is set (read through ITicketStatusHistory.NewestMoveIntoAsync) (pending operator ratification)."
+  - "2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync(project, provider, ticket) (Application, async) answers closed-for-work: in the tracker's closed category and not done_status, failed_status, needs_clarification_status or not_implementable_status, nor a run's own close when no done_status is set (read through ITicketStatusHistory.NewestMoveIntoAsync) (ratified by the operator 2026-11-17: as built, only a person's close is closed for work)."
   - "2026-10-13-9a59l's FollowUpLink posts one 'Agent Smith —' comment on each of two tickets naming the other."
   - "2026-10-13-9a59m's ReworkChannel.Operator exists; an Operator act on a ticket closed after its approval reaches the entry through the RunEnd nudge."
   - "2026-10-13-9a59n's ReworkChannel.Retry exists; a stored retry request stays a pending act until an attempt starts."

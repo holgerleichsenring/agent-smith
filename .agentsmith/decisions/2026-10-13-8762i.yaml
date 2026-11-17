@@ -8,7 +8,7 @@ decisions:
     reason: |
       The partner wrote the drafts and holds why; a whole-proposal refusal would cap the turn at one round as soon as one
       draft misbehaves. Kind, spec ids and child order still invalidate the whole reply. Main-thread decision 4,
-      default pending operator ratification.
+      default ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79.
   - category: Architecture
     chose: "Rounds run over a lone spec or an epic's CHILDREN; the parent gets one SpecRoundEvidence check and the whole-set ISpecCutReviewer call (run once, before round 1)"
     over: "Attacking the parent as a draft, or dropping the whole-set call"
@@ -16,7 +16,7 @@ decisions:
   - category: Architecture
     chose: "ProposalRoundGate before every round and every re-prompt: run cap or a ceiling the next round would pass (elapsed since RunStartedAt plus the previous round's duration, measured on the injected TimeProvider) stops every open draft; a spent share stops all but the floor (the first open draft, NotReviewed drafts of the revised proposal ordered first)"
     over: "Exempting the floor from the wall-clock ceiling too, or no floor"
-    reason: "Every turn makes progress, and a cancelled run would lose the reply. Main-thread decision 5, default pending operator ratification."
+    reason: "Every turn makes progress, and a cancelled run would lose the reply. Main-thread decision 5, default ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79."
   - category: Architecture
     chose: "A draft stops on SpecReviewStopRule.IsDone after its re-prompt, on unchanged text, on BUILD, on a BUILD WITH CUTS whose merge left no cut, or when no reviewer was taken (no round recorded, not listed as not reviewed)"
     over: "Re-reviewing every draft each round"
@@ -40,7 +40,7 @@ decisions:
   - category: Architecture
     chose: "SpecDialogUnreviewedApproval clears the Approved decision of the transcript's last user turn and returns the edit note '(held, not approved) review the specs not reviewed yet: …' ('series' read as 'the series contract'); the dashboard card also drops Approve"
     over: "A refusal message without a new turn"
-    reason: "The next turn reviews what was not reviewed; never approved unreviewed (main-thread decision 5, default pending operator ratification)."
+    reason: "The next turn reviews what was not reviewed; never approved unreviewed (main-thread decision 5, default ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79)."
   - category: Implementation
     chose: "MasterHandlerFixture and the existing SpecDialogProposalReviewTests run the review with rounds 0; the rounds have their own rig (ProposalReviewRig) over the real loop, guard, resolver and residues"
     over: "Scripting attack answers into every master-handler test"
