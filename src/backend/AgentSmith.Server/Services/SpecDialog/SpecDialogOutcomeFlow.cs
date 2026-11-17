@@ -51,7 +51,7 @@ public sealed class SpecDialogOutcomeFlow(
         (string Id, string? Replaced) stored;
         try
         {
-            stored = await proposals.StoreAwaitingAsync(state, proposal, cancellationToken);
+            stored = await proposals.StoreAwaitingAsync(state, proposal, runId, cancellationToken); // the run's own row (a0b6d)
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -59,7 +59,6 @@ public sealed class SpecDialogOutcomeFlow(
             await notices.TellAsync(state, replies.ComposeTurnFailed("the proposal could not be stored, so it is not shown"), cancellationToken);
             return;
         }
-        await (turnProposals?.WriteAsync(state, runId, proposal, cancellationToken) ?? Task.CompletedTask);
         if (stored.Replaced is not null && !DialogTarget.IsDashboard(state)) await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
         await outcomeChannel.ProposeAsync(state, proposal, cancellationToken, stored.Id);
         await chatCards.PostAsync(state, proposal, stored.Id, cancellationToken);

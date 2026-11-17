@@ -224,7 +224,8 @@ public sealed class TurnRunRecordTests : IDisposable
         await harness.Flow().HandleAsync(state, Bug("second"), default, runId: "run-2");
         await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "a plain answer", null, null, default, runId: "run-3");
         var current = (await harness.Sessions.GetOpenByThreadAsync("dashboard", Dialog, default))!;
-        var awaiting = (await harness.Outcomes.ReadAsync("dashboard", Dialog, default)).Proposal!;
+        var latest = await harness.Outcomes.ReadAsync("dashboard", Dialog, default);
+        var awaiting = latest.Proposal!;
         var composer = new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer());
         var view = new SpecDialogSessionView(current.JobId, new SpecDialogProjectView("sample", [], []),
             SpecDialogShownTranscript.Turns(current.Transcript), current.LastActivityAt, [],
@@ -232,7 +233,7 @@ public sealed class TurnRunRecordTests : IDisposable
             ProposalTurn: SpecDialogShownTranscript.CardTurn(current.Transcript));
 
         var read = await new SpecDialogTurnProposals(harness.TurnProposals, composer,
-            new AgentSmith.Infrastructure.Persistence.Repositories.RunLivenessRepository(_context)).WithAsync(view, current, false, default, awaiting);
+            new AgentSmith.Infrastructure.Persistence.Repositories.RunLivenessRepository(_context)).WithAsync(view, current, false, default, latest.ProposalId);
 
         view.ProposalTurn.Should().BeNull("no reply's text holds a draft block");
         read.ProposalTurn.Should().Be(2, "the reply of run-2 kept the awaiting proposal; run-3 only answered");

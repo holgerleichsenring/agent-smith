@@ -11,10 +11,9 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// Keeps the proposal pane's state on the open session, so a page reloaded mid-conversation
 /// shows what is being decided and what was filed rather than an empty pane.
 /// <para>
-/// Not the confirmed-outcome handoff: that column means "approved and not fully filed", and
-/// this one means "what the pane shows". A write for a thread with no open session changes
-/// nothing — the pane has nowhere to show it, and the turn that proposed it must not fail
-/// for want of a record.
+/// A write for a thread with no open session changes nothing — the pane has nowhere to show it,
+/// and the turn that proposed it must not fail for want of a record. 2026-11-17-a0b6d: the
+/// proposals themselves are rows of their own; this reads them and writes only the filing.
 /// </para>
 /// <para>
 /// Nothing here may fail its caller, because its caller is the filing notice (2026-11-10-ccd9: the
@@ -34,9 +33,7 @@ public sealed class SpecDialogLatestOutcomeStore(
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         { Converters = { new TolerantNullableEnumConverter<FiledStartState>() } };
 
-    public Task SetFilingAsync(
-        string platform, string threadId, FilingReport report, OutcomeProposal filed,
-        CancellationToken ct) =>
+    public Task SetFilingAsync(string platform, string threadId, FilingReport report, OutcomeProposal filed, CancellationToken ct) =>
         UpdateOpenAsync(platform, threadId,
             session => session.LatestFilingJson = JsonSerializer.Serialize(
                 new SpecDialogFiling(report.Filed, report.Error, DateTimeOffset.UtcNow,
@@ -47,16 +44,15 @@ public sealed class SpecDialogLatestOutcomeStore(
         string platform, string threadId, CancellationToken ct)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
-        return session is null ? SpecDialogLatestOutcome.None : Of(session);
+        return session is null ? SpecDialogLatestOutcome.None : await OfAsync(session, ct);
     }
 
-    /// <summary>2026-09-22-9519: the same read, addressed by the SESSION row. Every other path here
-    /// is keyed by platform and thread and by the session being open, which a tool cannot use — it
-    /// holds a session id, and its conversation runs on the page or on chat.</summary>
+    /// <summary>2026-09-22-9519: the same read, addressed by the SESSION row — what a tool holds, whose conversation
+    /// runs on the page or on chat; every other path here is keyed by platform, thread and an open session.</summary>
     public async Task<SpecDialogLatestOutcome> ReadBySessionAsync(string sessionId, CancellationToken ct)
     {
         var session = await repository.GetBySessionIdAsync(sessionId, ct);
-        return session is null ? SpecDialogLatestOutcome.None : Of(session);
+        return session is null ? SpecDialogLatestOutcome.None : await OfAsync(session, ct);
     }
 
     /// <summary>Replaces the filing record on one session row — the WHOLE record, because the caller
@@ -65,19 +61,28 @@ public sealed class SpecDialogLatestOutcomeStore(
         UpdateAsync(() => repository.GetBySessionIdAsync(sessionId, ct),
             session => session.LatestFilingJson = JsonSerializer.Serialize(filing, JsonOptions), sessionId, ct);
 
-    /// <summary>
-    /// What a session holds, open or closed — the one reading of the two columns, used by the
-    /// view and by the conversation list alike. Forgiving for both: one unreadable row shows as
-    /// absent rather than failing the whole dialog read, or the whole list.
-    /// </summary>
-    /// <para>2026-11-10-ccd9: the awaiting proposal and its id; a row no build of ccd9 has touched yet still
-    /// shows its LatestProposalJson until a read backfills it.</para>
-    internal SpecDialogLatestOutcome Of(SpecDialogSession session) => new(
-        Readable(SpecDialogAwaitingRow.Json(session), OutcomeProposalJson.Read, session.ThreadId),
-        Readable(session.LatestFilingJson,
-            json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), session.ThreadId),
-        SpecDialogAwaitingRow.Id(session),
-        Readable(session.ReviewingProposalJson, OutcomeProposalJson.Read, session.ThreadId));
+    /// <summary>What a session holds, open or closed: its filing, the proposal awaiting a decision with its id and the
+    /// draft under review (2026-11-10-ccd9). One unreadable record shows as absent rather than failing the read.</summary>
+    private async Task<SpecDialogLatestOutcome> OfAsync(SpecDialogSession session, CancellationToken ct)
+    {
+        var awaiting = await repository.Proposals.AwaitingAsync(session.SessionId, ct);
+        var proposal = Readable(awaiting?.Json, OutcomeProposalJson.Read, session.ThreadId);
+        return new(proposal, FilingOf(session), awaiting?.Id,
+            Readable(await repository.Proposals.ReviewingAsync(session.SessionId, ct), OutcomeProposalJson.Read, session.ThreadId));
+    }
+
+    /// <summary>What each of <paramref name="sessions"/> holds, in one read — the conversation list's, with no draft.</summary>
+    internal async Task<IReadOnlyDictionary<string, SpecDialogLatestOutcome>> ListedAsync(
+        IReadOnlyList<SpecDialogSession> sessions, CancellationToken ct)
+    {
+        var awaiting = await repository.Proposals.AwaitingBySessionsAsync([.. sessions.Select(s => s.SessionId)], ct);
+        return sessions.ToDictionary(s => s.SessionId, s => new SpecDialogLatestOutcome(
+            Readable(awaiting.GetValueOrDefault(s.SessionId), OutcomeProposalJson.Read, s.ThreadId), FilingOf(s)), StringComparer.Ordinal);
+    }
+
+    /// <summary>The session's latest filing; null when none is, or it cannot be read.</summary>
+    internal SpecDialogFiling? FilingOf(SpecDialogSession session) =>
+        Readable(session.LatestFilingJson, json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), session.ThreadId);
 
     private T? Readable<T>(string? json, Func<string, T?> read, string? threadId) where T : class
     {

@@ -20,7 +20,7 @@ public enum SpecDialogDecided
 /// that is not the awaiting one decides nothing: the thread is told, and a chat thread is shown the current card
 /// again. Approve and reject each land as one compare-and-set, so a second decision on the same card — another
 /// replica, another surface — finds it gone.
-/// <para>Review fixes: a row from before the deploy is backfilled first; an approval the conversation's shape
+/// <para>Review fixes: an approval the conversation's shape
 /// refuses is told before anything is claimed, and one the sink refuses after the claim goes back to awaiting; a
 /// bare typed word never decides a proposal that carries open questions — its buttons do.</para>
 /// </summary>
@@ -39,7 +39,6 @@ public sealed class SpecDialogDecisionPath(
         ConversationState state, SpecDialogDecision decision, string? proposalId, bool mayStartRuns, CancellationToken ct,
         DateTimeOffset? sentAt = null)
     {
-        await proposals.BackfillAsync(state.Platform, state.ThreadId!, ct);
         var row = await proposals.ReadAsync(state, ct);
         var id = proposalId ?? await TypedInChatAsync(state, row.PostedId, row.PostedAt, sentAt, ct);
         // 2026-11-11-205fh: SEEN OR SAID — a typed word on a thread never shown the awaiting card gets the card posted.

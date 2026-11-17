@@ -59,7 +59,8 @@ public sealed class TicketGraphSinkTests : IDisposable
             && t.Contains("File a list of tickets from Work it out without a ticket, or make this one ticket's series.")),
             "th-1", It.IsAny<CancellationToken>()), Times.Once);
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
-        session!.ConfirmedOutcomeJson.Should().BeNull("nothing was confirmed for filing");
+        (await AgentSmith.Tests.TestSupport.StoredProposals.InStateAsync(_context, AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim.Filing))
+            .Should().BeNull("nothing was confirmed for filing");
         SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).Should()
             .Contain(t => t.Kind == SpecDialogTurnKind.Notice && t.Text.Contains("belongs to github-12"));
     }

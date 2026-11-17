@@ -135,11 +135,12 @@ internal sealed class ContinuationHarness : IDisposable
     /// <summary>The bound conversation with its open proposal and the ticket text it recorded.</summary>
     public async Task BindAsync(OutcomeProposal? proposal)
     {
-        await AddAsync(TicketConversationFixtures.Session(proposal), new SpecDialogTicketText
+        await AddAsync(TicketConversationFixtures.Session(), new SpecDialogTicketText
         {
             SessionId = SessionId, TicketId = TicketId, Title = "Widget drops", Text = "Title: Widget drops",
             Fingerprint = "fp", ReadAt = TicketStoreHarness.T,
         });
+        if (proposal is not null) await AddAsync(TicketConversationFixtures.Awaiting(proposal));
     }
 
     /// <summary>A worked attempt that published a cut of <paramref name="specs"/>, with the pointer naming what ran.</summary>
@@ -163,18 +164,18 @@ internal sealed class ContinuationHarness : IDisposable
     public async Task<string?> OpenProposalJsonAsync()
     {
         await using var ctx = new AgentSmithDbContext(Options());
-        return SpecDialogAwaitingRow.Json(await ctx.Set<SpecDialogSession>().SingleAsync(s => s.SessionId == SessionId));
+        return await ctx.Set<SpecDialogProposal>().Where(p => p.SessionId == SessionId && p.State == SpecDialogProposalClaim.Awaiting)
+            .Select(p => p.ProposalJson).SingleOrDefaultAsync();
     }
 
     /// <summary>2026-11-10-ccd9 review: an approve or reject decided as a person decides it — through the decision
-    /// path, on the id of the card the page showed (a fixture row from before the deploy is backfilled first).</summary>
+    /// path, on the id of the card the page showed.</summary>
     public Task<SpecDialogDecided> DecideAsync(SpecDialogDecision decision, bool mayStartRuns = false) => InScopeAsync(async sp =>
     {
         var sessions = sp.GetRequiredService<SpecDialogSessionRepository>();
         var proposals = new SpecDialogProposalState(
             sp.GetRequiredService<SpecDialogProposalClaim>(), sessions, sp.GetRequiredService<BoundSessionNudge>(),
             sp.GetRequiredService<SpecDialogConfirmedSlot>());
-        await proposals.BackfillAsync(State().Platform, Thread, default);
         var id = (await proposals.ReadAsync(State(), default)).AwaitingId;
         var (messenger, composer) = (sp.GetRequiredService<SpecDialogMessenger>(), sp.GetRequiredService<SpecDialogOutcomeComposer>());
         var cards = new SpecDialogChatCard(new AgentSmith.Server.Services.Adapters.ChatThreadAdapters([],

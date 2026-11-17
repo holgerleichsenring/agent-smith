@@ -68,9 +68,9 @@ public sealed class TicketCommentOutcomeTests : IDisposable
         (await _h.DecideAsync(SpecDialogDecision.Approved)).Should().Be(SpecDialogDecided.Decided);
 
         var row = await _h.InScopeAsync(sp => ((AgentSmith.Infrastructure.Persistence.AgentSmithDbContext)sp.GetRequiredService<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>())
-            .Set<AgentSmith.Infrastructure.Persistence.Entities.SpecDialogSession>()
+            .Set<AgentSmith.Infrastructure.Persistence.Entities.SpecDialogProposal>()
             .SingleAsync(x => x.SessionId == ContinuationHarness.SessionId));
-        (row.ConfirmedOutcomeJson, row.ConfirmedProposalId).Should().Be(((string?)null, (string?)null),
+        row.State.Should().Be(AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim.Filed,
             "205fe review: an acted continuation clears its own slot, as a filing does");
     }
 

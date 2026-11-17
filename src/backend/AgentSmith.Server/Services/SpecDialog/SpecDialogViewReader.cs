@@ -13,13 +13,13 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <para>
 /// 2026-11-10-ccd9: the approval card is built from the ROW — the proposal awaiting a decision and its
 /// id — so it is there after a restart and on every replica, and it never expires. A draft under review
-/// is returned beside it and never as the card. A row from before the deploy is given its id first.
+/// is returned beside it and never as the card.
 /// </para>
 /// </summary>
 public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
-    SpecDialogProposalState proposals, SpecDialogChatCard cards,
+    SpecDialogChatCard cards,
     SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns, SpecDialogHoldings holdings,
     SpecDialogTurnProposals? turnProposals = null) // 2026-11-10-d854c: each turn's own proposal
 {
@@ -30,7 +30,6 @@ public sealed class SpecDialogViewReader(
     {
         var state = await sessions.GetOpenByThreadAsync(Platform, dialogId, cancellationToken);
         if (state is null) return new SpecDialogView(dialogId, null, projects.All(), null, SpecDialogTurnLivenessView.Idle);
-        await proposals.BackfillAsync(Platform, dialogId, cancellationToken);
         var latest = await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
         var waiting = Waiting(dialogId, state);
         // 2026-10-08-e8b9g: images and sets with whether an approval cites them, and the bytes held.
@@ -40,7 +39,7 @@ public sealed class SpecDialogViewReader(
         return new SpecDialogView(
             dialogId,
             turnProposals is null ? session
-                : await turnProposals.WithAsync(session, state, turns.Liveness(state.JobId).Computing, cancellationToken, latest.Proposal),
+                : await turnProposals.WithAsync(session, state, turns.Liveness(state.JobId).Computing, cancellationToken, latest.ProposalId),
             projects.All(),
             waiting ?? Approval(dialogId, state, latest),
             waiting is not null ? SpecDialogTurnLivenessView.Idle : turns.Liveness(state.JobId));

@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Entities;
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Resume;
@@ -41,7 +42,8 @@ internal static class SpecNamedStoreAssertions
             checkpoint.RemainingCommandsJson, checkpoint.ContextJson,
             (await db.QueuedTickets.AsNoTracking().SingleAsync()).InitialContextJson,
             (await db.ApprovedSeries.AsNoTracking().SingleAsync()).ContentJson,
-            session.TranscriptJson, session.LatestProposalJson, session.ConfirmedOutcomeJson, session.LatestFilingJson,
+            session.TranscriptJson, session.LatestFilingJson,
+            .. await db.Set<SpecDialogProposal>().AsNoTracking().OrderBy(p => p.Id).Select(p => p.ProposalJson).ToListAsync(),
             .. events.Select(e => e.Type + e.PayloadJson),
             .. await db.RunArtifacts.AsNoTracking().Select(a => a.Kind).ToListAsync(),
             .. await db.RunSteps.AsNoTracking().Select(s => s.CommandName).ToListAsync(),
@@ -99,9 +101,10 @@ internal static class SpecNamedStoreAssertions
     private static async Task ReadsDialogAsync(AgentSmithDbContext db)
     {
         var session = await db.SpecDialogSessions.AsNoTracking().SingleAsync();
-        OutcomeProposalJson.Read(session.LatestProposalJson!).Should().BeEquivalentTo(
+        var proposals = await db.Set<SpecDialogProposal>().AsNoTracking().OrderBy(p => p.Id).Select(p => p.ProposalJson).ToListAsync();
+        OutcomeProposalJson.Read(proposals[0]).Should().BeEquivalentTo(
             new SpecOutcome(OldShapeJson.Draft) { Findings = [new ProposalFinding("s1", "p", "w")] });
-        OutcomeProposalJson.Read(session.ConfirmedOutcomeJson!).Should().BeOfType<EpicOutcome>()
+        OutcomeProposalJson.Read(proposals[1]).Should().BeOfType<EpicOutcome>()
             .Which.Children.Single().SpecId.Should().Be("s2");
         SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).Single().Kind.Should().Be(SpecDialogTurnKind.SpecProposal);
         session.LatestFilingJson.Should().Contain("\"kind\":\"spec\"");
