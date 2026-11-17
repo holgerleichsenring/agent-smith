@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-2772
+goal: "The home composer's project picker sits in the composer's bottom row, right of the plus and left of send, plain and compact; the text field starts flush with the composer's padding."
+
+applies_to: "dashboard (components/dialog/DialogComposer, components/home/HomeComposer, styles/home.css)"
+
+requires: [2026-11-17-d6fba]
+
+facts:
+  - claim: "HomeComposer passes the project picker as DialogComposer's actions, which render on their own row above the text field."
+    evidence: "src/dashboard/src/components/home/HomeComposer.tsx:42-53, src/dashboard/src/components/dialog/DialogComposer.tsx:159"
+  - claim: "DialogComposer draws the plus, the text field and send in ONE row, so the text field starts right of the plus."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:160-258"
+  - claim: "Work it out passes its decision bar (File, Discard) as actions and has no project picker in the composer; the ticket composer passes no actions."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:437-457, src/dashboard/src/components/tickets/detail/TicketComposer.tsx:105-116"
+
+scope:
+  in: "A DialogComposer slot for controls right of the plus; a composer given it lays out text field on top, then plus, the controls, and send at the right. HomeComposer puts its project picker (select, single name, or the reading/failed/no-project note) there; the files note stays above the text field. Plain, 34px-high picker styling; flush text field."
+  out: "Work it out and the ticket composer: neither has a picker, both keep their layout. Project list, default and hand-over behaviour."
+
+steps:
+  - id: slot
+    action: "DialogComposer takes `tools?: ReactNode`; given, the text field fills its own row and the row under it holds the plus, the tools, a spacer and send. Without it nothing changes."
+  - id: home
+    action: "HomeComposer passes ProjectPick as tools and only the files note as actions; the select keeps aria-label Project."
+  - id: style
+    action: "home.css: the text field has no inner padding; the picker is borderless, transparent, 34px high (the plus), at most 240px wide with an ellipsis, with a drawn chevron and a focus-visible ring; the row lets a long note shrink rather than push send off a narrow screen."
+  - id: tests
+    action: "HomeView test: the bottom row's order is attach, project, send; sending carries the chosen project. DialogComposer test: tools render between attach and send, and without tools the text field still sits between them."
+
+tests:
+  - "HomeView.test.tsx: order attach < project < send in document order and inside one row; send hands over the picked project."
+  - "DialogComposer.test.tsx: tools slot placement and the unchanged default layout."
+
+done:
+  - "On / the project picker sits between the plus and send; the placeholder starts at the composer's left padding."
+  - "Work it out and the ticket composer render as before."
+  - "pnpm test and pnpm build in src/dashboard are green."

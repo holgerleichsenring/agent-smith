@@ -11,9 +11,17 @@
 
 .mock-home .home-composer { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
 .mock-home .home-composer .d-foot { padding: 12px 14px; border-top: 0; }
-.mock-home .home-composer textarea.d-input { border: 0; background: transparent; font-size: 15px; line-height: 22px; min-height: 66px; resize: none; box-shadow: none; }
-.mock-home .home-composer-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
-.mock-home .home-project { font: inherit; font-size: 13px; min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); display: inline-flex; align-items: center; }
+.mock-home .home-composer textarea.d-input { border: 0; background: transparent; font-size: 15px; line-height: 22px; min-height: 66px; padding: 0; resize: none; box-shadow: none; }
+/* 2026-11-17-2772: plus, project, send in one row under the text field. The picker is plain text at the plus's height:
+   no fill, no frame, a drawn chevron; a long note or name shrinks before send leaves the row. */
+.mock-home .home-composer .d-tools { margin-top: 8px; font-size: 13px; }
+.mock-home .home-composer .d-tools > .home-dim, .mock-home .home-composer .d-tools > .home-project { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-home .home-project { font: inherit; font-size: 13px; height: 34px; line-height: 34px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); max-width: 240px; }
+.mock-home .home-project-pick { position: relative; display: inline-flex; align-items: center; min-width: 0; }
+.mock-home .home-project-pick select.home-project { appearance: none; -webkit-appearance: none; padding-right: 22px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-home .home-project-pick::after { content: ""; position: absolute; right: 8px; top: 50%; width: 5px; height: 5px; margin-top: -4px; border-right: 1.4px solid var(--ink-3); border-bottom: 1.4px solid var(--ink-3); transform: rotate(45deg); pointer-events: none; }
+.mock-home .home-project-pick select.home-project:hover { color: var(--ink); background: var(--line-2); }
+.mock-home .home-project-pick select.home-project:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-wash); color: var(--ink); }
 .mock-home .home-files { color: var(--ink-2); display: inline-flex; gap: 8px; align-items: baseline; }
 .mock-home .home-link { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .mock-home .home-dim { color: var(--ink-3); }
