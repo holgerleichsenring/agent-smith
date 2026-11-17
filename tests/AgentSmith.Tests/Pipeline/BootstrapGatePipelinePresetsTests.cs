@@ -5,42 +5,40 @@ namespace AgentSmith.Tests.Pipeline;
 
 /// <summary>
 /// p0130a: BootstrapCheck + BootstrapGate insertion into code-touching presets.
-/// Strict: FixBug, FixNoTest, AddFeature, SecurityScan, Autonomous (gate active).
-/// Conditional: ApiSecurityScan (gate honors source_available; runtime decision in BootstrapGateHandler).
-/// None: MadDiscussion, LegalAnalysis, InitProject, SkillManager (no gate).
+/// 2026-11-16-f3fba: code, spec-derive, pr-review and security-scan read the bootstrap on the host in
+/// RunConfigPreflight, before CheckoutSource, and carry neither step any more. Conditional:
+/// ApiSecurityScan keeps both (its source is optional, decided at checkout).
+/// None: MadDiscussion, LegalAnalysis, InitProject (no gate).
 /// </summary>
 public sealed class BootstrapGatePipelinePresetsTests
 {
-    public static TheoryData<string, IReadOnlyList<string>> StrictPresets => new()
+    public static TheoryData<string, IReadOnlyList<string>> PreflightPresets => new()
     {
         { "code", PipelinePresets.Code },
-        { "code", PipelinePresets.Code },
-        { "code", PipelinePresets.Code },
+        { "spec-derive", PipelinePresets.SpecDerive },
+        { "pr-review", PipelinePresets.PrReview },
         { "security-scan", PipelinePresets.SecurityScan },
     };
 
-    [Theory, MemberData(nameof(StrictPresets))]
-    public void StrictPreset_ContainsBootstrapCheckImmediatelyFollowedByBootstrapGate(
-        string _, IReadOnlyList<string> preset)
-    {
-        var checkIndex = preset.ToList().IndexOf(CommandNames.BootstrapCheck);
-        checkIndex.Should().BeGreaterThan(0,
-            "BootstrapCheck must appear in strict preset");
-        preset[checkIndex + 1].Should().Be(CommandNames.BootstrapGate,
-            "BootstrapGate must immediately follow BootstrapCheck so policy reads the just-published concepts");
-    }
-
-    [Theory, MemberData(nameof(StrictPresets))]
-    public void StrictPreset_BootstrapGateRunsBeforeLoadStepsAndBootstrapProject(
+    [Theory, MemberData(nameof(PreflightPresets))]
+    public void Preset_RunConfigPreflightBeforeCheckoutSource_NoBootstrapGate(
         string _, IReadOnlyList<string> preset)
     {
         var list = preset.ToList();
-        var gateIndex = list.IndexOf(CommandNames.BootstrapGate);
-        gateIndex.Should().BeGreaterThan(0);
+        var configIndex = list.IndexOf(CommandNames.RunConfigPreflight);
 
-        // Each Load*-step (when present) must run AFTER the gate so missing files
-        // get the structured "run init-project first" message instead of failing
-        // somewhere downstream.
+        configIndex.Should().BeGreaterThan(0, "the config preflight runs in every preset that needs a bootstrap");
+        configIndex.Should().BeLessThan(list.IndexOf(CommandNames.CheckoutSource),
+            "it runs before the first sandbox");
+        list.Should().NotContain(CommandNames.BootstrapGate).And.NotContain(CommandNames.BootstrapCheck);
+    }
+
+    [Theory, MemberData(nameof(PreflightPresets))]
+    public void Preset_RunConfigPreflightBeforeLoadSteps(string _, IReadOnlyList<string> preset)
+    {
+        var list = preset.ToList();
+        var configIndex = list.IndexOf(CommandNames.RunConfigPreflight);
+
         foreach (var loadStep in new[] {
             CommandNames.LoadContext, CommandNames.LoadCodingPrinciples,
             CommandNames.LoadCodeMap, CommandNames.BootstrapProject
@@ -48,8 +46,18 @@ public sealed class BootstrapGatePipelinePresetsTests
         {
             var loadIndex = list.IndexOf(loadStep);
             if (loadIndex >= 0)
-                loadIndex.Should().BeGreaterThan(gateIndex,
-                    $"{loadStep} must run after BootstrapGate");
+                loadIndex.Should().BeGreaterThan(configIndex, $"{loadStep} must run after the bootstrap is proven");
+        }
+    }
+
+    [Fact]
+    public void CodeAndSpecDerive_RunConfigPreflightAfterScopeRepos_RunPreflightAfterCheckout()
+    {
+        foreach (var preset in new[] { PipelinePresets.Code, PipelinePresets.SpecDerive })
+        {
+            var list = preset.ToList();
+            list.IndexOf(CommandNames.RunConfigPreflight).Should().Be(list.IndexOf(CommandNames.ScopeRepos) + 1);
+            list.IndexOf(CommandNames.RunPreflight).Should().Be(list.IndexOf(CommandNames.CheckoutSource) + 1);
         }
     }
 

@@ -28,6 +28,7 @@ public sealed class SettingsRoundTripTests
             "pipeline_data_flow", "role_mapping", "trace",
             "spec_review", // 2026-10-13-8762g
             "series", // 2026-10-13-8762u
+            "preconditions", // 2026-11-16-f3fbc
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }

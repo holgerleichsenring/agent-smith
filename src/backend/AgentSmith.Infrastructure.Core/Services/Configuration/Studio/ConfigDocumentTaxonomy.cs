@@ -34,7 +34,9 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Singleton(ConfigDocTypes.PipelineDataFlow, r => r.PipelineDataFlow,
             (r, v) => r.PipelineDataFlow = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Deployment, r => r.Deployment, (r, v) => r.Deployment = v),
-        ConfigDocDescriptor.Singleton(ConfigDocTypes.Sandbox, r => r.Sandbox, (r, v) => r.Sandbox = v),
+        // 2026-11-16-f3fbd: a stored, saved or imported sandbox block folds the retired library switch.
+        ConfigDocDescriptor.Singleton(ConfigDocTypes.Sandbox, r => new LegacyDockerHubLibraryMigration().Apply(r.Sandbox),
+            (r, v) => r.Sandbox = new LegacyDockerHubLibraryMigration().Apply(v)),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Orchestrator, r => r.Orchestrator, (r, v) => r.Orchestrator = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Dialogue, r => r.Dialogue, (r, v) => r.Dialogue = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Persistence, r => r.Persistence, (r, v) => r.Persistence = v),
@@ -45,6 +47,7 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Trace, r => r.Trace, (r, v) => r.Trace = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.SpecReview, r => r.SpecReview, (r, v) => r.SpecReview = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Series, r => r.Series, (r, v) => r.Series = v),
+        ConfigDocDescriptor.Singleton(ConfigDocTypes.Preconditions, r => r.Preconditions, (r, v) => r.Preconditions = v),
         // 2026-08-25-1806: the role mapping is a singleton doc like any other, which is
         // what gives it the studio form, the attributed change row and the live epoch
         // without a second mechanism being written for it.

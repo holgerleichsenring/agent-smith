@@ -27,7 +27,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
                 && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
                 && (excludingRunId == null || r.Id != excludingRunId))
             .OrderByDescending(r => r.Id)
-            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt, r.CancelReason })
+            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt, r.CancelReason, r.EndKind, r.EndDetailJson })
             .FirstOrDefaultAsync(cancellationToken);
         if (run is null) return null;
         // 2026-10-13-9a59n: the Retry a person asked of this attempt, a row of the run.
@@ -39,6 +39,11 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             RetryRequestedAt = retry?.RequestedAt,
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
             ActsReadAt = run.ActsReadAt,
+            // 2026-11-16-f3fbb: a failed end a precondition decided holds the ticket until it holds or a person starts it.
+            StoppedOnPrecondition = run.FinishedAt is not null && run.Status == RunStatuses.Failed
+                && RunEndKinds.IsPrecondition(run.EndKind),
+            EndKind = run.EndKind,
+            EndDetail = EndDetailJson.Read(run.EndDetailJson),
             // 2026-10-13-8762g: the RunSpec read only when the end is one a boundary can be.
             StoppedAtBoundary = run.FinishedAt is not null && SeriesBoundaryEnd.Ends(run.Status, run.CancelReason)
                 && await uow.Set<RunSpec>().AnyAsync(s => s.RunId == run.Id && s.Status == RunSeriesCutProjection.NotStarted, cancellationToken),

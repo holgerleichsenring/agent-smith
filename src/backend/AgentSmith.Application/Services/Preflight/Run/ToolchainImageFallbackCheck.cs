@@ -1,10 +1,11 @@
-using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Preflight.Run;
 
@@ -19,8 +20,14 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// repository without a language legitimately runs on that image. A context whose own image was
 /// refused is the context-image-trust check's to report.
 /// </para>
+/// <para>
+/// 2026-11-16-f3fba: decided before any sandbox, from the chain's decision for each context the
+/// sandboxes will be started for (<see cref="RunContextInventory"/>); a backend that spawns no
+/// containers runs the host's toolchain and is never judged.
+/// </para>
 /// </summary>
-public sealed class ToolchainImageFallbackCheck(SandboxImageChain chain) : IRunPreflightCheck
+public sealed class ToolchainImageFallbackCheck(
+    SandboxImageChain chain, RunContextInventory inventory, SandboxContainerRuntime runtime) : IRunPreflightCheck
 {
     private const string Lever =
         "merge the branch that carries .agentsmith/contexts/ (an open init pull request) into the default "
@@ -34,46 +41,49 @@ public sealed class ToolchainImageFallbackCheck(SandboxImageChain chain) : IRunP
 
     public string Name => "toolchain-image";
 
-    public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
+    public bool NeedsSandbox => false;
+
+    public async Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        var fellBack = FellBack(pipeline);
-        var blocking = fellBack.Where(s => s.Declares).Select(s => s.Line).ToList();
+        if (!runtime.SpawnsContainers)
+            return RunPreflightFinding.Pass(Name, "the sandbox backend runs on the host's own toolchain");
+        var fellBack = FellBack(pipeline, await inventory.ReadAsync(pipeline, cancellationToken));
+        var blocking = fellBack.Where(s => s.Declares).ToList();
         if (blocking.Count > 0)
-            return Task.FromResult(RunPreflightFinding.Fail(Name,
+            return RunPreflightFinding.Fail(Name,
                 $"the generic image '{SandboxImageChain.GenericFallbackImage}' carries git and no language "
                 + "toolchain, and these contexts declare verify stages it cannot run — "
-                + string.Join("; ", blocking), BlockingLever));
-        return Task.FromResult(fellBack.Count == 0
+                + string.Join("; ", blocking.Select(s => s.Line)), BlockingLever) with { Detail = DetailOf(blocking[0]) };
+        return fellBack.Count == 0
             ? RunPreflightFinding.Pass(Name, "every sandbox runs a toolchain image chosen for it")
             : RunPreflightFinding.Warn(Name,
                 $"the generic image '{SandboxImageChain.GenericFallbackImage}' carries git and no language "
                 + "toolchain, so nothing can be built or tested in it — "
-                + string.Join("; ", fellBack.Select(s => s.Line)), Lever));
+                + string.Join("; ", fellBack.Select(s => s.Line)), Lever);
     }
 
-    private List<(string Line, bool Declares)> FellBack(PipelineContext pipeline)
+    // The key the operator sets and the value it expects: an image for the context's language.
+    private static EndDetail DetailOf(FallenBackContext context) =>
+        new($"Context {context.Context} (lang {context.Language ?? "none"})", [context.Repo],
+            context.Language is null ? "sandbox.toolchain_image" : $"sandbox.images.{context.Language}",
+            "an image that carries the toolchain its verify stages call", "/config/projects");
+
+    private List<FallenBackContext> FellBack(
+        PipelineContext pipeline, IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> byRepo)
     {
         var project = pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var p) && p is not null
             ? p : new ResolvedProject();
-        var discoveries = pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
-            ContextKeys.SandboxDiscoveries, out var d) ? d : null;
-        var found = new List<(string Line, bool Declares)>();
-        foreach (var key in Images(pipeline)
-                     .Where(kv => kv.Value == SandboxImageChain.GenericFallbackImage).Select(kv => kv.Key))
+        var found = new List<FallenBackContext>();
+        foreach (var (repo, contexts) in byRepo)
         {
-            var contexts = SandboxContextList.InOr(pipeline, key, discoveries?.GetValueOrDefault(key));
-            if (contexts.Count == 0) found.Add(($"sandbox '{key}': no context was resolved for it", false));
+            if (contexts.Count == 0) found.Add(new FallenBackContext(repo, "-", null, $"repo '{repo}': no context was resolved for it", false));
             found.AddRange(contexts
                 .Where(c => chain.Decide(project, c.Language, c.ToolchainImage).FellThrough)
-                .Select(c => ($"sandbox '{key}': {Why(c)}", c.Verify is { Count: > 0 })));
+                .Select(c => new FallenBackContext(repo, c.ContextName, c.Language, $"repo '{repo}': {Why(c)}", c.Verify is { Count: > 0 })));
         }
         return found;
     }
-
-    private static IReadOnlyDictionary<string, string> Images(PipelineContext pipeline) =>
-        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxImages, out var images)
-        && images is not null ? images : new Dictionary<string, string>();
 
     private static string Why(RemoteContextDiscovery discovery) => discovery switch
     {

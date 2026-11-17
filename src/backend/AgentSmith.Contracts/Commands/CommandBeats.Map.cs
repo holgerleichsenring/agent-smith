@@ -20,6 +20,7 @@ public static partial class CommandBeats
             [CommandNames.ScopeRepos] = RunBeat.Ticket,
             [CommandNames.CheckoutSource] = RunBeat.Ticket,
             [CommandNames.TryCheckoutSource] = RunBeat.Ticket,
+            [CommandNames.RunConfigPreflight] = RunBeat.Ticket, // 2026-11-16-f3fba
             [CommandNames.RunPreflight] = RunBeat.Ticket, // p0428
             [CommandNames.SetupRegistryAuth] = RunBeat.Ticket,
             [CommandNames.EnsurePrerequisites] = RunBeat.Ticket,

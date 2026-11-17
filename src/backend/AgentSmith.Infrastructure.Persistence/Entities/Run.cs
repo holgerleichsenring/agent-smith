@@ -30,6 +30,9 @@ public sealed class Run : EntityBase
     // 2026-10-16-86e6a: the RunFinishedEvent's EndKind — why the run ended, as its producer classified it.
     // Null on older rows and on ends no producer classified.
     public string? EndKind { get; set; }
+    // 2026-11-16-f3fba: the RunFinishedEvent's EndDetail as JSON (EndDetailJson) — the refusal's subject and
+    // the setting that lifts it. Null on older rows and on ends that named none.
+    public string? EndDetailJson { get; set; }
     public decimal CostTotalUsd { get; set; }
     public long TokensIn { get; set; }
     public long TokensOut { get; set; }

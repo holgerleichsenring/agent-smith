@@ -90,7 +90,7 @@ public sealed class PipelineSandboxCoordinator(
                     : await sandboxLanguageResolver.ResolveAllAsync(repo, readBranches, cancellationToken);
             // The `--context NAME` override already pinned a single context — leave it.
             if (contextOverride is null)
-                discoveries = ApplyScopedContexts(discoveries, repo.Name, scopedContexts);
+                discoveries = Scope.ScopedContextFilter.Apply(discoveries, repo.Name, scopedContexts);
             // p0336c: group by RESOLVED toolchain IMAGE only (was image+resources).
             // Same-image contexts of one repo build SEQUENTIALLY under the single
             // agentic loop, so splitting them into separate pods by declared
@@ -188,21 +188,6 @@ public sealed class PipelineSandboxCoordinator(
     {
         if (string.IsNullOrEmpty(_runId)) return;
         livenessSupervisor.Watch(_runId!, sandboxKey, sandbox);
-    }
-
-    // p0336b: keep only the contexts scoping left for this repo. No entry for the
-    // repo (or no scoping at all) keeps ALL contexts; a filter that would empty the
-    // repo is ignored (never provision zero sandboxes for a kept repo).
-    private static IReadOnlyList<RemoteContextDiscovery> ApplyScopedContexts(
-        IReadOnlyList<RemoteContextDiscovery> discoveries, string? repoName,
-        IReadOnlyDictionary<string, IReadOnlyList<string>>? scopedContexts)
-    {
-        if (scopedContexts is null
-            || !scopedContexts.TryGetValue(repoName ?? string.Empty, out var kept))
-            return discoveries;
-        var filtered = discoveries
-            .Where(d => kept.Contains(d.ContextName, StringComparer.OrdinalIgnoreCase)).ToList();
-        return filtered.Count == 0 ? discoveries : filtered;
     }
 
     // p0268: guarantee the composed key is unique within this run. Context names are

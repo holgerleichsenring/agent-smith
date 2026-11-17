@@ -153,7 +153,7 @@ public sealed class WriteContextYamlToolHostTests
 
         result.Should().StartWith("context.yaml written:");
         result.Should().Contain("outside the trusted image registries")
-            .And.Contain("'sbtscala/'").And.Contain("sandbox.allowed_registries")
+            .And.Contain("'docker.io/sbtscala/'").And.Contain("sandbox.allowed_registries")
             .And.Contain("never one that lacks it");
         sut.Outcome.Written.Should().BeTrue();
         sut.Outcome.ImageRefusal!.Image.Should().StartWith("sbtscala/scala-sbt:");

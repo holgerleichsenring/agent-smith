@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-f3fbb
+goal: "A ticket whose attempt stopped on a precondition stays Stuck with its tracker status unchanged, and no automatic claim takes it up again."
+
+applies_to: "default (failure finalization, previous attempt, BoundaryStopGate, ticket bucket)"
+
+requires: [2026-11-16-f3fba]
+
+facts:
+  - claim: "Failure finalization moves the ticket to FailedStatus, falling back to DoneStatus; only spec-derive is exempt. On the reporting installation FailedStatus 'Failed' is not a state of the process, so a precondition stop moved ticket 19632 to Resolved and out of its trigger statuses."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:154-178, observed: 2026-11-16, tracker config DoneStatus Resolved, FailedStatus Failed, TriggerStatuses New, Active, PR-Review"
+  - claim: "A comment-only ticket write already exists in the error handler."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:120-136"
+  - claim: "BoundaryStopGate refuses a code claim from a flag PreviousAttempt derives off the Run row and admits starts by name and series auto-starts."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/BoundaryStopGate.cs:13-32, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:32, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:43"
+  - claim: "A person's start (conversation reply, approval, keyword comment) ends in ReworkLaunch through ChatTicketRunLauncher with RequestedByName set, which BoundaryStopGate admits."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:34-37, src/backend/AgentSmith.Server/Services/Rework/ReworkLaunch.cs:20"
+  - claim: "On ticket 19632 three attempts after a precondition stop had cause retrigger: a claim with a previous attempt and no act."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:43, observed: 2026-11-16, RunAttempts.CauseChannel"
+  - claim: "Stuck is decided by a 24-hour between-attempts check, so a precondition stop falls back to Failed after a day."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketStuckRule.cs:18-20, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:60-68"
+
+scope:
+  in: "RunEndKinds.Preconditions = {preflight, image-untrusted, bootstrap-missing}; the error handler's comment-only path for them; PreviousAttempt.StoppedOnPrecondition; BoundaryStopGate also refusing on it; the Stuck arm in TicketBucketRule.Ended."
+  out: "A new gate: the existing BoundaryStopGate reads the same row with the same admit list. The lifecycle label: the attempt still ends Failed with agent-smith:failed, which says what happened to the attempt. readiness-unknown: an infrastructure end with Retry, not held. Release: f3fbc."
+
+steps:
+  - id: finalize
+    action: "PipelineErrorHandler, for an end kind in RunEndKinds.Preconditions, posts the refusal through PostTicketStatusAsync (comment only) instead of FinalizeAsync, so no status moves and no unmoved record is written."
+  - id: attempt
+    action: "DbPreviousAttemptReader sets PreviousAttempt.StoppedOnPrecondition when the newest code run finished Failed with an end kind in Preconditions."
+  - id: gate
+    action: "BoundaryStopGate also refuses a code claim whose previous attempt StoppedOnPrecondition, reason TicketStuckOnPrecondition, sentence 'This ticket stopped on a precondition: <EndDetail headline>. It starts by itself once that holds, or when you reply.' Its admit list is unchanged, so a person's start and a release run."
+  - id: bucket
+    action: "TicketBucketRule.Ended returns Stuck when the newest attempt is Failed with an end kind in Preconditions, before the 24-hour flag."
+
+tests:
+  - "PipelineErrorHandlerTests: each precondition kind comments and moves nothing; other failures move as today"
+  - "DbPreviousAttemptReader: StoppedOnPrecondition per kind"
+  - "BoundaryStopGateTests: retrigger refused with the sentence; by name and series admitted; boundary behaviour unchanged"
+  - "TicketBucketRuleTests: precondition stop is Stuck after 24 hours too"
+
+done:
+  - "After a precondition stop the ticket keeps its tracker status, shows Stuck with the value to set, and no poll or webhook starts it again; a reply starts it."

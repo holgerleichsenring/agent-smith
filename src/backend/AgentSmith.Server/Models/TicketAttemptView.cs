@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Events;
 using RunPullRequestView = AgentSmith.Contracts.Runs.RunPullRequestView;
 
@@ -17,6 +18,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="Summary">2026-10-16-86e6a: the run's own end text, verbatim; null while it has none.</param>
 /// <param name="EndKind">2026-10-16-86e6a: why it ended, as its producer recorded it (RunEndKinds); null when
 /// no producer classified the end.</param>
+/// <param name="EndDetail">2026-11-16-f3fba: the refusal's subject and the setting that lifts it; null when the
+/// end named none.</param>
 public sealed record TicketAttemptView(
     int Number,
     string RunId,
@@ -32,4 +35,5 @@ public sealed record TicketAttemptView(
     AttemptCause? Cause = null,
     TicketAttemptRevisionView? Revision = null,
     string? Summary = null,
-    string? EndKind = null);
+    string? EndKind = null,
+    EndDetail? EndDetail = null);

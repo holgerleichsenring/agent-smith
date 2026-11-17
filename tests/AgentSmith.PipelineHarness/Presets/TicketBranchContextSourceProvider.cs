@@ -32,8 +32,14 @@ internal sealed class TicketBranchContextSourceProvider(string ticketBranch, str
         string path, BranchName branch, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>(branch.Value == ticketBranch && path == Contexts ? ["default"] : []);
 
+    // 2026-11-16-f3fba: the branch carries the whole bootstrap, so the host-read preflight finds it ready.
     public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
-        Task.FromResult(branch.Value == ticketBranch && path == $"{Contexts}/default/context.yaml" ? contextYaml : null);
+        Task.FromResult(branch.Value != ticketBranch ? null : path switch
+        {
+            $"{Contexts}/default/context.yaml" => contextYaml,
+            $"{Contexts}/default/principles.md" => "# Principles\n",
+            _ => null,
+        });
 
     public Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
         path == Contexts ? Task.FromResult<IReadOnlyList<string>>([]) : _inner.ListDirectoryAsync(path, cancellationToken);

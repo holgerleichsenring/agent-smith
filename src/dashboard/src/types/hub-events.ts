@@ -88,6 +88,26 @@ export interface RunFinishedEvent extends RunEventBase {
   costUsd: number | null;
   /** 2026-10-16-86e6a: why the run ended, as its producer recorded it; absent when unclassified. */
   endKind?: string | null;
+  /** 2026-11-16-f3fba: the refusal's subject and the setting that lifts it; absent when none was named. */
+  endDetail?: EndDetail | null;
+}
+
+/** 2026-11-16-f3fba: what a refusal is about and the setting that lifts it (the server's EndDetail). */
+export interface EndDetail {
+  /** What the refusal is about, e.g. "Image node:22-bookworm (context default)". */
+  subject: string;
+  /** The repositories it concerns; empty when none in particular. */
+  repos: string[];
+  /** The setting to change, as the settings page names it; null when no setting helps. */
+  control: string | null;
+  /** The value that lifts the refusal; null when no setting helps. */
+  setTo: string | null;
+  /** The dashboard page that holds the control; null when there is none. */
+  settingsPath: string | null;
+  /** 2026-11-16-f3fbc: the run's branch a bootstrap read covered; absent or null when it had none. */
+  branch?: string | null;
+  /** 2026-11-16-f3fbc: the parent ticket a slice's base was read from; absent or null for every other run. */
+  parentTicketId?: string | null;
 }
 
 export interface SandboxCreatedEvent extends RunEventBase {

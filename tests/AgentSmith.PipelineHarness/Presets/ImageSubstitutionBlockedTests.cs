@@ -38,7 +38,7 @@ public sealed class ImageSubstitutionBlockedTests
 
         result.IsSuccess.Should().BeFalse("the run must not work in an image substituted for the declared one");
         result.Message.Should().Contain("Preflight failed").And.Contain("context-image-trust")
-            .And.Contain(RefusedImage).And.Contain("'sbtscala/'").And.Contain("Trusted image registries");
+            .And.Contain(RefusedImage).And.Contain("'docker.io/sbtscala/'").And.Contain("Trusted image registries");
         harness.ChatClient.InvocationCount.Should().BeLessThanOrEqualTo(1,
             "at most the scope classifier spoke; no analyzer and no master ran past the preflight");
     }

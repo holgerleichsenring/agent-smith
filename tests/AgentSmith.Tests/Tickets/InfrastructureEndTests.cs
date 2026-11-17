@@ -23,6 +23,14 @@ public sealed class InfrastructureEndTests
         new InfrastructureEnd().Holds(run).Should().Be(holds);
     }
 
+    // 2026-11-16-f3fba: the host could not say whether the repositories carry their bootstrap.
+    [Theory]
+    [InlineData("failed", "readiness-unknown", true)]
+    [InlineData("failed", "bootstrap-missing", false)]
+    [InlineData("cancelled", "readiness-unknown", false)]
+    public void InfrastructureEnd_ReadinessUnknownFailure_Holds(string status, string endKind, bool holds) =>
+        new InfrastructureEnd().Holds(new Run { Id = "r", Status = status, EndKind = endKind }).Should().Be(holds);
+
     // 2026-10-13-9a59n: the sandbox arm — a vanished or OOM-killed sandbox inside the run's last launch.
     [Fact]
     public void InfrastructureEnd_SandboxVanishedInLastSegment_Holds() =>

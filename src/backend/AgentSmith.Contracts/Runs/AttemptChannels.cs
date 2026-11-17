@@ -28,6 +28,9 @@ public static class AttemptChannels
     /// <summary>2026-10-13-8762v: agent-smith continued the ticket's spec series itself.</summary>
     public const string Series = "series";
 
+    /// <summary>2026-11-16-f3fbc: agent-smith restarted the ticket once the precondition it stopped on held.</summary>
+    public const string Precondition = "precondition";
+
     /// <summary>2026-10-13-8762v: the actor a series start names.</summary>
     public const string SeriesActor = "agent-smith";
 }

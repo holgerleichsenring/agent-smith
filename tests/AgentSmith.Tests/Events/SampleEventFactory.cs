@@ -58,6 +58,9 @@ internal static class SampleEventFactory
             return new[] { new AgentSmith.Contracts.Memory.MemoryCitation("api", "github.com/o/api", "build-order") };
         if (type == typeof(AgentSmith.Contracts.Memory.MemoryCitation))
             return new AgentSmith.Contracts.Memory.MemoryCitation("api", "github.com/o/api", "no-shims");
+        if (type == typeof(AgentSmith.Domain.Models.EndDetail)) // 2026-11-16-f3fba
+            return new AgentSmith.Domain.Models.EndDetail("Image node:22 (context default)", ["web"],
+                "Trusted image registries", "ghcr.io/, docker.io/library/", "/config/settings/sandbox");
         if (type == typeof(AgentSmith.Contracts.Runs.AttemptCause)) // 2026-10-13-9a59d
             return new AgentSmith.Contracts.Runs.AttemptCause("pull_request", "alice", Timestamp,
                 new AgentSmith.Contracts.Runs.AttemptSource("review", "https://example.test/pull/4", "PRR_1", "detail"));

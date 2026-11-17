@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-f3fbc
+
+decisions:
+  - category: Architecture
+    chose: "PreconditionsMet is one more origin on the existing rework nudge queue, served by the existing worker and started through the existing ReworkLaunch funnel; nothing else releases a stuck ticket"
+    over: "A release path of its own that claims or spawns from the pass"
+    reason: "No second path: the pass only nudges, as the change sweep does, and the worker decides under the ticket's lock. The operator approved the spec that names the origin, the subsystem and the start kind."
+  - category: Implementation
+    chose: "PreconditionRelease.ReleaseAsync runs right after the handler's queued check and answers null for another origin, an unfinished attempt or a pending act, which the handler then serves through the rework entry as before"
+    over: "The origin branch and the act read written out in ReworkNudgeHandler"
+    reason: "The handler sat at 119 of the 120 lines the file-length ratchet allows; the release owns its whole decision and the handler gains one line. A pending act is read twice on a PreconditionsMet nudge (once here, once in the tail), which costs one host read on a rare path."
+  - category: Implementation
+    chose: "TicketStartHold holds the landing, closed-mark and tracker-closed checks, extracted from RequirementsMetStart; the release asks MarkedAsync and OpenAsync, and RequirementsMetStart keeps its requirement, filing and starts-when-met checks in their old order"
+    over: "Copying the three checks into the release"
+    reason: "The spec reuses RequirementsMetStart's checks; one copy keeps a person's close and done-by-hand meaning the same for both automatic starts. The release does not use FiledWorkMove, so it writes nothing to the tracker beyond what every claim writes."
+  - category: Implementation
+    chose: "ContextImageBoundary.RefusedImage reads the image back from the EndDetail subject that its own Detail wrote ('Image <ref> (context <name>)'), and Judge answers whether it is still refused"
+    over: "Adding an Image field to EndDetail"
+    reason: "The class that writes the subject is the one that parses it, so the format cannot drift; a new field would change Run.EndDetailJson, the ticket attempt view and the dashboard type for one reader."
+  - category: Implementation
+    chose: "bootstrap-missing holds when every repository EndDetail.Repos names, matched by name in the project's configured repos, reads Complete on its default_branch (else the host default); the run branch is not read, and an unconfigured or unnamed repository never holds"
+    over: "Reading the run branch and a slice's parent rung as BootstrapPresenceCheck does"
+    reason: "The spec names the base branch; the release's own run asks BootstrapPresenceCheck again before any sandbox, so a narrower read can only delay a release, never start a run the check would refuse. RepoReadinessPass caches each repository's answer for the pass, one probe per repo."
+  - category: Implementation
+    chose: "The preconditions block is a stored settings document (ConfigDocTypes.Preconditions in the taxonomy) refused on load (Blocking finding), on settings save and on YAML import through SettingsBlockRule"
+    over: "A YAML-only block"
+    reason: "ConfigTaxonomyCoverageTests requires every bound block to be stored, or an import drops it and a server reading the store never sees it. The dashboard settings rail gets no form for it: this spec changes dashboard text and types only while another session owns the layout; the value is set through the settings API or a YAML import until a form is specced."
+  - category: Implementation
+    chose: "IStuckOnPreconditionReader lists failed code rows with a precondition kind that no newer non-queued code row of the ticket follows, in one query"
+    over: "Reading LatestAsync per ticket"
+    reason: "It is the row DbPreviousAttemptReader reads as StoppedOnPrecondition, without a query per ticket. A release waiting in the capacity queue keeps the ticket listed; the handler's queued check then finishes the nudge, so one release is started."
+  - category: Implementation
+    chose: "The 'precondition' cause carries no actor, so the ticket reads 'restarted once the precondition held'"
+    over: "Naming agent-smith as the series cause does"
+    reason: "The label already says agent-smith acted; 'by agent-smith' after it adds nothing."
+  - category: Implementation
+    chose: "BoundaryStopGate.AdmitsStart is unchanged; the release passes it because ChatTicketRunLauncher marks every start as requested by name"
+    over: "Adding the release marker to the admit list"
+    reason: "The launcher sets RequestedByName on every start, the series start included; a second admit reason for the same envelope would be dead code. ReworkLaunchStartKindTests pins that a release is admitted."
+  - category: Scope
+    chose: "This spec closes the 'starts by itself once that holds' gap decisions/2026-11-16-f3fbb.yaml recorded; f3fbb's files are unchanged"
+    over: "Rewording f3fbb's refusal sentence"
+    reason: "The sentence now holds: an image trusted by a settings save is released on the epoch's first pass, a landed init within one recheck interval, a config stop on the next config epoch."
+  - category: Implementation
+    chose: "Review fix: the bootstrap check records the run's branch and a slice's parent ticket on EndDetail (Branch, ParentTicketId), and the release reads every named repository through RepoReadiness.ReadForRunAsync, the rule BootstrapPresenceCheck now calls too — a slice's published parent rung else the default branch, plus the run's branch when the host has it"
+    over: "Probing only the default branch in the release (the first cut), or recording the probed base branch per repository"
+    reason: "A slice whose parent rung lacked the bootstrap was released whenever main carried it, and stopped again on the rung, once per pass: the release read a branch the run never reads. Recording the rule's inputs rather than its output keeps one rule: a rung published after the stop is read by both. Run has no branch or parent column, EndDetail already round-trips through Run.EndDetailJson and the TS mirror, so two optional fields and no table."
+  - category: Implementation
+    chose: "Review fix: a preflight stop is released only when the newest ConfigEntityVersions row is newer than the attempt's FinishedAt (IConfigChangeClock, DbConfigChangeClock); an epoch start is no evidence, and the pass lost its epochStart flag"
+    over: "Releasing every preflight stop on each epoch start, or reading ConfigEntities.UpdatedAt"
+    reason: "An epoch also starts on a server restart, a leader lease handover, an unrelated save or an automatic registry trust, so each restarted the ticket and posted another failure. The version history is append-only and carries deletes, which UpdatedAt loses; ordered by Id because SQLite cannot order a DateTimeOffset. Any stored change counts, a run's registry trust included: the release stays one attempt per change, and narrowing to 'related' settings would be a second guess at what the preflight reads. A config edited only in the YAML file leaves no version row; that ticket is started by a reply, as f3fbb admits. decider: operator (approved block 1 on 2026-11-16) — the config change is the new release trigger for a preflight stop, replacing the epoch start."
+  - category: Implementation
+    chose: "Review fix: DbStuckOnPreconditionReader leaves out tickets with a close mark or a landing (ClosedTickets, LandedTickets, matched by project and ticket id) in its query; an image stop still needs the live Judge to accept the image"
+    over: "Listing every stuck ticket and letting TicketStartHold skip the closed ones in the handler"
+    reason: "A closed or landed ticket is never released, so listing it made each pass probe and nudge for tickets that grow without bound. The query cannot reach the tracker key (it needs the project's tracker config), so it matches the project and ticket id both stores carry; the handler's TicketStartHold still answers by key, and a reopen deletes the close mark, which lists the ticket again."
+  - category: Implementation
+    chose: "PreconditionReleasePassTests pins the loop guard: a ticket released once that stops again on the same end kind and the same EndDetail is not nudged on later passes until its evidence changes (a newer config change, a trusted image, the rung carrying the bootstrap)"
+    over: "Relying on the per-kind tests alone"
+    reason: "The operator's complaint is a released ticket restarting in a loop; the guard follows from the two fixes above and is now held by one test across all three kinds."

@@ -78,10 +78,10 @@ and log the refusal as a warning. A context that declares nothing to build only 
 To keep the generic image on purpose, name it in `sandbox.images.<lang>` or
 `sandbox.toolchain_image`.
 
-For a refused image: the image isn't under `sandbox.allowed_registries` (default `mcr.microsoft.com/` and
-`ghcr.io/`), or it is a Docker Hub library image while a registry list is set and
-`allow_docker_hub_library` isn't. Widen the list, or name the image yourself in
-`toolchain_image` / `images`, which are not checked. The list is edited under Settings →
+For a refused image: the image isn't under `sandbox.allowed_registries` (default `mcr.microsoft.com/`,
+`ghcr.io/` and `docker.io/library/`; a named list replaces all three). Widen the list, turn on
+`sandbox.allow_new_registries` so a code run adds the registry itself and records it, or name the
+image yourself in `toolchain_image` / `images`, which are not checked. The list is edited under Settings →
 Sandbox → Trusted image registries and applies without a restart. See
 [Kubernetes](../../host-it/kubernetes.md#which-registries-a-toolchain-image-may-come-from).
 

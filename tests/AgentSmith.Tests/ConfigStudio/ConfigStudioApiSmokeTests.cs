@@ -413,12 +413,53 @@ public sealed class ConfigStudioApiSmokeTests
                 """{"agentRegistry":"ghcr.io/x","stepTimeoutSeconds":900,"runCommandTimeoutSeconds":300,"allowedRegistries":["sbtscala/"],"allowDockerHubLibrary":true}"""));
             put.StatusCode.Should().Be(HttpStatusCode.OK);
             (await http.GetStringAsync("/api/config/settings/sandbox"))
-                .Should().Contain("\"allowedRegistries\":[\"sbtscala/\"]").And.Contain("\"allowDockerHubLibrary\":true");
+                .Should().Contain("\"allowedRegistries\":[\"sbtscala/\",\"docker.io/library/\"]",
+                    "2026-11-16-f3fbd: a saved switch is folded into the list").And.NotContain("allowDockerHubLibrary");
 
             var boundary = trust.InForce();
             boundary.Accepts("sbtscala/scala-sbt:1").Should().BeTrue();
-            boundary.Accepts("node:20-bookworm").Should().BeTrue("the library switch was set explicitly");
+            boundary.Accepts("node:20-bookworm").Should().BeTrue("the library switch became the docker.io/library/ entry");
             boundary.Accepts("mcr.microsoft.com/dotnet/sdk:8.0").Should().BeFalse();
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
+    // 2026-11-16-f3fbd: a run's registry trust goes through the composed writer into the same store: the
+    // entry is in force for the next decision and the change names the run as its author.
+    [Fact]
+    public async Task ConfigStudioApi_RunTrustsARegistry_InForceAndAttributedToTheRun()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-runtrust-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, Yaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+            (await http.PutAsync("/api/config/settings/sandbox", JsonBody(
+                """{"agentRegistry":"ghcr.io/x","stepTimeoutSeconds":900,"runCommandTimeoutSeconds":300,"allowedRegistries":["ghcr.io/"],"allowNewRegistries":true}""")))
+                .StatusCode.Should().Be(HttpStatusCode.OK);
+            var store = app.Services.GetRequiredService<IConfigStore>();
+            var trust = new AgentSmith.Application.Services.Sandbox.ImageRegistryTrust(
+                new AgentSmith.Server.Services.Sandbox.StoredSandboxSettingsReader(store));
+            trust.InForce().Accepts("node:22-bookworm").Should().BeFalse();
+            var reload = new Mock<IConfigReloadSignal>();
+
+            var write = await new AgentSmith.Server.Services.Sandbox.StoredSandboxRegistryTrustWriter(
+                    store, reload.Object, new AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigDocJson(),
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.Sandbox.StoredSandboxRegistryTrustWriter>.Instance)
+                .TrustAsync("docker.io/library/", "run-9", CancellationToken.None);
+
+            write.Trusted.Should().BeTrue();
+            trust.InForce().Accepts("node:22-bookworm").Should().BeTrue();
+            (await http.GetStringAsync("/api/config/changes")).Should().Contain("run run-9");
+            reload.Verify(r => r.BumpAsync(It.IsAny<CancellationToken>()), Times.Once);
+            (await http.GetStringAsync("/api/config/settings/sandbox"))
+                .Should().Contain("\"allowedRegistries\":[\"ghcr.io/\",\"docker.io/library/\"]");
 
             await app.StopAsync();
         }
@@ -494,6 +535,11 @@ public sealed class ConfigStudioApiSmokeTests
     [Fact]
     public Task ConfigSettings_SpecReviewWithZeroReviewers_Is400AndNotSaved() =>
         RefusedAndNotSavedAsync("spec_review", """{"reviewers":0}""", "spec_review.reviewers");
+
+    // 2026-11-16-f3fbc: a recheck interval under 60 seconds is refused on save as it is at load.
+    [Fact]
+    public Task ConfigSettings_PreconditionsUnder60_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("preconditions", """{"recheckIntervalSeconds":30}""", "preconditions.recheck_interval_seconds");
 
     private static async Task RefusedAndNotSavedAsync(string type, string body, params string[] fields)
     {

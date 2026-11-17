@@ -37,6 +37,12 @@ public sealed record CommandResult
     /// </summary>
     public string? FailureKind { get; init; }
 
+    /// <summary>
+    /// 2026-11-16-f3fba: the refusal's subject and the setting that lifts it; null when the failing
+    /// handler names none. Travels with <see cref="FailureKind"/> to the run's terminal event and row.
+    /// </summary>
+    public EndDetail? EndDetail { get; init; }
+
     private CommandResult(bool success, string message, Exception? exception = null)
     {
         Message = message;

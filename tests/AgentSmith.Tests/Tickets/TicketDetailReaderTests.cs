@@ -1,6 +1,8 @@
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using AgentSmith.Tests.TestSupport;
@@ -100,6 +102,21 @@ public sealed class TicketDetailReaderTests : IDisposable
         attempts[0].Summary.Should().Be("Pipeline aborted: missing bootstrap in repos: [api]");
         attempts[0].EndKind.Should().Be(RunEndKinds.BootstrapMissing);
         attempts[1].EndKind.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TicketDetail_Attempt_CarriesEndDetail()
+    {
+        var failed = Run(R1, status: "failed");
+        failed.EndKind = RunEndKinds.BootstrapMissing;
+        failed.EndDetailJson = EndDetailJson.Write(new EndDetail("demo", ["api"], "Initialise", "demo", "/config/projects"));
+        await _store.AddAsync(failed, Step(R1), Run(R2), Step(R2));
+
+        var attempts = (await ReadAsync()).Attempts;
+
+        attempts[0].EndDetail!.Repos.Should().Equal("api");
+        attempts[0].EndDetail!.Control.Should().Be("Initialise");
+        attempts[1].EndDetail.Should().BeNull();
     }
 
     // 2026-10-13-9a59n: the detail's and the list's marks read the sandbox arm from the attempt's last launch.

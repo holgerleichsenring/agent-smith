@@ -40,4 +40,8 @@ public sealed record IncomingTicketEnvelope
     /// <summary>2026-10-13-8762v: agent-smith continues the ticket's spec series itself — seeded as
     /// ContextKeys.SeriesAutoStart, which the attempt's cause reads.</summary>
     public bool SeriesAutoStart { get; init; }
+
+    /// <summary>2026-11-16-f3fbc: agent-smith restarts a ticket whose precondition now holds — seeded as
+    /// ContextKeys.PreconditionRelease, which the attempt's cause reads.</summary>
+    public bool PreconditionRelease { get; init; }
 }

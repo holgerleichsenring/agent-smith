@@ -75,6 +75,7 @@ public static partial class CommandStepClasses
         [CommandNames.BootstrapCheck] = Gate,      // speaks when bootstrap files are missing
         [CommandNames.BootstrapGate] = Gate,       // speaks when a repo lacks its bootstrap files
         [CommandNames.RunPreflight] = Gate,        // p0428: speaks when a precondition does not hold
+        [CommandNames.RunConfigPreflight] = Gate,  // 2026-11-16-f3fba: the same gate, before any sandbox
         [CommandNames.ProbeTarget] = Gate,         // 379a: silent only when the target answered
         [CommandNames.MaterializeReferenceSets] = Gate, // 283df: speaks when it carried a website
 

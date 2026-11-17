@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Events;
 
 public sealed record RunStartedEvent(
@@ -48,5 +50,7 @@ public sealed record RunFinishedEvent(
     DateTimeOffset FinishedAt,
     decimal? CostUsd = null,
     // 2026-10-16-86e6a: the RunEndKinds value the producer recorded; null when it classified none.
-    string? EndKind = null)
+    string? EndKind = null,
+    // 2026-11-16-f3fba: the refusal's subject and the setting that lifts it; null when the producer named none.
+    EndDetail? EndDetail = null)
     : RunEvent(RunId, EventType.RunFinished, FinishedAt);

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Models.Sandbox;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
@@ -20,8 +21,8 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
 
     private const string ListReplacesDefaults =
         " (Settings > Sandbox > Trusted image registries, applied to the next sandbox; naming any entry "
-        + "replaces the built-in defaults and turns off Docker Hub official images unless "
-        + "sandbox.allow_docker_hub_library is set, so list everything still needed)";
+        + "replaces the built-in defaults, so list everything still needed), or set "
+        + "sandbox.allow_new_registries so a code run adds it and records that it did";
 
     // 2026-10-12-50bda: a boundary that could not be read trusts nothing; widening the list
     // would not help, reading it would.
@@ -43,24 +44,40 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
             ReferenceEquals(boundary, RegistryTrustBoundary.Closed) ? UnreadLever : Lever(trimmed));
     }
 
-    private static string Lever(string image)
+    /// <summary>
+    /// 2026-11-16-f3fba: the refusal of <paramref name="image"/> as data — the control on the Sandbox
+    /// settings page and the value that lets the image in: the list with the image's registry prefix
+    /// added, the defaults kept, because naming one entry replaces them. 2026-11-16-f3fbd: a library
+    /// image's prefix is the entry docker.io/library/. A boundary that could not be read names no control.
+    /// </summary>
+    public EndDetail Detail(string image, string context, string repo)
     {
-        var repository = Repository(image);
-        var slash = repository.LastIndexOf('/');
-        if (slash < 0)
-            return "to use it, set sandbox.allow_docker_hub_library: true (Settings > Sandbox > "
-                   + "Trusted image registries), " + ProjectLever;
-        return $"to use it, add '{repository[..(slash + 1)]}' to sandbox.allowed_registries"
-               + ListReplacesDefaults + ", " + ProjectLever;
+        var subject = $"{SubjectPrefix}{image}{ContextInfix}{context})";
+        var boundary = trust.InForce();
+        if (ReferenceEquals(boundary, RegistryTrustBoundary.Closed)) return new EndDetail(subject, [repo]);
+        var widened = boundary.Registries.Append(RegistryTrustBoundary.PrefixOf(image)).Distinct(StringComparer.Ordinal);
+        return new EndDetail(subject, [repo], RegistriesControl, string.Join(", ", widened), SettingsPath);
     }
 
-    // The repository is the reference without its digest and without the tag that follows
-    // the last '/' — a registry port before it is not a tag.
-    private static string Repository(string image)
+    /// <summary>
+    /// 2026-11-16-f3fbc: the image a refusal's detail names, read back from the subject <see cref="Detail"/> wrote;
+    /// null when the detail is not an image refusal's. Whether it is still refused is <see cref="Judge"/>'s answer.
+    /// </summary>
+    public string? RefusedImage(EndDetail? detail)
     {
-        var digest = image.IndexOf('@');
-        var name = digest < 0 ? image : image[..digest];
-        var tag = name.IndexOf(':', name.LastIndexOf('/') + 1);
-        return tag < 0 ? name : name[..tag];
+        var subject = detail?.Subject;
+        if (subject is null || !subject.StartsWith(SubjectPrefix, StringComparison.Ordinal)) return null;
+        var end = subject.LastIndexOf(ContextInfix, StringComparison.Ordinal);
+        var image = end < SubjectPrefix.Length ? null : subject[SubjectPrefix.Length..end].Trim();
+        return string.IsNullOrEmpty(image) ? null : image;
     }
+
+    private const string SubjectPrefix = "Image ";
+    private const string ContextInfix = " (context ";
+    private const string RegistriesControl = "Trusted image registries";
+    private const string SettingsPath = "/config/settings/sandbox";
+
+    private static string Lever(string image) =>
+        $"to use it, add '{RegistryTrustBoundary.PrefixOf(image)}' to sandbox.allowed_registries"
+        + ListReplacesDefaults + ", " + ProjectLever;
 }

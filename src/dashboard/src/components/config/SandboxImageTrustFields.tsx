@@ -1,27 +1,14 @@
 "use client";
 
 import type { SandboxSetting } from "@/lib/configApi";
-import { DrawerSection } from "./formFields";
+import { CheckField, DrawerSection } from "./formFields";
 import { ImageTrustInForce } from "./ImageTrustInForce";
 import { useImageTrust } from "./useImageTrust";
 
 // 2026-10-12-6bfab: the supply-chain boundary for a context's LLM-named stack.image —
-// sandbox.allowed_registries and sandbox.allow_docker_hub_library — editable where the rest
-// of the sandbox block is, beside the boundary the server says is in force.
-
-type Library = "follow" | "trust" | "refuse";
-
-export function libraryChoice(value: boolean | null | undefined): Library {
-  if (value === true) return "trust";
-  if (value === false) return "refuse";
-  return "follow";
-}
-
-export function librarySetting(choice: Library): boolean | null {
-  if (choice === "trust") return true;
-  if (choice === "refuse") return false;
-  return null;
-}
+// sandbox.allowed_registries — editable where the rest of the sandbox block is, beside the
+// boundary the server says is in force. 2026-11-16-f3fbd: the Docker Hub library is the entry
+// docker.io/library/, and sandbox.allow_new_registries lets a ticket run add an entry itself.
 
 /** The list after "Add a registry": the first entry starts from the built-in default, so
  *  naming one registry does not silently drop the ones that were trusted until now. */
@@ -39,8 +26,8 @@ export function SandboxImageTrustFields({
   persisted: SandboxSetting | null;
 }) {
   const list = value.allowedRegistries ?? [];
-  const saved = JSON.stringify([persisted?.allowedRegistries ?? [], persisted?.allowDockerHubLibrary ?? null]);
-  const draft = JSON.stringify([list, value.allowDockerHubLibrary ?? null]);
+  const saved = JSON.stringify(persisted?.allowedRegistries ?? []);
+  const draft = JSON.stringify(list);
   const { boundary, error } = useImageTrust(saved);
   const defaults = boundary?.defaultRegistries ?? [];
   const setList = (next: string[]) => onChange({ allowedRegistries: next });
@@ -52,7 +39,7 @@ export function SandboxImageTrustFields({
         Where a context&apos;s stack.image may come from. Each entry is a prefix of the image
         reference as Docker reads it — an image with no registry host is on docker.io, so
         sbtscala/ and docker.io/sbtscala/ are the same entry, and docker.io/ alone trusts all of
-        Docker Hub. Only the stack.image a context declares is judged: an image named in a
+        Docker Hub; docker.io/library/ is its official images (node:22-bookworm). Only the stack.image a context declares is judged: an image named in a
         project&apos;s sandbox settings and the built-in fallbacks are not. A refused image falls back
         to the language default. Applies to the next decision, no restart.
       </p>
@@ -77,22 +64,11 @@ export function SandboxImageTrustFields({
         onClick={() => setList(withAddedRegistry(list, defaults))}>
         Add a registry
       </button>
-      <div className="field">
-        <label>
-          Docker Hub official library images
-          <span className="help">
-            node:20-bookworm, buildpack-deps — following the list trusts them while no registry is
-            named and refuses them once one is
-          </span>
-        </label>
-        <select className="mono" data-testid="setting-sandbox-trust-library"
-          value={libraryChoice(value.allowDockerHubLibrary)}
-          onChange={(e) => onChange({ allowDockerHubLibrary: librarySetting(e.target.value as Library) })}>
-          <option value="follow">Follow the registry list</option>
-          <option value="trust">Trust</option>
-          <option value="refuse">Refuse</option>
-        </select>
-      </div>
+      <CheckField label="Allow new registries" value={value.allowNewRegistries === true}
+        onChange={(v) => onChange({ allowNewRegistries: v })} testId="setting-sandbox-trust-allow-new" />
+      <p className="help" data-testid="setting-sandbox-trust-allow-new-note">
+        A ticket run adds the registry of an untrusted image to this list and records it.
+      </p>
       <ImageTrustInForce boundary={boundary} error={error} dirty={draft !== saved} />
     </DrawerSection>
   );

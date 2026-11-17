@@ -52,15 +52,21 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
         Task.FromResult<string?>(null);
 
     // 2026-10-12-6bfaa: no branch beyond the default exists here, so a read falls to the default reads.
+    // 2026-11-16-f3fba: the default branch itself ("main", the repo's default_branch) is the working copy,
+    // so the config preflight's bootstrap read on it sees the fixture's bootstrap.
+    private const string DefaultBranch = "main";
+
     public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
+        Task.FromResult(branch.Value == DefaultBranch);
 
     public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
-        Task.FromResult<string?>(null);
+        branch.Value == DefaultBranch ? TryReadFileAsync(path, cancellationToken) : Task.FromResult<string?>(null);
 
     public Task<IReadOnlyList<string>> ListDirectoryAsync(
         string path, BranchName branch, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<string>>([]);
+        branch.Value == DefaultBranch
+            ? ListDirectoryAsync(path, cancellationToken)
+            : Task.FromResult<IReadOnlyList<string>>([]);
 
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {

@@ -148,10 +148,14 @@ The context's `stack.image` is written by a model, so it is held to a registry b
 ```yaml
 sandbox:
   allowed_registries: ["mcr.microsoft.com/", "ghcr.io/", "registry.acme-org.example/"]
-  allow_docker_hub_library: false
+  allow_new_registries: false
 ```
 
-`allowed_registries` is a list of image-reference prefixes. Left empty it means the built-in default, `mcr.microsoft.com/` and `ghcr.io/`. `allow_docker_hub_library` decides whether an official Docker Hub image with no namespace (`node:20-bookworm`) is trusted. Unset, it follows the list: trusted while you name no registries, refused once you do, because a named list is a narrowing. A `stack.image` outside the boundary is skipped with a warning and the chain falls through to the next source. An image you name yourself in `toolchain_image` or `images` is your choice and is not checked.
+`allowed_registries` is a list of image-reference prefixes. Left empty it means the built-in default: `mcr.microsoft.com/`, `ghcr.io/` and `docker.io/library/`, the official Docker Hub images with no namespace (`node:22-bookworm`). Naming any entry replaces that default, so the list above refuses `node:22-bookworm` until it names `docker.io/library/` too. The older `allow_docker_hub_library` switch is read once more at load and folded into the list, keeping the boundary it described.
+
+`allow_new_registries: true` lets a `code` or `spec-derive` run that meets a refused `stack.image` add its registry prefix to the list itself, as a settings change attributed to `run <id>`, and record the decision on the run. `pr-review` and `security-scan` never add one: they read branches a contributor wrote, and the list is installation-wide. The CLI reads `agentsmith.yml` and never writes it, so there the run stops and says which entry to add.
+
+A `stack.image` outside the boundary is skipped with a warning and the chain falls through to the next source. An image you name yourself in `toolchain_image` or `images` is your choice and is not checked.
 
 Entries and images are compared the way Docker reads a reference: an image with no registry host lives on `docker.io`, so `sbtscala/` and `docker.io/sbtscala/` are the same entry and both trust `sbtscala/scala-sbt:…`. A bare `docker.io/` trusts all of Docker Hub. On a server both settings are edited in the dashboard under **Configuration → Settings → Sandbox → Trusted image registries**, which also shows the boundary in force; a saved change applies to the next `stack.image` decision without a restart.
 

@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Models.Preflight;
 
 /// <summary>
@@ -5,6 +7,10 @@ namespace AgentSmith.Contracts.Models.Preflight;
 /// observed and is always secret-free; <see cref="Lever"/> names what the operator has
 /// to CHANGE and is mandatory on a failure — "/root is not writable, give the sandbox a
 /// writable home" is actionable where "IOException" is a symptom to reproduce.
+/// <para>
+/// 2026-11-16-f3fba: a failure may also name its <see cref="Kind"/> (a RunEndKinds value) and its
+/// <see cref="Detail"/>; the gate carries the first failing check's pair to the run's end.
+/// </para>
 /// </summary>
 public sealed record RunPreflightFinding(
     string Check,
@@ -12,6 +18,12 @@ public sealed record RunPreflightFinding(
     string Message,
     string? Lever = null)
 {
+    /// <summary>2026-11-16-f3fba: why the run ends when this finding fails it; null reads as preflight.</summary>
+    public string? Kind { get; init; }
+
+    /// <summary>2026-11-16-f3fba: the refusal's subject and the setting that lifts it.</summary>
+    public EndDetail? Detail { get; init; }
+
     public static RunPreflightFinding Pass(string check, string message) =>
         new(check, RunPreflightVerdict.Pass, message);
 

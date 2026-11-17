@@ -52,6 +52,8 @@ public sealed class StoredSandboxSettingsReaderTests
         services.Where(d => d.ServiceType == typeof(ISandboxSettingsReader)).Should().ContainSingle()
             .Which.ImplementationType.Should().Be(typeof(StoredSandboxSettingsReader));
         services.Should().Contain(d => d.ServiceType == typeof(IImageRegistryTrust));
+        services.Where(d => d.ServiceType == typeof(ISandboxRegistryTrustWriter)).Should().ContainSingle()
+            .Which.ImplementationType.Should().Be(typeof(StoredSandboxRegistryTrustWriter), "2026-11-16-f3fbd");
     }
 
     [Fact]
@@ -62,9 +64,7 @@ public sealed class StoredSandboxSettingsReaderTests
 
         response.Registries.Should().Equal("docker.io/sbtscala/");
         response.RegistriesAreDefault.Should().BeFalse();
-        response.DockerHubLibrary.Should().BeFalse();
-        response.DockerHubLibraryIsExplicit.Should().BeFalse();
-        response.DefaultRegistries.Should().Equal("mcr.microsoft.com/", "ghcr.io/");
+        response.DefaultRegistries.Should().Equal("mcr.microsoft.com/", "ghcr.io/", "docker.io/library/");
         response.Description.Should().Contain("docker.io/sbtscala/");
     }
 }

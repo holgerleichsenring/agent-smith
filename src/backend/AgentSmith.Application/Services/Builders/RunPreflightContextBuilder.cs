@@ -10,5 +10,5 @@ namespace AgentSmith.Application.Services.Builders;
 public sealed class RunPreflightContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
-        new RunPreflightContext(pipeline);
+        new RunPreflightContext(pipeline, NeedsSandbox: true);
 }

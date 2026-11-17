@@ -35,6 +35,8 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
 
     public string Name => "branch-state";
 
+    public bool NeedsSandbox => true;
+
     public async Task<RunPreflightFinding> RunAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {

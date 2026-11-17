@@ -230,7 +230,8 @@ public sealed class RequirementsMetStartTests : IDisposable
             PipelineTriggers = PipelineTriggerMap.Empty,
         };
         _scopes = new ServiceCollection().AddScoped(_ => FiledWorkDoubles.Move(config)).BuildServiceProvider();
-        return new RequirementsMetStart(_facts, _facts, _facts, TicketRequirementDoubles.Of(_facts, _approvals), _tracker,
+        return new RequirementsMetStart(_facts, new TicketStartHold(_facts, _facts, _tracker, NullLogger<TicketStartHold>.Instance),
+            TicketRequirementDoubles.Of(_facts, _approvals), _tracker,
             _scopes.GetRequiredService<IServiceScopeFactory>(), Fallback(config), NullLogger<RequirementsMetStart>.Instance);
     }
 

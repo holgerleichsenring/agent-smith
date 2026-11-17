@@ -1326,6 +1326,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("float");
 
+                    b.Property<string>("EndDetailJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("EndKind")
                         .HasColumnType("nvarchar(max)");
 

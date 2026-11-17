@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Runs;
 
@@ -30,6 +31,15 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
 
     /// <summary>2026-10-13-8762g: finished at a <see cref="SeriesBoundaryEnd"/> with a spec it never started.</summary>
     public bool StoppedAtBoundary { get; init; }
+
+    /// <summary>2026-11-16-f3fbb: finished Failed with an end kind in <see cref="RunEndKinds.Preconditions"/>.</summary>
+    public bool StoppedOnPrecondition { get; init; }
+
+    /// <summary>2026-11-16-f3fbb: the attempt's recorded end kind and detail; null when none was recorded.</summary>
+    public string? EndKind { get; init; }
+
+    /// <inheritdoc cref="EndKind"/>
+    public EndDetail? EndDetail { get; init; }
 
     /// <summary>2026-10-13-8762p: the overruled defaults of the ticket's code runs — the stored verdict is the act.</summary>
     public IReadOnlyList<DecidedDefault> Overrules { get; init; } = [];

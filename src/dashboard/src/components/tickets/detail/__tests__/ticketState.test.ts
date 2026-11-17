@@ -37,6 +37,35 @@ describe("ticketState", () => {
     expect(view.act).toEqual({ kind: "init", project: "shop" });
   });
 
+  it("ticketState_ImageUntrustedWithEndDetail_NamesTheImageAndTheSetting", () => {
+    const view = state(failedTicket({ endKind: "image-untrusted", endDetail: {
+      subject: "Image node:22-bookworm (context default)", repos: ["web"],
+      control: "Trusted image registries", setTo: "ghcr.io/, docker.io/library/", settingsPath: SANDBOX_SETTINGS_PATH } }));
+    expect(view.sentence).toBe(
+      "Image node:22-bookworm (context default) is not trusted: set Trusted image registries to ghcr.io/, docker.io/library/.");
+    expect(view.act).toMatchObject({ kind: "link", href: SANDBOX_SETTINGS_PATH });
+  });
+
+  it("ticketState_BootstrapMissingWithEndDetail_NamesTheRepos", () => {
+    const view = state(failedTicket({ endKind: "bootstrap-missing", endDetail: {
+      subject: "shop", repos: ["api", "web"], control: "Initialise", setTo: "shop", settingsPath: "/config/projects" } }));
+    expect(view.sentence).toBe("api, web have no agent-smith bootstrap: Initialise project shop.");
+    expect(view.act).toEqual({ kind: "init", project: "shop" });
+  });
+
+  it("ticketState_PreflightWithEndDetail_NamesTheKey", () => {
+    const view = state(failedTicket({ endKind: "preflight", endDetail: {
+      subject: "The pipeline's agent", repos: [], control: "agents.<name>.model", setTo: "a model", settingsPath: "/config/agents" } }));
+    expect(view.sentence).toBe("The pipeline's agent: set agents.<name>.model to a model.");
+  });
+
+  it("ticketState_ReadinessUnknown_OffersRetryAheadOfTheInfrastructureSentence", () => {
+    const view = state(failedTicket({ endKind: "readiness-unknown", endedOnInfrastructure: true, endDetail: {
+      subject: "api: host down", repos: ["api"], control: null, setTo: null, settingsPath: null } }));
+    expect(view.sentence).toBe("Attempt 2 could not read the repositories' bootstrap from the host: api: host down");
+    expect(view.act).toMatchObject({ kind: "retry" });
+  });
+
   it("ticketState_CriteriaUnmet_LinksTheOverrule", () => {
     const view = state(failedTicket({ endKind: "criteria-unmet" }));
     expect(view.act).toMatchObject({ kind: "link", label: "Overrule in the run", href: "/jobs/r-2" });

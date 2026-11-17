@@ -57,6 +57,9 @@ public sealed class PipelineExecutor(
         // starved ticket otherwise collects one comment per retry cycle.
         if (!context.TryGet<bool>(ContextKeys.RelaunchedRun, out var relaunched) || !relaunched)
             await errorHandler.PostWorkingStatusAsync(projectConfig, context, cancellationToken);
+        // 2026-11-16-f3fba: the checks before the first sandbox read the project too; the coordinator
+        // sets the same value again when it ensures the sandboxes.
+        context.Set(ContextKeys.ProjectConfig, projectConfig);
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
         await using var sandbox = serviceProvider.GetRequiredService<IPipelineSandboxCoordinator>();
         await using var templates = serviceProvider.GetRequiredService<Specs.RunTemplateScopes>().Own(context); // 2026-10-25-54beb: disposed at run end

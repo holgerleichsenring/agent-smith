@@ -21,6 +21,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// after done and before stuck.</para>
 /// <para>2026-10-16-7ed3a: an open pull request answers waiting on review only while the newest attempt did not fail;
 /// a failed head carries its open pull requests into stuck or failed, and a tracker close does not hide them.</para>
+/// <para>2026-11-16-f3fbb: a failed head whose end kind is a precondition is stuck by itself, whatever the check saw.</para>
 /// </summary>
 public sealed class TicketBucketRule
 {
@@ -61,7 +62,9 @@ public sealed class TicketBucketRule
     {
         if (trackerClosed && newest.Status == RunStatuses.Failed && landing != TicketLanding.Merged)
             return new(TicketBucket.Closed, TicketClosedKinds.Tracker, newest.FinishedAt, newest.Status, null, null, landing);
-        var bucket = stuck ? TicketBucket.Stuck
+        // 2026-11-16-f3fbb: a precondition stop is Stuck by what ended it, not by the 24-hour check.
+        var held = newest.Status == RunStatuses.Failed && RunEndKinds.IsPrecondition(newest.EndKind);
+        var bucket = stuck || held ? TicketBucket.Stuck
             : landing == TicketLanding.Unmerged ? TicketBucket.PrClosed
             : newest.Status == RunStatuses.Failed ? TicketBucket.Failed
             : TicketBucket.Idle;

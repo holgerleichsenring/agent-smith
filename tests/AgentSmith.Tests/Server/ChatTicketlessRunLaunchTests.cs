@@ -156,6 +156,8 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
     {
         var host = Host(principles: false);
         host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("503"));
+        // 2026-11-16-f3fba: the base is read too now; an unreachable host answers for it the same way.
+        host.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("503"));
 
         await TicketlessLaunch(new Mock<IPrCommentProvider>(), host).LaunchAsync(
             Command(sameRepository: true), new PipelineRequest(Project, "pr-review", TicketId: null, Headless: true), CancellationToken.None);
@@ -176,8 +178,8 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
         services.AddSingleton(new ChatPrContextResolver(_diffs.Object, new PrRunContextFactory()));
         services.AddSingleton(new ChatTicketlessRunLauncher(Runs(), Admission(), Dispatch(), TimeProvider.System,
             NullLogger<ChatTicketlessRunLauncher>.Instance));
-        services.AddSingleton(new PrCommandBootstrapCheck(new RemoteBootstrapProbe(hosts.Object, contexts.Object,
-            NullLogger<RemoteBootstrapProbe>.Instance)));
+        services.AddSingleton(new PrCommandBootstrapCheck(new RepoReadiness(new RemoteBootstrapProbe(hosts.Object, contexts.Object,
+            NullLogger<RemoteBootstrapProbe>.Instance), hosts.Object, NullLogger<RepoReadiness>.Instance)));
         var sources = new Mock<ISourceProviderFactory>();
         sources.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(comments.As<ISourceProvider>().Object);
         return new PrCommandLaunch(ConfigLoader(), new ServerContext("agentsmith.yml"),

@@ -35,6 +35,7 @@ public sealed class ResolvedConfigComposer
             Persistence = raw.Persistence, Trace = raw.Trace, // p0423
             PipelineCostCap = raw.PipelineCostCap,
             SpecReview = raw.SpecReview, Series = raw.Series, // 2026-10-13-8762g, 8762u
+            Preconditions = raw.Preconditions, // 2026-11-16-f3fbc
         };
 
     private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)

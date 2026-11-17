@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
@@ -72,23 +74,18 @@ public sealed class SandboxGlobalConfig
     /// as reference prefixes (<c>mcr.microsoft.com/</c>, <c>ghcr.io/</c>, a private
     /// mirror's host). The image string is model-authored or profile-authored, so
     /// this is the supply-chain boundary the run is held to. EMPTY means the built-in
-    /// default, which is exactly what shipped before this field existed.
+    /// default. 2026-11-16-f3fbd: the Docker Hub official library is an ordinary entry,
+    /// <c>docker.io/library/</c>, and part of that default.
     /// </summary>
     public List<string> AllowedRegistries { get; set; } = [];
 
-    /// <summary>
-    /// 2026-08-25-014d: whether the Docker Hub official <em>library</em> namespace is
-    /// trusted — <c>node:20-bookworm</c>, <c>buildpack-deps:bookworm-scm</c>. This is a
-    /// repository SHAPE (no namespace segment), not a registry, so it carries its own
-    /// switch: folding it into <see cref="AllowedRegistries"/> as a host entry would
-    /// admit every user repository on that host instead.
-    /// <para>
-    /// NULL follows the registries. With none named the shape is trusted, so an unset
-    /// configuration is the pre-existing policy unchanged; once a registry list IS
-    /// named the shape is refused unless this says otherwise, because a named list is
-    /// a narrowing and keeping the shape would silently widen it back open.
-    /// </para>
-    /// </summary>
+    /// <summary>2026-11-16-f3fbd: <c>allow_new_registries</c>. True lets a code or spec-derive run add a refused
+    /// context image's registry to <see cref="AllowedRegistries"/>, attributed to the run and recorded.</summary>
+    public bool AllowNewRegistries { get; set; }
+
+    /// <summary>2026-11-16-f3fbd: the retired <c>allow_docker_hub_library</c>, bound only for
+    /// LegacyDockerHubLibraryMigration, which folds it into the list on load and save and clears it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? AllowDockerHubLibrary { get; set; }
 
     /// <summary>

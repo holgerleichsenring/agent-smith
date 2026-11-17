@@ -26,6 +26,13 @@ Injected into the execution context via `LoadCodingPrinciplesCommand`.
 - **Max 120 lines per class** - Split when needed. Separate responsibilities.
 - **One type per file** - Class, interface, enum, record = its own file.
 
+## Working Rules (2026-11-16-3596)
+
+- **Everything is a pipeline** — work that writes to a tracker or a repository is a step of a run with a run id; the server accepts requests and starts runs. `ServerWritesRatchetTests` holds the server's existing direct writes as debt that may only shrink.
+- **No second path** — a spec that adds an outcome kind, a filer, a storage location, a label meaning or a trigger names the existing one it replaces; a second one needs the operator's approval, recorded in the spec's `decisions/{id}.yaml` with the operator as decider.
+- **No unratified decision ships** — an open choice is asked before the commit, never merged as pending ratification. `PendingRatificationRatchetTests` holds the existing markers as debt that may only shrink.
+- **A new limit earns its place** — it has a reason the operator would accept, lives in config, and its message names the value, the reason and the config key; the limits that predate this rule are listed debt.
+
 ## Core Design Philosophy
 
 Every class must have **one clearly named responsibility**. The class name alone

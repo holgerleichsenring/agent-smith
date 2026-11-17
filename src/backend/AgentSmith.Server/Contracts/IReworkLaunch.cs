@@ -9,4 +9,7 @@ public interface IReworkLaunch
 
     /// <summary>2026-10-13-8762v: the next attempt of the ticket's spec series, started by agent-smith itself.</summary>
     Task<ReworkOutcome> StartSeriesAttemptAsync(string project, string ticketId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-16-f3fbc: the next attempt of a ticket whose precondition now holds, started by agent-smith itself.</summary>
+    Task<ReworkOutcome> StartPreconditionReleaseAsync(string project, string ticketId, CancellationToken cancellationToken);
 }

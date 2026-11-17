@@ -1,0 +1,119 @@
+using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Preflight.Run;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Preflight;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Runs;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
+using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+
+namespace AgentSmith.Tests.Services.Preflight.Run;
+
+/// <summary>
+/// 2026-11-16-f3fba: the bootstrap is read on the host before any sandbox; an uninitialised repository is
+/// bootstrap-missing with the project to initialise, an unanswered one readiness-unknown.
+/// </summary>
+public sealed class BootstrapPresenceCheckTests
+{
+    private readonly Mock<ISourceProvider> _host = new();
+    private readonly Mock<ISandboxLanguageResolver> _contexts = new();
+
+    public BootstrapPresenceCheckTests()
+    {
+        _contexts.Setup(c => c.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteContextListing([new RemoteContextDiscovery("api", ".", "csharp")]));
+    }
+
+    private void Serves(bool principles) =>
+        _host.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, CancellationToken _) => path.EndsWith("/principles.md") && !principles ? null : "content");
+
+    private Task<RunPreflightFinding> RunAsync(Ticket? ticket = null)
+    {
+        var hosts = new Mock<ISourceProviderFactory>();
+        hosts.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(_host.Object);
+        var probe = new RemoteBootstrapProbe(hosts.Object, _contexts.Object, NullLogger<RemoteBootstrapProbe>.Instance);
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
+            [new RepoConnection { Name = "web-api", Url = "https://github.com/o/web-api", Type = RepoType.GitHub }]);
+        pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "demo" });
+        if (ticket is not null) pipeline.Set(ContextKeys.Ticket, ticket);
+        if (ticket is not null) pipeline.Set(ContextKeys.TicketId, ticket.Id);
+        return new BootstrapPresenceCheck(new RepoReadiness(probe, hosts.Object, NullLogger<RepoReadiness>.Instance))
+            .RunAsync(pipeline, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task RunAsync_Bootstrapped_Passes()
+    {
+        Serves(principles: true);
+
+        (await RunAsync()).Verdict.Should().Be(RunPreflightVerdict.Pass);
+    }
+
+    [Fact]
+    public async Task RunAsync_Uninitialised_FailsBootstrapMissingNamingTheRepoAndProject()
+    {
+        Serves(principles: false);
+
+        var finding = await RunAsync();
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Fail);
+        finding.Kind.Should().Be(RunEndKinds.BootstrapMissing);
+        finding.Message.Should().Contain("web-api");
+        finding.Detail.Should().Be(new EndDetail("demo", finding.Detail!.Repos, "Initialise", "demo", "/config/projects"));
+        finding.Detail.Repos.Should().Equal("web-api");
+    }
+
+    [Fact]
+    public async Task RunAsync_HostUnreadable_FailsReadinessUnknown()
+    {
+        _contexts.Setup(c => c.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("host down"));
+
+        var finding = await RunAsync();
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Fail);
+        finding.Kind.Should().Be(RunEndKinds.ReadinessUnknown);
+        finding.Detail!.Subject.Should().Contain("host down");
+        finding.Detail.Control.Should().BeNull("no setting lifts an unreachable host");
+    }
+
+    [Fact]
+    public async Task RunAsync_SliceBeforeItsRungIsPublished_ReadsTheDefaultBranch()
+    {
+        Serves(principles: true);
+        _host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var slice = new Ticket(new TicketId("43"), "Slice", "", null, "New", "test",
+            labels: [FiledTicketLabels.ParentStamp("42")]);
+
+        (await RunAsync(slice)).Verdict.Should().Be(RunPreflightVerdict.Pass,
+            "the first slice's checkout publishes the parent's rung, so before it there is none to read");
+    }
+
+    [Fact]
+    public async Task RunAsync_UninitialisedSlice_RecordsTheBranchAndParentItRead()
+    {
+        Serves(principles: false);
+        _host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var slice = new Ticket(new TicketId("43"), "Slice", "", null, "New", "test",
+            labels: [FiledTicketLabels.ParentStamp("42")]);
+
+        var detail = (await RunAsync(slice)).Detail!;
+
+        detail.Branch.Should().Be(TicketBranchNamer.Compose(new TicketId("43")).Value);
+        detail.ParentTicketId.Should().Be("42", "a release reads the repositories by the same rule, from the same inputs");
+    }
+
+    [Fact]
+    public void NeedsSandbox_IsFalse() =>
+        new BootstrapPresenceCheck(null!).NeedsSandbox.Should().BeFalse();
+}

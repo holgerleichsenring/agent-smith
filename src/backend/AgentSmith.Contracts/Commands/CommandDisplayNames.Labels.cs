@@ -14,6 +14,7 @@ public static partial class CommandDisplayNames
         [CommandNames.ScopeRepos] = "Scope repositories", // p0331
         [CommandNames.CheckoutSource] = "Check out source",
         [CommandNames.TryCheckoutSource] = "Resolve source",
+        [CommandNames.RunConfigPreflight] = "Check configuration", // 2026-11-16-f3fba
         [CommandNames.RunPreflight] = "Check preconditions", // p0428
         [CommandNames.SetupRegistryAuth] = "Set up private-feed credentials",
         [CommandNames.EnsurePrerequisites] = "Prepare environment",

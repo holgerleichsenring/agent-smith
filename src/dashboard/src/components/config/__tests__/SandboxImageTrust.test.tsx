@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { ImageTrustBoundary, SandboxSetting } from "@/lib/configApi";
-import {
-  SandboxImageTrustFields,
-  libraryChoice,
-  librarySetting,
-  withAddedRegistry,
-} from "../SandboxImageTrustFields";
+import { SandboxImageTrustFields, withAddedRegistry } from "../SandboxImageTrustFields";
 import { ImageTrustInForce } from "../ImageTrustInForce";
 
 // 2026-10-12-6bfab: the trusted-registries section of the Sandbox settings and the boundary
@@ -15,9 +10,7 @@ import { ImageTrustInForce } from "../ImageTrustInForce";
 const NAMED: ImageTrustBoundary = {
   registries: ["docker.io/sbtscala/"],
   registriesAreDefault: false,
-  dockerHubLibrary: false,
-  dockerHubLibraryIsExplicit: false,
-  defaultRegistries: ["mcr.microsoft.com/", "ghcr.io/"],
+  defaultRegistries: ["mcr.microsoft.com/", "ghcr.io/", "docker.io/library/"],
   description: "docker.io/sbtscala/",
 };
 
@@ -35,22 +28,12 @@ const SANDBOX: SandboxSetting = {
   maxConcurrentSandboxes: null,
   holdSeconds: null,
   allowedRegistries: ["sbtscala/"],
-  allowDockerHubLibrary: null,
+  allowNewRegistries: false,
 };
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("SandboxImageTrustFields", () => {
-  it("LibrarySelect_MapsNullTrueFalse_BothWays", () => {
-    expect(libraryChoice(null)).toBe("follow");
-    expect(libraryChoice(undefined)).toBe("follow");
-    expect(libraryChoice(true)).toBe("trust");
-    expect(libraryChoice(false)).toBe("refuse");
-    expect(librarySetting("follow")).toBeNull();
-    expect(librarySetting("trust")).toBe(true);
-    expect(librarySetting("refuse")).toBe(false);
-  });
-
   it("WithAddedRegistry_FirstEntrySeedsTheDefault_LaterEntriesAppend", () => {
     expect(withAddedRegistry([], ["mcr.microsoft.com/", "ghcr.io/"])).toEqual(["mcr.microsoft.com/", "ghcr.io/", ""]);
     expect(withAddedRegistry(["a.example/"], ["mcr.microsoft.com/"])).toEqual(["a.example/", ""]);
@@ -67,13 +50,26 @@ describe("SandboxImageTrustFields", () => {
     fireEvent.click(screen.getByTestId("setting-sandbox-trust-0-remove"));
     expect(onChange).toHaveBeenLastCalledWith({ allowedRegistries: [] });
 
-    fireEvent.change(screen.getByTestId("setting-sandbox-trust-library"), { target: { value: "trust" } });
-    expect(onChange).toHaveBeenLastCalledWith({ allowDockerHubLibrary: true });
     expect(screen.queryByTestId("setting-sandbox-trust-unsaved")).toBeNull();
   });
 
+  // 2026-11-16-f3fbd: the library is a list entry, and a ticket run may add one when allowed.
+  it("Fields_AllowNewRegistries_TogglesAndHasNoLibrarySelector", async () => {
+    const onChange = vi.fn();
+    render(<SandboxImageTrustFields value={SANDBOX} onChange={onChange} persisted={SANDBOX} />);
+    await screen.findByTestId("setting-sandbox-trust-inforce");
+
+    expect(screen.getByText("Allow new registries")).toBeInTheDocument();
+    expect(screen.getByTestId("setting-sandbox-trust-allow-new-note")).toHaveTextContent(
+      "A ticket run adds the registry of an untrusted image to this list and records it.");
+    fireEvent.click(screen.getByTestId("setting-sandbox-trust-allow-new"));
+    expect(onChange).toHaveBeenLastCalledWith({ allowNewRegistries: true });
+    expect(screen.queryByTestId("setting-sandbox-trust-library")).toBeNull();
+    expect(screen.queryByText(/Docker Hub official library images/)).toBeNull();
+  });
+
   it("Fields_AnOlderReadWithoutTheList_RendersEmpty", async () => {
-    const legacy = { ...SANDBOX, allowedRegistries: undefined, allowDockerHubLibrary: undefined };
+    const legacy = { ...SANDBOX, allowedRegistries: undefined, allowNewRegistries: undefined };
     render(<SandboxImageTrustFields value={legacy} onChange={vi.fn()} persisted={legacy} />);
     expect(await screen.findByTestId("setting-sandbox-trust-empty")).toHaveTextContent("ghcr.io/");
   });
@@ -92,18 +88,12 @@ describe("SandboxImageTrustFields", () => {
 });
 
 describe("ImageTrustInForce", () => {
-  it("NamedList_SaysItReplacesTheDefault_AndTheLibraryFollowsTheList", () => {
+  it("NamedList_SaysItReplacesTheDefault", () => {
     render(<ImageTrustInForce boundary={NAMED} error={null} dirty />);
     expect(screen.getByTestId("setting-sandbox-trust-inforce")).toHaveTextContent("docker.io/sbtscala/");
     expect(screen.getByTestId("setting-sandbox-trust-inforce-registries")).toHaveTextContent(/replacing the built-in default/);
-    expect(screen.getByTestId("setting-sandbox-trust-inforce-library")).toHaveTextContent(/refused — following the registry list/);
+    expect(screen.queryByTestId("setting-sandbox-trust-inforce-library")).toBeNull();
     expect(screen.getByTestId("setting-sandbox-trust-unsaved")).toBeInTheDocument();
-  });
-
-  it("ExplicitSwitch_SaysSo", () => {
-    render(<ImageTrustInForce boundary={{ ...NAMED, dockerHubLibrary: true, dockerHubLibraryIsExplicit: true }}
-      error={null} dirty={false} />);
-    expect(screen.getByTestId("setting-sandbox-trust-inforce-library")).toHaveTextContent(/trusted — set explicitly/);
   });
 
   it("ReadFailed_SaysSo", () => {

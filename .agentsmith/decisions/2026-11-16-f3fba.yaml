@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-f3fba
+
+decisions:
+  - category: Architecture
+    chose: "RunConfigPreflight is a second command name with its own context builder that sets RunPreflightContext.NeedsSandbox false; the one handler runs the checks whose NeedsSandbox matches"
+    over: "A second handler, or the name read from the pipeline inside the handler"
+    reason: "Handlers are resolved by context type, so the spec's precedent (CheckoutSource and TryCheckoutSource) actually has two handlers; a flag on the shared context keeps one handler as the spec asks, and a stored RunPreflight checkpoint still builds the sandbox half it always meant."
+  - category: Implementation
+    chose: "The first failing check names the run's kind and detail (RunPreflightFinding.Kind and Detail); ContextImageTrustCheck sets image-untrusted itself"
+    over: "The handler classifying by check name, image trust winning wherever it sits"
+    reason: "The spec says the first failing check's kind and detail; moving the classification onto the finding lets bootstrap-missing and readiness-unknown travel the same way without the handler knowing each check."
+  - category: Implementation
+    chose: "BootstrapPresenceCheck runs after the config checks and before the image checks"
+    over: "Last, after the toolchain check"
+    reason: "An uninitialised repository has no contexts, so the image checks would report a symptom of the missing bootstrap; the first failure is the run's headline, so the cause comes first."
+  - category: Implementation
+    chose: "RunContextInventory reads the inventory ScopeRepos cached, builds it with RemoteContextInventoryBuilder when absent, and under --context NAME resolves the one named context per repository with ResolveContextAsync"
+    over: "Building the full inventory under --context, as the spec's step lists it"
+    reason: "The coordinator resolves a pinned context with ResolveContextAsync and never consults the inventory then; judging the full inventory would refuse a run over contexts it never starts. The ApplyScopedContexts rule moved to ScopedContextFilter so the coordinator and the preflight share one copy."
+  - category: Implementation
+    chose: "The in-process exemption reads SandboxContainerRuntime.SpawnsContainers"
+    over: "Reading SandboxBackendInfo"
+    reason: "SandboxContainerRuntime is registered in every composition (Application default false, the server per backend); SandboxBackendInfo exists only in the server, so the CLI would have no answer."
+  - category: Scope
+    chose: "The base RepoReadiness reads for pr-review is the repository's default_branch (else the host default), not the pull request's target branch"
+    over: "Seeding the PR target branch into the run context from every PR webhook parser"
+    reason: "The PR context carries the base sha (PrBase) but no base branch name, and a probe reads by branch; the PR head is read as the run's branch, so a PR that carries the bootstrap passes either way. Carrying the target branch would touch three host parsers for a case the head already answers."
+  - category: Implementation
+    chose: "A run branch whose existence check throws is not read; with the base Incomplete the answer stays Incomplete"
+    over: "Treating that case as Unknown"
+    reason: "The spec's rule is ready if either is Complete, else Incomplete if either is; an unreachable host fails the base read as well, which is Unknown. ChatTicketlessRunLaunchTests' unknown case now makes the whole host unreachable instead of only the branch check."
+  - category: Implementation
+    chose: "EndDetail for an image: the library shape sets 'Docker Hub official library images' to 'Trust'; any other image sets 'Trusted image registries' to the current list plus its prefix"
+    over: "SetTo carrying only the prefix under the control 'Trusted image registries'"
+    reason: "Naming any registry replaces the built-in defaults, so 'set the list to the prefix' would turn mcr.microsoft.com/ and ghcr.io/ off; the full list is the concrete value that lifts the refusal without breaking the rest. The library case matches the spec's own headline example."
+  - category: Implementation
+    chose: "Config checks carry the key and the expected value (agents.<name>.type / model, sandbox.secrets.env.<NAME>, sandbox.images.<lang>); readiness-unknown carries the reasons as its subject and no control"
+    over: "EndDetail only on image and bootstrap refusals"
+    reason: "The spec names config checks; no setting lifts an unreachable host, so its detail has no control and the ticket offers Retry."
+  - category: Implementation
+    chose: "EndDetail is stored as JSON in Run.EndDetailJson through one EndDetailJson reader/writer in Persistence, migrations generated with dotnet ef for Sqlite, SqlServer and Postgresql"
+    over: "Five columns on Run"
+    reason: "The detail is read whole by one view and never queried; a JSON column is one migration per provider, like AddRunEndKind."
+  - category: Implementation
+    chose: "The harness stub source serves a principles.md and the docker harness's local source answers for 'main' from its working copy"
+    over: "Leaving the fixtures and letting the stub tier refuse every run"
+    reason: "The bootstrap is now read on the host before the sandbox; the fixtures must carry one the remote probe reads, as the spec's fixtures step says."
+  - category: Implementation
+    chose: "failureAct renders the EndDetail headline per kind ('<subject> is not trusted: set <control> to <setTo>.', '<repos> has/have no agent-smith bootstrap: Initialise project <p>.', '<subject>: set <control> to <setTo>.') and readiness-unknown first, ahead of endedOnInfrastructure"
+    over: "One generic sentence for every kind"
+    reason: "The kind's verb is what the operator reads first; the act and the layout stay as they were, as the parallel ticket-page redesign requires."
+  - category: Implementation
+    chose: "PipelineE2EHarness registers an AgentSmithConfig with one agent; PrReviewPresetTests and the control-flow SVG follow the new presets"
+    over: "Exempting security-scan from the config checks"
+    reason: "The spec names the behaviour change: pr-review and security-scan gain the config preflight, which refuses the empty placeholder configuration the E2E harness used."
+  - category: Implementation
+    chose: "A slice's bootstrap base is its parent's rung once the host has it, else the repository's default branch (RepoReadiness.SliceBaseAsync)"
+    over: "Always reading the rung, as the first cut did"
+    reason: "The first slice's checkout publishes the rung (SandboxRungPublisher); read before any sandbox, an unpublished rung answered Unknown, so every first slice ended readiness-unknown and the rung was never published. Found in review."

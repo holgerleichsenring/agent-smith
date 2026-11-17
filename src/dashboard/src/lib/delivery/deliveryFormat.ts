@@ -88,6 +88,7 @@ export const CAUSE_LABEL: Readonly<Record<string, string>> = {
   preflight: "Preflight failed (build, deps)",
   "bootstrap-missing": "Repository not initialised",
   "image-untrusted": "Sandbox image not trusted",
+  "readiness-unknown": "Host did not answer",
   superseded: "Superseded by a newer attempt",
   cancelled: "Cancelled",
   failed: "Failed",

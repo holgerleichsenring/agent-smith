@@ -1289,6 +1289,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("REAL");
 
+                    b.Property<string>("EndDetailJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("EndKind")
                         .HasColumnType("TEXT");
 

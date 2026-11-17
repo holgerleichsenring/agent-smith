@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-f3fbd
+
+decisions:
+  - category: Architecture
+    chose: "RegistryTrustAdmission (Application) owns the accept path: pipeline is code or spec-derive by ContextKeys.PipelineName, sandbox.allow_new_registries read live, the prefix written through ISandboxRegistryTrustWriter, the image judged again by ContextImageBoundary, the decision logged through IDecisionLogger; ContextImageTrustCheck offers each refusal to it"
+    over: "Writing the logic inside ContextImageTrustCheck"
+    reason: "The check is the step that writes, as the spec asks, while the admission keeps the check under the class and method limits and is testable apart. IDecisionLogger with no repository surface records to the run's event stream, which is the run's decision record the dashboard reads."
+  - category: Implementation
+    chose: "The prefix is RegistryTrustBoundary.PrefixOf: the image's repository in canonical form up to the last '/' (docker.io/library/ for node:22-bookworm, docker.io/sbtscala/ for sbtscala/...); Lever, EndDetail and the admission all use it"
+    over: "Keeping the raw-form prefix ContextImageBoundary computed (sbtscala/, and none for a library image)"
+    reason: "The raw form named no prefix for a library image and turned docker.io/node:22 into docker.io/, which would trust all of Docker Hub. The canonical form is what the boundary matches, so a written entry trusts exactly that registry namespace."
+  - category: Implementation
+    chose: "EndDetail for every image refusal, the library included, sets 'Trusted image registries' to the list in force plus the prefix"
+    over: "A separate library control"
+    reason: "f3fba's 'full list plus prefix' rule now covers the library case: with docker.io/library/ in the defaults a library image is refused only by a named list that lacks it, and the value that lifts it is that list plus docker.io/library/."
+  - category: Implementation
+    chose: "The server writer serialises its writes with a per-instance semaphore and retries a stale version after store.Load() until it lands or the run is cancelled; a read-only or refusing store answers a refusal naming sandbox.allow_new_registries"
+    over: "A fixed retry count"
+    reason: "Every stale version means another write landed, so the loop progresses; a new numeric limit would need its own config key under the working rules. The semaphore closes the in-process race in which two runs read one version and the second overwrote the first's entry."
+  - category: Implementation
+    chose: "The writer bumps the config epoch with IConfigReloadSignal.BumpAsync and publishes no ConfigChangedEvent; the version history row (UpdatedBy 'run <id>') is the record"
+    over: "Publishing ConfigChangedEvent as the studio write guard does"
+    reason: "The operator asked for no event and not to use ConfigStudioWriteGuard; the epoch is what reloads other replicas and releases a stuck ticket (f3fbc)."
+  - category: Scope
+    chose: "AllowDockerHubLibrary stays on SandboxGlobalConfig as a migration-only input ([JsonIgnore WhenWritingNull], cleared by LegacyDockerHubLibraryMigration) and stays in agentsmith.schema.json marked deprecated"
+    over: "Deleting the property and the schema key as the spec's step reads"
+    reason: "The YAML loader binds by property name and ConfigSchemaCoverageTests requires every bound key to be declared; deleting both would drop the switch before the migration could read it and change the boundary of every file still carrying it. This follows the jira_trigger precedent (2026-10-29-6bd3a). Nothing but the migration reads it, and a cleared value is never written back."
+  - category: Implementation
+    chose: "The migration runs in RawConfigMaterializer beside LegacyCredentialMigration (file and DB loads) and in the sandbox descriptor's getter and setter in ConfigDocumentTaxonomy (stored-document assembly, settings save, YAML import through Decompose)"
+    over: "Only at materialisation"
+    reason: "The server's image boundary reads the store's assembled document, not the materialised config, so a stored sandbox|default document must migrate where it is assembled; the descriptor is the one place both directions of the store pass. The migration is idempotent."
+  - category: Scope
+    chose: "ImageTrustResponse, ImageTrustInForce and the ImageTrustBoundary type lose the library fields and line; ticketState's example sentence and sample EndDetails in tests use the list form"
+    over: "Touching only SandboxImageTrustFields.tsx and its test"
+    reason: "The panel rendered fields the server no longer sends; removing a paragraph changes no layout or CSS, which is what the parallel shell rework (PR #831) needs kept stable."

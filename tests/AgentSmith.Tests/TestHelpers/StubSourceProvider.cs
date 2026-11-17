@@ -66,6 +66,10 @@ internal sealed class StubSourceProvider(string? contextYaml = null) : ISourcePr
 
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
+        // 2026-11-16-f3fba: the repository is bootstrapped as the host serves it, so the run's
+        // config preflight reads a complete bootstrap before any sandbox exists.
+        if (path.EndsWith("/principles.md", StringComparison.Ordinal))
+            return Task.FromResult<string?>("# Principles\n");
         if (path.EndsWith("context.yaml", StringComparison.Ordinal) && contextYaml is not null)
             return Task.FromResult<string?>(contextYaml);
         if (path.EndsWith("context.yaml", StringComparison.Ordinal))

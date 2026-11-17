@@ -929,9 +929,9 @@ export interface SandboxSetting {
    *  prefixes. EMPTY means the built-in default (see ImageTrustBoundary.defaultRegistries);
    *  naming any replaces it. Older reads may omit it. */
   allowedRegistries?: string[];
-  /** Whether a Docker Hub official library image (`node:20`) is trusted. NULL follows the
-   *  list: trusted while it is empty, refused once a registry is named. */
-  allowDockerHubLibrary?: boolean | null;
+  /** 2026-11-16-f3fbd: a ticket run adds the registry of an untrusted image to the list and
+   *  records it. Off by default. Older reads may omit it. */
+  allowNewRegistries?: boolean;
   /** 2026-10-25-ff3b: run sandboxes as uid 1000 with no capabilities. Off (the default) keeps
    *  the image's user. Older reads may omit it. */
   hardeningEnabled?: boolean;
@@ -943,8 +943,6 @@ export interface SandboxSetting {
 export interface ImageTrustBoundary {
   registries: string[];
   registriesAreDefault: boolean;
-  dockerHubLibrary: boolean;
-  dockerHubLibraryIsExplicit: boolean;
   defaultRegistries: string[];
   description: string;
 }

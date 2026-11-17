@@ -61,30 +61,19 @@ public sealed class ImageRegistryTrustTests
         trust.Accepts("mcr.microsoft.com/dotnet/sdk:8.0").Should().BeFalse(
             "a named list replaces the built-in default rather than extending it");
         trust.Accepts("node:20-bookworm").Should().BeFalse(
-            "a named list is a narrowing; keeping the library shape would widen it back open");
+            "a named list is a narrowing; the library is trusted only while it lists docker.io/library/");
     }
 
     [Fact]
-    public void Registries_Configured_KeepTheLibraryShapeOnlyWhenTheOperatorSaysSo()
+    public void Registries_Configured_KeepTheLibraryOnlyWhenTheListNamesIt()
     {
         var trust = Trust(new SandboxGlobalConfig
         {
-            AllowedRegistries = ["registry.example.com"],
-            AllowDockerHubLibrary = true,
+            AllowedRegistries = ["registry.example.com", "docker.io/library/"],
         });
 
         trust.Accepts("node:20-bookworm").Should().BeTrue();
         trust.Accepts("someuser/node:20-bookworm").Should().BeFalse();
-    }
-
-    [Fact]
-    public void Registries_Unset_TheLibraryShapeCanBeSwitchedOffOnItsOwn()
-    {
-        var trust = Trust(new SandboxGlobalConfig { AllowDockerHubLibrary = false });
-
-        trust.Accepts("node:20-bookworm").Should().BeFalse();
-        trust.Accepts("mcr.microsoft.com/dotnet/sdk:8.0").Should().BeTrue(
-            "the registries are untouched — the shape is its own switch");
     }
 
     [Fact]

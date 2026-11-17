@@ -28,6 +28,10 @@ public static class RequestedByNameExtensions
     public static bool IsSeriesAutoStart(this PipelineContext pipeline) =>
         pipeline.TryGet<object>(ContextKeys.SeriesAutoStart, out var value) && IsTrue(value);
 
+    /// <summary>2026-11-16-f3fbc: <see cref="ContextKeys.PreconditionRelease"/> on a running pipeline.</summary>
+    public static bool IsPreconditionRelease(this PipelineContext pipeline) =>
+        pipeline.TryGet<object>(ContextKeys.PreconditionRelease, out var value) && IsTrue(value);
+
     private static bool IsTrue(object? value) =>
         value is true || value is JsonElement { ValueKind: JsonValueKind.True };
 }
