@@ -46,6 +46,8 @@ import type { UploadNote } from "./uploadNote";
 // why: a message sent ahead of its files starts a turn that never reads them. The text is kept.
 // 2026-11-12-92e9d: a surface may put its own controls in the composer's row (Work it out's File and Discard); the
 // ticket composer passes none.
+// 2026-11-17-2772: a surface may also put controls beside the plus (home's project picker, as a model picker sits in a
+// chat composer); the text field then starts at the composer's left edge and the controls sit in one row beneath it.
 
 export function DialogComposer({
   onSend,
@@ -57,6 +59,7 @@ export function DialogComposer({
   loadHeld,
   inputRef,
   actions,
+  tools,
   placeholder = "Keep talking, or answer above…",
 }: {
   onSend: (text: string) => void;
@@ -76,6 +79,9 @@ export function DialogComposer({
   inputRef?: RefObject<HTMLTextAreaElement | null>;
   /** 2026-11-12-92e9d: controls shown above the text field, in the composer's row. */
   actions?: ReactNode;
+  /** 2026-11-17-2772: controls in the row under the text field, right of the plus (the home page's project picker).
+   *  Given, the text field takes its own row on top and the plus, these controls and send share the row below it. */
+  tools?: ReactNode;
   /** 2026-11-16-6877a: the empty field's hint, where a surface says what sending does. */
   placeholder?: string;
 }) {
@@ -154,108 +160,130 @@ export function DialogComposer({
     };
   }, [attaching, disabled]);
 
+  const attachControl = (
+    <div className="d-attach" ref={attach}>
+      {/* The input itself is never shown: a file control styled by the browser cannot be
+          made to read as this page's own, and a menu entry can. */}
+      <input
+        ref={picker}
+        data-testid="dialog-composer-image"
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        className="hidden"
+        onChange={(event) => {
+          const picked = event.target.files?.[0];
+          event.target.value = "";
+          if (picked && fits([picked])) track(onAttach(picked));
+        }}
+      />
+      {onAttachSite && (
+        <>
+          <input
+            ref={several}
+            data-testid="dialog-composer-files"
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => pickFiles(event.target, (files) => track(sendOne(files[0])), setPick)}
+          />
+          <input
+            ref={folder}
+            data-testid="dialog-composer-folder"
+            type="file"
+            {...{ webkitdirectory: "" }}
+            className="hidden"
+            onChange={(event) => pickFolder(event.target, setPick)}
+          />
+        </>
+      )}
+      <button
+        ref={plus}
+        type="button"
+        data-testid="dialog-composer-attach"
+        aria-label="Attach"
+        title="Attach"
+        aria-haspopup="menu"
+        aria-expanded={attaching}
+        onClick={() => setAttaching(!attaching)}
+        disabled={disabled}
+        className="d-icon"
+      >
+        <PlusGlyph />
+      </button>
+      {attaching && (
+        <AttachMenu
+          onLeave={() => setAttaching(false)}
+          entries={[
+            { key: "image", label: "Image", onPick: () => openPicker(picker.current) },
+            ...(onAttachSite ? [
+              { key: "files", label: "Files", onPick: () => openPicker(several.current) },
+              // 2026-10-08-e8b9i: the browser adds its own "upload N files?" prompt to a folder
+              // pick, which no page can restyle or suppress; saying so keeps it from reading as ours.
+              { key: "folder", label: "Folder", onPick: () => openPicker(folder.current),
+                describedBy: "dialog-composer-folder-hint" },
+            ] : []),
+          ]}
+          hint={onAttachSite
+            ? { id: "dialog-composer-folder-hint", text: "Your browser may ask to confirm a folder upload." }
+            : undefined}
+        />
+      )}
+    </div>
+  );
+  const field = (
+    <textarea
+      ref={inputRef}
+      data-testid="dialog-composer-text"
+      value={text}
+      rows={3}
+      disabled={disabled}
+      placeholder={placeholder}
+      onChange={(event) => setText(event.target.value)}
+      onKeyDown={(event) => {
+        // Enter sends, shift+enter keeps writing: a design message is often several
+        // sentences, and a send on every newline would cut them into turns.
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          send();
+        }
+      }}
+      className={tools ? "d-input block w-full" : "d-input min-w-0 flex-1"}
+    />
+  );
+  const sendControl = (
+    <button
+      type="button"
+      data-testid="dialog-composer-send"
+      aria-label="Send"
+      title="Send"
+      onClick={send}
+      disabled={disabled || waiting !== null}
+      className="d-icon send"
+    >
+      <ArrowGlyph />
+    </button>
+  );
+
   return (
     <div className="d-foot">
       {actions && <div className="mb-2">{actions}</div>}
-      <div className="flex items-end gap-2">
-        <div className="d-attach" ref={attach}>
-          {/* The input itself is never shown: a file control styled by the browser cannot be
-              made to read as this page's own, and a menu entry can. */}
-          <input
-            ref={picker}
-            data-testid="dialog-composer-image"
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            className="hidden"
-            onChange={(event) => {
-              const picked = event.target.files?.[0];
-              event.target.value = "";
-              if (picked && fits([picked])) track(onAttach(picked));
-            }}
-          />
-          {onAttachSite && (
-            <>
-              <input
-                ref={several}
-                data-testid="dialog-composer-files"
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(event) => pickFiles(event.target, (files) => track(sendOne(files[0])), setPick)}
-              />
-              <input
-                ref={folder}
-                data-testid="dialog-composer-folder"
-                type="file"
-                {...{ webkitdirectory: "" }}
-                className="hidden"
-                onChange={(event) => pickFolder(event.target, setPick)}
-              />
-            </>
-          )}
-          <button
-            ref={plus}
-            type="button"
-            data-testid="dialog-composer-attach"
-            aria-label="Attach"
-            title="Attach"
-            aria-haspopup="menu"
-            aria-expanded={attaching}
-            onClick={() => setAttaching(!attaching)}
-            disabled={disabled}
-            className="d-icon"
-          >
-            <PlusGlyph />
-          </button>
-          {attaching && (
-            <AttachMenu
-              onLeave={() => setAttaching(false)}
-              entries={[
-                { key: "image", label: "Image", onPick: () => openPicker(picker.current) },
-                ...(onAttachSite ? [
-                  { key: "files", label: "Files", onPick: () => openPicker(several.current) },
-                  // 2026-10-08-e8b9i: the browser adds its own "upload N files?" prompt to a folder
-                  // pick, which no page can restyle or suppress; saying so keeps it from reading as ours.
-                  { key: "folder", label: "Folder", onPick: () => openPicker(folder.current),
-                    describedBy: "dialog-composer-folder-hint" },
-                ] : []),
-              ]}
-              hint={onAttachSite
-                ? { id: "dialog-composer-folder-hint", text: "Your browser may ask to confirm a folder upload." }
-                : undefined}
-            />
-          )}
+      {tools ? (
+        <>
+          {field}
+          <div className="d-tools flex items-center gap-2" data-testid="dialog-composer-tools">
+            {attachControl}
+            {tools}
+            <span className="min-w-0 flex-1" />
+            {sendControl}
+          </div>
+        </>
+      ) : (
+        <div className="flex items-end gap-2">
+          {attachControl}
+          {field}
+          {sendControl}
         </div>
-        <textarea
-          ref={inputRef}
-          data-testid="dialog-composer-text"
-          value={text}
-          rows={3}
-          disabled={disabled}
-          placeholder={placeholder}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            // Enter sends, shift+enter keeps writing: a design message is often several
-            // sentences, and a send on every newline would cut them into turns.
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              send();
-            }
-          }}
-          className="d-input min-w-0 flex-1"
-        />
-        <button
-          type="button"
-          data-testid="dialog-composer-send"
-          aria-label="Send"
-          title="Send"
-          onClick={send}
-          disabled={disabled || waiting !== null}
-          className="d-icon send"
-        >
-          <ArrowGlyph />
-        </button>
-      </div>
+      )}
       {heldPick && !pick && (
         <HeldFileNote file={heldPick.file} name={heldPick.name} onDismiss={() => setHeldPick(null)}
           onSendAnyway={() => {
