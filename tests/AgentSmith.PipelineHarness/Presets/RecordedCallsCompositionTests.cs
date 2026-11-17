@@ -54,6 +54,27 @@ public sealed class RecordedCallsCompositionTests
             "the tracker keeps worker spend apart; the ledger is what the run recorded");
     }
 
+    /// <summary>2026-11-17-7c9bd: result.md's total is the sum of the recorded calls, worker calls included.</summary>
+    [Fact]
+    public async Task Harness_WorkerAnsweredRun_ResultMdTotalIsTheRecordedSum()
+    {
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), Project);
+        harness.ChatClient
+            .EnqueueDeferred(() => Worker(SpecDerivationFixture.DerivationJson, 0.25m))
+            .EnqueueDeferred(() => Worker("Planning: patch it.", 0.50m))
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
+            .EnqueueDeferred(() => Worker(GreenVerdict, 0.75m));
+
+        var runner = new PipelineRunner(harness.Services);
+        await runner.RunAsync("code");
+
+        var resultMd = await harness.Services.GetRequiredService<AgentSmith.Contracts.Persistence.IRunArtifactStore>()
+            .ReadResultMarkdownAsync(runner.LastRunId!, CancellationToken.None);
+        var recorded = runner.LastContext!.Get<RecordedCallLedger>(ContextKeys.RecordedCalls).CostUsd;
+        resultMd.Should().Contain(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"total_usd: {recorded:F4}"))
+            .And.NotContain("total_usd: 0.0000");
+    }
+
     private static ChatResponse Worker(string text, decimal reportedUsd) =>
         new WorkerCallAccounting("claude-opus-5-5", 10, 20, 0, 0, reportedUsd, 1)
             .AttachTo(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));

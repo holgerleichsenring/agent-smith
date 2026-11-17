@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-7c9bd
+
+decisions:
+  - category: Scope
+    chose: "result.md's total_usd, tokens, rows and worker_cli block are summed from the run's recorded calls, worker calls included; this supersedes 166ab's choice to leave result.md on the tracker"
+    over: "Keeping result.md on the tracker, or taking only the totals from the ledger and the rows from the tracker"
+    reason: "The operator read tokens 0, total_usd 0 and 29 of 36 calls next to a run row of 27.62 USD as a defect. The run row already sums the recorded calls; result.md now reads the same source, so the two cannot disagree. Rows from the tracker would leave every worker call out of them and stop summing to the total."
+  - category: Implementation
+    chose: "Rows are keyed by the call scope's execution stage, 'Other' when a call has none, and a resumed run's earlier segments are one 'Prior segments' row"
+    over: "Mapping the stages onto the tracker's skill-execution names"
+    reason: "The stage is what the call recorded; mapping it would invent a correspondence the scopes do not state. The per-skill breakdown below keeps its own names from the tracker."
+  - category: Scope
+    chose: "The tracker's unpriced-token alarm stays in the summary"
+    over: "Dropping it with the tracker's totals"
+    reason: "It is a pricing alarm about the model table, which only the tracker resolves; a recorded call that priced at 0 carries no such flag."

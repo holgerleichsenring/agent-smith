@@ -6,10 +6,9 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// 2026-09-01-b0d7: renders what an external agent CLI reported for the calls it answered,
-/// as its OWN block under <c>cost:</c>. Separate from the priced sections because it is a
-/// separate claim: it is not part of <c>total_usd</c> — that transport spends no money
-/// against an agent budget — and its cache-creation tokens are the CLI's own system prompt
-/// and tool schemas, charged per call, not this run's context.
+/// as its OWN block under <c>cost:</c>: the worker share of the run. 2026-11-17-7c9bd: it is
+/// part of <c>total_usd</c> since result.md sums the recorded calls (as the run row does); its
+/// cache-creation tokens are the CLI's own system prompt and tool schemas, charged per call.
 /// </summary>
 internal static class WorkerSpendSectionWriter
 {
