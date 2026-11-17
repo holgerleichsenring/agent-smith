@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d0e0
+
+decisions:
+  - category: Implementation
+    chose: "Pin the embedded catalog to the released v5.34.0 tarball (checked against its published sha256) and update the csproj version and SkillsCatalogSha256, the example config and the docs that name the pinned version"
+    over: "Building a tarball from the skills branch"
+    reason: "The pin is the released artifact operators can verify; the release carries coding-agent-master 2.1.0, which describes revise_spec (2026-11-17-ec48a). The release diff against v5.33.0 is that master alone."
+  - category: Testing
+    chose: "A new CodingMasterReviseSpecPromptTests reads the packaged coding master's revise_spec rule, its tool entry and that the replaced 'say so in the verdict' rule is gone"
+    over: "Relying on the backend's revise_spec tests, which never read the master's text"
+    reason: "No existing skill-text test read the changed sentences, so nothing guarded that the pinned master tells the agent the tool exists. No prompt-size ceiling covers the coding master, so no measurement had to be recorded."
