@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-dd05a
+goal: "On the ticket page's What happened, the derived-cut comment a run posts reads as one line — '2 specs derived, revision 5' or '2 specs approved from Work it out' — not its whole body."
+
+applies_to: "default (Server/Services/Tickets/Conversation, Application/Services/Specs SpecSetComment), dashboard (ConversationEntry)"
+
+requires: [2026-11-17-a0b6c]
+
+facts:
+  - claim: "A run posts the derived cut to the ticket as a comment whose body carries every spec's done criteria, facts and assumptions."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:44, src/backend/AgentSmith.Application/Services/Specs/SpecSetComment.cs:102"
+  - claim: "The comment's heading carries a fixed phrase that survives every tracker's re-encoding."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetComment.cs:25"
+  - claim: "The ticket conversation read turns every tracker comment into an entry with its whole body."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketConversationReader.cs:41"
+  - claim: "The attempt markers already read each attempt's revision record."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketConversationReader.cs:47"
+
+scope:
+  in: "A comment of ours whose first text line carries the cut phrase (a person quoting it starts with the quote, so stays theirs) becomes an entry of kind 'spec-set' whose text is one line: the spec count (one 'Done when:' per spec, a constant SpecSetComment owns), then 'derived' or — when the approved preamble's opening is in it — 'approved', 'from Work it out' only when the attempt's approval names a conversation, and ', revision n' only when the comment falls inside the attempt run it is placed under (a spec-derive run's comment lands under an earlier attempt). The dashboard draws it as plain text, like any other line."
+  out: "The comment posted on the tracker stays as it is: it is the tracker reader's view. Other notices (kept set, hand-backs) keep their bodies."
+
+steps:
+  - id: constants
+    action: "SpecSetComment.DoneHeading ('Done when:') used by RenderSpec; SpecSetCommentPreamble.ApprovedOpening, the approved text's first sentence start."
+  - id: line
+    action: "SpecSetCommentLine.Of(entry, revision) in Server/Services/Tickets/Conversation: null for any entry that is not our ticket comment with the cut phrase; else the entry with kind spec-set, plain text format and the one line."
+  - id: reader
+    action: "TicketConversationReader maps each placed entry through SpecSetCommentLine with the attempt row and run it is placed under, in a helper of its own (ReadAsync is already at its line limit)."
+  - id: dashboard
+    action: "TicketConversationKind gains 'spec-set'; ConversationEntry needs no branch for it — the text is one line."
+
+tests:
+  - "SpecSetCommentLineTests: derived with revision, outside the attempt's run (no revision), approved from Work it out, approved by a recut demand, HTML body (Azure DevOps), a quoted reply, a person's comment and an entry of another source pass through untouched"
+  - "TicketConversationReaderTests (real reader): a posted cut comment under an attempt with revision 5 reads as '2 specs derived, revision 5'"
+  - "ConversationEntry.test.tsx: a spec-set entry renders its one line"
+
+done:
+  - "What happened shows a derived or approved cut as one line naming the count and the revision or the approval; the full content stays in the Specs section."

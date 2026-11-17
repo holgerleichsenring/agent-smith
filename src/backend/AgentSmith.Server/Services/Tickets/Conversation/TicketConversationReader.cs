@@ -40,13 +40,22 @@ public sealed class TicketConversationReader(
         entries.AddRange(ConversationPrEntries.Of(await PrRecordsAsync(project, ticketId, ct), runIds.ToHashSet(StringComparer.Ordinal)));
         entries.AddRange(ConversationAssembly.Thread(comments ?? []));
         if (session is not null && !hidden) entries.AddRange(transcript.Turns(session));
-        var lastApproval = rows.Attempts.FirstOrDefault(a => a.RunId == runIds.LastOrDefault())?.ApprovalAt;
-        var placed = ConversationAssembly.Folded(entries)
-            .Select(e => ConversationAssembly.Placed(e, ordered, lastApproval))
-            .OrderBy(e => e.At).ToList();
+        var placed = Placed(entries, ordered, rows);
         return new TicketConversationView(project, ticketId, placed, await MarkersAsync(ordered, rows, placed, ct),
             hidden ? null : session?.SessionId, hidden || session is not { IsOpen: true } ? null : session.ThreadId,
             hidden || session is null ? null : await transcript.ProposalAsync(session, ct), hidden, comments is null);
+    }
+
+    // 2026-11-17-dd05a: placed under their attempts, a posted cut comment read as one line with that attempt's revision.
+    private static List<TicketConversationEntryView> Placed(
+        IReadOnlyList<TicketConversationEntryView> entries, IReadOnlyList<Run> ordered, ConversationRunRows rows)
+    {
+        var lastApproval = rows.Attempts.FirstOrDefault(a => a.RunId == ordered.LastOrDefault()?.Id)?.ApprovalAt;
+        return [.. ConversationAssembly.Folded(entries)
+            .Select(e => ConversationAssembly.Placed(e, ordered, lastApproval))
+            .Select(e => SpecSetCommentLine.Of(e, rows.Attempts.FirstOrDefault(a => a.RunId == e.AttemptRunId),
+                ordered.FirstOrDefault(r => r.Id == e.AttemptRunId)))
+            .OrderBy(e => e.At)];
     }
 
     private async Task<IReadOnlyList<TicketConversationAttemptView>> MarkersAsync(

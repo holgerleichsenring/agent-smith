@@ -65,4 +65,13 @@ describe("ConversationEntry", () => {
     expect(screen.getByTestId("conv-detail")).toHaveTextContent("No step builds the worker.");
     expect(screen.getByTestId("conv-entry")).toHaveTextContent("The cut leaves a criterion uncovered.");
   });
+
+  // 2026-11-17-dd05a: a posted cut comment arrives as one line; it is drawn as plain text, nothing around it.
+  it("ConversationEntry_SpecSetLine_IsItsOneLine", () => {
+    show({ source: "ticket", kind: "spec-set", role: "agent", isOurs: true, format: "text", text: "2 specs derived, revision 5" });
+
+    const body = screen.getByTestId("conv-entry").querySelector(".mb")!;
+    expect(body.textContent).toBe("2 specs derived, revision 5");
+    expect(screen.queryByTestId("conv-detail")).toBeNull();
+  });
 });

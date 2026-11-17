@@ -499,7 +499,7 @@ export interface TicketConversationEntry {
   sourceId: string | null;
   prKey: string | null;
   source: TicketConversationSource;
-  /** edited | answer | default-answer | command-answer | comment | turn | question | hand-back | cut-review | … */
+  /** edited | answer | default-answer | command-answer | comment | turn | question | hand-back | cut-review | spec-set | … */
   kind: string;
   /** person | agent | system | reviewer */
   role: string;
