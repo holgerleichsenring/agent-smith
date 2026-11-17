@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-// p0209a: one row of the persistent left app rail. Prop-driven so it has no
-// knowledge of routing or activity sources — the parent (AppRail) derives
-// `active` from the current route and supplies live/freshness from whatever
-// is readily available.
+// p0209a: one row of a navigation list. Prop-driven so it has no knowledge of
+// routing or activity sources — the parent derives `active` from the current
+// route and supplies live/freshness from whatever is readily available.
+// 2026-11-16-0440c: the rail it was written for became the flat sidebar; this row
+// now draws the configuration and system pages' own section lists.
 // p0343c (pixel identity): emits the ratified mock's .nav DOM verbatim —
 // .ni icon slot · label · .nc count/freshness pill (.nc.hot for attention).
 // When no glyph icon is supplied (SYSTEM subsystem rows), the .ni slot carries
 // the live/idle dot so subsystem liveness stays visible.
 
-export interface AppRailItemProps {
+export interface SectionNavItemProps {
   label: string;
   href: string;
   live?: boolean;
@@ -22,8 +23,6 @@ export interface AppRailItemProps {
   count?: number;
   /** Attention state — the count pill goes .nc.hot (amber). */
   hot?: boolean;
-  /** Kept for API compatibility; the mock rail has no indent tier. */
-  indent?: boolean;
   /** The mock's .ni glyph (◉ ? ▶ ≡ ✓ ◈ …). Falls back to the live/idle dot. */
   icon?: string;
   /**
@@ -33,12 +32,12 @@ export interface AppRailItemProps {
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
-export function AppRailItem(props: AppRailItemProps) {
+export function SectionNavItem(props: SectionNavItemProps) {
   const fresh = props.freshness && props.freshness !== "—" ? props.freshness : null;
   return (
     <Link
       href={props.href}
-      data-testid={`app-rail-item-${props.label}`}
+      data-testid={`section-nav-item-${props.label}`}
       data-active={props.active ? "true" : "false"}
       data-hot={props.hot ? "true" : "false"}
       aria-current={props.active ? "page" : undefined}
@@ -48,7 +47,7 @@ export function AppRailItem(props: AppRailItemProps) {
       <span className="ni">
         {props.icon ?? (
           <span
-            data-testid="app-rail-item-dot"
+            data-testid="section-nav-item-dot"
             className={cn(
               "inline-block h-2 w-2 rounded-full align-middle",
               props.hot
@@ -64,7 +63,7 @@ export function AppRailItem(props: AppRailItemProps) {
       {props.label}
       {props.count !== undefined && (
         <span
-          data-testid={`app-rail-count-${props.label}`}
+          data-testid={`section-nav-count-${props.label}`}
           className={cn("nc", props.hot && "hot")}
         >
           {props.count}

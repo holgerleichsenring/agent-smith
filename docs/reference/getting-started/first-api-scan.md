@@ -7,7 +7,7 @@ Scan a running API for security vulnerabilities.
 
 ## Prerequisites
 
-- Agent Smith [installed](../../get-it-running/install.md)
+- codeably [installed](../../get-it-running/install.md)
 - `ANTHROPIC_API_KEY` (or other AI provider key)
 - Docker running (for the Nuclei, Spectral and ZAP containers)
 - A target API with a swagger.json endpoint

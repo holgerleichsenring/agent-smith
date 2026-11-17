@@ -9,7 +9,7 @@ import { greetingFor } from "./greetingText";
 
 // 2026-09-27-481bd: what an empty conversation opens with, in place of 154 words of instruction.
 //
-// SPLIT INTO TWO COMPONENTS, exactly as HeaderIdentity is, and for the same reason: an
+// SPLIT INTO TWO COMPONENTS, exactly as ProfileMenu is, and for the same reason: an
 // installation with no authority configured must read no identity and subscribe to no token, and
 // the hook that acquires one starts an auth session unconditionally. A hook cannot be called
 // conditionally, so the condition has to be a component boundary.

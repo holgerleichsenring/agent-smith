@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Skills** in the [Config studio](../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../configure-it/index.md).
 
-The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — are authored in their own repository and versioned with release tags. Every Agent Smith release **embeds** the skills catalog it was tested with: with no `skills:` block in `agentsmith.yml`, the embedded catalog materializes to disk at startup — no network fetch, no version pin. The `skills:` block is an **override** for skills development, mirrors, or running a different catalog version than the one embedded.
+The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — are authored in their own repository and versioned with release tags. Every codeably release **embeds** the skills catalog it was tested with: with no `skills:` block in `agentsmith.yml`, the embedded catalog materializes to disk at startup — no network fetch, no version pin. The `skills:` block is an **override** for skills development, mirrors, or running a different catalog version than the one embedded.
 
 ## Where they actually live
 
@@ -23,12 +23,12 @@ Release tags follow semver (`v5.32.0`, …). Every tag is a self-contained catal
 
 Two reasons:
 
-- **The skills change faster than the framework.** A new skill (say `licence-compliance-reviewer` for legal-analysis) doesn't require an Agent Smith binary update. Tag the skills repo, pin `skills.version` in `agentsmith.yml`, and you have the new skill on the next run — without waiting for the next Agent Smith release (which will embed it).
+- **The skills change faster than the framework.** A new skill (say `licence-compliance-reviewer` for legal-analysis) doesn't require a codeably binary update. Tag the skills repo, pin `skills.version` in `agentsmith.yml`, and you have the new skill on the next run — without waiting for the next codeably release (which will embed it).
 - **The framework changes shouldn't break your skills mid-flight.** When the framework gets a new feature (a new tool, a new role), the skills repo opts in to it by adopting it in a new tag. The old tag keeps working with the old framework version. The two move independently, with one floor: a catalog older than the one the binary embeds is missing content the binary may expect, so a run that resolves such a pin says so in a warning ("older than the pin this binary embeds") and runs anyway.
 
 That separation was painful to maintain when the skills lived in-tree — every skill edit was a binary rebuild and every binary release re-shipped the entire catalog.
 
-## How you point Agent Smith at them
+## How you point codeably at them
 
 You usually don't. With no `skills:` block the embedded catalog is used. To override, set a `skills` block in `agentsmith.yml`:
 
@@ -66,7 +66,7 @@ Every run names the catalog it resolved in its Load-catalog step, in the form `c
 
 ## Bumping the catalog
 
-Normally: upgrade Agent Smith — every release carries its own catalog. To run a newer catalog on the same binary, pin it explicitly:
+Normally: upgrade codeably — every release carries its own catalog. To run a newer catalog on the same binary, pin it explicitly:
 
 ```yaml
 skills:

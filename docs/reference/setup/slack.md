@@ -1,6 +1,6 @@
 # Slack Setup Guide
 
-This guide walks through connecting Agent Smith to Slack, from app creation to
+This guide walks through connecting codeably to Slack, from app creation to
 first message. It covers both local development (ngrok) and production.
 
 ---
@@ -8,7 +8,7 @@ first message. It covers both local development (ngrok) and production.
 ## Prerequisites
 
 - A Slack workspace where you have permission to install apps
-- Agent Smith running and reachable via a public HTTPS URL
+- codeably running and reachable via a public HTTPS URL
   - Local development: [ngrok](https://ngrok.com) to expose your local port
   - Production: reverse proxy (nginx, Traefik, etc.)
 
@@ -50,7 +50,7 @@ first message. It covers both local development (ngrok) and production.
 
 !!! info "App-Level Token not needed"
     The **App-Level Token** (`xapp-...`) on the Basic Information page is for
-    Socket Mode only. Agent Smith uses HTTP webhooks, not Socket Mode.
+    Socket Mode only. codeably uses HTTP webhooks, not Socket Mode.
 
 ---
 
@@ -62,7 +62,7 @@ first message. It covers both local development (ngrok) and production.
    ```
    https://<your-host>/slack/events
    ```
-   Slack immediately sends a `url_verification` challenge. Agent Smith handles
+   Slack immediately sends a `url_verification` challenge. codeably handles
    this automatically — you should see a green checkmark.
 
    !!! warning "Server must be running first"

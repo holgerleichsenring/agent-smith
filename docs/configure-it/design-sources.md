@@ -6,7 +6,7 @@ Figma is the only vendor today.
 
 ## What you need
 
-- A Figma personal access token whose account can open the files your designs live in. Agent Smith sends it as `X-Figma-Token` to `api.figma.com` and nowhere else.
+- A Figma personal access token whose account can open the files your designs live in. codeably sends it as `X-Figma-Token` to `api.figma.com` and nowhere else.
 - That token in an environment variable of the server process, say `FIGMA_TOKEN`: in the compose `.env`, or in the Kubernetes Secret the deployment reads its environment from. The process reads its environment when it starts, so restart it after adding the variable.
 
 Figma's variables (design tokens) come from its Variables API, which needs a Figma Enterprise plan and a token with the `file_variables:read` scope. Without those, a read still returns every value set on the nodes and says the variables were unavailable. It never invents a token name it didn't read.

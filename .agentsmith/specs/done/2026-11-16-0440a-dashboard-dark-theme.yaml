@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-0440a
+goal: "Every dashboard page reads dark: app tokens in DESIGN.md drive the theme, the shell's mock tokens and Tailwind's palette are remapped, and text meets AA contrast."
+
+applies_to: "dashboard (globals.css @theme, mock-parity.css tokens, DESIGN.md app-* colours)"
+
+facts:
+  - claim: "The dashboard theme is hand-mirrored from DESIGN.md into globals.css @theme; the generated tokens.json is not imported by the Tailwind v4 stylesheet."
+    evidence: "src/dashboard/src/app/globals.css:7-33"
+  - claim: "Redesigned surfaces read their colours from .mock-shell variables (--bg, --panel, --ink, --line, --accent, --run, --ok, --bad)."
+    evidence: "src/dashboard/src/styles/mock-parity.css:53-100"
+  - claim: "Components use raw Tailwind palette classes (stone, amber, rose, emerald, white) in 89 files, including the detail pages this slice may not edit."
+    evidence: "grep over src/dashboard/src, 2026-11-16"
+
+scope:
+  in: "app-* colour tokens in DESIGN.md; globals.css semantic and palette variables; mock-parity.css token blocks and its hard-coded light colours; the dashboard's colour-scheme."
+  out: "Website and docs tokens; markup changes in ticket and run detail pages (they inherit the variables)."
+
+steps:
+  - id: tokens
+    action: "Add app-* colours (ground, side, panel, raised, hover, lines, text, soft, mute, faint, bright, on-bright, needs, person, proven, stopped) and a short Dashboard section to DESIGN.md."
+  - id: theme
+    action: "globals.css @theme mirrors the app-* tokens, points canvas/ink/body/mute/primary at them, and remaps Tailwind's neutral and state palettes to dark equivalents."
+  - id: mock
+    action: "mock-parity.css token blocks read the app-* variables; hard-coded #fff text on state fills, light shadows and backdrops become tokens."
+  - id: scheme
+    action: "html sets color-scheme: dark so native controls, scrollbars and dialogs are dark."
+
+decisions:
+  - "Remap Tailwind palette variables, not 89 component files — alternatives: codemod every class (touches out-of-scope detail pages)."
+  - "Hand mirror plus a sync test — alternatives: generate a dashboard CSS file (a fresh `pnpm dev` would need a generator step first)."
+
+tests:
+  - "theme-tokens.test.ts: every --color-app-* in globals.css equals DESIGN.md; every app text token on the app grounds meets 4.5:1."
+  - "dialog-color-tokens.test.ts stays green."
+
+done:
+  - "Every route renders on the near-black ground with light text."
+  - "The token sync and contrast tests pass; build and the full dashboard suite are green."

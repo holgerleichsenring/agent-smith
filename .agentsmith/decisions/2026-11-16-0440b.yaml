@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-0440b
+
+decisions:
+  - category: Architecture
+    chose: "One generic StatePills component in components/ui, fed a pill list by TicketStatePills and RunStatePills"
+    over: "A pill strip written twice, once per list"
+    reason: "Both lists already share the shape (a URL bucket, a select function, a count per bucket); the pill list is the only part that differs."
+  - category: Implementation
+    chose: "Pills are links with aria-current, a plain click selects in place through the list's filter provider"
+    over: "role=tab buttons as in the mock"
+    reason: "A tab needs a tabpanel and is not addressable; a link keeps a filtered view copyable and openable in a new tab, which the rail items already promised."
+  - category: Scope
+    chose: "Seven ticket pills always (Needs you, Working, In review, Stuck, Waits on another, Done, Closed); Filed, PR closed, Failed and Ended only while they hold a ticket or are chosen"
+    over: "Eleven pills always, or the approved seven only"
+    reason: "The approved seven keep the strip short; dropping the other four would leave tickets in those buckets unreachable."
+  - category: Implementation
+    chose: "Rename the section titles 'Waiting on review' and 'Waits for another ticket' to 'In review' and 'Waits on another'"
+    over: "A second, shorter label used only by the pills"
+    reason: "A pill and the section it shows must say the same thing; one name per bucket."
+  - category: Implementation
+    chose: "Pill tones follow the approved mock: Needs you amber, Working green, In review blue, Stuck, Failed and PR closed red, the rest grey"
+    over: "The sections' existing tones (Done green, Waits on another blue)"
+    reason: "The mock is the approved design; the section headings keep their own tone until the list itself is redesigned."

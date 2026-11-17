@@ -1,6 +1,6 @@
 # Architecture
 
-Agent Smith is built on Clean Architecture with a strict dependency rule: inner layers never reference outer layers. The backend is a .NET solution under `src/backend/`; the dashboard is a separate Next.js application under `src/dashboard/`.
+codeably is built on Clean Architecture with a strict dependency rule: inner layers never reference outer layers. The backend is a .NET solution under `src/backend/`; the dashboard is a separate Next.js application under `src/dashboard/`.
 
 ## Layer diagram
 
@@ -70,7 +70,7 @@ Sandbox.Wire ← Sandbox.Agent
 
 ## Pipelines
 
-Agent Smith ships eight pipeline presets, each a fixed list of steps. Those that need judgement hand it to one master skill at their `AgenticMaster` step.
+codeably ships eight pipeline presets, each a fixed list of steps. Those that need judgement hand it to one master skill at their `AgenticMaster` step.
 
 | Pipeline | Type | Master |
 |----------|------|--------|

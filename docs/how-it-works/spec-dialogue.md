@@ -1,6 +1,6 @@
 # Spec dialogue
 
-Agent Smith isn't only a pipeline you point at finished tickets. It's also the thing you talk to *before* the ticket exists: a design partner that discusses the work with you, drafts the spec, files the ticket, and then runs it through the same pipelines as everything else.
+codeably isn't only a pipeline you point at finished tickets. It's also the thing you talk to *before* the ticket exists: a design partner that discusses the work with you, drafts the spec, files the ticket, and then runs it through the same pipelines as everything else.
 
 ## Where you talk to it
 

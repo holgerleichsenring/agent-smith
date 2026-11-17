@@ -89,7 +89,7 @@ A template that can't be opened stops the work rather than letting it go ahead w
 - the host couldn't be reached
 - the connection names no clone URL
 
-Agent Smith uses one token per platform. A template in another organisation that token can't read comes back as refused.
+codeably uses one token per platform. A template in another organisation that token can't read comes back as refused.
 
 ## Next
 

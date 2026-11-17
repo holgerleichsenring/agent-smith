@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TicketListView, TicketSummary } from "@/types/tickets";
 import { fakeHub, list, pr, ticket } from "./ticketFixtures";
 
-// 2026-10-15-114fd: the closed, failed and PR-closed buckets on the list and the rail, the closed row's words, and
+// 2026-10-15-114fd: the closed, failed and PR-closed buckets on the list and its state pills, the closed row's words, and
 // Close / Reopen beside the row link.
 
 const hoisted = vi.hoisted(() => ({ fetch: vi.fn(), apiFetch: vi.fn(), fetchRun: vi.fn(), lacks: false }));
@@ -20,7 +20,6 @@ vi.mock("@/lib/apiResponse", async (importOriginal) => ({
 import TicketsPage from "@/app/tickets/page";
 import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
 import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
-import { WorkRailSection } from "@/components/shell/WorkRailSection";
 
 function renderTickets(view: TicketListView, search = "") {
   hoisted.fetch.mockResolvedValue(view);
@@ -28,7 +27,6 @@ function renderTickets(view: TicketListView, search = "") {
   return render(
     <TicketBucketFilterProvider>
       <TicketListProvider client={fakeHub().client}>
-        <nav data-testid="rail"><WorkRailSection /></nav>
         <TicketsPage />
       </TicketListProvider>
     </TicketBucketFilterProvider>,
@@ -61,17 +59,17 @@ beforeEach(() => {
 });
 
 describe("TicketList, closed", () => {
-  it("WorkRailSection_ClosedFailedPrClosed_AreRailItemsWithTheirCounts", async () => {
+  it("StatePills_ClosedFailedPrClosed_ArePillsWithTheirCounts", async () => {
     renderTickets(list([ticket()], { working: 1, prClosed: 2, failed: 3, idle: 4, closed: 5 }));
     await screen.findByTestId("ticket-list");
 
-    const rail = screen.getByTestId("rail");
-    expect(within(rail).getByTestId("app-rail-count-Tickets")).toHaveTextContent("15");
-    for (const [label, icon, n] of [["PR closed", "⊘", "2"], ["Failed", "✕", "3"], ["Ended", "■", "4"], ["Closed", "◌", "5"]]) {
-      expect(within(rail).getByTestId(`app-rail-item-${label}`)).toHaveTextContent(icon);
-      expect(within(rail).getByTestId(`app-rail-count-${label}`)).toHaveTextContent(n);
+    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("15");
+    for (const [bucket, label, n] of [["pr-closed", "PR closed", "2"], ["failed", "Failed", "3"], ["ended", "Ended", "4"], ["closed", "Closed", "5"]]) {
+      expect(screen.getByTestId(`ticket-pills-${bucket}`)).toHaveTextContent(label);
+      expect(screen.getByTestId(`ticket-pills-${bucket}-count`)).toHaveTextContent(n);
     }
-    expect(within(rail).getByTestId("app-rail-item-Closed")).toHaveAttribute("href", "/tickets?bucket=closed");
+    expect(screen.getByTestId("ticket-pills-closed")).toHaveAttribute("href", "/tickets?bucket=closed");
+    expect(screen.queryByTestId("ticket-pills-filed")).not.toBeInTheDocument();
     const order = [...document.querySelectorAll("section[data-testid]")].map((s) => (s as HTMLElement).dataset.testid);
     expect(order).toEqual(["ticket-section-needs-you", "ticket-section-working", "ticket-section-pr-closed", "ticket-section-failed",
       "ticket-section-ended", "ticket-section-closed"]);

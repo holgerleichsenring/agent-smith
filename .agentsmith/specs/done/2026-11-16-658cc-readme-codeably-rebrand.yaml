@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-658cc
+goal: "The README names the product codeably and links codeably.ai and docs.codeably.ai, technical identifiers unchanged."
+
+applies_to: "default (README.md)"
+
+requires: [2026-11-16-658ca, 2026-11-16-658cb]
+
+facts:
+  - claim: "The README links agent-smith.org and docs.agent-smith.org and calls the product Agent Smith."
+    evidence: "README.md:3, README.md:13, README.md:23"
+
+scope:
+  in: "Brand in prose, website and docs links, one formerly-Agent-Smith line, the banner SVG wordmark."
+  out: "CLI commands, agentsmith.yml, env vars, image names, repo URLs, badges."
+
+steps:
+  - id: rename
+    action: "Rename the brand in prose and repoint website and docs links."
+
+tests:
+  - "grep: no agent-smith.org link left; no prose 'Agent Smith' except the formerly line"
+
+done:
+  - "README reads codeably with working codeably.ai and docs.codeably.ai links."

@@ -7,7 +7,7 @@ A skill is a directory with a `SKILL.md` file: YAML frontmatter that says what t
 
 ## Where the catalog comes from
 
-With no `skills:` block, Agent Smith unpacks the catalog embedded in the binary. `skills.version`, `skills.url` or `skills.path` replace it with a pinned release, a tarball or a mounted directory. `skills.overlay` layers a directory of your own on top of whichever catalog was resolved: both trees are copied into one root, file by file, with the overlay's files winning. An overlay must contain a `skills/` subdirectory and needs `skills.cache_dir` set, because the layered catalog is written next to it. See [Skills catalog](../../how-it-works/skills-catalog.md) and [Shipping your own skills](../skills/your-own-skills.md).
+With no `skills:` block, codeably unpacks the catalog embedded in the binary. `skills.version`, `skills.url` or `skills.path` replace it with a pinned release, a tarball or a mounted directory. `skills.overlay` layers a directory of your own on top of whichever catalog was resolved: both trees are copied into one root, file by file, with the overlay's files winning. An overlay must contain a `skills/` subdirectory and needs `skills.cache_dir` set, because the layered catalog is written next to it. See [Skills catalog](../../how-it-works/skills-catalog.md) and [Shipping your own skills](../skills/your-own-skills.md).
 
 ## Catalog layout
 

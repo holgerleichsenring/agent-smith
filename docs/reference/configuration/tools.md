@@ -3,11 +3,11 @@
 !!! note "Where these files live"
     `nuclei.yaml` and `spectral.yaml` are files in the `config/` directory, and the `tool_runner:` block is read from `config/agentsmith.yml` under the working directory, on a server and in the CLI alike. None of it is stored in the database or edited in the Config studio. See [Where configuration lives](../../configure-it/index.md).
 
-Agent Smith's **api-scan** pipeline uses external security tools running in containers. Their behavior is controlled by YAML config files in the `config/` directory.
+codeably's **api-scan** pipeline uses external security tools running in containers. Their behavior is controlled by YAML config files in the `config/` directory.
 
 ## nuclei.yaml
 
-[Nuclei](https://github.com/projectdiscovery/nuclei) is a template-based vulnerability scanner. Agent Smith runs it against live API endpoints to detect security issues.
+[Nuclei](https://github.com/projectdiscovery/nuclei) is a template-based vulnerability scanner. codeably runs it against live API endpoints to detect security issues.
 
 ### Full Reference
 
@@ -69,7 +69,7 @@ container_timeout: 120
 
 ## spectral.yaml
 
-[Spectral](https://docs.stoplight.io/docs/spectral/) is an OpenAPI linter. Agent Smith uses it to validate API specifications against OWASP security rules before the AI panel reviews findings.
+[Spectral](https://docs.stoplight.io/docs/spectral/) is an OpenAPI linter. codeably uses it to validate API specifications against OWASP security rules before the AI panel reviews findings.
 
 ### Full Reference
 
@@ -156,7 +156,7 @@ patterns:
 
 ### Shipped Categories
 
-Agent Smith ships with 91 patterns across 6 categories:
+codeably ships with 91 patterns across 6 categories:
 
 | File | Category | Patterns | Examples |
 |------|----------|----------|----------|

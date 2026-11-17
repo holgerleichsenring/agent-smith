@@ -12,7 +12,7 @@ Each box is one step. Green means a model runs there, and it names which one and
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Agent Smith ships eight pipeline presets. Each one is a fixed list of steps defined in code, and each one that needs judgement hands it to a single master skill at its `AgenticMaster` step.
+codeably ships eight pipeline presets. Each one is a fixed list of steps defined in code, and each one that needs judgement hands it to a single master skill at its `AgenticMaster` step.
 
 ## Pipeline overview
 

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-16-658cb
+
+decisions:
+  - category: Scope
+    chose: "Rename by script in prose only: fenced blocks, code spans, HTML tags, double-quoted literals and the archived run logs keep 'Agent Smith'"
+    over: "A global replace"
+    reason: "The CLI, config, Slack/Teams app names, the Jira assignee default and the comment prefix the product writes still say Agent Smith; renaming them in the docs would describe a product that does not exist yet. Run logs are a dated record."
+  - category: Architecture
+    chose: "The wordmark is text in an overridden partials/logo.html (custom_dir docs/overrides, excluded from the docs)"
+    over: "An SVG wordmark image"
+    reason: "An SVG loaded as an image cannot use the docs' web fonts or the accent token; text in the header uses both and changes with the token."
+  - category: TradeOff
+    chose: "Slate first in the palette list, the light scheme kept and restyled, navigation.tabs removed"
+    over: "A theme switch or dropping the toggle"
+    reason: "The brief asked for a dark default close to the site with the toggle working; without tabs the left nav is one flat list with uppercase group labels, as in the approved mock."
+  - category: Accessibility
+    chose: "Links and the active item use stage-accent on dark and the 68 % black mix on light"
+    over: "The raw accent on both"
+    reason: "#ff7a3d on cream is 2.6:1; the mix is 5.2:1, and both still come from the one token."
+  - category: Scope
+    chose: "sentinel.agent-smith.org links stay"
+    over: "Repointing them"
+    reason: "The brief keeps sentinelUrl unchanged; Sentinel has no codeably domain yet."

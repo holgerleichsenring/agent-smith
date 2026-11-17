@@ -1,6 +1,6 @@
 # Project knowledge base
 
-Agent Smith can compile the run records it leaves in a repository into a readable wiki under `.agentsmith/wiki/`.
+codeably can compile the run records it leaves in a repository into a readable wiki under `.agentsmith/wiki/`.
 
 ## The principle
 

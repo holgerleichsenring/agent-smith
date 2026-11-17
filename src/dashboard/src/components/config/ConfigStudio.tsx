@@ -211,7 +211,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         </span>
       )}
       {importMsg && (
-        <span data-testid="config-import-ok" style={{ color: "var(--good, #2e7d32)" }}>
+        <span data-testid="config-import-ok" style={{ color: "var(--ok)" }}>
           {importMsg}
         </span>
       )}
