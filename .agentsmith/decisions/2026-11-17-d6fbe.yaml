@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d6fbe
+
+decisions:
+  - category: Testing
+    chose: "Port each deleted assertion whose behaviour still exists to the component that now holds it: shortRepo to its own suite, the session-end wording to ProfileMenu, the observed tracker name and live dot to SystemSectionNav, the calm zero count to AppSidebar"
+    over: "Restoring the deleted AppHeader, AppRail and attemptChips suites"
+    reason: "Those components are gone; the behaviours moved. A suite for a deleted component tests nothing."
+  - category: Testing
+    chose: "The sidebar's hot styling for a non-zero Your move count is not re-added"
+    over: "A second test of it"
+    reason: "Sidebar_Counts_ComeFromTheTicketListTheHubAndThePullRequests already asserts it; the deleted suite's other half, zero stays calm, was the missing one."

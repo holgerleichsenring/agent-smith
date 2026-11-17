@@ -90,6 +90,16 @@ describe("AppSidebar", () => {
     expect(await screen.findByTestId("sidebar-pull-requests-count")).toHaveTextContent("2");
   });
 
+  // 2026-11-17-d6fbe: restored from the deleted AppRail suite — only a non-zero waiting count is hot; zero stays calm,
+  // and a count that asks for no answer (Tickets) is never hot.
+  it("Sidebar_YourMoveZero_StaysCalm_AndTicketsIsNeverHot", () => {
+    hoisted.tickets = list([], { needsYou: 0, working: 2 });
+    renderAt("/");
+    expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("sidebar-your-move-count").className).not.toContain("hot");
+    expect(screen.getByTestId("sidebar-tickets-count").className).not.toContain("hot");
+  });
+
   it("Sidebar_UnknownCounts_ShowNoNumber", () => {
     hoisted.tickets = null;
     hoisted.overview = null;
