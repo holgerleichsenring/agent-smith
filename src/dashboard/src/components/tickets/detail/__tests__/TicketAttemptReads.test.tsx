@@ -6,10 +6,11 @@ import type { RunEvent } from "@/types/hub-events";
 
 // 2026-10-13-9a59s: the Attempts and Cost tabs read over HTTP through the page store's own bindings — the
 // run detail through runsApi.fetchRun, the series through q's store — one request per endpoint and run.
+// 2026-11-17-8d1cc: the Cost section is the one that reads every run's detail, compute and passes.
 
 const NONE: RunEvent[] = [];
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => NONE }));
-const nav = vi.hoisted(() => ({ search: "tab=attempts" }));
+const nav = vi.hoisted(() => ({ search: "section=cost" }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
@@ -58,12 +59,12 @@ describe("Ticket attempt reads", () => {
   it("TheRunReadGoesThroughFetchRun_AndTheSeriesReadThroughTheStore_OneRequestPerEndpoint", async () => {
     render(<TicketPageStore project="shop" ticketId="101" client={fakeHub().client}><TicketPage /></TicketPageStore>);
     for (let i = 0; i < 4; i++) await act(() => vi.advanceTimersByTimeAsync(0));
-    expect(screen.getByTestId("attempts-timeline")).toBeInTheDocument();
+    expect(screen.getByTestId("cost-rows")).toBeInTheDocument();
     expect(http.fetchRun.mock.calls.map((c) => c[0]).sort()).toEqual(["r-1", "r-2"]);
     expect(http.fetchRunCompute.mock.calls.map((c) => c[0]).sort()).toEqual(["r-1", "r-2"]);
     expect(http.fetchRunPasses.mock.calls.map((c) => c[0]).sort()).toEqual(["r-1", "r-2"]);
-    // the default cut once, and the handed-back attempt's own cut once — nothing else re-reads the series
-    expect(http.fetchTicketSeries.mock.calls.map((c) => c[2])).toEqual([null, "r-1"]);
+    // the default cut once — nothing else re-reads the series
+    expect(http.fetchTicketSeries.mock.calls.map((c) => c[2])).toEqual([null]);
     expect(http.fetchTicketDetail).toHaveBeenCalledTimes(1);
   });
 });

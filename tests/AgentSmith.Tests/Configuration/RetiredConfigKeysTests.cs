@@ -34,6 +34,29 @@ public sealed class RetiredConfigKeysTests
         finding.Reason.Should().Contain("config/agentsmith.yml").And.Contain("Delete it from the file");
     }
 
+    // 2026-11-17-274cb: the six limits only the unused skill-call runtime read.
+    [Fact]
+    public void RetiredConfigKeys_SkillCallRuntimeLimits_EachReportsAdvisory()
+    {
+        const string yaml = """
+            limits:
+              max_tool_calls_per_skill: 30
+              max_tool_calls_per_investigator: 10
+              max_tool_calls_per_verifier: 20
+              max_llm_calls_per_skill: 15
+              max_input_tokens_per_skill_call: 200000
+              max_concurrent_skill_calls: 10
+              max_skills_per_phase: 5
+            """;
+
+        var fields = _detector.InYaml(yaml, "config/agentsmith.yml").Select(f => f.Field);
+
+        fields.Should().BeEquivalentTo(
+            "limits.max_tool_calls_per_investigator", "limits.max_tool_calls_per_verifier",
+            "limits.max_llm_calls_per_skill", "limits.max_input_tokens_per_skill_call",
+            "limits.max_concurrent_skill_calls", "limits.max_skills_per_phase");
+    }
+
     [Fact]
     public void RetiredConfigKeys_ConfidenceThreshold_ReportsAdvisory()
     {

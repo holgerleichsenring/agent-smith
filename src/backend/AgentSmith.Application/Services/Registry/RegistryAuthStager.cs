@@ -50,10 +50,9 @@ public sealed class RegistryAuthStager(
             new(ChatRole.User, BuildUserPrompt(repoRoot, uncovered)),
         };
 
-        using var timeBound = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeBound.CancelAfter(TimeSpan.FromSeconds(limits.MaxSecondsPerSkillCall));
         using var _scope = runContext.BeginCallScope("registry-auth-stager", "SetupRegistryAuth");
-        var response = await chat.GetResponseAsync(messages, options, timeBound.Token);
+        var response = await Loop.ScoutCallTimeBound.RunAsync(
+            limits.MaxSecondsPerSkillCall, ct => chat.GetResponseAsync(messages, options, ct), cancellationToken);
         var files = jsonReader.Read(response.Text);
         logger.LogInformation(
             "RegistryAuthStager emitted {Files} auth file(s) for host(s) [{Hosts}] ({In}+{Out} tokens).",

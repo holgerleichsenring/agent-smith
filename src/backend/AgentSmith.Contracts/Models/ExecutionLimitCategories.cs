@@ -1,9 +1,10 @@
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
-/// p0147b: stable <see cref="SkillObservation.Category"/> values the
-/// SkillCallRuntime uses when a skill call ends without producing usable
-/// output. Operators see these in the pipeline summary instead of a silent
+/// p0147b: stable <see cref="SkillObservation.Category"/> values for a skill call that
+/// ended without producing usable output. 2026-11-17-274cb: the skill-call runtime that
+/// produced the tool-call, token, wall-clock and execution-error categories is gone; they stay
+/// so stored observations still read and label. Operators see these in the pipeline summary instead of a silent
 /// skill drop; downstream triage / next-round skills can branch on the
 /// category string without parsing the description prose.
 /// </summary>
@@ -32,7 +33,7 @@ public static class ExecutionLimitCategories
     public const string ExecutionLimitWallClock = "execution-limit-wall-clock";
 
     /// <summary>
-    /// SkillCallRuntime caught an uncaught exception while invoking the skill
+    /// The skill call caught an uncaught exception while invoking the skill
     /// (network, parse-after-retries, validator throw, etc.). Operator
     /// response: inspect logs for the underlying stack trace; this is the
     /// catch-all when the call never produced a usable response.

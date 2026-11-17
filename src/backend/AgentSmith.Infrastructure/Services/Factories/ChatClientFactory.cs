@@ -18,8 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 /// IChatClientBuilder, applies per-task ModelAssignment via a per-call
 /// ConfigBasedModelRegistry, and wraps tool-bearing tasks with FunctionInvokingChatClient.
 /// p0176b: every returned client is also wrapped with
-/// <see cref="EventPublishingChatClient"/> so all consumers (not just
-/// SkillCallRuntime) emit LlmCallStarted/Finished events with real cost.
+/// <see cref="EventPublishingChatClient"/> so all consumers emit LlmCallStarted/Finished events with real cost.
 /// </summary>
 public sealed class ChatClientFactory(
     IEnumerable<IChatClientBuilder> builders,

@@ -56,7 +56,7 @@ public sealed class AzureReposSourceProviderCompletePrTests
             Creator.Id, "our own run opened this PR, so CreatedBy IS the token's identity");
         sent.Status.Should().Be(
             PullRequestStatus.NotSet, "asking for an immediate merge is what a policy refuses");
-        sent.CompletionOptions!.DeleteSourceBranch.Should().Be(false, "p0490 keeps the init branch");
+        sent.CompletionOptions!.DeleteSourceBranch.Should().Be(true, "2026-11-17-713eb: the merge deletes the agent-smith/ branch");
     }
 
     [Fact]

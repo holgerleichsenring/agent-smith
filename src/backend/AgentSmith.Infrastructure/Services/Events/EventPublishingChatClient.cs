@@ -12,7 +12,7 @@ namespace AgentSmith.Infrastructure.Services.Events;
 
 /// <summary>
 /// Innermost <see cref="IChatClient"/> decorator: emits LlmCallStarted / LlmCallFinished
-/// events per provider call. Sits BELOW the SkillCallRuntime retry layer so each retry
+/// events per provider call. Sits BELOW any retry layer so each retry
 /// attempt produces its own event pair, and tokens / duration reflect the actual provider
 /// response, not an aggregated retry total. Prompt content stays in the cost-summary +
 /// result.md path — the event carries the sha256-hex-8 of the resolved prompt body and,

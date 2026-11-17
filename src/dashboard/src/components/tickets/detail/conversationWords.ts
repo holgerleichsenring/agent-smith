@@ -1,20 +1,10 @@
-import type { TicketAttempt, TicketConversationEntry } from "@/types/tickets";
-import { statusWords } from "./flowWords";
+import type { TicketConversationEntry } from "@/types/tickets";
 
-// 2026-10-13-9a59r: how one conversation entry is labelled — the filter it falls under, its avatar, the
+// 2026-10-13-9a59r: how one conversation entry is labelled — the filter it falls under, the
 // name it shows (the author only where 9a59h recorded one, else its role) and the where-label — from the
 // entry's own source, kind and detail. Nothing here is inferred from text.
 
-const AVATAR_CLASS: Record<string, string> = { person: "op", agent: "agent", system: "sys", reviewer: "rv" };
-
 const ROLE_NAMES: Record<string, string> = { person: "person", agent: "Agent Smith", system: "system", reviewer: "reviewer" };
-
-export function avatarOf(entry: TicketConversationEntry): { className: string; text: string } {
-  const className = AVATAR_CLASS[entry.role] ?? "sys";
-  if (entry.role === "agent") return { className, text: "as" };
-  if (entry.role === "system") return { className, text: entry.kind === "edited" ? "≡" : "◇" };
-  return { className, text: entry.author ? entry.author.charAt(0).toUpperCase() : "·" };
-}
 
 export function nameOf(entry: TicketConversationEntry): string {
   if (entry.kind === "edited") return "Ticket text changed";
@@ -74,16 +64,4 @@ const DECISION_PILLS: Record<string, [string, string]> = {
 export function decisionPill(entry: TicketConversationEntry): [string, string] | null {
   const decision = (entry.detail as { decision?: unknown } | null | undefined)?.decision;
   return typeof decision === "string" ? DECISION_PILLS[decision] ?? ["q", decision.replace(/-/g, " ")] : null;
-}
-
-/** The outcome pill an attempt marker carries, from the attempt's status. */
-export function attemptPill(attempt: TicketAttempt | undefined): [string, string] | null {
-  if (!attempt) return null;
-  if (attempt.handedBack) return ["person", "handed back"];
-  if (attempt.endedOnInfrastructure) return ["bad", "ended on infrastructure"];
-  const cls = attempt.status === "success" ? "ok"
-    : attempt.status === "waiting_for_input" ? "person"
-      : attempt.status === "running" || attempt.status === "queued" ? "amber"
-        : attempt.status === "cancelled" ? "q" : "bad";
-  return [cls, statusWords(attempt.status)];
 }

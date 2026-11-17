@@ -122,11 +122,21 @@ public sealed class InitCommitHandler(
         try
         {
             var provider = sourceFactory.Create(repo);
+            // 2026-11-17-713ea: the init branch is cut fresh on every run, so an init PR an
+            // earlier run left open now carries this run's work — it is refreshed, not opened
+            // a second time (which the host refuses for one head branch).
+            var branchRepo = new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty);
+            if (await provider.FindOpenPullRequestAsync(branchRepo, ct) is { } existing)
+            {
+                await provider.UpdatePullRequestBodyAsync(existing, body, ct);
+                logger.LogInformation("{Repo}: init PR {Url} already open, refreshed", repo.Name, existing);
+                return (new OpenedPullRequest(repo.Name, existing, OpenStatus.Opened), body);
+            }
             // 2026-09-13-a284: an init run normally carries no rung — no parent ticket, so
             // nothing resolved one — and a null target opens against the default branch
             // exactly as before. A bootstrap filed under an epic gets the epic's branch.
             var prUrl = await provider.CreatePullRequestAsync(
-                new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty),
+                branchRepo,
                 "Initialize .agentsmith/ directory", body, ct, PullRequestTicket.Of(ticketId, context.TrackerConnection.Type),
                 targetBranch: PullRequestTargets.For(context.Pipeline, repo.Name));
             logger.LogInformation("{Repo}: init PR opened {Url}", repo.Name, prUrl);
@@ -144,33 +154,10 @@ public sealed class InitCommitHandler(
         TicketId ticketId, CancellationToken ct)
     {
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
-        // p0321: a no-change re-init is a success outcome without a PR — say so
-        // instead of rendering "(no changes)" bullets under a "Pull requests" heading.
-        var summary = opened.Any(o => o.Status == OpenStatus.Opened)
-            ? $"""
-                ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
-
-                ### Pull requests
-                {RenderPullRequestList(opened)}
-
-                Bootstrap files (`.agentsmith/context.yaml`, `principles.md`) generated. Review and merge to enable agent-smith pipelines.
-                """
-            : $"""
-                ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
-
-                No changes — project already bootstrapped and context up to date; no pull request needed.
-                """;
+        var summary = InitTicketSummary.Compose(context.Configs.Count, opened);
         return ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, ticketId, doneStatus, summary, logger, ct);
     }
-
-    private static string RenderPullRequestList(IReadOnlyList<OpenedPullRequest> opened) =>
-        string.Join("\n", opened.Select(o => o.Status switch
-        {
-            OpenStatus.Opened => $"- **{o.RepoName}**: {o.Url}",
-            OpenStatus.SkippedNoChanges => $"- **{o.RepoName}**: _(no changes)_",
-            _ => $"- **{o.RepoName}**: _(open failed)_",
-        }));
 
     private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)
     {

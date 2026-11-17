@@ -177,20 +177,3 @@ export function duration(ms: number): string {
   if (minutes < 60) return `${minutes}m`;
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
-
-const END_WORDS: Record<string, string> = {
-  exited: "exited",
-  "oom-killed": "out of memory",
-  vanished: "vanished",
-  gone: "gone before its end was read",
-  "released-at-park": "released while waiting on you",
-  "released-at-requeue": "released while waiting for capacity",
-  "released-at-end": "released at run end",
-  unobserved: "no close observed",
-};
-
-/** A pod's end in words; null (no end yet) reads "running" on a live attempt. */
-export function podEndWords(endReason: string | null, live: boolean): string {
-  if (!endReason) return live ? "running" : "no end recorded";
-  return END_WORDS[endReason] ?? endReason;
-}

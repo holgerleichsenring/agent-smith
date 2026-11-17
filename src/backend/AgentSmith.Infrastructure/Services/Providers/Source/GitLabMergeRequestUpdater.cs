@@ -36,6 +36,7 @@ public sealed class GitLabMergeRequestUpdater(
 
     // p0393a: GitLab has no draft FLAG — a merge request is a draft while its title
     // starts with "Draft:". Taking it out of draft is therefore a title edit.
+    // 2026-11-17-713eb: and the merge, whoever performs it, deletes the source branch.
     public async Task<bool> MarkReadyAsync(string prUrl, CancellationToken cancellationToken)
     {
         if (!TryParseMergeRequestIid(prUrl, out var iid)) return false;
@@ -43,7 +44,7 @@ public sealed class GitLabMergeRequestUpdater(
         {
             using var response = await PutAsync(
                 MergeRequestUrl(iid),
-                new { remove_source_branch = false, draft = false }, cancellationToken);
+                new { remove_source_branch = true, draft = false }, cancellationToken);
             response.EnsureSuccessStatusCode();
             logger.LogInformation("MR !{Iid} is out of draft — the sequence completed", iid);
             return true;
@@ -59,6 +60,7 @@ public sealed class GitLabMergeRequestUpdater(
     // — approvals missing, pipeline not green, branch protected) or 406 (conflict), and
     // puts the sentence in the response body. That body IS the reason the operator
     // needs, so it is read out and reported as a refusal, not thrown at a finished run.
+    // 2026-11-17-713eb: a merge deletes the source branch.
     public async Task<PullRequestCompletion> CompleteAsync(
         string prUrl, CancellationToken cancellationToken)
     {
@@ -68,7 +70,7 @@ public sealed class GitLabMergeRequestUpdater(
         {
             using var response = await PutAsync(
                 $"{MergeRequestUrl(iid)}/merge",
-                new { should_remove_source_branch = false }, cancellationToken);
+                new { should_remove_source_branch = true }, cancellationToken);
             var answer = GitLabMergeAnswer.Parse(
                 await response.Content.ReadAsStringAsync(cancellationToken));
             if (!response.IsSuccessStatusCode)

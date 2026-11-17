@@ -13,49 +13,17 @@ vi.mock("@/lib/projectInitApi", () => ({
   fetchProjectInit: vi.fn(async () => null),
 }));
 
-const box = () => screen.getByTestId("project-init-auto-accept-box-sample");
-const input = () => screen.getByTestId("project-init-auto-accept-sample") as HTMLInputElement;
 const refreshBox = () => screen.getByTestId("project-init-refresh-principles-box-sample");
 const refreshInput = () =>
   screen.getByTestId("project-init-refresh-principles-sample") as HTMLInputElement;
 
 describe("ProjectInitAction appearance", () => {
-  it("AutoAcceptToggle_Checked_CarriesTheStudioAccentToken", () => {
-    render(<ProjectInitAction project="sample" />);
-
-    // Defaults to on (p0490), so the accent is what the tick box wears out of the box.
-    expect(input().checked).toBe(true);
-    expect(box().getAttribute("style")).toContain("var(--accent)");
-  });
-
-  it("AutoAcceptToggle_Unchecked_CarriesNoAccent", () => {
-    render(<ProjectInitAction project="sample" />);
-
-    fireEvent.click(input());
-
-    expect(input().checked).toBe(false);
-    expect(box().getAttribute("style")).not.toContain("var(--accent)");
-  });
-
-  it("AutoAcceptToggle_IsStillAnInput_AndStillToggles", () => {
-    render(<ProjectInitAction project="sample" />);
-
-    // The native input survives for accessibility and for every p0490 test that drives it.
-    expect(input().tagName).toBe("INPUT");
-    expect(input().type).toBe("checkbox");
-
-    fireEvent.click(input());
-    expect(input().checked).toBe(false);
-    fireEvent.click(input());
-    expect(input().checked).toBe(true);
-  });
-
   it("InitAction_RendersAsOneActionGroup_SeparateFromTheTypeBadge", () => {
     render(<ProjectInitAction project="sample" />);
 
     const group = screen.getByTestId("project-init-group-sample");
     expect(group).toContainElement(screen.getByTestId("project-init-sample"));
-    expect(group).toContainElement(input());
+    expect(group).toContainElement(refreshInput());
     // The separating rule is what makes the row read [actions] | [metadata].
     expect(group.getAttribute("style")).toContain("border-right");
   });
@@ -64,7 +32,7 @@ describe("ProjectInitAction appearance", () => {
     render(<ProjectInitAction project="sample" />);
 
     expect(screen.getByTestId("project-init-sample")).toBeInTheDocument();
-    expect(screen.getByTestId("project-init-auto-accept-sample")).toBeInTheDocument();
+    expect(screen.getByTestId("project-init-refresh-principles-sample")).toBeInTheDocument();
   });
 
   // 2026-10-04-2bf2: the refresh chip is the same component, so it wears the same tokens.
@@ -80,11 +48,10 @@ describe("ProjectInitAction appearance", () => {
     expect(refreshBox().getAttribute("style")).toContain("var(--accent)");
   });
 
-  it("InitOptions_BothChips_FormOneLabelledGroupInsideTheAction", () => {
+  it("InitOptions_TheRefreshChip_SitsInOneLabelledGroupInsideTheAction", () => {
     render(<ProjectInitAction project="sample" />);
 
     const options = screen.getByRole("group", { name: "Initialization options" });
-    expect(options).toContainElement(input());
     expect(options).toContainElement(refreshInput());
     expect(screen.getByTestId("project-init-group-sample")).toContainElement(options);
     expect(refreshInput().closest("label")?.getAttribute("title")).toMatch(
@@ -92,14 +59,11 @@ describe("ProjectInitAction appearance", () => {
     );
   });
 
-  it("InitOptions_TickingOne_NeverDisablesTheOther", () => {
+  it("InitOptions_OfferNoAutoAccept_EveryInitCompletesItsPullRequests", () => {
     render(<ProjectInitAction project="sample" />);
 
-    fireEvent.click(refreshInput());
-    expect(input().disabled).toBe(false);
-    expect(input().checked).toBe(true);
-    fireEvent.click(input());
-    expect(refreshInput().disabled).toBe(false);
-    expect(refreshInput().checked).toBe(true);
+    // 2026-11-17-713ea: auto-complete is on for every init, so there is nothing to tick.
+    expect(screen.queryByTestId("project-init-auto-accept-sample")).toBeNull();
+    expect(screen.getByRole("group", { name: "Initialization options" })).toContainElement(refreshInput());
   });
 });

@@ -60,7 +60,7 @@ public sealed partial class PipelineCostTracker
 
     /// <summary>
     /// p0151d: true once cumulative pipeline cost has crossed either the USD
-    /// or token cap configured for this pipeline. <see cref="SkillCallRuntime"/>
+    /// or token cap configured for this pipeline. A model-calling step
     /// checks this on entry and short-circuits the LLM call when set, so
     /// remaining skill rounds are skipped and Compile + Deliver still run.
     /// Returns false when no cap is configured.
@@ -161,8 +161,7 @@ public sealed partial class PipelineCostTracker
         string skillName, string role, SkillExecutionPhase phase, string? repoName = null)
         => _scopes.BeginCall(skillName, role, phase, this, repoName);
 
-    public void EndCall(SkillCallScope scope, LimitEnforcer? enforcer)
-        => _scopes.EndCall(scope, enforcer);
+    public void EndCall(SkillCallScope scope) => _scopes.EndCall(scope);
 
     /// <summary>
     /// Tracks a Microsoft.Extensions.AI ChatResponse. Pulls input/output from

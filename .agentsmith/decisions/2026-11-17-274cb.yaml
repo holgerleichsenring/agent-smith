@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-274cb
+
+decisions:
+  - category: Scope
+    chose: "The skill-call runtime and the types only it reached are deleted, and the six limits only it read retire"
+    over: "Wiring the token, wall-clock, investigator/verifier and concurrency caps into the live master loop"
+    reason: "Nothing had resolved ISkillCallRuntime since p0312, so these limits bounded nothing while the Studio offered them. Wiring them would be six new limits on the master, which rule 4 and the harness-not-limits feedback say to justify one by one; the run's cost cap is the budget that is enforced. Retiring keeps behaviour exactly as it was."
+  - category: Implementation
+    chose: "Retired keys are RetiredConfigKeys rows; old files and stored documents keep loading with an advisory finding"
+    over: "Failing the load on an unknown limits key"
+    reason: "The established retirement path (2026-11-12-cd4cl did the same for max_output_tokens_per_skill_call); a server must not fail to start over a key that stopped mattering."
+  - category: Scope
+    chose: "EventPublishingAIFunction, BoundedResultAIFunction, ResultBoundReporter, RecordingAIFunction and the skill-output validator cluster stay"
+    over: "Deleting everything the runtime alone constructed"
+    reason: "They are events, tracing and validation, not limits. That no live run publishes tool-call events today is a finding of its own, named in the 274cc inventory note for a separate spec."
+  - category: Implementation
+    chose: "CallCostRecord.HitLimit and its result.md suffix go; ToolCallCount stays"
+    over: "Keeping HitLimit for a future enforcer"
+    reason: "Only the deleted runtime set it, so it was always null. ToolCallCount is not a limit; that it reads 0 is listed in the inventory note."
+  - category: Implementation
+    chose: "The Studio limits form shows the five live limits, adding the per-design-turn sub-agent count it had been missing"
+    over: "Leaving the form's fields as they were"
+    reason: "The form offered six values that did nothing and hid one that worked; ConfigLimits in the snapshot shows tool calls, seconds and sub-agents per run."
+  - category: Scope
+    chose: "FileToolHandler with FileReadTracker, four AgentDefaults constants, the skill.yaml discussion block and EventBlockTick are deleted"
+    reason: "Each is a cap with no reader; SkillConfig itself (LoadProjectSkills has no caller) is a capability question and stays."

@@ -84,7 +84,7 @@ public static partial class CommandModelUse
         CommandNames.CompilePrReviewFindings, CommandNames.CollectSpecDialogReply,
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
-        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete,
+        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

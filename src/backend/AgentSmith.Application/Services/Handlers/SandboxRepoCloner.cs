@@ -40,8 +40,15 @@ public sealed class SandboxRepoCloner(
 
         if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
         {
-            await EnsureIdentityAsync(sandboxes, ct);
-            return RepoCheckout.Ready(repo);
+            // 2026-11-17-d5cc: a bind mount is trusted as it is; an empty sandbox is cloned like a remote repo's.
+            if (await LocalRepoCheckout.IsBindMountedAsync(sandboxes, ct))
+            {
+                await EnsureIdentityAsync(sandboxes, ct);
+                return RepoCheckout.Ready(repo);
+            }
+            if (LocalRepoCheckout.CloneSource(config) is not { } source)
+                return FailWith(LocalRepoCheckout.NothingToClone, config);
+            config = source;
         }
 
         if (sandboxes.Count == 0)

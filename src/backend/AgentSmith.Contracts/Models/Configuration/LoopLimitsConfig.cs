@@ -1,33 +1,21 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
-/// Hard limits for the per-skill agentic loop. Bound from the agentsmith.yml
-/// <c>limits:</c> section. Defaults match Phase B of the runtime design.
-/// All limits are global; per-project overrides are intentionally out of scope.
+/// Hard limits of the agentic loops, bound from the agentsmith.yml <c>limits:</c> section (and
+/// the Studio's limits document). All limits are global; per-project overrides are out of scope.
+/// 2026-11-17-274cb: the per-investigator and per-verifier tool caps, the LLM-call, input-token
+/// and skills-per-stage caps and the skill-call concurrency are retired — the skill-call runtime
+/// that read them had no consumer, so none of them bounded anything. The run's cost cap is the budget.
 /// </summary>
 public sealed class LoopLimitsConfig
 {
+    /// <summary>Tool-loop iterations of one scout call (the client call-site reading and the
+    /// registry-auth staging), so a model that keeps calling tools cannot hold the step forever.</summary>
     public int MaxToolCallsPerSkill { get; set; } = 30;
-    public int MaxToolCallsPerInvestigator { get; set; } = 10;
-    public int MaxToolCallsPerVerifier { get; set; } = 20;
-    public int MaxLlmCallsPerSkill { get; set; } = 15;
-    // p0236: per-call accumulated-input-token budget, raised 200k → 500k. A
-    // coding master is one long agentic call that re-sends its growing context
-    // each iteration, so the accumulated count climbs fast for legitimate
-    // multi-file work. (Enforcement is currently observational — RecordLlmCall
-    // is not yet wired into the loop — so this is headroom, not the fix for the
-    // "A task was cancelled" HTTP-timeout, which is AgentConfig.NetworkTimeoutSeconds.)
-    // 2026-11-12-cd4cl: the output arm is gone — never wired, and the input and cost caps are the budget.
-    public int MaxInputTokensPerSkillCall { get; set; } = 500_000;
-    public int MaxSecondsPerSkillCall { get; set; } = 300;
-    public int MaxConcurrentSkillCalls { get; set; } = 10;
 
-    /// <summary>
-    /// p0127b: post-LLM cap on skills selected per phase. TriageOutputProducer
-    /// trims any phase whose LLM-pick exceeds this number using the activates_when
-    /// specificity score (higher score wins; ties broken by skill name ascending).
-    /// </summary>
-    public int MaxSkillsPerPhase { get; set; } = 5;
+    /// <summary>Wall-clock bound of one scout call; a call past it ends with a TimeoutException
+    /// that names this key (2026-11-17-274ca).</summary>
+    public int MaxSecondsPerSkillCall { get; set; } = 300;
 
     /// <summary>
     /// p0177: max concurrent sub-agents in flight under one master. Caps the
@@ -54,16 +42,4 @@ public sealed class LoopLimitsConfig
     /// surface entirely.
     /// </summary>
     public int MaxSubAgentsPerDialogTurn { get; set; } = 4;
-
-    /// <summary>
-    /// Returns the per-call tool-call cap for the active investigator mode.
-    /// <c>verify_diff</c> → MaxToolCallsPerVerifier; <c>verify_hint</c> / <c>survey</c>
-    /// → MaxToolCallsPerInvestigator; null/unknown → MaxToolCallsPerSkill.
-    /// </summary>
-    public int ResolveToolCallCap(string? investigatorMode) => investigatorMode switch
-    {
-        "verify_diff" => MaxToolCallsPerVerifier,
-        "verify_hint" or "survey" => MaxToolCallsPerInvestigator,
-        _ => MaxToolCallsPerSkill
-    };
 }

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-8d1cc
+
+decisions:
+  - category: Architecture
+    chose: "The Runs section is one line per attempt and spec derivation, newest first (runListLines): outcome dot, Run n, outcome with end-kind words and the run's first line, start · duration · cost, and the whole line links to the run page; the attempt cards (AttemptCard, TicketAttemptsTab) are deleted"
+    over: "Keeping the cards inside the section, or chips A1..An"
+    reason: "The audit found per-attempt outcome, end kind and run links lost; the mock's Runs lines restore all three for every attempt. Each run's story (passes, trace, pods) lives on its run page."
+  - category: Behaviour
+    chose: "Every attempt line shows what started it ('Started by status move to Ready · h.operator on the ticket · read'), the first attempt included; 'read' goes to What happened at that cause"
+    over: "The change line only between two cards"
+    reason: "A line per attempt has room for its own cause; the read link is the fixed conversation link from 8d1ca."
+  - category: Behaviour
+    chose: "Cost shows the ticket total large, beside it the series budget (spent of cap) with one thin bar when a series budget is on, else 'spent on this ticket'; then one mono line per run (cost, the passes split, LLM calls, its run cap) and one for the spec derivations"
+    over: "The per-attempt bars on one scale (costScale)"
+    reason: "The mock has the total against a budget, a thin bar and per-run lines. The only budget a ticket has is its series cap; a run's cap is per run and is named on its line."
+  - category: Behaviour
+    chose: "Compute figures (pod time, memory reserved, model call time, waiting on you) are key/value lines and the waiting banner a plain line with a 'Read in What happened' link; the wall-clock table (ComputeTable, computeSegments, podEndWords) is deleted"
+    over: "Restyling the wall-clock bars"
+    reason: "Minimal first: the figures stay, the bar chart goes; a run's pods remain on its run page. Its tests go with it; the park/pods assertion moved to a computeTotals test."
+  - category: Behaviour
+    chose: "The series strip (SeriesRunway) stays in the Cost section, drawn without its panel"
+    over: "Dropping it for the budget line"
+    reason: "It also says whether the next run starts by itself or holds and why, with the link to Defaults."

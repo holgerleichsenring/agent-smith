@@ -205,6 +205,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         // is a separate channel, written by PipelineNameInitializerHandler from
         // ResolvedPipelineConfig.PipelineName.
         pipeline.Set(ContextKeys.PipelineName, presetName);
+        AgentSmith.Application.Services.InitRunSeed.Apply(pipeline, presetName); // 2026-11-17-713ea: as ExecutePipelineUseCase
         pipeline.Set(ContextKeys.AgentConfig, project.Agent);
         pipeline.Set(ContextKeys.Headless, true);
         SeedTicketIdentity(pipeline);

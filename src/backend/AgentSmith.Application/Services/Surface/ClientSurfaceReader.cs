@@ -51,7 +51,7 @@ public sealed class ClientSurfaceReader(
             }
             return Report(reported, fs);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException and not TimeoutException)
         {
             logger.LogWarning(ex, "The client call-site reading failed — no difference is claimed");
             return null;
@@ -75,12 +75,11 @@ public sealed class ClientSurfaceReader(
             new(ChatRole.User, ClientUsagePrompt.User(request.ConsumerRepos, request.Served)),
         };
 
-        using var timeBound = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeBound.CancelAfter(TimeSpan.FromSeconds(limits.MaxSecondsPerSkillCall));
         using var call = costTracker.BeginCall(RoleName, RoleName, SkillExecutionPhase.Investigate, RoleName);
         using var scope = runContext.BeginCallScope(
             RoleName, SkillExecutionPhase.Investigate.ToString(), RoleName);
-        var response = await chat.GetResponseAsync(messages, options, timeBound.Token);
+        var response = await Loop.ScoutCallTimeBound.RunAsync(
+            limits.MaxSecondsPerSkillCall, ct => chat.GetResponseAsync(messages, options, ct), cancellationToken);
         costTracker.Track(response);
         return response.Text;
     }
