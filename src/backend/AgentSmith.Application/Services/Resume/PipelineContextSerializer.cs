@@ -37,6 +37,7 @@ public sealed class PipelineContextSerializer(
         ContextKeys.ResumedDialogueAnswer, ContextKeys.ResumeCheckpoint,
         ContextKeys.DialogueHotWaitSeconds, ContextKeys.DialogueApprovalTimeoutSeconds,
         "ProjectPricing", "PipelineCostCap", "ModelPricingResolver", "PipelineCostTracker",
+        ContextKeys.RecordedCalls, // 2026-11-17-7c9bc
     };
 
     public string Serialize(PipelineContext context)

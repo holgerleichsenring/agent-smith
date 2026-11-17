@@ -52,6 +52,10 @@ public static partial class ContextKeys
     /// this key existed simply carries none, and resumes as it always did.</summary>
     public const string PriorSpend = "PriorSpend";
 
+    /// <summary>2026-11-17-7c9bc: the run's RecordedCallLedger — a live handle, never checkpointed; a resumed
+    /// segment gets a new one carrying <see cref="PriorSpend"/>.</summary>
+    public const string RecordedCalls = "RecordedCalls";
+
     /// <summary>p0327: resolved project name, seeded by ExecutePipelineUseCase so
     /// the checkpoint event can stamp the run's project without a DB read (the
     /// producer may be a spawned orchestrator with no DB access).</summary>
