@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-7c9be
+goal: "The completion comment's Changes section lists what the run's branch changed against its base, read the way result.md reads it, not the last master pass's tool writes."
+
+applies_to: "default (CompletedRunTicketSummary, CommitAndPRHandler)"
+
+facts:
+  - claim: "The Changes section renders the changes handed in."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletedRunTicketSummary.cs:19-34"
+  - claim: "CommitAndPR hands it context.Changes — the tool writes the last master pass published."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:399-400, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:598"
+  - claim: "RunResultChanges already answers a code pipeline's changes from the branch against its base (delivery ladder), per repository, and is what result.md lists."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RunResultChanges.cs:10-33, src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:130"
+  - claim: "In the replay the comment listed only plan.md while the branch changed 45 files."
+    evidence: "observed: 2026-11-17 final replay, completion comment on the filed ticket vs git diff --name-status of its branch"
+
+scope:
+  in: "CompletedRunTicketSummary takes RunResultChanges and builds asynchronously: the Changes section is RunResultChanges.ResolveAsync(pipeline, repos, toolWrites).Coverage — repository-prefixed paths, the branch against its base for a code pipeline, the tool writes otherwise. CommitAndPR passes context.Configs and context.Changes. The branch is read after the commit, so it also lists the run record files. A sandbox whose branch cannot be read falls back to its tool writes, as result.md does."
+  out: "The step's result line count and the PR body."
+
+steps:
+  - id: summary
+    action: "CompletedRunTicketSummary(RunResultChanges): BuildAsync(pipeline, repos, opened, toolWrites, shortfall, ct)."
+  - id: handler
+    action: "CommitAndPRHandler.FinalizeTicketAsync awaits it with context.Configs."
+
+tests:
+  - "CompletedRunTicketSummaryTests: the branch reports 3 files while the tool writes name 1 — the comment lists the 3"
+  - "CommitAndPRHandlerTests keep passing: their mock sandboxes answer no git, so the summary falls back to the tool writes"
+  - "Real composition: a harness code run whose branch carries an earlier pass's commit lists that file in the completion comment"
+
+done:
+  - "A completed run's ticket comment lists every file its branch changed."

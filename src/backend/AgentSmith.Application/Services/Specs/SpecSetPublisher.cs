@@ -28,7 +28,7 @@ public sealed class SpecSetPublisher(
     SpecSetPointerRecorder pointer,
     ISpecPullRequestOpener prOpener,
     SpecRefusalReporter refusals,
-    Contracts.Persistence.IRunArtifactStore artifacts,
+    SpecSetContextPublication context,
     SpecSetAnnouncer announcer,
     ILogger<SpecSetPublisher> logger) : ISpecSetPublisher
 {
@@ -42,8 +42,7 @@ public sealed class SpecSetPublisher(
         var placement = placer.Place(set, scope);
         if (placement.Refusal is { } refused)
             return CommandResult.Fail($"Spec {set.Key} cannot be written: {refused}");
-        PublishToContext(pipeline, placement);
-        await CacheForViewerAsync(pipeline, placement.Set, cancellationToken);
+        await context.PublishAsync(pipeline, placement, cancellationToken);
         // 2026-10-26-bdd0d: a preview is recorded on the run and written nowhere else.
         if (pipeline.Flag(ContextKeys.SpecDerivationPreview))
         {
@@ -61,6 +60,24 @@ public sealed class SpecSetPublisher(
         return CommandResult.Ok(Describe(placement.Set));
     }
 
+    /// <summary>2026-11-17-7c9ba: the set is the branch's, unchanged — nothing is written, the pointer
+    /// stays, and the draft spec pull request is found or opened exactly as after a write.</summary>
+    public async Task<CommandResult> KeepAsync(
+        PipelineContext pipeline, SeriesScope scope, SpecSet set, string revisionSha,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        var placement = placer.Place(set, scope);
+        if (placement.Refusal is { } refused)
+            return CommandResult.Fail($"Spec {set.Key} cannot be placed: {refused}");
+        await context.PublishAsync(pipeline, placement, cancellationToken);
+        pipeline.Set(ContextKeys.SpecRevisionSha, revisionSha);
+        await announcer.AnnounceAsync(pipeline, placement.Set, committed: false, cancellationToken, withRevision: false);
+        await prOpener.OpenAsync(pipeline, placement, scope, cancellationToken);
+        logger.LogInformation("Spec set {Key} is unchanged on the ticket branch: no revision written", set.Key);
+        return CommandResult.Ok($"Spec {set.Key} revision {set.Current.Number} kept unchanged: {set.Specs.Count} spec(s), nothing written");
+    }
+
     // 2026-10-12-f5f7f: a multi-repository series is never worked from memory — a half nobody can
     // read back would be re-stamped and pushed by the record later. The revert shas are recorded so
     // the next run reads our own revert, not a reviewer's edit.
@@ -73,32 +90,6 @@ public sealed class SpecSetPublisher(
         return write.IsRefused || write.IsRolledBack || placement.Members.Count > 1
             ? CommandResult.Fail($"Spec {key} cannot be written: {write.Error}")
             : CommandResult.Ok($"Spec derived but not committed ({write.Error}) — the run continues from it in-memory");
-    }
-
-    private static void PublishToContext(PipelineContext pipeline, SeriesPlacement placement)
-    {
-        pipeline.Set(ContextKeys.SpecSet, placement.Set);
-        if (placement.Carrier is { } carrier)
-            pipeline.Set(ContextKeys.SpecRepo, carrier.Name);
-        if (placement.Set.Handback is { } handback && handback.Case != SpecHandbackCase.None)
-            pipeline.Set(ContextKeys.SpecHandback, handback);
-    }
-
-    // The run detail reads this slot exactly as it reads plan.md. Best-effort: a
-    // cold cache costs the viewer a panel, never the run.
-    private async Task CacheForViewerAsync(
-        PipelineContext pipeline, SpecSet set, CancellationToken ct)
-    {
-        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
-            return;
-        try
-        {
-            await artifacts.WriteSpecMarkdownAsync(runId!, SpecMarkdown.Render(set), ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Caching the spec set for the run detail failed");
-        }
     }
 
     private static string Describe(SpecSet set) =>

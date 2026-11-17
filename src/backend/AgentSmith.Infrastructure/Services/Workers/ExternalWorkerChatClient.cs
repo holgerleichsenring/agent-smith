@@ -37,8 +37,9 @@ public sealed class ExternalWorkerChatClient(
         var prompt = renderer.Render(request);
         var result = await runner.RunAsync(prompt, options, cancellationToken);
         logger.LogInformation(
-            "External worker answered {Request} in {Seconds:F1}s (exit {Exit}, prompt {Chars} chars)",
-            request.Describe(), result.Duration.TotalSeconds, result.ExitCode, prompt.Length);
+            "External worker answered {Request} in {Seconds:F1}s (exit {Exit}, prompt {Chars} chars, model {Model}, secondary {Secondary})",
+            request.Describe(), result.Duration.TotalSeconds, result.ExitCode, prompt.Length,
+            result.Envelope?.Accounting.Model, string.Join(", ", result.Envelope?.Accounting.Secondary.Select(u => u.Model) ?? []));
 
         WorkerProcessGuard.RequireUsable(request, result, prompt.Length);
         // p0426: SILENCE is a round, not a rupture. A worker that exits 0 having written

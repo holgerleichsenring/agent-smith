@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-7c9ba
+
+decisions:
+  - category: Architecture
+    chose: "The first run after filing (and any plain re-trigger over an unchanged set) still finds or opens the draft spec pull request, without writing a revision"
+    over: "Skipping the pull request together with the revision, or opening it at filing time"
+    reason: "The pull request is read after derivation: a series repository that gains no code keeps it as the run's work (SpecOnlyPullRequests), hand-back and premise comments link it (SpecHandbackPark, PremiseHandbackNotice), the run surfaces it as an outcome the moment it exists, and CommitAndPR finds it and promotes it. None of that needs a new commit — the branch already carries revision 1 against its base, so the pull request opens on the filed commit. Filing writes through the source provider without a run, so opening it there would be a second place that opens spec pull requests."
+  - category: Implementation
+    chose: "Unchanged means: plain re-trigger, no model, no pinned question, nothing discarded, not handed back, not a preview, and identical SeriesFiles renders of the next set and the branch set (both with the branch's revisions and the resolved series)"
+    over: "Comparing SpecSet records, or letting the git writer notice an empty diff"
+    reason: "Records hold lists, so equality is by reference. The writer only sees an empty diff when the read set round-trips byte for byte, and a revision appended to the manifest always differs, so it never fires. Rendering both sides with the one renderer filing and the run share compares exactly what a commit would change."
+  - category: Scope
+    chose: "Resume and every kept-input cause still write a revision"
+    over: "Applying the rule to resume, or to any cause whose set did not change"
+    reason: "A kept comment or edit clears its input through the revision's fingerprint and the cut comment that anchors the thread; a reviewer edit moves the pointer; a resume after a run that died between its revision and its cut comment must post that comment or the next run re-reads an input it already handled."
+  - category: Implementation
+    chose: "A kept set is announced without a revision number"
+    over: "Announcing the branch's current revision"
+    reason: "The attempt projection records the announced revision per attempt and the ticket page lists one entry per attempt, so every keeping run would list revision 1 again. A publish with no revision number leaves the attempt's revision empty, which is what happened: this attempt wrote none."
+  - category: Implementation
+    chose: "ISpecSetPublisher.KeepAsync, with the context and viewer-cache work moved to SpecSetContextPublication"
+    over: "A flag on PublishAsync, or a default interface member"
+    reason: "Keeping and publishing differ in what they write, so they are two operations; the shared half became its own class so the publisher stays under the 120-line limit."

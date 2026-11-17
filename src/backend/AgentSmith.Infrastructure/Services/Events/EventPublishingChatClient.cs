@@ -145,32 +145,34 @@ public sealed class EventPublishingChatClient(
     {
         if (string.IsNullOrEmpty(runId)) return;
         var cache = LlmCallCostCalculator.ReadCacheCounts(response?.Usage);
-        // p0376: emit the UNCACHED remainder as TokensIn. OpenAI/Azure's InputTokenCount
-        // INCLUDES the cached subset, so a raw InputTokenCount double-counted the cached
-        // portion for every Azure/OpenAI run. This restores the contract
-        // "total = TokensIn + Cached + Creation".
+        // p0376: TokensIn is the UNCACHED remainder — OpenAI/Azure's InputTokenCount includes the cached
+        // subset — so "total = TokensIn + Cached + Creation" holds for every provider.
         var modelOut = response?.ModelId ?? model;
-        await eventPublisher.PublishAsync(
-            new LlmCallFinishedEvent(
-                runId, modelOut, scope?.Role ?? string.Empty,
-                Math.Max(0, (response?.Usage?.InputTokenCount ?? 0) - cache.InclusiveRead),
-                response?.Usage?.OutputTokenCount ?? 0,
-                // 2026-11-17-166ab: a worker call records what its CLI reported; the table would
-                // price the CLI's joined model name ("haiku+opus") at whichever entry matched.
-                (response is null ? null : WorkerCallAccounting.Of(response)?.ReportedCostUsd)
-                    ?? costCalculator.ComputeCostUsd(modelOut, response?.Usage, cache),
-                durationMs, DateTimeOffset.UtcNow, scope?.Phase, scope?.RepoName,
-                // p0323: cached share per call — the alarm that keeps a dead cache from
-                // being invisible again.
-                CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
-                CacheCreationTokensIn: cache.Creation,
-                ThrottleWaitMs: throttleWaitMs,
-                PromptChars: sent.Chars,
-                ResponseChars: response?.Text?.Length ?? 0,
-                Outcome: outcome,
-                PromptId: sent.Id,
-                ToolCount: sent.ToolCount),
-            cancellationToken);
+        var worker = response is null ? null : WorkerCallAccounting.Of(response);
+        var stage = scope?.Phase;
+        var finished = new LlmCallFinishedEvent(
+            runId, modelOut, scope?.Role ?? string.Empty,
+            Math.Max(0, (response?.Usage?.InputTokenCount ?? 0) - cache.InclusiveRead),
+            response?.Usage?.OutputTokenCount ?? 0,
+            // 2026-11-17-166ab: a worker call records what its CLI reported; the table would
+            // price the CLI's joined model name ("haiku+opus") at whichever entry matched.
+            worker?.ReportedCostUsd ?? costCalculator.ComputeCostUsd(modelOut, response?.Usage, cache),
+            durationMs, DateTimeOffset.UtcNow, stage, scope?.RepoName,
+            // p0323: cached share per call — the alarm that keeps a dead cache from being invisible.
+            CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
+            CacheCreationTokensIn: cache.Creation,
+            ThrottleWaitMs: throttleWaitMs,
+            PromptChars: sent.Chars,
+            ResponseChars: response?.Text?.Length ?? 0,
+            Outcome: outcome,
+            PromptId: sent.Id,
+            ToolCount: sent.ToolCount);
+        await eventPublisher.PublishAsync(finished, cancellationToken);
+        // 2026-11-17-7c9bc: the run's ledger holds exactly what was just recorded.
+        runContext.CurrentRecordedCalls?.Add(new RecordedCall(
+            finished.Model, stage, finished.RepoName, finished.TokensIn, finished.TokensOut,
+            finished.CachedTokensIn, finished.CacheCreationTokensIn, finished.CostUsd, worker is not null)
+            { Secondary = worker?.Secondary ?? [] });
     }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

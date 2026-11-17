@@ -40,6 +40,23 @@ public sealed class ChangeListerTests
         bodies[0].Should().Contain("2026/10/08 09:59", "the cursor is floored to the minute and re-reads one").And.Contain("ORDER BY updated ASC");
     }
 
+    /// <summary>2026-11-17-7c9bb: Cloud's search/jql refuses startAt with HTTP 400 and pages by nextPageToken.</summary>
+    [Fact]
+    public async Task Sweep_JiraCloud_PagesByTokenAndNeverSendsStartAt()
+    {
+        var bodies = new List<string>();
+        var lister = new JiraChangedTickets(TicketProviderHttpClient.WithBasicAuth(new HttpClient(JiraCloud.Handler(bodies)), "e", "t"),
+            "https://jira.example", new JiraEndpoints(), "A");
+
+        var page = await lister.ChangedSinceAsync(Since, 10, CancellationToken.None);
+
+        page.Items.Should().HaveCount(150);
+        page.Cut.Should().BeFalse();
+        bodies.Should().HaveCount(2);
+        bodies.Should().NotContain(b => b.Contains("startAt"), "Cloud answers 400 to a body that carries it");
+        bodies[1].Should().Contain("\"nextPageToken\":\"page-2\"");
+    }
+
     [Fact]
     public async Task Sweep_OpenPrsBeyondFirstPage_Seen()
     {

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-7c9bc
+goal: "A run keeps a ledger of the calls it records, fed where each LlmCallFinished is published; a design turn's proposal spend reads its cost from that ledger, worker calls included."
+
+applies_to: "default (EventPublishingChatClient, IRunContextAccessor, ExecutePipelineUseCase, TurnSpend)"
+
+requires: [2026-11-17-166ab]
+
+facts:
+  - claim: "The proposal spend is the pipeline cost tracker's estimate."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TurnSpend.cs:22"
+  - claim: "The tracker keeps worker calls out of its estimate, in their own channel."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:176, src/backend/AgentSmith.Application/Services/WorkerCallLedger.cs:7-19"
+  - claim: "Every provider round trip publishes one LlmCallFinished with the call's cost; a worker call carries its CLI-reported figure; the run row's cost is the sum of these."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:152-170, .agentsmith/specs/done/2026-11-17-166ab-run-cost-per-call.yaml"
+  - claim: "The run id reaches the chat client as an ambient frame opened by ExecutePipelineUseCase."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:52, src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:17-28"
+  - claim: "In worker mode the proposal card showed usd 0."
+    evidence: "observed: 2026-11-17 final replay, proposal-last.json spend.usd 0 while the turn's calls were recorded with cost"
+
+scope:
+  in: "RecordedCallLedger (Contracts/Events): a thread-safe list of RecordedCall (model, phase, repo, tokens in/out, cached, cache creation, cost, worker flag) plus a carried figure for a resumed run's earlier segments. ExecutePipelineUseCase creates one per run and opens it as an ambient frame on the line beside the run-id scope (IRunContextAccessor.CurrentRecordedCalls / BeginRecordedCallsScope, default members), then sets it on the context (ContextKeys.RecordedCalls) after the prologue and seeds it once from ContextKeys.PriorSpend (accrued plus worker-reported cost and tokens), as the tracker is seeded. EventPublishingChatClient adds a RecordedCall with exactly the figures of every LlmCallFinished it publishes. TurnSpend's usd is the ledger's cost (calls plus carried) when a ledger is present; cap, tier and exhaustion stay the tracker's, which leaves worker spend out (b0d7)."
+  out: "result.md (2026-11-17-7c9bd). The tracker's budget fence: the card can show usd above the cap without 'exhausted' in worker mode, because the fence deliberately does not bind on worker spend. A call published by another process has no row in this process's ledger; LlmCallFinished is only published under the run-id frame, which this frame sits beside."
+
+steps:
+  - id: ledger
+    action: "RecordedCall and RecordedCallLedger in AgentSmith.Contracts/Events; ContextKeys.RecordedCalls."
+  - id: ambient
+    action: "IRunContextAccessor: CurrentRecordedCalls => null and BeginRecordedCallsScope(ledger) default members; AsyncLocalRunContextAccessor implements both."
+  - id: feed
+    action: "EventPublishingChatClient.PublishFinishedAsync: build the figures once, publish, and add them to runContext.CurrentRecordedCalls."
+  - id: run
+    action: "ExecutePipelineUseCase: a ledger per run, ambient frame beside the run scope, set on the pipeline after the prologue."
+  - id: spend
+    action: "TurnSpend.Of: usd = ledger cost when the context carries one, else the tracker estimate."
+
+tests:
+  - "RecordedCallLedgerTests: adds from several threads sum exactly"
+  - "EventPublishingChatClientCostTests: a worker response and a provider response each land in the ambient ledger with the published cost"
+  - "TurnSpendTests: a ledger with a worker call of 0.42 gives usd 0.42 while the tracker estimate is 0; a carried 1.00 from a prior segment adds"
+  - "Real composition: the harness composition with its chat clients wrapped in EventPublishingChatClient (the MasterPassCostTests pattern) runs a pipeline whose scripted worker-shaped responses carry a reported cost; the run's ledger on the context sums them"
+
+done:
+  - "A design turn in worker mode shows its spend on the proposal card instead of usd 0."

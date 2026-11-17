@@ -24,6 +24,10 @@ public sealed record WorkerCallAccounting(
 {
     private const string ResponseKey = "agentsmith.worker_call";
 
+    /// <summary>2026-11-17-7c9bf: the other models the CLI used during the call; their cost is inside
+    /// <see cref="ReportedCostUsd"/>, which is the CLI's total.</summary>
+    public IReadOnlyList<WorkerModelUsage> Secondary { get; init; } = [];
+
     /// <summary>
     /// Marks the response as answered by a worker CLI and hangs its figures on it. The
     /// cached subset stays OUT of <see cref="UsageDetails.CachedInputTokenCount"/>: the

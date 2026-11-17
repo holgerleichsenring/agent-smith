@@ -52,6 +52,13 @@ public interface IRunContextAccessor
     /// method that runs the pass: a frame set inside an async callee is gone when the callee returns.</summary>
     IDisposable BeginMasterPassScope(int ordinal) => NoFrame.Instance;
 
+    /// <summary>2026-11-17-7c9bc: the ledger of the calls this run records, or null outside a run. Default
+    /// members, so an accessor that keeps no ledger frame reads null and opens nothing.</summary>
+    RecordedCallLedger? CurrentRecordedCalls => null;
+
+    /// <summary>2026-11-17-7c9bc: opens the ambient ledger frame; open it beside the run-id scope.</summary>
+    IDisposable BeginRecordedCallsScope(RecordedCallLedger ledger) => NoFrame.Instance;
+
     private sealed class NoFrame : IDisposable
     {
         public static readonly NoFrame Instance = new();

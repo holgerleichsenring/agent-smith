@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-7c9bf
+
+decisions:
+  - category: Implementation
+    chose: "The call's model is the model the stream's init event names when modelUsage names it exactly, else the modelUsage entry with the most output tokens; every other entry is secondary usage"
+    over: "Matching the configured model or alias against the keys, or keeping the joined name"
+    reason: "The init event is the CLI saying which model ran the session, which is the requested model resolved to its id; an alias like 'opus' or a suffix like '[1m]' would need guessing to match. Without an init (json output) the model that wrote the answer wrote the most output. The joined name made every call read haiku+opus, which no price table or reader can attribute."
+  - category: Scope
+    chose: "Tokens and cost of the call stay the CLI's top-level usage and total_cost_usd; secondary usage is carried on the accounting, the recorded call, result.md's worker block and the worker log line, not in a RunLlmCalls column"
+    over: "Splitting the cost per model, or adding a column and migrations in three providers"
+    reason: "The total is what the call cost and what the run row sums since 166ab, so pricing is unchanged. The side model's cost is inside it; a column would add three migrations for a figure no page reads yet."
+  - category: Scope
+    chose: "A resumed segment does not carry its earlier segments' secondary usage"
+    over: "Extending PriorSpendSnapshot"
+    reason: "The carry is one figure per run (7c9bc); the secondary breakdown is informational and the cost is already inside the carried total."
