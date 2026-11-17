@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-b6e4a
+
+decisions:
+  - category: Implementation
+    chose: "FiledSpecBranch fingerprints TicketLabelNoteStripper.Strip(ticket), the same reading FetchTicketHandler fingerprints"
+    over: "Fingerprinting the body we rendered, or leaving the first run to adopt a fingerprint"
+    reason: "The read-back is right because a tracker may round-trip markup; only the label note, which filing writes and every run strips, made the two readings differ. One change in FiledSpecBranch also fixes the amendment path, which feeds it the same read-back."
+  - category: Scope
+    chose: "Branches already filed with the unstripped fingerprint are left as they are"
+    over: "A migration rewriting their manifests"
+    reason: "Their next run records one ticket-edit revision and keeps the approved set; rewriting branches would be a git write outside any run for a one-time cosmetic revision."
