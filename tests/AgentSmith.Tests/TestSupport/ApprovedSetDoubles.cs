@@ -9,6 +9,7 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.TestSupport;
 
@@ -50,17 +51,16 @@ internal static class ApprovedSetDoubles
         NullLogger<ApprovedSetKeptNotice>.Instance);
 
     /// <summary>
-    /// 2026-09-22-b3d7: the ONE path a spec and an approved cut are both filed through — create,
-    /// store, start. A test that reads the stored set, or that watches the starter, passes its own.
+    /// 2026-09-22-b3d7: the ONE path a filed series is stored and written through. 2026-11-17-5701b: it no longer
+    /// creates or starts — the 'file' run's steps do (<see cref="FilingDoubles"/>).
     /// </summary>
     internal static ApprovedSetTicketFiler SetFiler(
-        ISpecApprovalStore? store = null, FiledWorkStarter? starter = null,
-        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null,
-        AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
-        new(Recorder(store),
+        ISpecApprovalStore? store = null, RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null,
+        AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null,
+        AgentSmith.Contracts.Sandbox.IReferenceSetReader? references = null) =>
+        new(Recorder(store, references),
             new FiledSpecBranchWrite(
                 Branch(sources, pointers, mocks), NullLogger<FiledSpecBranchWrite>.Instance),
-            starter ?? FiledWorkDoubles.Starter(), Kinds(),
             NullLogger<ApprovedSetTicketFiler>.Instance);
 
     /// <summary>2026-09-22-b6ad: the real branch write over a remote that records what it was

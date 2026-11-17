@@ -72,6 +72,39 @@ public sealed class DesignTurnReviewReportTests
         DesignTurnReviewReport.For(bound, []).Should().BeNull();
     }
 
+    /// <summary>2026-11-17-5701a: a list reports its plan findings and each ticket spec's round under its file.</summary>
+    [Fact]
+    public void ListPass_WithSpecs_ReportsThePlanAndEachSpecUnderItsTicket()
+    {
+        var reviewed = WithSpec() with
+        {
+            Findings = [new ProposalFinding("order-api", "size", "too big"), new ProposalFinding("order-state", SpecReviewVerdicts.Refuse, "no route")],
+        };
+
+        var report = DesignTurnReviewReport.For(reviewed, [])!;
+
+        report.Should().Contain(DesignTurnReviewReport.Rule).And.Contain("- order-api [size]: too big")
+            .And.Contain($"- order-state (draft:tickets/order-api/order-state.yaml): {SpecReviewVerdicts.Refuse}")
+            .And.Contain("no route").And.NotContain(DesignTurnReviewReport.CleanList);
+    }
+
+    [Fact]
+    public void ListPass_BoundWithSpecs_ReportsOnlyTheSpecs()
+    {
+        var reviewed = WithSpec() with
+        {
+            Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, TicketPlanReview.BoundProblem, TicketPlanReview.BoundWhy)],
+        };
+
+        DesignTurnReviewReport.For(reviewed, [])!.Should().Contain("order-state (draft:tickets/order-api/order-state.yaml)")
+            .And.NotContain(TicketPlanReview.BoundWhy).And.NotContain(DesignTurnReviewReport.CleanList);
+    }
+
+    private static TicketGraphOutcome WithSpec() => new TicketGraphOutcome([Ticket("order-api") with { Specs = [Draft("order-state")] }]) with
+    {
+        ReviewRounds = [new ProposalReviewRound("order-state", 1, SpecReviewVerdicts.Refuse, [SpecReviewVerdicts.Refuse], [], [], [])],
+    };
+
     /// <summary>2026-11-13-b3a2: a draft refused on owner decisions only is listed apart, each decision as a question.</summary>
     [Fact]
     public void OwnerDecisions_ListedApartAsQuestions()

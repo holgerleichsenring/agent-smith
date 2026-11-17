@@ -46,6 +46,8 @@ public static class ContextBuildersExtensions
         AddBuilder<LoadCachedCodeMapContextBuilder>(services, CommandNames.LoadCachedCodeMap);
         AddBuilder<GroundSpecDialogContextBuilder>(services, CommandNames.GroundSpecDialog); // 4c1f
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
+        AddBuilder<PlanFilingContextBuilder>(services, CommandNames.PlanFiling); // 2026-11-17-5701b
+        AddBuilder<FileTicketsContextBuilder>(services, CommandNames.FileTickets);
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);

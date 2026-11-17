@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 

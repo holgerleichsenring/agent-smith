@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -79,7 +80,7 @@ public sealed class SpecDialogOutcomeComposer
     });
 
     private static string FormatTickets(IReadOnlyList<FiledTicket> filed, SpecDialogMarkup m) =>
-        string.Join("\n", filed.Select(t => $"- {FiledTicketKey.Named(t, m)} — {t.Title}{t.Start?.Note}"));
+        string.Join("\n", filed.Select(t => $"- {FiledTicketNaming.Named(t, m)} — {t.Title}{t.Start?.Note}"));
 
     private static string FormatNotes(IReadOnlyList<string> notes) =>
         notes.Count == 0 ? string.Empty : $"\nNotes:\n{string.Join("\n", notes.Select(n => $"- {n}"))}";

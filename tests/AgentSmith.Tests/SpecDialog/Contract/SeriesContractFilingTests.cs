@@ -99,15 +99,16 @@ public sealed class SeriesContractFilingTests
     }
 
     [Fact]
-    public void OutcomeTicketFiler_LoneSpec_PassesTheProposalAsSource()
+    public void FilingPlan_LoneSpec_PassesTheProposalAsSource()
     {
         var root = Root();
-        var calls = new[] { "OutcomeTicketFiler.cs", "AmendedSpecification.cs" }
+        var calls = new[] { Path.Combine("AgentSmith.Application", "Services", "Filing", "SeriesFilingPlan.cs"),
+                Path.Combine("AgentSmith.Server", "Services", "SpecDialog", "AmendedSpecification.cs") }
             .SelectMany(file => Regex.Matches(File.ReadAllText(Path.Combine(root, file)), @"\.(Mint|MintParts|Under)\(([^;]*?)\)[,;]")
                 .Select(m => m.Groups[2].Value)).ToList();
 
-        calls.Should().HaveCount(4, "a lone spec and an epic, filed and amended");
-        calls.Should().OnlyContain(args => Regex.IsMatch(args, @",\s*(proposal|spec|epic)\)?\s*$"),
+        calls.Should().HaveCount(4, "a lone spec and the parts of an epic or a list ticket, filed; a spec and an epic, amended");
+        calls.Should().OnlyContain(args => Regex.IsMatch(args, @",\s*(proposal|spec|epic|source)\)?\s*$"),
             "every filing site hands the approved proposal on, so a source-carried field reaches a lone spec too");
     }
 
@@ -120,7 +121,7 @@ public sealed class SeriesContractFilingTests
             Contract = SeriesContractFixtures.Of(names: [new("SpecReviewRound", "event", 87, "2026-10-06-0a0aa")]),
         };
 
-        var record = await ApprovedSetDoubles.Recorder(store).RecordAsync(State(), Project(), "19106", series, "goal", default);
+        var record = await ApprovedSetDoubles.Recorder(store).RecordAsync(ConversationApproval.Of(State()), Project(), "19106", series, "goal", default);
 
         var stored = SpecApprovalJson.Read(SpecApprovalJson.Write(record))!;
         stored.Set.Contract!.Names.Should().ContainSingle().Which.Owner.Should().Be("2026-10-06-0a0aa");
@@ -165,7 +166,7 @@ public sealed class SeriesContractFilingTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src", "backend")))
             dir = dir.Parent;
-        return Path.Combine(dir!.FullName, "src", "backend", "AgentSmith.Server", "Services", "SpecDialog");
+        return Path.Combine(dir!.FullName, "src", "backend");
     }
 
     private static ConversationState State() => new()

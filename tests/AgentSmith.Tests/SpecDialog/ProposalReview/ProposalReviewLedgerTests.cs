@@ -18,6 +18,23 @@ public sealed class ProposalReviewLedgerTests
         ProposalReviewLedger.Of(pipeline).Should().BeSameAs(ProposalReviewLedger.Of(pipeline));
     }
 
+    /// <summary>2026-11-17-5701a: the plan review a turn took is the list's part only; an edited list keeps only its notes.</summary>
+    [Fact]
+    public void PlanFindings_ListReviewedThisTurn_IsTheListsPartOnly()
+    {
+        var ledger = ProposalReviewLedger.Of(new PipelineContext());
+        var list = ProposalReviewRig.TicketSpecs();
+        ledger.PlanFindings(list).Should().BeNull();
+        ledger.Record(list with
+        {
+            Findings = [new ProposalFinding("order-ui", "size", "too big"), new ProposalFinding("order-page", SpecReviewVerdicts.Refuse, "no route")],
+        });
+
+        ledger.PlanFindings(list)!.Select(f => f.SpecId).Should().Equal("order-ui");
+        var edited = new TicketGraphOutcome([.. list.Tickets.Select(t => t with { Title = "renamed" })]);
+        ledger.PlanFindings(edited).Should().BeEmpty();
+    }
+
     [Fact]
     public void Covers_ChangedByte_IsNotCovered()
     {

@@ -13,6 +13,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// findings, or that the plan reviewer gave no answer — unless the conversation is bound to a ticket.
 /// 2026-11-13-b3a2: drafts refused on owner decisions only are listed apart as waiting on the owner.
 /// 2026-11-15-06fc: each reviewed spec names its draft file, and a cut is a quote and its replacement ("" removes it).
+/// 2026-11-17-5701a: a ticket list reports its plan findings and its specs' section (<see cref="DesignTurnSpecReport"/>);
+/// in a bound conversation only the plan section is dropped.
 /// </summary>
 public static class DesignTurnReviewReport
 {
@@ -38,67 +40,23 @@ public static class DesignTurnReviewReport
     {
         ArgumentNullException.ThrowIfNull(reviewed);
         ArgumentNullException.ThrowIfNull(carried);
-        if (reviewed is TicketGraphOutcome list) return ForList(list);
-        var known = new HashSet<ProposalReviewRound>(carried, ReferenceEqualityComparer.Instance);
-        var rounds = reviewed.ReviewRounds.Where(round => !known.Contains(round)).ToList();
-        var waiting = rounds.Where(ReviewOwnerDecision.Waits).Select(round => round.SpecId).ToHashSet(StringComparer.Ordinal);
-        var findings = reviewed.Findings.Where(f => Reviewed(f) && Attacked(reviewed, rounds, f)).ToList();
-        if (rounds.Count == 0 && findings.Count == 0) return null;
-        var objections = findings.Where(f => !waiting.Contains(f.SpecId)).ToList();
+        var plan = reviewed is TicketGraphOutcome list ? Plan(list) : null;
+        var specs = DesignTurnSpecReport.Of(reviewed, carried);
+        if (plan is null && specs is null) return null;
         var sb = new StringBuilder().AppendLine(Heading);
-        if (objections.Count > 0 || rounds.Any(round => !waiting.Contains(round.SpecId))) sb.AppendLine(Rule);
-        foreach (var round in rounds.Where(round => !waiting.Contains(round.SpecId)))
-        {
-            sb.AppendLine($"- {round.SpecId}{File(round.SpecId)}: {round.Verdict}");
-            foreach (var cut in round.Cuts)
-                sb.AppendLine($"  cut {cut.Register}: \"{cut.Quote}\" -> \"{cut.Replacement}\"");
-        }
-        foreach (var finding in objections)
-        {
-            sb.AppendLine($"- {finding.SpecId} [{finding.Problem}]: {finding.Why}");
-            if (!string.IsNullOrWhiteSpace(finding.Decision))
-                sb.AppendLine($"  {OwnerQuestion} {ReviewOwnerDecision.Question(finding.Decision)}");
-        }
-        if (waiting.Count > 0) AppendWaiting(sb, findings.Where(f => waiting.Contains(f.SpecId)).ToList(), waiting);
-        if (reviewed.NotReviewed is { Count: > 0 } open) sb.AppendLine($"Not reviewed: {string.Join(", ", open)}");
-        return sb.ToString();
+        if (plan?.Objects == true || specs?.Objects == true) sb.AppendLine(Rule);
+        return sb.Append(plan?.Lines).Append(specs?.Lines).ToString();
     }
 
-    /// <summary>2026-11-15-06fc: the draft file a spec's round reviewed, which an edit_file of its cuts names.</summary>
-    private static string File(string specId) => specId == ProposalReviewTokens.Series ? string.Empty
-        : $" ({Writes.DraftPath.Shown(Writes.DraftPath.OfSpec(specId, parent: false))})";
-
-    /// <summary>2026-11-13-b3a2: drafts refused on owner decisions only, apart, each decision as a question.</summary>
-    private static void AppendWaiting(StringBuilder sb, IReadOnlyList<ProposalFinding> findings, IReadOnlySet<string> waiting)
+    /// <summary>2026-11-13-67ae: a list pass with no finding is reported clean; a bound conversation's list is not.
+    /// 2026-11-17-5701a: only the findings on no spec of the list — its specs are the spec section's.</summary>
+    private static (bool Objects, string Lines)? Plan(TicketGraphOutcome list)
     {
-        sb.AppendLine(WaitingHeading).AppendLine(WaitingRule);
-        foreach (var specId in waiting)
-        {
-            sb.AppendLine($"- {specId}:");
-            foreach (var finding in findings.Where(f => f.SpecId == specId && !string.IsNullOrWhiteSpace(f.Decision)))
-                sb.AppendLine($"  {ReviewOwnerDecision.Question(finding.Decision!)} ({finding.Why})");
-        }
+        var findings = ProposalReviewSlices.ListFindings(list, edited: false);
+        if (findings.Any(f => f.Problem == TicketPlanReview.BoundProblem)) return null;
+        if (findings.Count == 0) return (false, CleanList + Environment.NewLine);
+        var sb = new StringBuilder();
+        foreach (var finding in findings) sb.AppendLine($"- {finding.SpecId} [{finding.Problem}]: {finding.Why}");
+        return (findings.Any(DesignTurnSpecReport.Reviewed), sb.ToString());
     }
-
-    /// <summary>2026-11-13-67ae: a list pass with no finding is reported clean; a bound conversation's list is not.</summary>
-    private static string? ForList(TicketGraphOutcome list)
-    {
-        if (list.Findings.Any(f => f.Problem == TicketPlanReview.BoundProblem)) return null;
-        var sb = new StringBuilder().AppendLine(Heading);
-        if (list.Findings.Count == 0) return sb.AppendLine(CleanList).ToString();
-        if (list.Findings.Any(Reviewed)) sb.AppendLine(Rule);
-        foreach (var finding in list.Findings) sb.AppendLine($"- {finding.SpecId} [{finding.Problem}]: {finding.Why}");
-        return sb.ToString();
-    }
-
-    /// <summary>A spec's finding counts when the pass took a round on its draft, a parent's and a series-contract finding when it took the series round.</summary>
-    private static bool Attacked(OutcomeProposal reviewed, IReadOnlyList<ProposalReviewRound> rounds, ProposalFinding finding)
-    {
-        if (rounds.Any(round => round.SpecId == finding.SpecId)) return true;
-        return rounds.Any(round => round.SpecId == ProposalReviewTokens.Series)
-            && (finding.Problem == ProposalSeriesRound.Problem || (reviewed as EpicOutcome)?.Parent.SpecId == finding.SpecId);
-    }
-
-    private static bool Reviewed(ProposalFinding finding) =>
-        finding.Problem is not (ProposalReviewSummary.NotReviewedYet or TicketPlanReview.BoundProblem);
 }

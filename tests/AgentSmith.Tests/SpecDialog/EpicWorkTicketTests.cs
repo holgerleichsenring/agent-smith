@@ -18,6 +18,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using AgentSmith.Contracts.Tickets;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -463,11 +464,7 @@ public sealed class EpicWorkTicketTests
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(Config(kinds)), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.SetFiler(store),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(Config(kinds), factory.Object, new FilingDoubles.Parts { Store = store });
         return await filer.FileAsync(State(), proposal, false, CancellationToken.None);
     }
 

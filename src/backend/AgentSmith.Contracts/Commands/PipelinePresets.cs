@@ -31,6 +31,7 @@ public static partial class PipelinePresets
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
+            [FileName] = File, // 2026-11-17-5701b
             [BranchCleanupName] = BranchCleanup, // 2026-11-17-713ec
         };
         Names = All.Keys.ToList();
@@ -52,6 +53,7 @@ public static partial class PipelinePresets
         ["pr-review"] = PipelineType.Structured,
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
+        [FileName] = PipelineType.Discussion,
         [BranchCleanupName] = PipelineType.Structured, // 2026-11-17-713ec
     };
 

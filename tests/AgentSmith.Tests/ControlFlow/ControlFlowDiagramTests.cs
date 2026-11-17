@@ -43,7 +43,8 @@ public sealed class ControlFlowDiagramTests
     [Fact]
     public void ControlFlowDiagram_NamesTheMasterEachPipelineLoads()
     {
-        foreach (var flow in ControlFlowFacts.All())
+        // 2026-11-17-5701b: a preset that drives no master loop ('file') names none.
+        foreach (var flow in ControlFlowFacts.All().Where(f => f.LoopActors.Count > 0))
         {
             flow.Master.Should().NotBeEmpty();
             flow.Steps.Where(s => s.Model.Use == ModelUse.Loop && s.Model.Actor.Length == 0)

@@ -45,12 +45,15 @@ public sealed class RepositoryFileReadTool(
         // "refused" and "could not clone". The scope is opened first and the step result read
         // itself, so an absence the reviewer may state is told apart from a read that failed.
         var opened = sandbox is ISourceScopeSandbox scope ? new SourceScopeLook(scope) : null;
-        var read = opened is null
-            ? new SourceScopeRead(
-                await files.Create(sandbox).TryReadAsync(ContainedPath.Absolute(under), ct), Ran: true)
-            : await opened.TryOpenAsync(ct) is { } failure
-                ? new SourceScopeRead(Content: null, Ran: false, failure)
-                : await opened.ReadAsync(under, ct);
+        var read = opened is not null && await opened.TryOpenAsync(ct) is { } failure
+            ? new SourceScopeRead(Content: null, Ran: false, failure)
+            : await ReadAt(sandbox, opened, under, ct);
+        // 2026-11-17-5701f: a design turn cites '<repository>/<path>', and a single-repository run keys its
+        // sandbox 'default'. Only a read that RAN and found nothing is tried again below the repository's name,
+        // on the sandbox already opened — the allowance was charged once, for one question.
+        if (read is { Ran: true, Content: null } && look.WithoutRepositoryName(repository, under) is { } below
+            && await ReadAt(sandbox, opened, below, ct) is { Ran: true, Content: not null } found)
+            (read, under) = (found, below);
         // 2026-09-17-042eh: numbered for a holder whose findings name a line, and the bound
         // applies to the NUMBERED text — so the lines the result carries are counted from
         // exactly what the model was shown, never from the file on disk.
@@ -75,6 +78,12 @@ public sealed class RepositoryFileReadTool(
             ? $"[{id}] {repository} has nothing at {under}. That is about this path only — a file of that name may sit elsewhere in the repository."
             : $"[{id}] {repository}/{under}:\n" + ReadPage.Bound(shown, first, MaxChars);
     }
+
+    private async Task<SourceScopeRead> ReadAt(
+        ISandbox sandbox, SourceScopeLook? opened, string under, CancellationToken ct) =>
+        opened is null
+            ? new SourceScopeRead(await files.Create(sandbox).TryReadAsync(ContainedPath.Absolute(under), ct), Ran: true)
+            : await opened.ReadAsync(under, ct);
 
     /// <summary>
     /// 2026-09-17-042eh: one-based line numbers in front of the content, tab-separated. The

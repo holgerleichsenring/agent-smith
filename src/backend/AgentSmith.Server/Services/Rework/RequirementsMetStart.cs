@@ -8,6 +8,7 @@ using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.Rework;
 

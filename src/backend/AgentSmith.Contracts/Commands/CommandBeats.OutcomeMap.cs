@@ -29,5 +29,7 @@ public static partial class CommandBeats
         [CommandNames.PostPrComments] = RunBeat.Outcome,
         [CommandNames.SecuritySnapshotWrite] = RunBeat.Outcome,
         [CommandNames.WriteTickets] = RunBeat.Outcome,
+        [CommandNames.PlanFiling] = RunBeat.Plan, // 2026-11-17-5701b: the filing run's two steps
+        [CommandNames.FileTickets] = RunBeat.Outcome,
     };
 }

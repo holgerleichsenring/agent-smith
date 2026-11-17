@@ -108,6 +108,13 @@ internal sealed class ProposalReviewRig
             evidence: "src/Export/ExportHandler.cs:12"
         """;
 
+    /// <summary>2026-11-17-5701a: a list of two tickets, each carrying one spec; order-api's spec takes <paramref name="step"/>.</summary>
+    public static TicketGraphOutcome TicketSpecs(string step = "Write the orders through the buffered file writer.") => new(
+    [
+        Validation.TicketGraphFixtures.Ticket("order-api") with { Specs = [new SpecDraftReader().Read(Yaml("order-state", step: step))] },
+        Validation.TicketGraphFixtures.Ticket("order-ui", "order-api") with { Specs = [new SpecDraftReader().Read(Yaml("order-page"))] },
+    ]);
+
     public static string SpecReply(string yaml, string prose = "Here is the spec.") => $"{prose}\n\n```yaml\n{yaml}\n```\n";
 
     public static string EpicReply(
@@ -163,9 +170,9 @@ internal sealed class ProposalReviewRig
         new(ProposalEvidenceTestReview.Create(), TicketPlanReviewRig.Default(), NullLogger<ProposalMechanicalChecks>.Instance);
 
     /// <summary>2026-11-12-92e9b: reviews the published outcome and publishes what came back, as the turn flow does.</summary>
-    public async Task<DesignTurnReview> RunAsync(ISpecReviewSettingsReader? reader = null)
+    public async Task<DesignTurnReview> RunAsync(ISpecReviewSettingsReader? reader = null, SpecDialogProposalReview? over = null)
     {
-        var review = await Review(reader).ReviewAsync(
+        var review = await (over ?? Review(reader)).ReviewAsync(
             new ProposalTurn(Pipeline, new AgentConfig(), PipelineCostTracker.GetOrCreate(Pipeline)), Outcome, CancellationToken.None);
         Pipeline.Set(ContextKeys.SpecDialogOutcome, review.Reviewed);
         return review;

@@ -22,6 +22,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// record for another ticket — or for a ticket of that number on a different tracker instance —
 /// is a re-used queue row or a hand-built request; it is ignored, and the run then has no set,
 /// so a filed ticket fails loudly rather than being worked to someone else's specification.
+/// 2026-11-17-5701c: with no record winning, the carried one is removed, so no later step reads another ticket's record.
 /// </para>
 /// </summary>
 public sealed class ApprovedSpecSetResolver(
@@ -40,6 +41,8 @@ public sealed class ApprovedSpecSetResolver(
         // than making it again — and a stale carried copy is replaced by the one that won.
         if (winner is not null)
             pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(winner with { ReviewRounds = null })); // 2026-10-13-8762l
+        else
+            pipeline.Remove(ContextKeys.ApprovedSpecSet);
         return winner;
     }
 

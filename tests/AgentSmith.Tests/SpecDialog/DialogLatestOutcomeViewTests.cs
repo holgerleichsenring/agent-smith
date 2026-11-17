@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 using AgentSmith.Tests.TestSupport;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -335,14 +336,10 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             .ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(Loader().LoadConfig(string.Empty)), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            TestSupport.ApprovedSetDoubles.SetFiler(),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(Loader().LoadConfig(string.Empty), factory.Object);
         return new TicketFilingOutcomeSink(
             new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot(new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim(_context)),
-            filer, new AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig().Filer(), TestSupport.Continuations.Unused(filer), _sessions, messenger, composer, channel, latest,
+            filer, TestSupport.Continuations.Unused(filer), _sessions, messenger, composer, channel, latest,
             NullLogger<TicketFilingOutcomeSink>.Instance);
     }
 

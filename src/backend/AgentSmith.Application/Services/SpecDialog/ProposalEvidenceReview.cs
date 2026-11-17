@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// a citation of a file a predecessor creates is correct there. So: a single spec whose requires
 /// name no spec id, an epic's parent, and its first child — the parent alone when the children
 /// cannot be ordered. A spec requiring a done spec goes unchecked too; that costs a missed check,
-/// never a false finding.
+/// never a false finding. 2026-11-17-5701a: in a ticket list, the first spec of each ticket that requires nothing.
 /// </para>
 /// </summary>
 public sealed class ProposalEvidenceReview(
@@ -61,6 +61,9 @@ public sealed class ProposalEvidenceReview(
         EpicOutcome epic => orderer.Order(epic.Children) is { Error: null, Children: [var first, ..] }
             ? [epic.Parent, first]
             : [epic.Parent],
+        TicketGraphOutcome graph => [.. graph.Tickets.Where(t => t.Requires.Count == 0)
+            .Select(t => orderer.Order(t.Specs) is { Error: null, Children: [var first, ..] } ? first : null)
+            .OfType<SpecDraft>()],
         _ => [],
     };
 }

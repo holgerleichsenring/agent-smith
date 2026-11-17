@@ -1,12 +1,15 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Filing;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 
@@ -56,8 +59,32 @@ public sealed class ReviewSpecsHandlerTests
 
         var result = await rig.ExecuteAsync(Settings());
 
-        result.Message.Should().Contain("every unbuilt spec's exact text was reviewed clean");
+        result.Message.Should().Contain("every unbuilt spec's exact text was reviewed and passed");
         rig.Inputs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_EverySpecPassedInTheApprovingTurn_IsSkipped()
+    {
+        var rig = new ReviewLoopRig();
+        var filed = Filed(rig, notReviewed: null);
+
+        var result = await rig.ExecuteAsync(Settings());
+
+        filed.ReviewedClean.Should().HaveCount(2);
+        result.Message.Should().Contain("reviewed and passed in the approving turn");
+        rig.Inputs.Should().BeEmpty("2026-11-17-5701e: the turn's pass reaches the run through filing");
+    }
+
+    [Fact]
+    public async Task ReviewSpecs_SpecTheTurnLeftNotReviewed_IsAttacked()
+    {
+        var rig = new ReviewLoopRig();
+        var filed = Filed(rig, notReviewed: [Second]);
+
+        await rig.ExecuteAsync(Settings());
+
+        rig.Inputs.Should().ContainSingle().Which.Draft.SpecId.Should().Be(filed.Drafts[1].SpecId);
     }
 
     [Fact]
@@ -215,6 +242,27 @@ public sealed class ReviewSpecsHandlerTests
         code.IndexOf(CommandNames.ReviewSpecs).Should().Be(code.IndexOf(CommandNames.SpecHandback) + 1);
         code.IndexOf(CommandNames.SpecGate).Should().Be(code.IndexOf(CommandNames.ReviewSpecs) + 1);
         PipelinePresets.CodeSpecBlock.Should().NotContain(CommandNames.ReviewSpecs);
+    }
+
+    // The rig's drafts approved in a turn whose last round of each passed (one with cuts), filed, and set as the run's specs.
+    private static FiledSeries Filed(ReviewLoopRig rig, IReadOnlyList<string>? notReviewed)
+    {
+        var drafts = rig.Set.Specs.Select(s => s.Draft).ToList();
+        var source = new EpicOutcome(new SpecDraft("p", "parent", "spec: p", []), drafts)
+        {
+            ReviewRounds = [new(First, 1, SpecReviewVerdicts.Build, [], [], [], []),
+                new(Second, 1, SpecReviewVerdicts.BuildWithCuts, [], [], [], [])],
+            NotReviewed = notReviewed,
+        };
+        var filed = ApprovedSetDoubles.SeriesFiling().Under("2026-11-17-0f0f", drafts, source);
+        var set = rig.Set with { Specs = [.. rig.Set.Specs.Select((s, i) => s with { Draft = filed.Drafts[i] })] };
+        rig.Pipeline.Set(ContextKeys.SpecSet, set);
+        rig.Pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(new SpecApprovalRecord("shop-42",
+            set with { Approval = new SpecApproval(DateTimeOffset.UtcNow, "session-1", "carol") }, ["shop"])
+        {
+            ReviewedClean = filed.ReviewedClean,
+        }));
+        return filed;
     }
 
     private static void Approve(ReviewLoopRig rig, SpecSet set, IReadOnlyList<DerivedSpec>? clean = null) =>

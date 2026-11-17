@@ -52,7 +52,7 @@ public static partial class CommandNames
         [AgenticMaster] = "Running master skill",
         [LoadCachedCodeMap] = "Loading cached code map",
         [GroundSpecDialog] = "Grounding the design conversation",
-        [CollectSpecDialogReply] = "Collecting design reply",
+        [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets",
         [SpecGate] = "Validating the spec",
         [MasterOpenQuestions] = "Posting master open questions",
         [WriteSpecRecord] = "Writing spec record",

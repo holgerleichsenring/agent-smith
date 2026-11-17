@@ -7,6 +7,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.Logging;
 using static AgentSmith.Server.Services.SpecDialog.Continuation.TicketContinuationEffects;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 
@@ -66,10 +67,13 @@ public sealed class TicketContinuationAct(
         var contract = ContinuedContract.Of(proposal, decision, current); // 2026-10-13-8762j
         if (contract.Removed.Count > 0)
             logger.LogInformation("Ticket {Ticket}: contract entries naming no spec of the continued series removed: {Removed}", ticketId, string.Join("; ", contract.Removed));
+        var rounds = ApprovedReviewRounds.Rekey(proposal.ReviewRounds, decision.Ids, out var dropped);
+        if (dropped.Count > 0)
+            logger.LogInformation("Ticket {Ticket}: review rounds of no continued spec dropped: {Dropped}", ticketId, string.Join(", ", dropped));
         try
         {
-            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts)
-                { Contract = contract.Contract, ReviewRounds = ApprovedReviewRounds.Rekey(proposal.ReviewRounds, decision.Ids, logger, ticketId) },
+            await approvals.RecordAsync(ConversationApproval.Of(state), project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts)
+                { Contract = contract.Contract, ReviewRounds = rounds },
                 goal, ct, decision.Continuation, current.Scope);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

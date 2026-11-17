@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.Tickets;
 

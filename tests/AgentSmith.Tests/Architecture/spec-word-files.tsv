@@ -30,6 +30,7 @@ src/backend/AgentSmith.Application/Models/CallCostRecord.cs	phase	1
 src/backend/AgentSmith.Application/Models/SkillExecutionPhase.cs	phase	1
 src/backend/AgentSmith.Application/Services/Events/AsyncLocalRunContextAccessor.cs	phase	3
 src/backend/AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs	Phase	2
+src/backend/AgentSmith.Application/Services/Filing/FiledWorkTagger.cs	phase	2
 src/backend/AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs	Phases	5
 src/backend/AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs	phase	2
 src/backend/AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs	phases	4
@@ -131,8 +132,6 @@ src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerProcessGuard.cs	pha
 src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerRequestComposer.cs	Phase	1
 src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs	Phase	4
 src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs	phase	7
-src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs	phase	1
-src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkTagger.cs	phase	2
 src/dashboard/src/components/dialog/__tests__/conversationDelete.test.ts	phase	2
 src/dashboard/src/components/execution/__tests__/LlmRowPairing.test.tsx	phase	13
 src/dashboard/src/components/execution/bodies/CommandTimeline.tsx	phase	3

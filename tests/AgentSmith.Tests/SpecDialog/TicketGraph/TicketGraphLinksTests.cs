@@ -7,6 +7,7 @@ using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 
@@ -57,8 +58,8 @@ public sealed class TicketGraphLinksTests
         List<FiledTicket> filed = [new("https://tracker.test/102", "t") { TicketId = "102" }];
 
         await _rig.Starts().SettleAsync(_rig.Tracker, _rig.Project,
-            [new CreatedGraphTicket(new CreatedTicket(new TicketId("102"), null), [Edge("102", "101")], Complete: false)],
-            ["stamp"], true, filed);
+            [new CreatedGraphTicket(new CreatedTicket(new TicketId("102"), null), [Edge("102", "101")], Complete: false, ["stamp"])],
+            true, filed);
 
         _rig.Links.Calls.Should().Equal([("102", "101")]);
     }

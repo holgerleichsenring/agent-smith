@@ -66,6 +66,19 @@ public sealed class ProposalReviewLedger
         lock (_gate) return _settled.GetValueOrDefault(settledKey);
     }
 
+    /// <summary>2026-11-17-5701a: the plan review this turn already took of <paramref name="graph"/>'s list — exactly this
+    /// list, else the list it settled — as the list's findings, or null when no pass reviewed a list.</summary>
+    public IReadOnlyList<ProposalFinding>? PlanFindings(TicketGraphOutcome graph)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        var list = ProposalReviewTexts.Of(graph)[0];
+        lock (_gate)
+        {
+            if (_results.TryGetValue(list.Key, out var exact)) return ProposalReviewSlices.ListFindings(exact, edited: false);
+            return _settled.TryGetValue(list.SettledKey, out var settled) ? ProposalReviewSlices.ListFindings(settled, edited: true) : null;
+        }
+    }
+
     /// <summary>Every round a pass of this turn left, so what a later pass carries can be told from what it took.</summary>
     public IReadOnlyList<ProposalReviewRound> Rounds()
     {

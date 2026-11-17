@@ -44,6 +44,8 @@ public static partial class CommandDisplayNames
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
         [CommandNames.GroundSpecDialog] = "Ground the design conversation",
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",
+        [CommandNames.PlanFiling] = "Plan the filing",
+        [CommandNames.FileTickets] = "File the tickets",
         [CommandNames.SpecGate] = "Validate the spec",
         [CommandNames.MasterOpenQuestions] = "Post master open questions",
         [CommandNames.WriteSpecRecord] = "Write spec record",

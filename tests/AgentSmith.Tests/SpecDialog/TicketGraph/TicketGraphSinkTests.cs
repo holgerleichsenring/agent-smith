@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using static AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 
@@ -64,7 +65,7 @@ public sealed class TicketGraphSinkTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketFilingOutcomeSink_GraphCancelledAfterCreation_StoresTheFilingAndSendsTheNotice()
+    public async Task TicketFilingOutcomeSink_CallerCancelledAfterCreation_FilesTheWholeListAndSendsTheNotice()
     {
         var state = await OpenAsync("th-2");
         using var cancel = new CancellationTokenSource();
@@ -72,8 +73,10 @@ public sealed class TicketGraphSinkTests : IDisposable
 
         await Sink().AcceptAsync(state, List(Ticket("api"), Ticket("ui", "api")), true, cancel.Token);
 
+        // 2026-11-17-5701b: the approval is claimed, so the 'file' run runs on no token and the caller's cancel stops nothing.
+        _rig.Tracker.Created.Should().HaveCount(2);
         _adapter.Verify(a => a.SendInfoAsync(state.ChannelId, It.IsAny<string>(), It.Is<string>(t =>
-            t.Contains("interrupted after 1 of 2 tickets") && t.Contains("Approving again files the whole list again")),
+            t.Contains("Filed a list of 2 tickets") && t.Contains("held: waits for #101")),
             "th-2", It.IsAny<CancellationToken>()), Times.Once);
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-2", CancellationToken.None);
         session!.LatestFilingJson.Should().Contain("tracker.test/101");
@@ -128,12 +131,10 @@ public sealed class TicketGraphSinkTests : IDisposable
         var messenger = new SpecDialogMessenger([_adapter.Object], NullLogger<SpecDialogMessenger>.Instance);
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(_rig.Tracker);
-        var filer = new OutcomeTicketFiler(LiveConfig.Projects(_rig.Config()), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(), ApprovedSetDoubles.SetFiler(),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = _rig.Filer();
         return new TicketFilingOutcomeSink(
             new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot(new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim(_context)),
-            filer, _rig.Filer(), Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
+            filer, Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
             new DashboardOutcomeChannel(new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
             new SpecDialogLatestOutcomeStore(_repository, BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),

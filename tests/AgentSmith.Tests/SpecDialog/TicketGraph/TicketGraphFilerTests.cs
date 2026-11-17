@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
 using static AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.TicketGraph;
 
@@ -184,13 +185,14 @@ public sealed class TicketGraphFilerTests
     }
 
     [Fact]
-    public async Task TicketGraphFiler_NoSpecParentStampAndNoBranchWrite()
+    public async Task ListTicket_FiledWithItsSpecs_StampedRecordedAndWrittenToItsBranch()
     {
         await _rig.FileAsync(List(Ticket("api"), Ticket("ui", "api")));
 
         _rig.Tracker.Created.SelectMany(c => c.Labels).Should().NotContain(l => l.StartsWith(FiledTicketLabels.ParentPrefix));
-        _rig.Approvals.Saved.Should().OnlyContain(r => r.TicketText && r.Set.Specs.Count == 0 && r.Set.Series == null,
-            "a ticket text carries no series a branch write could publish");
+        _rig.Approvals.Saved.Should().HaveCount(2).And.OnlyContain(r => !r.TicketText && r.Set.Specs.Count == 1 && r.Set.Series != null,
+            "2026-11-17-5701b: a list ticket carries its approved specs, so its run executes them instead of deriving");
+        _rig.Sources.Writes.Should().HaveCount(2, "each ticket's set is on its own branch before anything starts it");
     }
 
     [Theory]

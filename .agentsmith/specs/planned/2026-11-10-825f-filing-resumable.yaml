@@ -7,9 +7,9 @@ applies_to: "default (Server: outcome ticket filer, filed series, filing sink; P
 
 facts:
   - claim: "Every filing mints a fresh series base, so a second attempt at the same proposal produces new spec ids rather than finding the first attempt's."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:21,24-33; src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:47,112"
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledSeriesFactory.cs:23,30-43; src/backend/AgentSmith.Application/Services/Filing/SeriesFilingPlan.cs:19,45"
   - claim: "The filed series maps each filed id back to the proposal's own draft id (Sources), which is the stable key a record can use."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:33"
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledSeriesFactory.cs:57"
   - claim: "A filing that fails part-way is only reported in a Filing notice; nothing records which tickets exist, and a person approving again would file all of them again."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-78"
   - claim: "A continuation act on a bound ticket is not recorded either, so a crash after it leaves no trace of having acted."

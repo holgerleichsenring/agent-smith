@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -46,21 +47,11 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogProposalState>().AddScoped<SpecDialogDecisionPath>().AddScoped<SpecDialogChatClick>()
             .AddScoped<SpecDialogDecisionOutcome>() // 2026-11-11-205fe
             .AddScoped<SpecDialogChatCard>().AddScoped<SpecDialogNotices>();
-        services.AddTransient<SpecTicketRenderer>();
-        services.AddTransient<BugTicketRenderer>();
-        // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
-        // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
-        services.AddScoped<FiledWorkTagger>();
-        services.AddScoped<FiledWorkStarter>().AddScoped<FiledWorkMove>(); // 2026-10-13-9a59m: the move, shared
+        // 2026-11-17-5701b: filing is the 'file' pipeline — its steps and the services the remaining server acts share
+        // (recorder, branch write, starter, move) are registered once by AddFilingPipeline; FilingRun launches it.
+        services.AddFilingPipeline().AddScoped<IFilingRun, FilingRun>();
         services.AddScoped<SpecDialogLatestOutcomeStore>().AddScoped<SpecDialogProposalContinuity>(); // 2026-11-09-9a98
-        // 2026-09-17-0e79a: filing a spec stores the approved set under the ticket's spec key.
-        // 2026-09-22-b3d7: one path does that for a lone spec and for an approved cut alike.
-        services.AddScoped<ApprovedSpecSetRecorder>();
-        services.AddScoped<ApprovedSetTicketFiler>();
-        // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
-        services.AddScoped<FiledSpecBranchWrite>();
-        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddScoped<TicketDescriptionRewrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
-        services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
+        services.AddScoped<TicketAmendment>().AddScoped<TicketDescriptionRewrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
         // 2026-11-04-96a0a: the subject the master named a conversation with, stored by the keeper in

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-5701e
+
+decisions:
+  - category: Implementation
+    chose: "ProposalReviewText.LastRoundPassed(rounds, id) holds the pass rule (build, build with cuts, or a refusal waiting only on an owner decision); PassedIn and FiledSeriesFactory both call it"
+    over: "Copying the verdict check into FiledSeriesFactory, or constructing a ProposalReviewText at filing to call PassedIn"
+    reason: "One rule decides what a turn settles and what a run spares, so the two cannot drift. PassedIn's list and contractless-epic cases need a whole proposal, which filing does not need: it marks a contract only when one exists."
+  - category: Implementation
+    chose: "Filing reads the re-keyed rounds under the filed id and checks NotReviewed under the source id"
+    over: "Reading the source's rounds before re-keying"
+    reason: "Rekey already drops rounds of drafts the filing left out and maps the rest. NotReviewed is a field on the proposal and still names the source ids."
+  - category: Implementation
+    chose: "The contract is marked when its exact text was reviewed clean or the last series round passed and the series token is not in NotReviewed, and in both cases only when narrowing removed nothing"
+    over: "Marking a narrowed contract whose series round passed"
+    reason: "A narrowed contract is a text no review read, so the run reviews it. That matches the existing clean-text rule."
+  - category: TradeOff
+    chose: "Nothing on the record is renamed: ReviewedClean now also holds texts the turn passed, and its comment and the run's skip reason say so"
+    over: "A new record field for passed-in-turn texts"
+    reason: "The run spares both kinds the same way, and a second field would make every reader take a union. The scope rules out a rename."

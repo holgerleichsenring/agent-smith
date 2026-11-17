@@ -57,7 +57,7 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>();
         services.AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>();
         services.AddSingleton<IStepDataFlow, PrReviewDataFlow>();
-        services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>().AddSingleton<IStepDataFlow, SpecDeriveDataFlow>(); // 2026-10-26-bdd0a
+        services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>().AddSingleton<IStepDataFlow, SpecDeriveDataFlow>().AddSingleton<IStepDataFlow, FileDataFlow>(); // bdd0a, 5701b
         services.AddSingleton<IStepDataFlowResolver, StepDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);

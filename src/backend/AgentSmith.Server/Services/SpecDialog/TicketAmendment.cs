@@ -11,6 +11,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -79,7 +80,7 @@ public sealed class TicketAmendment(
     {
         var id = new TicketId(ticketId);
         var rewrite = await descriptions.WriteAsync(project, id, amended.Region, previous, ct);
-        var record = await approvals.RecordAsync(state, project, ticketId, amended.Set, amended.Goal, ct, continuation);
+        var record = await approvals.RecordAsync(ConversationApproval.Of(state), project, ticketId, amended.Set, amended.Goal, ct, continuation);
         // Read back AFTER the rewrite: the fingerprint the branch set carries is of the ticket as the
         // TRACKER stored it, and a stale one reads as a ticket edit on the next run. 2026-10-12-f5f7d:
         // each spec is written into the repository it names; what already ran stays out by id.

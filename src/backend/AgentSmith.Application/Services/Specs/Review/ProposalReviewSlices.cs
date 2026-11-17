@@ -10,7 +10,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// and clean text by its id, an epic's parent its findings and the series round. 2026-11-13-3f79: a settled text
 /// edited since (<c>Edited</c>) brings its settled rounds only — not the findings its cuts answered, never a clean
 /// text, since the text it was reviewed in is gone; an edited settled list keeps only the bound-conversation note and (2026-11-13-67ae) a failed plan review's
-/// not-reviewed mark.
+/// not-reviewed mark. 2026-11-17-5701a: a ticket list's part brings every finding on no spec of its tickets, and each
+/// ticket spec brings its own part as a spec does.
 /// </summary>
 internal static class ProposalReviewSlices
 {
@@ -20,28 +21,34 @@ internal static class ProposalReviewSlices
         if (parts.Count == 0) return proposal;
         if (parts.All(p => !p.Edited) && parts.Select(p => p.Result).Distinct(ReferenceEqualityComparer.Instance).Count() == 1)
             return Take(proposal, parts[0].Result);
-        if (proposal is TicketGraphOutcome graph) return EditedList(graph, parts[0].Result);
-        var exact = parts.Where(p => !p.Edited).ToList();
+        var list = parts.Where(p => p.Text.Id == ProposalReviewTexts.ListId).ToList();
+        var drafts = parts.Where(p => p.Text.Id != ProposalReviewTexts.ListId).ToList();
+        var exact = drafts.Where(p => !p.Edited).ToList();
         var notReviewed = exact.SelectMany(p => (p.Result.NotReviewed ?? []).Where(id => id == p.Text.Id)).ToList();
         return proposal with
         {
-            Findings = [.. parts.SelectMany(p => Findings(proposal, p.Text, p.Result, p.Edited))],
-            ReviewRounds = [.. parts.SelectMany(p => p.Result.ReviewRounds.Where(r => r.SpecId == p.Text.Id))],
+            Findings = [.. list.SelectMany(p => ListFindings(p.Result, p.Edited)),
+                .. drafts.SelectMany(p => Findings(proposal, p.Text, p.Result, p.Edited))],
+            ReviewRounds = [.. drafts.SelectMany(p => p.Result.ReviewRounds.Where(r => r.SpecId == p.Text.Id))],
             NotReviewed = notReviewed.Count == 0 ? null : notReviewed,
             ReviewedClean = [.. exact.SelectMany(p => p.Result.ReviewedClean.Where(c => c.SpecId == p.Text.Id))],
         };
+    }
+
+    /// <summary>2026-11-17-5701a: a list's part — every finding of <paramref name="result"/> on no spec of its tickets;
+    /// an edited list keeps only the bound-conversation note and a failed plan review's not-reviewed mark.</summary>
+    public static IReadOnlyList<ProposalFinding> ListFindings(OutcomeProposal result, bool edited)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var specs = ProposalSpecSet.Drafts(result).Select(d => d.SpecId).ToHashSet(StringComparer.Ordinal);
+        return [.. result.Findings.Where(f => !specs.Contains(f.SpecId)
+            && (!edited || f.Problem is TicketPlanReview.BoundProblem or ProposalReviewSummary.NotReviewedYet))];
     }
 
     private static OutcomeProposal Take(OutcomeProposal proposal, OutcomeProposal result) => proposal with
     {
         Findings = result.Findings, ReviewRounds = result.ReviewRounds, NotReviewed = result.NotReviewed,
         ReviewedClean = result.ReviewedClean,
-    };
-
-    private static OutcomeProposal EditedList(TicketGraphOutcome graph, OutcomeProposal result) => graph with
-    {
-        Findings = [.. result.Findings.Where(f => f.Problem is TicketPlanReview.BoundProblem or ProposalReviewSummary.NotReviewedYet)],
-        ReviewRounds = [], NotReviewed = null, ReviewedClean = [],
     };
 
     private static IEnumerable<ProposalFinding> Findings(

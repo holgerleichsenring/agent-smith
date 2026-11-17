@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-5701a
+goal: "A ticket in a design turn's draft carries its own specs under draft:tickets/<key>/, which the turn's review attacks like an epic's children and filing needs."
+
+applies_to: "default (design-turn draft files, proposal review pass, offer_filing, proposal pane)"
+
+requires: []
+
+facts:
+  - claim: "A draft holds one kind; a list of tickets becomes a TicketGraphOutcome of ticket texts with no spec inside."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/DraftKind.cs:16-25, src/backend/AgentSmith.Application/Services/SpecDialog/Writes/ProposalDraftOutcome.cs:23, src/backend/AgentSmith.Contracts/Models/GraphTicket.cs:3-17"
+  - claim: "The draft layout knows tickets/<key>.yaml only; a name containing '/' is outside it."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/DraftPath.cs:40-62"
+  - claim: "A ticket list gets the plan review alone; the attack pass reviews only a lone spec or an epic's children."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalReviewPass.cs:40-49, src/backend/AgentSmith.Application/Services/Specs/Review/ProposalAttackPass.cs:81-86, src/backend/AgentSmith.Application/Services/Specs/Review/ProposalSpecSet.cs:21-26"
+  - claim: "The write_file format text tells the master that a ticket's run derives its own specs."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DraftFileFormats.cs:23-31"
+  - claim: "offer_filing refuses only an empty draft."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/OfferFilingToolHost.cs:33-41"
+  - claim: "The proposal pane says a list carries no spec and each run derives its own."
+    evidence: "src/dashboard/src/components/dialog/DialogProposalGraph.tsx:36-39"
+  - claim: "A spec write places a label under a stand-in id, validates the schema and decides its repository against the turn's scope."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/SpecDraftWrite.cs:15-28"
+
+scope:
+  in: "GraphTicket.Specs; draft:tickets/<key>/<label>.yaml read, written, edited, deleted and listed; the review pass over a ticket list attacks its specs beside the plan review, keyed per spec in the turn's review ledger; the review report to the master covers their rounds; offer_filing names a ticket without a spec; DraftFileFormats and the plan-review prompt say a ticket carries its reviewed specs; the pane lists each ticket's specs with their findings."
+  out: "Filing and every sentence saying where the specs are filed (5701b; one PR with this spec). The skill text (skills repo PR, pinned by 5701d). An epic parent or a series contract inside a ticket: the ticket is the parent. The whole-set cut review: a ticket list's cut is the plan review's."
+
+steps:
+  - id: model
+    action: "GraphTicket gains Specs, an init property (IReadOnlyList<SpecDraft>) defaulting to empty as Source does, so a stored proposal without it reads back empty; serialized with the proposal; GraphTicketLines.Normalized keeps it."
+  - id: path
+    action: "DraftPath: tickets/<key>/<label>.yaml is a DraftItemKind.TicketSpec whose DraftItem carries the ticket key as Owner; DraftPath.OfTicketSpec; tickets/<key>/ is a directory; Layout lists the new path."
+  - id: write
+    action: "TicketSpecDraftWrite: the ticket must exist in the draft; the label is placed, validated and its repository decided exactly as SpecDraftWrite does; a label held by another ticket's spec, equal to any ticket key of the draft, or equal to the list's review id 'list', is refused naming the clash; its repositories are checked against the ticket's repos when it names any, else the turn's scope; SpecDraftIds, the validator and the repo check are reused, SpecDraftWrite.Write is not (it refuses a draft holding tickets); requires name the same ticket's specs without a cycle (EpicChildOrderer), else the refusal names the file to write. Rewriting a ticket file keeps its specs; deleting it deletes them; deleting tickets/<key>/ empties them; removing a spec another spec of the ticket requires is refused; DraftFileWrite.Delete handles a ticket-spec path itself, since ProposalItemRemoval looks only in draft.Tickets and draft.Specs."
+  - id: files
+    action: "DraftFiles.Of lists each ticket file followed by its specs' files; read_file and directory_tree see them."
+  - id: review
+    action: "ProposalSpecSet.Drafts and ProposalAttackPass.Reviewed return every ticket's specs for a TicketGraphOutcome; ProposalReviewPass runs the plan review and, when specs exist, the attack pass (no whole-set review), in a bound conversation too, merging findings, rounds, NotReviewed and ReviewedClean; a ticket spec's attack input names its ticket's title as the wider goal. ProposalReviewTexts.Of(list) emits the list text without Specs plus one spec text per ticket spec; ProposalReviewSlices.Compose composes a list with spec parts per text — the list part bringing every finding whose id is no ticket-spec label — so an edited spec is reviewed again and the others keep theirs; the plan review is skipped when the ledger already holds or settled the list text, and its result is taken; ProposalAttackSiblings gives a ticket spec the other specs of its ticket; the review-off path (ProposalMechanicalChecks) checks ticket specs' evidence and the unread-settings path marks them not reviewed; DesignTurnReviewReport reports a list's spec rounds and findings beside the plan findings, and File() names tickets/<key>/<label>.yaml for a ticket spec; in a bound conversation only the plan section is dropped."
+  - id: offer
+    action: "offer_filing on a ticket list refuses while any ticket has no spec, naming each such ticket and the path to write."
+  - id: words
+    action: "DraftFileFormats: a ticket's specs are files under tickets/<key>/ in the spec format, and the run works off them; TicketPlanReview prompt and TicketGraphProposalText stop saying the run derives; SpecDialogGraphTicketView carries Specs mapped with SpecDialogProposalComposer.View and the TS type SpecDialogGraphTicket gains specs; the pane shows under each ticket its specs (id, goal, and each spec's findings by its id) and drops the foot sentence that says each run derives its specs."
+
+tests:
+  - "DraftPathTests: TicketSpec item parsed; nested deeper refused"
+  - "TicketSpecDraftWriteTests: written, label clash with a spec or a ticket key refused, ticket missing refused, requires cycle refused, ticket rewrite keeps specs, ticket delete drops specs"
+  - "ProposalReviewPassTests: a ticket list with specs is plan-reviewed and attacked"
+  - "SpecDialogProposalReviewTests: a spec edited after the first review is reviewed again and the other specs keep their findings"
+  - "OutcomeProposalJsonTests: a stored list without specs reads back with empty Specs"
+  - "OfferFilingToolHostTests: list with a spec-less ticket refused naming it"
+  - "DialogProposalGraph.test.tsx: specs listed under their ticket"
+
+done:
+  - "A design turn can write tickets/<key>.yaml and tickets/<key>/<label>.yaml, read them back, and offer only a list whose every ticket has a spec."
+  - "The turn's review attacks each ticket's specs and the pane shows them under their ticket."

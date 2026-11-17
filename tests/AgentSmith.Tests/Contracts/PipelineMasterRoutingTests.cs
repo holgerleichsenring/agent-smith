@@ -12,7 +12,8 @@ public sealed class PipelineMasterRoutingTests
     [Fact]
     public void MasterFor_EveryPreset_NamesAMaster()
     {
-        foreach (var preset in PipelinePresets.Names)
+        // 2026-11-17-5701b: only a preset that runs an AgenticMaster step loads a master; 'file' runs none.
+        foreach (var preset in PipelinePresets.Names.Where(p => PipelinePresets.TryResolve(p)!.Contains(CommandNames.AgenticMaster)))
             PipelinePresets.MasterFor(preset).Should().NotBeNullOrWhiteSpace(
                 $"preset '{preset}' runs an AgenticMaster step and must name the master it loads");
     }

@@ -24,7 +24,12 @@ internal static class DraftWriteRig
     public static ContractDraftWrite Contracts() => new(TestSupport.SeriesContracts.Reader());
 
     /// <summary>2026-11-15-06fc: the file write over the real checks.</summary>
-    public static DraftFileWrite Files() => new(Specs(), Tickets(), Contracts());
+    public static DraftFileWrite Files() => new(Specs(), Tickets(), Contracts(), TicketSpecs());
+
+    /// <summary>2026-11-17-5701a: a ticket's spec write over the real checks.</summary>
+    public static TicketSpecDraftWrite TicketSpecs() => new(
+        new SpecDraftIds(), new SpecDraftValidator(new SpecSchemaProvider()), DialogTestRepos.Real(), new SpecDraftReader(),
+        new EpicChildOrderer());
 
     public static GraphTicket Ticket(string key, params string[] requires) =>
         new(key, $"Title of {key}", $"Requirement of {key}.", ["it is done"], requires, []);

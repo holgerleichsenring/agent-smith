@@ -160,14 +160,10 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
                 [Project] = new() { Name = Project, Tracker = new TrackerConnection() },
             },
         };
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(config), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            TestSupport.ApprovedSetDoubles.SetFiler(),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(config, factory.Object);
         return new TicketFilingOutcomeSink(
             new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogConfirmedSlot(new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogProposalClaim(_context)),
-            filer, new AgentSmith.Tests.SpecDialog.TicketGraph.TicketGraphRig().Filer(), TestSupport.Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
+            filer, TestSupport.Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),

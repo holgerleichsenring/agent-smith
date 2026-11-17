@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-5701c
+goal: "The coding master of a filed ticket reads the operator's turns from its approval record, as its derivation and spec reviewers already do."
+
+applies_to: "default (spec execution prompt)"
+
+requires: [2026-11-17-5701b]
+
+facts:
+  - claim: "The derivation, the rederiver and the attack reviewers render the approval record's owner words."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationMessages.cs:30, src/backend/AgentSmith.Application/Services/Specs/Review/SpecRederiver.cs:38, src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:75"
+  - claim: "The coding master's spec prompt renders the spec, the build notes and the memory index, and no owner words."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:56-82"
+  - claim: "ApprovalOwnerWordsSection.For renders the published record's words, empty without them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovalOwnerWordsSection.cs:22-36"
+
+scope:
+  in: "SpecExecutionPromptFactory renders ApprovalOwnerWordsSection.For(pipeline) after the memory index; ApprovedSpecSetResolver.ResolveAsync removes ContextKeys.ApprovedSpecSet when no record wins, so a carried record of another ticket is never read."
+  out: "The master skill text; the ticket conversation's own transcript, which the prompt already carries as its conversation section."
+
+steps:
+  - id: prompt
+    action: "Add ApprovalOwnerWordsSection.For(pipeline) to the spec prompt after the memory index section, outside the ticket delimiters, as derivation renders it."
+  - id: foreign
+    action: "ApprovedSpecSetResolver.ResolveAsync removes ContextKeys.ApprovedSpecSet when neither the carried nor the stored record wins."
+
+tests:
+  - "SpecExecutionPromptFactoryTests (new): a published record with owner words renders the heading and each message; none renders nothing"
+  - "ApprovedSpecSetResolverTests: a carried record of another ticket with nothing stored leaves no published record"
+
+done:
+  - "A coding run whose approval record carries the operator's turns shows them in every spec prompt of its master."

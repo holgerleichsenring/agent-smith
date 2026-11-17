@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 using AgentSmith.Tests.TestSupport;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -165,11 +166,7 @@ public sealed class EpicFilingOrderTests
                 },
             },
         };
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(config), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            TestSupport.ApprovedSetDoubles.SetFiler(),
-            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(config, factory.Object);
         return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }
 

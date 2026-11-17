@@ -14,7 +14,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// (<see cref="ProposalMechanicalChecks"/>). 2026-11-12-92e9b: with the pass on, a draft whose every text this turn
 /// already reviewed takes the ledger's results and nothing runs; a pass that ran hands its report back to the master.
 /// 2026-11-13-3f79: a draft a pass passed counts as reviewed whatever its text became (<see cref="ProposalReviewLedger"/>),
-/// and the report names only what the pass took.
+/// and the report names only what the pass took. 2026-11-17-5701a: a ticket list's specs are marked not reviewed with
+/// its list when the settings cannot be read.
 /// </summary>
 public sealed class SpecDialogProposalReview(
     ProposalMechanicalChecks checks, ISpecReviewSettingsReader settings, ProposalReviewPass pass,
@@ -46,9 +47,10 @@ public sealed class SpecDialogProposalReview(
             ? [.. ledger.Rounds(), .. revised.ReviewRounds]
             : ledger.Rounds();
 
-    private static OutcomeProposal Unread(OutcomeProposal proposal, string problem) => proposal is TicketGraphOutcome graph
-        ? graph with { Findings = [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, problem)] }
-        : ProposalReviewSummary.MarkedNotReviewed(proposal, Waiting(proposal), proposal.Findings, problem);
+    private static OutcomeProposal Unread(OutcomeProposal proposal, string problem) =>
+        ProposalReviewSummary.MarkedNotReviewed(proposal, Waiting(proposal), proposal is TicketGraphOutcome
+            ? [new ProposalFinding(TicketPlanReviewPrompt.ListKey, ProposalReviewSummary.NotReviewedYet, problem)]
+            : proposal.Findings, problem);
 
     // 2026-11-09-9a98: out before the review; each waiting draft says why, so a turn cancelled from here leaves a reason.
     private async Task PublishUnderReviewAsync(PipelineContext pipeline, OutcomeProposal proposal, CancellationToken ct) =>

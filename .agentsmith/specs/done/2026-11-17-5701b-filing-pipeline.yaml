@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-5701b
+goal: "Filing runs as the 'file' pipeline: one path files 1..n tickets, each stamped only with its approved specs on its branch and the operator's turns in its record."
+
+applies_to: "default (pipeline presets, filing services moved from the server into Application, TicketFilingOutcomeSink, ClosedTicketFollowUp, server-writes ratchet baseline)"
+
+requires: [2026-11-17-5701a]
+
+facts:
+  - claim: "Three filers run inside the server: OutcomeTicketFiler (spec, epic, bug), TicketGraphFiler (ticket texts) and ApprovedSetTicketFiler under both spec arms; the sink chooses by kind."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:47-50, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:43-54"
+  - claim: "A list's ticket gets the approved-set stamp and a TicketText record with an empty set, so its run derives."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketGraphFiler.cs:44, src/backend/AgentSmith.Server/Services/SpecDialog/GraphTicketApproval.cs:36-42"
+  - claim: "With a TicketText record and no set on the branch the hand-off and the filed-ticket gate both step aside and the run derives."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:27, src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:60, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:106-116"
+  - claim: "ApprovedSetTicketFiler creates, stores the record, writes the set to the branch and starts at once; a list's starts are settled after all tickets exist."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:68-78, src/backend/AgentSmith.Server/Services/SpecDialog/TicketGraphStarts.cs:30-53"
+  - claim: "An epic longer than series.max_specs files several tickets of which only the first starts, the rest by a note."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:101-118"
+  - claim: "The recorder writes the operator's words from the conversation state onto every spec record."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:62-81"
+  - claim: "A design turn is launched as an in-process pipeline with seeded context and a mutable slot it reads back."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:80-100, src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:17-29"
+  - claim: "The closed-ticket follow-up files its ticket through OutcomeTicketFiler."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs:13-24"
+  - claim: "A failed step ends a run and the finalizer tail runs only WriteRunResult, CommitAndPR and PrCrossLink."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:166-169, src/backend/AgentSmith.Application/Services/Pipeline/PipelineFinalizerTail.cs:22-27"
+  - claim: "A bug is filed with no label, no record and no branch write."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:76-86"
+  - claim: "OperatorStart and RequirementsMetStart move ticket status from the server through FiledWorkMove."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:32, src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:39"
+  - claim: "The CLI builds its provider with ValidateOnBuild; ITicketExistence and UnmetTicketRequirements are registered by the server only."
+    evidence: "src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:94, src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:72"
+  - claim: "The ratchet lists the filers as server files that write to a tracker; a file that stops writing must leave the list."
+    evidence: "tests/AgentSmith.Tests/Architecture/server-writes-baseline.txt:1-3, tests/AgentSmith.Tests/Architecture/server-writes-baseline.txt:16-27"
+
+scope:
+  in: "Preset 'file' [PlanFiling, FileTickets], host context only; FilingRequest and FilingReportSlot seeds; the filing services in AgentSmith.Application/Services/Filing, registered by one AddFilingPipeline() the server composition calls; ApprovalSource replacing ConversationState in the recorder; TicketFilingOutcomeSink and ClosedTicketFollowUp launching the run through one FilingRun; TicketGraphFiler, GraphTicketApproval and OutcomeTicketFiler removed; the moved files leave the ratchet baseline and the server callers that still move status through the moved services are named as debt."
+  out: "Amend, continuation, close, reopen and dependents-start (block 4) keep their paths and call the moved services. The run-side reader of TicketText stays for tickets filed before this spec (block 6 decides it). The proposal storage (block 6)."
+
+steps:
+  - id: preset
+    action: "PipelinePresets.FileName 'file' = [PlanFiling, FileTickets] — creating and starting are one step, so no cancel between steps leaves a created root unstarted; NeedsHostContext and NotRoutable name it; RunKindOf gives Pipeline; MasterFor names no master for it; every command metadata map, context builder and data flow knows the two steps; the CLI harness skips it as it skips spec-dialog. A file run without a FilingRequest fails PlanFiling with a message and never throws."
+  - id: seeds
+    action: "FilingRequest(Conversation, Principal, ScopeRepos, OwnerWords, Proposal, MayStartRuns, Basis?) and FilingReportSlot (the FilingReport the steps fill) seeded under ContextKeys.FilingRequest and ContextKeys.FilingReport; the run's project is the one the filing project resolves to (Scope?.Project ?? Project) and the steps read the run's ResolvedProject."
+  - id: move
+    action: "Move into AgentSmith.Application/Services/Filing: ApprovedSetTicketFiler, ApprovedSpecSetRecorder, ApprovalCitations, FiledSpecBranchWrite, FiledWorkStarter, FiledWorkTagger, FiledWorkMove, TicketGraphStarts, TicketGraphLinks, FiledSeriesFactory, FiledSeries, ApprovedReviewRounds, FilingReport and FiledTicket, FiledWorkStart and FiledStartState, ContinuationBasis, GraphTicketBody, the SpecTicketRenderer and BugTicketRenderer if server-side, and FiledTicketKey without its SpecDialogMarkup member, which stays in the server. The recorder takes ApprovalSource(Conversation, Principal, Repositories, OwnerWords); ConversationOwnerWords stays in the server, and leaves out the operator's approve/File turn itself and the server builds ApprovalSource and FilingRequest from ConversationState."
+  - id: plan
+    action: "PlanFilingHandler turns the proposal into an ordered FilingPlan of PlannedTicket(Key, Role, body, Series?, Goal, Requires, Labels): a spec is one ticket of one spec; an epic, and a list ticket, is one ticket per FiledSeriesFactory.MintParts part, each later part requiring the one before (series.max_specs, as today), and a ticket that requires a split ticket requiring its last part; a list ticket's record names the ticket's Repos when it names any, else the scope's; a bug one ticket with no series and no label. A list ticket without a spec, a requires cycle or a ticket:<id> the tracker lacks refuses the whole plan before anything exists, naming the ticket."
+  - id: file
+    action: "FileTicketsHandler files the plan in order: create with the ticket's labels (the approved-set stamp only with a series); with a series, requires edges, approval record carrying the operator's words, branch write, as ApprovedSetTicketFiler does now; without a series nothing more. ApprovedSetTicketFiler is split so creating, recording and writing never start (the continuation path keeps a start of its own). Once the first ticket exists the step acts on CancellationToken.None and never fails: an error lands in the report naming what was not created, and the step then settles every created ticket through TicketGraphStarts with that ticket's own labels — complete with nothing unmet starts, the others are held naming what they wait for or reported not started; requires links shown on the tracker. Before the first ticket a refusal fails the step. The branch write uses the same source of the repository the run's checkout clones."
+  - id: sink
+    action: "FilingRun builds the request from ConversationState and runs the 'file' pipeline through ExecutePipelineUseCase on CancellationToken.None once the approval is claimed, returning the slot's report or, when the run ended before any report, a report carrying the run's failure. TicketFilingOutcomeSink uses it for spec, epic, list and bug; ClosedTicketFollowUp uses it for the follow-up; the ticket's own conversation keeps the continuation path."
+  - id: retire
+    action: "Delete TicketGraphFiler, GraphTicketApproval, OutcomeTicketFiler, the body line saying the run derives and the epic part note 'start it once part i has merged' (a later part now starts when the earlier merges, through its requires edge — a decision of this spec); nothing writes TicketText = true; remove the files that moved out of the server from server-writes-baseline.txt and name OperatorStart and RequirementsMetStart in its header as server callers that still move status through Application services (block 4)."
+  - id: tests-migrate
+    action: "Port the suites of the deleted and moved classes (TicketGraphFiler, OutcomeTicketFiler, epic filing order, series contract filing, ratified mock filing, the continuation harness, the harness late-project filing tests) to the plan and file handlers, keeping each scenario."
+
+tests:
+  - "FilingPlanTests: spec, epic parts requiring each other, list with specs, list ticket with more specs than series.max_specs, bug; spec-less ticket, cycle, missing ticket refused"
+  - "FileTicketsHandlerTests: stamp only with a series; bug gets no record and no branch; record carries owner words; branch written; a failure after the first ticket returns Ok with the rest named"
+  - "FileTicketsHandlerTests: root started, dependent held, bug started with no label; a list ticket's record names its own repos; a run cancelled after the first ticket still starts the root"
+  - "ConversationOwnerWordsTests: the approve turn is not an owner word"
+  - "FilePipelineCompositionTests (real ServiceProvider): an approved list of two tickets with specs files both through the 'file' run, each record approved with its set and owner words, the first started, the second held"
+  - "Preset coverage tests know 'file'; ServerWritesRatchetTests green with the shorter baseline"
+
+done:
+  - "Every approval that files tickets, the closed-ticket follow-up included, does it in one 'file' run with a run id."
+  - "No filed ticket carries the approved-set stamp without an approved set stored and written to its branch, and each record carries the operator's turns."

@@ -5,6 +5,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -108,8 +109,7 @@ public sealed class FiledTicketWithdrawal(
     private static string Resolution(string reason) =>
         $"Withdrawn by the design conversation that filed it{Because(reason)}";
 
-    private static string Because(string reason) =>
-        string.IsNullOrWhiteSpace(reason) ? "." : $": {reason}";
+    private static string Because(string reason) => string.IsNullOrWhiteSpace(reason) ? "." : $": {reason}";
 
     /// <summary>The whole filing is rewritten with ONE ticket's state replaced: its tickets, error,
     /// moment, kind and notes all survive a withdrawal unchanged.</summary>

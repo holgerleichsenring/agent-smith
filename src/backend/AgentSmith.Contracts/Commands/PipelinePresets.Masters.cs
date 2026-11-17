@@ -24,6 +24,7 @@ public static partial class PipelinePresets
             ["mad-discussion"] = "mad-discussion-master",
             ["pr-review"] = "pr-review-master", // p0312c
             [SpecDialogName] = "design-partner-master",
+            [FileName] = string.Empty, // 2026-11-17-5701b: a filing runs no master
         };
 
     /// <summary>

@@ -15,6 +15,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -625,11 +626,7 @@ public sealed class FiledWorkStartTests
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var starter = FiledWorkDoubles.Starter(config, findings, resolver);
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(config), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.SetFiler(store, starter),
-            starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(config, factory.Object, new FilingDoubles.Parts { Store = store, Starter = starter });
         return await filer.FileAsync(State(), proposal, mayStartRuns, CancellationToken.None);
     }
 

@@ -16,7 +16,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// 2026-11-04-df50b: a project created in the Config Studio after the server started is filed into.
 /// The REAL composition over the REAL config store; the boot-time AgentSmithConfig is resolved first,
-/// the way startup resolves it, and only then is the project saved.
+/// the way startup resolves it, and only then is the project saved. 2026-11-17-5701b: filed by a 'file' run, whose
+/// prologue reads the configuration as it is now.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SpecDialogLateProjectFilingTests
@@ -34,11 +35,11 @@ public sealed class SpecDialogLateProjectFilingTests
         });
         var booted = harness.Services.GetRequiredService<AgentSmithConfig>();
         SaveProjectCopy(harness.Services, "fixture-fix-bug", LateProject);
-        using var scope = harness.Services.CreateScope();
+        await using var scope = harness.Services.CreateAsyncScope();
 
-        var report = await scope.ServiceProvider.GetRequiredService<OutcomeTicketFiler>().FileAsync(
+        var report = await scope.ServiceProvider.GetRequiredService<IFilingRun>().RunAsync(
             State(), new BugOutcome(new BugTicketDraft("Session drops on refresh", "Users are signed out.", null)),
-            mayStartRuns: false, CancellationToken.None);
+            mayStartRuns: false);
 
         booted.Projects.Should().NotContainKey(LateProject, "the boot-time snapshot never learns of it");
         report.Error.Should().BeNull();

@@ -13,6 +13,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Application.Services.Filing;
 
 namespace AgentSmith.Tests.SpecDialog.Ratification;
 
@@ -107,11 +108,8 @@ public sealed class RatifiedMockFilingTests
             It.IsAny<string?>(), It.IsAny<CancellationToken>())).ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
         provider.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(Stored());
         var factory = Mock.Of<ITicketProviderFactory>(f => f.Create(It.IsAny<TrackerConnection>()) == provider.Object);
-        var filer = new OutcomeTicketFiler(
-            LiveConfig.Projects(new AgentSmithConfig { Projects = new Dictionary<string, ResolvedProject> { ["proj"] = Project() } }),
-            factory, new SpecTicketRenderer(), new BugTicketRenderer(), new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.SetFiler(_store, sources: _sources, mocks: _mocks), FiledWorkDoubles.Starter(),
-            ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
+        var filer = FilingDoubles.Steps(new AgentSmithConfig { Projects = new Dictionary<string, ResolvedProject> { ["proj"] = Project() } },
+            factory, new FilingDoubles.Parts { Store = _store, Sources = _sources, Mocks = _mocks });
         var state = new ConversationState
         {
             JobId = Conversation, ChannelId = "C1", UserId = "sample.user", Platform = "dashboard", Project = "proj",

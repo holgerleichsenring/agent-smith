@@ -7,7 +7,8 @@ namespace AgentSmith.Application.Services.SpecDialog.Writes;
 /// 2026-11-15-06fc: a draft as the files the design master reads and changes — a view of the one typed draft the
 /// store holds, never a second copy of it. An epic's parent comes first, then the specs, the series contract, the
 /// tickets, the bug and the comment. A spec's file is its stored text; 2026-11-15-67f1: a ticket's, bug's or
-/// contract's is the text written, and an item no file wrote is rendered.
+/// contract's is the text written, and an item no file wrote is rendered. 2026-11-17-5701a: each ticket's file is
+/// followed by its specs' files.
 /// </summary>
 public static class DraftFiles
 {
@@ -19,7 +20,11 @@ public static class DraftFiles
             files.Add(new(DraftPath.OfSpec(spec.Draft.SpecId, spec.Parent), spec.Draft.Yaml.TrimEnd() + "\n"));
         if (draft.Contract is { } contract)
             files.Add(new(DraftPath.Contract, Written(contract.Source) ?? DraftContractText.Render(contract)));
-        files.AddRange(draft.Tickets.Select(t => new DraftFile(DraftPath.OfTicket(t.Key), Written(t.Source) ?? DraftTicketText.Render(t))));
+        foreach (var ticket in draft.Tickets)
+        {
+            files.Add(new(DraftPath.OfTicket(ticket.Key), Written(ticket.Source) ?? DraftTicketText.Render(ticket)));
+            files.AddRange(ticket.Specs.Select(s => new DraftFile(DraftPath.OfTicketSpec(ticket.Key, s.SpecId), s.Yaml.TrimEnd() + "\n")));
+        }
         if (draft.Bug is { } bug) files.Add(new(DraftPath.Bug, Written(bug.Source) ?? DraftBugText.Render(bug)));
         if (draft.Comment is { } comment) files.Add(new(DraftPath.Comment, comment.TrimEnd() + "\n"));
         return files;

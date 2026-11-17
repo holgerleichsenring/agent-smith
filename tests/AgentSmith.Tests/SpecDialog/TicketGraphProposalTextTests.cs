@@ -98,4 +98,16 @@ public sealed class TicketGraphProposalTextTests
         ui.Repos.Should().Equal("api");
         push.Children.Should().BeEmpty();
     }
+
+    /// <summary>2026-11-17-5701a: each ticket's specs ride its view, in the spec view the pane draws.</summary>
+    [Fact]
+    public void SpecDialogGraphTicketView_Of_CarriesTheTicketsSpecs()
+    {
+        var spec = new SpecDraft("order-state", "The API returns the state.", "spec: order-state", []);
+
+        var view = AgentSmith.Server.Models.SpecDialogGraphTicketView.Of(Ticket("order-api", 1) with { Specs = [spec] });
+
+        view.Specs.Should().ContainSingle().Which.SpecId.Should().Be("order-state");
+        AgentSmith.Server.Models.SpecDialogGraphTicketView.Of(Ticket("order-ui", 1)).Specs.Should().BeEmpty();
+    }
 }

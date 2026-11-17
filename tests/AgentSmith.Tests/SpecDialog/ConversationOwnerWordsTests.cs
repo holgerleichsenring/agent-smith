@@ -30,4 +30,29 @@ public sealed class ConversationOwnerWordsTests
         words.Select(w => (w.Author, w.At, w.Text)).Should().Equal(
             ("Sample Operator", Noon, "Keep the limit at 50."), ("U1", Noon.AddMinutes(3), "File them."));
     }
+
+    // 2026-11-17-5701b: the e2e replay stored the filing click "approve" as an operator word.
+    [Theory]
+    [InlineData("prop-1")]
+    [InlineData(null)]
+    public void Of_ApprovalTurn_IsNotAnOwnerWord(string? proposalId)
+    {
+        var state = new ConversationState
+        {
+            JobId = "s-1", ChannelId = "C1", UserId = "U1", Platform = "dashboard", Project = "proj", TicketId = "",
+            StartedAt = Noon,
+            Transcript =
+            [
+                new TranscriptTurn(TranscriptRole.User, "approve", Noon, Decision: SpecDialogDecision.Approved,
+                    DecisionProposalId: "prop-0", DecisionApplied: true),
+                new TranscriptTurn(TranscriptRole.User, "Keep the limit at 50.", Noon.AddMinutes(1)),
+                new TranscriptTurn(TranscriptRole.User, "approve", Noon.AddMinutes(2), Decision: SpecDialogDecision.Approved,
+                    DecisionProposalId: "prop-1"),
+            ],
+        };
+
+        var words = ConversationOwnerWords.Of(state, proposalId);
+
+        words.Select(w => w.Text).Should().Equal("approve", "Keep the limit at 50.");
+    }
 }
