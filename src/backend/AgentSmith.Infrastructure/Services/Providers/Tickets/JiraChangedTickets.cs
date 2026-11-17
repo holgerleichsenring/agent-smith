@@ -12,6 +12,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Cloud pages by nextPageToken, Data Center (/rest/api/2/search) by startAt and total. A minute that
 /// holds more than the budget is read to its end. A failure throws — a partial answer would move the
 /// cursor past what was never read.
+/// <para>2026-11-17-7c9bb: the first request names neither — Cloud's search/jql refuses a body with startAt
+/// (HTTP 400) and a Data Center reads a missing startAt as 0; the answer decides how the next page is asked for.</para>
 /// </summary>
 internal sealed class JiraChangedTickets(TicketProviderHttpClient http, string baseUrl, JiraEndpoints endpoints, string? projectKey)
 {
@@ -36,9 +38,12 @@ internal sealed class JiraChangedTickets(TicketProviderHttpClient http, string b
         }
     }
 
-    private static object Body(string jql, string? token, int startAt) => token is not null
-        ? new { jql, fields = new[] { "updated" }, maxResults = PageSize, nextPageToken = token }
-        : new { jql, fields = new[] { "updated" }, maxResults = PageSize, startAt };
+    private static object Body(string jql, string? token, int startAt) => (token, startAt) switch
+    {
+        ({ } next, _) => new { jql, fields = new[] { "updated" }, maxResults = PageSize, nextPageToken = next },
+        (null, > 0) => new { jql, fields = new[] { "updated" }, maxResults = PageSize, startAt },
+        _ => new { jql, fields = new[] { "updated" }, maxResults = PageSize },
+    };
 
     private static (string? Token, int StartAt, bool More) Next(JsonElement root, int startAt, int read)
     {

@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-7c9bb
+
+decisions:
+  - category: Implementation
+    chose: "The first request carries neither startAt nor nextPageToken; the answer decides the next page (token when Cloud gives one, startAt when a Data Center's total is not reached)"
+    over: "Choosing the paging style from the configured endpoint path"
+    reason: "Both endpoints accept a first body without either field (a Data Center reads a missing startAt as 0), and the answer's shape is already what Next reads. Sniffing the path would break an operator who points search: at another Cloud path, which JiraEndpoints exists to allow."
