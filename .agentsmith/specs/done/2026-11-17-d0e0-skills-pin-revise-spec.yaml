@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d0e0
+goal: "The embedded skills catalog is pinned to the release whose coding master revises the spec it is building with revise_spec."
+
+applies_to: "default (embedded skills catalog, skills config default, skill-text tests, docs)"
+
+requires: [2026-11-17-ec48a]
+
+facts:
+  - claim: "The pinned coding-agent-master (2.0.1) says a wrong spec is named in the verdict and corrected by a new spec."
+    evidence: "observed: 2026-11-17, agent-smith-skills v5.33.0 skills/_masters/coding-agent-master/SKILL.md:72-75"
+  - claim: "A pin replaces the embedded tarball, the csproj reference, the example config, the docs and the version the skill-text tests read."
+    evidence: "observed: 2026-11-17, git show --stat d0cf3cfd3"
+
+scope:
+  in: "The pin to agent-smith-skills v5.34.0 (coding-agent-master 2.1.0)."
+  out: "Any skill text change (the skills repo PR #283)."
+
+steps:
+  - id: pin
+    action: "Replace the embedded agentsmith-skills tarball with v5.34.0 (sha256 checked against the release), update the csproj, config/agentsmith.example.yml, the docs that name the pinned version and SkillsConfigValidatorTests; a skill-text test reads the revise_spec rule of the packaged coding master."
+
+tests:
+  - "SkillsConfigValidatorTests and CodingMasterReviseSpecPromptTests against the new pin"
+
+done:
+  - "The embedded catalog's coding-agent-master is 2.1.0 and names revise_spec."
