@@ -42,7 +42,7 @@ const tree = () => (
 );
 
 function renderAt(search: string) {
-  window.history.replaceState(null, "", `/${search}`);
+  window.history.replaceState(null, "", `/runs${search}`);
   return render(tree());
 }
 

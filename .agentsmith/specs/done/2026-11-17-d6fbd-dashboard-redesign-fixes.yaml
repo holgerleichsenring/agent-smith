@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-d6fbd
+goal: "Fix what the redesign left: the Your move box reads the head attempt's end detail, the ledger tick and the tool panels use app tokens, and dead ticket CSS goes."
+
+applies_to: "dashboard (YourMoveBox, LedgerPanel, RunToolsPanel, ToolPairCard, ToolCallRow, ToolResultRow, mock-parity.css)"
+
+requires: [2026-11-16-6877a, 2026-11-16-f3fba]
+
+facts:
+  - claim: "YourMoveBox calls yourMove without an end detail, so the Stuck headline never shows."
+    evidence: "src/dashboard/src/components/tickets/detail/YourMoveBox.tsx:34, src/dashboard/src/components/tickets/detail/yourMove.ts:40-51"
+  - claim: "The head attempt carries endDetail."
+    evidence: "src/dashboard/src/types/tickets.ts:241-242"
+  - claim: "The ledger tick is stroked #fff on the green box."
+    evidence: "src/dashboard/src/components/jobs/story/LedgerPanel.tsx:14-22, src/dashboard/src/styles/mock-parity.css:1066"
+  - claim: "The tool panels use bg-stone-950 and bg-stone-900, which the dark theme maps to near-white."
+    evidence: "src/dashboard/src/components/jobs/RunToolsPanel.tsx:59, src/dashboard/src/components/jobs/ToolPairCard.tsx:14, src/dashboard/src/app/globals.css:64-65"
+  - claim: "mock-parity.css still styles .conv-tools, .c-att, .c-group and .tstate."
+    evidence: "src/dashboard/src/styles/mock-parity.css:642-650, src/dashboard/src/styles/mock-parity.css:763, src/dashboard/src/styles/mock-parity.css:1987-2022"
+
+scope:
+  in: "Pass the head attempt's endDetail; the tick uses var(--on-fill); the tool panels use app-* utilities; delete the rules for classes no source file uses."
+  out: "The ticket page layout; restoring deleted tests (2026-11-17-d6fbe)."
+
+steps:
+  - id: move
+    action: "YourMoveBox passes view.attempt?.endDetail to yourMove; a test proves Stuck: subject, the instruction and Open the setting."
+  - id: tokens
+    action: "LedgerPanel strokes currentColor and .li.done .box sets color var(--on-fill); RunToolsPanel, ToolPairCard and the ToolCallRow and ToolResultRow they hold use app-panel, app-raised, app-line, app-text, app-mute, app-needs, app-proven and app-stopped."
+  - id: css
+    action: "Remove the .conv-tools, .c-att, .c-toggle, .c-same, .c-group and .tstate rules and their comments, and .ts-say from the text-wrap :is lists; grep finds none of them in a .ts or .tsx source file."
+
+tests:
+  - "TicketPage test: a stuck ticket whose head attempt has an endDetail shows its subject, instruction and setting link."
+  - "LedgerPanel test: the tick strokes currentColor."
+  - "toolPanelTokens.test.ts: the four tool files carry no raw stone, emerald, rose or amber class."
+
+done:
+  - "The stuck headline appears on a ticket whose head attempt names its subject."
+  - "pnpm test and build are green."

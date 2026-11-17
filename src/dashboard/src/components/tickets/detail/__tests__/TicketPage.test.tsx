@@ -150,6 +150,21 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Stopped");
     expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Reply below");
   });
+  // 2026-11-17-d6fbd: the box reads the head attempt's end detail, so a refusal names its subject and its setting.
+  it("YourMove_StuckWithAnEndDetail_NamesTheSubjectTheInstructionAndTheSetting", async () => {
+    world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted", endDetail: {
+      subject: "Image node:22-bookworm (context default)", repos: ["web"], control: "Trusted image registries",
+      setTo: "ghcr.io/, docker.io/library/", settingsPath: "/config/settings/sandbox" } })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "stuck" };
+    await open();
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Stuck: Image node:22-bookworm (context default)");
+    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Trusted image registries");
+    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("ghcr.io/, docker.io/library/");
+    const act = screen.getByTestId("ticket-state-act");
+    expect(act).toHaveTextContent("Open the setting");
+    expect(act).toHaveAttribute("href", "/config/settings/sandbox");
+  });
+
   it("TicketPage_EveryDetailsTab_KeepsTheThreadAndTheYourMoveBoxAboveTheComposer", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };

@@ -25,11 +25,13 @@ import {
 export const RUN_BUCKETS = ["needs-you", "running", "queued", "finished"] as const;
 
 export type RunBucket = (typeof RUN_BUCKETS)[number];
-/** "all" is the unfiltered home screen — every bucket, the way it always was. */
+/** "all" is the unfiltered runs list — every bucket, the way it always was. */
 export type RunBucketFilter = RunBucket | "all";
 
 const PARAM = "bucket";
-const HOME = "/";
+// 2026-11-17-d6fba: the runs list has its own route; / is the input page.
+export const RUNS_PATH = "/runs";
+const HOME = RUNS_PATH;
 
 export function bucketHref(filter: RunBucketFilter): string {
   return filter === "all" ? HOME : `${HOME}?${PARAM}=${filter}`;
@@ -66,9 +68,9 @@ export function RunBucketFilterProvider({ children }: { children: ReactNode }) {
   const select = useCallback(
     (next: RunBucketFilter) => {
       setFilter(next);
-      // On the home screen the filter is not a navigation: pushing history
+      // On the runs list the filter is not a navigation: pushing history
       // alone keeps the run list mounted, so the live view never blanks and the
-      // paged-in runs survive. From anywhere else the home route has to load.
+      // paged-in runs survive. From anywhere else the runs route has to load.
       if (window.location.pathname === HOME) {
         window.history.pushState(null, "", bucketHref(next));
       } else {

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d6fbc
+
+decisions:
+  - category: Architecture
+    chose: "A new run event, VerifyPassRecordedEvent, published by VerifyPassReporter once the pass's mechanical result is decided; the dashboard matches it to its step by OriginStepIndex"
+    over: "A structured column on RunStep, or JSON inside L1StepDetail"
+    reason: "Run events are persisted generically, so no migration on three providers; the publish path already stamps the step, so nothing re-derives which line a pass belongs to. An L1StepDetail carrying JSON would be a second meaning for a prose channel."
+  - category: Behaviour
+    chose: "The prose result message is unchanged"
+    over: "Shortening DerivationMoved's sentence"
+    reason: "Other readers take it as written: the step's ResultMessage (CLI and API), the run's failure summary that tracker comments carry, RunAccountLedger.RecordProblem, and the spec progress row's failing command (FailingCommandOf). Only the dashboard needs the data."
+  - category: Behaviour
+    chose: "The log draws the event in place of the prose; a line whose event is not in the page's event window keeps the prose"
+    over: "Fetching the step's events page for every verify line"
+    reason: "The run's structural trail replays into the page; a run longer than the 2000-event window loses only the nicer rendering, never the facts. Same limit the line times already live with."
+  - category: Behaviour
+    chose: "Repository result failed when any of its non-skipped stages exited non-zero; the pass result is the mechanical verdict (findings included)"
+    over: "Recomputing the verdict on the client"
+    reason: "The handler decides; the event says what it decided."
+  - category: Architecture
+    chose: "The event's records live in Contracts/Verify; the reporter is registered on the VerifySpecHandler line and the EventType comment that lost a line was joined"
+    over: "Raising the file-length baseline"
+    reason: "FileLengthRatchetTests holds EventType.cs at 120 and PipelineHandlersExtensions.cs at its baseline; the ratchet may only shrink."
