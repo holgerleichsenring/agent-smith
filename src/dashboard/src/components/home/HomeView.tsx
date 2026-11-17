@@ -23,10 +23,7 @@ export function HomeView() {
   const recent = recentTickets(tickets);
   return (
     <div className="home" data-testid="home">
-      <header className="home-head">
-        <h1>What should we work on?</h1>
-        {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(waiting)}</p>}
-      </header>
+      <NewWorkHead />
       <HomeComposer />
       {moves.length > 0 && (
         <section className="home-sec" aria-labelledby="home-moves" data-testid="home-your-move">
@@ -47,6 +44,17 @@ export function HomeView() {
         </section>
       )}
     </div>
+  );
+}
+
+/** 2026-11-17-76f1: the question and the line under it — the home page's and a new Work it out conversation's. */
+export function NewWorkHead() {
+  const { list } = useTicketList();
+  return (
+    <header className="home-head">
+      <h1>What should we work on?</h1>
+      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(list.counts.needsYou ?? 0)}</p>}
+    </header>
   );
 }
 

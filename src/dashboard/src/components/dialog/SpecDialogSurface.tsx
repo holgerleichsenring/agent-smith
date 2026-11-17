@@ -19,6 +19,8 @@ import { approvalDecision } from "@/components/dialog/approvalDecision";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
+import { NewWorkComposer } from "@/components/home/HomeComposer";
+import { NewWorkHead } from "@/components/home/HomeView";
 import "@/styles/spec-dialog.css";
 import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { deletionWarning } from "./conversationDelete";
@@ -210,7 +212,7 @@ export function SpecDialogSurface() {
   const projects = dialog.view?.projects ?? [];
   const [picked, setPicked] = useState("");
   // 2026-11-17-d6fba: a first message typed on the home page, sent here as this page's own composer would.
-  useComposerHandover(dialog, setPicked);
+  const handover = useComposerHandover(dialog, setPicked);
   // 2026-09-27-5c1eb: and the picked TICKET beside it, for the same reason — sending needs it, and
   // the component that offers it is unmounted the moment a project is resolved.
   const [pickedTicket, setPickedTicket] = useState<TicketSearchFound | null>(null);
@@ -260,6 +262,12 @@ export function SpecDialogSurface() {
   // between picking and sending it offered every project as a candidate while the composer, which
   // appears only once a project is resolved, said the opposite.
   const settled = !session && project !== "";
+  // 2026-11-17-76f1: a NEW conversation is the home page's question and composer — the project beside the plus, the
+  // files held until send — so starting work reads the same wherever it starts. A ticket in play (an address, a
+  // search pick, a question which project it belongs to) keeps the exchange, which is where that ticket is shown.
+  const fresh =
+    !session && !handover.started && dialog.entries.length === 0 && !dialog.working &&
+    !pendingTicket && !pickedTicket && !ticketReason;
   // 2026-09-23-6e3f: what the choice may say while it holds no projects. The list is empty in
   // all three states, so the VIEW is what tells them apart: a read that has not answered leaves
   // it null, and a read that failed leaves the same null for ever with a failure beside it.
@@ -325,7 +333,9 @@ export function SpecDialogSurface() {
   return (
     // 2026-11-17-d762a: the conversations' bar | the exchange | the pane, in the ticket page's frame (8d1ca): the bar
     // beside an icon-only app sidebar, the page's name in the bar rather than a page head over three cards.
-    <div className="mock-shell mock-dialog dl-shell" data-testid="spec-dialog">
+    // 2026-11-17-76f1: a new conversation has no pane — nothing is read, proposed or filed yet — so the shell drops
+    // its column and the composer stands where the home page's does.
+    <div className={`mock-shell mock-dialog dl-shell${fresh ? " dl-fresh" : ""}`} data-testid="spec-dialog">
       <DialogConversations
         dialogId={dialog.dialogId}
         sessionHere={session?.sessionId ?? null}
@@ -343,6 +353,30 @@ export function SpecDialogSurface() {
         onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
         onDelete={(sessionId) => void remove(sessionId)}
       />
+      {fresh ? (
+        <main className="main dl-page mock-home" data-testid="dialog-new-work">
+          {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
+          <div className="home">
+            <NewWorkHead />
+            <NewWorkComposer
+              key={`composer-${dialog.dialogId ?? "new"}`}
+              projects={projects.map((held) => held.name)}
+              read={read}
+              onStart={handover.start}
+            />
+            {/* Where the home page lists its tickets: a conversation may still start ON one. Picking it leaves this
+                state for the exchange, which shows the ticket and the project it resolves. */}
+            <DialogTicketSearch
+              key={dialog.dialogId ?? "new"}
+              stranded={strandedTicket}
+              bound={boundTickets}
+              picked={pickedTicket}
+              onPicked={setPickedTicket}
+              reason={ticketReason}
+            />
+          </div>
+        </main>
+      ) : (
       <main className="main dl-page">
         {/* A refusal reads as one here: FailedSurface branches on it, so a caller who
             may not hold spec dialogs is told that rather than shown a stack. */}
@@ -451,7 +485,8 @@ export function SpecDialogSurface() {
           )}
         </section>
       </main>
-      <DialogPane
+      )}
+      {!fresh && <DialogPane
         session={session}
         projects={settled ? projects.filter((held) => held.name === project) : offered}
         starting={session ? null : pickedTicket}
@@ -464,7 +499,7 @@ export function SpecDialogSurface() {
         panelRef={panel}
         dialogId={dialog.dialogId}
         onRefresh={dialog.refresh}
-      />
+      />}
       {/* Inside this page's shell, because that is what the confirmation's rules are scoped
           to; showModal lifts it to the top layer without moving it in the DOM. */}
       <ConfirmDialog {...confirmation.dialog} />
