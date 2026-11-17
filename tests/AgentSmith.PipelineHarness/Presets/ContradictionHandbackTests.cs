@@ -62,8 +62,11 @@ public sealed class ContradictionHandbackTests
         result.IsSuccess.Should().BeFalse("nobody replied, so the loop ends — as a failure, never a green run");
         result.Message.Should().Contain("the loop ends here").And.Contain("does not contain");
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info", "the ticket is not parked a second time");
-        tickets.Finalized.Should().ContainSingle("the failure is the ticket's only word")
-            .Which.Comment.Should().Contain("Agent Smith — Failed").And.Contain("the loop ends here");
+        // 2026-11-17-166aa: no failed_status is configured here, so the failure comments and moves nothing.
+        tickets.Finalized.Should().BeEmpty("a failure without failed_status moves no status");
+        tickets.Commented.Should().ContainSingle(c => c.Comment.Contains("Agent Smith — Failed", StringComparison.Ordinal),
+            "the failure is the ticket's only word")
+            .Which.Comment.Should().Contain("the loop ends here");
         harness.ChatClient.ToolCalls.Should().BeEmpty("no master runs on a hand-back");
         runner.LastContext!.TryGet<bool>(ContextKeys.OpenQuestionsAwaitingAnswer, out _).Should().BeFalse();
     }

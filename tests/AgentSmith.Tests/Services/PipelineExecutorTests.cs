@@ -205,6 +205,7 @@ public class PipelineExecutorTests
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.FailedStatus, "Failed"); // 2026-11-17-166aa: a configured failed status finalizes
 
         h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
             .Throws(new Exception("Gate veto (Tester): coverage incomplete"));

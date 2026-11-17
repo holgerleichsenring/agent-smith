@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-166aa
+
+decisions:
+  - category: Implementation
+    chose: "The failure's status is failed_status only, read from one place per path: TicketParkStatuses.Failed (cancel finalizer, gate) and the spawn-seeded ContextKeys.FailedStatus (pipeline error handler); neither falls back to done_status"
+    over: "Keeping the done_status fallback and only changing which status a failure picks"
+    reason: "Every fallback to done made a failure read as done on the tracker; the replay moved SCRUM-17 to 'In Review' after a failure and two cancels. With no failed status the only honest move is none."
+  - category: Implementation
+    chose: "Without a failed status the error handler takes the comment-only path f3fbb built for precondition stops (PostTicketStatusAsync), and the cancel finalizer the same provider call (UpdateStatusAsync)"
+    over: "A new 'leave in place' finalize mode on the ticket providers"
+    reason: "The comment-only write already exists on every provider and is what f3fbb decided for a precondition end; widening its condition is the generalisation the operator asked for. No unmoved record is written: nothing was asked to move."
+  - category: Implementation
+    chose: "The hold is a third arm of BoundaryStopGate: newest attempt finished where LeftInPlaceEnd holds and the project's TicketParkStatuses.Failed is null; same admit list"
+    over: "Recording a hold row per ticket, or reusing UnmovedTicketGate"
+    reason: "Lifecycle labels no longer gate claims, so a ticket left in its trigger status would be claimed every poll. The gate already reads the newest attempt for the two other holds; deriving this one from the row and the live config needs no new storage. UnmovedTicketGate refuses even a person's start and names a status that was never asked for."
+  - category: Implementation
+    chose: "Cancels for a lost process (interrupted, stale-lease-reaped) do not hold; the two literals move to Contracts.Runs.OwedWorkCancel and the reaper, the sweeper, the stale-lease release and InfrastructureEnd reference them"
+    over: "Holding every cancelled attempt"
+    reason: "StaleLeaseRelease keeps the taken-ticket record because the work is still owed and the ticket is reclaimable; holding it would stop that recovery. The gate lives in Application and could not read the Server-side constants, so they moved down rather than being copied."
+  - category: Scope
+    chose: "A run deleted before it finished is not held"
+    over: "Moving the ticket to done on delete, or a separate hold record for deletes"
+    reason: "The delete removes the row the gate reads. Moving to done would contradict the goal; a new store for one rare operator action is more than this spec needs. failed_status prevents the re-claim, and the spec names the gap."
+  - category: Scope
+    chose: "readiness-unknown failures are held too when no failed_status is configured"
+    over: "Exempting them like f3fbb's precondition arm does"
+    reason: "Before this spec such a failure moved the ticket to done and nothing restarted it automatically either; Retry is the start for an infrastructure end, and it passes the gate by name."

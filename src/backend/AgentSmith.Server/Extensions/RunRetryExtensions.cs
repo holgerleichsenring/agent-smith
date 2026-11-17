@@ -17,8 +17,6 @@ internal static class RunRetryExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddTransient<TicketAttempts>();
         services.TryAddTransient<TicketRunsQuery>();
-        services.TryAddTransient<InfrastructureEnd>();
-        services.TryAddTransient<TicketLaunchEnds>();
         services.TryAddTransient<RunRetryGate>();
         services.TryAddScoped<RunRetry>();
         return services;

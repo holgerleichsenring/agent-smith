@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-166aa
+goal: "A failed or cancelled attempt never moves its ticket to the done status: without a failed_status the ticket keeps its tracker status and no automatic claim takes it up again."
+
+applies_to: "default (failure finalization, cancel finalization, park statuses, BoundaryStopGate)"
+
+requires: [2026-11-16-f3fbb]
+
+facts:
+  - claim: "A step failure, a fatal exception and a failure dressed as a cancel all finalize to FailedStatus, falling back to DoneStatus; the spawn seeds the same fallback into the context."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:169-171, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:85-87"
+  - claim: "A cancel, the cancel enforcer and a delete finalize through CancelledTicketFinalizer with the same FailedStatus-else-DoneStatus chain."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:58-62"
+  - claim: "TicketParkStatuses.Failed falls back to Done as well; Done is its own arm of IsRunEnd and Own."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketParkStatuses.cs:19-23"
+  - claim: "f3fbb already comments without moving the status for a precondition end, and holds automatic claims through BoundaryStopGate."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:43, src/backend/AgentSmith.Application/Services/Claim/BoundaryStopGate.cs:29-39"
+  - claim: "Lifecycle labels no longer gate claimability, so a ticket left in a trigger status is claimed again by the next poll unless a gate refuses it."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:75"
+  - claim: "In the replay (trigger 'To Do', done_status 'In Review', no failed_status) a failed run and two cancelled runs moved their tickets to 'In Review' with agent-smith:failed."
+    evidence: "observed: 2026-11-17, replay server.1.log 07:51:34 SCRUM-17 InProgress → Failed + POST transitions; server.2.log 08:44:12 and server.4.log 10:31:04 'Cancelled run's ticket ... finalized to In Review'"
+
+scope:
+  in: "TicketParkStatuses.Failed = failed_status only; the spawn seeds failed_status only; PipelineErrorHandler comments instead of finalizing when no failed status is in the context (the f3fbb branch, widened); CancelledTicketFinalizer reads TicketParkStatuses.Failed and comments when it is null; BoundaryStopGate also refuses a code claim whose newest attempt finished failed, or cancelled for a reason other than an infrastructure loss (interrupted, stale-lease-reaped: that work is still owed and stays reclaimable), while the project configures no failed status. The two infrastructure cancel reasons move to Contracts (OwedWorkCancel) so the gate, InfrastructureEnd, the liveness reaper and the stale-lease release name one constant."
+  out: "The lifecycle label (agent-smith:failed still says what happened to the attempt). Success and shortfall finalization. A configured failed_status the tracker refuses (UnmovedTicketGate already holds it). A run DELETED before it finished: its row is gone, so nothing holds the ticket and the next poll may start it again; failed_status is the setting that prevents it."
+
+steps:
+  - id: statuses
+    action: "TicketParkStatuses.Of: Failed is the trigger's failed_status, null when blank — no Done fallback. SpawnRequestBuilder seeds ContextKeys.FailedStatus only from failed_status."
+  - id: handler
+    action: "PipelineErrorHandler.FinalizeFailureAsync: no DoneStatus fallback; an empty failed status posts the comment through PostTicketStatusAsync (no status move, no unmoved record). Every failure path (step, fatal, dressed cancel) goes through it."
+  - id: cancel
+    action: "CancelledTicketFinalizer: status = TicketParkStatuses.Of(project).Failed; null posts the comment through UpdateStatusAsync and moves nothing; the log line names the status or says it was left."
+  - id: gate
+    action: "BoundaryStopGate takes the config; a code claim whose newest attempt finished failed or cancelled on a project with no failed status is refused with a new ClaimRejectionReason.TicketLeftInPlace and a sentence naming the end, the project, the key failed_status and the starts that pass (Retry, a reply). The arm runs after the boundary and precondition arms, so their sentences stay. PreviousAttempt carries CancelReason. Admit list unchanged; the class doc loses 'Retry is not named'."
+
+tests:
+  - "TicketParkStatusesTests: no failed_status → Failed null, Done unchanged; IsRunEnd(done) still true"
+  - "PipelineErrorHandlerTests: no failed status → comment only, FinalizeAsync never called; configured → FinalizeAsync(failed)"
+  - "CancelledTicketFinalizer (cancel endpoint/delete tests): no failed status → UpdateStatusAsync, no FinalizeAsync"
+  - "BoundaryStopGateTests: failed/cancelled head without failed_status refused with the sentence; an interrupted or stale-lease-reaped cancel, a configured failed_status, a success head, or a person's start admitted; a precondition head keeps its own sentence"
+  - "Harness FailedRunFinalizationTests: a failed run on a project without failed_status leaves the ticket status and comments"
+
+done:
+  - "A failure or cancel on a project without failed_status leaves the tracker status as it was, comments the failure, and the next poll does not start the ticket again; Retry or a reply does."

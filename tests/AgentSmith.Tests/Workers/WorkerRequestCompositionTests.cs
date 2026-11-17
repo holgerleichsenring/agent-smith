@@ -107,7 +107,7 @@ public sealed class WorkerRequestCompositionTests
         var request = NewComposer().Compose(
             [new ChatMessage(ChatRole.User, "hi")], new ChatOptions { Tools = [tool] }, Identity());
 
-        var prompt = new WorkerPromptRenderer(json).Render(request);
+        var prompt = new WorkerPromptRenderer(json).Render(request).Text;
 
         prompt.Should().Contain("read_file").And.Contain("input_schema");
         prompt.Should().Contain("tool_calls", "the worker must know how to answer with an action");
