@@ -78,4 +78,16 @@ public sealed class ContextImageBoundaryTests
     public void Describe_JoinsReasonAndLever() =>
         new ContextImageRefusal("x/y:1", "the reason", "the lever").Describe()
             .Should().Be("the reason — the lever");
+
+    // 2026-11-16-f3fbc: the stored refusal names its image, read back to ask the live boundary again.
+    [Fact]
+    public void RefusedImage_DetailOfAnImageRefusal_ReadsTheImageBack()
+    {
+        var boundary = Boundary();
+        var detail = boundary.Detail(UserNamespaceImage, "api", "repo");
+
+        boundary.RefusedImage(detail).Should().Be(UserNamespaceImage);
+        boundary.RefusedImage(new AgentSmith.Domain.Models.EndDetail("alpha", ["repo"])).Should().BeNull();
+        boundary.RefusedImage(null).Should().BeNull();
+    }
 }

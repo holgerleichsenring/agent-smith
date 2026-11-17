@@ -21,4 +21,8 @@ public enum ReworkNudgeOrigin
     /// <summary>2026-10-14-dbceh: the last ticket it requires landed. Served only for a ticket without an
     /// attempt, which it starts; it ranks above every origin so a merge keeps the start.</summary>
     RequirementsMet = 6,
+
+    /// <summary>2026-11-16-f3fbc: the precondition a ticket's newest attempt stopped on now holds. A pending act is
+    /// still served as rework; otherwise the ticket is released. It ranks above every origin so a merge keeps it.</summary>
+    PreconditionsMet = 7,
 }

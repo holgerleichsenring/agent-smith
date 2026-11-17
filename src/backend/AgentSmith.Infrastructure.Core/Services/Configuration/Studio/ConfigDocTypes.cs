@@ -31,6 +31,7 @@ public static class ConfigDocTypes
     public const string Trace = "trace";
     public const string SpecReview = "spec_review"; // 2026-10-13-8762g
     public const string Series = "series"; // 2026-10-13-8762u
+    public const string Preconditions = "preconditions"; // 2026-11-16-f3fbc
 
     // 2026-08-25-1806: role names, their permission bundles and the two claims they are
     // read from — application configuration, not bootstrap.

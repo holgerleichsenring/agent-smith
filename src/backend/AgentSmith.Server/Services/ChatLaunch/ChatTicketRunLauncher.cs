@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -21,7 +22,8 @@ public sealed class ChatTicketRunLauncher(
     ILogger<ChatTicketRunLauncher> logger)
 {
     public async Task<ChatLaunchResult> LaunchAsync(
-        string projectName, string ticketId, string pipeline, CancellationToken ct, bool seriesAutoStart = false)
+        string projectName, string ticketId, string pipeline, CancellationToken ct,
+        ReworkStartKind start = ReworkStartKind.Act)
     {
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
         if (!config.Projects.TryGetValue(projectName, out var project))
@@ -34,7 +36,8 @@ public sealed class ChatTicketRunLauncher(
             TicketId = ticketId.TrimStart('#'),
             Platform = project.Tracker.Type.ToString().ToLowerInvariant(),
             RequestedByName = true,
-            SeriesAutoStart = seriesAutoStart, // 2026-10-13-8762v: agent-smith continues the series itself
+            SeriesAutoStart = start == ReworkStartKind.Series, // 2026-10-13-8762v: agent-smith continues the series itself
+            PreconditionRelease = start == ReworkStartKind.PreconditionRelease, // 2026-11-16-f3fbc
         };
         var trigger = TriggerSelectionHelper.ByTrackerType(project, project.Tracker.Type)
             ?? new WebhookTriggerConfig();

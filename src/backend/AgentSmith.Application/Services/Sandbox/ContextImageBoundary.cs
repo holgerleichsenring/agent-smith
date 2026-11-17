@@ -52,7 +52,7 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
     /// </summary>
     public EndDetail Detail(string image, string context, string repo)
     {
-        var subject = $"Image {image} (context {context})";
+        var subject = $"{SubjectPrefix}{image}{ContextInfix}{context})";
         var boundary = trust.InForce();
         if (ReferenceEquals(boundary, RegistryTrustBoundary.Closed)) return new EndDetail(subject, [repo]);
         var prefix = Prefix(image);
@@ -62,6 +62,21 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
                 string.Join(", ", boundary.Registries.Append(prefix).Distinct(StringComparer.Ordinal)), SettingsPath);
     }
 
+    /// <summary>
+    /// 2026-11-16-f3fbc: the image a refusal's detail names, read back from the subject <see cref="Detail"/> wrote;
+    /// null when the detail is not an image refusal's. Whether it is still refused is <see cref="Judge"/>'s answer.
+    /// </summary>
+    public string? RefusedImage(EndDetail? detail)
+    {
+        var subject = detail?.Subject;
+        if (subject is null || !subject.StartsWith(SubjectPrefix, StringComparison.Ordinal)) return null;
+        var end = subject.LastIndexOf(ContextInfix, StringComparison.Ordinal);
+        var image = end < SubjectPrefix.Length ? null : subject[SubjectPrefix.Length..end].Trim();
+        return string.IsNullOrEmpty(image) ? null : image;
+    }
+
+    private const string SubjectPrefix = "Image ";
+    private const string ContextInfix = " (context ";
     private const string LibraryControl = "Docker Hub official library images";
     private const string RegistriesControl = "Trusted image registries";
     private const string SettingsPath = "/config/settings/sandbox";

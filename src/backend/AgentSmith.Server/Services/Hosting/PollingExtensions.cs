@@ -44,6 +44,14 @@ internal static class PollingExtensions
         services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>());
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>().Health);
 
+        // 2026-11-16-f3fbc: tickets stuck on a precondition start by themselves once it holds — leader-elected,
+        // re-run on every config epoch by LeaderEpochLoop and every preconditions.recheck_interval_seconds.
+        services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionHoldCheck>();
+        services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionReleasePass>();
+        services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>().Health);
+
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
         services.AddHostedService<RepoDiscoveryRefreshHostedService>();
 

@@ -20,8 +20,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// </summary>
 public sealed class RequirementsMetStart(
     ITicketRequirementStore requirements,
-    ITicketLandingStore landings,
-    ITicketClosedMarkStore closed, // 2026-10-15-114fa: a ticket a person closed is never started by itself
+    TicketStartHold hold, // 2026-11-16-f3fbc: the landing, closed-mark and tracker-closed checks, shared with the release
     UnmetTicketRequirements unmet,
     ITicketProviderFactory trackers,
     IServiceScopeFactory scopes,
@@ -32,7 +31,7 @@ public sealed class RequirementsMetStart(
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(nudge);
-        if (await HeldAsync(project, nudge.TicketId, ct) || !await OpenAsync(project, nudge.TicketId, ct))
+        if (await HeldAsync(project, nudge.TicketId, ct) || !await hold.OpenAsync(project, nudge.TicketId, ct))
             return ReworkNudgeDisposition.Finish;
         FiledWorkStart started;
         using (var scope = scopes.CreateScope())
@@ -51,16 +50,7 @@ public sealed class RequirementsMetStart(
         var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var edges = await requirements.RequiredOfAsync(tracker, key, ct);
         if (edges.Count == 0) return true;
-        if ((await landings.LandedAsync(tracker, [key], ct)).Count > 0)
-        {
-            logger.LogInformation("Ticket {Project}/{Ticket} was marked done by hand; not started", project.Name, ticketId);
-            return true;
-        }
-        if ((await closed.OfAsync(tracker, [key], ct)).FirstOrDefault() is { } mark)
-        {
-            logger.LogInformation("Ticket {Project}/{Ticket} was closed by {By}; not started", project.Name, ticketId, mark.By);
-            return true;
-        }
+        if (await hold.MarkedAsync(project, ticketId, ct)) return true;
         if ((await unmet.OfAsync(tracker, key, ct)).Unmet.Count > 0) return true;
         if (!await unmet.FiledCompletelyAsync(tracker, key, ct))
         {
@@ -70,20 +60,5 @@ public sealed class RequirementsMetStart(
         if (edges.All(e => e.StartsWhenMet)) return false;
         logger.LogInformation("Ticket {Project}/{Ticket}'s requirements landed; it waits for a start by name", project.Name, ticketId);
         return true;
-    }
-
-    // A ticket the tracker counts closed was closed by a person; a read failure is retried by the re-read.
-    private async Task<bool> OpenAsync(ResolvedProject project, string ticketId, CancellationToken ct)
-    {
-        try
-        {
-            if (!(await trackers.Create(project.Tracker).GetTicketAsync(new TicketId(ticketId), ct)).IsClosed) return true;
-            logger.LogInformation("Ticket {Project}/{Ticket} is closed; not started", project.Name, ticketId);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "Ticket {Project}/{Ticket} could not be read to start it", project.Name, ticketId);
-        }
-        return false;
     }
 }

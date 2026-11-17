@@ -226,6 +226,19 @@ public sealed class ServerDiLifetimeTests
         filing.Link.Should().NotBeNull();
     }
 
+    // 2026-11-16-f3fbc: the preconditions subsystem's pass and the worker's release resolve from the real composition.
+    [Fact]
+    public void ServerDi_PreconditionRelease_PassAndReleaseResolve()
+    {
+        var services = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices());
+        services.AddReworkNudgeWorker();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        provider.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleasePass>().Should().NotBeNull();
+        provider.GetRequiredService<AgentSmith.Server.Services.Rework.PreconditionRelease>().Should().NotBeNull();
+        provider.GetServices<ISubsystemHealth>().Should().Contain(h => h.Name == "preconditions");
+    }
+
     // 2026-10-13-8762v: the series start is a worker singleton; the runway reader it asks resolves in its own scope.
     [Fact]
     public void ServerDi_SeriesAutoStart_ResolvesWithItsRunwayReaderInAScope()

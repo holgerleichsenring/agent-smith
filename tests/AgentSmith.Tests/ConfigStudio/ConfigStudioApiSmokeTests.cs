@@ -495,6 +495,11 @@ public sealed class ConfigStudioApiSmokeTests
     public Task ConfigSettings_SpecReviewWithZeroReviewers_Is400AndNotSaved() =>
         RefusedAndNotSavedAsync("spec_review", """{"reviewers":0}""", "spec_review.reviewers");
 
+    // 2026-11-16-f3fbc: a recheck interval under 60 seconds is refused on save as it is at load.
+    [Fact]
+    public Task ConfigSettings_PreconditionsUnder60_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("preconditions", """{"recheckIntervalSeconds":30}""", "preconditions.recheck_interval_seconds");
+
     private static async Task RefusedAndNotSavedAsync(string type, string body, params string[] fields)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-refused-{Guid.NewGuid():N}.yml");

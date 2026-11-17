@@ -281,6 +281,14 @@
         "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." }
       }
     },
+    "preconditions": {
+      "type": "object",
+      "description": "How a ticket stuck on a precondition (an untrusted image, a missing bootstrap, a config check) is checked again so it starts by itself once it holds. A settings save re-checks at once; the interval notices an init that landed, since nothing reports it. Global.",
+      "additionalProperties": false,
+      "properties": {
+        "recheck_interval_seconds": { "type": "integer", "minimum": 60, "description": "Seconds between two passes over the stuck tickets. An init lands by a person or a pipeline and nothing reports it, so this interval is what notices it. Under 60 is refused: each pass probes the stuck tickets' repositories over the host API, which rate-limits. Default 300." }
+      }
+    },
     "dialogue": {
       "type": "object",
       "description": "How a run waits for a person, and where that person answers.",

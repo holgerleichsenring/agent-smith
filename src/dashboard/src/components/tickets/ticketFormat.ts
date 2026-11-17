@@ -55,6 +55,7 @@ const CHANNEL_WORDS: Record<string, string> = {
   retry: "retry",
   overrule: "overruled default",
   series: "series, started automatically",
+  precondition: "restarted once the precondition held",
 };
 
 export function channelWords(channel: string): string {

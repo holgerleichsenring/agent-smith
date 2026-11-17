@@ -30,4 +30,20 @@ public sealed class SeriesAutoStartSeedTests
         SpawnRequestBuilder.BuildRequest(Project, "code", Envelope(series: false), new WebhookTriggerConfig(), null, "run-3")
             .InitialContext!.ContainsKey(ContextKeys.SeriesAutoStart).Should().BeFalse("only a series start carries the key");
     }
+
+    // 2026-11-16-f3fbc: a precondition release rides the same way, under its own key.
+    [Fact]
+    public void SpawnRequestBuilder_PreconditionRelease_RidesTheQueueRow()
+    {
+        var envelope = new IncomingTicketEnvelope { TicketId = "42", Platform = "github", RequestedByName = true, PreconditionRelease = true };
+        var request = SpawnRequestBuilder.BuildRequest(Project, "code", envelope, new WebhookTriggerConfig(), null, "run-1");
+        var candidate = SpawnRequestBuilder.BuildCandidate(Project, "code", envelope, new WebhookTriggerConfig(), null, "run-2", "queued");
+        var queued = JsonSerializer.Deserialize<Dictionary<string, object>>(candidate.InitialContextJson!);
+
+        request.InitialContext![ContextKeys.PreconditionRelease].Should().Be(true);
+        queued![ContextKeys.PreconditionRelease].Should().BeOfType<JsonElement>().Which.ValueKind.Should().Be(JsonValueKind.True);
+        request.InitialContext.ContainsKey(ContextKeys.SeriesAutoStart).Should().BeFalse();
+        SpawnRequestBuilder.BuildRequest(Project, "code", Envelope(series: true), new WebhookTriggerConfig(), null, "run-3")
+            .InitialContext!.ContainsKey(ContextKeys.PreconditionRelease).Should().BeFalse("only a release carries the key");
+    }
 }

@@ -37,6 +37,7 @@ public sealed class AgentSmithConfig
     public TraceConfig Trace { get; init; } = new();
     public SpecReviewConfig SpecReview { get; init; } = new(); // 2026-10-13-8762g
     public SeriesConfig Series { get; init; } = new(); // 2026-10-13-8762u
+    public PreconditionsConfig Preconditions { get; init; } = new(); // 2026-11-16-f3fbc
 
     /// <summary>
     /// Empty placeholder. Used by DI default registration when no real config

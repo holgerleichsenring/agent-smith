@@ -652,6 +652,14 @@ series:
   wall_clock_hours: 12
   continue_after_wall_time: true
 
+# A ticket stuck on a precondition (an untrusted image, a missing bootstrap, a config check)
+# starts by itself once it holds. A settings save re-checks at once; an init lands by a person
+# or a pipeline and nothing reports it, so it is noticed within one interval. Under 60 seconds
+# is refused: each pass probes the stuck tickets' repositories over the host API, which
+# rate-limits. Default shown.
+preconditions:
+  recheck_interval_seconds: 300
+
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

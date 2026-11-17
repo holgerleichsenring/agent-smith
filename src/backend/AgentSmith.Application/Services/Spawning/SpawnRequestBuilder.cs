@@ -72,6 +72,7 @@ internal static class SpawnRequestBuilder
         // reads the same answer the immediate claim does.
         if (envelope.RequestedByName) ctx[ContextKeys.RequestedByName] = true;
         if (envelope.SeriesAutoStart) ctx[ContextKeys.SeriesAutoStart] = true; // 2026-10-13-8762v
+        if (envelope.PreconditionRelease) ctx[ContextKeys.PreconditionRelease] = true; // 2026-11-16-f3fbc
 
         // 2026-09-17-0e79a: the set a person approved, whole, under one key.
         if (!string.IsNullOrEmpty(approvedSetJson))

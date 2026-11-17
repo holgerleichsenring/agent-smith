@@ -14,4 +14,10 @@ describe("ticketFormat", () => {
     expect(channelWords("series")).toBe("series, started automatically");
     expect(causeWords({ channel: "series", actor: "agent-smith", source: null })).toBe("series, started automatically by agent-smith");
   });
+
+  // 2026-11-16-f3fbc: an attempt agent-smith started once the precondition its predecessor stopped on held.
+  it("ChannelWords_Precondition_IsRestartOncePreconditionHeld", () => {
+    expect(channelWords("precondition")).toBe("restarted once the precondition held");
+    expect(causeWords({ channel: "precondition", actor: null, source: null })).toBe("restarted once the precondition held");
+  });
 });
