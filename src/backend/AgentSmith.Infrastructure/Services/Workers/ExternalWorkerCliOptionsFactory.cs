@@ -24,6 +24,13 @@ public sealed class ExternalWorkerCliOptionsFactory
     public static readonly IReadOnlyList<string> IsolationArguments =
         ["--tools", "", "--strict-mcp-config", "--no-session-persistence"];
 
+    /// <summary>2026-11-17-cb32b: Claude Code's switch for its nonessential traffic. With it on, every call also sent
+    /// its whole stdin, uncached, to a second model (claude-haiku-4-5 in modelUsage, 15 to 24 output tokens): $13.51
+    /// of $167.13 in the replay of 2026-11-17. It also turns off the CLI's telemetry, error reporting and update
+    /// check, none of which a server-run worker uses.</summary>
+    public static readonly IReadOnlyDictionary<string, string> IsolationEnvironment =
+        new Dictionary<string, string> { ["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1" };
+
     /// <summary>2026-11-17-d6f5: the structured result as a stream, which is what lets the input in as content blocks —
     /// the CLI takes stream-json input only with stream-json output, and stream-json output only with --verbose.</summary>
     public static readonly IReadOnlyList<string> StreamArguments =
@@ -39,6 +46,7 @@ public sealed class ExternalWorkerCliOptionsFactory
         {
             SystemPromptAsFile = IsClaudeCode(agent, binary),
             InputAsBlocks = WantsStructuredResult(agent, binary),
+            Environment = IsClaudeCode(agent, binary) ? IsolationEnvironment : new Dictionary<string, string>(),
         };
     }
 

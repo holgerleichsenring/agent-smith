@@ -236,6 +236,8 @@ agents:
       is_enabled: true
       max_context_tokens: 200000
       keep_recent_iterations: 3          # compaction summarizes with the summarization role
+      # fold_target_ratio: 0.35          # a fold shrinks the view to this share, well below the 0.7 trigger
+      # summary_budget_ratio: 0.1        # summary segments past this share are summarized into one
     # 2026-11-12-cd4cl: what a design turn runs under. The turn's cost cap is the real stop.
     # dialog_master_loop_iterations: 200
     # dialog_sub_agent_loop_iterations: 100

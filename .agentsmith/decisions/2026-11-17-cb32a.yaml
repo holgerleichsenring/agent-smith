@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-cb32a
+
+decisions:
+  - category: Implementation
+    chose: "A fold sizes its tail by a target (fold_target_ratio × max_context_tokens, default 0.35), keeping at most the configured rounds and at least the newest assistant message and what follows it"
+    over: "Keeping keep_recent_iterations rounds whatever their size, or raising the trigger"
+    reason: "In the replay of 2026-11-17 the executor's post-fold views were 426k to 516k chars because the three kept rounds carried tool results of up to 394k chars; the view stayed over the trigger and the next call folded again (14 of 50 calls). With a target, the gap between target and trigger is growth that passes before the next fold. Probe (haiku through the real worker runner, window 20,000, ten 1,500-word tool results, 11 calls): before, 7 folds in the 7 calls after the first crossing, each reading only the 11,845-token system part, $0.529, 161k written; after, 3 folds (calls 5, 8, 11), every other call reading the previous prefix (18.2k, 24.4k), $0.310, 74k written."
+  - category: Implementation
+    chose: "The tail always keeps the newest assistant message and everything after it, and still never starts on a tool result"
+    over: "Keeping only the newest message"
+    reason: "The governor appends a transient reminder as the newest message; a tail of one message would fold the tool result the model just asked for."
+  - category: Implementation
+    chose: "One summary segment per fold, appended; consolidated into one when the segments would pass summary_budget_ratio × max_context_tokens (default 0.1), in the same single summarizer call"
+    over: "One summary message extended by every fold"
+    reason: "The extended message changes at every fold, so everything after the first message was rewritten. Segments leave the head and the earlier segments byte-identical. Claude (API and CLI) caches at the last block only, so a fold call still reads just the system part there; providers that cache any prefix (OpenAI) read the head and earlier segments too. The budget keeps the segments inside the window on a run of any length; one more segment of the current average size is the test, so a consolidation happens before the budget is passed, not after."
+  - category: Implementation
+    chose: "The pin (ledger + working state) is rendered at the fold and kept until the next one, labelled as the state at the latest summary with the messages below it newer"
+    over: "Re-rendering the pin on every call"
+    reason: "The pin sits ahead of the tail; a re-render that changed (a ledger update) rewrote the whole tail on that call. MasterLoopHooks already documents the pin as rendered at compaction time; the tail carries what happened since, and the governor's reminder still nudges the ledger at the end of the list."
+  - category: Implementation
+    chose: "The target is not clamped to the trigger; the schema says that a target at or above the trigger folds on every call past it"
+    over: "Clamping to the trigger, or to a fixed share of it"
+    reason: "Clamping to the trigger is exactly the fold-every-call regime, and a fixed share would be a new hard-coded bound. The value is the operator's, stated with what it does."
+  - category: Scope
+    chose: "The token estimate (chars / 4, a tool call's arguments counted as 16 chars each) is unchanged"
+    over: "Counting a tool call's serialized arguments"
+    reason: "The executor's write calls carry files in their arguments (12k chars in the replay), which the estimate barely counts, so its views ran larger than the trigger suggests. Changing the estimate moves when every loop folds and finalizes (ForwardedViewFit, ContextPressureFinalizingChatClient share it); it deserves its own measurement rather than a ride on this change."
