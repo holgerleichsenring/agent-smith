@@ -78,6 +78,7 @@ internal sealed class RetryHarness : IDisposable
         // 2026-10-14-da5ed: the conversation's start — the pending edit as its approval, else a conversation Retry.
         services.AddSingleton<ISpecApprovalStore>(Approvals).AddSingleton(Activity.Object).AddScoped(_ => FiledWorkDoubles.Move());
         services.AddScoped<OperatorStartArm>().AddScoped<OperatorStart>().AddTransient<PendingSeriesEditReader>();
+        services.AddScoped(sp => AgentSmith.Tests.TestSupport.ActSteps.Start(Config, sp.GetRequiredService<AgentSmith.Application.Services.Filing.FiledWorkMove>(), Tracker)); // e061b
         services.AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
         // 2026-10-14-dbceh: OperatorStart asks the requires gate; 2026-10-14-dbcei: so does the conversation's start.
         services.AddSingleton(AgentSmith.Tests.TestSupport.TicketRequirementDoubles.Of(Facts, Approvals));

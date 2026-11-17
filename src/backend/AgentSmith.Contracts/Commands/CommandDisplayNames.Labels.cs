@@ -46,6 +46,9 @@ public static partial class CommandDisplayNames
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",
         [CommandNames.PlanFiling] = "Plan the filing",
         [CommandNames.FileTickets] = "File the tickets",
+        [CommandNames.CloseTicket] = "Close the ticket", // 2026-11-17-e061a
+        [CommandNames.ReopenTicket] = "Reopen the ticket", [CommandNames.StartTicket] = "Start the ticket",
+        [CommandNames.AmendTicket] = "Record the approved series", [CommandNames.PostTicketComments] = "Post the comments", // e061c
         [CommandNames.SpecGate] = "Validate the spec",
         [CommandNames.MasterOpenQuestions] = "Post master open questions",
         [CommandNames.WriteSpecRecord] = "Write spec record",

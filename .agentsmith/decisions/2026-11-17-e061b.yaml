@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-e061b
+
+decisions:
+  - category: Architecture
+    chose: "A 'start' preset [StartTicket] over FiledWorkMove.StartExistingAsync, launched through e061a's IActRun by a small server TicketStartRun that RequirementsMetStart and OperatorStart share"
+    over: "Moving each caller's whole act (held checks, spawn) into the step"
+    reason: "The held checks are reads; the spawn starts the coding run through the poller's funnel, which is a run start, not a tracker write. Only the tag and the move wrote outside a run, so only they became the step."
+  - category: Implementation
+    chose: "RequirementsMetStart throws when the 'start' run ended before its step, so the worker reschedules the nudge"
+    over: "Finishing the nudge and logging"
+    reason: "The class's contract already was 'a thrown exception reschedules the nudge'; a prologue that failed once (catalog, configuration) should be retried, and the nudge's tries bound it."
+  - category: Implementation
+    chose: "OperatorStart says the ticket was not started, naming the run's end, when the start run ended first"
+    over: "Throwing into the approval turn"
+    reason: "The approval is already recorded; the conversation hears what did not happen, as it does for a move the tracker refused."
+  - category: Implementation
+    chose: "The preset consistency test skips every act preset by its not-routable reason rather than by name"
+    over: "Naming each act preset in the skip"
+    reason: "Each later act preset would otherwise edit the test again; the reason is the property that makes an act read no skill."
+  - category: Tooling
+    chose: "Adversarial self-review before building: the start runs inside the worker's ticket lock with no ticket lease of its own; a run per RequirementsMet nudge is bounded by the nudge's single-replica claim; the spawn still follows only a Started answer"
+    over: "Building on the spec as written"
+    reason: "The risk of a pipeline launch here is a second claim or a lost spawn; neither changed."
+  - category: Implementation
+    chose: "ActRun resolves ExecutePipelineUseCase when an act runs, and the continuation registrations TryAdd IActRun and TicketStartRun"
+    over: "Constructor injection of the run lifecycle"
+    reason: "OperatorStart now holds a TicketStartRun, and the server composition that builds a turn's or a nudge's services must not read the configuration file to construct one (ServerDiLifetimeTests caught it)."

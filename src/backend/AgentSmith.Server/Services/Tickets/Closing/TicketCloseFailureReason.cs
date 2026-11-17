@@ -1,4 +1,5 @@
 using System.Net;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets.Text;
 using Microsoft.VisualStudio.Services.WebApi;

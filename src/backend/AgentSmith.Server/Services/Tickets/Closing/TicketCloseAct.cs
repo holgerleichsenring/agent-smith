@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
@@ -6,9 +7,10 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
+using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Services.Acts;
 using AgentSmith.Server.Services.Rework;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using static Microsoft.AspNetCore.Http.StatusCodes;
 
 namespace AgentSmith.Server.Services.Tickets.Closing;
@@ -18,11 +20,12 @@ namespace AgentSmith.Server.Services.Tickets.Closing;
 /// the bucket rule's Done arm would answer, while an attempt is live, and — with its pull requests — when one of
 /// them merged, since closing the rest would land it. After validation everything runs to the end whatever the
 /// request does: the host acts first, then the mark recording what actually closed. Reopen clears the mark only.
+/// <para>2026-11-17-e061a: after validation the act is a 'close' run and a reopen a 'reopen' run, each with a run id
+/// (<see cref="IActRun"/>); this class validates, reads and maps what the run's step reports.</para>
 /// </summary>
 public sealed class TicketCloseAct(
     TicketProjects projects, TicketRunsQuery runs, TicketAttempts attempts, FiledTicketRows filed,
-    IServiceScopeFactory scopes, ITicketLandingStore landings, ITicketClosedMarkStore marks, TicketCloseHostActs hosts,
-    IReworkNudges nudges, ITicketActivityNudge activity, TimeProvider clock, ILogger<TicketCloseAct> logger)
+    IServiceScopeFactory scopes, ITicketLandingStore landings, ITicketClosedMarkStore marks, IActRun acts)
 {
     private const string Running = "running";
 
@@ -39,35 +42,58 @@ public sealed class TicketCloseAct(
         using (var scope = scopes.CreateScope())
             records = await scope.ServiceProvider.GetRequiredService<IPrReviewRecordReader>().ByTicketAsync(project, ticketId, ct);
         return await RefusalAsync(resolved, ticketId, key, head, records, request, ct)
-            ?? TicketCloseResult.Ok(await ActAsync(resolved, ticketId, key, records, request, by));
+            ?? await ActAsync(resolved, ticketId, key, records, request, by, ct);
     }
 
-    // After validation: the host acts, then the mark recording what closed, then the nudges — never cancelled.
-    private async Task<TicketCloseAnswer> ActAsync(
-        ResolvedProject resolved, string ticketId, string key, IReadOnlyList<PrReviewRecordView> records, TicketCloseRequest request, string by)
+    // After validation: one 'close' run does the host acts, the mark and the nudges.
+    private async Task<TicketCloseResult> ActAsync(ResolvedProject resolved, string ticketId, string key,
+        IReadOnlyList<PrReviewRecordView> records, TicketCloseRequest request, string by, CancellationToken ct)
     {
-        var (project, none) = (resolved.Name, CancellationToken.None);
         var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
-        var prs = request.ClosePullRequests ? await hosts.ClosePullRequestsAsync(resolved, ticketId, records, none) : [];
-        var onTracker = request.CloseOnTracker ? await hosts.CloseOnTrackerAsync(resolved, ticketId, by, note, none) : null;
-        var closed = prs.Where(p => p is { Closed: true, Reason: null }).Select(p => p.Url).ToList();
-        var mark = new TicketClosedMark(resolved.Tracker.Name, key, ticketId, project, clock.GetUtcNow(), by, note, closed, onTracker?.Closed == true);
-        await marks.SetAsync(mark, none);
-        logger.LogInformation("Ticket {Project}/{Ticket} was closed by {By}", project, ticketId, by);
-        if (closed.Count > 0) await NudgeAsync(() => nudges.EnqueueAsync(new ReworkNudgeRequest(project, ticketId, ReworkNudgeOrigin.Refresh), none), project, ticketId);
-        await NudgeAsync(() => activity.ChangedAsync(project, key, none), project, ticketId);
-        return new TicketCloseAnswer(mark, prs, onTracker);
+        var prs = request.ClosePullRequests ? await PullRequestsAsync(resolved.Name, ticketId, records, ct) : [];
+        var slot = new ActSlot<TicketCloseOutcome>();
+        var result = await acts.RunAsync(resolved.Name, PipelinePresets.CloseName, new Dictionary<string, object>
+        {
+            [ContextKeys.CloseTicketRequest] = new CloseTicketRequest(ticketId, Resolution(by, note), prs,
+                request.CloseOnTracker, new TicketCloseMarking(key, by, note)),
+            [ContextKeys.ActOutcome] = slot,
+        });
+        return slot.Value is { Mark: { } mark } done
+            ? TicketCloseResult.Ok(new TicketCloseAnswer(mark, done.PullRequests, done.Tracker))
+            : TicketCloseResult.Refuse(Status500InternalServerError, $"{ticketId} was not closed: the close run ended first ({result.Message}).");
+    }
+
+    /// <summary>The tracker's resolution comment; it starts with agent-smith's own comment marker.</summary>
+    public static string Resolution(string by, string? note) =>
+        note is null ? $"Agent Smith — closed by {by}" : $"Agent Smith — closed by {by}: {note}";
+
+    // Every pull request the ticket's runs named; a record already closed is not tried.
+    private async Task<IReadOnlyList<TicketPullRequestToClose>> PullRequestsAsync(
+        string project, string ticketId, IReadOnlyList<PrReviewRecordView> records, CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        var named = await scope.ServiceProvider.GetRequiredService<NamedPullRequestReader>().ByTicketAsync(project, ticketId, ct);
+        return [.. named.Select(pr => new TicketPullRequestToClose(pr.Url, pr.Repo,
+            records.FirstOrDefault(r => r.PrKey == PrKey.Of(pr.Url))?.State == PrReviewStates.Closed))];
     }
 
     public async Task<TicketCloseResult> ReopenAsync(string project, string ticketId, CancellationToken ct)
     {
         if (projects.Of(project) is not { } resolved) return TicketCloseResult.Refuse(Status404NotFound, $"No project {project} is configured.");
         var key = TicketLandingRecorder.KeyOf(resolved, ticketId);
-        if (!await marks.ClearAsync(resolved.Tracker.Name, key, ct)) return TicketCloseResult.Refuse(Status404NotFound, $"{ticketId} is not closed.");
-        logger.LogInformation("Ticket {Project}/{Ticket} was reopened", project, ticketId);
-        await NudgeAsync(() => activity.ChangedAsync(project, key, CancellationToken.None), project, ticketId);
-        return TicketCloseResult.Ok(new TicketReopenAnswer(project, ticketId, key));
+        if ((await marks.OfAsync(resolved.Tracker.Name, [key], ct)).Count == 0) return NotClosed(ticketId);
+        var slot = new ActSlot<bool>();
+        var result = await acts.RunAsync(resolved.Name, PipelinePresets.ReopenName, new Dictionary<string, object>
+        {
+            [ContextKeys.ReopenTicketRequest] = new ReopenTicketRequest(ticketId, key),
+            [ContextKeys.ActOutcome] = slot,
+        });
+        if (!slot.IsSet)
+            return TicketCloseResult.Refuse(Status500InternalServerError, $"{ticketId} was not reopened: the reopen run ended first ({result.Message}).");
+        return slot.Value ? TicketCloseResult.Ok(new TicketReopenAnswer(project, ticketId, key)) : NotClosed(ticketId);
     }
+
+    private static TicketCloseResult NotClosed(string ticketId) => TicketCloseResult.Refuse(Status404NotFound, $"{ticketId} is not closed.");
 
     // The refusals in order: the Done arm, a live attempt, a merged pull request beside the rest.
     private async Task<TicketCloseResult?> RefusalAsync(ResolvedProject resolved, string ticketId, string key, Run? head,
@@ -84,12 +110,5 @@ public sealed class TicketCloseAct(
             return TicketCloseResult.Refuse(Status409Conflict, $"one of {ticketId}'s pull requests merged; closing the rest would make it land — "
                 + "mark it done by hand, or close without closing its pull requests.");
         return null;
-    }
-
-    // The mark is stored; a lost nudge only delays a refresh or a page update.
-    private async Task NudgeAsync(Func<Task> nudge, string project, string ticketId)
-    {
-        try { await nudge(); }
-        catch (Exception ex) { logger.LogWarning(ex, "Ticket {Project}/{Ticket} is closed but a nudge was lost", project, ticketId); }
     }
 }

@@ -1,11 +1,9 @@
 using System.Net;
+using AgentSmith.Application.Services.TicketActs;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Specs;
-using AgentSmith.Domain.Models;
-using Microsoft.Extensions.Logging;
+using AgentSmith.Server.Services.Acts;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 
@@ -18,26 +16,25 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// the ticket for whoever works it next.
 /// </para>
 /// </summary>
-public sealed class TicketCommentPost(
-    ITicketProviderFactory trackers, ITicketActivityNudge activity, ILogger<TicketCommentPost> logger)
+public sealed class TicketCommentPost(IActRun acts)
 {
     /// <summary>The head line that marks the comment as the framework's.</summary>
     public const string Heading = "Agent Smith — from the conversation on this ticket";
 
+    /// <summary>2026-11-17-e061c: posted by a 'comment' run with a run id, which also tells the ticket's pages.</summary>
     public async Task<TicketContinuationOutcome> PostAsync(
         ResolvedProject project, string ticketId, TicketCommentOutcome comment, CancellationToken ct)
     {
-        try
+        var slot = new ActSlot<IReadOnlyList<TicketCommentPosted>>();
+        var result = await acts.RunAsync(project.Name, PipelinePresets.CommentName, new Dictionary<string, object>
         {
-            await trackers.Create(project.Tracker).UpdateStatusAsync(new TicketId(ticketId), Render(comment.Comment), ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "The approved comment on ticket {Ticket} was not posted", ticketId);
-            return new($"The comment was not posted on ticket {ticketId}: {ex.Message.Split('\n', 2)[0].Trim()}. Approve again to retry.", false);
-        }
-        await activity.ChangedAsync(project.Name, TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value, ct);
-        return new($"The comment is posted on ticket {ticketId}. Nothing was started.", true);
+            [ContextKeys.PostTicketCommentsRequest] = new PostTicketCommentsRequest([new(ticketId, Render(comment.Comment))], NudgeActivity: true),
+            [ContextKeys.ActOutcome] = slot,
+        });
+        var error = slot.Value is [{ } posted] ? posted.Error : result.Message ?? "the comment run ended first";
+        return error is null
+            ? new($"The comment is posted on ticket {ticketId}. Nothing was started.", true)
+            : new($"The comment was not posted on ticket {ticketId}: {error}. Approve again to retry.", false);
     }
 
     /// <summary>The comment in the HTML subset every tracker's comment post takes: lines escaped and joined by breaks.</summary>

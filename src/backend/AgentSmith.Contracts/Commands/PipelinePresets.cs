@@ -34,6 +34,7 @@ public static partial class PipelinePresets
             [FileName] = File, // 2026-11-17-5701b
             [BranchCleanupName] = BranchCleanup, // 2026-11-17-713ec
         };
+        foreach (var (name, steps) in HostActSteps) All[name] = steps; // 2026-11-17-e061: the acts on a filed ticket
         Names = All.Keys.ToList();
         Routable = [.. Names.Where(n => NotRoutableBecause(n) is null)];
     }

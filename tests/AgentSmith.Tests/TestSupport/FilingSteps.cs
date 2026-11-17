@@ -28,6 +28,19 @@ internal sealed class FilingSteps(AgentSmithConfig config, PlanFilingHandler pla
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, string? proposalId = null) =>
         FileAsync(state, proposal, mayStartRuns, CancellationToken.None, proposalId);
 
+    /// <summary>2026-11-17-e061d: a request built elsewhere, filed the same way.</summary>
+    public async Task<FilingReport> RunRequestAsync(string projectName, FilingRequest request)
+    {
+        if (LiveConfig.Projects(config).Of(projectName) is not { } project)
+            return new FilingReport([], $"Project '{projectName}' not found in configuration.");
+        var (pipeline, slot) = Seeded(request, project);
+        var planned = await plan.ExecuteAsync(new PlanFilingContext(pipeline, project), CancellationToken.None);
+        Filed = null;
+        if (!planned.IsSuccess) return new FilingReport([], planned.Message);
+        Filed = await file.ExecuteAsync(new FileTicketsContext(pipeline, project), CancellationToken.None);
+        return slot.Report ?? new FilingReport([], Filed.Message);
+    }
+
     /// <summary>A run's answer: the slot's report, or the failure of the step that ended it before any report.</summary>
     public async Task<FilingReport> FileAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct, string? proposalId = null)
