@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Tickets;
 using System.Net;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets.Closing;

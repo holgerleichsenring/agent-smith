@@ -5,6 +5,8 @@ using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using AgentSmith.Application.Services.Filing;
+using AgentSmith.Application.Services.TicketActs;
+using AgentSmith.Server.Services.Acts;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -50,6 +52,9 @@ internal static class SpecDialogExtensions
         // 2026-11-17-5701b: filing is the 'file' pipeline — its steps and the services the remaining server acts share
         // (recorder, branch write, starter, move) are registered once by AddFilingPipeline; FilingRun launches it.
         services.AddFilingPipeline().AddScoped<IFilingRun, FilingRun>();
+        // 2026-11-17-e061a: the acts on a filed ticket run as pipelines through the one act-run entry the filing shares.
+        services.AddTicketActPipelines().AddScoped<IActRun, Acts.ActRun>()
+            .AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier, Tickets.Closing.TicketCloseFailureClassifier>();
         services.AddScoped<SpecDialogLatestOutcomeStore>().AddScoped<SpecDialogProposalContinuity>(); // 2026-11-09-9a98
         services.AddScoped<TicketAmendment>().AddScoped<TicketDescriptionRewrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
@@ -98,7 +103,7 @@ internal static class SpecDialogExtensions
         // is added conditionally, and a server with the UI API off still runs conversations on chat.
         services.AddTransient<IFiledTicketWithdrawal>(sp => new FiledTicketWithdrawal(
             sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<Tickets.TicketProjects>(),
-            sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
+            sp.GetRequiredService<IActRun>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
             sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
         // 2026-09-15-6d9c: the proposal pane — what a turn would file, and what filing created. 14a3d: what a turn may offer.
         services.AddTransient<SpecDialogProposalComposer>().AddTransient<SpecDialogTurnMaterial>();

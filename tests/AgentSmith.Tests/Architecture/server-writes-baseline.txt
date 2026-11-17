@@ -5,6 +5,8 @@
 # list. Server callers that still move ticket status through those Application services, outside a run, are debt the
 # scanner cannot see and block 4 removes: Services/SpecDialog/Continuation/OperatorStart.cs and
 # Services/Rework/RequirementsMetStart.cs (both through FiledWorkMove).
+# 2026-11-17-e061a: a close, a withdrawal and a reopen run as 'close' and 'reopen' pipelines (Application/Services/
+# TicketActs) and left this list.
 AgentSmith.Server/Extensions/QueuedRunCancel.cs
 AgentSmith.Server/Extensions/RunControlEndpoints.cs
 AgentSmith.Server/Services/CapacityQueueDrop.cs
@@ -20,8 +22,6 @@ AgentSmith.Server/Services/Rework/WaitingRunCloser.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs
 AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs
-AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs
 AgentSmith.Server/Services/SpecDialog/TicketDescriptionRewrite.cs
-AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs
 AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs
 AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs

@@ -73,6 +73,11 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<ITicketRequirementStore, TicketRequirementRepository>() // 2026-10-14-dbcen: never-run rows and the graph
             .AddSingleton<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>();
         services.AddTicketReaders();
+        // 2026-11-17-e061a: the close act's 'close' and 'reopen' runs, their real steps in process.
+        AgentSmith.Application.Services.TicketActs.TicketActPipelineExtensions.AddTicketActPipelines(services);
+        services.AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier,
+            AgentSmith.Server.Services.Tickets.Closing.TicketCloseFailureClassifier>();
+        services.AddSingleton<AgentSmith.Server.Services.Acts.IActRun>(sp => new AgentSmith.Tests.TestSupport.ActSteps(Config, sp));
         services.AddTicketDefaults(); // 2026-10-13-8762p
         configure?.Invoke(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });

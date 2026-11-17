@@ -66,7 +66,7 @@ internal static class TicketReadExtensions
             .AddSingleton<TicketTrackerTextReader>()
             .AddTransient<TicketTextSnapshotReader>()
             .AddTransient<TicketTextReader>()
-            .AddTransient<TicketCloseHostActs>().AddTransient<TicketCloseAct>() // 2026-10-15-114fa
+            .AddTransient<TicketCloseAct>() // 2026-10-15-114fa; e061a: its acts are close and reopen runs
             .AddMemoryCache();
         return services;
     }

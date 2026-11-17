@@ -25,6 +25,8 @@ public static partial class PipelinePresets
             ["pr-review"] = "pr-review-master", // p0312c
             [SpecDialogName] = "design-partner-master",
             [FileName] = string.Empty, // 2026-11-17-5701b: a filing runs no master
+            [CloseName] = string.Empty, // 2026-11-17-e061a: an act on a filed ticket runs no master
+            [ReopenName] = string.Empty,
         };
 
     /// <summary>

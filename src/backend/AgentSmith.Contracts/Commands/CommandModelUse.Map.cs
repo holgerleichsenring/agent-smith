@@ -83,6 +83,7 @@ public static partial class CommandModelUse
         CommandNames.MergeMasterFindings, CommandNames.CollectMasterFindings,
         CommandNames.CompilePrReviewFindings, CommandNames.CollectSpecDialogReply,
         CommandNames.PlanFiling, CommandNames.FileTickets, // 2026-11-17-5701b
+        CommandNames.CloseTicket, CommandNames.ReopenTicket, // 2026-11-17-e061a
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
         CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete,

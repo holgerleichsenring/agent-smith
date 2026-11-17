@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-e061a
+
+decisions:
+  - category: Architecture
+    chose: "One server entry IActRun (ActRun) runs any act's preset with seeds on no token; FilingRun keeps IFilingRun and runs through it, and every later act (close, reopen, start, amend, comment, follow-up) launches the same way"
+    over: "A FilingRun-like launcher per act"
+    reason: "5701b's launcher was filing-specific only in its seeds and its slot. One entry keeps one way a server starts an act's run; the tests drive the real steps in process through one double (ActSteps)."
+  - category: Architecture
+    chose: "A generic ActSlot<T> under ContextKeys.ActOutcome carries each act's outcome back; FilingReportSlot stays for the filing"
+    over: "One slot class per act, as FilingReportSlot is"
+    reason: "The slot is the same mutable holder every time; only its payload differs. FilingReportSlot is left alone so block 3's branch is not churned."
+  - category: Architecture
+    chose: "The close's host acts and the mark move into Application/Services/TicketActs (TicketHostClose, TicketCloseActs); the failure class is ITicketCloseFailureClassifier, implemented by the server over TicketCloseFailureReason"
+    over: "Moving TicketCloseFailureReason into Application"
+    reason: "It reads Octokit and Azure DevOps exception types that only the server references. The filing steps already depend on interfaces only the server registers (ITicketExistence), so the handler resolving one more is the same shape."
+  - category: Implementation
+    chose: "TicketCloseAct keeps validation and the reads (runs, landings, review records, named pull requests) and seeds them into the run; the step does the host acts, the mark and the nudges"
+    over: "Moving the refusals into the step"
+    reason: "A refusal answers 404/409 to the page before anything changes; it writes nothing, and a run per refused click would list runs that did nothing. Application cannot read NamedPullRequestReader (Infrastructure.Persistence)."
+  - category: TradeOff
+    chose: "A close, a withdrawal and a reopen go through the full run prologue, as a filing does: a project with no repositories, or a prologue that fails, now answers 500 naming the run's message instead of closing"
+    over: "A lighter launch that skips the prologue"
+    reason: "Everything is a pipeline (2026-11-16-3596): an act has a run id, events and a ledger only through the run lifecycle. 5701b accepted the same prologue for filing; a project with no repository cannot run anything else either."
+  - category: Implementation
+    chose: "A withdrawal closes through the same host close as a person's close: Jira and Azure DevOps with a closed_status move there, and a failure is reported as its class"
+    over: "Keeping the withdrawal's bare CloseTicketAsync and the host's exception text"
+    reason: "Two ways to close a ticket on one tracker was a parallel path; the closed_status exists because the done status is wrong for a ticket nobody finished (2026-10-15-114fe). The class is what the ticket page already shows."
+  - category: Implementation
+    chose: "Reopen reads the mark first and refuses a ticket with none before any run; the step's own clear decides a race"
+    over: "Starting a 'reopen' run for every click"
+    reason: "A reopen of an open ticket changes nothing; a read is not a write, and it keeps the run list to acts that acted."
+  - category: Implementation
+    chose: "An act's run carries no ticket id"
+    over: "Passing the ticket id on the PipelineRequest"
+    reason: "A ticket id makes the run attach the ticket's lease and finalize the ticket, which a close must not do while the person's validation has already refused live attempts. The run list shows the run by its pipeline; tying it to the ticket page is block 5's restructuring."
+  - category: Tooling
+    chose: "Adversarial self-review before the commit: checked the 404/409 ordering is unchanged, the cancellation guarantee (no token inside the run), the race on reopen, the withdrawal's changed close path, and that the run's prologue needs a repository"
+    over: "Committing on green tests alone"
+    reason: "The tests pin the scenarios that existed; the review looked for what a pipeline launch changes around them. The findings are the TradeOff and the two Implementation entries above."

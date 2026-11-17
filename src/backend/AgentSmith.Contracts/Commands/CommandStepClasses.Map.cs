@@ -31,6 +31,8 @@ public static partial class CommandStepClasses
         [CommandNames.ReviewSpecDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
         [CommandNames.FileTickets] = Milestone, // 2026-11-17-5701b: it creates the tickets
+        [CommandNames.CloseTicket] = Milestone, // 2026-11-17-e061a: the act itself
+        [CommandNames.ReopenTicket] = Milestone,
         [CommandNames.InitCommit] = Milestone,
         [CommandNames.GenerateTests] = Milestone,
         [CommandNames.GenerateDocs] = Milestone,
