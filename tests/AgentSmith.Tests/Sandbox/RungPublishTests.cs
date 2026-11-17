@@ -1,7 +1,5 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
@@ -21,51 +19,10 @@ public sealed class RungPublishTests
     private static readonly RepoConnection Repo =
         new() { Name = "server", Type = RepoType.GitHub, Url = "https://example.invalid/repo.git" };
 
-    /// <summary>
-    /// A full clone that can also be pushed to: it answers ref checks from the branches it
-    /// knows, and a successful push teaches it the branch it just created.
-    /// </summary>
-    private sealed class PushSandbox(params string[] remoteBranches) : ISandbox
-    {
-        private readonly List<string> _branches = [.. remoteBranches];
-
-        public List<IReadOnlyList<string>> Ran { get; } = [];
-
-        public string JobId => "slice";
-
-        public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
-        {
-            var args = step.Args ?? [];
-            Ran.Add(args);
-            var (exit, output) = Answer(args);
-            return Task.FromResult(new StepResult(
-                StepResult.CurrentSchemaVersion, step.StepId, exit, false, 0.1, null, output));
-        }
-
-        public IReadOnlyList<string>? Pushed => Ran.FirstOrDefault(a => a.Contains("push"));
-
-        private (int Exit, string Output) Answer(IReadOnlyList<string> args)
-        {
-            if (args.Contains("symbolic-ref")) return (0, "origin/main");
-            if (args.Contains("push"))
-            {
-                _branches.Add(Rung);
-                return (0, string.Empty);
-            }
-            if (args.Contains("fetch")) return (0, string.Empty);
-            var wanted = args[^1];
-            return _branches.Any(b => wanted == $"refs/remotes/origin/{b}")
-                ? (0, "deadbeef")
-                : (1, string.Empty);
-        }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
     [Fact]
     public async Task RungPublish_AlreadyExists_AdoptsItAndDoesNotPush()
     {
-        var sandbox = new PushSandbox("main", Rung);
+        var sandbox = new RungPushSandbox(Rung, "main", Rung);
 
         var resolved = await TestGit.RungPublisher.EnsureAsync(
             sandbox, Repo, ParentTicket, CancellationToken.None);
@@ -80,7 +37,7 @@ public sealed class RungPublishTests
     [Fact]
     public async Task RungPublish_NeverUsesForceOrLease()
     {
-        var sandbox = new PushSandbox("main");
+        var sandbox = new RungPushSandbox(Rung, "main");
 
         await TestGit.RungPublisher.EnsureAsync(sandbox, Repo, ParentTicket, CancellationToken.None);
 
@@ -96,7 +53,7 @@ public sealed class RungPublishTests
     [Fact]
     public async Task RungPublish_NoParentStamp_PublishesNothing()
     {
-        var sandbox = new PushSandbox("main");
+        var sandbox = new RungPushSandbox(Rung, "main");
 
         var resolved = await TestGit.RungPublisher.EnsureAsync(
             sandbox, Repo, parentTicketId: null, CancellationToken.None);
@@ -111,7 +68,7 @@ public sealed class RungPublishTests
     [Fact]
     public async Task RungPublish_PublishedRung_CarriesTheFrameworkBranchConvention()
     {
-        var sandbox = new PushSandbox("main");
+        var sandbox = new RungPushSandbox(Rung, "main");
 
         var resolved = await TestGit.RungPublisher.EnsureAsync(
             sandbox, Repo, ParentTicket, CancellationToken.None);

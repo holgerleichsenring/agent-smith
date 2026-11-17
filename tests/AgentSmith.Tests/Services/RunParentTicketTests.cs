@@ -64,4 +64,34 @@ public sealed class RunParentTicketTests
         basis.ParentTicketId.Should().Be(RunBranchResolver.Resolve(pipeline)!.ParentTicketId,
             "the account resolves the base the cut used, not a base of its own");
     }
+
+    // 2026-11-17-9a39b: the claim's stamp wins over a label parent, in both shapes the context carries it.
+    [Fact]
+    public void RunParentTicket_AStackedRun_AnswersItsPrerequisite()
+    {
+        var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, "41");
+
+        RunParentTicket.Of(pipeline).Should().Be("41");
+        RunParentTicket.IsStacked(pipeline).Should().BeTrue();
+        RunBranchResolver.Resolve(pipeline)!.Stacked.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RunParentTicket_AStampAfterTheQueuesRoundTrip_IsRead()
+    {
+        var pipeline = WithTicket();
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, System.Text.Json.JsonDocument.Parse("\"41\"").RootElement);
+
+        RunParentTicket.Of(pipeline).Should().Be("41");
+    }
+
+    [Fact]
+    public void RunParentTicket_NoStamp_IsNotStacked()
+    {
+        var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
+
+        RunParentTicket.IsStacked(pipeline).Should().BeFalse();
+        RunBranchResolver.Resolve(pipeline)!.Stacked.Should().BeFalse();
+    }
 }

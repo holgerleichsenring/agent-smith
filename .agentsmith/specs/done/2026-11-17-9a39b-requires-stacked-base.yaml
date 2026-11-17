@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-9a39b
+goal: "A dependent started on a green prerequisite cuts its branch from the prerequisite's branch, opens its pull request against it, and merges it in again on its next run."
+
+applies_to: "default (Application/Services/Claim, RunParentTicket, Sandbox base ladder and rung publisher)"
+
+requires: [2026-11-17-9a39a]
+
+facts:
+  - claim: "The base ladder resolves one rung, composed from a parent ticket id, by a ref check on the full clone."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:40-58, src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:67-71"
+  - claim: "The run's base consumers read the parent through RunParentTicket.Of, from the ticket's labels: the work branch, the delivery diff, the foreign-commit probe, the branch-state preflight and the premise base replay."
+    evidence: "src/backend/AgentSmith.Application/Services/RunParentTicket.cs:24-29, src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:22, src/backend/AgentSmith.Application/Services/DeliveryBasis.cs:23, src/backend/AgentSmith.Application/Services/Specs/ForeignCommitProbe.cs:76, src/backend/AgentSmith.Application/Services/Preflight/Run/BranchStateCheck.cs:48, src/backend/AgentSmith.Application/Services/Specs/PremiseBaseReplay.cs:38"
+  - claim: "A run handed its branch (a pull-request command) leaves its base alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:62-67"
+  - claim: "The rung publisher CREATES a missing rung at the clone's base before the cut."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxRungPublisher.cs:46-70"
+  - claim: "A reused work branch merges its resolved base in; a found rung becomes the pull request's target, and an open pull request is moved onto it."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:69-71, src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:76-77, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:355-363"
+  - claim: "The requires gate runs before the claim lock; under the lock the executor hands the request's initial context to the run."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:35-36, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:41-52, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:110"
+
+scope:
+  in: "ContextKeys.StackedOnTicket. The claim, under its lock, asks ForStartAsync again: still unmet refuses with the gate's rejection (no cut from the default branch between two reads); a tip is stamped into a code claim's initial context; none removes a stale stamp. A resumed run keeps its stamp; after a landing its pull request is moved by 9a39c on the run's end. RunParentTicket.Of answers the stacked ticket before the label parent; RunParentTicket.IsStacked says which. RunBranch.Stacked; SandboxRungPublisher.EnsureAsync never publishes a stacked rung — a missing one falls through to the clone's base."
+  out: "Merging several prerequisites' branches: a dependent of two independent unlanded prerequisites waits (9a39a's tip rule). A run handed its branch keeps leaving its base alone, as for an epic rung. FiledTicketSpecGate and EpicParentReader keep reading the label parent: they are epic-only. Retarget on landing (9a39c)."
+
+steps:
+  - id: key
+    action: "ContextKeys.StackedOnTicket; StackedBaseStamp.StampAsync(request, project, requirements) used by TicketClaimService under the lock."
+  - id: parent
+    action: "RunParentTicket.Of reads ContextKeys.StackedOnTicket first; IsStacked(pipeline); RunBranchResolver sets RunBranch.Stacked."
+  - id: publisher
+    action: "SandboxRungPublisher.EnsureAsync(..., publish) skips the create when false; SandboxWorkBranchCheckout passes !requested.Stacked."
+
+tests:
+  - "StackedBaseStampTests: a green tip is stamped on a code claim, nothing on another pipeline or under on_merge, a stale stamp removed"
+  - "RunParentTicketTests: the stacked key wins over a label parent; IsStacked"
+  - "StackedBaseStampTests (the claim's under-lock read): a requirement that turned unmet between the gate and the lock is refused"
+  - "StackedRungPublishTests: a stacked rung present is the base; a missing one is never pushed and falls through"
+  - "StackedStartCompositionTests (RealCompositionHarness, ships with 9a39c, which carries it on to the landing): the prerequisite's code run ends green with a pull request, the RunEnd nudge wakes the dependent, its 'start' run starts it and its claim carries the prerequisite as the stacked base"
+
+done:
+  - "A stacked dependent's run is cut from and targets the prerequisite's branch; when that branch moved, its next run composed from its ticket merges it in; a missing prerequisite branch is never recreated."
