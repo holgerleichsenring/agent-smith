@@ -762,6 +762,16 @@ describe("SpecDialogSurface", () => {
     expect(root.className.split(/\s+/)).not.toContain("mock-config");
   });
 
+  // 2026-11-17-d762b: the conversation is plain text — the exchange is no card, its heading a plain h1.
+  it("SpecDialog_TheExchange_IsNoCard", async () => {
+    await renderSurface();
+
+    const exchange = screen.getByTestId("dialog-exchange");
+    expect(exchange.closest(".ecard")).toBeNull();
+    expect(exchange.className).toBe("dl-exchange");
+    expect((await screen.findByTestId("dialog-heading")).tagName).toBe("H1");
+  });
+
   // 2026-09-17-042ef: a repository and a template are each ONE mark, the Projects page's own.
   // A template says where it comes from after its name — "repo@revision", or a plain
   // repository where the scope pinned no revision.
@@ -3150,7 +3160,7 @@ describe("SpecDialogSurface", () => {
 
     const turn = await screen.findByTestId("dialog-turn-agent");
     expect(turn.querySelector(".sr-only")).toHaveTextContent("agent-smith:");
-    expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent("AS");
+    expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent(/^agent$/);
     expect(within(turn).queryAllByRole("button")).toHaveLength(0);
     const selected = screen.getByRole("tab", { selected: true });
     const panel = screen.getByRole("tabpanel");

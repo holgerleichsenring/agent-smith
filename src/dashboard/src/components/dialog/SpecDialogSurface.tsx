@@ -347,34 +347,36 @@ export function SpecDialogSurface() {
         {/* A refusal reads as one here: FailedSurface branches on it, so a caller who
             may not hold spec dialogs is told that rather than shown a stack. */}
         {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
-        <section className="ecard inert unclipped min-w-0">
-          <div className="d-head">
+        {/* 2026-11-17-d762b: the exchange is plain text in a reading column, no card — the ticket page's What
+            happened (8d1cb): the heading as lines, the turns, and the composer under one hairline. */}
+        <section className="dl-exchange" data-testid="dialog-exchange">
+          <div className="dl-head">
             {/* 2026-09-17-042em: the header names the open session's PROJECT — this is
                 where a person reads what the conversation they are in is about.
                 2026-09-23-6e3f: and the choice that picks one for the NEXT conversation is
                 this column's empty state, so the two are never on screen together and
                 neither can be read as the other. */}
-            <div className="d-head-t">
-              <h2 data-testid="dialog-heading" className="ec-name sans min-w-0">
-                {title ?? "New conversation"}
-              </h2>
+            <h1 data-testid="dialog-heading" className="dl-title">
+              {title ?? "New conversation"}
+            </h1>
+            <div className="dl-sub">
               {session && (
-                <span data-testid="dialog-exchange-project" className="ec-sub">
-                  in <span className="fv">{session.scope.name}</span>
+                <span data-testid="dialog-exchange-project">
+                  in <span className="given">{session.scope.name}</span>
                 </span>
               )}
+              {/* The dialog id IS the session key: a page that lost it would open a second
+                  conversation beside one still running, and an operator comparing two tabs
+                  needs to see which is which. */}
+              <span data-testid="dialog-identity" className="mono">
+                {session
+                  ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
+                  : `dialog ${dialog.dialogId ?? ""} · no session open`}
+              </span>
             </div>
-            {/* The dialog id IS the session key: a page that lost it would open a second
-                conversation beside one still running, and an operator comparing two tabs
-                needs to see which is which. */}
-            <span data-testid="dialog-identity" className="ec-sub font-mono">
-              {session
-                ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
-                : `dialog ${dialog.dialogId ?? ""} · no session open`}
-            </span>
             {session?.workPicture && <DialogWorkPicture picture={session.workPicture} />}
           </div>
-          <div className="d-body flex flex-col gap-4">
+          <div className="dl-body">
             {/* 2026-09-27-5c1eb: ABOVE the branch, so it renders in both states — the project
                 choice is not rendered at all on a single-project installation, and it unmounts
                 the moment a project is picked. The reason a ticket did not name one project

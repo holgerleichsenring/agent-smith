@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-d762b
+
+decisions:
+  - category: Behaviour
+    chose: "The exchange is a plain section (dl-exchange) at most 720px wide: the title as a 22px h1 (the ticket page's heading size), project and identity as one muted line, then the turns"
+    over: "The ecard with its head bar and body padding"
+    reason: "Operator: narrower text, no boxes, like the ticket page; 720px holds a prose line near 90 characters, the measure What happened reads at."
+  - category: Behaviour
+    chose: "Speakers are the small muted words 'you' and 'agent' in a 44px column; the screen-reader names stay"
+    over: "The OP/AS badges without their fill"
+    reason: "Initials in a box were the badge; two lowercase words read as text and the ticket page's thread names its speakers in words too."
+  - category: Behaviour
+    chose: "An upload is one line: 'upload <name> · n files · size · show files', the name in mono, show files a d-link button"
+    over: "The upload card with a Show files button"
+    reason: "Operator's wording; the link keeps opening the upload in the pane."
+  - category: Behaviour
+    chose: "Inside the exchange, ecards (document, question, mock) lose fill, frame and shadow and keep a left hairline, an accent one while waiting; marks lose their fill and keep their colour"
+    over: "Restyling each card component"
+    reason: "One rule in spec-dialog.css flattens every card the transcript can hold, the ticket page's ticket-thread.css does the same for its panes; the components and their tests stay as they are."
+  - category: Behaviour
+    chose: "The composer sticks to the foot of the column under one top hairline; its field has no box; the plus loses its frame, send keeps its fill; File/Discard stay above the field"
+    over: "The composer as the card's foot strip"
+    reason: "The ticket composer (8d1cb) is the same: one hairline, unboxed field. Send stays filled as the one primary act."
+  - category: Process
+    chose: "The attach-menu source test now asserts the exchange is the dl-exchange section and that no dl-exchange rule hides overflow"
+    over: "Keeping the .ecard.unclipped assertion"
+    reason: "The card it guarded is gone; what must stay true is that nothing around the composer clips the menu."

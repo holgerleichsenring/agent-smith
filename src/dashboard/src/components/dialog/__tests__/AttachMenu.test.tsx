@@ -12,10 +12,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 describe("The attach menu", () => {
   it("AttachMenu_EmptyConversation_AllEntriesVisible", () => {
     const css = readFileSync(join(here, "../../../styles/mock-parity.css"), "utf8");
+    const sheet = readFileSync(join(here, "../../../styles/spec-dialog.css"), "utf8");
     const surface = readFileSync(join(here, "../SpecDialogSurface.tsx"), "utf8");
 
-    expect(css).toMatch(/\.mock-dialog \.ecard\.unclipped \{ overflow: visible; \}/);
-    expect(surface).toContain('<section className="ecard inert unclipped min-w-0">');
+    // 2026-11-17-d762b: the exchange is no card any more, so nothing around the composer clips the menu.
+    expect(surface).toContain('<section className="dl-exchange" data-testid="dialog-exchange">');
+    expect(sheet).not.toMatch(/\.dl-exchange[^{]*\{[^}]*overflow: hidden/);
     expect(css).toMatch(/\.mock-dialog \.d-menu\.down \{ top: calc\(100% \+ 6px\); bottom: auto; \}/);
   });
 
