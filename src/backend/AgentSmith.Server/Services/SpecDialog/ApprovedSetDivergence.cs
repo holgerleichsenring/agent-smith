@@ -29,15 +29,17 @@ public sealed class ApprovedSetDivergence(
     /// The difference, or null when there is no approved set, no project to key it by, or the two
     /// already say the same thing — the case a rendered section would be noise in.
     /// </summary>
+    /// <param name="approvedOnly">2026-11-17-dd05d: only a set someone approved — the ticket page names a divergence for
+    /// a body this system rendered, never for a person's ticket a run derived its specs from.</param>
     public async Task<SetDivergence?> ForAsync(
-        ResolvedProject? project, string ticketId, string ticketText, CancellationToken ct)
+        ResolvedProject? project, string ticketId, string ticketText, CancellationToken ct, bool approvedOnly = false)
     {
         if (project is null || string.IsNullOrWhiteSpace(ticketId)) return null;
         try
         {
             var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
             var read = await branch.ReadAsync(project, key, new TicketId(ticketId), ct);
-            return read.Set is not { Specs.Count: > 0 } set
+            return read.Set is not { Specs.Count: > 0 } set || (approvedOnly && set.Approval is null)
                 ? null
                 : TicketSetDivergence.Between(ticketText, [.. set.Specs.Select(spec => spec.Draft.Goal)]);
         }

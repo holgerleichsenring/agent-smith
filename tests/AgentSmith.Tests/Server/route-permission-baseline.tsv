@@ -124,6 +124,7 @@ POST	/api/spec-dialog/images	dialog.write	dialog
 POST	/api/spec-dialog/messages	dialog.write	body
 POST	/api/spec-dialog/references	dialog.write	dialog
 POST	/api/teams/messages	anonymous	-
+POST	/api/tickets/{project}/{ticketId}/body	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/derive-specs	runs.control	route:project
@@ -147,3 +148,4 @@ PUT	/api/config/repos/{id}	config.write	-
 PUT	/api/config/secrets/{id}	secrets.write	-
 PUT	/api/config/settings/{type}	config.write	-
 PUT	/api/config/trackers/{id}	config.write	-
+PUT	/api/tickets/{project}/{ticketId}/specs/{specId}	runs.control	route:project

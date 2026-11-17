@@ -26,17 +26,26 @@ public sealed class TicketDescriptionRewrite(ITicketProviderFactory trackers, IL
     public async Task<string> WriteAsync(
         ResolvedProject project, TicketId id, string region, SpecApprovalRecord? previous, CancellationToken ct)
     {
+        var rewrite = await RewriteAsync(project, id, region, previous, ct);
+        return rewrite.Rewritten ? "The ticket's description now says what it says."
+            : $"The ticket's description was not rewritten: {rewrite.Reason}";
+    }
+
+    /// <summary>2026-11-17-dd05b: the tracker's answer itself, for a caller that acts on it; a throw is a failure.</summary>
+    /// <param name="placement">The caller's placement; null decides it from the labels and the previous record.</param>
+    public async Task<TicketRewriteResult> RewriteAsync(
+        ResolvedProject project, TicketId id, string region, SpecApprovalRecord? previous, CancellationToken ct,
+        RegionPlacement? placement = null)
+    {
         try
         {
-            var placement = await PlacementAsync(project, id, previous, ct);
-            var rewrite = await trackers.CreateRewriter(project.Tracker).RewriteRegionAsync(id, region, placement, ct);
-            return rewrite.Rewritten ? "The ticket's description now says what it says."
-                : $"The ticket's description was not rewritten: {rewrite.Reason}";
+            placement ??= await PlacementAsync(project, id, previous, ct);
+            return await trackers.CreateRewriter(project.Tracker).RewriteRegionAsync(id, region, placement.Value, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Rewriting the description of ticket {Ticket} failed", id.Value);
-            return $"The ticket's description was not rewritten: {ex.Message}.";
+            return TicketRewriteResult.Failed($"{ex.Message}.");
         }
     }
 

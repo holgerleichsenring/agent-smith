@@ -1,3 +1,4 @@
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
@@ -67,9 +68,10 @@ internal static class TicketReadExtensions
             .AddTransient<TicketConversationReader>()
             .AddSingleton<TicketTrackerTextReader>()
             .AddTransient<TicketTextSnapshotReader>()
-            .AddTransient<TicketTextReader>()
+            .AddTransient<TicketTextReader>().AddTransient<TicketTextDivergence>() // 2026-11-17-dd05d
             .AddTransient<TicketCloseAct>() // 2026-10-15-114fa; e061a: its acts are close and reopen runs
             .AddMemoryCache();
+        services.TryAddTransient<ApprovedSetDivergence>(); // 2026-11-17-dd05d: the ticket text's divergence, as the dialog asks it
         return services;
     }
 }

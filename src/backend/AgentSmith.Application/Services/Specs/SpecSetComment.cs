@@ -32,6 +32,7 @@ public static class SpecSetComment
     /// start of the body rather than anywhere in it.
     /// </summary>
     public const string RecutDemand = "cut this specification again";
+    public const string DoneHeading = "Done when:"; // 2026-11-17-dd05a: once per spec; the ticket page counts by it
 
     /// <param name="pullRequests">2026-10-12-f5f7e: repository → spec pull request; a repository the
     /// set no longer names is listed as dropped.</param>
@@ -99,7 +100,7 @@ public static class SpecSetComment
             sb.AppendLine($"**Contexts:** {string.Join(", ", spec.Draft.Contexts)}");
             sb.AppendLine();
         }
-        sb.AppendLine("**Done when:**");
+        sb.AppendLine($"**{DoneHeading}**");
         foreach (var criterion in spec.Draft.Done) sb.AppendLine($"- {criterion}");
         if (spec.Draft.Facts.Count > 0)
         {

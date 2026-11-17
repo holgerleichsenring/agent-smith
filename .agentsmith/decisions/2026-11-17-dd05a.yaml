@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-dd05a
+
+decisions:
+  - category: Architecture
+    chose: "The ticket page's read turns the posted cut comment into one line; the comment on the tracker keeps its body"
+    over: "Shortening the comment the run posts"
+    reason: "The comment is the tracker reader's only view of the cut; the page has the Specs section, so only the page's copy is redundant."
+  - category: Implementation
+    chose: "Count the specs by the 'Done when:' label each spec carries once, owned as SpecSetComment.DoneHeading"
+    over: "Parsing spec ids out of the headings, or joining the attempt's series"
+    reason: "The label survives the four trackers' re-encodings (HTML strong, ADF, markdown); a heading's id does not on every one, and a spec-derive run has no attempt series to join."
+  - category: Implementation
+    chose: "Only a comment whose first text line carries the cut phrase is collapsed; the revision is shown only when the comment falls inside the run it is placed under; 'from Work it out' only when the attempt's approval names a conversation"
+    over: "Collapsing any comment of ours that contains the phrase, always naming the placed attempt's revision, and wording every approved cut as Work it out's"
+    reason: "Review found a reply quoting our comment counts as ours, a spec-derive run's comment is placed under an earlier attempt, and a recut demand approves with no conversation; each would make the line say something untrue."

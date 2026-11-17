@@ -106,6 +106,26 @@ public sealed class TicketConversationReadTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketConversation_PostedCutComment_ReadsAsOneLine()
+    {
+        var revised = Attempt("r-1", 0);
+        await _h.AddAsync(revised, new RunAttempt { RunId = "r-1", RevisionNumber = 5 });
+        Thread(Comment("c-9", "agent-smith", 10, AgentSmith.Application.Services.Specs.SpecSetComment.Render(
+            CutOfTwo(), null, new AgentSmith.Contracts.Models.Configuration.SeriesConfig())));
+
+        var entry = (await ReadAsync()).Entries.Should().ContainSingle().Subject;
+
+        (entry.Kind, entry.Text, entry.AttemptRunId).Should().Be((TicketConversationKinds.SpecSet, "2 specs derived, revision 5", "r-1"));
+    }
+
+    private static AgentSmith.Contracts.Specs.SpecSet CutOfTwo() => new(
+        "github:42",
+        [.. new[] { "s1", "s2" }.Select(id => new AgentSmith.Contracts.Specs.DerivedSpec(
+            new AgentSmith.Contracts.Models.SpecDraft(id, $"Goal {id}", $"spec: {id}", []) { Done = ["it works"] }, id, string.Empty, []))],
+        AgentSmith.Contracts.Specs.SpecAccounting.Empty,
+        [new AgentSmith.Contracts.Specs.SpecRevision(5, "comment", T)], AgentSmith.Contracts.Specs.SpecSource.Derived);
+
+    [Fact]
     public async Task TicketConversation_WorkerLaterAnswerComment_IsOursTicketEntry()
     {
         await _h.AddAsync(Attempt("r-1", 0));
