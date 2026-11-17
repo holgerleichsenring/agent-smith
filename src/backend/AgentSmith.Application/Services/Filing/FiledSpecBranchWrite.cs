@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Filing;
 /// question of its own — what a tracker call that fails AFTER the ticket exists costs.
 /// <para>
 /// The set is fingerprinted from the ticket AS THE TRACKER STORED IT, read back through the
-/// provider that created it: the comparison a later run makes is taken over a fetched ticket's
+/// provider that created it, minus the label note a run's fetch strips (2026-11-17-b6e4a): the comparison a later run makes is taken over a fetched ticket's
 /// text, and a tracker that round-trips markup would make a fingerprint taken over the body we
 /// rendered differ from the very next read and report a spurious edit on the first run.
 /// </para>

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-b6e4a
+goal: "Filing fingerprints the ticket text the way a run reads it, so the first run of a filed ticket does not record a ticket edit nobody made."
+
+applies_to: "default (filed spec branch write, ticket fingerprint)"
+
+requires: [2026-11-17-5701b]
+
+facts:
+  - claim: "Filing writes revision 1 with the fingerprint of the ticket as read back from the tracker, label note included."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:105-110"
+  - claim: "A run fingerprints the ticket after stripping the label note filing wrote into its description."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:55, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:145"
+  - claim: "A fingerprint that differs from the set's is read as a ticket edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:90-93"
+  - claim: "The first coding run of a filed ticket wrote revision 2 'ticket text edited since the previous revision' with a fingerprint other than revision 1's, though nothing edited the ticket."
+    evidence: "observed: 2026-11-17, e2e replay branch agent-smith/SCRUM-30: revision 1 fingerprint 8446c486…, revision 2 fingerprint 91c9ab90…"
+
+scope:
+  in: "FiledSpecBranch fingerprints TicketLabelNoteStripper.Strip(ticket); that covers filing and the amendment path (TicketAmendment), which feeds it the same unstripped read-back; the doc comments of FiledSpecBranch and FiledSpecBranchWrite say the fingerprint is the stored text minus the label note."
+  out: "Branches already written with the unstripped fingerprint: their next run records one edit, as today."
+
+steps:
+  - id: strip
+    action: "FiledSpecBranch.Published takes TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(ticket))."
+
+tests:
+  - "FiledSpecBranchTests: a ticket whose description carries the label note is fingerprinted as FetchTicket fingerprints it"
+  - "TicketAmendmentTests: the amended revision's fingerprint is the stripped ticket's"
+
+done:
+  - "A filed or amended ticket's next run never reads its revision cause as a ticket edit when nobody edited the ticket."

@@ -222,6 +222,22 @@ public sealed class FiledSpecBranchTests
                 "a fingerprint over the body we SENT would report an edit on the first run");
     }
 
+    /// <summary>2026-11-17-b6e4a: a run fingerprints the ticket with the label note stripped, so filing does too —
+    /// the note filing writes into the body is no edit the first run may report.</summary>
+    [Fact]
+    public async Task Filing_TicketCarryingTheLabelNote_IsFingerprintedAsARunFetchesIt()
+    {
+        var sources = new RecordingBranchSources();
+        var note = TicketLabelNote.For(["spec:approved"], "spec:approved")!;
+        var provider = new JournallingProvider { Body = StoredBody + "\n" + note };
+
+        await FileAsync(sources: sources, provider: provider);
+
+        new SeriesManifest().FingerprintOf(Index(sources)).Should()
+            .Be(TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(provider.Stored)), "FetchTicket strips the note first")
+            .And.Be(TicketTextFingerprint.Of(Stored()), "the note is not part of the text a run compares");
+    }
+
     /// <summary>
     /// A spec-path commit whose sha is not the one this system recorded is read as a REVIEWER'S
     /// EDIT, and an absent pointer reads the same way — so without the pointer the very first run
@@ -628,8 +644,9 @@ public sealed class FiledSpecBranchTests
 
         internal bool ReadBackFails { get; init; }
 
-        internal Ticket Stored { get; } =
-            new(new TicketId("1"), StoredTitle, StoredBody, null, "open", "journalling", []);
+        internal string Body { get; init; } = StoredBody;
+
+        internal Ticket Stored => new(new TicketId("1"), StoredTitle, Body, null, "open", "journalling", []);
 
         public string ProviderType => "journalling";
 

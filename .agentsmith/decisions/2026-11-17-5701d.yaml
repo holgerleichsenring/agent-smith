@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-5701d
+
+decisions:
+  - category: Implementation
+    chose: "Pin the embedded catalog to the released v5.33.0 tarball (checked against its published sha256) and update the csproj version and SkillsCatalogSha256, the example config and the docs that name the pinned version"
+    over: "Building a tarball from the skills branch"
+    reason: "The pin is the released artifact operators can verify; the release carries design-partner-master 3.4.0, which writes each ticket's specs under draft:tickets/<key>/."
+  - category: Testing
+    chose: "TicketGraphSkillRulesTests read the new ticket rule (a ticket carries its specs, where they are written, that filing puts them on the ticket's branch) and the size rule's new tail"
+    over: "Dropping the assertions on the ticket sentences"
+    reason: "The tests are the guard that the pinned master says what the filing pipeline (5701a/5701b) expects; the old sentences said the run derives, which is no longer true."
+  - category: Testing
+    chose: "The first design turn's size ceiling in SpecDialogPromptSizeTests rises from 39000 to 40000 characters, with the measurement (39053) recorded beside the earlier ones"
+    over: "Trimming the new ticket-spec sentences out of the master or the write_file format"
+    reason: "The 53 characters over are the text that tells the master where a ticket's specs go; the test exists to make each growth a recorded decision, not to forbid it."

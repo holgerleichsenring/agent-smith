@@ -54,7 +54,7 @@ public sealed class TicketGraphSkillRulesTests
     public void EmbeddedSkills_DesignPartnerMaster_TicketIsWrittenAgainstItsMergedRequiresAndSizedForOneRun() =>
         DesignPartner().Should().Contain(
             "Its requirement describes the change against the code as it stands once its requires have merged, "
-            + "small enough for one run to build, review and merge.",
+            + "small enough for one run to build, review and merge; its specs state their facts against that state too.",
             Because("the ticket size rule"));
 
     [Fact]
@@ -79,10 +79,11 @@ public sealed class TicketGraphSkillRulesTests
     {
         var master = DesignPartner();
 
-        master.Should().Contain("**A ticket** is a ticket text: the run it starts derives its own specs.",
-            Because("a ticket carries no spec"));
+        master.Should().Contain("**A ticket** carries its specs.", Because("a ticket carries its specs (2026-11-17-5701d)"));
         master.Should().Contain(
-            "A ticket waits until its requires merge; to settle its specs earlier, the operator opens Work it out on it.",
+            "its specs under `draft:tickets/<key>/` are written like any spec, reviewed in this turn, and filed onto the "
+            + "ticket's branch, so its run builds them.",
             Because("the filing sentence"));
+        master.Should().Contain("`draft:tickets/<key>/<label>.yaml`", Because("where a ticket's specs are written"));
     }
 }

@@ -236,7 +236,7 @@ public sealed class TicketAmendmentTests : IDisposable
         var manifest = sources.Writes[0].Paths.Single(p => p.StartsWith(SeriesPaths.SeriesRoot + "/", StringComparison.Ordinal));
         var written = new SeriesManifest().FingerprintOf(
             new SeriesManifest().Parse(sources.Writes[0].ContentOf(manifest))!);
-        written.Should().Be(TicketTextFingerprint.Of(tracker.Ticket()),
+        written.Should().Be(TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(tracker.Ticket())),
             "the next run compares against the ticket as it stands after the amendment")
             .And.NotBe(before, "a fingerprint of the ticket before the rewrite reports an edit nobody made");
     }

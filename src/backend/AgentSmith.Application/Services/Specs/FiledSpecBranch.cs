@@ -46,7 +46,7 @@ public sealed class FiledSpecBranch(
     IConversationMockReader? mocks = null)
 {
     /// <param name="ticket">The ticket as the TRACKER stored it, which is what the set is
-    /// fingerprinted from — never the body we rendered.</param>
+    /// fingerprinted from, minus the label note as a run's fetch strips it (2026-11-17-b6e4a) — never the body we rendered.</param>
     /// <param name="sources">Filed id to the proposal's spec id, through which a ratified mock is read.</param>
     public async Task<BranchWriteResult> WriteAsync(
         ResolvedProject project, SpecApprovalRecord record, TicketId ticketId, Ticket? ticket,
@@ -106,7 +106,7 @@ public sealed class FiledSpecBranch(
         record.Set with
         {
             Revisions = [new SpecRevision(1, ApprovedSetHandoff.CauseOf(record), DateTimeOffset.UtcNow)],
-            TicketFingerprint = TicketTextFingerprint.Of(ticket),
+            TicketFingerprint = TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(ticket)), // 2026-11-17-b6e4a: as FetchTicket reads it
             Executed = [.. executed],
         };
 }

@@ -31,6 +31,7 @@ const SECTION_OF: Record<string, StepSectionId> = {
   LoadCodingPrinciples: "ready", LoadMemoryIndex: "ready", LoadDesignSystem: "ready", LoadContext: "ready",
   LoadSkills: "ready", LoadRuns: "ready", LoadSwagger: "ready", AcquireSource: "ready", BootstrapDocument: "ready",
   SessionSetup: "ready", PublishProjectLanguage: "ready", GroundSpecDialog: "ready",
+  RunConfigPreflight: "ready", PlanFiling: "ready", // 2026-11-17-b6e4b
   Triage: "spec", DeriveSpec: "spec", SpecHandback: "spec", ReviewSpecs: "spec", SpecSequence: "spec",
   SelectSpec: "spec", EmptyPlanCheck: "spec", Approval: "spec", CheckSpecPremises: "spec", SpecGate: "spec",
   Ask: "spec", GeneratePlan: "spec", PlanOpenQuestions: "spec", RatifyScanContract: "spec",
@@ -41,7 +42,7 @@ const SECTION_OF: Record<string, StepSectionId> = {
   ReviewSpecDiff: "review", RunReviewPhase: "review",
   WriteSpecRecord: "deliver", WriteRunResult: "deliver", CommitAndPR: "deliver", PrCrossLink: "deliver",
   PersistWorkBranch: "deliver", DeliverOutput: "deliver", InitCommit: "deliver", InitComplete: "deliver",
-  PostPrComments: "deliver", WriteTickets: "deliver", DeliverFindings: "deliver",
+  PostPrComments: "deliver", WriteTickets: "deliver", DeliverFindings: "deliver", FileTickets: "deliver",
 };
 
 /** "AgenticMasterCommand:portal-api" and "AgenticMaster" both name AgenticMaster. */

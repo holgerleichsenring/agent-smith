@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-5701d
+goal: "The embedded skills catalog is pinned to the release whose design partner writes each ticket's specs under draft:tickets/<key>/."
+
+applies_to: "default (embedded skills catalog, skills config default, skill-text tests, docs)"
+
+requires: [2026-11-17-5701a]
+
+facts:
+  - claim: "The pinned design-partner-master says a ticket is a ticket text whose run derives its own specs."
+    evidence: "observed: 2026-11-17, agent-smith-skills v5.32.0 skills/_masters/design-partner-master/SKILL.md:205-211"
+  - claim: "A pin replaces the embedded tarball, the csproj reference, the example config and the version the skill-text tests read."
+    evidence: "observed: 2026-11-17, git show --stat e3641439d"
+
+scope:
+  in: "The release of the skills PR that teaches the master to write a ticket's specs; the pin to it."
+  out: "Any skill text change (the skills repo PR)."
+
+steps:
+  - id: pin
+    action: "Replace the embedded agentsmith-skills tarball with the new release, update the csproj, config/agentsmith.example.yml, the docs that name the pinned version and the version the skill-text tests read; TicketGraphSkillRulesTests reads the ticket-spec rule."
+
+tests:
+  - "SkillsConfigValidatorTests and TicketGraphSkillRulesTests against the new pin"
+
+done:
+  - "The embedded catalog's design-partner-master names draft:tickets/<key>/<label>.yaml."
