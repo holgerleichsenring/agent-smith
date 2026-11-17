@@ -22,6 +22,16 @@ internal static class RepoPathRouter
         IReadOnlyDictionary<string, ISandbox> sandboxes, string? path) =>
         Match(sandboxes, path);
 
+    /// <summary>2026-11-17-5701f: the path below a leading '<paramref name="name"/>/', by the rule
+    /// <see cref="Match{T}"/> routes on; null when the path does not start with the name and a slash, or names
+    /// nothing below it.</summary>
+    internal static string? Below(string? name, string path)
+    {
+        if (string.IsNullOrEmpty(name) || path.Length <= name.Length + 1) return null;
+        return path.StartsWith(name, StringComparison.Ordinal) && path[name.Length] == '/'
+            ? path[(name.Length + 1)..] : null;
+    }
+
     private static (string Key, T? Value) Match<T>(IReadOnlyDictionary<string, T> entries, string? path)
         where T : class
     {

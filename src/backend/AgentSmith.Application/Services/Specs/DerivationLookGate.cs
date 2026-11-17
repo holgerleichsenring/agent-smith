@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -15,11 +16,14 @@ internal sealed class DerivationLookGate
 {
     private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly IReadOnlySet<string> _templates;
+    private readonly IReadOnlyDictionary<string, string> _names;
 
     public DerivationLookGate(
         IReadOnlyDictionary<string, ISandbox> targets,
-        IReadOnlyDictionary<string, ISourceScopeSandbox> templates, DerivationLookTerms terms)
+        IReadOnlyDictionary<string, ISourceScopeSandbox> templates, DerivationLookTerms terms,
+        IReadOnlyDictionary<string, string>? names = null)
     {
+        _names = names ?? new Dictionary<string, string>(StringComparer.Ordinal);
         _sandboxes = Merge(targets, templates);
         _templates = new HashSet<string>(templates.Keys, StringComparer.Ordinal);
         Budget = new DerivationLookBudget(terms);
@@ -72,6 +76,15 @@ internal sealed class DerivationLookGate
         sandbox = found;
         return true;
     }
+
+    /// <summary>
+    /// 2026-11-17-5701f: <paramref name="path"/> without a leading '&lt;repository name&gt;/' of the opened
+    /// <paramref name="key"/> (<see cref="AgentSmith.Contracts.Commands.ContextKeys.SandboxRepos"/>). A
+    /// single-repository run keys its sandbox 'default' while a design turn cites '&lt;repository&gt;/&lt;path&gt;';
+    /// null when the key names no repository or the path does not start with it.
+    /// </summary>
+    public string? WithoutRepositoryName(string key, string path) =>
+        RepoPathRouter.Below(_names.GetValueOrDefault(key), path);
 
     private static Dictionary<string, ISandbox> Merge(
         IReadOnlyDictionary<string, ISandbox> targets,

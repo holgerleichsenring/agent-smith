@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-5701f
+
+decisions:
+  - category: Implementation
+    chose: "The look's gate carries the key-to-name map (ContextKeys.SandboxRepos) and the look answers WithoutRepositoryName(key, path); the strip rule is RepoPathRouter.Below, the name then '/'"
+    over: "Rewriting the spec's paths at filing, or opening a look by repository name"
+    reason: "Stages and evidence stay keyed by sandbox key, and the spec stays as reviewed. One rule for the prefix, beside the router that already routes it for the turn's tools."
+  - category: Implementation
+    chose: "The given path is tried first; the stripped path is adopted only when the stripped read found the file, or the stripped search ran (exit 0 or 1)"
+    over: "Stripping before the first read, or adopting the fallback whatever it returned"
+    reason: "A repository holding a folder of its own name reads that folder. When both reads miss, the answer and the evidence name the path the holder asked for."
+  - category: Implementation
+    chose: "A search falls back on exit 2, the could-not-run code both engines answer a missing path filter with"
+    over: "Probing whether the path exists before searching"
+    reason: "A probe would cost a step on every search. Exit 2 from another cause, such as a bad pattern, fails again on the stripped path and keeps the original result."
+  - category: TradeOff
+    chose: "The fallback reuses the opened sandbox and charges no second look"
+    over: "A second TryOpen per fallback"
+    reason: "The holder asked one question. Charging twice would spend the allowance on the framework's routing."
+  - category: Implementation
+    chose: "PremiseCitedLookTests pins the premise check's look reading the real file with exit 0, not an admission outcome"
+    over: "Asserting PremiseCheckAdmission refuses a false finding"
+    reason: "Admission does not read a look's content. The run stopped because the look reported an absence, and that is what the test proves no longer happens."
