@@ -26,3 +26,7 @@ decisions:
     chose: "Adversarial self-review: a rung (agent-smith/<parent>) whose slices still have open pull requests must survive; a project sharing a repository with another is swept twice"
     over: "Ignoring either"
     reason: "The verdict keeps a branch any open pull request targets. A second sweep of a shared repository finds nothing left to delete; deduplicating across projects was not worth a second key."
+  - category: Implementation
+    chose: "No floor on branch_cleanup.interval_seconds beyond a positive value; the spec's step 'config' (under 3600 refused) is superseded by this entry"
+    over: "A hard-coded 3600 floor, or a second key configuring the floor of the first"
+    reason: "HardCodedLimitRatchetTests (2026-11-17-274cc, merged meanwhile) flags the const. The interval already is the configuration of how often the sweep spends host API calls, so a floor on it overrules the operator's own setting, and a key for the floor would configure a configuration. Zero or less stays refused because it is no interval, which the message says with value and key. The GitLab page size (100) bounds nothing — every page is read — and carries '// not a limit'."

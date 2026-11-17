@@ -294,7 +294,7 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean", "description": "Whether the server starts branch-cleanup runs. Default true." },
-        "interval_seconds": { "type": "integer", "minimum": 3600, "description": "Seconds between two branch-cleanup runs of a project. Under 3600 is refused: each run lists every agent-smith/ branch and its pull requests over the host API, which rate-limits. Default 86400." }
+        "interval_seconds": { "type": "integer", "minimum": 1, "description": "Seconds between two branch-cleanup runs of a project. Each run lists every agent-smith/ branch and its pull requests over the host API, so a short interval spends that host's rate limit; how often is the operator's choice. Zero or less is refused. Default 86400." }
       }
     },
     "dialogue": {

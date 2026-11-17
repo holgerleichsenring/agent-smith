@@ -12,7 +12,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class GitLabWorkBranches(
     string baseUrl, string projectPath, string privateToken, HttpClient httpClient) : IWorkBranchCleanup
 {
-    private const int PageSize = 100;
+    private const int PageSize = 100; // not a limit: the page size GitLab serves at most; every page is read
 
     public async Task<IReadOnlyList<WorkBranchTip>> ListWorkBranchesAsync(CancellationToken cancellationToken)
     {
