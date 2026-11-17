@@ -67,7 +67,7 @@ secrets:
 
 GitHub-specific things to notice:
 
-- **`url` on the tracker is a repository** — GitHub has no Azure-DevOps-style project concept. Issues belong to a repo, so the tracker names the one repo whose issues Agent Smith reads and writes.
+- **`url` on the tracker is a repository** — GitHub has no Azure-DevOps-style project concept. Issues belong to a repo, so the tracker names the one repo whose issues codeably reads and writes.
 - **`open_states: [open]` + `done_status: closed`** — GitHub Issues are binary, open or closed. There's no in-between state.
 - **`resolution: { tag: todolist }`** — a label on the issue picks the project. The agent still touches all repos in `projects.X.repos` during the run; the resolution is about *which project to wake up*, not which repo to change. The `repo` strategy (route by the repo the issue was filed in) only works for a project with exactly one repo; see [Project resolution](../reference/configuration/project-resolution.md).
 - **`work_item_kinds` does nothing here** — GitHub issues have no type to pick, so the tracker ignores it.
@@ -86,7 +86,7 @@ export GITHUB_TOKEN=ghp_...
 
 The tracker and the repos read the token through the secret their `auth` names (`github_token: ${GITHUB_TOKEN}`), for API calls and for clone and push alike, so a repo of another owner can carry a token of its own. In the studio, name the secret `GITHUB_TOKEN`: a secret created there reads the environment variable of exactly its name, so one named `github_token` would read a variable called `github_token`. The `github_token: ${GITHUB_TOKEN}` pairing holds for a secret that came from a file, through import or the server's own `secrets:` block; see [which variable a secret reads](../configure-it/config-studio.md#which-variable-a-secret-reads).
 
-## How tickets reach Agent Smith
+## How tickets reach codeably
 
 - **Webhook** (preferred). One webhook per repo, or one org-level webhook. The server listens on port 8081; point the webhook at `POST /webhook/github` (or the generic `POST /webhook` — the platform is auto-detected from the headers). Verification is HMAC via the `X-Hub-Signature-256` header, checked against the `GITHUB_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. See [Webhooks: GitHub](../trigger-it/webhooks.md#github).
 - **Polling**. Add `polling: { enabled: true, interval_seconds: 60 }` to the tracker when webhooks can't reach the server.
@@ -107,11 +107,11 @@ When a run fails, the issue moves to `failed_status` if configured (with GitHub'
 
 When the PR opens, its body ends with a `Ticket:` reference: `#54` when the issue lives in the PR's own repository, `owner/repo#54` when it lives in another repository on the same GitHub host, and the issue's web link otherwise. GitHub links the two either way. There is no `Closes #54` keyword, so merging the PR never closes the issue on its own — one issue can span several repositories, and its first merged PR would close it for all of them.
 
-When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When an issue is too thin to act on (title-only, or the run needs a decision), codeably doesn't guess: it posts its open questions as an issue comment and parks the issue in the tracker's `needs_clarification_status`. Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Cross-repo issues
 
-GitHub Issues belong to one repo, but a TodoList ticket may need changes in all three repos (`todolist-api`, `todolist-worker`, `todolist-web`). The convention: file the issue in the repo the tracker points at, and label it for the project. The Agent Smith run touches every repo it needs to, opens one PR per repo, and cross-links them in each PR's body.
+GitHub Issues belong to one repo, but a TodoList ticket may need changes in all three repos (`todolist-api`, `todolist-worker`, `todolist-web`). The convention: file the issue in the repo the tracker points at, and label it for the project. The codeably run touches every repo it needs to, opens one PR per repo, and cross-links them in each PR's body.
 
 ## Next
 

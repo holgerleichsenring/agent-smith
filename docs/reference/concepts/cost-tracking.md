@@ -44,7 +44,7 @@ A multi-repo run adds a `repo_cost:` block to each repo's `result.md` with that 
 
 ## Pricing
 
-Dollar cost per call comes from a price per model. Agent Smith ships a snapshot of the public [LiteLLM price list](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), a few thousand chat models from every major provider, plus a short hand-kept supplement for ids the list lacks (`claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `llama-3.3-70b-versatile`). A model the list knows is priced without anything in your configuration. The lookup is the exact id, then the bare name of a provider-prefixed id (`gpt-5.6` for `azure/gpt-5.6`, only where every provider agrees on the price), then the longest listed name the id starts with, so a dated snapshot id still finds its model.
+Dollar cost per call comes from a price per model. codeably ships a snapshot of the public [LiteLLM price list](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), a few thousand chat models from every major provider, plus a short hand-kept supplement for ids the list lacks (`claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `llama-3.3-70b-versatile`). A model the list knows is priced without anything in your configuration. The lookup is the exact id, then the bare name of a provider-prefixed id (`gpt-5.6` for `azure/gpt-5.6`, only where every provider agrees on the price), then the longest listed name the id starts with, so a dated snapshot id still finds its model.
 
 The snapshot is never fetched at runtime: a deployment may have no egress, and a price that moved in the middle of a budget would be worse than a stale one. It is refreshed as a release step with `tools/update-model-prices.py`, and `GET /api/config/model-prices` serves it, with the date it was taken.
 
@@ -111,7 +111,7 @@ agents:
       strategy: automatic   # default
 ```
 
-With caching on, Agent Smith stamps cache markers on the system prompt and the tool definitions, so the stable prefix of every agentic call is served from cache.
+With caching on, codeably stamps cache markers on the system prompt and the tool definitions, so the stable prefix of every agentic call is served from cache.
 
 The cached share of input tokens is recorded per LLM call, and the dashboard's per-step cost shows it. Read it plainly: **a run with a 0% cached share on a caching-enabled provider means the cache is dead. Treat it as an alarm, not a curiosity.** Something is invalidating the prefix (an unstable system prompt, shuffled tool definitions) and you are paying full price for every call.
 
@@ -126,7 +126,7 @@ Each run is bounded by a budget in USD and tokens, `pipeline_cost_cap`, 5 USD / 
 
 ## Local models
 
-A local model costs nothing, but Agent Smith doesn't assume that: give it a zero price. Otherwise its tokens are reported as unpriced and the run as `cost_incomplete` or, if its name matches a model the bundled list prices, it is charged at that hosted rate.
+A local model costs nothing, but codeably doesn't assume that: give it a zero price. Otherwise its tokens are reported as unpriced and the run as `cost_incomplete` or, if its name matches a model the bundled list prices, it is charged at that hosted rate.
 
 ```yaml
 agents:

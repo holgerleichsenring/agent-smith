@@ -1,6 +1,6 @@
 # Where configuration lives
 
-There are two ways Agent Smith gets its configuration, and which one you're in decides everything else on these pages.
+There are two ways codeably gets its configuration, and which one you're in decides everything else on these pages.
 
 Run it as a **server**, so docker-compose or Kubernetes or anything else long-lived, and the database is the store of record. You edit it in the Configuration studio in the dashboard, and the server picks the change up while it runs. Run it as the **CLI**, one shot at a time, and it reads `agentsmith.yml` from disk, the whole file.
 

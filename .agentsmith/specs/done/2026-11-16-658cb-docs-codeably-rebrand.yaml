@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-16-658cb
+goal: "The docs are codeably docs at docs.codeably.ai: the brand renamed in prose, a dark default close to the site, and a codeably.ai wordmark."
+
+applies_to: "default (docs/, mkdocs.yml, docs/stylesheets/overrides.css)"
+
+requires: [2026-11-16-658ca]
+
+facts:
+  - claim: "mkdocs.yml names the site Agent Smith at docs.agent-smith.org and links agent-smith.org."
+    evidence: "docs/mkdocs.yml:1-2, docs/mkdocs.yml:44-50, docs/mkdocs.yml:63-68"
+  - claim: "The docs build runs mkdocs build --strict after build-tokens."
+    evidence: ".github/workflows/docs.yml:29-37"
+  - claim: "The palette toggles default and slate, default first, and the favicon is a PNG."
+    evidence: "docs/mkdocs.yml:13-35"
+  - claim: "Brand prose and technical names mix: fenced blocks, code spans and literal defaults such as assignee_name `Agent Smith` carry the old name on purpose."
+    evidence: "docs/connect-your-stuff/tracker-jira.md:84, docs/reference/setup/slack.md:22"
+
+scope:
+  in: "site_name, site_url, description, social and copyright links, CNAME; 'Agent Smith' to 'codeably' in prose outside code; an info box on the home and install pages; slate first; Inter body, Plex Mono uppercase h1, flat nav with uppercase group labels, accent links and active item, raised code blocks; an SVG wordmark as logo and favicon."
+  out: "CLI, agentsmith.yml, AGENTSMITH_* env, images, repo URLs, .agentsmith/ paths, namespaces, Slack/Teams app names, literal product strings. sentinel URL. Old logo PNGs stay."
+
+steps:
+  - id: config
+    action: "mkdocs.yml and CNAME to codeably; palette slate first; logo and favicon to the new SVG."
+  - id: prose
+    action: "Script the rename outside fences and code spans; read the diff; hand-fix grammar and literal strings."
+  - id: notice
+    action: "Info box on docs/index.md and get-it-running/install.md."
+  - id: look
+    action: "overrides.css: dark ground, typography, nav, accent, code panels; light scheme keeps working."
+
+tests:
+  - "mkdocs build --strict -f docs/mkdocs.yml green"
+
+done:
+  - "The docs build strict, open dark, and every prose 'Agent Smith' reads codeably; code and literal names unchanged."
+  - "The toggle switches to a readable light scheme."

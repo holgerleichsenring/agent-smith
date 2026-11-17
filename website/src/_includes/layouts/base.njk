@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-{%- set pageTitle = title or (site.title + " — " + site.tagline) -%}
+{%- set pageTitle = title or (site.title + ".ai · " + site.tagline) -%}
 {%- set pageDescription = description or site.description -%}
 {%- set pageUrl = site.url + (page.url | canonicalPath) -%}
 <title>{{ pageTitle }}</title>
@@ -22,7 +22,7 @@
 <meta property="og:description" content="{{ pageDescription }}">
 <meta property="og:url" content="{{ pageUrl }}">
 <meta property="og:image" content="{{ site.image }}">
-<meta property="og:image:alt" content="Agent Smith, the agentic software factory">
+<meta property="og:image:alt" content="codeably.ai, make work programmable">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{ pageTitle }}">
@@ -43,7 +43,7 @@
       "@type": "SoftwareApplication",
       "@id": "{{ site.url }}/#software",
       "name": {{ site.title | dump | safe }},
-      "alternateName": "Agent Smith agentic software factory",
+      "alternateName": "Agent Smith",
       "description": {{ site.description | dump | safe }},
       "url": "{{ site.url }}/",
       "applicationCategory": "DeveloperApplication",
@@ -73,13 +73,13 @@
       "@id": "{{ site.partnerUrl }}/#services",
       "name": {{ site.partner | dump | safe }},
       "url": "{{ site.partnerUrl }}",
-      "description": "Professional services, support and maintenance contracts for Agent Smith.",
+      "description": "Professional services, support and maintenance contracts for codeably.",
       "areaServed": "Worldwide",
       "makesOffer": {
         "@type": "Offer",
         "itemOffered": {
           "@type": "Service",
-          "name": "Agent Smith professional services and maintenance contracts",
+          "name": "codeably professional services and maintenance contracts",
           "about": { "@id": "{{ site.url }}/#software" }
         }
       }
@@ -105,7 +105,7 @@
 
 <nav class="nav" aria-label="Main">
   <div class="wrap">
-    <a class="logo" href="/"><i aria-hidden="true"></i>agent-smith</a>
+    <a class="logo" href="/" aria-label="codeably.ai home"><span class="wm-code">code</span><span class="wm-ably">ably</span><span class="wm-ai">.ai</span></a>
     <ul>
       <li><a href="/#define">How it works</a></li>
       <li><a href="/azure-devops/">Azure DevOps</a></li>
@@ -123,7 +123,7 @@
 
 <footer class="footer">
   <div class="wrap">
-    <span>Agent Smith · an open source project led by {{ site.author }} · <a href="{{ site.partnerUrl }}">professional services by 45level</a> · MIT License · © 2026 {{ site.author }}</span>
+    <span>codeably.ai · an open source project led by {{ site.author }} · <a href="{{ site.partnerUrl }}">professional services by 45level</a> · MIT License · © 2026 {{ site.author }}</span>
     <span class="footer-links">
       <a href="{{ site.docsUrl }}">Docs</a>
       <a href="{{ site.sentinelUrl }}">Sentinel</a>

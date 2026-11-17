@@ -1,10 +1,10 @@
 # Repos: multi-repo
 
-One product, multiple repos. One ticket, one run, multiple pull requests. This is what made us build Agent Smith the way it is — most real products we've worked on span two or three repos and a "fix the auth flow" ticket touches all of them.
+One product, multiple repos. One ticket, one run, multiple pull requests. This is what made us build codeably the way it is — most real products we've worked on span two or three repos and a "fix the auth flow" ticket touches all of them.
 
 ## What multi-repo means here
 
-A multi-repo project is one entry under `projects:` with more than one repo in its `repos:` list. When a ticket targeted at that project comes in, Agent Smith:
+A multi-repo project is one entry under `projects:` with more than one repo in its `repos:` list. When a ticket targeted at that project comes in, codeably:
 
 - Spawns **one sandbox per repo**, each with its own toolchain image (a .NET repo gets a .NET SDK image, a Node repo a Node image). A repo whose contexts need different toolchains gets one sandbox per toolchain.
 - Clones each repo into its sandbox at `/work`.
@@ -92,13 +92,13 @@ On GitLab, a repo discovered under a group is named by its path relative to that
       - { repo: acme/TodoList.Web, default_branch: develop }
 ```
 
-A branch set this way is a fallback. Agent Smith reads each repository's own default branch from the platform and uses that; the configured `default_branch` (on the repo item, or on the connection) applies only when the platform has no answer, and `main` when neither does. When the configured value and the repository disagree, the run logs a warning naming both.
+A branch set this way is a fallback. codeably reads each repository's own default branch from the platform and uses that; the configured `default_branch` (on the repo item, or on the connection) applies only when the platform has no answer, and `main` when neither does. When the configured value and the repository disagree, the run logs a warning naming both.
 
 The classic top-level `repos:` catalog (one entry per repo, `type` + `url` + `auth`, referenced by key) stays available as the escape hatch for a single repo that isn't discoverable through a provider API — see [Repos: mono-repo](repos-mono.md) for that shape. A repo can appear in more than one project either way — handy if you have shared library repos.
 
 **Path-prefix routing.** When the agent calls `read_file("TodoList.Api/src/Auth.cs")`, the framework parses the first path segment, looks up `Sandboxes["TodoList.Api"]`, and forwards the read to that sandbox. Same logic for write, edit, find_files, grep_in_tree, etc. The run_command tool requires an explicit `repo` argument so there's no path-segment guessing.
 
-**Per-repo bootstrap.** Each repo needs its own contexts, `.agentsmith/contexts/<name>/context.yaml` and `principles.md`, one directory per component, so Agent Smith knows the toolchain and the rules for each. The `init-project` pipeline writes them into each repo and opens one bootstrap PR per repo, cross-linked. Run it once per project, for example with the **Initialize** button on the project card; it covers every repo in the project.
+**Per-repo bootstrap.** Each repo needs its own contexts, `.agentsmith/contexts/<name>/context.yaml` and `principles.md`, one directory per component, so codeably knows the toolchain and the rules for each. The `init-project` pipeline writes them into each repo and opens one bootstrap PR per repo, cross-linked. Run it once per project, for example with the **Initialize** button on the project card; it covers every repo in the project.
 
 **`deployment`** is the optional registry + version pin for the sandbox-agent image, whose tag is otherwise derived from the running server's release. Skills need no block at all — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
 

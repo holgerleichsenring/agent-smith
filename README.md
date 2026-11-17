@@ -1,8 +1,10 @@
 <div align="center">
 
-<a href="https://agent-smith.org"><img src="docs/assets/readme-banner.svg" alt="Agent Smith: a ticket becomes a spec, the spec is reviewed, built in sandboxes, passes the gate and arrives as a pull request" width="100%"></a>
+<a href="https://codeably.ai"><img src="docs/assets/readme-banner.svg" alt="codeably.ai: a ticket becomes a spec, the spec is reviewed, built in sandboxes, passes the gate and arrives as a pull request" width="100%"></a>
 
-### The agentic software factory. Open source, on your infrastructure.
+### Make work programmable. Open source, on your infrastructure.
+
+codeably was called Agent Smith until November 2026. The CLI, the config file `agentsmith.yml`, the images and this repository still carry that name; their rename follows.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-dfb317.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512bd4.svg)](https://dotnet.microsoft.com)
@@ -10,7 +12,7 @@
 [![Tests](https://img.shields.io/badge/tests-10%2C000%2B-2ea44f.svg)](tests/)
 [![Specs](https://img.shields.io/badge/specs-1%2C300%2B%20done-0969da.svg)](.agentsmith/specs/done/)
 
-**[Website](https://agent-smith.org)** · **[Docs](https://docs.agent-smith.org)** · **[Install](#install)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[How it was built](#built-by-the-method-it-teaches)**
+**[Website](https://codeably.ai)** · **[Docs](https://docs.codeably.ai)** · **[Install](#install)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[How it was built](#built-by-the-method-it-teaches)**
 
 </div>
 
@@ -20,7 +22,7 @@
 
 ---
 
-Agent Smith is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
+codeably is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
 
 We built it because most AI coding tools stop at a suggestion in your editor and call it a day. We wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so that long after the fact we can answer "why did we pick path A over B in this fix" without guessing.
 
@@ -28,23 +30,23 @@ We built it because most AI coding tools stop at a suggestion in your editor and
 
 ## What it does
 
-You drop a ticket into your tracker. Agent Smith reads it and derives a specification: the specs the work needs and, per spec, what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), works the specs in order, runs the verification each repository declares, opens one pull request per repo with the changes cross-linked, and writes the ticket back with every PR URL in the comment.
+You drop a ticket into your tracker. codeably reads it and derives a specification: the specs the work needs and, per spec, what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), works the specs in order, runs the verification each repository declares, opens one pull request per repo with the changes cross-linked, and writes the ticket back with every PR URL in the comment.
 
-Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://agent-smith.org/azure-devops/) says why that matters.
+Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://codeably.ai/azure-devops/) says why that matters.
 
 The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it later, when you've forgotten why.
 
 ## What decides that a run delivered
 
-Green tests aren't the verdict. After a spec's verification passes, a separate reader goes through its done-list one criterion at a time — met, unmet or not applicable — and has to cite what on the branch proves each one. That account is the only thing the run's verdict listens to. A run that comes back short still opens its pull request, as a draft, with a section naming what was not delivered, and you can overrule a single verdict with a reason that stays on the record. The [delivery account page](https://docs.agent-smith.org/how-it-works/delivery-account/) has the details, and the [lifecycle page](https://docs.agent-smith.org/how-it-works/lifecycle/) walks through a run step by step.
+Green tests aren't the verdict. After a spec's verification passes, a separate reader goes through its done-list one criterion at a time — met, unmet or not applicable — and has to cite what on the branch proves each one. That account is the only thing the run's verdict listens to. A run that comes back short still opens its pull request, as a draft, with a section naming what was not delivered, and you can overrule a single verdict with a reason that stays on the record. The [delivery account page](https://docs.codeably.ai/how-it-works/delivery-account/) has the details, and the [lifecycle page](https://docs.codeably.ai/how-it-works/lifecycle/) walks through a run step by step.
 
-If you'd rather think the change through first, the dashboard's [Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) page is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
+If you'd rather think the change through first, the dashboard's [Work it out](https://docs.codeably.ai/how-it-works/work-it-out/) page is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
 
 ## The dashboard
 
 A live mission-control view of every run — what's waiting on you, what's in flight, and what finished today, each with its dollar cost and the story of how it got there.
 
-![Agent Smith dashboard — runs overview](docs/assets/screenshots/dashboard-runs.png)
+![codeably dashboard — runs overview](docs/assets/screenshots/dashboard-runs.png)
 
 When a run hits a decision it shouldn't make alone, it pauses and asks. Your answer resumes it — no tokens burning while it waits. Every run keeps a five-beat story (ticket → plan → build → verify → outcome) you can open:
 
@@ -69,7 +71,7 @@ The skills — the masters that drive each pipeline and the rules they follow �
 
 ## Built by the method it teaches
 
-Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, by Holger Leichsenring and one language model. The numbers below are the receipts.
+codeably bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, by Holger Leichsenring and one language model. The numbers below are the receipts.
 
 |  |  |
 |---|---|
@@ -81,9 +83,9 @@ Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, spec
 
 Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 10,944 tests, four CLI dry runs and every harness preset come back green. CI would have told us about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
-The `principles.md` we built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
+The `principles.md` we built this project under is the same file codeably injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
-**[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator we retired, the metric that quietly read zero without anyone noticing, and how every figure above was counted.
+**[The full account, including what didn't work](https://docs.codeably.ai/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator we retired, the metric that quietly read zero without anyone noticing, and how every figure above was counted.
 
 ## Install
 
@@ -100,7 +102,7 @@ curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/downl
 docker pull holgerleichsenring/agent-smith-server:latest
 ```
 
-Every platform (Linux x64 / ARM64, macOS Intel / Apple Silicon, Windows) is on the [releases page](https://github.com/holgerleichsenring/agent-smith/releases). The [install guide](https://docs.agent-smith.org/get-it-running/install/) walks through CLI / Docker / Kubernetes setups.
+Every platform (Linux x64 / ARM64, macOS Intel / Apple Silicon, Windows) is on the [releases page](https://github.com/holgerleichsenring/agent-smith/releases). The [install guide](https://docs.codeably.ai/get-it-running/install/) walks through CLI / Docker / Kubernetes setups.
 
 ## First run
 
@@ -154,7 +156,7 @@ agent-smith doctor
 agent-smith code --ticket 54 --project todolist
 ```
 
-`doctor` actually probes everything — it calls the LLM, authenticates against the tracker, spawns a throwaway sandbox — and names what's broken with a fix hint, before a run spends tokens on it. The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) shows the end-to-end output.
+`doctor` actually probes everything — it calls the LLM, authenticates against the tracker, spawns a throwaway sandbox — and names what's broken with a fix hint, before a run spends tokens on it. The [first-run page](https://docs.codeably.ai/get-it-running/first-run/) shows the end-to-end output.
 
 ## More than the code pipeline
 
@@ -168,22 +170,22 @@ agent-smith code --ticket 54 --project todolist
 - `init-project` — bootstraps `.agentsmith/contexts/<name>/` per component in each repo of a project.
 - `spec-dialog` — the design conversation that ends in a filed ticket with an approved specification.
 
-Same orchestrator, different masters. The [pipeline reference](https://docs.agent-smith.org/reference/pipelines/) has each one.
+Same orchestrator, different masters. The [pipeline reference](https://docs.codeably.ai/reference/pipelines/) has each one.
 
-And two things that took the longest to get right, so we'll name them here: a run doesn't take its own word for being done — every acceptance criterion gets a verdict with evidence from a reader that never saw the work being done. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a conversational side ([Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) in the dashboard, or [Slack and Teams](https://docs.agent-smith.org/how-it-works/spec-dialogue/)): talk the change through, approve the specification, and it files the ticket.
+And two things that took the longest to get right, so we'll name them here: a run doesn't take its own word for being done — every acceptance criterion gets a verdict with evidence from a reader that never saw the work being done. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a conversational side ([Work it out](https://docs.codeably.ai/how-it-works/work-it-out/) in the dashboard, or [Slack and Teams](https://docs.codeably.ai/how-it-works/spec-dialogue/)): talk the change through, approve the specification, and it files the ticket.
 
 ## Where the docs are
 
-- **[Get it running](https://docs.agent-smith.org/get-it-running/install/)** — install + first run (`demo`, `doctor`).
-- **[Connect your stuff](https://docs.agent-smith.org/connect-your-stuff/tracker-azure-devops/)** — tracker + repos + AI provider, with a copy-pasteable YAML per system.
-- **[Trigger it](https://docs.agent-smith.org/trigger-it/webhooks/)** — webhooks, polling, labels, CLI.
-- **[Host it](https://docs.agent-smith.org/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes with honest capacity quotas.
-- **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first methodology, the delivery account, Work it out.
-- **[Dashboard](https://docs.agent-smith.org/reference/operations/dashboard/)** — watch runs live: every step, every LLM call with its cost and cached share, a cancel button that means it.
+- **[Get it running](https://docs.codeably.ai/get-it-running/install/)** — install + first run (`demo`, `doctor`).
+- **[Connect your stuff](https://docs.codeably.ai/connect-your-stuff/tracker-azure-devops/)** — tracker + repos + AI provider, with a copy-pasteable YAML per system.
+- **[Trigger it](https://docs.codeably.ai/trigger-it/webhooks/)** — webhooks, polling, labels, CLI.
+- **[Host it](https://docs.codeably.ai/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes with honest capacity quotas.
+- **[How it works](https://docs.codeably.ai/how-it-works/methodology/)** — the spec-first methodology, the delivery account, Work it out.
+- **[Dashboard](https://docs.codeably.ai/reference/operations/dashboard/)** — watch runs live: every step, every LLM call with its cost and cached share, a cancel button that means it.
 
 ## Who is behind it
 
-Agent Smith is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner.
+codeably is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner.
 
 How the project is run and who decides what is in [GOVERNANCE.md](GOVERNANCE.md).
 
@@ -191,4 +193,4 @@ How the project is run and who decides what is in [GOVERNANCE.md](GOVERNANCE.md)
 
 MIT. Copyright (c) 2026 Holger Leichsenring.
 
-If you find Agent Smith useful, [say hi on the blog](https://codingsoul.org) or [drop an issue](https://github.com/holgerleichsenring/agent-smith/issues).
+If you find codeably useful, [say hi on the blog](https://codingsoul.org) or [drop an issue](https://github.com/holgerleichsenring/agent-smith/issues).

@@ -1,19 +1,20 @@
 ---
 title: The agentic software factory
-description: Agent Smith is the open source agentic software factory. A ticket goes in, a spec is derived, sandboxes on your infrastructure build it, and a verified pull request comes out.
+description: codeably is the open source agentic software factory. A ticket goes in, a spec is derived, sandboxes on your infrastructure build it, and a verified pull request comes out.
 ---
 
-<img src="agent-smith-logo-large-green.png" alt="Agent Smith" style="max-width: 600px;">
+# codeably
 
-# Agent Smith, the agentic software factory
+!!! info "Formerly Agent Smith"
+    codeably was called Agent Smith until November 2026. The CLI, the config file `agentsmith.yml` and the images still carry that name; their rename follows.
 
-From ticket to PR: Agent Smith is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built and verified, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
+From ticket to PR: codeably is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built and verified, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
 
-This page is the orientation of the documentation; the product overview is on [agent-smith.org](https://agent-smith.org) and the source on [GitHub](https://github.com/holgerleichsenring/agent-smith). There's a fast-path link list at the bottom — if you're here to ship today, skip the rest and jump straight in.
+This page is the orientation of the documentation; the product overview is on [codeably.ai](https://codeably.ai) and the source on [GitHub](https://github.com/holgerleichsenring/agent-smith). There's a fast-path link list at the bottom — if you're here to ship today, skip the rest and jump straight in.
 
 ## What it does, in one paragraph
 
-You drop a ticket into your tracker. Agent Smith reads it and derives a specification from it: the specs the work needs and, per spec, the list of what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), works the specs in order, runs the verification each repository declares, and accounts for every criterion with the evidence it found. Then it opens one pull request per repo with the changes cross-linked and writes the ticket back with every PR URL in the comment. If the ticket is too thin, it asks instead of guessing.
+You drop a ticket into your tracker. codeably reads it and derives a specification from it: the specs the work needs and, per spec, the list of what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), works the specs in order, runs the verification each repository declares, and accounts for every criterion with the evidence it found. Then it opens one pull request per repo with the changes cross-linked and writes the ticket back with every PR URL in the comment. If the ticket is too thin, it asks instead of guessing.
 
 If you'd rather think the change through first, [Work it out](how-it-works/work-it-out.md) in the dashboard is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
 
@@ -23,7 +24,7 @@ If you'd rather think the change through first, [Work it out](how-it-works/work-
 
 The dashboard is a live mission-control view of every run — what's waiting on you, what's running, and what finished today, each with its cost and the story of how it got there.
 
-![Agent Smith dashboard — runs overview](assets/screenshots/dashboard-runs.png)
+![codeably dashboard — runs overview](assets/screenshots/dashboard-runs.png)
 
 A run that hits a decision it shouldn't make alone pauses and asks; your answer resumes it, and no tokens burn while it waits. Every run keeps a five-beat story — ticket → plan → build → verify → outcome — you can open, and the verify beat shows each acceptance criterion with its verdict and the evidence behind it:
 
@@ -47,7 +48,7 @@ Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the cho
 
 ## What's supported
 
-**Trackers** — these are the ticket sources Agent Smith reads from and writes back to.
+**Trackers** — these are the ticket sources codeably reads from and writes back to.
 
 | Tracker | Trigger modes | Connect page |
 |---|---|---|
@@ -56,7 +57,7 @@ Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the cho
 | GitHub Issues | webhook · label | [GitHub Issues](connect-your-stuff/tracker-github-issues.md) |
 | GitLab Issues | webhook · polling · label | [GitLab Issues](connect-your-stuff/tracker-gitlab-issues.md) |
 
-**AI providers** — Agent Smith calls these directly from your infrastructure. You pick the model per role (a cheap one for scout passes, the good one for the actual code).
+**AI providers** — codeably calls these directly from your infrastructure. You pick the model per role (a cheap one for scout passes, the good one for the actual code).
 
 | Provider | Notes |
 |---|---|
@@ -99,7 +100,7 @@ Everything else lives in Reference. That's where the per-pipeline pages, the ful
 
 ## Who is behind it
 
-Agent Smith is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](https://github.com/holgerleichsenring/agent-smith/blob/main/CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner; see [services](https://agent-smith.org/services).
+codeably is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](https://github.com/holgerleichsenring/agent-smith/blob/main/CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner; see [services](https://agent-smith.org/services).
 
 How the project is run and who decides what is in [GOVERNANCE.md](https://github.com/holgerleichsenring/agent-smith/blob/main/GOVERNANCE.md).
 

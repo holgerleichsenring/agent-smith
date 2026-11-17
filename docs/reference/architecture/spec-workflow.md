@@ -1,6 +1,6 @@
 # Spec workflow
 
-Agent Smith evolves through a structured spec process. Each spec is a bounded development increment with a clear goal, scope, dependencies and definition of done.
+codeably evolves through a structured spec process. Each spec is a bounded development increment with a clear goal, scope, dependencies and definition of done.
 
 ## What is a spec?
 

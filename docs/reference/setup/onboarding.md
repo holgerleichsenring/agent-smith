@@ -3,12 +3,12 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Before Agent Smith can run a code-touching pipeline (`code`, `security-scan`, `api-security-scan`) against a repository, the repo needs two files per component it holds:
+Before codeably can run a code-touching pipeline (`code`, `security-scan`, `api-security-scan`) against a repository, the repo needs two files per component it holds:
 
 - `.agentsmith/contexts/<name>/context.yaml` — the component's fingerprint: stack, toolchain image, how it is verified. See [The context file](../concepts/context-file.md).
-- `.agentsmith/contexts/<name>/principles.md` — the constraints Agent Smith respects when changing code.
+- `.agentsmith/contexts/<name>/principles.md` — the constraints codeably respects when changing code.
 
-The `init-project` pipeline produces them. Running it once per repository is the prerequisite. There are two ways to start it: the **Initialize** button on a project in the dashboard, or a labelled issue. Either way Agent Smith opens a PR with the generated files.
+The `init-project` pipeline produces them. Running it once per repository is the prerequisite. There are two ways to start it: the **Initialize** button on a project in the dashboard, or a labelled issue. Either way codeably opens a PR with the generated files.
 
 > Works the same way on GitHub, GitLab, Azure DevOps, and Jira. Webhook-based or polling-based — both paths feed the same trigger and route via `pipeline_from_label`.
 
@@ -28,7 +28,7 @@ The rest of this page walks the ticket-labelled path, which works the same on Gi
 
 ## Prerequisites
 
-- Agent Smith deployed and reachable from your platform (or polling enabled — see [Trigger: polling](../../trigger-it/polling.md)).
+- codeably deployed and reachable from your platform (or polling enabled — see [Trigger: polling](../../trigger-it/polling.md)).
 - The target repository connected as a project in `agentsmith.yml` (catalog-first shape: a `repos:`/`connections:` entry, a `trackers:` entry, a `projects:` entry wiring them). See the [agentsmith.yml reference](../configuration/agentsmith-yml.md).
 - A `pipeline_from_label` map on that project's tracker containing `agent-smith:init: init-project`, or no map there, so the global `pipeline_triggers` map applies. That global entry is already in the bundled `agentsmith.yml` example. See [Trigger: labels](../../trigger-it/labels.md) for the config shape.
 
@@ -74,11 +74,11 @@ In the platform UI:
 1. Create an issue on the target repository. Title: `Initialize agent-smith` (or anything — the title is informational only).
 2. Apply the label `agent-smith:init`.
 
-That's the entire trigger. Agent Smith picks it up via webhook delivery (sub-second) or the next polling tick (default 60 s, see [Trigger: polling](../../trigger-it/polling.md)).
+That's the entire trigger. codeably picks it up via webhook delivery (sub-second) or the next polling tick (default 60 s, see [Trigger: polling](../../trigger-it/polling.md)).
 
 ## Step 3 — Wait for the bootstrap PR
 
-Agent Smith runs the `init-project` pipeline:
+codeably runs the `init-project` pipeline:
 
 1. Checks out the branch `agent-smith/init` on each repository (the same `agent-smith/` prefix every run uses) and analyzes it.
 2. Discovers the repository's components. A component is something built and shipped on its own; the internal layer projects of one solution (a `Domain` or `Infrastructure` project, say) belong to the component that ships them and get no context of their own.
@@ -95,10 +95,10 @@ Typical wall-clock: a few minutes, depending on repository size and the number o
 The PR body says, per context, what the run did with the principles (transferred from the core and language delta plus any overlays it names, refreshed with or without Project Specifics carried over, already present and left untouched, or authored by the skill) and, per file the language delta ships, whether it was written, already present, or not written and why. It also says, per context, how many units the structure baseline records, or why none was written. Review the files like any other PR:
 
 - **`context.yaml`** — confirm the stack, the image and the `verify` stages match your repo.
-- **`principles.md`** — the constraints Agent Smith will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, a refresh included, and merging this PR is where you ratify it.
+- **`principles.md`** — the constraints codeably will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, a refresh included, and merging this PR is where you ratify it.
 - **`structure-baseline.tsv`** — the existing excess the size limits tolerate. A later refresh never raises an entry; see [Structure limits](../../how-it-works/structure-limits.md#the-baseline).
 
-Edit any of these files in the PR before merging. Agent Smith respects whatever lands on the default branch, not the initially-generated content.
+Edit any of these files in the PR before merging. codeably respects whatever lands on the default branch, not the initially-generated content.
 
 Merge the PR. The repo is now bootstrapped.
 
@@ -113,7 +113,7 @@ The first real ticket can now run. Apply any other trigger label (`bug` → `cod
 If your deployment includes the Slack integration, you can also trigger `init-project` from a Slack channel — no ticket required:
 
 - Modal: `/agent-smith` → **Init Project** → select repository.
-- Chat: type `init my-project-name` in any channel where Agent Smith is present.
+- Chat: type `init my-project-name` in any channel where codeably is present.
 
 The Slack path produces the same bootstrap PR but does not transition any ticket (there's no ticket to transition). The label-triggered path is the supported flow for headless / k8s deployments without Slack.
 
@@ -129,7 +129,7 @@ Three likely causes:
 
 1. **Label mismatch.** Verify the label string in `pipeline_from_label` exactly matches the label on the issue (case-sensitive on most platforms). The bundled config uses `agent-smith:init`; if you customized it, check that.
 2. **`trigger_statuses` excludes the issue's state.** If your tracker sets `trigger_statuses: ["open"]` but the issue was created in a different state, the trigger silently skips. Either widen `trigger_statuses` or change the issue's state.
-3. **Agent Smith never received the event.** For webhooks: check the platform's webhook-delivery log. For polling: check Agent Smith's polling logs for the project name — the poller logs each tick.
+3. **codeably never received the event.** For webhooks: check the platform's webhook-delivery log. For polling: check codeably's polling logs for the project name — the poller logs each tick.
 
 ### Bootstrap PR opened but the files look wrong
 
@@ -207,7 +207,7 @@ See [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) for the multi-r
 ## See also
 
 - [Trigger: labels](../../trigger-it/labels.md) — full reference for `pipeline_from_label` config and matching rules.
-- [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — how Agent Smith claims tickets and transitions their state.
+- [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — how codeably claims tickets and transitions their state.
 - [agentsmith.yml Reference](../configuration/agentsmith-yml.md) — complete config schema.
 - [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — fan-out behaviour and the parallel-isolation model.
 - [Project Resolution Strategies](../configuration/project-resolution.md) — `tag`, `area-path`, `repo`, `to_address`.

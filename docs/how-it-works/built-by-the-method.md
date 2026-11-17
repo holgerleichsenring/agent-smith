@@ -10,7 +10,7 @@ account for the repository that produced it, so: what got built, over what time,
 with which machinery holding it together. Every number here comes out of the repo
 and the counting method is at the bottom, so you can check us.
 
-The short version is that Agent Smith bootstraps an `.agentsmith/` directory into
+The short version is that codeably bootstraps an `.agentsmith/` directory into
 your repo, with a context file, specs, a decision log and a memory of what
 it learned. That is the product. It is also how this repository got written, by
 Holger Leichsenring and one model.
@@ -255,7 +255,7 @@ the story about it.
 Which makes our claim smaller and more useful than "AI writes code now". We stopped
 trying to steer the model better and built an environment where bad work gets
 caught on the way out. That environment travels to any repository, with or
-without Agent Smith. Have a look at [Methodology](methodology.md) for how it runs
+without codeably. Have a look at [Methodology](methodology.md) for how it runs
 inside a pipeline, and [Decision logging](../reference/concepts/decisions.md) for
 the record format.
 

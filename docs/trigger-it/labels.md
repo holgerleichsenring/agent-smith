@@ -1,6 +1,6 @@
 # Trigger: labels
 
-Labels are how a ticket says "yes, run Agent Smith on this, with this pipeline". The mapping from label to pipeline lives in `pipeline_from_label` on the tracker, and every project routed to it inherits it.
+Labels are how a ticket says "yes, run codeably on this, with this pipeline". The mapping from label to pipeline lives in `pipeline_from_label` on the tracker, and every project routed to it inherits it.
 
 On a server you edit that in **Configuration → Trackers**. The YAML below is the same thing, and what the CLI reads.
 
@@ -34,8 +34,8 @@ If a ticket comes in (via webhook or poll) and enters one of `trigger_statuses`,
 
 Two reasonable patterns for opting in with a map:
 
-- **Manual.** A developer tags `agent-smith:bug` when they want Agent Smith to fix it. Everything untagged stays human-only.
-- **Default-on.** A workflow rule in the tracker auto-applies `agent-smith:bug` to every ticket of type Bug when it moves to Active. Now Agent Smith picks up every bug; the human can remove the label to opt out.
+- **Manual.** A developer tags `agent-smith:bug` when they want codeably to fix it. Everything untagged stays human-only.
+- **Default-on.** A workflow rule in the tracker auto-applies `agent-smith:bug` to every ticket of type Bug when it moves to Active. Now codeably picks up every bug; the human can remove the label to opt out.
 
 Both work. Default-on gives you the volume but you'll see more `agent-smith:failed` labels when the agent can't figure out a ticket. Manual is friendlier when you're still learning the agent's strengths.
 
@@ -54,7 +54,7 @@ Two more labels come from an older shape of filing, where an epic was filed as a
 
 ## Labels the framework writes
 
-In addition to the trigger labels you set, Agent Smith writes a lifecycle label to show where the run is:
+In addition to the trigger labels you set, codeably writes a lifecycle label to show where the run is:
 
 | Label | Meaning |
 |---|---|
@@ -136,6 +136,6 @@ Trackers fire webhooks for every label add, including the lifecycle ones the fra
 
 ## Next
 
-- [Webhooks](webhooks.md) — how a label-add event reaches Agent Smith.
+- [Webhooks](webhooks.md) — how a label-add event reaches codeably.
 - [Polling](polling.md) — same matching logic, different transport.
 - [CLI](cli.md) — bypass labels entirely, just say "fix this ticket".

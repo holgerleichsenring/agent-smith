@@ -1,6 +1,6 @@
 # Metrics
 
-Agent Smith exposes counters via `System.Diagnostics.Metrics` under the Meter name `AgentSmith`. The metrics surface is BCL-only — no NuGet dependency is added in the agent-smith binary. Operators who want Prometheus, OTLP, or any other export wire their own exporter against the named Meter.
+codeably exposes counters via `System.Diagnostics.Metrics` under the Meter name `AgentSmith`. The metrics surface is BCL-only — no NuGet dependency is added in the agent-smith binary. Operators who want Prometheus, OTLP, or any other export wire their own exporter against the named Meter.
 
 This page lists the counters, explains the cost-of-ambiguity dashboard, and shows how to wire OpenTelemetry without modifying agent-smith.
 
@@ -93,7 +93,7 @@ This is the queryshape to graph as a heatmap or table — one row per (project, 
 
 ## Operator-side OpenTelemetry wiring
 
-Agent Smith does not ship OpenTelemetry packages. The operator adds them in their own composition root (the `Program.cs` that hosts the agent-smith server, or a deployment-layer adapter), then wires `AddMeter("AgentSmith")`:
+codeably does not ship OpenTelemetry packages. The operator adds them in their own composition root (the `Program.cs` that hosts the agent-smith server, or a deployment-layer adapter), then wires `AddMeter("AgentSmith")`:
 
 ```csharp
 // In your composition root, after adding agent-smith's services:
