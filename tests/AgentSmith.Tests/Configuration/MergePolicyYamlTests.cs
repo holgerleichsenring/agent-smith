@@ -40,6 +40,17 @@ public sealed class MergePolicyYamlTests
         project.Merge.Protection.Should().Be(BranchProtection.Respect);
     }
 
+    // 2026-11-17-3435a
+    [Fact]
+    public void MergeBlock_Loads_CiEvidenceBounds()
+    {
+        var project = Load(Head + "    merge:\n      ci_excerpt_chars: 1500\n      ci_failed_checks_read: 2\n");
+
+        project.Merge.CiExcerptChars.Should().Be(1500);
+        project.Merge.CiFailedChecksRead.Should().Be(2);
+        Load(Head).Merge.CiExcerptChars.Should().Be(4000, "the default when the block says nothing");
+    }
+
     [Fact]
     public void NoMergeBlock_IsManual_AndWouldBypass()
     {

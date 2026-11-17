@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-3435c
+goal: "With merge: on_ci_green a red CI on the newest attempt's head starts a rework run carrying the failing checks' evidence; past merge.ci_fix_attempts the run hands back."
+
+applies_to: "default (rework acts, attempt cause, run prompt, hand-back, PR record refresh)"
+
+requires: [2026-11-17-3435b]
+
+facts:
+  - claim: "The rework worker reads acts after the attempt's cutoff — the ticket keyword comment, the pull-request acts and the attempt's stored Retry and overrules, the hand-back answer included — and the newest wins; NewestHandbackAnswerAsync alone answers a hand-back."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:26-46, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:86-93"
+  - claim: "A Refresh-origin nudge only refreshes; any other origin reaches the rework handler, whose finished-attempt tail serves the newest act through the rework entry, which launches a code run."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:81-84, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:50-53"
+  - claim: "Nudge origins merge by maximum; PreconditionsMet (7) and RequirementsMet (6) rank above everything and are served by their own paths."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:64, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:21-29"
+  - claim: "FetchTicket reads the previous attempt's pull-request review into ContextKeys.PrReviewFeedback and the attempt cause after it; the cause maps an act's channel to a stored channel word."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:92-96, src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:85-94"
+  - claim: "The review is rendered into the master prompt beside the ticket conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:57"
+  - claim: "Each attempt's cause channel is stored on its RunAttempt row."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunAttempt.cs:17"
+  - claim: "A framework hand-back is set on the context and the SpecHandback step spliced in behind the current step, so its park ends the run before a sandbox; any case but NotImplementable parks in the clarification status."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:25-30, src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:26-27"
+  - claim: "Operator 2026-11-17: when red, take the failing check's evidence back to the ticket's coding master to fix and push, watch again, until green or a configured attempt budget is spent, then hand back with the evidence; never force-push, never merge red."
+    evidence: "observed: 2026-11-17, operator brief for the CI loop"
+
+upgrade_impact: "None for projects without on_ci_green. With it, a red CI starts a rework run (a code run, visible in the ticket's Runs as 'Started by CI') at most merge.ci_fix_attempts times in a row (default 3); the next red parks the ticket in its clarification status with the evidence, as a question does. A person's comment or approval answers it and resets the count."
+
+scope:
+  in: "ReworkChannel.Ci and AttemptChannels.Ci ('ci'); CiAct from the ticket's records (the cutoff makes it idempotent; acted is only the nudge's de-dup): a record of the newest attempt's awaiting pull requests open and CI red on its head after the attempt's cutoff, the attempt finished success; or the newest attempt was itself ci-caused, finished, and the red head did not move since it started (a fix that pushed nothing), at the attempt's finish; project on_ci_green; the act carries the repo and pull request, so the existing 'started' notice goes to the pull request; CiGreenMerge's sibling CiRedNudge marks acted and enqueues a Sweep nudge (the handler serves it through ReworkPendingActs.NewestAsync, never through NewestHandbackAnswerAsync); in the run, CiFailureFetcher reads the same records into ContextKeys.CiFailures, sets the Ci act and the prompt section '## CI on the pull request' (check, link, excerpt); PreviousAttempt.CauseChannel, FinishedAt and CiFixStreak (consecutive newest attempts caused by ci); merge.ci_fix_attempts (default 3); an act over budget, or one following a ci-caused attempt that pushed nothing, sets SpecHandback CiFixBudgetSpent (case 8) with the evidence and splices the hand-back behind FetchTicket; the dashboard names the ci cause."
+  out: "Re-running CI without a change. Fixing a red CI on a run that failed its own gate (it already ended red for a person)."
+
+steps:
+  - id: act
+    action: "ReworkChannel.Ci, AttemptChannels.Ci, AttemptCauseReader maps it; CiAct.Of(records, attempt, policy) in Application.Rework per the rule in scope -> PendingReworkAct(ReworkAct('ci', at, Ci) with Source(kind ci, url = the PR), repo, url, the failing checks as text); ReworkPendingActs.NewestAsync adds it for on_ci_green projects through IPrReviewRecordReader (CiPendingAct, keeping ReworkPendingActs small)."
+  - id: nudge
+    action: "CiRedNudge beside CiGreenMerge after the refresh: a record red on its head not yet acted -> mark CiActedSha, enqueue one Sweep nudge for the ticket."
+  - id: run
+    action: "CiFailureFetcher (called in FetchTicket next to the review fetch): on an on_ci_green project, the records' red failures into ContextKeys.CiFailures and the Ci act via ReworkActReader.ApplyPullRequest; CiFailurePromptSection renders each failing check (repo, check, link, excerpt) after the review section."
+  - id: budget
+    action: "DbPreviousAttemptReader sets PreviousAttempt.CiFixStreak from the newest RunAttempt rows' CauseChannel; MergePolicyConfig.CiFixAttempts (YAML ci_fix_attempts, default 3, schema, docs); CiFixBudget: the run's act is Ci and the streak has reached the budget -> SpecHandback(CiFixBudgetSpent, reason naming the attempts, the key, the failing checks and links) set and SpecHandback spliced (FetchTicket returns OkAndContinueWith); SpecHandbackComment writes the evidence; the case parks in the clarification status; every SpecHandbackCase switch site, ReworkTexts' channel words, dashboard flowWords and the hub-events union learn the case and the channel. FetchTicketHandler calls one collaborator (CiRework) for fetch and budget."
+  - id: show
+    action: "Dashboard causeLabel: 'CI' for the ci channel; the hand-back text is the ticket page's existing hand-back line."
+
+tests:
+  - "CiAct: red on head after the cutoff is an act, acted or not; pending, green, red on an older head, a pull request of an older attempt, a failed attempt or a project not on_ci_green are none; a ci-caused attempt that left the red head unmoved is an act at its finish."
+  - "ReworkPendingActs: a Ci act is newest-wins with the others and never a hand-back answer."
+  - "CiRedNudge: a new red enqueues one Sweep nudge and marks acted; the same head again enqueues nothing."
+  - "CiFailureFetcher + prompt: failures land in the context and the section names check, link and excerpt; the Ci act is set."
+  - "CiFixBudget: streak below the budget continues; at the budget, or after a ci fix that pushed nothing, the run parks with case CiFixBudgetSpent naming merge.ci_fix_attempts and the evidence."
+  - "DbPreviousAttemptReader: CiFixStreak counts consecutive ci causes from the newest attempt."
+  - "Loop (server composition with faked provider and launch): opened -> CI pending (nothing) -> red (rework launched with the Ci act) -> new head pending -> green (merge-green launched) -> merged -> landing recorded; red then a re-run green on the same head merges."
+  - "Harness: a code run whose previous attempt is red on CI renders the CI section into the master prompt and, over budget, parks before checkout."
+
+done:
+  - "On a project with merge: on_ci_green a red CI is fixed by rework runs that carry the failing checks' evidence and push to the same pull request, until CI is green (then 3435b merges) or merge.ci_fix_attempts is spent, when the ticket is handed back with the evidence on its page."

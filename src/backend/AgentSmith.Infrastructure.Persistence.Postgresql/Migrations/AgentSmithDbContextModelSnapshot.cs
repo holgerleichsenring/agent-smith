@@ -800,6 +800,20 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("CiAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CiFailuresJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CiHeadSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CiState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

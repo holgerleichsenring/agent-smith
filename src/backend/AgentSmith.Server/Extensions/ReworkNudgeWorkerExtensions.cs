@@ -20,7 +20,7 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<ReworkWithheld>();
         services.AddSingleton<ReworkFallbackSpawn>();
         services.AddSingleton<ReworkNudgeHandler>().AddSingleton<ClosedTicketActFollowUp>(); // 2026-10-13-9a59t
-        services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b
+        services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrRecordCiRead>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b, 3435a
         services.AddSingleton<TicketLandingRecorder>(); // 2026-10-14-dbceg
         // 2026-11-17-023fb: the landing hook's first subscriber, and the scoped launch it starts runs with.
         services.AddSingleton<ITicketLandedSubscriber, Services.Branches.SiblingBaseRefresh>();

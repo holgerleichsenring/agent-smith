@@ -59,7 +59,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         Repos = [new RepoConnection { Name = "api", Type = RepoType.GitHub, Url = "https://github.com/o/api" }],
     };
 
-    public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(),
+    public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
 

@@ -21,6 +21,19 @@ public sealed class MergePolicyConfig
     /// </summary>
     public bool RefreshOpenPullRequests { get; set; }
 
+    /// <summary>
+    /// 2026-11-17-3435a: how many characters of each failed check's evidence (the host's summary, then the end of its
+    /// log) are read, stored and handed to a fix. 4000 holds a test failure's assertion and stack with room to spare
+    /// and keeps a record row and a prompt section small.
+    /// </summary>
+    public int CiExcerptChars { get; set; } = 4000;
+
+    /// <summary>
+    /// 2026-11-17-3435a: how many failed checks of one red head have their logs read. Each costs a host call and a log
+    /// download; five covers a matrix failing the same way, the rest are named with their links.
+    /// </summary>
+    public int CiFailedChecksRead { get; set; } = 5;
+
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;
 }

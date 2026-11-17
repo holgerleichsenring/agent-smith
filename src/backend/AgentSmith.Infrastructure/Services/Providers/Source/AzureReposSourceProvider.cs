@@ -21,7 +21,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -310,6 +310,14 @@ public sealed class AzureReposSourceProvider(
     public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken ct) => Reviews().ListAsync(prUrl, ct);
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken ct) => Reviews().ChangesRequestedAsync(prUrl, ct);
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken ct) => Reviews().ReadAsync(prUrl, ct);
+
+    // 2026-11-17-3435a: the pull request's build policies and statuses.
+    public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken ct) =>
+        new AzureReposCiReader(CreateConnectionAsync,
+            async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
+                .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
+            c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
+            _project, _repoName, _organizationUrl).ReadAsync(prUrl, request, ct);
     public Task CloseAsync(string prUrl, CancellationToken ct) => new AzureReposPullRequestClose(_project, _repoName, clientFactory, _organizationUrl, _personalAccessToken).CloseAsync(prUrl, ct);
 
     // 2026-11-17-713ec: the branch-cleanup run's reads and delete.

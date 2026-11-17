@@ -543,6 +543,12 @@ projects:
     # Statuses, comment_keyword and pr_trigger_label come from the acme-github tracker.
     resolution:
       repo: https://github.com/acme/app.git
+    # 2026-11-17-023fa / 3435: whether a green run merges its own pull requests. Every open
+    # pull request's CI is read with its record; the ci_* bounds limit what a red one stores.
+    # merge:
+    #   when: manual                  # manual | on_gate_green
+    #   ci_excerpt_chars: 4000        # evidence kept per failed check
+    #   ci_failed_checks_read: 5      # failed checks whose logs are read
 
   # Azure DevOps project (p0281b): only `resolution:` is project-specific —
   # trigger_statuses / done_status / failed_status / pipeline_from_label all come from the

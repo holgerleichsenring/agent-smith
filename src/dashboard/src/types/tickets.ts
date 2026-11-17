@@ -66,6 +66,23 @@ export interface TicketPullRequest {
   lastActivityAt: string | null;
   stateAt: string | null;
   note: string | null;
+  /** 2026-11-17-3435a: the CI the newest read saw on the head; absent or null before a CI read. */
+  ci?: TicketPullRequestCi | null;
+}
+
+/** 2026-11-17-3435a: one failed CI check — its name, the link to its full log, a bounded excerpt. */
+export interface TicketCiFailure {
+  name: string;
+  url: string | null;
+  excerpt: string;
+}
+
+export interface TicketPullRequestCi {
+  /** none | pending | green | red */
+  state: string;
+  headSha: string | null;
+  at: string | null;
+  failures: TicketCiFailure[];
 }
 
 export interface AttemptSource {
