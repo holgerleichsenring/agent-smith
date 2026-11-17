@@ -2,7 +2,7 @@
 spec: 2026-11-17-d6fbd
 goal: "Fix what the redesign left: the Your move box reads the head attempt's end detail, the ledger tick and the tool panels use app tokens, and dead ticket CSS goes."
 
-applies_to: "dashboard (YourMoveBox, LedgerPanel, RunToolsPanel, ToolPairCard, mock-parity.css)"
+applies_to: "dashboard (YourMoveBox, LedgerPanel, RunToolsPanel, ToolPairCard, ToolCallRow, ToolResultRow, mock-parity.css)"
 
 requires: [2026-11-16-6877a, 2026-11-16-f3fba]
 
@@ -26,14 +26,14 @@ steps:
   - id: move
     action: "YourMoveBox passes view.attempt?.endDetail to yourMove; a test proves Stuck: subject, the instruction and Open the setting."
   - id: tokens
-    action: "LedgerPanel strokes currentColor and .li.done .box sets color var(--on-fill); RunToolsPanel and ToolPairCard use app-panel, app-raised, app-line, app-text, app-mute, app-needs, app-proven and app-stopped."
+    action: "LedgerPanel strokes currentColor and .li.done .box sets color var(--on-fill); RunToolsPanel, ToolPairCard and the ToolCallRow and ToolResultRow they hold use app-panel, app-raised, app-line, app-text, app-mute, app-needs, app-proven and app-stopped."
   - id: css
-    action: "Remove the CSS rules whose classes grep finds in no .ts or .tsx file."
+    action: "Remove the .conv-tools, .c-att, .c-toggle, .c-same, .c-group and .tstate rules and their comments, and .ts-say from the text-wrap :is lists; grep finds none of them in a .ts or .tsx source file."
 
 tests:
-  - "YourMoveBox test: a stuck ticket whose head attempt has an endDetail shows its subject, instruction and setting link."
+  - "TicketPage test: a stuck ticket whose head attempt has an endDetail shows its subject, instruction and setting link."
   - "LedgerPanel test: the tick strokes currentColor."
-  - "A test that the tool panels carry no stone-900/950 class."
+  - "toolPanelTokens.test.ts: the four tool files carry no raw stone, emerald, rose or amber class."
 
 done:
   - "The stuck headline appears on a ticket whose head attempt names its subject."
