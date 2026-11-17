@@ -101,6 +101,6 @@ public sealed class PremiseCorrectionTests
             new PremiseFinding("a fact", "no-longer-holds", "it is otherwise", "M1", "[M1] repo: read x exited 0", "repo: read x"))]);
 
         PremiseCorrection.PromptBlock(pipeline).Should().Contain("Corrected premises")
-            .And.Contain("\"a fact\"").And.Contain("it is otherwise").And.Contain("[M1]").And.Contain("ask_human");
+            .And.Contain("\"a fact\"").And.Contain("it is otherwise").And.Contain("[M1]").And.Contain("revise_spec").And.Contain("ask_human");
     }
 }

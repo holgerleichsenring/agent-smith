@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -23,11 +24,13 @@ public sealed class MasterRecordToolHosts(
     MemoryCitationResolver citations,
     MemoryStandingReader standings,
     ILogger<MasterRecordToolHosts> logger,
-    MemorySources? sources = null) // 2026-11-10-fcd7b
+    MemorySources? sources = null, // 2026-11-10-fcd7b
+    Specs.Revision.MasterSpecRevision? revision = null) // 2026-11-17-ec48a
 {
     /// <param name="codingMaster">2026-11-10-4778 review: only a coding master's remember may keep a lesson on the
     /// project ('@project'); a scan or review master's writes only where a code change lands.</param>
-    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot, bool codingMaster = false)
+    /// <param name="agent">2026-11-17-ec48a: the master's agent, which a spec revision's review is made under.</param>
+    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot, bool codingMaster = false, AgentConfig? agent = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var repositories = runRepositories.For(pipeline);
@@ -42,7 +45,11 @@ public sealed class MasterRecordToolHosts(
             decisionLogger,
             defaults is null ? null : new DefaultDecisionToolHost(defaults),
             memory.CanRecord ? new MemoryDisputeToolHost(memory) : null,
-            sources is null ? null : new ProjectMemoryWriteToolHost(sources, pipeline));
+            sources is null ? null : new ProjectMemoryWriteToolHost(sources, pipeline))
+        {
+            ReviseSpec = spec is not null && codingMaster && agent is not null && revision is not null
+                ? new Specs.Revision.ReviseSpecToolHost(revision, pipeline, agent) : null,
+        };
     }
 
     private MemoryUseRecorder? MemoryUse(PipelineContext pipeline, string? specId)
@@ -76,4 +83,12 @@ public sealed record MasterRecordTools(
     IDecisionLogger Decisions,
     DefaultDecisionToolHost? DefaultDecision,
     MemoryDisputeToolHost? Dispute = null,
-    ProjectMemoryWriteToolHost? ProjectRemember = null);
+    ProjectMemoryWriteToolHost? ProjectRemember = null)
+{
+    /// <summary>2026-11-17-ec48a: revise_spec, beside hand_forward on a coding master that executes a spec only.</summary>
+    public Specs.Revision.ReviseSpecToolHost? ReviseSpec { get; init; }
+
+    /// <summary>The tools a spec's coding master gets beyond the base surface: hand_forward and revise_spec.</summary>
+    public IEnumerable<Microsoft.Extensions.AI.AITool> SpecTools =>
+        [.. HandForward?.GetTools(null, null) ?? [], .. ReviseSpec?.GetTools(null, null) ?? []];
+}

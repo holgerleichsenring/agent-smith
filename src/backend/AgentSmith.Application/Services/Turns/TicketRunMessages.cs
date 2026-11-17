@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Turns;
 
@@ -28,15 +27,12 @@ public sealed class TicketRunMessages(
         var waiting = await conversation.AddressedToAsync(project, ticketId, runId, Through(pipeline), cancellationToken);
         if (waiting.Count == 0) return [];
         pipeline.Set(ContextKeys.TicketMessagesThrough, waiting.Max(m => m.Index));
+        pipeline.Set<IReadOnlyList<string>>(ContextKeys.TicketMessagesHanded, // 2026-11-17-ec48a: for a spec revision's review
+            [.. CheckpointedValues.Strings(pipeline, ContextKeys.TicketMessagesHanded), .. waiting.Select(m => m.Text)]);
         return [.. waiting.Select(m => new MidTurnMessage(m.Text, m.At))];
     }
 
     // An int as set, or the number a checkpoint's JSON round trip brings back.
-    internal static int Through(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<int>(ContextKeys.TicketMessagesThrough, out var index)) return index;
-        if (pipeline.TryGet<long>(ContextKeys.TicketMessagesThrough, out var wide)) return (int)wide;
-        return pipeline.TryGet<JsonElement>(ContextKeys.TicketMessagesThrough, out var json)
-            && json.ValueKind == JsonValueKind.Number ? json.GetInt32() : -1;
-    }
+    internal static int Through(PipelineContext pipeline) =>
+        CheckpointedValues.Int(pipeline, ContextKeys.TicketMessagesThrough, -1);
 }

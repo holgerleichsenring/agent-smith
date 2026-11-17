@@ -38,6 +38,10 @@ public static class SpecReviewRegistrations
             // 2026-10-13-8762n: the entered spec's citation re-ground — history, regrounder, entry.
             .AddTransient<SpecCitationHistory>().AddTransient<SpecCitationRegrounder>()
             .AddTransient<ISpecEntryGrounding, SpecEntryGrounding>()
-            .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>();
+            .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>()
+            // 2026-11-17-ec48a: the coding master's revise_spec — its one review, gate, text, writer and orchestration.
+            .AddTransient<SpecRevisionReview>().AddTransient<Revision.SpecRevisionGate>()
+            .AddTransient<Revision.SpecRevisionText>().AddTransient<Revision.SpecRevisionWriter>()
+            .AddTransient<Revision.MasterSpecRevision>();
     }
 }

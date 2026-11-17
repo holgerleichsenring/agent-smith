@@ -60,6 +60,27 @@ public sealed class MasterRecordToolsTests
             .Should().BeOfType<AgenticMasterHandler>();
     }
 
+    /// <summary>2026-11-17-ec48a: revise_spec is resolved through the real container and offered only to a coding
+    /// master that executes a spec.</summary>
+    [Fact]
+    public void MasterRecordToolHosts_ReviseSpec_OnlyForASpecsCodingMaster()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var hosts = scope.ServiceProvider.GetRequiredService<MasterRecordToolHosts>();
+        var pipeline = TwoRepositories();
+        var agent = new AgentSmith.Contracts.Models.Configuration.AgentConfig();
+
+        hosts.Create(pipeline, "/work", codingMaster: true, agent).ReviseSpec.Should().BeNull("no spec is current");
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft("2026-10-14-5678a", "goal", "spec: 2026-10-14-5678a\n", []));
+        hosts.Create(pipeline, "/work", codingMaster: false, agent).ReviseSpec.Should().BeNull("a scan master revises nothing");
+        hosts.Create(pipeline, "/work", codingMaster: true, agent).SpecTools.Select(t => t.Name)
+            .Should().Equal(HandForwardToolHost.Name, AgentSmith.Application.Services.Specs.Revision.ReviseSpecToolHost.Name);
+    }
+
     [Fact]
     public async Task MasterRecordToolHosts_DefaultDecision_ResolvedThroughTheRealServiceProvider()
     {

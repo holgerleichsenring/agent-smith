@@ -32,6 +32,11 @@ public sealed class SpecExecutionPromptFactoryTests
     public void Build_NoPublishedRecord_RendersNoOwnerWords() =>
         Build(Pipeline()).Should().NotContain(ApprovalOwnerWordsSection.Heading);
 
+    /// <summary>2026-11-17-ec48a: a message that changes the spec is a revision with one review, not a pause.</summary>
+    [Fact]
+    public void Build_TheSpecContract_NamesReviseSpecForAMessageThatChangesTheSpec() =>
+        Build(Pipeline()).Should().Contain("spec with revise_spec: one fresh review of the changed text decides");
+
     private static PipelineContext Pipeline()
     {
         var pipeline = new PipelineContext();
