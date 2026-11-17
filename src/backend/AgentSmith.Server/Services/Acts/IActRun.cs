@@ -10,6 +10,8 @@ namespace AgentSmith.Server.Services.Acts;
 public interface IActRun
 {
     /// <summary>Runs <paramref name="pipeline"/> for <paramref name="project"/> on no token and answers how it ended;
-    /// a run that could not start answers a failed result, never a throw.</summary>
-    Task<CommandResult> RunAsync(string project, string pipeline, IReadOnlyDictionary<string, object> seeds);
+    /// a run that could not start answers a failed result, never a throw. 2026-11-17-b34ed: <paramref name="shownOnTicket"/>
+    /// lists the run on that ticket's page and gives it nothing else of the ticket.</summary>
+    Task<CommandResult> RunAsync(
+        string project, string pipeline, IReadOnlyDictionary<string, object> seeds, TicketId? shownOnTicket = null);
 }

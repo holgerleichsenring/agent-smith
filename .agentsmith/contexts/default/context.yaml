@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-b34ed: "ACT RUNS SHOWN ON TICKET (PipelineRequest.ShownOnTicket, PipelinePresets.ShownOnTicketOnly, run projections, BaseRefreshLauncher, IActRun). refresh-base and retarget rows carry their ticket's id so its page lists them, without lease, nudge, queue entry or ticket finalization. -> .agentsmith/specs/done/2026-11-17-b34ed-ticket-act-runs-shown.yaml"
     2026-11-17-b34ec: "TICKET LIST STACKED READY (FiledTicketRows). A never-run ticket's blocked/ready marker, graph node and requires entries read ForStartAsync, so a dependent of a green prerequisite under on_green_push reads ready; on_merge still waits for a landing. -> .agentsmith/specs/done/2026-11-17-b34ec-ticket-list-stacked-ready.yaml"
     2026-11-17-b34eb: "STUDIO SETTINGS SWEEP (ProjectMergeSection, SweepSettingsForms, AgentTuningTab, ConfigCapabilities.MergeWhen/RequiresStart, ProjectMergeMapping). The project form's merge tab edits requires_start and merge.*, options from the server's enums; agent compaction ratios, branch_cleanup and preconditions are editable. -> .agentsmith/specs/done/2026-11-17-b34eb-studio-settings-sweep.yaml"
     2026-11-17-b34ea: "COST CAP COUNTS RECORDED CALLS (PipelineCostTracker.BudgetCostUsd, RecordedCallAttach, MasterLoopHooksFactory, CostCapStop). The money arm takes the larger of tracker spend plus worker-reported cost and the run's recorded-call ledger, so a worker run over budget stops; the sentence names pipeline_cost_cap. -> .agentsmith/specs/done/2026-11-17-b34ea-cost-cap-recorded-calls.yaml"
