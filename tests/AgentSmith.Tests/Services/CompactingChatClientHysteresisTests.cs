@@ -198,4 +198,88 @@ public sealed class CompactingChatClientHysteresisTests
         reminder.Should().Be(view.Count - 1, "the reminder is the trailing message of the tail");
         Text(view[^1]).Should().NotContain("SUMMARY#", "the reminder must never be folded away");
     }
+
+    // 2026-11-17-cb32a: the segments stay under their budget — a fold that would pass it summarizes the earlier
+    // segments with the new middle into one, in one summarizer call.
+    [Fact]
+    public async Task Compaction_SegmentsPastTheBudget_AreConsolidatedIntoOne()
+    {
+        var inner = new RecordingInner();
+        var inputs = new List<IReadOnlyList<ChatMessage>>();
+        var config = new CompactionConfig
+        {
+            IsEnabled = true, MaxContextTokens = 800, MaxContextTokensTriggerRatio = 1.0, KeepRecentIterations = 3,
+            SummaryBudgetRatio = 0.1, // 80 tokens: two 40-char segments fit, a third does not
+        };
+        var sut = new CompactingChatClient(inner, config, null, (middle, _) =>
+        {
+            inputs.Add(middle);
+            return Task.FromResult($"SEG{inputs.Count}|" + new string('s', 100));
+        });
+
+        for (var rounds = 10; rounds <= 40; rounds += 6) await sut.GetResponseAsync(History(rounds));
+
+        inputs.Count.Should().BeGreaterThan(2);
+        inputs.Should().Contain(i => i.Any(m => Text(m).StartsWith("[Earlier summary]")),
+            "a fold past the budget hands the earlier segments to the summarizer");
+        var segments = inner.Forwarded[^1].Count(m => Text(m).Contains("[Context summary of earlier iterations"));
+        segments.Should().BeLessThan(inputs.Count, "consolidated segments are replaced, not kept beside the new one");
+    }
+
+    [Fact]
+    public async Task CompactedView_PinChangesBetweenFolds_LeaveTheViewAsItWas()
+    {
+        var inner = new RecordingInner();
+        var version = 0;
+        var sut = new CompactingChatClient(inner, Config(), Hooks(() => $"LEDGER v{++version}"), new Summarizer().Summarize);
+
+        await sut.GetResponseAsync(History(rounds: 10));
+        await sut.GetResponseAsync(History(rounds: 11));
+
+        var a = inner.Forwarded[^2];
+        var b = inner.Forwarded[^1];
+        b.Take(a.Count).Select(Text).Should().Equal(a.Select(Text), "the pin is the state at the fold, not per call");
+        a.Should().Contain(m => Text(m).Contains("LEDGER v1") && Text(m).Contains("the messages below are newer"));
+    }
+
+    [Fact]
+    public async Task Fold_AReminderAfterTheNewestToolResult_KeepsTheResultInTheTail()
+    {
+        var inner = new RecordingInner();
+        var history = History(rounds: 10);
+        history.Add(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("c1", "read_file")]));
+        history.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent("c1", "NEWEST RESULT")]));
+        history.Add(new ChatMessage(ChatRole.User, "REMINDER: update_progress"));
+        var sut = new CompactingChatClient(inner, Config(), null, new Summarizer().Summarize);
+
+        await sut.GetResponseAsync(history);
+
+        var view = inner.Forwarded[^1];
+        view.Should().Contain(m => m.Contents.OfType<FunctionResultContent>().Any(r => Equals(r.Result, "NEWEST RESULT")));
+        view.Should().Contain(m => m.Contents.OfType<FunctionCallContent>().Any(c => c.CallId == "c1"));
+        Text(view[^1]).Should().StartWith("REMINDER");
+    }
+
+    [Fact]
+    public async Task Fold_AResultLargerThanTheTarget_StaysWhileNewest_AndIsFoldedNextTime()
+    {
+        var inner = new RecordingInner();
+        var sut = new CompactingChatClient(inner, Config(), null, new Summarizer().Summarize);
+        var history = History(rounds: 6);
+        history.Add(Msg(ChatRole.Assistant, "big-call|"));
+        history.Add(Msg(ChatRole.User, "BIG|", chars: 2_000)); // 500 tokens, over the 280-token target
+
+        await sut.GetResponseAsync(history);
+        inner.Forwarded[^1].Should().Contain(m => Text(m).StartsWith("BIG|"), "the newest result is what the model asked for");
+
+        for (var i = 0; i < 6; i++)
+        {
+            history.Add(Msg(ChatRole.Assistant, $"after-{i}|"));
+            history.Add(Msg(ChatRole.User, $"after-result-{i}|"));
+            await sut.GetResponseAsync(history);
+        }
+        var last = inner.Forwarded[^1];
+        last.Should().NotContain(m => Text(m).StartsWith("BIG|"), "a later fold takes it into the summary");
+        CompactingChatClient.EstimateTokens(last).Should().BeLessThan(800, "the call after that fold is under the trigger");
+    }
 }
