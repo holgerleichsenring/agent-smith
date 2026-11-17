@@ -85,6 +85,13 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
     };
   }, [hub, reads, project, ticketId]);
 
+  // 2026-11-17-dd05d: coming back to the page from the tracker re-reads the ticket's text at once.
+  useEffect(() => {
+    const returned = () => reads.textReturned();
+    window.addEventListener("focus", returned);
+    return () => window.removeEventListener("focus", returned);
+  }, [reads]);
+
   const current = snapshot ?? reads.snapshot;
   const liveAttempt = newestLive(current.detail.data);
   const liveEvents = useRunEvents(liveAttempt?.runId ?? null);

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 
@@ -27,7 +28,8 @@ public sealed record TicketTextView(
     DateTimeOffset? At,
     string? RunId = null,
     int? Attempt = null,
-    string? Reason = null)
+    string? Reason = null,
+    SetDivergence? Divergence = null)
 {
     public static TicketTextView FromTracker(Ticket ticket, DateTimeOffset at) =>
         new(TicketTextSources.Tracker, ticket.Title, ticket.Description, ticket.DescriptionFormat,

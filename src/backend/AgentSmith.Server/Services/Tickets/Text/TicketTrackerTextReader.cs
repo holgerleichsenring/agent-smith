@@ -17,14 +17,20 @@ public sealed class TicketTrackerTextReader(
 {
     public static readonly TimeSpan CachedFor = TimeSpan.FromSeconds(60);
 
-    public async Task<TicketTrackerRead> ReadAsync(ResolvedProject project, string ticketId, CancellationToken ct)
+    /// <param name="fresh">2026-11-17-dd05d: past the cache — a person came back from the tracker and must see it now.</param>
+    public async Task<TicketTrackerRead> ReadAsync(ResolvedProject project, string ticketId, CancellationToken ct, bool fresh = false)
     {
-        var key = $"ticket-text:{project.Name}/{ticketId}";
-        if (cache.TryGetValue<TicketTrackerRead>(key, out var cached) && cached is not null) return cached;
+        var key = Key(project.Name, ticketId);
+        if (!fresh && cache.TryGetValue<TicketTrackerRead>(key, out var cached) && cached is not null) return cached;
         var read = await LoadAsync(project, ticketId, ct);
         cache.Set(key, read, CachedFor);
         return read;
     }
+
+    /// <summary>2026-11-17-dd05d: this system just rewrote the ticket, so a cached read of it is stale.</summary>
+    public void Forget(string project, string ticketId) => cache.Remove(Key(project, ticketId));
+
+    private static string Key(string project, string ticketId) => $"ticket-text:{project}/{ticketId}";
 
     private async Task<TicketTrackerRead> LoadAsync(ResolvedProject project, string ticketId, CancellationToken ct)
     {

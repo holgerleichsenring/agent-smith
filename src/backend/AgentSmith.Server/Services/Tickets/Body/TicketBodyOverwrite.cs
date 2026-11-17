@@ -12,11 +12,12 @@ namespace AgentSmith.Server.Services.Tickets.Body;
 /// <summary>
 /// 2026-11-17-dd05b: a person asks for a ticket's body to say again what the specs on its branch say. The server
 /// accepts and refuses; the writes are a 'ticket-body' run's step with a run id. A ticket a run holds is refused, as
-/// an amendment is: the run reads the ticket and its fingerprint while it works.
+/// an amendment is: the run reads the ticket and its fingerprint while it works. The ticket page's cached tracker read
+/// is forgotten (absent where the dashboard API is off).
 /// </summary>
 public sealed class TicketBodyOverwrite(
     TicketProjects projects, FiledWorkTrackerProjects trackerProjects, IServiceScopeFactory scopes,
-    IActRun acts, ITicketActivityNudge activity)
+    IActRun acts, ITicketActivityNudge activity, Text.TicketTrackerTextReader? texts = null)
 {
     /// <summary>Null when the project is not configured; else how the overwrite ended.</summary>
     public async Task<TicketBodyOutcome?> OverwriteAsync(string project, string ticketId, string by, CancellationToken ct)
@@ -34,6 +35,7 @@ public sealed class TicketBodyOverwrite(
             [ContextKeys.ActOutcome] = slot,
         });
         var outcome = slot.Value ?? new(false, $"The body of ticket {ticketId} was not rewritten: the ticket-body run ended first ({result.Message}).");
+        if (outcome.Rewritten) texts?.Forget(project, ticketId); // 2026-11-17-dd05d: the page reads the rewritten ticket
         if (outcome.Rewritten)
             await activity.ChangedAsync(project, TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value, ct);
         return outcome;

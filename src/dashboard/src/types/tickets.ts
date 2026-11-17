@@ -492,6 +492,14 @@ export interface TicketText {
   runId?: string | null;
   attempt?: number | null;
   reason?: TicketTextReason | null;
+  /** 2026-11-17-dd05d: on a live read, the approved spec goals the ticket's text no longer states; null when it states them. */
+  divergence?: TicketTextDivergence | null;
+}
+
+/** 2026-11-17-dd05d: how many specs the ticket's approved set holds, and the goals its tracker text does not state. */
+export interface TicketTextDivergence {
+  specs: number;
+  unsaid: string[];
 }
 
 export interface TicketConversationEntry {

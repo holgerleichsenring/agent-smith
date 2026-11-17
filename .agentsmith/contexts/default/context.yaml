@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-dd05d: "TICKET TEXT DIVERGENCE (TicketTextDivergence, TicketTextReader, POST /api/tickets/.../body, TicketTextDivergence.tsx). The ticket text read names approved goals the tracker text lost; the page re-reads it on focus and offers editing the specs or a 'ticket-body' overwrite. -> .agentsmith/specs/done/2026-11-17-dd05d-ticket-text-divergence.yaml"
     2026-11-17-dd05c: "TICKET SPEC EDIT (TicketSpecEdit, PUT /api/tickets/.../specs/{id}, TicketAmendment/SeriesEditAct ticket-keyed, SpecEdit). An unexecuted spec's yaml is edited on the ticket page; never-worked goes through the 'amend' run, worked is kept for the next attempt; a never-run ticket shows its branch specs. -> .agentsmith/specs/done/2026-11-17-dd05c-ticket-spec-edit.yaml"
     2026-11-17-dd05b: "TICKET BODY FROM SPECS (SeriesTicketRegion, GraphTicketBody, 'ticket-body' act, TicketBodyRender, SeriesFingerprintStamp, TicketBodyOverwrite). A list ticket is filed with its specs' region; a 'ticket-body' run re-renders a body from the branch and stamps the manifest fingerprint. -> .agentsmith/specs/done/2026-11-17-dd05b-ticket-body-from-specs.yaml"
     2026-11-17-dd05a: "WHAT HAPPENED CUT LINE (SpecSetCommentLine, TicketConversationReader, SpecSetComment.DoneHeading). A posted cut comment whose first line is the cut heading reads on the ticket page as one line: n specs derived/approved (from Work it out), revision n inside its run; the tracker comment is unchanged. -> .agentsmith/specs/done/2026-11-17-dd05a-ticket-thread-spec-line.yaml"
