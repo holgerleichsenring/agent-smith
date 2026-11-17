@@ -2670,6 +2670,58 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.ToTable("SpecDialogAttachments", (string)null);
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogProposal", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProposalId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ProposalJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("State")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProposalId");
+
+                    b.HasIndex("RunId")
+                        .IsUnique();
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex(new[] { "SessionId" }, "IX_SpecDialogProposal_OneAwaiting")
+                        .IsUnique()
+                        .HasFilter("\"State\" = 'awaiting'");
+
+                    b.ToTable("SpecDialogProposal");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogSession", b =>
                 {
                     b.Property<long>("Id")
@@ -2678,20 +2730,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("AwaitingProposalJson")
-                        .HasColumnType("text");
-
                     b.Property<string>("ChannelId")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
-
-                    b.Property<string>("ConfirmedOutcomeJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ConfirmedProposalId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2703,9 +2745,6 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LatestFilingJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("LatestProposalJson")
                         .HasColumnType("text");
 
                     b.Property<string>("Platform")
@@ -2725,19 +2764,8 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
-                    b.Property<string>("ProposalId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("ProposalState")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.Property<string>("ReposJson")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ReviewingProposalJson")
                         .HasColumnType("text");
 
                     b.Property<string>("RunningRunId")
@@ -2893,44 +2921,6 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .IsUnique();
 
                     b.ToTable("SpecDialogTicketText");
-                });
-
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTurnProposal", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ProposalJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RunId")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("character varying(191)");
-
-                    b.Property<string>("SessionId")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("character varying(191)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RunId")
-                        .IsUnique();
-
-                    b.HasIndex("SessionId");
-
-                    b.ToTable("SpecDialogTurnProposal");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SweepCursor", b =>

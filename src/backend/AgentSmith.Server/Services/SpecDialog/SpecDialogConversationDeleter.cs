@@ -26,7 +26,7 @@ public sealed class SpecDialogConversationDeleter(
     ReferenceFileRepository files,
     ApprovedSeriesRepository approvals,
     SpecDialogThreadRepository threads,
-    SpecDialogTurnProposalRepository? turnProposals = null) : ISpecDialogConversationDeleter // 2026-11-10-d854c
+    SpecDialogProposalRepository? turnProposals = null) : ISpecDialogConversationDeleter // 2026-11-10-d854c
 {
     public async Task DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {

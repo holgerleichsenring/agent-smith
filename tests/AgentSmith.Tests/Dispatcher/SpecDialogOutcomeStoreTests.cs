@@ -66,7 +66,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
 
         provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}a: Widget endpoint$");
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
-        session!.ConfirmedOutcomeJson.Should().BeNull(
+        (await StoredProposals.InStateAsync(_context, SpecDialogProposalClaim.Filing)).Should().BeNull(
             "a fully filed outcome is no longer pending on the session");
         _adapter.Verify(a => a.SendInfoAsync(
             state.ChannelId, It.IsAny<string>(),
@@ -88,10 +88,9 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
 
         await sink.AcceptAsync(state, bug, false, CancellationToken.None, await ClaimedAsync("th-2", bug));
 
-        var session = await _repository.GetOpenByThreadAsync(Platform, "th-2", CancellationToken.None);
-        session!.ConfirmedOutcomeJson.Should().NotBeNull(
-            "the confirmed outcome survives a filing failure so it can be retried");
-        var restored = OutcomeProposalJson.Read(session.ConfirmedOutcomeJson!);
+        var filing = await StoredProposals.InStateAsync(_context, SpecDialogProposalClaim.Filing);
+        filing.Should().NotBeNull("the confirmed outcome survives a filing failure so it can be retried");
+        var restored = OutcomeProposalJson.Read(filing!.ProposalJson);
         restored.Should().BeEquivalentTo(bug, "the retry must read back exactly what was confirmed");
         _adapter.Verify(a => a.SendInfoAsync(
             state.ChannelId, It.IsAny<string>(),
@@ -120,8 +119,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
 
         await sink.AcceptAsync(state, epic, false, CancellationToken.None, await ClaimedAsync("th-3", epic));
 
-        var session = await _repository.GetOpenByThreadAsync(Platform, "th-3", CancellationToken.None);
-        var restored = OutcomeProposalJson.Read(session!.ConfirmedOutcomeJson!);
+        var restored = OutcomeProposalJson.Read((await StoredProposals.InStateAsync(_context, SpecDialogProposalClaim.Filing))!.ProposalJson);
         restored.Templates.Should().ContainSingle().Which.Should().BeEquivalentTo(epic.Templates[0],
             "a retry in another process files the parent that names what the analysis read");
     }
@@ -134,8 +132,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
 
         await sink.AcceptAsync(state, new BugOutcome(new BugTicketDraft("Fix it", "It breaks.", null)), false, CancellationToken.None);
 
-        var session = await _repository.GetOpenByThreadAsync(Platform, "th-4", CancellationToken.None);
-        session!.ConfirmedOutcomeJson.Should().BeNull("the claim is the one writer of the confirmed slot (205fe)");
+        (await StoredProposals.AllAsync(_context)).Should().BeEmpty("the claim is the one writer of a filing (205fe)");
     }
 
     // 2026-11-11-205fe: the claim is the one writer of the confirmed slot; the sink clears only its own proposal's.

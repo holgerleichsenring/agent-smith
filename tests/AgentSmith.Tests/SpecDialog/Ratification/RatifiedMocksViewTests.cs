@@ -60,9 +60,9 @@ public sealed class RatifiedMocksViewTests
     [Fact]
     public void TicketTranscriptReader_ProposalDraft_CarriesTheRatifiedMock()
     {
-        var session = Session(new EpicOutcome(Parent, [ChildA, ChildB]), Ratified("spec-b", 3, 1));
+        var session = Session(Ratified("spec-b", 3, 1));
 
-        var drafts = Reader().Proposal(session)!.Drafts;
+        var drafts = Reader().Proposal(session, Awaits(new EpicOutcome(Parent, [ChildA, ChildB])))!.Drafts;
 
         drafts.Select(d => (d.SpecId, d.RatifiedMock)).Should().Equal(("parent", null), ("spec-a", null), ("spec-b", 3));
     }
@@ -70,12 +70,13 @@ public sealed class RatifiedMocksViewTests
     [Fact]
     public void TicketTranscriptReader_RatificationTurnAfterProposal_MarksTheDraft()
     {
-        var session = Session(new SpecOutcome(ChildA),
-            Ratified("spec-a", 1, 1), Turn(TranscriptRole.Assistant, "proposed", 2), Ratified("spec-a", 2, 3));
+        var session = Session(Ratified("spec-a", 1, 1), Turn(TranscriptRole.Assistant, "proposed", 2), Ratified("spec-a", 2, 3));
 
-        Reader().Proposal(session)!.Drafts.Should().ContainSingle().Which.RatifiedMock.Should().Be(2);
-        Reader().Proposal(Session(new SpecOutcome(ChildA)))!.Drafts.Single().RatifiedMock.Should().BeNull();
+        Reader().Proposal(session, Awaits(new SpecOutcome(ChildA)))!.Drafts.Should().ContainSingle().Which.RatifiedMock.Should().Be(2);
+        Reader().Proposal(Session(), Awaits(new SpecOutcome(ChildA)))!.Drafts.Single().RatifiedMock.Should().BeNull();
     }
+
+    private static (string Id, string Json) Awaits(OutcomeProposal proposal) => ("p-1", OutcomeProposalJson.Write(proposal));
 
     private static TranscriptTurn Ratified(string specId, int version, int minutes) =>
         Turn(TranscriptRole.User, $"Ratified mock v{version} of {specId}.", minutes) with

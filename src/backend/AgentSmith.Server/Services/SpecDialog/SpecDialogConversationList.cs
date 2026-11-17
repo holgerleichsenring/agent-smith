@@ -60,18 +60,19 @@ public sealed class SpecDialogConversationList(
         // the tracker does without turning this list into one query per row.
         var tickets = await ticketText.TicketIdsForAsync(
             [.. rows.Select(r => r.SessionId)], cancellationToken);
-        return new SpecDialogConversationPage([.. rows.Select(r => Summary(r, tickets))], total);
+        var outcomes = await latestOutcome.ListedAsync(rows, cancellationToken); // 2026-11-17-a0b6d: one read for the page
+        return new SpecDialogConversationPage([.. rows.Select(r => Summary(r, tickets, outcomes[r.SessionId]))], total);
     }
 
-    private SpecDialogSessionSummary Summary(
-        SpecDialogSession session, IReadOnlyDictionary<string, string> tickets)
+    private static SpecDialogSessionSummary Summary(
+        SpecDialogSession session, IReadOnlyDictionary<string, string> tickets, SpecDialogLatestOutcome latest)
     {
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         return new SpecDialogSessionSummary(
             session.SessionId, session.Project, transcript.Count, session.LastActivityAt,
             SpecDialogConversationTitle.Of(transcript),
             session.Subject,
-            Outcome(latestOutcome.Of(session)),
+            Outcome(latest),
             session.IsOpen ? session.ThreadId : null,
             // A conversation bound to no ticket has no row here, and a bound one whose text read
             // never landed has none either — then the row simply carries no ticket.

@@ -44,6 +44,7 @@ public static class RunStoreRepairExtensions
         services.AddSingleton<IStoredSpecNameSurface, QueuedTicketSpecNames>();
         services.AddSingleton<IStoredSpecNameSurface, ApprovedSeriesSpecNames>();
         services.AddSingleton<IStoredSpecNameSurface, SpecDialogSessionSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, SpecDialogProposalSpecNames>(); // 2026-11-17-a0b6d
         services.AddSingleton<IStoredSpecNameSurface, RunStepSpecNames>();
         services.AddSingleton<StoredSpecNameRewrite>();
         return services;

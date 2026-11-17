@@ -45,7 +45,7 @@ public sealed class InterruptedTurnDraftTests : IDisposable
         var harness = new SpecDialogDecisionHarness(_context);
         var state = await harness.OpenAsync("dashboard", Dialog);
         // Turn A's replica stored its draft and died; the reaper marked its run, as it would.
-        await harness.TurnProposals.WriteAsync(state, "run-a", Bug("draft of a") with { UnderReview = true }, default);
+        await harness.WriteTurnAsync(state, "run-a", Bug("draft of a") with { UnderReview = true });
         await RunAsync("run-a", RunStatuses.Failed);
         // Turn B ran to completion.
         await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "b", null, null, default, runId: "run-b");
@@ -64,7 +64,7 @@ public sealed class InterruptedTurnDraftTests : IDisposable
     {
         var harness = new SpecDialogDecisionHarness(_context);
         var state = await harness.OpenAsync("dashboard", Dialog);
-        await harness.TurnProposals.WriteAsync(state, "run-x", Bug("draft under review") with { UnderReview = true }, default);
+        await harness.WriteTurnAsync(state, "run-x", Bug("draft under review") with { UnderReview = true });
         await RunAsync("run-x", RunStatuses.Running);
 
         // This replica's gate knows nothing of run-x: computing is false here.
@@ -79,11 +79,11 @@ public sealed class InterruptedTurnDraftTests : IDisposable
     {
         var harness = new SpecDialogDecisionHarness(_context);
         var state = await harness.OpenAsync("dashboard", Dialog);
-        await harness.TurnProposals.WriteAsync(state, "run-z", Bug("dead draft"), default);
+        await harness.WriteTurnAsync(state, "run-z", Bug("dead draft"));
         await RunAsync("run-z", RunStatuses.Failed);
-        await harness.TurnProposals.WriteAsync(state, "run-x", Bug("older live draft"), default);
+        await harness.WriteTurnAsync(state, "run-x", Bug("older live draft"));
         await RunAsync("run-x", RunStatuses.Running);
-        await harness.TurnProposals.WriteAsync(state, "run-y", Bug("newest live draft"), default);
+        await harness.WriteTurnAsync(state, "run-y", Bug("newest live draft"));
         await RunAsync("run-y", RunStatuses.Running);
 
         var read = await ReadAsync(harness);

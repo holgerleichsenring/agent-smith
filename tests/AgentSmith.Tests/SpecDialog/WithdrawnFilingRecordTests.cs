@@ -67,7 +67,7 @@ public sealed class WithdrawnFilingRecordTests
             """,
         };
 
-        var filing = Store().Of(session).Filing;
+        var filing = Store().FilingOf(session);
 
         filing.Should().NotBeNull("one unreadable word must not take the whole filing with it");
         var ticket = filing!.Filed.Single();
