@@ -11,10 +11,9 @@ namespace AgentSmith.Infrastructure.Persistence.Services.Repair;
 /// own, and it is also accumulated per call while the run is alive — so a run projected N
 /// times reported N times its spend, and that number is what every cost rollup reads.
 /// <para>
-/// It only ever moves the total DOWN, to the sum of the calls that survived. A stored total
-/// at or below that sum came from the run-end event, which is authoritative and is left
-/// alone: deflating toward the surviving calls can correct an inflated run, never invent a
-/// new number for a correct one.
+/// It only ever moves the total DOWN, to the sum of the calls that survived. 2026-11-17-166ab:
+/// the total IS that sum since the run-end event stopped overriding it, so a stored total at
+/// or below the sum is left alone: deflating can correct an inflated run, never invent one.
 /// </para>
 /// </summary>
 public sealed class RunCostRecomputer

@@ -1,4 +1,4 @@
-using AgentSmith.Application.Services.Triggers;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -11,10 +11,11 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// <summary>
 /// p0330: terminalizes the TRACKER ticket of a cancelled run. The run row alone
 /// is not durable enough — the ticket still sits in trigger_statuses and the next
-/// poll would re-claim it as a fresh run. Uses the same failed_status fallback
-/// chain as the pipeline failure path (trigger.failed_status, then done_status,
-/// then the provider default when null). Fail-soft by design: a tracker error is
-/// logged and swallowed — it must never block a cancel.
+/// poll would re-claim it as a fresh run. 2026-11-17-166aa: it moves the ticket to
+/// <see cref="TicketParkStatuses.Failed"/> — failed_status only, never done — and
+/// without one only comments: the status stays and BoundaryStopGate holds the ticket
+/// from automatic claims. Fail-soft by design: a tracker error is logged and
+/// swallowed — it must never block a cancel.
 /// <para>
 /// 2026-09-20-9f00: the name now undersells it. RunDeleter calls this too, for any run
 /// deleted before it produced a result — the same defect in the same words. The comment
@@ -54,15 +55,19 @@ public sealed class CancelledTicketFinalizer(
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
             if (!config.Projects.TryGetValue(project, out var resolved)) return;
 
-            var trigger = TriggerSelectionHelper.ByTrackerType(resolved, resolved.Tracker.Type);
-            var status = !string.IsNullOrEmpty(trigger?.FailedStatus)
-                ? trigger!.FailedStatus
-                : trigger?.DoneStatus;
-            await ticketFactory.Create(resolved.Tracker)
-                .FinalizeAsync(new TicketId(ticketId), comment, status, cancellationToken);
+            var status = TicketParkStatuses.Of(resolved).Failed;
+            var tracker = ticketFactory.Create(resolved.Tracker);
+            if (status is null)
+            {
+                await tracker.UpdateStatusAsync(new TicketId(ticketId), comment, cancellationToken);
+                logger.LogInformation(
+                    "Cancelled run's ticket {Project}/#{Ticket} commented and left in its status — project configures no failed_status",
+                    project, ticketId);
+                return;
+            }
+            await tracker.FinalizeAsync(new TicketId(ticketId), comment, status, cancellationToken);
             logger.LogInformation(
-                "Cancelled run's ticket {Project}/#{Ticket} finalized to '{Status}'",
-                project, ticketId, status ?? "(provider default)");
+                "Cancelled run's ticket {Project}/#{Ticket} finalized to '{Status}'", project, ticketId, status);
         }
         catch (Exception ex)
         {

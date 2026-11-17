@@ -73,14 +73,26 @@ public sealed class RetryTests : IDisposable
     }
 
     [Fact]
-    public async Task Retry_FailedOnVerdict_409NamesConversation()
+    public async Task Retry_Success_409Delivered()
     {
-        await _h.AttemptAsync("r-1", RunStatuses.Failed);
+        await _h.AttemptAsync("r-1", RunStatuses.Success);
 
         var refusal = await RefusedAsync("r-1");
 
-        refusal.Reason.Should().Be(RetryRefusals.NotInfrastructure);
-        refusal.Text.Should().Be(RetryRefusals.NotInfrastructureText);
+        refusal.Reason.Should().Be(RetryRefusals.Delivered);
+        refusal.Text.Should().Be(RetryRefusals.DeliveredText);
+    }
+
+    // 2026-11-17-166ad: the button retries any end but a success — a failure on the work and a person's cancel too.
+    [Theory]
+    [InlineData(RunStatuses.Failed, null)]
+    [InlineData(Cancelled, "operator")]
+    [InlineData(RunStatuses.Shortfall, null)]
+    public async Task Retry_ButtonAfterANonInfrastructureEnd_StartsOneAttempt(string status, string? reason)
+    {
+        await _h.AttemptAsync("r-1", status, reason);
+
+        await StartsOneAttemptAsync("r-1");
     }
 
     [Fact]
@@ -111,7 +123,6 @@ public sealed class RetryTests : IDisposable
     public async Task RunRetry_ConversationOrigin_AfterAPreflightFailure_Requests()
     {
         await _h.AttemptAsync("r-1", RunStatuses.Failed);
-        (await RefusedAsync("r-1")).Reason.Should().Be(RetryRefusals.NotInfrastructure, "the button keeps its rule");
 
         var result = await _h.ConversationRetryAsync("r-1");
 
@@ -243,9 +254,8 @@ public sealed class RetryTests : IDisposable
 
     [Theory]
     [InlineData(RunStatuses.WaitingForInput, null, RetryRefusals.HandedBack)]
-    [InlineData(RunStatuses.Failed, null, RetryRefusals.NotInfrastructure)]
+    [InlineData(RunStatuses.Success, null, RetryRefusals.Delivered)]
     [InlineData("running", null, RetryRefusals.NotFinished)]
-    [InlineData(Cancelled, "operator", RetryRefusals.NotInfrastructure)]
     public async Task Retry_Every409_CarriesReasonCodeAndText(string status, string? reason, string code)
     {
         await _h.AttemptAsync("r-1", status, reason);

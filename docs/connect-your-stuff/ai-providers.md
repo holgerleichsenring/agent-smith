@@ -238,7 +238,7 @@ agents:
     worker_structured_result: true     # ask the CLI for its JSON result
 ```
 
-Nothing falls into worker mode by accident: only an agent that declares this type uses it. `worker_structured_result` makes the CLI report the tokens it used; unset, it is on for the default `claude` binary and off for anything else, because an unknown binary handed an unknown flag exits non-zero. The reported figure is never charged against an agent budget. The full wire format and the `AGENTSMITH_WORKER_CLI` overrides are in `WORKER-MODE.md` at the root of the [repository](https://github.com/holgerleichsenring/agent-smith).
+Nothing falls into worker mode by accident: only an agent that declares this type uses it. `worker_structured_result` makes the CLI report the tokens it used; unset, it is on for the default `claude` binary and off for anything else, because an unknown binary handed an unknown flag exits non-zero. A Claude Code CLI (the default binary, or one with `worker_structured_result: true`) also runs without built-in tools, MCP servers or saved sessions, in its own empty directory under the temp directory. The reported figure is never charged against an agent budget; it is what each call records, so the run's cost shows the CLI's figure summed over its calls. The full wire format and the `AGENTSMITH_WORKER_CLI` overrides are in `WORKER-MODE.md` at the root of the [repository](https://github.com/holgerleichsenring/agent-smith).
 
 ## Picking models per project
 

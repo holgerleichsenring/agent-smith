@@ -12,8 +12,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
-/// 2026-10-13-9a59n: Retry — an unchanged attempt: from the button only after an infrastructure end, from the
-/// ticket's conversation after any end but a delivered success (<see cref="RetryOrigin"/>). The runs decide first
+/// 2026-10-13-9a59n: Retry — an unchanged attempt after any end but a success (2026-11-17-166ad: from the button as
+/// from the ticket's conversation). The runs decide first
 /// (<see cref="RunRetryGate"/>), then the tracker, read once: a ticket a person closed is not reopened. While an
 /// attempt is already starting the request is refused, naming who asked. Otherwise the request is stored as a
 /// row of the run and an Operator nudge goes through the rework queue, whose worker enters through the rework

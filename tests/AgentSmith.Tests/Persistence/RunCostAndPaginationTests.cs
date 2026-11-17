@@ -77,14 +77,25 @@ public sealed class RunCostAndPaginationTests : IDisposable
     }
 
     [Fact]
-    public async Task CostUsesRunEndTotal_WhenPresent()
+    public async Task CostIsTheSumOfTheCalls_WhenTheRunEndCarriesAnotherTotal()
     {
+        // 2026-11-17-166ab: a worker run's run-end total was 0 over $17.88 of recorded calls.
         await ProjectRunAsync("run-2", DateTimeOffset.Parse("2026-06-07T12:00:00Z"),
-            finishedCost: 0.99m, llmCosts: new[] { 0.05m });
+            finishedCost: 0m, llmCosts: new[] { 1.5m, 2.25m });
 
         var run = await NewStore().GetRunDetailAsync("run-2", CancellationToken.None);
 
-        run!.CostTotalUsd.Should().Be(0.99m, "the authoritative run-end total wins when present");
+        run!.CostTotalUsd.Should().Be(3.75m, "the run's cost is the sum of its recorded calls, whatever the tracker estimated");
+    }
+
+    [Fact]
+    public async Task CostIsZero_WhenNoCallWasRecorded()
+    {
+        await ProjectRunAsync("run-3", DateTimeOffset.Parse("2026-06-07T12:00:00Z"), finishedCost: 0.99m);
+
+        var run = await NewStore().GetRunDetailAsync("run-3", CancellationToken.None);
+
+        run!.CostTotalUsd.Should().Be(0m);
     }
 
     [Fact]
@@ -109,10 +120,10 @@ public sealed class RunCostAndPaginationTests : IDisposable
     }
 
     [Fact]
-    public async Task Projector_LlmCallAfterFinish_DoesNotMutateTerminalTotal()
+    public async Task Projector_LlmCallAfterFinish_AddsToTheTotal()
     {
-        // A late replay after the terminal row landed must not inflate the
-        // authoritative run-end total.
+        // 2026-11-17-166ab: the total is the sum of the rows, so a call that lands after the
+        // finish (a draining sandbox, a lagging replica) still counts.
         var projector = NewProjector();
         var t = DateTimeOffset.Parse("2026-06-07T12:00:00Z");
         await ProjectRunAsync("run-late", t, finishedCost: 0.99m);
@@ -123,7 +134,7 @@ public sealed class RunCostAndPaginationTests : IDisposable
 
         var run = await NewStore().GetRunDetailAsync("run-late", CancellationToken.None);
 
-        run!.CostTotalUsd.Should().Be(0.99m);
+        run!.CostTotalUsd.Should().Be(0.05m);
     }
 
     [Fact]

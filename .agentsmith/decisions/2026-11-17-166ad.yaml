@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-166ad
+
+decisions:
+  - category: Implementation
+    chose: "RunRetryGate applies the conversation's end rule to the button: refuse a success, admit failed, cancelled and shortfall; RetryOrigin only words the hand-back answer"
+    over: "A second restart endpoint, or keeping the button infrastructure-only"
+    reason: "Retry already is the one restart path: a request row plus an Operator nudge through the rework queue, which starts the run by name (so 166aa's hold admits it). The replay needed a reply in the conversation to restart a failure; the operator wants any ended attempt startable without a workaround."
+  - category: Implementation
+    chose: "The gate drops InfrastructureEnd and TicketLaunchEnds; the not-infrastructure refusal and its text go"
+    over: "Keeping them for a refusal no longer given"
+    reason: "Nothing refuses on that rule any more; InfrastructureEnd still marks attempts on the ticket pages, registered by TicketReadExtensions."
+  - category: Scope
+    chose: "Shortfall is retried unchanged, as the conversation already allowed"
+    over: "Refusing it as delivered"
+    reason: "One rule for both origins; a shortfall verified only part of its specs, and retrying it is a person's explicit act."
+  - category: Scope
+    chose: "The conversation's own pre-checks (unmet requirements, a pending series edit) stay the conversation's"
+    over: "Moving them into the gate"
+    reason: "They belong to the conversation's start (spec-dialog area, out of this series' scope); the spec's claim is the same END rule, not the same pre-checks."
+  - category: Scope
+    chose: "The dashboard shows Retry unchanged for a finished, non-success, non-handed-back newest attempt; the failure act's own button stays"
+    over: "Reworking the failure act"
+    reason: "The ticket page layout is being redesigned elsewhere; this changes only when the existing button appears and the attempts tab's sentence about it."

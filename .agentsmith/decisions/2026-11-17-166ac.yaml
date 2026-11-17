@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-166ac
+
+decisions:
+  - category: Implementation
+    chose: "One stable directory <temp>/agentsmith-worker, created by the options factory; AGENTSMITH_WORKER_CWD still overrides it"
+    over: "A fresh directory per call, deleted afterwards"
+    reason: "With tools off a per-call directory adds no isolation, while the CLI names its working directory in its own system prompt (a new one per call changes its cached prefix) and keeps a project folder per directory under ~/.claude. The stable directory is what keeps the worker out of the temp directory that holds every sandbox clone."
+  - category: Implementation
+    chose: "--tools \"\", --strict-mcp-config and --no-session-persistence for a Claude Code binary: the default name, or worker_structured_result: true"
+    over: "A new config key, or tying the flags to the structured result alone"
+    reason: "The flags are Claude Code's; an unknown binary handed them exits non-zero. A wrapper that opts into the structured result has said it is Claude Code (the replay's claude-tee.sh); turning the structured result off on the default binary must not silently give the worker its file tools back."
+  - category: Scope
+    chose: "No --setting-sources"
+    over: "Dropping the operator's user settings for worker calls"
+    reason: "Measured: it cut another 340 tokens, but it also drops user-level env and proxy settings an operator may route the CLI through; that is a choice for the operator, not a default."

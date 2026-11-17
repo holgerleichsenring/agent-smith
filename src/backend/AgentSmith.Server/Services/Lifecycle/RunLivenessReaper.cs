@@ -32,7 +32,7 @@ public sealed class RunLivenessReaper(
     TimeProvider timeProvider,
     ILogger<RunLivenessReaper> logger)
 {
-    public const string InterruptedReason = "interrupted";
+    public const string InterruptedReason = global::AgentSmith.Contracts.Runs.OwedWorkCancel.Interrupted;
 
     /// <summary>Four missed 45 s beats — the lease's own freshness bound.</summary>
     public static readonly TimeSpan StaleAfter = ActiveRunReaper.LeaseFreshFor;
