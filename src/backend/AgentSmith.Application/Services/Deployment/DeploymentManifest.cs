@@ -13,6 +13,9 @@ public sealed class DeploymentManifest(ISourceProviderFactory sources, ManifestV
     {
         ArgumentNullException.ThrowIfNull(repo);
         ArgumentNullException.ThrowIfNull(environment);
+        if (environment.Manifest is null || environment.VersionKey is null) // 2026-11-18-3863e: a pipeline environment may name none
+            return (null, null, $"environment '{environment.Name}' declares no manifest and version_key, so the version it "
+                + "runs cannot be read; a pipeline that should be promoted from writes the version into a manifest it names");
         var text = await sources.Create(repo).TryReadFileAsync(environment.Manifest, cancellationToken);
         if (text is null)
             return (null, null, $"`{repo.Name}` has no `{environment.Manifest}` on its default branch "

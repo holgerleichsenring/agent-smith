@@ -47,6 +47,27 @@ public sealed class DeploymentDeclarationParserTests
         _parser.Parse(Declaration.Replace("gitops_pr", "pipeline")).Error.Should().Contain("delivery 'pipeline'");
 
     [Fact]
+    public void Parse_PipelineTrigger_ReadsPipelineRefInputsAndParameterDefaults()
+    {
+        var (declaration, error) = _parser.Parse(DeployPipelineTriggerTests.Declaration);
+
+        error.Should().BeNull();
+        declaration!.Delivery.Should().Be(DeploymentDeclaration.PipelineTrigger);
+        declaration.Parameters!["image"].Should().Be("registry.example/app");
+        var prod = declaration.Environment("prod")!;
+        prod.Manifest.Should().BeNull("a pipeline environment's manifest is optional");
+        prod.Pipeline!.Ref.Should().Be("release");
+        prod.Pipeline.Inputs["tag"].Should().Be("{context}-{version}");
+    }
+
+    [Theory]
+    [InlineData("inputs: { tag: \"{context}-{version}\" }", "inputs: { tag: \"{context}\" }", "passes the version in none of its inputs")]
+    [InlineData("inputs: { tag: \"{context}-{version}\" }", "inputs: { tag: \"{cluster}-{version}\" }", "name {cluster}")]
+    [InlineData("    version_key: images.0.newTag\n", "", "has no version_key")]
+    public void Parse_PipelineTriggerMistakes_AreRefused(string from, string to, string error) =>
+        _parser.Parse(DeployPipelineTriggerTests.Declaration.Replace(from, to)).Error.Should().Contain(error);
+
+    [Fact]
     public void Parse_NotYaml_IsRefused() =>
         _parser.Parse("environments: [").Error.Should().Contain("not readable YAML");
 }

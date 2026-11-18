@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863e
+goal: "A deployment template may declare delivery pipeline_trigger: the deploy run starts the host's pipeline with the version as an input and names the started run, its state and, when red, why."
+
+applies_to: "default (Infrastructure pipeline runners per host, deploy step, deployment.yaml format, docs)"
+
+requires: [2026-11-18-3863c]
+
+upgrade_impact: "Opt-in: only a template declaring delivery pipeline_trigger starts a pipeline. The repo's token then needs to run pipelines: GitHub actions write (classic: repo + workflow), Azure DevOps Build read & execute, GitLab api."
+
+facts:
+  - claim: "No provider starts a pipeline today; only pull requests are opened and merged."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:9-119"
+  - claim: "The three source providers are over the file-length limit and baselined, so they may only shrink; a pipeline capability cannot be added to them."
+    evidence: "tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:1-40, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:21"
+  - claim: "The repo's token is read from the repo's own auth secret reference at call time (env or the stored secrets)."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ICredentialResolver.cs:5-19"
+  - claim: "A failure is told as CiFailure (name, link, excerpt bounded by merge.ci_excerpt_chars); GitLab's failed jobs, Azure's failed timeline records and GitHub's failed jobs are what #860 reads for a pull request."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/CiFailure.cs:1-7, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabCiReader.cs:45-56, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildEvidence.cs:11-22"
+  - claim: "The deploy step plans then delivers; the GitOps delivery reads the pull request's CI once at the end."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeployToEnvironmentHandler.cs:16-33, src/backend/AgentSmith.Application/Services/Deployment/GitOpsDelivery.cs:20-27, src/backend/AgentSmith.Application/Services/Deployment/DeployCiStatus.cs:13-30"
+
+scope:
+  in: "IPipelineRunner (start, read) and IPipelineRunnerFactory in Contracts; one runner per host over its REST API with faked-HTTP tests: GitHub workflow_dispatch with return_run_details (a host answering 204 started the run without naming it: said, not guessed), runs/{id} and its failed jobs with the log end; Azure DevOps through the referenced build client (pipeline found by name or folder\\name, queued with templateParameters on a full ref) read as the build a run is, its failure told by AzureReposBuildEvidence (failed tasks, issues, log end); GitLab POST /pipeline with variables and the failed jobs (GitLabCiReader's failure read moves to a type both share). deployment.yaml: delivery pipeline_trigger; per environment pipeline, ref, inputs; manifest and version_key optional there and read only as a promotion source. Inputs fill {version}, {environment}, {context} and declared parameters (bound value, else the template's default); an unknown placeholder and inputs without {version} are refused at parse, a parameter with no value at deploy. Refs: absent = default branch (repo config, else the host's); GitHub/GitLab take short names, Azure a full ref. The step: plan (environment, version by the template's rule, repo by the existing rule, inputs) then start, then one read of the run's state with the failures bounded by merge.ci_excerpt_chars and merge.ci_failed_checks_read. The run always starts (a redeploy of one version is a person's call). Docs: format, per-host meaning of pipeline and ref, token scopes."
+  out: "Following the pipeline after the run ends (3863f). Automatic promotion (3863h). Secret values as inputs (a secret is referenced by name inside the pipeline)."
+
+steps:
+  - id: contracts
+    action: "IPipelineRunner, IPipelineRunnerFactory, PipelineRunOrder, PipelineRunStart, PipelineRunState."
+  - id: runners
+    action: "PipelineHttp (authorised JSON and text calls), PipelineRef, GitHubPipelineRunner + GitHubRunFailures, AzurePipelineRunner (BuildHttpClient, AzureReposBuildEvidence), GitLabPipelineRunner + GitLabPipelineFailures (shared with GitLabCiReader), PipelineRunnerFactory registered with the source providers."
+  - id: declaration
+    action: "DeclaredEnvironment gains DeclaredPipeline; DeploymentDeclaration gains PipelineTrigger and parameter defaults; the parser validates per delivery (DeclaredEnvironmentReader)."
+  - id: step
+    action: "PipelineInputValues fills inputs; DeployPipelinePlan plans; PipelineDelivery starts and reads once; IDeployDelivery (GitOpsDeployDelivery, PipelineDeployDelivery) picked by the handler; DeploymentManifest refuses a promotion source without a manifest."
+  - id: docs
+    action: "deployment-templates.md: delivering by a pipeline."
+
+tests:
+  - "GitHubPipelineRunner: dispatch posts ref, inputs and return_run_details and names the run; 204 starts unnamed; a failed run reads its failed job with step names and log tail"
+  - "AzurePipelineRunner: finds the pipeline by name, posts templateParameters and refName; an unknown name is refused; a failed run names its failed tasks with issues"
+  - "GitLabPipelineRunner: posts ref and variables; a named pipeline is refused; a failed pipeline names its failed jobs"
+  - "DeploymentDeclarationParser: a pipeline_trigger declaration parses; inputs without {version} and gitops_pr without a manifest are refused"
+  - "PipelineInputValues: fills version, parameters, defaults; an unknown placeholder is refused"
+  - "DeployToEnvironmentHandler: a pipeline_trigger template starts the pipeline with the filled inputs and names the run; a promoted environment takes the source manifest's version; a host without a runner is refused"
+  - "DeployCompositionTests (RealCompositionHarness): a pipeline_trigger deploy runs through the real composition and starts the pipeline on the faked runner"
+
+done:
+  - "A template declaring delivery pipeline_trigger deploys to test by starting that pipeline with the version as an input, and the run names the started pipeline run and its state."

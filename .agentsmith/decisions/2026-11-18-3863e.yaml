@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863e
+
+decisions:
+  - category: Architecture
+    chose: "IPipelineRunner made per repository by IPipelineRunnerFactory, beside the source providers"
+    over: "Implementing a pipeline interface on the three source providers, as IPullRequestCiReader is"
+    reason: "The source providers are baselined over the file-length limit and may only shrink; a runner of its own also keeps 'start a pipeline' out of the type that opens pull requests. It reuses the repo's own token through ICredentialResolver."
+  - category: Architecture
+    chose: "Delivery is chosen by IDeployDelivery (GitOps, pipeline) keyed by the template's delivery value"
+    over: "A branch inside DeployToEnvironmentHandler"
+    reason: "The handler stays an orchestrator under the 20-line method limit, and a third delivery is a registration, not an edit (review finding)."
+  - category: Implementation
+    chose: "Azure DevOps through the referenced BuildHttpClient (definitions by name and path, QueueBuild with TemplateParameters) and AzureReposBuildEvidence for a failed run"
+    over: "Raw REST against the Pipelines runs API and a timeline reader of its own"
+    reason: "A run is a build; the SDK is already referenced and the failure evidence is #860's, so a pull request's failed build and a deploy's are told one way (review finding). GitHub and GitLab go over REST: Octokit's dispatch cannot ask for the run's details."
+  - category: Implementation
+    chose: "GitHub dispatch asks for return_run_details; a 204 is said as 'started, not named' with the workflow's runs page"
+    over: "Finding the run in the workflow's run list by time and ref"
+    reason: "Picking a run from a list by time is a guess that is wrong under concurrent dispatches (no heuristic for missing data)."
+  - category: Implementation
+    chose: "Placeholders and the {version} rule are checked when the template is read; a parameter with no value is refused at deploy"
+    over: "Checking everything at deploy time"
+    reason: "One validation place for what the template alone decides (review finding); only the binding's values are known later."
+  - category: Implementation
+    chose: "A pipeline deploy always starts the pipeline; a manifest is optional and read only as a promotion source"
+    over: "Skipping a deploy whose environment already carries the version"
+    reason: "The pipeline, not a manifest, delivers; a person asking to deploy a version again is a redeploy. Promotion from a pipeline environment needs the manifest its pipeline keeps up to date, said in the refusal and the docs (review finding)."
+  - category: Implementation
+    chose: "approval keeps its meaning (only a person starts the deploy); the host's own environment approvals gate the run"
+    over: "Refusing approval true with pipeline_trigger"
+    reason: "Every deploy today is a person's, from the ticket page; refusing would make prod unreachable by pipeline. Automatic promotion (planned) honours approval as for a pull request."
+  - category: Implementation
+    chose: "One read of the started run's state with failures, bounded by merge.ci_excerpt_chars and merge.ci_failed_checks_read"
+    over: "Polling the run inside the step, or a deploy-specific bound"
+    reason: "No new limit: the CI loop's bounds are the project's settings with studio fields; following the run after the step ends is 2026-11-18-3863f, which reads through the same ReadAsync."

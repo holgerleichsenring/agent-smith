@@ -93,4 +93,43 @@ A version is letters, digits, `.`, `_` and `-`, starting with a letter or digit,
 
 The run is listed on the ticket it was started from, and it doesn't touch that ticket's own runs, status or lease. The pull request it opens isn't one of the ticket's pull requests, so the merge policy, base refreshes and rework never act on it.
 
-Only the GitOps pull request is built so far. Starting a provider's pipeline instead, following a deploy's pull request until it is merged and its CI settled, promoting automatically into environments without approval, and the series run calling a deploy are planned.
+## Delivering by a pipeline
+
+A template can say `delivery: pipeline_trigger` instead. The deploy then starts the host's own pipeline for the environment and passes the version as one of its inputs:
+
+```yaml
+delivery: pipeline_trigger
+parameters:
+  - name: image
+    default: registry.example.com/todolist-api
+environments:
+  - name: test
+    pipeline: deploy.yml                  # GitHub: the workflow file or id. Azure DevOps: the pipeline's name (folder\name). GitLab: leave it out
+    ref: main                             # optional: the branch or tag it runs on. Absent: the repository's default branch
+    inputs:                               # GitHub workflow inputs, Azure DevOps template parameters, GitLab pipeline variables
+      version: "{version}"
+      environment: "{environment}"
+      image: "{image}"
+    manifest: deploy/overlays/test/kustomization.yaml   # optional: where the pipeline records the version it deployed
+    version_key: images.0.newTag
+  - name: prod
+    pipeline: deploy.yml
+    inputs: { version: "{version}", environment: "{environment}" }
+    promotes_from: test
+```
+
+An input's value can use `{version}`, `{environment}`, `{context}` and the names of the template's parameters. A parameter takes the environment's value from the binding, else the template's default. Every environment has to pass `{version}` in one of its inputs, and a name that is none of these is refused when the template is read. A parameter with neither a value nor a default is refused when you deploy, so an input is never sent empty.
+
+The pipeline is started in the environment's repository, or the context's own when the environment names none, with that repository's token:
+
+| Host | What starts | Token needs |
+|---|---|---|
+| GitHub | `workflow_dispatch` of the workflow, which must declare `workflow_dispatch:` and every input you pass (GitHub answers 422 otherwise) | Actions: write (classic token: `repo`) |
+| Azure DevOps | a run of the YAML pipeline with the inputs as template parameters, which the pipeline must declare (it answers 400 otherwise); a short `ref` is a branch | Build: read & execute |
+| GitLab | a pipeline of the project for the ref, with the inputs as variables. A project that restricts pipeline variables refuses them (400/403) until a maintainer allows them | `api` |
+
+The run's outcome names the started run with its link and what the host says of it then: running, green, or failed with the failed jobs (on Azure DevOps the failed tasks) and their links, read within `merge.ci_excerpt_chars` and `merge.ci_failed_checks_read`. A GitHub Enterprise Server that doesn't return the run it started gets the workflow's runs page instead; agent-smith doesn't guess which run is yours.
+
+Every deploy starts the pipeline, a redeploy of the version an environment already runs too. A pipeline doesn't write a manifest agent-smith reads, so an environment promotes from a pipeline environment only when that one names a `manifest` and `version_key` its pipeline keeps up to date. `approval` means the same as for a pull request: only a person starts the deploy. Gate the run itself with the host's own environment approvals.
+
+Following a deploy's pull request or pipeline until it settles, promoting automatically into environments without approval, and the series run calling a deploy are planned.

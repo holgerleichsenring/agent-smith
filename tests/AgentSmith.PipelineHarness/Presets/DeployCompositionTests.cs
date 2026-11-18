@@ -83,7 +83,7 @@ public sealed class DeployCompositionTests
         refused.Reason.Should().Contain("binds no environment 'staging'");
     }
 
-    private static void Boundaries(IServiceCollection services, DeployFixture fixture)
+    internal static void Boundaries(IServiceCollection services, DeployFixture fixture)
     {
         services.AddDashboardApi(); // the dashboard's deploy act, as Program composes it
         var sources = new Mock<ISourceProviderFactory>();

@@ -40,7 +40,12 @@ internal sealed class DeployFixture
     public Mock<ISourceProvider> Ops { get; } = Provider(Manifest("v0"), "https://stub.test/gitops/pull/2");
     public InMemorySandboxFileReader Template { get; } = new();
 
-    public DeployFixture() => Template.Files["/work/.agentsmith/contexts/k8s-gitops/deployment.yaml"] = Declaration;
+    public const string DeclarationPath = "/work/.agentsmith/contexts/k8s-gitops/deployment.yaml";
+
+    public DeployFixture() => Template.Files[DeclarationPath] = Declaration;
+
+    /// <summary>2026-11-18-3863e: whether the hosts answer with <see cref="Runner"/> or run no pipeline.</summary>
+    public bool HostRunsPipelines { get; set; } = true;
 
     public static ResolvedProject Project() => new()
     {
@@ -56,6 +61,9 @@ internal sealed class DeployFixture
         ],
     };
 
+    /// <summary>2026-11-18-3863e: the pipeline runner every repository's host answers with.</summary>
+    public Mock<IPipelineRunner> Runner { get; } = new();
+
     public DeployToEnvironmentHandler Handler()
     {
         var sources = new Mock<ISourceProviderFactory>();
@@ -66,11 +74,17 @@ internal sealed class DeployFixture
         var scopes = new ProjectTemplateScopes(
             new CodingMasterTemplateTests.FixedScopeFactory(new CodingMasterTemplateTests.RecordingScope()),
             NullLogger<ProjectTemplateScopes>.Instance);
+        var runners = new Mock<IPipelineRunnerFactory>();
+        runners.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(() => HostRunsPipelines ? Runner.Object : null);
         return new DeployToEnvironmentHandler(
             new DeploymentTemplateRead(scopes, new DerivationTestLooks.FixedReaderFactory(Template),
                 new DeploymentDeclarationParser(), NullLogger<DeploymentTemplateRead>.Instance),
-            new DeployManifestPlan(new DeployVersion(manifests), manifests, keys),
-            new GitOpsDelivery(sources.Object, new DeployCiStatus(NullLogger<DeployCiStatus>.Instance)));
+            [
+                new GitOpsDeployDelivery(new DeployManifestPlan(new DeployVersion(manifests), manifests, keys),
+                    new GitOpsDelivery(sources.Object, new DeployCiStatus(NullLogger<DeployCiStatus>.Instance))),
+                new PipelineDeployDelivery(new DeployPipelinePlan(new DeployVersion(manifests)),
+                    new PipelineDelivery(runners.Object, NullLogger<PipelineDelivery>.Instance)),
+            ]);
     }
 
     public static DeployToEnvironmentContext Context(string environment, string? version)

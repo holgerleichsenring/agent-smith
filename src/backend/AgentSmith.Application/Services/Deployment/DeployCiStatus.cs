@@ -18,9 +18,7 @@ public sealed class DeployCiStatus(ILogger<DeployCiStatus> logger)
         try
         {
             var ci = await reader.ReadCiAsync(prUrl, bounds, cancellationToken);
-            return ci.State == CiStates.Red
-                ? "CI red: " + string.Join("; ", ci.Failures.Select(f => f.Url is null ? f.Name : $"{f.Name} ({f.Url})"))
-                : $"CI {ci.State}";
+            return ci.State == CiStates.Red ? "CI red: " + Failed(ci.Failures) : $"CI {ci.State}";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -28,4 +26,8 @@ public sealed class DeployCiStatus(ILogger<DeployCiStatus> logger)
             return $"its CI could not be read ({ex.Message})";
         }
     }
+
+    /// <summary>2026-11-18-3863e: the failed checks or jobs by name and link, as a pipeline run's are said too.</summary>
+    public static string Failed(IEnumerable<CiFailure> failures) =>
+        string.Join("; ", failures.Select(f => f.Url is null ? f.Name : $"{f.Name} ({f.Url})"));
 }
