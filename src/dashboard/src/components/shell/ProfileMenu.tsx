@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { HubConnectionState } from "@microsoft/signalr";
 import { Activity, LogIn, LogOut, Server, Settings, ShieldCheck, UserRound, type LucideIcon } from "lucide-react";
@@ -71,13 +72,45 @@ interface FootProps {
   children?: ReactNode;
 }
 
+// 2026-11-18: the menu is portalled to <body> and placed fixed against the profile button. Inside the
+// sidebar it was clipped by the sidebar's overflow and painted under a page's own sticky section bar
+// (a ticket, Work it out) whenever the sidebar was collapsed to icons; out here nothing clips it.
+const MENU_GAP = 6;
+
+function anchorOf(button: HTMLElement | null): CSSProperties | null {
+  if (!button) return null;
+  const rect = button.getBoundingClientRect();
+  return { left: rect.left, bottom: window.innerHeight - rect.top + MENU_GAP };
+}
+
 function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<CSSProperties | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => setAnchor(anchorOf(button.current));
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, collapsed]);
   useEffect(() => {
     if (!open) return;
     const close = (event: Event) => {
-      if (event instanceof KeyboardEvent ? event.key === "Escape" : !root.current?.contains(event.target as Node)) setOpen(false);
+      if (event instanceof KeyboardEvent) {
+        if (event.key !== "Escape") return;
+        setOpen(false);
+        button.current?.focus();
+        return;
+      }
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !menu.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
@@ -90,16 +123,18 @@ function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
 
   return (
     <div className="sb-foot" ref={root} data-testid="profile">
-      {open && (
-        <div className="sb-menu" role="menu" data-testid="profile-menu" onClick={() => setOpen(false)}>
+      {open && anchor && createPortal(
+        <div className="sb-menu" role="menu" ref={menu} style={anchor} data-testid="profile-menu" onClick={() => setOpen(false)}>
           {SETTINGS.map((item) => (
             <MenuLink key={item.href} {...item} testId={`profile-${item.label.toLowerCase()}`} />
           ))}
           {children && <div className="sb-menu-rule" role="separator" />}
           {children}
-        </div>
+        </div>,
+        document.body,
       )}
       <button
+        ref={button}
         type="button"
         className="sb-who"
         aria-haspopup="menu"
