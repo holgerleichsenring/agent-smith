@@ -26,6 +26,9 @@ const identity = vi.hoisted(() => ({ lacks: [] as string[] }));
 // 2026-11-17-8d1cb: a run's line opens its sectioned log over the run's step rows.
 const runSteps = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock("@/hooks/useRunSteps", () => ({ useRunSteps: () => runSteps.rows }));
+// 2026-11-18-d6d2e: the log is the run page's RunSectionedLog — its specs and an open step's events are read too.
+vi.mock("@/hooks/useRunSpecs", () => ({ useRunSpecs: () => [] }));
+vi.mock("@/hooks/useRunStepEvents", () => ({ useRunStepEvents: () => ({ events: [], hasOlder: false, loading: false, loadOlder: () => {} }) }));
 vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: (p: string) => identity.lacks.includes(p) }));
 
 const { TicketPageStore } = await import("@/lib/tickets/TicketPageStore");
@@ -47,6 +50,11 @@ const api = {
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
 };
+
+function row(stepIndex: number, command: string, displayName: string, over: Record<string, unknown> = {}) {
+  return { stepIndex, stepName: command, displayName, commandName: `${command}Command`, status: "success", durationSeconds: null,
+    resultMessage: null, llmCalls: 0, costUsd: 0, sandboxCommands: 0, subAgents: 0, ...over };
+}
 
 const settle = (ms = 0) => act(() => vi.advanceTimersByTimeAsync(ms));
 
@@ -89,15 +97,35 @@ describe("AttemptReport", () => {
     expect(screen.getByTestId("thread-report-text")).toHaveTextContent(/Registry ghcr.io\/x is not trusted.\s+more/);
   });
 
-  it("AttemptReport_Opened_ShowsTheRunsSectionedLog_AStoppedSectionOpenByItself", async () => {
+  // 2026-11-18-d6d2e: the run page's log — a section per spec, a planned spec hollow, a stopped one open by itself.
+  it("AttemptReport_Opened_ShowsTheRunPagesLog_ASectionPerSpec_APlannedSpecPending_NoTicketSection", async () => {
     runSteps.rows = [
-      { stepIndex: 0, stepName: "CheckoutSource", displayName: "Check out", commandName: "CheckoutSourceCommand", status: "success", durationSeconds: 4, resultMessage: "cloned", llmCalls: 0, costUsd: 0, sandboxCommands: 0, subAgents: 0 },
-      { stepIndex: 1, stepName: "VerifySpec", displayName: "Verify", commandName: "VerifySpecCommand", status: "failed", durationSeconds: 9, resultMessage: "dotnet test · 1 failed", llmCalls: 0, costUsd: 0, sandboxCommands: 1, subAgents: 0 },
+      row(0, "CheckoutSource", "Check out", { status: "success" }),
+      row(1, "AgenticMaster", "Run master skill", { specId: "s1", status: "success", llmCalls: 12, costUsd: 0.4 }),
+      row(2, "VerifySpec", "Build and test", { specId: "s1", status: "failed" }),
+      row(3, "AgenticMaster", "Run master skill", { specId: "s2", planned: true, status: null }),
+      row(4, "VerifySpec", "Build and test", { specId: "s2", planned: true, status: null }),
     ];
     await report(attempt({ status: "failed" }));
     const log = screen.getByTestId("thread-runlog-1");
-    expect(within(log).getByTestId("run-section-verify")).toHaveAttribute("data-state", "bad");
-    expect(within(log).getAllByTestId("run-log-line").map((l) => l.textContent)).toEqual(["Verify: dotnet test · 1 failed"]);
+    expect(within(log).getByTestId("run-section-spec:s1")).toHaveAttribute("data-state", "bad");
+    expect(within(log).getByTestId("run-section-meta-spec:s1")).toHaveTextContent("1 of 2 steps done · 12 llm · $0.40");
+    expect(within(log).getByTestId("run-section-spec:s2")).toHaveAttribute("data-state", "pending");
+    expect(within(log).getByTestId("run-section-meta-spec:s2")).toHaveTextContent("0 of 2 steps done");
+    expect(within(log).queryByTestId("run-section-ticket")).toBeNull();
+    expect(within(log).getByTestId("run-section-check")).toBeInTheDocument();
+    // The stopped spec opens by itself; the planned one stays closed.
+    expect(within(log).getByTestId("run-step-2")).toHaveAttribute("id", "r-r-1-step-2");
+    expect(within(log).queryByTestId("run-step-3")).toBeNull();
+  });
+
+  it("AttemptReport_OpeningAStep_ShowsItsDetail_AndLeavesTheAddressAlone", async () => {
+    runSteps.rows = [row(1, "VerifySpec", "Build and test", { specId: "s1", status: "failed" })];
+    await report(attempt({ status: "failed" }));
+    const before = window.location.href;
+    fireEvent.click(within(screen.getByTestId("run-step-1")).getByTestId("run-log-line"));
+    expect(screen.getByTestId("run-step-detail-1")).toBeInTheDocument();
+    expect(window.location.href).toBe(before);
   });
 
   it("AttemptReport_Live_SaysItIsWorking", async () => {

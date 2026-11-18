@@ -8,6 +8,8 @@ import type { TicketAttempt } from "@/types/tickets";
 
 vi.mock("@/hooks/useSandboxActivity", () => ({ useSandboxActivity: () => null }));
 vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: () => false }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 const retryAttempt = vi.fn().mockResolvedValue({ kind: "requested" });
 vi.mock("@/lib/ticketsApi", async (original) => ({ ...(await original<object>()), retryAttempt: (id: string) => retryAttempt(id) }));
 
@@ -27,7 +29,10 @@ const decision = (chose: string, timestamp: string): RunEvent =>
 
 const attempt = { number: 2, runId: "r1", status: "failed", finishedAt: "2026-10-13T07:00:00Z", handedBack: false,
   endedOnInfrastructure: false } as unknown as TicketAttempt;
-const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt, newest: true };
+const reread = vi.fn();
+const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt, newest: true, latest: attempt, reread };
+const third = { ...attempt, number: 3, runId: "r3", status: "running", finishedAt: null } as unknown as TicketAttempt;
+const ended = () => snap({ status: "failed", finishedAt: "2026-10-13T07:00:00Z" });
 
 describe("RunNow", () => {
   it("RunNow_LiveRun_FollowsNewHubEvents", () => {
@@ -65,9 +70,32 @@ describe("RunNow", () => {
     await waitFor(() => expect(retryAttempt).toHaveBeenCalledWith("r1"));
   });
 
-  it("RunNow_AnOlderAttempt_OffersNoRetry", () => {
-    render(<RunNow runId="r1" snapshot={snap({ status: "failed", finishedAt: "2026-10-13T07:00:00Z" })}
-      events={[]} steps={[]} ticket={{ ...ticket, newest: false }} />);
+  it("RunNow_AnOlderAttempt_LinksToTheLatestInsteadOfRetry", () => {
+    render(<RunNow runId="r1" snapshot={ended()} events={[]} steps={[]} ticket={{ ...ticket, newest: false, latest: third }} />);
     expect(screen.queryByTestId("ticket-retry")).toBeNull();
+    expect(screen.getByTestId("run-now-latest")).toHaveAttribute("href", "/jobs/r3");
+    expect(screen.getByTestId("run-now-latest")).toHaveTextContent("attempt 3 is the latest");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  // 2026-11-18-d6d2d: a requested Retry follows the new attempt once the ticket's re-read names it.
+  it("RunNow_RequestedRetry_OpensTheNewAttemptOnceTheTicketNamesIt", async () => {
+    push.mockReset();
+    retryAttempt.mockResolvedValueOnce({ kind: "requested" });
+    const { rerender } = render(<RunNow runId="r1" snapshot={ended()} events={[]} steps={[]} ticket={ticket} />);
+    fireEvent.click(screen.getByTestId("ticket-retry"));
+    await waitFor(() => expect(screen.getByTestId("ticket-retry-requested")).toBeInTheDocument());
+    expect(push).not.toHaveBeenCalled();
+    rerender(<RunNow runId="r1" snapshot={ended()} events={[]} steps={[]} ticket={{ ...ticket, newest: false, latest: third }} />);
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/jobs/r3"));
+  });
+
+  it("RunNow_RefusedRetry_ReadsTheTicketAgain", async () => {
+    reread.mockReset();
+    retryAttempt.mockResolvedValueOnce({ kind: "refused", refusal: { reason: "not-latest", text: "attempt r3 is the ticket's latest — only the latest attempt is retried", project: "shop", ticketId: "13" } });
+    render(<RunNow runId="r1" snapshot={ended()} events={[]} steps={[]} ticket={ticket} />);
+    fireEvent.click(screen.getByTestId("ticket-retry"));
+    await waitFor(() => expect(reread).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("ticket-retry-refused")).toHaveTextContent("only the latest attempt is retried");
   });
 });

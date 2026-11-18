@@ -1,27 +1,11 @@
 import type { RunStepRow } from "@/lib/runStepsApi";
-import { splitSpecPrefix } from "@/lib/runStepRail";
-import { EventType, type RunAcceptance, type RunEvent, type StepStartedEvent, type VerifyPassRecordedEvent } from "@/types/hub-events";
-import type { StorySectionId } from "./storySections";
+import type { RunAcceptance } from "@/types/hub-events";
 
-// 2026-11-16-6877b: a run read as seven sections of text instead of a graph. Every step row the server projects is
-// placed in one section by its command name; nothing here asks the server for new data. A build or verify step that
-// follows a review in the same spec is the fix pass, so it reads under "Reviewed and fixed". A command this table does
-// not name joins the section of the step before it (the first one joins "Got ready"), so a new command is never lost.
-// "Checked against the spec" holds the run's acceptance verdicts, not steps.
+// 2026-11-16-6877b: which section of the run a step's command belongs to, and the states a step and a section read in.
+// 2026-11-18-d6d2e: the seven fixed sections this file drew for the ticket page are gone — both pages draw
+// runLogSections; what stays is the command table it places steps by, the step and section states, and the check.
 
 export type StepSectionId = "ready" | "spec" | "build" | "verify" | "review" | "check" | "deliver";
-/** 2026-11-17-d6fbb: the seven step sections and the three story sections (storySections.ts). */
-export type SectionId = StepSectionId | StorySectionId;
-
-export const SECTIONS: ReadonlyArray<{ id: StepSectionId; title: string; short: string }> = [
-  { id: "ready", title: "Got ready", short: "Ready" },
-  { id: "spec", title: "Derived the spec", short: "Spec" },
-  { id: "build", title: "Built it", short: "Build" },
-  { id: "verify", title: "Verified the build", short: "Verify" },
-  { id: "review", title: "Reviewed and fixed", short: "Review" },
-  { id: "check", title: "Checked against the spec", short: "Check" },
-  { id: "deliver", title: "Delivered", short: "Deliver" },
-];
 
 const SECTION_OF: Record<string, StepSectionId> = {
   LoadCatalog: "ready", PipelineNameInitializer: "ready", FetchTicket: "ready", ScopeRepos: "ready",
@@ -61,71 +45,6 @@ export function commandKey(row: RunStepRow): string {
 /** done = green, warn = a finding or running (amber), bad = a step failed (red), pending = hollow. */
 export type SectionState = "done" | "warn" | "running" | "bad" | "pending";
 
-export interface LogLine {
-  stepIndex: number;
-  /** "06:05:48" from the step's StepStarted event, when the page holds it. */
-  at: string | null;
-  text: string;
-  detail: string | null;
-  state: SectionState;
-  /** 2026-11-17-d6fbc: a verify step's pass as data, when the page holds its event; its prose detail is then not drawn. */
-  verify?: VerifyPassRecordedEvent | null;
-}
-
-export interface RunSection {
-  id: SectionId;
-  title: string;
-  short: string;
-  state: SectionState;
-  summary: string;
-  seconds: number;
-  lines: LogLine[];
-}
-
-export function runSections(steps: RunStepRow[], events: RunEvent[], checkState: SectionState, checkSummary: string): RunSection[] {
-  const started = new Map<number, string>();
-  const passes = new Map<number, VerifyPassRecordedEvent>();
-  for (const e of events) {
-    if (e.type === EventType.StepStarted) started.set((e as StepStartedEvent).stepIndex, e.timestamp);
-    else if (e.type === EventType.VerifyPassRecorded && e.originStepIndex != null) passes.set(e.originStepIndex, e as VerifyPassRecordedEvent);
-  }
-  const placed = placeSteps(steps);
-  return SECTIONS.map(({ id, title, short }) => {
-    if (id === "check") return { id, title, short, state: checkState, summary: checkSummary, seconds: 0, lines: [] };
-    const rows = placed.filter((p) => p.section === id).map((p) => p.row);
-    const lines = rows.map((row) => line(row, started.get(row.stepIndex) ?? null, passes.get(row.stepIndex) ?? null));
-    return { id, title, short, state: sectionState(rows), summary: sectionSummary(rows), seconds: rows.reduce((n, r) => n + (r.durationSeconds ?? 0), 0), lines };
-  });
-}
-
-function placeSteps(steps: RunStepRow[]): Array<{ row: RunStepRow; section: StepSectionId }> {
-  const out: Array<{ row: RunStepRow; section: StepSectionId }> = [];
-  let previous: StepSectionId = "ready";
-  let reviewedSpec: string | null | undefined = undefined;
-  for (const row of [...steps].sort((l, r) => l.stepIndex - r.stepIndex)) {
-    const key = commandKey(row);
-    const spec = row.specId ?? splitSpecPrefix(row.displayName ?? row.stepName).specId;
-    let section: StepSectionId = SECTION_OF[key] ?? previous;
-    if (section === "spec" && key === "SelectSpec") reviewedSpec = undefined;
-    if (section === "review") reviewedSpec = spec;
-    else if ((section === "build" || section === "verify") && reviewedSpec !== undefined && reviewedSpec === spec) section = "review";
-    out.push({ row, section });
-    previous = section;
-  }
-  return out;
-}
-
-function line(row: RunStepRow, startedAt: string | null, verify: VerifyPassRecordedEvent | null): LogLine {
-  return {
-    stepIndex: row.stepIndex,
-    at: startedAt ? clockTime(startedAt) : null,
-    text: splitSpecPrefix(row.displayName ?? row.stepName).label,
-    detail: row.resultMessage,
-    state: row.planned ? "pending" : stepState(row),
-    verify,
-  };
-}
-
 export function stepState(row: RunStepRow): SectionState {
   if (row.status === "failed" || row.status === "error") return "bad";
   if (row.status === "running") return "running";
@@ -142,20 +61,6 @@ export function sectionState(rows: RunStepRow[]): SectionState {
   return "done";
 }
 
-/** The newest result message the section's steps left, else how many steps ran. */
-function sectionSummary(rows: RunStepRow[]): string {
-  const reached = rows.filter((r) => !r.planned && r.status);
-  if (reached.length === 0) return rows.length > 0 ? "not reached yet" : "nothing ran here";
-  const said = [...reached].reverse().find((r) => r.resultMessage)?.resultMessage;
-  if (said) return said.split(/\r?\n/)[0];
-  return reached.length === 1 ? "1 step" : `${reached.length} steps`;
-}
-
-function clockTime(iso: string): string | null {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime()) ? null : at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-}
-
 /** The check section from the run's acceptance verdicts: red when one is unmet, amber when one is unproven. */
 export function checkOf(acceptance: RunAcceptance | null | undefined): { state: SectionState; summary: string } {
   const criteria = acceptance?.criteria ?? [];
@@ -165,13 +70,4 @@ export function checkOf(acceptance: RunAcceptance | null | undefined): { state: 
   if (criteria.some((c) => c.status === "unmet")) return { state: "bad", summary: words };
   if (criteria.some((c) => c.status === "unproven")) return { state: "warn", summary: words };
   return { state: "done", summary: words };
-}
-
-/** "28 s", "1 min 07 s", "1 h 05 min". */
-export function sectionDuration(seconds: number): string {
-  const s = Math.round(seconds);
-  if (s <= 0) return "";
-  if (s < 60) return `${s} s`;
-  if (s < 3600) return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
-  return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")} min`;
 }

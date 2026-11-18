@@ -6,12 +6,12 @@ import type { TicketConversation, TicketConversationEntry } from "@/types/ticket
 import { causeEntryMatch, causeEntryOf } from "./causeEntryMatch";
 import { ConversationEntry } from "./ConversationEntry";
 import { ProposalBlock } from "./ProposalBlock";
-import { RetryUnchanged } from "./RetryUnchanged";
 import { TicketComposer } from "./TicketComposer";
 import { threadItems, type ThreadItem } from "./threadItems";
 import { AttemptReport, DerivationMessage, RepeatLine, TicketTextMessage } from "./ThreadMessages";
 import { useNewestJump } from "./useNewestJump";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
+import { useYourMove } from "./useYourMove";
 import { YourMoveBox } from "./YourMoveBox";
 
 // 2026-11-17-8d1cb: What happened — the Your move line on top, then `lead` (what the ticket waits for), one line per
@@ -31,6 +31,8 @@ export function TicketThread({ lead }: { lead?: ReactNode }) {
   const address = useTicketTabGo();
   const attempts = detail.data?.attempts ?? [];
   const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
+  // 2026-11-18-d6d2d: Retry sits in the newest attempt's report, unless the Your move box's one act already is it.
+  const retryInBox = useYourMove(detail.data ?? null)?.move.act?.kind === "retry";
   const asking = [...attempts].reverse().find((a) => a.pendingQuestion) ?? null;
   const data = conversation.data;
   const causeOf = address.param(CAUSE_PARAM);
@@ -77,7 +79,8 @@ export function TicketThread({ lead }: { lead?: ReactNode }) {
           <div className="msub note" data-testid="conv-thread-unavailable">The ticket&apos;s own comments could not be read from its tracker.</div>
         )}
         <Items items={threadItems(data, detail.data)} conversation={data} target={target?.id ?? null}
-          ticketUrl={ticketUrl} askingRunId={asking?.runId ?? null} newestRunId={newest?.runId ?? null} questionRef={question} />
+          ticketUrl={ticketUrl} askingRunId={asking?.runId ?? null} newestRunId={newest?.runId ?? null}
+          retryRunId={retryInBox ? null : newest?.runId ?? null} questionRef={question} />
         {data?.proposal && !data.transcriptHidden && <ProposalBlock proposal={data.proposal} preview={preview.data} />}
       </div>
       <div ref={sentinel} data-testid="conv-sentinel" />
@@ -94,11 +97,10 @@ export function TicketThread({ lead }: { lead?: ReactNode }) {
                 <div className="cp-head">
                   <span className="sh-sub">The ticket conversation needs dialog.write: its turns and proposal are not shown.</span>
                 </div>
-                <div className="cp-actions"><RetryUnchanged attempt={newest} project={detail.project} /></div>
               </div>
             ) : (
               <TicketComposer conversation={data} project={detail.project} ticketId={detail.ticketId}
-                preview={preview} newest={newest} inputRef={input} />
+                preview={preview} inputRef={input} />
             )}
           </div>
         )}
@@ -116,10 +118,12 @@ interface ItemsProps {
   askingRunId: string | null;
   /** The newest attempt's line opens by itself. */
   newestRunId: string | null;
+  /** 2026-11-18-d6d2d: the attempt whose report offers Retry unchanged — the newest, unless the Your move box does. */
+  retryRunId: string | null;
   questionRef: React.RefObject<HTMLDivElement | null>;
 }
 
-function Items({ items, conversation, target, ticketUrl, askingRunId, newestRunId, questionRef }: ItemsProps) {
+function Items({ items, conversation, target, ticketUrl, askingRunId, newestRunId, retryRunId, questionRef }: ItemsProps) {
   const number = (runId: string | null) => conversation?.attempts.find((a) => a.runId === runId)?.number ?? null;
   const startedBy = (entry: TicketConversationEntry) =>
     conversation?.attempts.find((a) => causeEntryMatch(entry, a.cause, ticketUrl))?.number ?? null;
@@ -132,7 +136,7 @@ function Items({ items, conversation, target, ticketUrl, askingRunId, newestRunI
               started={startedBy(item.entry)} target={item.entry.id === target} />;
           case "report":
             return <AttemptReport key={`report-${item.attempt.runId}`} attempt={item.attempt}
-              initiallyOpen={item.attempt.runId === newestRunId}
+              initiallyOpen={item.attempt.runId === newestRunId} retry={item.attempt.runId === retryRunId}
               questionRef={item.attempt.runId === askingRunId ? questionRef : undefined} />;
           case "derivation":
             return <DerivationMessage key={`derivation-${item.derivation.runId}`} derivation={item.derivation} />;
@@ -140,7 +144,7 @@ function Items({ items, conversation, target, ticketUrl, askingRunId, newestRunI
             return (
               <RepeatLine key={item.key} items={item.items} testId={`thread-repeat-${item.key}`}>
                 <Items items={item.items} conversation={conversation} target={target} ticketUrl={ticketUrl}
-                  askingRunId={askingRunId} newestRunId={newestRunId} questionRef={questionRef} />
+                  askingRunId={askingRunId} newestRunId={newestRunId} retryRunId={retryRunId} questionRef={questionRef} />
               </RepeatLine>
             );
         }

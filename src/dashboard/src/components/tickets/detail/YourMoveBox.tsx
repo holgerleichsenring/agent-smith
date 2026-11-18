@@ -6,13 +6,13 @@ import { TrackerText } from "@/components/ui/TrackerText";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { runPath, runTracePath } from "@/lib/runPath";
 import { shortRepo } from "@/lib/shortRepo";
-import { useLiveAttempt, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDetail, TicketPullRequest } from "@/types/tickets";
 import { prNumber } from "./conversationWords";
 import { RetryUnchanged } from "./RetryUnchanged";
-import { ticketState, type StateAct } from "./ticketState";
+import type { StateAct } from "./ticketState";
 import { useTicketTabGo } from "./useTicketTabGo";
-import { yourMove, type YourMove } from "./yourMove";
+import { useYourMove } from "./useYourMove";
+import type { YourMove } from "./yourMove";
 
 // 2026-11-16-6877a: the one box above the composer that says what is next — a coloured dot, one title, ticketState's
 // sentence, at most one bright act, and for a stopped ticket the run's own end text behind "Why". It takes the
@@ -27,11 +27,9 @@ interface Props {
 }
 
 export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
-  const live = useLiveAttempt();
-  const series = useTicketSeries().data;
-  const view = ticketState({ detail, liveEvents: live.events, series });
-  if (!view) return null;
-  const move = yourMove(view, detail.summary.bucket, detail.summary.kind, view.attempt?.endDetail);
+  const read = useYourMove(detail);
+  if (!read) return null;
+  const { view, move } = read;
   const review = detail.summary.bucket === "waiting_on_review";
   const openPrs = view.pullRequests.filter((pr) => pr.state === "open");
   const prAct: StateAct | null = review && openPrs.length === 1

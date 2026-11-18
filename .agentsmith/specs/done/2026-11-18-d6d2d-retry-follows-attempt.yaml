@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-d6d2d
+goal: "Retry is offered only on the ticket's latest attempt, an older attempt links to the latest, and after a Retry the page follows the new attempt."
+
+applies_to: "dashboard (components/jobs/runlog: useRunTicket, RunNow; components/tickets/detail: RetryUnchanged, ThreadMessages, TicketThread, TicketComposer, YourMoveBox)"
+
+requires: [2026-11-17-6d9ea, 2026-11-16-6877a]
+
+facts:
+  - claim: "The run page offers Retry when useRunTicket says the attempt is the newest; the ticket is read once per run and again only when THIS run's status moves, so a newer attempt started later leaves the old page saying newest."
+    evidence: "src/dashboard/src/components/jobs/runlog/useRunTicket.ts:36-57; src/dashboard/src/components/jobs/runlog/RunNow.tsx:62"
+  - claim: "Clicking Retry on a stale page gets the server's 409 not-latest text, shown beside the still-present button."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:31,43-44; src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:22-44"
+  - claim: "A requested Retry answers 202 with the OLD run id; the new attempt is queued later by the rework worker, so the page cannot know its id from the answer and stays put."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:31; src/dashboard/src/lib/ticketsApi.ts:133-139"
+  - claim: "A new attempt announces its ticket on the hub (TicketActivityChanged with project and ticket key) when it starts or its queued reservation is promoted, not when the reservation is inserted; the ticket page already re-reads on it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:58-72; src/dashboard/src/lib/tickets/TicketPageStore.tsx:61-66"
+  - claim: "On the ticket page Retry is drawn in the composer's action row above the reply box and in the hidden-transcript note, apart from the attempt it retries; the Your move box offers it as its one act for an infrastructure or readiness end."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketComposer.tsx:99; src/dashboard/src/components/tickets/detail/TicketThread.tsx:97; src/dashboard/src/components/tickets/detail/ticketState.ts:74-86"
+
+scope:
+  in: "useRunTicket also holds the ticket's latest attempt, re-reads on the ticket page's own triggers (TicketActivityChanged for its ticket key or id, a reconnect, window focus; it subscribes the Overview group itself), and offers reread(). RunNow: the latest attempt keeps Retry; an older one shows a plain link 'attempt N is the latest ›' to it; a requested Retry follows (router.push) to the newer attempt once the re-read names it; any refusal re-reads once. RetryUnchanged reports its answer through onAnswer. Ticket page: Retry moves from the composer and the hidden note into the newest attempt's report, unless the Your move box's one act already is that Retry (useYourMove, shared with the box); the store's existing nudge re-read shows the new attempt as the newest thread entry."
+  out: "The server's retry rule and its 202 body; the Your move box's one act (it names the attempt it retries and stays)."
+
+steps:
+  - id: retry
+    action: "RetryUnchanged: optional onAnswer(kind) after the request settles."
+  - id: run-page
+    action: "useRunTicket: latest, hub re-read, reread(). RunNow: link to the latest on an older attempt; follow after a requested Retry; re-read on a not-latest/starting refusal."
+  - id: ticket-page
+    action: "Drop RetryUnchanged and the newest prop from TicketComposer and the hidden note; AttemptReport draws it for the newest attempt unless the Your move box offers it."
+
+tests:
+  - "RunNow: an older attempt shows the link to the latest and no Retry."
+  - "RunNow: a requested Retry navigates to the newer attempt once the ticket names it."
+  - "RunNow: a not-latest refusal asks for a re-read."
+  - "TicketThread: Retry sits in the newest attempt's report, not in the composer; an older report has none; an infrastructure end shows one Retry, in the Your move box."
+  - "useRunTicket: latest attempt; the ticket's nudge and reread() read again; another ticket's nudge does not."
+
+done:
+  - "No page offers Retry on an attempt the dashboard knows is not the latest; an older attempt links to the latest."
+  - "After a requested Retry the run page opens the new attempt and the ticket page shows it as the newest entry."
+  - "pnpm test and build are green."

@@ -10,7 +10,7 @@ import { useTicketDetail, useTicketSeries, useTicketText } from "@/lib/tickets/T
 import type { TicketAttempt, TicketDerivation } from "@/types/tickets";
 import { money, platformWords } from "../ticketFormat";
 import { reportStopped, reportText, runLine, specsOf } from "./reportWords";
-import { RUNS_CONTROL } from "./RetryUnchanged";
+import { retriable, RetryUnchanged, RUNS_CONTROL } from "./RetryUnchanged";
 import { RunInlineLog } from "./RunInlineLog";
 import { SpecCard } from "./SpecCard";
 import { derivationStoryLine, foldStoryLine, runStoryLine, ticketLead } from "./storyLines";
@@ -43,11 +43,13 @@ interface ReportProps {
   attempt: TicketAttempt;
   /** Opened at first: the newest run, or the one whose question waits. */
   initiallyOpen: boolean;
+  /** 2026-11-18-d6d2d: this report offers Retry unchanged on its attempt (the ticket's newest). */
+  retry?: boolean;
   /** Set on the attempt whose question waits: the card is scrolled to on open. */
   questionRef?: RefObject<HTMLDivElement | null>;
 }
 
-export function AttemptReport({ attempt, initiallyOpen, questionRef }: ReportProps) {
+export function AttemptReport({ attempt, initiallyOpen, retry, questionRef }: ReportProps) {
   const { project } = useTicketDetail();
   const series = useTicketSeries().data;
   const [open, setOpen] = useState(initiallyOpen || !!attempt.pendingQuestion);
@@ -71,6 +73,7 @@ export function AttemptReport({ attempt, initiallyOpen, questionRef }: ReportPro
       )}
       {attempt.pendingQuestion && <div ref={questionRef}><PendingQuestion attempt={attempt} project={project} /></div>}
       <RunInlineLog attempt={attempt} />
+      {retry && retriable(attempt) && <div className="cp-actions" data-testid={`thread-retry-${attempt.number}`}><RetryUnchanged attempt={attempt} project={project} /></div>}
       <Link className="tk-runline" href={runPath(attempt.runId)} data-testid={`thread-run-${attempt.number}`}>
         {runLine(attempt)} · open the run ›
       </Link>

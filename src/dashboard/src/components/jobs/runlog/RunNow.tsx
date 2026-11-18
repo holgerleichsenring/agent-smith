@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
-import { RetryUnchanged } from "@/components/tickets/detail/RetryUnchanged";
+import { RetryUnchanged, type RetrySettled } from "@/components/tickets/detail/RetryUnchanged";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import type { RunStepRow } from "@/lib/runStepsApi";
-import { runTracePath } from "@/lib/runPath";
+import { runPath, runTracePath } from "@/lib/runPath";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import { endedView, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines, type NowLine } from "./runNowLines";
 import type { RunTicket } from "./useRunTicket";
@@ -15,6 +16,8 @@ import { VerifyPassLines } from "./VerifyPassLines";
 // 2026-11-17-6d9ea: the run page's Now block, between two hairlines. A working run's last few acts, read off the hub's
 // run events as they arrive; a waiting run's question with its answer form; a finished run's "How it ended" with the
 // acts that fit it: its pull requests, Retry unchanged, the setting that lifts a stop, the ticket and the Why page.
+// 2026-11-18-d6d2d: Retry only on the ticket's latest attempt; an older one links to the latest instead. A Retry this
+// page requested follows the new attempt once the ticket names it; a refusal reads the ticket again.
 
 interface Props {
   runId: string;
@@ -26,6 +29,7 @@ interface Props {
 
 export function RunNow({ runId, snapshot, events, steps, ticket }: Props) {
   const beat = useSandboxActivity(snapshot?.runId ?? null);
+  const follow = useRetryFollow(runId, ticket);
   const mode = snapshot ? nowMode(snapshot) : null;
   const view = useMemo(() => {
     if (!snapshot || !mode) return null;
@@ -59,7 +63,12 @@ export function RunNow({ runId, snapshot, events, steps, ticket }: Props) {
               {p.isDraft ? "draft pull request" : "pull request"}{prs.length > 1 && p.repo ? ` ${p.repo}` : ""} ↗
             </a>
           ))}
-          {ticket?.newest && <RetryUnchanged attempt={ticket.attempt} project={ticket.project} />}
+          {ticket?.newest && <RetryUnchanged attempt={ticket.attempt} project={ticket.project} onAnswer={follow} />}
+          {ticket && !ticket.newest && ticket.latest && ticket.latest.runId !== runId && (
+            <Link href={runPath(ticket.latest.runId)} data-testid="run-now-latest">
+              attempt {ticket.latest.number} is the latest ›
+            </Link>
+          )}
           {view.settingsPath && <Link href={view.settingsPath} data-testid="run-now-setting">open the setting</Link>}
           {ticket && <Link href={ticket.href} data-testid="run-now-ticket">the ticket</Link>}
           <Link href={runTracePath(runId)} data-testid="run-now-why">why it went this way</Link>
@@ -67,6 +76,15 @@ export function RunNow({ runId, snapshot, events, steps, ticket }: Props) {
       )}
     </section>
   );
+}
+
+/** After a Retry this page requested, opens the ticket's newer attempt once a re-read names it; a refusal re-reads. */
+function useRetryFollow(runId: string, ticket: RunTicket | null): (settled: RetrySettled) => void {
+  const router = useRouter();
+  const [requested, setRequested] = useState(false);
+  const target = requested && ticket?.latest && ticket.latest.runId !== runId ? ticket.latest.runId : null;
+  useEffect(() => { if (target) router.push(runPath(target)); }, [target, router]);
+  return (settled) => (settled === "requested" ? setRequested(true) : ticket?.reread());
 }
 
 function Line({ line }: { line: NowLine }) {

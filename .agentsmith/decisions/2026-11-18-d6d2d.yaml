@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-d6d2d
+
+decisions:
+  - category: Architecture
+    chose: "useRunTicket re-reads the ticket detail on the ticket page's own triggers — TicketActivityChanged for its ticket key or id, a reconnect, window focus — and subscribes the Overview group itself"
+    over: "Polling the ticket detail after a Retry, or deriving the newer attempt from the overview's run list"
+    reason: "A new attempt already announces its ticket on the hub and the ticket page re-reads on exactly these triggers; a poll would be a new limit and the run list would be a second rule for what an attempt is. Review: the hook must subscribe itself (the nudge only reaches the Overview group) and match the ticket key, not the raw id."
+  - category: Behaviour
+    chose: "The run page follows only a Retry it requested (state kept in RunNow), as an effect once the re-read names a newer attempt"
+    over: "Following whenever a newer attempt appears, or triggering the follow from the next re-read"
+    reason: "A newer attempt started elsewhere must show the link, not move the reader. RetryUnchanged unmounts as soon as the attempt stops being newest, so the request state lives in RunNow; an effect covers a re-read that lands before the answer. Review finding."
+  - category: Behaviour
+    chose: "Any refusal re-reads the ticket once and keeps the server's text"
+    over: "Re-reading only on not-latest/starting, or re-reading until the button disappears"
+    reason: "A refusal means the page's picture may be stale; the gate's worker-read rule can refuse while the detail still calls the attempt newest, so a loop could spin. One read per refusal. Review finding."
+  - category: Behaviour
+    chose: "An older attempt shows 'attempt N is the latest ›' linking to it where Retry stood"
+    over: "Hiding Retry with no replacement"
+    reason: "The goal: an older attempt leads to the latest, never to a dead end."
+  - category: Behaviour
+    chose: "On the ticket page Retry sits in the newest attempt's report; the Your move box keeps it as its one act for an infrastructure or readiness end, and then the report draws none (useYourMove shared by both)"
+    over: "Two Retry buttons (box and report), or removing the box's act"
+    reason: "Two buttons with separate state let one click leave the other live and earn a 409. The box's act is the 86e6c design and names the attempt it retries. Review finding."
+  - category: Behaviour
+    chose: "No explicit re-read after a requested Retry on the ticket page"
+    over: "Re-reading the page on the 202"
+    reason: "At 202 the new run does not exist yet (the rework worker queues it later); the store's existing nudge re-read shows it as the newest entry. A second re-read path. Review cut."
+  - category: Behaviour
+    chose: "A requested Retry under load waits for the queued reservation's promotion before it follows"
+    over: "A nudge on reservation insert"
+    reason: "Inserting a reservation sends no TicketActivityChanged; changing the server is outside this dashboard spec, and the page still says 'attempt n starts through the queue' until then. Focus and reconnect re-read meanwhile."
+  - category: Behaviour
+    chose: "A collapsed newest report hides its Retry with the rest of its body"
+    over: "Putting Retry on the story line itself"
+    reason: "The newest report opens by itself; collapsing it is the reader's own act, and the story line is the TicketRail mock's one line."
+  - category: Behaviour
+    chose: "The composer's action row renders only while an approval waits; the mock-parity thread list drops .cp-actions"
+    over: "Keeping an always-present, often empty action row"
+    reason: "With Retry gone the row is empty outside an approval, and its padding left a gap above the reply box — the floating look the operator reported."

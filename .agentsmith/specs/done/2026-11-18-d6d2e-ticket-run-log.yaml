@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-d6d2e
+goal: "The ticket page shows a run with the run page's own sectioned log, its reply box looks like the chat composer, and its bar says which status is the tracker's."
+
+applies_to: "dashboard (components/jobs/runlog: RunLogView, RunLog, new RunSectionedLog, runSections; components/tickets/detail: RunInlineLog, TicketComposer, sectionBarWords; styles run-log.css, ticket-thread.css, home.css)"
+
+requires: [2026-11-17-6d9eb, 2026-11-17-8d1cb, 2026-11-18-d6d2d]
+
+facts:
+  - claim: "The ticket page's inline log draws RunSectionLog over runSections: seven fixed sections by command name, one plain line per step, no spec grouping, no step detail."
+    evidence: "src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:16-41; src/dashboard/src/components/jobs/runlog/runSections.ts:16-24,85-99; src/dashboard/src/components/jobs/runlog/RunSectionLog.tsx:20-58"
+  - claim: "'No verdict recorded.' and 'Nothing ran here.' are .rl-line, a two-column grid (a 64px time column on the ticket page, not the 70px of the run page), with one child, so the text squeezes into the time column."
+    evidence: "src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:34; src/dashboard/src/components/jobs/runlog/RunSectionLog.tsx:36; src/dashboard/src/styles/ticket-thread.css:126"
+  - claim: "The run page's log is RunLogView below RunPageHead and RunNow: runLogSections (Ticket, Got ready, The plan, a section per spec, Checked, Delivered), RunLog with state dots and folded mechanics, section bodies, and RunStepDetail per step; the open step is the address (?step=)."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogView.tsx:46-98; src/dashboard/src/components/jobs/runlog/runLogSections.ts:131-173; src/dashboard/src/components/jobs/runlog/useStepAddress.ts:35-51"
+  - claim: "The run page reads its snapshot with useRunDetailSnapshot joined to the overview list row; the ticket page already holds each attempt's GET /api/runs/{id} read in its store (useAttemptRun), re-read on the hub's RunsChanged."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:33-46; src/dashboard/src/lib/tickets/TicketPageStore.tsx:67,226-231"
+  - claim: "Every run-log style is scoped under .mock-viewer (the run page's shell); the ticket page is .mock-tickets and styles its inline log with its own .tk-runlog rules."
+    evidence: "src/dashboard/src/styles/run-log.css:4-233; src/dashboard/src/styles/ticket-thread.css:111-130"
+  - claim: "runSections.ts also holds what runLogSections, RunStepDetail and runNowLines use (commandSection, commandKey, stepState, sectionState, checkOf, SectionState); storySections.ts only feeds runSections' SectionId."
+    evidence: "src/dashboard/src/components/jobs/runlog/runLogSections.ts:5; src/dashboard/src/components/jobs/runlog/RunStepDetail.tsx:10; src/dashboard/src/components/jobs/runlog/runNowLines.ts:17; src/dashboard/src/components/jobs/runlog/storySections.ts:5"
+  - claim: "The ticket composer is the same DialogComposer as Work it out and New work, but ticket-thread.css strips its text field's border and background, so it reads as plain text under a hairline; New work wraps the same borderless field in a bordered, rounded box (.home-composer, scoped to .mock-home in home.css, which only the home page loads)."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketComposer.tsx:100-111; src/dashboard/src/styles/ticket-thread.css:153-155; src/dashboard/src/components/home/HomeComposer.tsx:56; src/dashboard/src/styles/home.css:12-14; src/dashboard/src/components/home/HomeView.tsx:12"
+  - claim: "The bar's state word is agent-smith's bucket as the ticket list names it ('In review'); the facts at its foot are the tracker and the status the newest attempt read ('Azure DevOps · New'), unlabelled."
+    evidence: "src/dashboard/src/components/tickets/detail/sectionBarWords.ts:8-18; src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:25-26,32,50"
+
+scope:
+  in: "RunSectionedLog: the log part of RunLogView (runLogSections, toggles, mechanics, the plan, spec and delivered bodies, step detail), fed by runId with snapshot, events and steps; it reads useRunSpecs itself; the caller passes the open step, an id prefix, the Ticket body (absent: no Ticket section) and the Check body. RunLogView passes useStepAddress, no prefix, TicketBody and CheckBody. RunInlineLog passes useRunEvents, the store's useAttemptRun (the ticket page's own run read, not a second useRunDetailSnapshot), useRunSteps, local step state, the prefix 'r-{runId}-', no Ticket section (the thread opens with the ticket) and a Check body that points to the spec card and the run (overruling stays there). run-log.css is imported by RunSectionedLog and applies under .tk-runlog too. Delete RunSectionLog, runSections() with SECTIONS, RunSection, LogLine, SectionId, sectionDuration, storySections.ts, the .tk-runlog rules and the run-log .rl-sections/.rl-line/.rl-sec-time/.rl-slot rules. The New work box becomes a shared .chat-box rule in mock-parity.css used by HomeComposer and the ticket composer; .cp-input and its overrides go. The bar's tracker fact reads 'Azure DevOps status New' ('tracker status New' without a platform). Accepted: section opening follows the run page (running or stopped, not a finding alone); the log's fixed columns sit in the narrower report body."
+  out: "A new visual design; the run page's head and Now block on the ticket page; the backend."
+
+steps:
+  - id: extract
+    action: "RunSectionedLog from RunLogView; RunLog takes an id prefix; RunLogView uses it."
+  - id: ticket
+    action: "RunInlineLog renders RunSectionedLog; delete RunSectionLog, dead runSections parts, storySections, dead CSS; rescope run-log.css."
+  - id: composer
+    action: "TicketComposer field in the New work box; home.css box rules shared; drop the ticket overrides; mock-parity list."
+  - id: status
+    action: "trackerFact says '<tracker> status <state>'."
+
+tests:
+  - "RunSectionedLog: no Ticket section without a ticket body; a step opens its detail through onOpenStep; two logs with prefixes share no DOM id."
+  - "AttemptReport: the opened report shows a section per spec, a planned-only spec hollow (pending); opening a step shows its detail and leaves location unchanged; no Ticket section. Replaces the RunSectionLog-era assertion."
+  - "VerifyPassLines: stageWords/staleWords and the pass lines, moved from RunSectionLog.test; runSections.test keeps commandSection/commandKey/checkOf cases."
+  - "trackerFact: 'Jira status In Review', 'GitHub', 'tracker status New'."
+
+done:
+  - "The ticket page's run log is the run page's sectioned log; RunSectionLog and runSections() no longer exist."
+  - "The reply box looks like the New work composer; the bar labels the tracker's status as the tracker's."
+  - "pnpm test and build are green."
