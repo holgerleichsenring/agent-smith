@@ -69,6 +69,8 @@ public sealed class AdminReadToolsTests
     {
         public string? Resolve(string name) => value;
 
+        public string? Unreadable(string name) => null;
+
         public IReadOnlyList<string> All() => [value];
     }
 }

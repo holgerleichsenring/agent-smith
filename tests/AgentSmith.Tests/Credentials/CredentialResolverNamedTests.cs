@@ -78,7 +78,7 @@ public sealed class CredentialResolverNamedTests
     public void ChatAdapterOptions_ReadOnEveryAccess_AnAssignedValueWins()
     {
         var current = "first-token";
-        var slack = new SlackAdapterOptions(name => name == SlackAdapterOptions.BotTokenVariable ? current : null);
+        var slack = new SlackAdapterOptions(name => name == SlackAdapterOptions.BotTokenVariable ? CredentialLookup.Of(current) : CredentialLookup.None);
         slack.BotToken.Should().Be("first-token");
         current = "second-token";
         slack.BotToken.Should().Be("second-token");

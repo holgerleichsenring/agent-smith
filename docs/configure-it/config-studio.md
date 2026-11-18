@@ -31,6 +31,10 @@ An admin can also give a secret its value right in the studio: open the secret, 
 
 A stored value is never shown again, by the studio, the API or the admin assistant; the studio shows who set it and when. When the environment variable the secret reads holds a value, the environment wins. To rotate the master key, move the old key to `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS`, set the new one, and press **Re-wrap with the current master key**.
 
+A stored value the server cannot open — the master key that wrapped it is gone, the vault cannot be reached, or the row was altered — resolves to nothing and is reported on every load, naming the secret and its key. For the webhook secrets (`GITHUB_WEBHOOK_SECRET`, `GITLAB_WEBHOOK_TOKEN`, `AZDO_WEBHOOK_SECRET`) and `SLACK_SIGNING_SECRET` that state refuses every delivery, and each refusal is logged with the secret and the reason, until the value is set again or the environment variable is. A secret with no value at all, in the environment or stored, still leaves verification off, as before.
+
+The admin assistant can draft the deletion of a stored value whose secret was removed. Applying that draft needs `secrets.write` besides `admin.assistant`; without it Apply is refused and names the permission.
+
 ### Keeping the master key in Azure Key Vault
 
 The deployment can hold the master key wrapped instead of raw, so a leaked environment or k8s Secret is useless without access to the vault. Create an RSA key (2048 bits or more) in Key Vault, give the server's identity the **Key Vault Crypto Service Encryption User** role on it, and wrap a fresh 32-byte key with the key's public half:

@@ -12,8 +12,7 @@ internal static class SlackOptionsEndpointHandler
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("AgentSmith.Server.SlackOptions");
 
-        var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
-        var verifier = new SlackSignatureVerifier(options.SigningSecret);
+        var verifier = SlackSignatureVerifier.For(ctx.RequestServices);
 
         if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
             return Results.Unauthorized();

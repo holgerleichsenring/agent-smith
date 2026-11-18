@@ -19,8 +19,7 @@ internal static class SlackEndpoints
 
     private static async Task<IResult> HandleSlackInteractAsync(HttpContext ctx)
     {
-        var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
-        var verifier = new SlackSignatureVerifier(options.SigningSecret);
+        var verifier = SlackSignatureVerifier.For(ctx.RequestServices);
 
         if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
             return Results.Unauthorized();
@@ -88,8 +87,7 @@ internal static class SlackEndpoints
     {
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("AgentSmith.Server.SlackCommands");
-        var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
-        var verifier = new SlackSignatureVerifier(options.SigningSecret);
+        var verifier = SlackSignatureVerifier.For(ctx.RequestServices);
         if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
         {
             logger.LogWarning("Slack signature verification failed for slash command");

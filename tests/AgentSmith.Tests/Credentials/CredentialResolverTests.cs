@@ -68,6 +68,9 @@ public sealed class CredentialResolverTests
 
         public string? Resolve(string name) => name == "gitlab_token" ? Value : null;
 
+
+        public string? Unreadable(string name) => null;
+
         public IReadOnlyList<string> All() => [Value];
     }
 }

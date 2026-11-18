@@ -18,19 +18,20 @@ public sealed class StoredSecretValues(
     IServiceScopeFactory scopes, MasterKeyRing keys, SecretEnvelope envelope, IStartupFindings findings,
     ILogger<StoredSecretValues> logger) : IStoredSecretValues
 {
-    public IReadOnlyDictionary<string, string> Load()
+    public StoredSecretLoad Load()
     {
         using var scope = scopes.CreateScope();
         var rows = scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Set<StoredSecret>().ToList();
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        var unreadable = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var row in rows)
-            if (Open(row) is { } value) values[row.Name] = value;
-        return values;
+            if (Open(row, unreadable) is { } value) values[row.Name] = value;
+        return new StoredSecretLoad(values, unreadable);
     }
 
-    private string? Open(StoredSecret row)
+    private string? Open(StoredSecret row, Dictionary<string, string> unreadable)
     {
-        if (keys.Find(row.KeyId) is not { } key) return Unreadable(row, keys.Current is null
+        if (keys.Find(row.KeyId) is not { } key) return Unreadable(row, unreadable, keys.Current is null
             ? $"no master key is configured ({keys.Problem ?? MasterKeyRing.Variable + " or " + MasterKeyRing.WrappedVariable})"
             : "the master key that wrapped it is neither the current nor the previous one");
         try
@@ -40,14 +41,17 @@ public sealed class StoredSecretValues(
         catch (CryptographicException ex)
         {
             logger.LogWarning(ex, "The stored secret {Name} did not open under key {KeyId}", row.Name, row.KeyId);
-            return Unreadable(row, "it did not open under its key (tampered or wrapped by another key)");
+            return Unreadable(row, unreadable, "it did not open under its key (tampered or wrapped by another key)");
         }
     }
 
-    private string? Unreadable(StoredSecret row, string reason)
+    // 2026-11-18-78efb: a webhook or Slack signing secret left unreadable refuses every delivery, so the finding says so.
+    private string? Unreadable(StoredSecret row, Dictionary<string, string> unreadable, string reason)
     {
+        unreadable[row.Name] = $"{reason} (key {row.KeyId})";
         findings.Record(new StartupFinding(StartupSubsystems.Configuration, StartupFindingSeverity.Advisory,
-            $"The stored value of secret '{row.Name}' (key {row.KeyId}) cannot be read: {reason}. It resolves empty.",
+            $"The stored value of secret '{row.Name}' (key {row.KeyId}) cannot be read: {reason}. It resolves empty; "
+            + "a webhook or Slack signing secret in this state refuses every delivery until its value is set again.",
             Field: "secrets"));
         return null;
     }

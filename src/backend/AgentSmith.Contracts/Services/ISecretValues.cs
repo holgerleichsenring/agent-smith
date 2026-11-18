@@ -12,6 +12,12 @@ public interface ISecretValues
     string? Resolve(string name);
 
     /// <summary>
+    /// 2026-11-18-78efb: why the named secret's stored value cannot be opened, naming no value; null when it opened,
+    /// when the environment holds a value, or when nothing is stored.
+    /// </summary>
+    string? Unreadable(string name);
+
+    /// <summary>
     /// Every credential value currently configured — secrets and registry tokens. The same
     /// list instance is returned until the values change, so a caller can cache work on it.
     /// </summary>

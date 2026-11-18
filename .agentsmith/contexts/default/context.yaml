@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-78efb: "SIGNATURE SECRETS FAIL CLOSED (CredentialLookup, StoredSecretLoad, UnreadableSecrets, Webhook and Slack signature verifiers). A webhook or Slack signing secret whose stored value cannot be opened refuses every delivery, naming the secret; no value at all stays open. -> .agentsmith/specs/done/2026-11-18-78efb-signature-secret-fail-closed.yaml"
     2026-11-18-78efa: "SECRET CLEANUP NEEDS SECRETS.WRITE (SecretValuesApproval, DialogDeciderGrants, ConfigOutcomeSink, ConfigChangeRequest.MayWriteSecrets). Applying an admin draft that deletes a stored secret value needs secrets.write besides admin.assistant; Apply and the config run both refuse. -> .agentsmith/specs/done/2026-11-18-78efa-secret-cleanup-approval-grant.yaml"
     2026-11-18-3863h: "DEPLOY PROMOTION AND SERIES DEPLOY (PromotesTo on the deploy event/record, DeployPromotion, DeployLauncher.PromoteAsync, series tool deploy). A deploy settled green deploys its no-approval promoting environments once at the settled version; the series master deploys to no-approval environments. -> .agentsmith/specs/done/2026-11-18-3863h-deploy-promotion-series.yaml"
     2026-11-18-3863g: "NEW SERVICE DEPLOYABLE SUGGESTION (DeployableSuggestion, CollectSpecDialogReplyHandler). A design turn whose drafts name a context that neither exists nor is bound, in a project with deployment bindings, ends its reply with: bind it to the siblings' template, then cut a make-deployable spec. -> .agentsmith/specs/done/2026-11-18-3863g-deploy-new-service-suggest.yaml"

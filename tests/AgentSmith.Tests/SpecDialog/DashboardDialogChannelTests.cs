@@ -596,6 +596,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         services.AddSingleton(dispatcher);
+        services.AddScoped<AgentSmith.Server.Services.SpecDialog.DialogDeciderGrants>(); // 2026-11-18-78efa
         services.AddSingleton(_ownership);
         // 2026-09-17-042eg: the endpoint reads whether this caller may start runs before it
         // dispatches. A non-enforcing authority answers without touching the identity resolver,

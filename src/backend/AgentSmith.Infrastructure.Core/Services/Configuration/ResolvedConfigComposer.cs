@@ -22,7 +22,7 @@ public sealed class ResolvedConfigComposer
             Trackers = catalogs.Trackers,
             PipelineTriggers = new PipelineTriggerMap(raw.PipelineTriggers),
             Projects = projects,
-            Secrets = raw.Secrets,
+            Secrets = raw.Secrets, UnreadableSecrets = raw.UnreadableSecrets, // 2026-11-18-78efb
             Registries = BuildRegistries(raw),
             Queue = raw.Queue,
             Skills = raw.Skills,

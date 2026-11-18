@@ -22,4 +22,10 @@ public interface ICredentialResolver
     /// fallback variable, a webhook or chat adapter secret — by <see cref="EnvironmentFirst"/>; null when unset.
     /// </summary>
     string? Named(string name);
+
+    /// <summary>
+    /// 2026-11-18-78efb: the same lookup, saying which of value, none or unreadable it found — what a signature check
+    /// needs, because it falls open on none and must refuse on a stored value it cannot open.
+    /// </summary>
+    CredentialLookup Lookup(string name);
 }

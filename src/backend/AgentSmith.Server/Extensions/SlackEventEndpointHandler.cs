@@ -13,8 +13,7 @@ internal static class SlackEventEndpointHandler
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("AgentSmith.Server.SlackEvents");
 
-        var options = ctx.RequestServices.GetRequiredService<SlackAdapterOptions>();
-        var verifier = new SlackSignatureVerifier(options.SigningSecret);
+        var verifier = SlackSignatureVerifier.For(ctx.RequestServices);
 
         if (!await verifier.VerifyAsync(ctx.Request, ctx.RequestAborted))
         {

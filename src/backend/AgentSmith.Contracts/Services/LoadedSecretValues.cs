@@ -12,11 +12,13 @@ namespace AgentSmith.Contracts.Services;
 public sealed class LoadedSecretValues : ISecretValues
 {
     private readonly Dictionary<string, string> _byName = new(ConfigNames.Comparer);
+    private readonly Dictionary<string, string> _unreadable = new(ConfigNames.Comparer);
     private readonly IReadOnlyList<string> _all;
 
     public LoadedSecretValues(AgentSmithConfig config)
     {
         foreach (var (name, value) in config.Secrets) _byName.TryAdd(name, value);
+        foreach (var (name, reason) in config.UnreadableSecrets) _unreadable.TryAdd(name, reason);
         _all = config.Secrets.Values
             .Concat(config.Registries.Select(r => r.Token))
             .Where(v => !string.IsNullOrEmpty(v))
@@ -25,6 +27,8 @@ public sealed class LoadedSecretValues : ISecretValues
 
     public string? Resolve(string name) =>
         _byName.TryGetValue(name, out var value) && !string.IsNullOrEmpty(value) ? value : null;
+
+    public string? Unreadable(string name) => _unreadable.GetValueOrDefault(name);
 
     public IReadOnlyList<string> All() => _all;
 }

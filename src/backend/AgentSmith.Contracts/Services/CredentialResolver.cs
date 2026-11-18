@@ -27,7 +27,9 @@ public sealed class CredentialResolver(
 
     public string For(TrackerConnection tracker) => Resolve($"Tracker '{tracker.Name}'", tracker.Auth);
 
-    public string? Named(string name) => EnvironmentFirst.Resolve(name, _environment, inFlight.Current ?? secrets());
+    public string? Named(string name) => Lookup(name).Value;
+
+    public CredentialLookup Lookup(string name) => EnvironmentFirst.Lookup(name, _environment, inFlight.Current ?? secrets());
 
     private string Resolve(string entity, string secret) =>
         (string.IsNullOrWhiteSpace(secret) ? null : (inFlight.Current ?? secrets()).Resolve(secret))

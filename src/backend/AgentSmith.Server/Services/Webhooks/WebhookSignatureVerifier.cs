@@ -27,6 +27,13 @@ internal sealed class WebhookSignatureVerifier(
     {
         var source = ConfiguredSecrets(platform);
         if (source is null) return false;
+        // 2026-11-18-78efb: a stored value that exists but cannot be opened is not "never set up" — fail closed.
+        if (source.Unreadable is { } unreadable)
+        {
+            logger.LogError("Refusing a {Platform} webhook delivery: {Variable} has no environment value and {Unreadable}",
+                platform, source.EnvVar, unreadable);
+            return false;
+        }
         // p0506's fail-open rule: no secret configured anywhere for this platform means
         // the deployment never set one up, and every shipped template is in that state.
         // Refusing here would 401 them all on upgrade.

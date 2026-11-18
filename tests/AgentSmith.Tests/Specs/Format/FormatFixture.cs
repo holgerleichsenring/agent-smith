@@ -70,6 +70,8 @@ internal static class FormatFixture
     {
         public string? Resolve(string name) => null;
 
+        public string? Unreadable(string name) => null;
+
         public IReadOnlyList<string> All() => values;
     }
 }
