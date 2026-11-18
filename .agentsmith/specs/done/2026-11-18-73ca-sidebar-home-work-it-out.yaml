@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-73ca
+goal: "Home is reachable from the sidebar: + New work and the brand lead to /, and Work it out is its own sidebar item for the conversations."
+
+applies_to: "default (src/dashboard: components/shell/AppSidebar.tsx, styles/app-shell.css)"
+
+facts:
+  - claim: "The sidebar's + New work linked to /spec-dialog, the conversations list, and the brand was not a link, so the home page (/: composer, Your move, recent tickets) could not be reached again after leaving it."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:75-101"
+
+scope:
+  in: "+ New work links to / and is current there; the brand links to /; a Work it out item links to /spec-dialog and is current under it."
+  out: "The home page and Work it out pages themselves; the section-bar collapse rules."
+
+steps:
+  - id: links
+    action: "Point + New work and the brand at /, add Work it out under it."
+  - id: tests
+    action: "Update the sidebar order and current-page tests."
+
+done:
+  - "+ New work links to / and is the current item on /."
+  - "The brand links to /."
+  - "Work it out links to /spec-dialog and is the current item under it."
+
+tests:
+  - Sidebar_EveryDestination_InTheApprovedOrder
+  - Sidebar_RunsIsMarkedOnTheRunsListAndARun_NewWorkOnWorkItOut
