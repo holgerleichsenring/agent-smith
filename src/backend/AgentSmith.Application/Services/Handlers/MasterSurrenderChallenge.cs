@@ -74,8 +74,9 @@ internal sealed class MasterSurrenderChallenge
     private static bool DeclinedOnly(MasterVerification? verification, IReadOnlyList<string> criteria)
     {
         var pairings = Pairings(verification, criteria);
-        return pairings.Count > 0 && pairings.All(p => p.Satisfied)
-            && pairings.Any(p => p.Disposition?.Status == AcceptanceStatus.NotApplicable);
+        // 2026-11-18-c8e2b: a reasoned not-met is a declined line too — challenged once like a not-applicable.
+        return pairings.Count > 0 && pairings.All(p => p.Answered)
+            && pairings.Any(p => p.Disposition?.Status is AcceptanceStatus.NotApplicable || p.IsReasonedNotMet);
     }
 
     private static IReadOnlyList<CriterionPairing> Pairings(MasterVerification? verification, IReadOnlyList<string> criteria) =>

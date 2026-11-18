@@ -77,6 +77,43 @@ public sealed class SubAgentTeamLoopTests
     }
 
     [Fact]
+    public async Task Lead_SendsWorkBack_ChildFixesIt_ReportCarriesFollowUp()
+    {
+        const string verdict = """
+            ```verdict
+            { "status": "green", "build_ran": true, "build_passed": true, "tests_ran": true, "tests_passed": true,
+              "acceptance": [ { "criterion": "The endpoint returns 404", "status": "met", "evidence": "built and tested" },
+                              { "criterion": "Exports stream CSV", "status": "not_met", "evidence": "needs paging; follow-up" } ],
+              "follow_ups": [ { "goal": "Exports stream CSV over paging", "why": "paging is its own design" } ] }
+            ```
+            """;
+        var provider = new AgentScripts();
+        string? childId = null;
+        provider.Script("lead",
+            _ => Call("spawn_agents", new() { ["background"] = true, ["tasks"] = Tasks(Child) }),
+            messages => { childId = IdIn(LastToolResult(messages)); return Call("wait_for_agents", []); },
+            messages => ToolResults(messages).Contains("404 test")
+                ? Text("sent nothing back")
+                : Call("send_message", new() { ["agent_id"] = childId, ["text"] = "the done list wants the 404 tested" }),
+            _ => Call("wait_for_agents", []),
+            messages => Text(LastToolResult(messages).Contains("404 test added") ? verdict : "the child never fixed it"));
+        provider.Script(Child,
+            _ => Text("built the endpoint"),
+            messages => Text(messages[^1].Text.Contains("404 tested") ? "404 test added" : "no feedback"));
+        var rig = new Rig(provider, ReadTool(() => Task.FromResult("file text")));
+
+        var result = await rig.Loop.RunAsync(new AgenticLoopRequest(
+            ToolLoopErrorToleranceSupport.Agent(), TaskType.Primary, "You are lead.", "lead the spec", rig.MasterTools()),
+            CancellationToken.None);
+
+        var report = MasterVerificationParser.TryParse(result.Response.Text)!;
+        report.FollowUps.Should().ContainSingle().Which.Goal.Should().Be("Exports stream CSV over paging");
+        AgentSmith.Application.Services.Handlers.MasterAcceptanceGate.ObjectivelySatisfied(
+            report, ["The endpoint returns 404", "Exports stream CSV"], producedSourceChanges: true)
+            .Should().BeTrue("a reasoned not-met is the lead's call");
+    }
+
+    [Fact]
     public async Task StopAsync_ARunningChild_IsStoppedAndPostsNoNotice()
     {
         var reading = new TaskCompletionSource();

@@ -47,6 +47,20 @@ public sealed class MasterSurrenderChallengeTests
     }
 
     [Fact]
+    public async Task Challenge_ReasonedNotMet_IsDeclinedAndChallengedOnce()
+    {
+        var notMet = Verdict("green", "not_met", "the export format is a follow-up spec");
+        var loop = new ScriptedPasses(notMet, notMet, notMet);
+        var decisions = new CapturedDecisions();
+
+        await RunAsync(loop, decisions);
+
+        loop.Seen.Count(r => r.UserPrompt.Contains("the export format is a follow-up spec")).Should().Be(1,
+            "2026-11-18-c8e2b: the master's call stops the re-drive, and the one challenge still applies");
+        decisions.Lines.Should().ContainSingle(l => l.Contains("Master loop ended: Declined"));
+    }
+
+    [Fact]
     public async Task Challenge_RespectedBlocker_DrivesOnePass()
     {
         var blocked = Verdict("failed", "unmet", "migration not generated")

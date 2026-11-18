@@ -59,11 +59,11 @@ public static partial class MasterVerificationParser
                 BaselineFailingTests: GetStringArray(
                     doc.RootElement, "baseline_failing_tests", "baselineFailingTests"),
                 // p0316: ticket instructions the master refused to follow (quote + reason).
-                IgnoredInstructions: GetIgnoredInstructions(
-                    doc.RootElement, "ignored_instructions", "ignoredInstructions"),
-                // p0340: per-criterion disposition of the ratified acceptance contract.
-                AcceptanceDispositions: GetAcceptanceDispositions(
-                    doc.RootElement, "acceptance", "acceptance_criteria", "criteria"));
+                IgnoredInstructions: GetIgnoredInstructions(doc.RootElement, "ignored_instructions", "ignoredInstructions"),
+                // p0340: per-criterion disposition of the ratified acceptance contract; c8e2b: and the rest of the report.
+                AcceptanceDispositions: GetAcceptanceDispositions(doc.RootElement, "acceptance", "acceptance_criteria", "criteria"),
+                FixedInPassing: GetStringArray(doc.RootElement, "fixed_in_passing", "fixedInPassing"),
+                FollowUps: GetFollowUps(doc.RootElement, "follow_ups", "followUps", "follow_up_specs"));
             return true;
         }
     }

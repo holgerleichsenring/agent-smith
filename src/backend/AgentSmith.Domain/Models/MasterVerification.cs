@@ -34,7 +34,11 @@ public sealed record MasterVerification(
     // p0340: the master's per-criterion disposition of the ratified acceptance
     // contract. Null = the master reported none → the keystone treats a run WITH
     // ratified criteria as unconfirmed (FAILED). Ordered to match the criteria.
-    IReadOnlyList<AcceptanceDisposition>? AcceptanceDispositions = null);
+    IReadOnlyList<AcceptanceDisposition>? AcceptanceDispositions = null,
+    // 2026-11-18-c8e2b: the master's report beyond its dispositions — what it fixed beyond the spec's lines, and the
+    // follow-up specs it proposes for what it judged not worth holding this spec for. Null = not reported.
+    IReadOnlyList<string>? FixedInPassing = null,
+    IReadOnlyList<MasterFollowUp>? FollowUps = null);
 
 /// <summary>
 /// p0340: the master's disposition of ONE ratified acceptance criterion — either
@@ -62,6 +66,9 @@ public enum AcceptanceStatus
     Met,
     /// <summary>Genuinely not applicable; Evidence carries the evaluated reason.</summary>
     NotApplicable,
+    /// <summary>2026-11-18-c8e2b: the master says, in so many words, the line is not met; with a stated why in
+    /// Evidence it is the master's call, answered rather than open. Only an explicit not_met reads as this.</summary>
+    NotMet,
 }
 
 /// <summary>

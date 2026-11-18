@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-c8e2b
+
+decisions:
+  - category: Architecture
+    chose: "The master's report rides in its existing verdict block: acceptance entries may be not_met with why, plus fixed_in_passing and follow_ups"
+    over: "A second report block or tool the backend parses beside the verdict"
+    reason: "The verdict already carries one disposition per done line and is what every reader of the master's answer parses; extending it keeps one report, and a verdict without the new keys reads exactly as before."
+  - category: Behaviour
+    chose: "Only an explicit not_met ('not_met', 'not-met', 'not met') is AcceptanceStatus.NotMet; 'unmet', an unknown or a missing status stays the fail-closed Unmet"
+    over: "Treating every unmet line with evidence as answered"
+    reason: "Review cut: the parser maps anything unknown to Unmet so a vague verdict gates red, and today's masters write 'unmet' for open work (the surrender tests drive exactly that). Only a line the master states as its call stops the re-drive."
+  - category: Behaviour
+    chose: "A reasoned not-met is answered (no re-drive) yet counts as not met, and a stop on it is classified Declined, so the one challenge pass of 2026-10-13-3890a still applies once"
+    over: "A new stop kind exempt from the challenge"
+    reason: "Review finding: the challenge was written for exactly 'the regression test was not added'. Keeping it costs one pass and puts the master's own reasons in front of it; a restated stop is respected. Default taken without an operator question, per the operator's 'build it through'."
+  - category: Scope
+    chose: "No backend prompt section for the lead role; the role, the brief, looking at evidence and the report live in the new skill text (.agentsmith/notes/2026-11-18-c8e2-coding-master-skill.md, 1547 words against 4127)"
+    over: "A backend section telling the master to delegate"
+    reason: "Operator: the master works from a few short texts; procedure in backend sections is a second rule layer. The backend gives capabilities (c8e2a) and reads the report; with today's skill the master builds itself as before."
+  - category: Implementation
+    chose: "What the master can look with is today's surface: read files and the diff, run_command (waits for exit; 60 s default, 600 s cap), run_gate_stage, http_request, update_progress, and render_reference/compare_reference when the project enables a browser"
+    over: "Adding a long-running process tool for this spec"
+    reason: "A server can be started, probed and stopped inside one run_command (app & sleep; curl; kill). Whether a background process survives into a later call is not established and the skill text does not promise it; http_request reaches only endpoints reachable from the run. A child gets the base read/write surface with run_command, not the gate stages, progress or hand_forward, which stay the master's."

@@ -45,11 +45,29 @@ public static partial class MasterVerificationParser
         };
     }
 
+    // 2026-11-18-c8e2b: { goal, why } objects; a bare string is a goal with no why. Absent = null.
+    private static IReadOnlyList<MasterFollowUp>? GetFollowUps(JsonElement obj, params string[] names)
+    {
+        foreach (var name in names)
+            if (TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Array)
+                return [.. el.EnumerateArray().Select(FollowUp).OfType<MasterFollowUp>()];
+        return null;
+    }
+
+    private static MasterFollowUp? FollowUp(JsonElement item) => item.ValueKind switch
+    {
+        JsonValueKind.String when !string.IsNullOrWhiteSpace(item.GetString()) => new MasterFollowUp(item.GetString()!.Trim(), ""),
+        JsonValueKind.Object when GetString(item, "goal", "title", "spec") is { } goal && !string.IsNullOrWhiteSpace(goal)
+            => new MasterFollowUp(goal.Trim(), GetString(item, "why", "reason") ?? ""),
+        _ => null,
+    };
+
     private static AcceptanceStatus MapAcceptanceStatus(string? raw) => raw?.Trim().ToLowerInvariant() switch
     {
         "met" or "satisfied" or "done" or "pass" or "passed" or "yes" => AcceptanceStatus.Met,
         "not_applicable" or "not-applicable" or "n/a" or "na" or "moot" or "vacuous"
             => AcceptanceStatus.NotApplicable,
+        "not_met" or "not-met" or "not met" => AcceptanceStatus.NotMet, // 2026-11-18-c8e2b: said; "unmet" stays the default
         _ => AcceptanceStatus.Unmet,
     };
 }

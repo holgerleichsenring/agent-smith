@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-c8e2b
+goal: "The coding master reports per done line met or not met with why, what it fixed in passing and the follow-ups it proposes; a stated not-met is its call, and its new skill text has it lead a child."
+
+applies_to: "default (Domain/Models/MasterVerification; Application/Services/MasterVerificationParser*; Handlers/AcceptanceJudgement, MasterAcceptanceGate; .agentsmith/notes)"
+
+requires: [2026-11-18-c8e2a]
+
+facts:
+  - claim: "The coding master's final message ends in a verdict block the framework parses into MasterVerification: status, build/test booleans, failing tests, ignored instructions and per-criterion acceptance dispositions (criterion, status met/not_applicable, evidence, citations); any other status maps to Unmet."
+    evidence: "src/backend/AgentSmith.Application/Services/MasterVerificationParser.cs:39-67, src/backend/AgentSmith.Application/Services/MasterVerificationParser.Acceptance.cs:17-54, src/backend/AgentSmith.Domain/Models/MasterVerification.cs:25-87"
+  - claim: "The master's open loop re-engages until MasterAcceptanceGate judges the contract satisfied; a pairing is satisfied only by met or a reasoned not_applicable, so an unmet line, however reasoned, re-drives the master."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterAcceptanceGate.cs:24-42, src/backend/AgentSmith.Application/Services/Handlers/AcceptanceJudgement.cs:18-41"
+  - claim: "The deployed coding-agent-master skill (v2.0.1 in the skills repo, about 4100 words) has the master build the spec itself and says 'There is no unmet entry to ship'; it is rendered from the catalog with backend sections bound into its placeholders."
+    evidence: "/Users/da5id/develop/source/others/agent-smith/agent-smith-skills/skills/_masters/coding-agent-master/SKILL.md:392-394, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:250-260"
+  - claim: "The coding master's surface has the file tools, run_command, http_request, the gate stages, update_progress and, with a figma or browser source, design_read and render/compare_reference; its children get the base read/write surface over the same checkouts, and after 2026-11-18-c8e2a the master can run them in the background, write to them and continue them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:52-99, src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:46-61"
+
+scope:
+  in: "The verdict block carries the master's report: an acceptance entry may be not_met with its why in evidence; fixed_in_passing lists what the master fixed beyond the spec's lines; follow_ups lists proposed follow-up specs, each a one-line goal and why. MasterVerification gains FixedInPassing and FollowUps (MasterFollowUp(Goal, Why)), parsed tolerantly; a verdict without them reads as today. An explicit not_met (not_met, not-met, 'not met') parses to a new AcceptanceStatus.NotMet; an unknown or missing status stays the fail-closed Unmet. A NotMet line with a stated why is answered: the master's acceptance gate stops re-driving on it (it still counts as not met), and the stop is classified as Declined, so the existing one challenge pass (2026-10-13-3890a) still applies to it once. The new coding-agent-master SKILL.md text, written to .agentsmith/notes/2026-11-18-c8e2-coding-master-skill.md for the parent session to ship: the master leads — briefs a child, looks at the work with its own tools, sends it back with feedback, fixes small things, names follow-ups, reports; it mirrors apply-spec's steps, is shorter than today's and states no caps. The backend adds no prompt section for the lead role and works with the current skill text."
+  out: "Turning the report into the spec record, the pull request and the ticket page (2026-11-18-c8e2d), and removing the verifier (2026-11-18-c8e2c). Shipping and pinning the skill text (the parent session). New tools: the surface the master looks with is today's."
+
+upgrade_impact: "No setting. A verdict without the new keys parses as before, and the current skill never writes not_met, so its masters re-engage as today. Until 2026-11-18-c8e2c lands the run's delivery gate still fails a run whose account has an outstanding criterion; this spec only changes the master's own re-drive."
+
+steps:
+  - id: characterise
+    action: "Before changing the gate: tests pin that a green verdict with an unknown-status line plus evidence re-engages (ReengageReasonPolicy) and that a stop on a reasoned not_applicable is Declined and challenged once (MasterSurrenderChallenge)."
+  - id: model
+    action: "AcceptanceStatus.NotMet; MasterVerification gains FixedInPassing (IReadOnlyList<string>?) and FollowUps (IReadOnlyList<MasterFollowUp>?); MasterFollowUp(Goal, Why) in Domain/Models."
+  - id: parse
+    action: "MasterVerificationParser reads fixed_in_passing (string array) and follow_ups (objects with goal/why; a bare string is a goal); not_met/not-met/'not met' map to NotMet; 'unmet' and any other status stay Unmet, the fail-closed default (masters on today's skill already write 'unmet' for open work)."
+  - id: gate
+    action: "CriterionPairing.Answered: satisfied, or NotMet with a stated why; AcceptanceJudgement.Of decides on Answered, Describe names a reasoned not-met as the master's call; MasterSurrenderChallenge.DeclinedOnly counts a reasoned NotMet with a not-applicable."
+  - id: skill
+    action: "Write the new skill text to .agentsmith/notes/2026-11-18-c8e2-coding-master-skill.md."
+
+tests:
+  - "MasterVerificationParserReportTests: a verdict with not_met, fixed_in_passing and follow_ups parses each; a verdict without them leaves both null; a bare-string follow-up is a goal."
+  - "MasterAcceptanceGateTests: a NotMet line with a why is answered and the gate is satisfied; without a why, or an unknown status with evidence, it is not; the satisfied count does not include it; a stop on it is Declined and challenged once."
+  - "SubAgentTeamLoopTests.Lead_SendsWorkBack_ChildFixesIt_ReportCarriesFollowUp: a master scripted to start a child, send back a missing done line, wait, then answer a verdict with one met line, one not_met line with why and one follow-up — the parsed verdict carries them and the gate is satisfied."
+
+done:
+  - "A verdict's not_met line with its why, fixed_in_passing and follow_ups reach MasterVerification."
+  - "A not-met line with a stated why no longer re-drives the master; one without a why still does."
+  - "The new coding-agent-master skill text exists in .agentsmith/notes, shorter than today's, with the lead role, the brief, looking at evidence and the report."

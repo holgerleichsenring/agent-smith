@@ -21,6 +21,14 @@ public sealed record CriterionPairing(
     /// <summary>Met, or not-applicable with an evaluated reason; a missing disposition never satisfies.</summary>
     public bool Satisfied => Disposition is not null && Satisfies(Disposition);
 
+    /// <summary>2026-11-18-c8e2b: satisfied, or said not met with a why — the master's call, which no re-drive
+    /// is owed for. It still counts as not met.</summary>
+    public bool Answered => Satisfied || IsReasonedNotMet;
+
+    /// <summary>The master said this line is not met and why.</summary>
+    public bool IsReasonedNotMet =>
+        Disposition is { Status: AcceptanceStatus.NotMet } d && !string.IsNullOrWhiteSpace(d.Evidence);
+
     private static bool Satisfies(AcceptanceDisposition d) =>
         d.Status == AcceptanceStatus.Met
         || (d.Status == AcceptanceStatus.NotApplicable && !string.IsNullOrWhiteSpace(d.Evidence));
@@ -37,7 +45,7 @@ public sealed record AcceptanceJudgement(
     public static AcceptanceJudgement Refused(string reason) => new(false, [], reason);
 
     public static AcceptanceJudgement Of(IReadOnlyList<CriterionPairing> pairings) =>
-        new(pairings.All(p => p.Satisfied), pairings, null);
+        new(pairings.All(p => p.Answered), pairings, null);
 
     /// <summary>One line for the run log: the count, then every criterion with its status
     /// and the pairing that produced it.</summary>
@@ -63,6 +71,7 @@ public sealed record AcceptanceJudgement(
         AcceptanceStatus.Met => "met",
         AcceptanceStatus.NotApplicable when p.Satisfied => "not applicable",
         AcceptanceStatus.NotApplicable => "not applicable without a reason",
+        AcceptanceStatus.NotMet when p.IsReasonedNotMet => "not met (the master's call)",
         _ => "unmet",
     };
 }
