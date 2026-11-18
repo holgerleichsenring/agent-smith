@@ -73,6 +73,8 @@ internal static class FigmaFakes
     {
         public string? Resolve(string name) => name == SecretName ? token : null;
 
+        public string? Unreadable(string name) => null;
+
         public IReadOnlyList<string> All() => token is null ? [] : [token];
     }
 }

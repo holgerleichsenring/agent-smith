@@ -27,19 +27,26 @@ public sealed class WebhookSecretResolver(Func<string, string?> envReader) : IWe
         foreach (var (known, envVar) in KnownPlatforms)
         {
             if (!string.Equals(known, platform, StringComparison.OrdinalIgnoreCase)) continue;
-            return new WebhookSecretSource(known, envVar, Secrets(envVar, config));
+            return Source(known, envVar, config);
         }
         return null;
     }
 
     public IReadOnlyList<WebhookSecretSource> ResolveAll(AgentSmithConfig config) =>
-        [.. KnownPlatforms.Select(p => new WebhookSecretSource(p.Platform, p.EnvVar, Secrets(p.EnvVar, config)))];
+        [.. KnownPlatforms.Select(p => Source(p.Platform, p.EnvVar, config))];
 
-    private IReadOnlyList<string> Secrets(string? envVar, AgentSmithConfig config) =>
-        envVar is null
-            ? [.. config.Projects.Values
-                .Select(p => p.JiraTrigger?.Secret)
-                .Where(secret => !string.IsNullOrEmpty(secret))
-                .Select(secret => secret!)]
-            : EnvironmentFirst.Resolve(envVar, envReader, new LoadedSecretValues(config)) is { Length: > 0 } value ? [value] : [];
+    // 2026-11-18-78efb: a variable whose catalog secret's stored value cannot be opened is said, not resolved empty.
+    private WebhookSecretSource Source(string platform, string? envVar, AgentSmithConfig config)
+    {
+        if (envVar is null) return new WebhookSecretSource(platform, null, JiraSecrets(config), null);
+        var lookup = EnvironmentFirst.Lookup(envVar, envReader, new LoadedSecretValues(config));
+        return new WebhookSecretSource(platform, envVar, lookup.Value is { } value ? [value] : [],
+            lookup.State == CredentialLookupState.Unreadable ? lookup.ToString() : null);
+    }
+
+    private static IReadOnlyList<string> JiraSecrets(AgentSmithConfig config) =>
+        [.. config.Projects.Values
+            .Select(p => p.JiraTrigger?.Secret)
+            .Where(secret => !string.IsNullOrEmpty(secret))
+            .Select(secret => secret!)];
 }

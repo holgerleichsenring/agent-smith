@@ -137,7 +137,7 @@ public sealed class ConfigChangeApplierTests
     private ConfigChangeApplier Applier() =>
         new(_store.Object, _kinds, new OrphanedSecretValues(_vault.Object), NullLogger<ConfigChangeApplier>.Instance);
 
-    private static ConfigChangeRequest Request(params ConfigChangeItem[] items) => new(items, "ada");
+    private static ConfigChangeRequest Request(params ConfigChangeItem[] items) => new(items, "ada", MayWriteSecrets: true);
 
     private static ConfigChangeItem Upsert(string kind, string id, string document) =>
         new(ConfigChangeItem.Upsert, kind, id, document, null);

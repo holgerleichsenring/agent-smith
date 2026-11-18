@@ -17,6 +17,8 @@ public sealed class CurrentSecretValues(CurrentConfigSnapshot snapshot) : ISecre
 
     public string? Resolve(string name) => Current().Resolve(name);
 
+    public string? Unreadable(string name) => Current().Unreadable(name);
+
     public IReadOnlyList<string> All() => Current().All();
 
     private LoadedSecretValues Current()

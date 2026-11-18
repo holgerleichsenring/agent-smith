@@ -22,6 +22,7 @@ public static class AdminAssistantExtensions
         // 2026-11-17-f3a8c: a turn proposes what it drafted; Apply is a config run.
         services.AddSingleton<IAdminTurnOutcome, ConfigDraftOutcome>();
         services.AddScoped<Config.IConfigApplyRun, Config.ConfigApplyRun>().AddScoped<Config.ConfigOutcomeSink>();
+        services.AddScoped<DialogDeciderGrants>(); // 2026-11-18-78efa: set by the dashboard dispatch of the decider's message
         // 2026-11-17-f3a8d: the secret values, written by a secret run and read without their values.
         services.AddScoped<Secrets.ISecretWriteRun, Secrets.SecretWriteRun>().AddScoped<Secrets.SecretValuesReader>();
         return services.AddAdminPipelines();

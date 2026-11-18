@@ -19,10 +19,12 @@ public sealed class ConfigChangeApplier(
     /// 2026-11-18-00eaa: catalog items first, in order; then the deletions of orphaned stored values, which cannot be
     /// reverted — so every one of them is checked before any is deleted, and nothing irreversible happens before the
     /// last check. A value set for the same name between the check and the delete is lost (accepted, narrow).
+    /// 2026-11-18-78efa: a stored value is deleted only for a person holding secrets.write — checked before anything.
     /// </summary>
     public async Task<ConfigApplyReport> ApplyAsync(ConfigChangeRequest request, string runId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (SecretValuesApproval.Refusal(request.Changes, request.MayWriteSecrets) is { } refused) return new ConfigApplyReport(false, refused);
         var by = new ChangeAttribution($"{request.Person} via admin assistant (run {runId})");
         var numbered = request.Changes.Select((item, i) => (Item: item, Number: i + 1)).ToList();
         foreach (var (item, number) in numbered.Where(n => !OrphanedSecretValues.Is(n.Item.Kind)))

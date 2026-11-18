@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-78efa
+
+decisions:
+  - category: Security
+    chose: "Applying a draft that deletes a stored secret value (kind secret-values) needs secrets.write besides admin.assistant"
+    over: "admin.assistant alone, as 2026-11-18-00eaa decided for every kind the assistant drafts"
+    reason: "Operator decision 2026-11-18 (ratified the recommendation raised by 00eaa's review): a deliberate exception to 'the assistant's drafts need only admin.assistant' - secret rights stay with secrets. Catalog secret names stay under admin.assistant; only the stored value needs secrets.write."
+  - category: Architecture
+    chose: "Two checks with one line (SecretValuesApproval.Refusal): ConfigOutcomeSink refuses before a run starts, and ConfigChangeApplier refuses the whole request up front from ConfigChangeRequest.MayWriteSecrets"
+    over: "Checking in the sink only, or only in the run"
+    reason: "The operator asked for the run to re-check at apply time. The sink check keeps the card awaiting with no failed run; the run check holds for any path that starts a config run, and refusing before the catalog items means nothing needs reverting."
+  - category: Architecture
+    chose: "The decider's grant rides on a scoped DialogDeciderGrants set by the dashboard dispatch from the caller's principal; unset holds nothing"
+    over: "Threading a second flag beside mayStartRuns through the router, the decision path and IOutcomeSink"
+    reason: "The flag would touch every sink and about a hundred test call sites for one kind. The dispatch opens a fresh scope per message, so the holder belongs to exactly that message; a chat channel or any other path never sets it and is refused, which fails closed."
+  - category: Security
+    chose: "The run checks the grant resolved when Apply was pressed, carried on the request"
+    over: "Re-resolving the person's permissions inside the run"
+    reason: "Permissions come from the caller's token (roles, groups, person grants); a run holds no token. The run starts in the same flow as the press."
+  - category: Scope
+    chose: "Drafting stays open to admin.assistant; the prompt says applying needs secrets.write"
+    over: "Refusing the draft tool for a poster without secrets.write"
+    reason: "A draft writes nothing and the one who applies it decides. Adversarial self-review: the queued-message path decides inside the first message's scope; in the admin conversation only its owner posts, so that scope's grant is the decider's."

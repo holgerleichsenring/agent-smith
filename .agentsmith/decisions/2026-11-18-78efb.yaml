@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-78efb
+
+decisions:
+  - category: Security
+    chose: "A webhook or Slack signing secret whose stored value exists but cannot be opened refuses every delivery; no value configured anywhere keeps verification off"
+    over: "2026-11-18-9ae8's accepted fail-open, which resolved an unreadable row empty like an unset variable"
+    reason: "Operator decision 2026-11-18 (ratified the recommendation raised by 9ae8's review). An unreadable row is evidence that a secret was set up, so falling open would accept forged deliveries after a lost master key or a tampered row. Installations that list the secret without a value keep working, which was the reason 9ae8 gave for not failing closed on 'declared but empty'."
+  - category: Architecture
+    chose: "The three states are explicit end to end: StoredSecretLoad carries the unreadable names with a value-free reason, AgentSmithConfig.UnreadableSecrets holds them per load, ISecretValues.Unreadable answers, and CredentialLookup (Value / None / Unreadable) is what EnvironmentFirst.Lookup and ICredentialResolver.Lookup return"
+    over: "Inferring unreadable from an empty string, or asking the vault again at verification time"
+    reason: "The operator asked for the states to be told apart in the resolver, not inferred. The load already opens every row once; carrying its verdict keeps one generation for runs, the masker and the verifiers, and Resolve/Named stay the value for every other caller."
+  - category: Security
+    chose: "Every text that carries a lookup or a load prints no value: CredentialLookup, StoredSecretLoad and WebhookSecretSource override ToString; the refusal logs name the variable, the secret, the key id and the reason"
+    over: "Generated record text"
+    reason: "A record's generated ToString prints its members, and a webhook source holds secret values."
+  - category: Scope
+    chose: "GitHub, GitLab, Azure DevOps and Slack only; Teams, Jira and the connections panel unchanged"
+    over: "Every credential"
+    reason: "Teams verifies inbound activities with the Bot Framework JWT against TEAMS_APP_ID and reads no secret, so nothing falls open there. Jira's secrets are per tracker references, not the platform variables the decision names. Outbound tokens already fail as a missing credential. The panel's configured flag stays; the finding and the refusal log name the secret. Adversarial self-review: an orphaned stored row (no catalog secret) is not consulted, so it cannot close a platform nobody configured."

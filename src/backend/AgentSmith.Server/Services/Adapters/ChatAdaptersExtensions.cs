@@ -54,7 +54,7 @@ internal static class ChatAdaptersExtensions
     internal static IServiceCollection AddSlackAdapter(this IServiceCollection services)
     {
         // 2026-11-18-9ae8: the credentials are read per use, environment first, then the secret store.
-        services.AddSingleton(sp => new SlackAdapterOptions(sp.GetRequiredService<ICredentialResolver>().Named));
+        services.AddSingleton(sp => new SlackAdapterOptions(sp.GetRequiredService<ICredentialResolver>().Lookup));
         services.AddHttpClient<SlackApiClient>(c =>
         {
             c.BaseAddress = new Uri("https://slack.com/api/");

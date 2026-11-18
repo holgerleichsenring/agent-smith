@@ -20,18 +20,25 @@ public sealed class ConfigSecretResolver(ConfigSecretReferences references, ISto
 
     // 2026-11-17-f3a8d: the environment wins when it holds a value; otherwise the value stored in the admin area.
     // Stored values are opened once per load, so a run and the masker reading this load see the same generation.
+    // 2026-11-18-78efb: a secret left with no value whose stored row exists but did not open is listed with why.
     private void ResolveSecrets(RawAgentSmithConfig raw)
     {
-        var values = stored?.Load() ?? new Dictionary<string, string>();
+        var load = stored?.Load() ?? StoredSecretLoad.Empty;
         var resolved = new Dictionary<string, string>();
+        var unreadable = new Dictionary<string, string>();
         foreach (var (key, value) in raw.Secrets)
         {
             var fromEnvironment = references.ResolveFromEnvironment(value);
-            resolved[key] = string.IsNullOrEmpty(fromEnvironment)
-                ? values.GetValueOrDefault(key.ToLowerInvariant()) ?? fromEnvironment
-                : fromEnvironment;
+            if (!string.IsNullOrEmpty(fromEnvironment)) resolved[key] = fromEnvironment;
+            else if (load.Values.TryGetValue(key.ToLowerInvariant(), out var storedValue)) resolved[key] = storedValue;
+            else
+            {
+                resolved[key] = fromEnvironment;
+                if (load.Unreadable.TryGetValue(key.ToLowerInvariant(), out var reason)) unreadable[key] = reason;
+            }
         }
         raw.Secrets = resolved;
+        raw.UnreadableSecrets = unreadable;
     }
 
     // p0191: registry tokens reference secrets via ${name}; substitute them after

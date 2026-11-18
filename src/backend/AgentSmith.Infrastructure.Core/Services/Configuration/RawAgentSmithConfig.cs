@@ -21,6 +21,9 @@ public sealed class RawAgentSmithConfig
     // 2026-10-01-7f7aa: design tools projects read designs from; auth names a secret.
     public Dictionary<string, RawDesignSourceEntry> DesignSources { get; set; } = new();
     public Dictionary<string, string> Secrets { get; set; } = new();
+    // 2026-11-18-78efb: filled by ConfigSecretResolver, never read from a file.
+    [YamlDotNet.Serialization.YamlIgnore] [System.Text.Json.Serialization.JsonIgnore]
+    public Dictionary<string, string> UnreadableSecrets { get; set; } = new();
     public List<RawRegistryEntry> Registries { get; set; } = new();
 
     public QueueConfig Queue { get; set; } = new();
