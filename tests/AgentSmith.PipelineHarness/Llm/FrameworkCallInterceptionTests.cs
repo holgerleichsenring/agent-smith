@@ -17,23 +17,6 @@ namespace AgentSmith.PipelineHarness.Llm;
 /// </summary>
 public sealed class FrameworkCallInterceptionTests
 {
-    [Fact]
-    public void TheCutReviewPrompt_IsRecognisedAsAFrameworkCall()
-    {
-        var prompt = SpecCutReviewPrompt.For(Set(), "the ticket", look: null);
-
-        SpecAccountReply.IsCutReviewCall(prompt).Should().BeTrue(
-            "the harness recognises it by its own text — a marker that drifts steals a response");
-    }
-
-    [Fact]
-    public void TheAccountingPrompt_IsRecognisedAsAFrameworkCall()
-    {
-        var prompt = SpecAccountPrompt.For(["a criterion"], "diff --git a/x b/x\n", []);
-
-        SpecAccountReply.IsAccountingCall(prompt).Should().BeTrue();
-    }
-
     /// <summary>
     /// p0429: the finding refutation is the third such call. It is stood down by TYPE at
     /// the composition boundary rather than by a text marker, so it cannot reach the
@@ -50,7 +33,4 @@ public sealed class FrameworkCallInterceptionTests
                 "a preset's script describes the MASTER; a framework call drawing from it "
                 + "shifts the whole sequence by one");
     }
-
-    private static IReadOnlyList<SpecDraft> Set() =>
-        [new SpecDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] }];
 }

@@ -57,6 +57,7 @@ public static class LoopRuntimeExtensions
         // one run total. SubAgentNameValidator is stateless and shared.
         services.AddScoped<IAgenticLoopRunner, AgenticLoopRunner>();
         services.AddScoped<ISubAgentRunner, SubAgentRunner>();
+        services.AddScoped<SubAgentPass>().AddSingleton<SubAgentRequestBuilder>().AddScoped<SubAgentEvents>(); // c8e2a
         services.AddSingleton<SubAgentNameValidator>();
         // p0280: in-memory child-answer store, scoped per run (one pipeline-execution
         // scope == one run) — the functional child->master detail channel.

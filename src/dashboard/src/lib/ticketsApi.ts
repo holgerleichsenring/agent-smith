@@ -85,6 +85,18 @@ export async function postDefaultVerdicts(
   return { kind: "applied", applied: body.applied, alreadyDecided: body.alreadyDecided };
 }
 
+/** 2026-11-18-c8e2d: file a follow-up a spec's master proposed (runs.control). A refusal throws with the server's sentence. */
+export async function postFollowUp(
+  project: string, ticketId: string, followUp: { runId: string; specId: string; index: number },
+): Promise<{ ticketId: string | null; key: string; url: string }> {
+  const path = `/api${ticketPath(project, ticketId)}/follow-ups`;
+  const res = await apiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(followUp),
+  });
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as { ticketId: string | null; key: string; url: string };
+}
+
 /** The ticket itself, read from its tracker (a minute's cache on the server), else an attempt's copy. */
 /** 2026-11-17-dd05d: fresh reads the tracker past the server's minute cache. */
 export function fetchTicketText(project: string, ticketId: string, signal?: AbortSignal, fresh = false): Promise<TicketText> {

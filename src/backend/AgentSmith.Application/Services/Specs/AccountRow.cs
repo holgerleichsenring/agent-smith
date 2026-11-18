@@ -3,7 +3,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0420: one row exactly as the accounting instance wrote it, before its citation has
+/// p0420: one row exactly as an account (2026-11-18-c8e2c: a scan's coverage account) wrote it, before its citation has
 /// been resolved against the diff. Separate from CriterionAccount because a CLAIM and a
 /// CHECKED claim are not the same thing, and the whole gate rests on the difference.
 /// </summary>
@@ -24,8 +24,7 @@ public sealed record AccountRow(
     string? Citation = null,
     string? Note = null,
     IReadOnlyList<string>? Citations = null,
-    string? Antecedent = null,
-    string? Advice = null)
+    string? Antecedent = null)
 {
     /// <summary>Everything this row cites, whichever field carried it. A bare string reads
     /// as a one-element list so an older answer still resolves.</summary>

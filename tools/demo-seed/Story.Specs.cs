@@ -67,9 +67,15 @@ internal static partial class Story
         """;
 
     public static string AcceptanceJson(params (string Text, string Status, string Reason, string? Citation)[] rows) =>
+        ReportJson(rows, [], []);
+
+    /// <summary>2026-11-18-c8e2d: a spec's master report — its rows, what it fixed in passing, the follow-ups it proposes.</summary>
+    public static string ReportJson(
+        (string Text, string Status, string Reason, string? Citation)[] rows, string[] fixedInPassing, FollowUpView[] followUps) =>
         RunStoryJson.Serialize(new AcceptanceView(
             [.. rows.Select(r => new AcceptanceCriterionView(r.Text, r.Status, r.Reason, r.Citation))],
-            "verbatim", "the ratified spec", AcceptanceSources.MasterVerification));
+            "verbatim", "the ratified spec", AcceptanceSources.MasterVerification,
+            FixedInPassing: fixedInPassing, FollowUps: followUps));
 
     public static string LedgerJson(params (string Activity, string Status, string? Target)[] items) =>
         RunStoryJson.Serialize(items.Select((x, i) => new ProgressLedgerItemView($"p{i + 1}", x.Activity, x.Status, x.Target)).ToList());

@@ -26,7 +26,6 @@ public sealed class SeriesSkillRulesTests
     private static string DesignPartner() => PackagedMaster.Read("design-partner-master");
     private static string Folded() => PackagedMaster.Folded("design-partner-master");
     private static string SpecDerivation() => PackagedMaster.Read("spec-derivation-master");
-    private static string CodingAgent() => PackagedMaster.Read("coding-agent-master");
 
     /// <summary>2026-11-12-681f: the contract's shape is write_contract's schema; the master names the tool.</summary>
     [Fact]
@@ -62,18 +61,17 @@ public sealed class SeriesSkillRulesTests
 
     [Fact]
     public void EmbeddedSkills_CodingAgentMaster_EndsEachSpecWithHandForward() =>
-        CodingAgent().Should().Contain(
-            "Before your verdict, call `hand_forward` once with what this spec renamed, moved, persisted and deviated "
-            + "from — each renamed or moved entry as `<old> -> <new>` — so the next spec's master starts from it.",
+        // 2026-11-18-4f3e: coding-agent-master 3.0.0 states it as its last step before the report.
+        PackagedMaster.Folded("coding-agent-master").Should().Contain(
+            "Call `hand_forward` once with what this spec renamed, moved, persisted and deviated from (`<old> -> <new>`)",
             Because("the hand-forward rule"));
 
     [Fact]
     public void EmbeddedSkills_Masters_TakeAChoiceNeedingNoPersonByDefault()
     {
-        var coding = CodingAgent();
-        coding.Should().Contain(
-            "Otherwise, use `decide_by_default` for a choice a person might overrule, `log_decision` for an "
-            + "implementation choice.",
+        // 2026-11-18-4f3e: coding-agent-master 3.0.0 words the same rule under "Asking and deciding".
+        PackagedMaster.Folded("coding-agent-master").Should().Contain(
+            "A choice a person might overrule goes through `decide_by_default`; an implementation choice through `log_decision`",
             Because("the coding master's default-choice rule"));
 
         // 2026-11-10-fc66: a design turn carries neither tool. 2026-11-12-681f: its questions go on

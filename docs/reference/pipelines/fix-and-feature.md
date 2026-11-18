@@ -43,8 +43,7 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | AgenticMaster | The coding master does the spec's work |
 | MasterOpenQuestions | Parks the run when the master asked a person something |
 | CommitSpecWork | Runs the declared formatter, judges the structure limits, and puts the spec's work on the branch before it is judged |
-| VerifySpec | Runs the declared verify stages, then takes the delivery account |
-| ReviewSpecDiff | A fresh reviewer reads the spec diff; findings get one fix pass |
+| VerifySpec | Runs the declared verify stages; a red one goes back to the master once; green records the master's report |
 | WriteSpecRecord | Moves the spec to `.agentsmith/specs/done/` with its outcome and build note |
 
 ```mermaid
@@ -56,11 +55,10 @@ graph TD
     Derive --> Review["ReviewSpecs<br/>rounds per unbuilt spec"]
     Review -->|objection asked| Park
     Review --> Spec["per spec:<br/>premises → master → commit"]
-    Spec --> Verify["VerifySpec<br/>stages + delivery account"]
-    Verify -->|outstanding, once| Spec
-    Verify -->|green| DiffReview[ReviewSpecDiff]
-    DiffReview -->|next spec| Spec
-    DiffReview --> PR[CommitAndPR]
+    Spec --> Verify["VerifySpec<br/>build and test stages"]
+    Verify -->|stage red, once| Spec
+    Verify -->|green, next spec| Spec
+    Verify -->|green| PR[CommitAndPR]
 
     style Derive fill:#27ae60,color:#fff
     style Verify fill:#c0392b,color:#fff
@@ -101,7 +99,7 @@ The series is committed, a draft spec PR opens in every repository the series to
 
 A series with several specs may carry a contract in its manifest: the names its members declare and the numbers those take (an event, a table, an endpoint, a config key, a tool and so on, from a fixed list of kinds), the data each member owns, the files each member touches, and a per-member line budget for a file several of them share. Every entry names its owner by spec id. Each thing has one owner, a number is taken once per kind, and a file several members touch needs a budget from each of them. A contract that collides goes back to the model with every collision named; if the last attempt still collides, the cut is kept without a contract.
 
-The contract is read twice more. After the per-spec review below, one fresh reviewer checks the whole set of cleared specs against it. After a spec is built, the diff reviewer flags a change that breaks it.
+The contract is read twice more. After the per-spec review below, one fresh reviewer checks the whole set of cleared specs against it.
 
 ### Build notes
 
@@ -141,13 +139,13 @@ A standing objection from the spec review parks the ticket the same way, describ
 
 ## The coding master
 
-`AgenticMaster` runs the `coding-agent-master` skill in an agentic loop: it calls tools, observes the results, and decides what to do next. Its file tools (`read_file`, `write_file`, `edit`, `multi_edit`, `grep_in_tree`, `find_files`, `list_directory`, …) and `run_command` dispatch to the right sandbox by the first path segment, so one conversation works across all repos in scope. Besides those it has `update_progress` for its progress ledger, `ask_human` for a question that parks the run, `revise_spec` to revise the spec it is building, `log_decision`, `hand_forward` for the build note, and `ensure_repo_sandbox` for a repo it didn't start with.
+`AgenticMaster` runs the `coding-agent-master` skill in an agentic loop: it calls tools, observes the results, and decides what to do next. Its file tools (`read_file`, `write_file`, `edit`, `multi_edit`, `grep_in_tree`, `find_files`, `list_directory`, …) and `run_command` dispatch to the right sandbox by the first path segment, so one conversation works across all repos in scope. It leads the spec rather than building it: `spawn_agents` starts a sub-agent with its brief, `send_message` sends work back to it, and the master checks what the sub-agent built with the same tools. Besides those it has `update_progress` for its progress ledger, `ask_human` for a question that parks the run, `revise_spec` to revise the spec it is building, `log_decision`, `hand_forward` for the build note, and `ensure_repo_sandbox` for a repo it didn't start with.
 
 The operator can write to a running attempt in the ticket's conversation, and the message reaches the master with its next tool result. When the message, or a premise the code proved false, changes what the spec must make true, the master revises the spec with `revise_spec` and does not park the run. It passes the whole revised spec and a reason. The text is checked against the spec schema and keeps its id, `requires`, `repos` and `applies_to`. Its cited facts are resolved against the tree first, and then one round of the spec review decides, cuts applied. An accepted text is written to the ticket branch as `revision N (revised in run <id>: <reason>)` and recorded in the run's decisions, and its done criteria are what verification judges from then on. A refused text writes nothing, and the reviewers' findings go back to the master, which can revise again or ask with `ask_human`.
 
 A master may stop on its own word: the build stays red with nothing left on its ledger, it names a blocker, or it declares the open criteria not applicable. When it does that while a criterion of the spec is not met and budget is left, it gets one more pass with its own reasons put in front of it. A stop it repeats after that is respected. The run records which kind of stop ended the loop.
 
-The master runs the repo's build and tests itself as it works; `VerifySpec` then runs the declared stages again as the gate, and the [delivery account](../../how-it-works/delivery-account.md) judges the criteria. Long sessions are kept inside the model's window by compaction; see [Context compaction](../concepts/context-compaction.md).
+The master runs the repo's build and tests itself as it works; `VerifySpec` then runs the declared stages again as the gate, and the spec's record is [the master's report](../../how-it-works/delivery-account.md) on its done lines. Long sessions are kept inside the model's window by compaction; see [Context compaction](../concepts/context-compaction.md).
 
 !!! info "Tool execution"
     All tools run in the cloned repository's working directory. File paths are relative to the repo root. Shell commands execute with the repo root as the current directory.
@@ -170,6 +168,6 @@ agent-smith code --ticket 54 --project todolist --dry-run
 ## Output
 
 - The work branch `agent-smith/<ticket-id>` in every repo in scope, carrying the series, the checkpoint commits, the change and the executed specs under `.agentsmith/specs/done/`.
-- One **pull request** per repository the series touches, opened as a draft at the spec commit, cross-linked with the others, and taken out of draft only by a complete, verified run. A repository whose specs gained no code keeps its spec PR as one of the run's PRs. The body carries the ticket, the per-spec table, the delivery account, what the spec review still finds, declined criteria, the structure divergences inside the tolerance band, and a formatter that failed. A red run's PR stays a draft with a banner.
+- One **pull request** per repository the series touches, opened as a draft at the spec commit, cross-linked with the others, and taken out of draft only by a complete, verified run. A repository whose specs gained no code keeps its spec PR as one of the run's PRs. The body carries the ticket, the per-spec table, the masters' reports with their proposed follow-ups, the structure divergences inside the tolerance band, and a formatter that failed. A red run's PR stays a draft with a banner.
 - A **run record** in `.agentsmith/runs/<run-id>/` with `result.md`, plus the master's `plan.md` where it wrote one.
 - The **ticket** gets a comment with the PR links, your done status and the `agent-smith:done` label — or `agent-smith:shortfall` / `agent-smith:failed` when the run fell short.

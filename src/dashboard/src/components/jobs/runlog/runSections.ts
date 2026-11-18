@@ -64,6 +64,11 @@ export function sectionState(rows: RunStepRow[]): SectionState {
 /** The check section from the run's acceptance verdicts: red when one is unmet, amber when one is unproven. */
 export function checkOf(acceptance: RunAcceptance | null | undefined): { state: SectionState; summary: string } {
   const criteria = acceptance?.criteria ?? [];
+  // 2026-11-18-98fa: masters that ended with finish_spec judged no line — the section says they reported.
+  if (criteria.length === 0 && acceptance?.reports?.length) {
+    const n = acceptance.followUps?.length ?? 0;
+    return { state: "done", summary: n > 0 ? `reported · ${n} follow-up${n === 1 ? "" : "s"}` : "reported" };
+  }
   if (criteria.length === 0) return { state: "pending", summary: "no verdict recorded" };
   const met = criteria.filter((c) => c.status === "met").length;
   const words = `${met} of ${criteria.length} done criteria met`;

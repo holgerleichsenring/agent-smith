@@ -73,15 +73,6 @@ public sealed class CitationFormTests
     }
 
     [Fact]
-    public void SpecAccountPrompt_CitationForm_TellsTheAccountToQuoteVerbatimAndSplitOnSemicolons()
-    {
-        var prompt = SpecAccountPrompt.For(["criterion"], string.Empty, []);
-
-        prompt.Should().Contain("VERBATIM", "the resolver accepts nothing else")
-            .And.Contain("semicolon", "the multi-command form exists and must be stated");
-    }
-
-    [Fact]
     public void CitationResolver_QuotedSpanRunningAcrossTwoParts_DoesNotResolve()
     {
         // Reading the quoted span from the first apostrophe to the last one yields

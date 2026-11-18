@@ -33,6 +33,42 @@ const ACCEPTANCE: RunAcceptance = {
   ratifiedBy: "holger",
 };
 
+describe("VerifySummary (the master's report)", () => {
+  // 2026-11-18-c8e2d: a run whose rows are its masters' reports shows the report's lists; an older run keeps its hint.
+  it("VerifySummary_AMastersReport_ShowsFixedInPassingAndFollowUps", () => {
+    render(<VerifySummary acceptance={{ ...ACCEPTANCE, source: "master_verification", fixedInPassing: ["a null check"],
+      followUps: [{ goal: "Exports stream CSV", why: "paging first", specId: "s2" }] }} fallback={fallback({})} />);
+    expect(screen.getByTestId("verify-source")).toHaveTextContent("master reported it");
+    expect(screen.getByTestId("verify-fixed-in-passing")).toHaveTextContent("a null check");
+    expect(screen.getByTestId("verify-follow-up")).toHaveTextContent("Exports stream CSV");
+    expect(screen.getByTestId("verify-follow-up")).toHaveTextContent("follow-up · s2");
+  });
+
+  // 2026-11-18-98fa: masters that ended with finish_spec — their markdown reports, rendered, and no row table.
+  it("VerifySummary_FinishedMasters_RenderEachReportAsMarkdownWithTheFollowUps", () => {
+    render(<VerifySummary acceptance={{ criteria: [], outcome: null, ratifiedBy: null, source: "master_verification",
+      fixedInPassing: [], followUps: [{ goal: "Exports stream CSV", why: "paging first", specId: "s2" }],
+      reports: [{ markdown: "## Delivered\n\n- the **404** handler", specId: "s1" }, { markdown: "Left open: paging", specId: "s2" }] }}
+      fallback={fallback({})} />);
+    const reports = screen.getAllByTestId("verify-report");
+    expect(reports).toHaveLength(2);
+    expect(reports[0].querySelector("li")).toHaveTextContent("the 404 handler");
+    expect(reports[0].querySelector("strong")).toHaveTextContent("404");
+    expect(reports[0]).toHaveTextContent("Spec s1");
+    expect(screen.queryByTestId("verify-criteria")).toBeNull();
+    expect(screen.queryByTestId("verify-empty")).toBeNull();
+    expect(screen.getByTestId("verify-outcome-badge")).toHaveTextContent("reported · 1 follow-up");
+    expect(screen.getByTestId("verify-follow-up")).toHaveTextContent("Exports stream CSV");
+  });
+
+  it("VerifySummary_AnOlderRun_KeepsItsHintAndNoReportLists", () => {
+    render(<VerifySummary acceptance={{ ...ACCEPTANCE, source: "delivery_account" }} fallback={fallback({})} />);
+    expect(screen.getByTestId("verify-source")).toHaveTextContent("this is what the gate decided on");
+    expect(screen.queryByTestId("verify-follow-ups")).toBeNull();
+    expect(screen.queryByTestId("verify-report")).toBeNull();
+  });
+});
+
 describe("VerifySummary (the operator's judgement)", () => {
   // 2026-08-25-e257: a run that fails on a wrong criterion is indistinguishable from one
   // that fails on a right one. This is where the difference gets written down — a label,

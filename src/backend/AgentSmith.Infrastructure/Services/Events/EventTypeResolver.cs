@@ -41,6 +41,7 @@ public static class EventTypeResolver
         EventType.SubAgentFileWritten => typeof(SubAgentFileWrittenEvent),
         EventType.SubAgentToolCall => typeof(SubAgentToolCallEvent),
         EventType.SubAgentCompleted => typeof(SubAgentCompletedEvent),
+        EventType.SubAgentMessaged => typeof(SubAgentMessagedEvent),
         EventType.RunCancelRequested => typeof(RunCancelRequestedEvent),
         EventType.SandboxVanished => typeof(SandboxVanishedEvent),
         EventType.RunCheckpointed => typeof(RunCheckpointedEvent), // p0327

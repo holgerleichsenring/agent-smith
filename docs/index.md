@@ -56,7 +56,7 @@ Every run gets a directory under `.agentsmith/runs/`, named by the run id: a UTC
 ```
 .agentsmith/runs/2026-05-22T14-03-11-9f2a/
 ├── plan.md       — the master's working plan, when it wrote one
-└── result.md     — what got done, the delivery account, cost in tokens and USD
+└── result.md     — what got done, the master's report, cost in tokens and USD
 ```
 
 Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the choices it made go into `.agentsmith/decisions/`, each naming what it picked and what it beat. That's the why-record. Long after, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason we built it this way: we got tired of code we couldn't reverse-engineer.
@@ -105,7 +105,7 @@ Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for
 - [End to end](how-it-works/end-to-end.md): the whole flow with pictures.
 - [Work it out](how-it-works/work-it-out.md): the conversation before the ticket, and the ticket's own conversation.
 - [Lifecycle of a run](how-it-works/lifecycle.md): what happens between ticket-in and pull request.
-- [The delivery account](how-it-works/delivery-account.md): every acceptance criterion gets a verdict with evidence, and you can overrule one.
+- [How a spec is checked](how-it-works/delivery-account.md): the coding master reports on every done line with evidence and proposes follow-ups; the build and tests gate the spec.
 - [CI loop and merge policy](how-it-works/ci-loop.md), [Stacked start](how-it-works/stacked-start.md) and [Series run](how-it-works/series-run.md): what happens after the pull request.
 - [Methodology](how-it-works/methodology.md): spec first, then code, then an account of what got delivered, and why.
 

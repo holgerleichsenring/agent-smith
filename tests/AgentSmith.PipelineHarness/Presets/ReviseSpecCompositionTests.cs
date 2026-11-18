@@ -134,8 +134,11 @@ public sealed class ReviseSpecCompositionTests
             .EnqueueDeferred(() =>
             {
                 harness.StubSandboxFactory!.GitAnswers.Remove(StagedNames);
-                return new ChatResponse(new ChatMessage(ChatRole.Assistant, verdict));
-            });
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant, [new TextContent(verdict),
+                    new FunctionCallContent("call_finish", "finish_spec",
+                        new Dictionary<string, object?> { ["status"] = "green", ["summary"] = "done" })]));
+            })
+            .EnqueueText(string.Empty);
 
     // The master re-emits the spec its prompt carries, with the operator's criterion added.
     private static ChatResponse ReviseCall(RealCompositionHarness harness)
@@ -153,12 +156,9 @@ public sealed class ReviseSpecCompositionTests
             [new FunctionCallContent("call_revise", ReviseSpecToolHost.Name, args)]));
     }
 
+    // 2026-11-18-98fa: the master's markdown report, naming the done lines it saw.
     private static string Verdict(params string[] criteria) =>
-        "Done. " + JsonSerializer.Serialize(new
-        {
-            status = "green", build_ran = true, build_passed = true, tests_ran = true, tests_passed = true, summary = "done",
-            acceptance = criteria.Select(c => new { criterion = c, status = "met", evidence = "guard" }),
-        });
+        "## Delivered\n" + string.Join("\n", criteria.Select(c => $"- {c}: the guard"));
 
     private static int Attacks(RealCompositionHarness harness) => harness.ChatClient.CallMessages.Count(SpecAttackScript.Answers);
 

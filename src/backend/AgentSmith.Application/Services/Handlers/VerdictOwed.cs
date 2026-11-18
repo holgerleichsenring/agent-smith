@@ -38,11 +38,10 @@ internal sealed class VerdictOwed(
             + "once (${Usd:F2} spent since the checklist completed)",
             skill, allowance, SpentSinceComplete());
         return "Your progress checklist is complete — every step is marked done — and you have kept "
-            + "calling tools instead of closing the run. The run is now waiting for your verdict. If the "
+            + "calling tools instead of closing the spec. The run is now waiting for your report. If the "
             + "checklist does not already record a build and test result, build the project and run the "
-            + "automated tests the way the repository defines them, once. Then end with your fenced "
-            + "```verdict block for the real outcome (status: green | no-tests | failed) with the "
-            + "acceptance dispositions; the framework reads that block and nothing after it.\n\n"
+            + "automated tests the way the repository defines them, once. Then write your report for the "
+            + "person and call finish_spec with the real outcome (status: green | no-tests | failed | blocked).\n\n"
             + ProgressLedgerRenderer.Render(ledger());
     }
 

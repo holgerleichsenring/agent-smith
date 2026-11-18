@@ -17,7 +17,6 @@ CheckPhasePremisesCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or
 CommitPhaseWorkCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 ExecutedPhaseIds	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseAccounts	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
-PhaseAccountsSnapshot	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseAppliesTo	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseCommandEntry	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseCommandLog	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
@@ -32,10 +31,7 @@ PhaseProposal	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite
 PhaseRecorded	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseRepairAttempted	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseReviewEntry	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
-PhaseReviewFindings	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
-PhaseReviewFixPass	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseReviewReport	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
-PhaseReviewReverted	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseReviewed	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseRunState	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseSequenceCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it

@@ -49,10 +49,7 @@ public sealed class SubAgentSituationTests
     public async Task SpawnAgents_ChildAnswers_ResultCarriesTheAnswer()
     {
         var loop = new AnsweringLoop("The server authenticates by cookie; see API/Extensions/AuthenticationExtension.cs.");
-        var runner = new SubAgentRunner(loop, new RecordingEventPublisher(), new LoopLimitsConfig { MaxConcurrentSubAgents = 2 },
-            new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
-                new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
-            NullLogger<SubAgentRunner>.Instance);
+        var runner = AgentSmith.Tests.SubAgents.SubAgentRunnerTests.Compose(loop, new RecordingEventPublisher(), new LoopLimitsConfig { MaxConcurrentSubAgents = 2 });
         var pipeline = new PipelineContext();
         var context = new SubAgentContext(
             pipeline, new Dictionary<string, ISandbox> { ["server"] = Mock.Of<ISandbox>() },

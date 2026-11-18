@@ -17,7 +17,14 @@ public sealed record SpecAccount(
     // 2026-09-01-3653: what the run's master pass was given and how far it got. Trailing and
     // optional, so every existing construction site keeps compiling; null on a spec account
     // and on a scan whose master never ran, which OMITS the section rather than zeroing it.
-    ScanPassMeasures? Measures = null)
+    ScanPassMeasures? Measures = null,
+    // 2026-11-18-c8e2c: the rest of the master's report the rows come from — what it fixed beyond the spec's lines and
+    // the follow-up specs it proposes. Null on a scan's account and on accounts stored before the report.
+    IReadOnlyList<string>? FixedInPassing = null,
+    IReadOnlyList<MasterFollowUp>? FollowUps = null,
+    // 2026-11-18-98fa: the master's report — its markdown for the person, shown as written. Accounts written since carry
+    // no rows and no FixedInPassing; those stay for the accounts stored before.
+    string? Report = null)
 {
     /// <summary>
     /// Nothing outstanding — and an account that could not be taken is not a pass.

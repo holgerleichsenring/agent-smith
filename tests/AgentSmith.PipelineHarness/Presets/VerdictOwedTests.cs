@@ -57,8 +57,7 @@ public sealed class VerdictOwedTests
         ScriptCompletedLedger(harness);
         for (var i = 0; i < Allowance; i++)
             harness.ChatClient.EnqueueToolCall("read_file", $$$"""{"path":"{{{ReadPath}}}"}""");
-        harness.ChatClient.EnqueueText(
-            """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+        harness.ChatClient.EnqueueFinish(summary: "fixed");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");

@@ -25,6 +25,8 @@ public static class SpecRederivePrompt
             - Keep `spec`, `requires`, `repos` and `applies_to` exactly as they are; a rewrite that changes any
               of them is discarded and the refusal stands.
             - Everything else — goal, scope, decisions, steps, tests, done, facts — is yours to rewrite.
+            - A finding that names something missing is the author's to weigh: keep the scope as the spec has it,
+              and add nothing it did not ask for.
             - Answer with the whole spec as ONE ```yaml block and nothing else.
 
             ## The refused spec

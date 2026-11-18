@@ -4,7 +4,7 @@ Two capabilities that belong together: the run writes down *what counts as done*
 
 ## The done-list is the expectation
 
-Every `code` run works from a specification. `DeriveSpec` reads the ticket after the code has been analyzed and cuts it into an ordered set of specs; each spec carries a goal, its steps and a "done when" list. That list is the run's acceptance contract. It goes into the master's prompt, it renders into the pull request as a reviewer checklist, and it is what the [delivery account](delivery-account.md) judges the branch against, criterion by criterion. When you review the PR you review it against those sentences, not against your memory of what the ticket kind of meant.
+Every `code` run works from a specification. `DeriveSpec` reads the ticket after the code has been analyzed and cuts it into an ordered set of specs; each spec carries a goal, its steps and a "done when" list. That list is the run's acceptance contract. It goes into the master's prompt, it renders into the pull request as a reviewer checklist, and it is what the master [reports on](delivery-account.md), line by line. When you review the PR you review it against those sentences, not against your memory of what the ticket kind of meant.
 
 The cut is posted to the ticket as "this is how I understood the ticket": per spec the done-when criteria, the facts it established (each from a look it took at the code, with what it looked at), and the assumptions it made without one — the ones to correct if they are wrong. The run doesn't wait for you to ratify it. Blocking on a person who isn't there is what this replaces; a correction is the way back in.
 
@@ -13,10 +13,6 @@ How you correct it depends on where the specification came from.
 **A cut the run derived.** Comment on the ticket, or edit the ticket text, and the next run re-cuts the specs that haven't started yet. Specs that already ran are kept.
 
 **A specification a person approved.** A ticket filed from an approved design conversation — in the dashboard's [Work it out](work-it-out.md) page or in chat — carries the `spec:approved` label and its set is already on the ticket branch ([Spec dialogue](spec-dialogue.md) covers that side). The run works that set and never re-cuts it on its own: a comment or a ticket edit is reported once on the ticket as not acted on. To change a spec, say what should change in the ticket's conversation. Nobody edits the branch by hand. While a run is building a spec, a message from someone who may control runs reaches its agent, which can revise the spec it is building. One review of the changed spec decides, and an accepted revision is written to the ticket branch as the next revision of the series. A change to another spec is raised again once the run has ended. Otherwise the conversation proposes the change, and once you approve it, it is recorded for the next attempt, which continues the series by spec id. A spec that already ran is never edited, so a correction to one becomes a new spec. If you work from the tracker alone, write a comment whose first line says nothing but `cut this specification again`, and the next run cuts the unstarted specs again from the ticket. If the approved set is not on the branch when the run starts, the run parks the ticket and says which path it looked at.
-
-### Declined criteria
-
-Sometimes a criterion asks for something no work in this repository can make true. The master can decline it, with what not doing it means. Declined criteria are never silently dropped: they show in the completion comment on the ticket, in the PR body under "Declined by the run", in `result.md`, and in the run's Verify card. The delivery account still judges the branch on its own.
 
 ## When the run hands the ticket back
 
@@ -50,11 +46,11 @@ The practical consequence: asking the human stops being expensive. A run that wo
 
 - Runs list: `waiting_for_input` runs are visibly parked; a resumed run waiting for capacity shows like any queued run, with its position.
 - The ticket: the question or hand-back as a comment, the ticket parked in `needs_clarification_status` where that applies.
-- `result.md`: the delivery account, declined criteria, and any ticket instructions the run chose to ignore.
+- `result.md`: the masters' reports and any ticket instructions the run chose to ignore.
 
 ## Next
 
-- [The delivery account](delivery-account.md) — how the done-list is judged.
+- [How a spec is checked](delivery-account.md) — how the done-list is reported on.
 - [Spec dialogue](spec-dialogue.md) — the conversational front door.
 - [Lifecycle](lifecycle.md) — where these steps sit in the run.
 - [Capacity & queueing](../reference/operations/capacity.md) — the queue a resumed run rides.

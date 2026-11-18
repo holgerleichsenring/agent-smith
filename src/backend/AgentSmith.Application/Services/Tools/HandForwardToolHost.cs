@@ -33,7 +33,7 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId,
     }
 
     private const string Described =
-        "Hands a build note to the next spec of this series; call it once, before your verdict. List " +
+        "Hands a build note to the next spec of this series; call it once, before finish_spec. List " +
         "what this spec RENAMED and MOVED (each entry '<old> -> <new>': the old name or path, a space, " +
         "the arrow '->', a space, the new one), what it PERSISTED (tables, columns, files, keys a later " +
         "spec reads) and where it DEVIATED from the spec text and why. At most 20 entries per list and " +

@@ -28,7 +28,13 @@ public sealed record AcceptanceView(
     string? Source = null,
     // 2026-09-06-3d81: what the master declined, beside the rows the gate decided on.
     IReadOnlyList<DeclinedCriterionView>? Declined = null,
-    IReadOnlyList<UnmeasuredAccountView>? Unmeasured = null)
+    IReadOnlyList<UnmeasuredAccountView>? Unmeasured = null,
+    // 2026-11-18-c8e2d: the rest of the masters' reports — fixed in passing and the follow-up specs proposed. Null on a
+    // view written before the report was the account, which is how a reader tells the two kinds of run apart.
+    IReadOnlyList<string>? FixedInPassing = null,
+    IReadOnlyList<FollowUpView>? FollowUps = null,
+    // 2026-11-18-98fa: each spec master's markdown report, shown as written. Null on a view written before.
+    IReadOnlyList<MasterReportView>? Reports = null)
 {
     // Declared in the body, so it would serialize after the positional members; the wire has
     // always led with the criteria.

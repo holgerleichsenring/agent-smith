@@ -18,8 +18,7 @@ public sealed class ReengagePass(
     ILogger<ReengagePass> logger)
 {
     internal async Task<ReengagePassResult> RunAsync(
-        ReengageSession s, ReengageState state, IReadOnlyList<string> criteria, CancellationToken ct,
-        string? challengeNudge = null, IReadOnlyList<string>? unresolvedClaims = null)
+        ReengageSession s, ReengageState state, CancellationToken ct)
     {
         var skill = s.Context.MasterSkillName;
         var (loopResult, changes, verification) = state;
@@ -31,29 +30,28 @@ public sealed class ReengagePass(
         // itself, having written nothing, refilled its own work.
         var ledgerIdsAtPassStart = s.Progress.GetLedger().Entries.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
         var changesAtPassStart = changes;
+        var finishCallsAtPassStart = s.Finish?.Calls ?? 0; // 2026-11-18-98fa: a pass emits a verdict by calling finish_spec
 
         logger.LogInformation(
-            "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK; acceptance: {Acceptance}",
-            skill, s.Progress.GetLedger().ActionablePending.Count,
-            MasterAcceptanceGate.Judge(verification, criteria, changes.Count > 0).Describe());
+            "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK; finish_spec: {Finished}",
+            skill, s.Progress.GetLedger().ActionablePending.Count, verification?.Status.ToString() ?? "not called");
         try
         {
             // p0411: the working tree, read once per pass, so the nudge opens with the changed paths.
-            // 2026-10-17-a196c: a pass opened for unresolved met claims leads with them.
-            var claimHead = unresolvedClaims is { Count: > 0 } ? AcceptanceClaimNudge.Build(unresolvedClaims, s.Context.Pipeline) : string.Empty;
-            var nudge = challengeNudge ?? claimHead + MasterNudges.BuildReengageNudge(
+            var nudge = MasterNudges.BuildReengageNudge(
                 s.UserPrompt, s.Progress.GetLedger(), s.Log.GetDecisions(), verification,
                 await ReadChangedPathsAsync(s.Context.Pipeline, ct), MasterPipelineFacts.StagedRegistries(s.Context.Pipeline));
             var reengaged = await loopRunner.RunAsync(
                 s.Request with { UserPrompt = nudge, PriorMessages = s.Conversation.Thread() }, ct);
+            if (s.Team is not null) await s.Team.StopAsync(); // 2026-11-18-c8e2a
             s.Conversation.Continued(nudge, reengaged.Response);
             // p0341e: a no-op for the coding master — its governor hook already recorded the spend.
             s.TrackMasterResponse(reengaged.Response);
             loopResult = reengaged;
             changes = s.Fs.GetChanges();
-            emitted = MasterVerificationParser.TryParse(reengaged.Response.Text);
-            if (emitted is not null) verification = emitted;
-            blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
+            if (s.Finish is { } finish && finish.Calls > finishCallsAtPassStart)
+                verification = emitted = MasterReport.Standing(finish, s.Conversation.Thread());
+            blockedClaim = emitted?.BlockedClaim;
             toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
         }
         catch (MasterBudgetExhaustedException budgetEx)
@@ -62,6 +60,9 @@ public sealed class ReengagePass(
             logger.LogWarning(
                 "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved): {Reason}",
                 skill, budgetEx.Message);
+            // 2026-11-18-98fa: a finish_spec the budget-ended drive recorded still stands; its report is the thread's.
+            if (s.Finish is { } spent && spent.Calls > finishCallsAtPassStart)
+                verification = emitted = MasterReport.Standing(spent, s.Conversation.Thread());
             return new(new(loopResult, changes, verification), emitted, MasterPassReasons.Budget);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

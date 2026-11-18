@@ -97,30 +97,6 @@ public sealed class AgenticMasterHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NoVerdictOnGreenTestsPipeline_RePromptsOnce_AndParsesVerdict()
-    {
-        // p0263: the master changed source but emitted no verdict on a green-tests
-        // pipeline → re-prompt once for the verdict; the verdict from the nudge pass is
-        // honored. (The apply-drive may fire first since the mock reports no changes;
-        // the LAST request is the verdict-nudge — assert on its prompt + the parsed verdict.)
-        const string verdictBlock =
-            "Done.\n```verdict\n{ \"status\": \"green\", \"build_ran\": true, "
-            + "\"build_passed\": true, \"tests_ran\": true, \"tests_passed\": true, "
-            + "\"summary\": \"ok\" }\n```";
-        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
-        var loop = new SequencedLoopRunner("no verdict here", "still nothing", verdictBlock);
-
-        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master");
-        ctx.Pipeline.Set(ContextKeys.PipelineName, "code");
-
-        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
-
-        ctx.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var v).Should().BeTrue();
-        v!.Status.Should().Be(VerificationStatus.Green);
-        loop.SeenRequests[^1].UserPrompt.Should().Contain("emitted no verdict, so the run cannot be reported");
-    }
-
-    [Fact]
     public async Task AgenticMaster_ScanMaster_UsesReviewPromptAndReadOnlyTools()
     {
         var prompts = new MasterHandlerFixture.StubPromptCatalog("api-security-master", "## Role\nreviewer");
@@ -150,7 +126,7 @@ public sealed class AgenticMasterHandlerTests
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("write_file").And.Contain("run_command").And.Contain("ask_human");
-        loop.SeenRequests[0].UserPrompt.Should().Contain("The framework parses your last message");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("Your last message is your report");
     }
 
     [Fact]

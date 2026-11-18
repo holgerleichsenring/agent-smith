@@ -37,9 +37,6 @@ public sealed class ContextSourcesHarnessTests
           - src/Inventory.Core
         """;
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
-
     // A method of n statements measures n + 3 lines.
     private static string Library(bool touched) =>
         "class Repository\n{\n    void Load()\n    {\n"
@@ -120,12 +117,12 @@ public sealed class ContextSourcesHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add Save to the repository.")
             .EnqueueToolCall("write_file", write)
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
         if (corrected)
             harness.ChatClient
                 .EnqueueText("Correcting: I keep it as it is.")
                 .EnqueueToolCall("write_file", write)
-                .EnqueueText(GreenVerdict);
+                .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

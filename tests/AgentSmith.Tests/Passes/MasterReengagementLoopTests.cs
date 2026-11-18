@@ -47,7 +47,7 @@ public sealed class MasterReengagementLoopTests
     {
         var runContext = new AsyncLocalRunContextAccessor();
         using var step = runContext.BeginStepScope(3, Spec);
-        var rig = new LoopRig(SpecPipeline(), ProgressStatus.Pending, runContext, ScriptedPasses.Text(Verdict("red"), toolCalls: 0));
+        var rig = new LoopRig(SpecPipeline(), ProgressStatus.Pending, runContext, ScriptedPasses.Text("still red", toolCalls: 0));
 
         await rig.RunAsync(Red);
 
@@ -58,71 +58,38 @@ public sealed class MasterReengagementLoopTests
             (2, 1, MasterPassReasons.RedWithOpenSteps, (string?)null));
     }
 
+    /// <summary>2026-11-18-98fa: a pass's verdict is its own finish_spec call — one that made none emitted none, and
+    /// the gate line names the standing finish_spec status rather than counting done lines.</summary>
     [Fact]
-    public async Task PassRecorder_PassWithoutVerdict_HasNullCriteriaCounts()
+    public async Task PassRecorder_PassWithoutFinishSpec_EmitsNone_AndTheGateLineNamesTheStanding()
     {
         var runContext = new AsyncLocalRunContextAccessor();
         using var step = runContext.BeginStepScope(3, Spec);
-        var rig = new LoopRig(SpecPipeline("it builds", "it is documented"), ProgressStatus.Pending, runContext,
-            ScriptedPasses.Text("still working, no verdict yet"), ScriptedPasses.Text("nothing", toolCalls: 0));
-        var counted = Red with
-        {
-            AcceptanceDispositions = [new AcceptanceDisposition("it builds", AcceptanceStatus.Met, "dotnet build"),
-                new AcceptanceDisposition("it is documented", AcceptanceStatus.Unmet, "")],
-        };
+        var rig = new LoopRig(SpecPipeline("it builds"), ProgressStatus.Pending, runContext,
+            ScriptedPasses.Text("still working", toolCalls: 0));
 
-        await rig.RunAsync(counted);
+        await rig.RunAsync(Red);
 
         var (first, silent) = (rig.Events.Ends[0], rig.Events.Ends[1]);
-        (first.VerdictEmitted, first.CriteriaMet, first.CriteriaTotal).Should().Be((true, (int?)null, (int?)null),
-            "a red verdict over changed nothing is a verdict-level refusal — no counts");
-        first.Criteria!.Select(c => (c.Criterion, c.Status)).Should().Equal(("it builds", "met"), ("it is documented", "unmet"));
-        (silent.VerdictEmitted, silent.CriteriaMet, silent.CriteriaTotal, silent.Criteria)
-            .Should().Be((false, (int?)null, (int?)null, (IReadOnlyList<MasterPassCriterion>?)null));
-        silent.GateLine.Should().Contain("cannot stand", "the gate still judges the verdict the loop stands on");
+        (first.VerdictEmitted, first.CriteriaMet, first.Criteria).Should().Be((true, (int?)null, (IReadOnlyList<MasterPassCriterion>?)null));
+        silent.VerdictEmitted.Should().BeFalse();
+        silent.GateLine.Should().Be("finish_spec: Failed");
     }
 
+    /// <summary>2026-11-18-98fa: a re-engaged pass that calls finish_spec emits its verdict with the report.</summary>
     [Fact]
-    public async Task PassRecorder_GreenPassWithDispositions_CountsItsOwnCriteria()
+    public async Task ReengagedPass_CallingFinishSpec_EmitsItsVerdictWithTheReport()
     {
         var runContext = new AsyncLocalRunContextAccessor();
         using var step = runContext.BeginStepScope(3, Spec);
-        var rig = new LoopRig(SpecPipeline("it builds", "it is documented"), ProgressStatus.Done, runContext,
-            ScriptedPasses.Text("unused"));
-        var green = Green with
-        {
-            AcceptanceDispositions = [new AcceptanceDisposition("it builds", AcceptanceStatus.Met, "dotnet build"),
-                new AcceptanceDisposition("it is documented", AcceptanceStatus.Met, "README.md")],
-        };
+        var rig = new LoopRig(SpecPipeline("it builds"), ProgressStatus.Done, runContext, Finish("green"));
 
-        await rig.RunAsync(green);
+        await rig.RunAsync(null);
 
-        var end = rig.Events.Ends.Should().ContainSingle().Subject;
-        (end.CriteriaMet, end.CriteriaTotal, end.EndedBecause).Should().Be(((int?)2, (int?)2, MasterPassReasons.NothingLeft));
-        end.GateLine.Should().StartWith("2 of 2 criteria satisfied");
-        rig.Runner.Calls.Should().Be(0, "nothing was left to re-engage for");
-    }
-
-    [Fact]
-    public async Task PassRecorder_SurrenderChallenge_IsAPassOpenedBecauseChallenged()
-    {
-        var runContext = new AsyncLocalRunContextAccessor();
-        using var step = runContext.BeginStepScope(3, Spec);
-        const string declinedJson = "[ { \"criterion\": \"it is documented\", \"status\": \"not_applicable\", \"evidence\": \"not written\" } ]";
-        var rig = new LoopRig(SpecPipeline("it is documented"), ProgressStatus.Done, runContext,
-            ScriptedPasses.Text(Verdict("green", declinedJson)));
-        var declined = Green with
-        {
-            AcceptanceDispositions = [new AcceptanceDisposition("it is documented", AcceptanceStatus.NotApplicable, "not written")],
-        };
-
-        await rig.RunAsync(declined);
-
-        var (first, challenged) = (rig.Events.Ends[0], rig.Events.Ends[1]);
-        rig.Events.Ends.Should().HaveCount(2, "the restated stop after the one challenge is respected");
-        (first.EndedBecause, first.ReengageReason).Should().Be((MasterPassReasons.Reengaged, MasterPassReasons.Challenged));
-        (challenged.PassInStep, challenged.OpenedBecause, challenged.EndedBecause).Should().Be(
-            (1, MasterPassReasons.Challenged, MasterPassReasons.NothingLeft));
+        rig.Events.Ends.Should().HaveCount(2);
+        (rig.Events.Ends[0].ReengageReason, rig.Events.Ends[1].VerdictEmitted, rig.Events.Ends[1].EndedBecause)
+            .Should().Be((MasterPassReasons.Unfinished, true, MasterPassReasons.NothingLeft));
+        rig.Finish.Verification!.Status.Should().Be(VerificationStatus.Green);
     }
 
     private static int Expected(string exit) => exit switch
@@ -139,15 +106,15 @@ public sealed class MasterReengagementLoopTests
         LoopRig? rig = null;
         var pass = exit switch
         {
-            MasterPassReasons.Idle => ScriptedPasses.Text(Verdict("red"), toolCalls: 0),
-            MasterPassReasons.Blocked => ScriptedPasses.Text(Verdict("red", extra: "\"blocked\": true, \"blocker\": \"no access\"")),
+            MasterPassReasons.Idle => ScriptedPasses.Text("still red", toolCalls: 0),
+            MasterPassReasons.Blocked => Finish("blocked", "no access"),
             MasterPassReasons.Budget => ScriptedPasses.Throws(new MasterBudgetExhaustedException("budget")),
             MasterPassReasons.Question => () =>
             {
                 rig!.Clarifications.AskHuman("Which branch?");
-                return ScriptedPasses.Text(Verdict("red"))();
+                return Finish("failed")();
             },
-            _ => ScriptedPasses.Text(Verdict("red")),
+            _ => Finish("failed"),
         };
         rig = new LoopRig(pipeline, drained ? ProgressStatus.Done : ProgressStatus.Pending, runContext, pass);
         return rig;

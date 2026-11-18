@@ -1,8 +1,8 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
-/// p0241: the coding master's self-reported verification verdict, emitted as a
-/// structured block at the end of its agentic loop and parsed by the framework.
+/// p0241: the coding master's self-reported verification verdict. 2026-11-18-98fa: it arrives through the typed
+/// finish_spec tool call (validated when it is made), never parsed from text; the master's markdown report rides along.
 /// It is the agent's CLAIM about build/test state; the framework pairs it with
 /// the unfakeable git-diff truth (a real code change must exist) to decide
 /// whether a fix/feature run may be reported as success. The model deciding and
@@ -31,37 +31,15 @@ public sealed record MasterVerification(
     IReadOnlyList<string>? FailingTests = null,
     IReadOnlyList<string>? BaselineFailingTests = null,
     IReadOnlyList<IgnoredInstruction>? IgnoredInstructions = null,
-    // p0340: the master's per-criterion disposition of the ratified acceptance
-    // contract. Null = the master reported none → the keystone treats a run WITH
-    // ratified criteria as unconfirmed (FAILED). Ordered to match the criteria.
-    IReadOnlyList<AcceptanceDisposition>? AcceptanceDispositions = null);
-
-/// <summary>
-/// p0340: the master's disposition of ONE ratified acceptance criterion — either
-/// <see cref="AcceptanceStatus.Met"/> (with the edit that satisfies it in
-/// <paramref name="Evidence"/>) or <see cref="AcceptanceStatus.NotApplicable"/>
-/// (with the EVALUATED meaning of not doing it, e.g. "no MassTransit present →
-/// nothing to migrate, no messaging behaviour changes"). RunOutcomeKeystone pairs
-/// the ordered dispositions with the ratified criteria: a run is success only when
-/// every criterion is met or justified-N/A. An unmet criterion is the honest RED
-/// the master must report rather than stopping short and self-declaring green.
-/// </summary>
-public sealed record AcceptanceDisposition(string Criterion, AcceptanceStatus Status, string Evidence)
+    // 2026-11-18-c8e2b: the follow-up specs the master proposes for what it judged not worth holding this spec for.
+    IReadOnlyList<MasterFollowUp>? FollowUps = null,
+    // 2026-11-18-98fa: what stops the work when finish_spec's status is blocked (Status is then Failed); null otherwise.
+    string? Blocker = null,
+    // 2026-11-18-98fa: the master's report — its markdown message for the person, shown as written and never parsed.
+    string? Report = null)
 {
-    /// <summary>2026-10-17-a196c: the changed paths and the commands this claim rests on, each one whole
-    /// thing; null when the master's entry carried no citations key (a skill before citations).</summary>
-    public IReadOnlyList<string>? Citations { get; init; }
-}
-
-/// <summary>p0340: how the master disposed of a ratified acceptance criterion.</summary>
-public enum AcceptanceStatus
-{
-    /// <summary>Unaddressed / not satisfied — the default, and it gates the run RED.</summary>
-    Unmet,
-    /// <summary>Satisfied by an actual edit, named in Evidence.</summary>
-    Met,
-    /// <summary>Genuinely not applicable; Evidence carries the evaluated reason.</summary>
-    NotApplicable,
+    /// <summary>2026-11-18-98fa: the blocked claim the open loop honours, read off finish_spec's blocker.</summary>
+    public MasterBlockedClaim? BlockedClaim => Blocker is null ? null : new MasterBlockedClaim(true, Blocker);
 }
 
 /// <summary>

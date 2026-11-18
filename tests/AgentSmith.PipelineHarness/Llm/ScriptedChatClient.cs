@@ -19,7 +19,6 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
-    private readonly SpecReviewScript _specReviewScript = new();
     private readonly SpecAttackScript _specAttackScript = new(); // 2026-10-13-8762g
     private int _toolCallCounter;
 
@@ -45,10 +44,10 @@ public sealed class ScriptedChatClient : IChatClient
     /// <summary>2026-10-13-8762i: the calls the script answered — every call but the framework's own spec-review
     /// and attack-review calls, which a design turn now makes after its proposal.</summary>
     public int ScriptedInvocationCount =>
-        _callMessages.Count(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m));
+        _callMessages.Count(m => !SpecAttackScript.Answers(m));
 
     public IReadOnlyList<ChatMessage> LastScriptedMessages =>
-        _callMessages.LastOrDefault(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m))
+        _callMessages.LastOrDefault(m => !SpecAttackScript.Answers(m))
         ?? Array.Empty<ChatMessage>();
 
     /// <summary>Each call's messages joined to one string, in order.</summary>
@@ -67,22 +66,36 @@ public sealed class ScriptedChatClient : IChatClient
     }
 
     /// <summary>
+    /// 2026-11-18-98fa: scripts how a spec's coding master ends — its markdown report and the finish_spec call in one
+    /// answer, then the empty answer that closes the loop after the tool result.
+    /// </summary>
+    public ScriptedChatClient EnqueueFinish(
+        string status = "green", string summary = "done", string report = "## Delivered\n- the change, built and tested",
+        IReadOnlyList<(string Goal, string Why)>? followUps = null, string[]? failingTests = null, string? blocker = null,
+        string[]? ignoredInstructions = null)
+    {
+        var args = new Dictionary<string, object?> { ["status"] = status, ["summary"] = summary };
+        if (followUps is not null)
+            args["follow_ups"] = System.Text.Json.JsonSerializer.SerializeToElement(followUps.Select(f => new { goal = f.Goal, why = f.Why }));
+        if (failingTests is not null) args["failing_tests"] = System.Text.Json.JsonSerializer.SerializeToElement(failingTests);
+        if (blocker is not null) args["blocker"] = blocker;
+        if (ignoredInstructions is not null)
+            args["ignored_instructions"] = System.Text.Json.JsonSerializer.SerializeToElement(ignoredInstructions);
+        // Not on ToolCalls: those pin the order of the work tools a test drives; how a master ends is this helper's.
+        var callId = "call_" + (++_toolCallCounter);
+        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant,
+            [new TextContent(report), new FunctionCallContent(callId, "finish_spec", args)])));
+        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, string.Empty)));
+        return this;
+    }
+
+    /// <summary>
     /// p0413a: scripts the ScopeRepos classification call, which draws from its own
     /// slot (see <see cref="ScopeClassificationScript"/>) instead of the FIFO.
     /// </summary>
     public ScriptedChatClient EnqueueScopeReply(string text)
     {
         _scopeScript.Enqueue(text);
-        return this;
-    }
-
-    /// <summary>
-    /// 2026-09-17-042eh: scripts the spec review, which draws from its own slot
-    /// (see <see cref="SpecReviewScript"/>) instead of the FIFO.
-    /// </summary>
-    public ScriptedChatClient EnqueueSpecReviewReply(string text)
-    {
-        _specReviewScript.Enqueue(text);
         return this;
     }
 
@@ -136,19 +149,58 @@ public sealed class ScriptedChatClient : IChatClient
         return this;
     }
 
+    /// <summary>2026-11-18-c8e2d: each sub-agent's own script, by the name its system prompt opens with ("You are
+    /// {name}."), so a child working beside its master never draws from the master's FIFO.</summary>
+    private readonly Dictionary<string, Queue<ChatResponse>> _agents = new(StringComparer.Ordinal);
+    private readonly Lock _gate = new();
+
+    /// <summary>2026-11-18-c8e2d: scripts a sub-agent's next tool call.</summary>
+    public ScriptedChatClient EnqueueForToolCall(string agent, string toolName, string arguments)
+    {
+        var call = new FunctionCallContent("agent_" + Interlocked.Increment(ref _toolCallCounter), toolName, ParseArgs(arguments));
+        return EnqueueFor(agent, new ChatResponse(new ChatMessage(ChatRole.Assistant, [call])));
+    }
+
+    /// <summary>2026-11-18-c8e2d: scripts a sub-agent's next answer.</summary>
+    public ScriptedChatClient EnqueueForText(string agent, string text) =>
+        EnqueueFor(agent, new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
+
+    /// <summary>Every call a sub-agent made, its whole message list each.</summary>
+    public IReadOnlyList<IReadOnlyList<ChatMessage>> AgentCalls(string agent)
+    {
+        lock (_gate)
+            return [.. _callMessages.Where(m => AgentOf(m) == agent)];
+    }
+
+    private ScriptedChatClient EnqueueFor(string agent, ChatResponse response)
+    {
+        lock (_gate) (_agents.TryGetValue(agent, out var q) ? q : _agents[agent] = new Queue<ChatResponse>()).Enqueue(response);
+        return this;
+    }
+
+    private string? AgentOf(IReadOnlyList<ChatMessage> messages) =>
+        messages.FirstOrDefault(m => m.Role == ChatRole.System)?.Text is { } system
+            ? _agents.Keys.FirstOrDefault(name => system.StartsWith($"You are {name}.", StringComparison.Ordinal))
+            : null;
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
+    {
+        lock (_gate) return Respond(messages, options);
+    }
+
+    private Task<ChatResponse> Respond(IEnumerable<ChatMessage> messages, ChatOptions? options)
     {
         InvocationCount++;
         LastMessages = messages.ToList();
         _callMessages.Add(LastMessages);
         LastOptions = options;
         FirstOptions ??= options;
+        if (AgentOf(LastMessages) is { } agent)
+            return Task.FromResult(_agents[agent].Count > 0 ? _agents[agent].Dequeue() : DefaultEmpty());
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
-        if (SpecReviewScript.Answers(LastMessages))
-            return Task.FromResult(_specReviewScript.Next());
         if (SpecAttackScript.Answers(LastMessages))
             return Task.FromResult(_specAttackScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());

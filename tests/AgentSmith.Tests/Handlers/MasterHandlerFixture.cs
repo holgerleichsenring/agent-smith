@@ -49,7 +49,7 @@ internal static class MasterHandlerFixture
             BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecExecutionPromptFactory(new AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader()),
             TurnFlow(loop),
-            new NoOpTicketDocumentMaterializer(),
+            new MasterTicketExtras(new NoOpTicketDocumentMaterializer()),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
             new AgentSmith.Application.Services.Handlers.MasterTemplateScopes(
@@ -125,14 +125,7 @@ internal static class MasterHandlerFixture
         IAgenticLoopRunner loop, AgentSmith.Application.Services.Passes.MasterPassRecorder recorder) =>
         new(new ReengagePass(loop, new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
                 new ReengageStopLog(NullLogger<ReengageStopLog>.Instance), NullLogger<ReengagePass>.Instance),
-            recorder, new ReengageStopLog(NullLogger<ReengageStopLog>.Instance), Objection());
-
-    /// <summary>2026-10-17-a196c: the real claim objection over the real collaborators.</summary>
-    internal static AcceptanceClaimObjection Objection() =>
-        new(new AcceptanceClaimEvidence(new SpecSandboxes(new SandboxTargets()), AgentSmith.Tests.TestHelpers.TestGit.Delivery,
-                new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
-                NullLogger<AcceptanceClaimEvidence>.Instance),
-            new AcceptanceClaimCheck());
+            recorder, new ReengageStopLog(NullLogger<ReengageStopLog>.Instance));
 
     /// <summary>2026-10-13-9a59f: no spec frame by default, so a handler test records no pass.</summary>
     internal static AgentSmith.Application.Services.Passes.MasterPassRecorder Recorder(
@@ -163,6 +156,7 @@ internal static class MasterHandlerFixture
             limits ?? new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new SubAgentBudget(20),
             subAgents ?? new StubSubAgentRunner(),
+            new SubAgentEvents(new AgentSmith.Application.Services.Events.NoOpEventPublisher()),
             new SubAgentNameValidator(),
             new NoOpDecisionLogger(),
             // 2026-10-01-7f7ab: a project with no figma source never reaches the client.
@@ -327,6 +321,24 @@ internal static class MasterHandlerFixture
                     TaskIndex: index, Status: SubAgentStatus.Succeeded,
                     SubAgentId: $"sa-{index}", Name: spec.Name, ToolCalls: 0,
                     CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
+        }
+
+        public IReadOnlyList<SubAgentMember> Start(
+            IReadOnlyList<SubAgentSpec> specs, SubAgentContext context,
+            Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken cancellationToken)
+        {
+            lock (_contexts)
+            {
+                _contexts.Add(context);
+                _waves.Add(specs);
+            }
+            return [.. specs.Select(spec => context.Team?.Enlist(spec) ?? SubAgentMember.For(spec))];
+        }
+
+        public void Continue(
+            SubAgentMember member, string message, SubAgentContext context,
+            Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken cancellationToken)
+        {
         }
     }
 

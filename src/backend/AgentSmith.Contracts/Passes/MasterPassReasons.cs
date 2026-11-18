@@ -25,10 +25,8 @@ public static class MasterPassReasons
     // Re-engaged because — also what the next pass opened because.
     public const string RedWithOpenSteps = "red-with-open-steps";
     public const string UnbackedDone = "unbacked-done";
-    public const string GateUnsatisfied = "gate-unsatisfied";
-    /// <summary>2026-10-17-a196c: met claims whose citations resolve against nothing that changed or ran.</summary>
-    public const string UnresolvedClaims = "unresolved-claims";
-    public const string Challenged = "challenged";
+    /// <summary>2026-11-18-98fa: the spec's master ended without finish_spec; it is driven once more for it.</summary>
+    public const string Unfinished = "unfinished";
 
     // Opened because, for a pass that is not a re-engagement.
     public const string First = "first";

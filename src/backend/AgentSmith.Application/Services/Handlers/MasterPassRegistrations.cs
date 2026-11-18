@@ -9,7 +9,6 @@ public static class MasterPassRegistrations
     public static IServiceCollection AddMasterPasses(this IServiceCollection services) =>
         services.AddTransient<MasterPassRecorder>()
             .AddTransient<ReengageStopLog>()
-            .AddTransient<ReengagePass>()
-            .AddTransient<MasterReengagementLoop>()
-            .AddTransient<AcceptanceClaimEvidence>().AddTransient<AcceptanceClaimCheck>().AddTransient<AcceptanceClaimObjection>(); // a196c
+            .AddTransient<ReengagePass>().AddTransient<MasterTicketExtras>()
+            .AddTransient<MasterReengagementLoop>();
 }

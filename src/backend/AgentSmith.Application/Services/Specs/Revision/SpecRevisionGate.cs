@@ -19,7 +19,7 @@ public sealed class SpecRevisionGate(SandboxGitOperations git)
         if (!pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var spec) || spec is null
             || !pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
             return "this run is not building a spec";
-        if (pipeline.Has(ContextKeys.OutstandingCriteria) || SpecReviewFixPass.InFlight(pipeline))
+        if (pipeline.Has(ContextKeys.OutstandingCriteria))
             return $"this pass closes findings measured against spec {spec.SpecId} as it stands; finish it, or ask with "
                 + "ask_human when the operator's message changes what the spec must make true";
         return await StagedAsync(pipeline, ct);

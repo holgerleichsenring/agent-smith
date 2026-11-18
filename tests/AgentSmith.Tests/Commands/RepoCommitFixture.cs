@@ -102,12 +102,6 @@ internal sealed class RepoCommitFixture
         return new CommitAndPRHandler(
             factory.Object, new Mock<ITicketProviderFactory>().Object, gitOps, new SecretPatternScanner(), new PullRequestOutcomePublisher(Events),
             new TicketLifecycle(), new SandboxTargets(),
-            new SpecDeliveryAccounting(TestGit.Delivery,
-                new SpecAccountant(new ScriptedChatClientFactory(),
-                    new AccountCalls(new SpecAccountCall(new ScriptedChatClientFactory(),
-                        new Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
-                    NullLogger<SpecAccountant>.Instance),
-                new SandboxTargets(), NullLogger<SpecDeliveryAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(factory.Object, new PullRequestOutcomePublisher(Events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance),

@@ -17,11 +17,13 @@ public static class SpecReviewMerge
         var taken = answers.OfType<SpecAttackResult>().Where(a => !a.Blind).ToList();
         var verdict = taken.Select(a => a.Verdict).MaxBy(Severity);
         var cuts = taken.SelectMany(a => a.Cuts).DistinctBy(c => (c.Register, c.Quote)).ToList();
-        var dropped = cuts.Where(IsDoneDeletion).ToList();
+        var adding = cuts.Where(SpecCutAddition.Adds).ToList(); // 2026-11-18-c8e2e: a cut never adds
+        var dropped = cuts.Where(IsDoneDeletion).Concat(adding).ToList();
         var findings = taken.SelectMany(a => a.Findings)
-            .Concat(dropped.Select(c => new SpecReviewFinding(
+            .Concat(cuts.Where(IsDoneDeletion).Select(c => new SpecReviewFinding(
                 $"A cut would remove the done criterion \"{c.Quote}\"; a criterion is not cut away, only reworded.",
                 c.Evidence)))
+            .Concat(adding.Select(c => SpecCutAddition.Finding(c)))
             .Distinct().ToList();
         return new SpecReviewMerged(verdict, [.. cuts.Except(dropped)], findings)
         {

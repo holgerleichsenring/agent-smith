@@ -16,8 +16,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class FormatBeforeCommitHarnessTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     private const string ContextYaml = """
         meta:
@@ -40,7 +38,7 @@ public sealed class FormatBeforeCommitHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         await new PipelineRunner(harness.Services).RunAsync("code");
 
@@ -69,7 +67,7 @@ public sealed class FormatBeforeCommitHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

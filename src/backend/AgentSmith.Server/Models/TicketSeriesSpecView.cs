@@ -18,6 +18,9 @@ namespace AgentSmith.Server.Models;
 /// <param name="VerdictRecorded">False for a terminal spec none of whose criteria carries a verdict.</param>
 /// <param name="JudgedBy">2026-10-16-86e6e: the run whose acceptance gave the verdicts and whose judgements are read;
 /// null when none did.</param>
+/// <param name="FollowUps">2026-11-18-c8e2d: the follow-up specs that attempt's master proposed, each fileable by its
+/// run, spec and place; null on a run before the master's report was the account.</param>
+/// <param name="Report">2026-11-18-98fa: that attempt's master's markdown report, shown as written; null before.</param>
 public sealed record TicketSeriesSpecView(
     string SpecId,
     int Ordinal,
@@ -36,4 +39,6 @@ public sealed record TicketSeriesSpecView(
     bool HasRecord = true,
     string? RecordNote = null,
     bool VerdictRecorded = true,
-    string? JudgedBy = null);
+    string? JudgedBy = null,
+    IReadOnlyList<TicketSeriesFollowUpView>? FollowUps = null,
+    string? Report = null);

@@ -1,4 +1,3 @@
-import { runPath } from "@/lib/runPath";
 import { EventType, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
 import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketPullRequest, type TicketSeries, type TicketSummary } from "@/types/tickets";
 import { closedWords } from "../TicketActivity";
@@ -92,10 +91,9 @@ export function failureAct(head: TicketAttempt, project: string): { sentence: st
     case RUN_END_KINDS.bootstrapMissing:
       return { sentence: told ?? `Attempt ${n} stopped before any work: a repository has no agent-smith bootstrap.`,
         act: { kind: "init", project } };
+    // 2026-11-18-c8e2c: only a run before then ends this way — the verifier it names is gone, so the next attempt is the move.
     case RUN_END_KINDS.criteriaUnmet:
-      return { sentence: `Attempt ${n} failed: the acceptance gate did not accept a criterion.`,
-        act: { kind: "link", label: "Overrule in the run", href: runPath(head.runId),
-          note: "Records your verdict on the criterion; the gate is not re-run." } };
+      return { sentence: `Attempt ${n} failed: the verifier of that time did not accept a criterion.`, act: CONTINUE };
     case RUN_END_KINDS.preflight:
       return { sentence: told ?? `Attempt ${n} stopped before any work: a precondition did not hold.`, act: CONTINUE };
     default:

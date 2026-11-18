@@ -58,26 +58,21 @@ public sealed class ScopedContextCoverageTests
          "handback": {"case": "none", "reason": ""}}
         """;
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"raised","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"raised"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
-
     [Fact]
     public async Task Harness_ScopeNamesTwoContextsAndTheCutCarriesOne_IsRederivedToBoth()
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("backend/package.json carries versions the audit no longer flags.");
         harness.ChatClient
             .EnqueueScopeReply(ScopeReply)
             .EnqueueText(FrontendOnlyJson)
             .EnqueueText(BothContextsJson)
             .EnqueueText("Planning: raise the frontend floors.")
             .EnqueueToolCall("write_file", """{"path":"primary/frontend/package.json","content":"{}"}""")
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Planning: raise the backend floors.")
             .EnqueueToolCall("write_file", """{"path":"primary/backend/package.json","content":"{}"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         var result = await runner.RunAsync("code");

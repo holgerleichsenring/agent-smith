@@ -10,11 +10,12 @@ namespace AgentSmith.Contracts.Runs;
 /// </summary>
 public static class AcceptanceSources
 {
-    /// <summary>The p0420 delivery account: a fresh instance reading the branch, which is
-    /// what the gate refuses a run on.</summary>
+    /// <summary>The p0420 delivery account: a fresh instance reading the branch. 2026-11-18-c8e2c: today only a scan's
+    /// coverage account; stored spec runs before then carry it too.</summary>
     public const string DeliveryAccount = "delivery_account";
 
-    /// <summary>The p0340 master verification: the agent's own report of its own work.</summary>
+    /// <summary>The p0340 master verification: the master's report — 2026-11-18-c8e2c: the spec's account, written by
+    /// the master that led the work and checked it.</summary>
     public const string MasterVerification = "master_verification";
 }
 

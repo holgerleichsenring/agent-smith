@@ -7,7 +7,6 @@ public enum MasterStopKind
     Budget,
     RedDrained,
     Blocker,
-    Declined,
     Verdictless,
     Question,
     Idle,

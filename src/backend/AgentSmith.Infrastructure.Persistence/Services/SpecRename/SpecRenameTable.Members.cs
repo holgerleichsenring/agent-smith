@@ -38,7 +38,6 @@ public static partial class SpecRenameTable
             [typeof(DecisionLoggedEvent)] = [SpecId],
             [typeof(PlannedStepView)] = [SpecId],
             [typeof(DeclinedCriterionView)] = [new("Phase", "Spec")],
-            [typeof(DeclinedCriterion)] = [SpecId],
             [typeof(RunAccounts)] = [Specs],
             [typeof(SpecAccounts)] = [SpecId],
             [typeof(RunSpecReviews)] = [Specs],

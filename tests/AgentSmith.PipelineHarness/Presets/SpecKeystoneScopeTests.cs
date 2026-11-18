@@ -28,16 +28,16 @@ public sealed class SpecKeystoneScopeTests : IAsyncLifetime
     public async Task Harness_VerifySpec_ServerSpec_AccountNamesServerOnly()
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
-        harness.ChatClient.EnqueueText(
-            """[{"criterion":"the greeting is localised","satisfied":false,"note":"not on the branch"}]""");
         var pipeline = Pipeline(await RepositoryAsync("Sample.Server"), await RepositoryAsync("Sample.Worker"));
+        pipeline.Set(ContextKeys.MasterVerification, new MasterVerification(VerificationStatus.Green, true, true, true, true, "s", Report: "the greeting is not localised yet"));
 
         var result = await harness.Services.GetRequiredService<ICommandHandler<VerifySpecContext>>()
             .ExecuteAsync(new VerifySpecContext(new Dictionary<string, ProjectMap>(), pipeline), CancellationToken.None);
 
-        pipeline.Get<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts)
+        // 2026-11-18-c8e2c: no stage is declared, so the delivery is unverified — recorded over the spec's repository only.
+        AgentSmith.Application.Services.Specs.RunAccountLedger.Current(pipeline).All
             .Should().ContainSingle().Which.RepoKey.Should().Be("Sample.Server");
-        result.Message.Should().Contain("Sample.Server").And.NotContain("Sample.Worker",
+        result.Message.Should().NotContain("Sample.Worker",
             "the worker is another spec's repository, so nothing about it is this spec's verdict");
     }
 

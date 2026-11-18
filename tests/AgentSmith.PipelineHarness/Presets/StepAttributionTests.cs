@@ -38,9 +38,6 @@ public sealed class StepAttributionTests
         "inherited_context":{"pipeline_goal":"fix the bug","prior_context_slice":"none"}}]}
         """;
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[]}""";
-
     [Fact]
     public async Task RealRun_EventFromStepHandlerAndFromChildTask_PersistWithTheirOwnStepIndex()
     {
@@ -51,7 +48,7 @@ public sealed class StepAttributionTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)   // DeriveSpec
             .EnqueueToolCall("spawn_agents", SpawnOneSubAgent)   // master → child task
             .EnqueueText("Scout: the interface is IPatch.")      // the child's own turn
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var rows = await RunAndReadAsync(harness);
 
@@ -80,7 +77,7 @@ public sealed class StepAttributionTests
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var rows = await RunAndReadAsync(harness);
 

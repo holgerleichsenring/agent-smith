@@ -39,9 +39,6 @@ public sealed class EveryContextLoadedTests
          "handback": {"case": "none", "reason": ""}}
         """;
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"raised","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"raised"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
-
     private const string BackendPrinciples = "# Backend rules\n\nEvery handler is a record.";
     private const string FrontendPrinciples = "# Frontend rules\n\nEvery component is a function.";
 
@@ -54,7 +51,7 @@ public sealed class EveryContextLoadedTests
             .EnqueueText(BothContextsJson)
             .EnqueueText("Planning: raise both floors.")
             .EnqueueToolCall("write_file", """{"path":"primary/backend/package.json","content":"{}"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         var result = await runner.RunAsync("code");

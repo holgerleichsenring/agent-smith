@@ -42,11 +42,34 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// and says its output — empty by default, so every git command keeps its stub answer.</summary>
     public Dictionary<string, (int ExitCode, string Output)> GitAnswers { get; } = new(StringComparer.Ordinal);
 
+    private readonly List<(string PathPart, string CommandPrefix, (int ExitCode, string Output)? Answer)> _afterWrites = [];
+
+    /// <summary>2026-11-18-c8e2c: once a sandbox is written a file whose path contains <paramref name="pathPart"/>, a shell
+    /// command starting with <paramref name="commandPrefix"/> answers <paramref name="answer"/> — null takes the answer
+    /// back — so a test can make a build red after one spec's work and green again after its fix.</summary>
+    public StubSandboxFactory AnswerAfterWriting(string pathPart, string commandPrefix, (int ExitCode, string Output)? answer)
+    {
+        _afterWrites.Add((pathPart, commandPrefix, answer));
+        return this;
+    }
+
+    /// <summary>Red with <paramref name="output"/> once a file matching <paramref name="pathPart"/> was written.</summary>
+    public StubSandboxFactory RedAfterWriting(string pathPart, string commandPrefix, string output) =>
+        AnswerAfterWriting(pathPart, commandPrefix, (1, output));
+
+    private void Observe(AgentSmith.Sandbox.Wire.Step step)
+    {
+        if (step.Kind != AgentSmith.Sandbox.Wire.StepKind.WriteFile || step.Path is not { } path) return;
+        foreach (var (part, prefix, answer) in _afterWrites.Where(a => path.Contains(a.PathPart, StringComparison.Ordinal)))
+            if (answer is { } a) ShellAnswers[prefix] = a;
+            else ShellAnswers.Remove(prefix);
+    }
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
         var sandbox = new StubSandbox(
             MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers,
-            AdvancesHeadOnCommit, GitAnswers);
+            AdvancesHeadOnCommit, GitAnswers) { OnStep = Observe };
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

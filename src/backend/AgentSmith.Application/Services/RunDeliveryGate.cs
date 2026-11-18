@@ -33,20 +33,8 @@ public static class RunDeliveryGate
     {
         ArgumentNullException.ThrowIfNull(accounts);
         var all = accounts.All;
-        if (all.Count == 0)
-            return ratifiedCriteria == 0
-                ? DeliveryVerdict.Ok()
-                : DeliveryVerdict.Fail(
-                    $"The run ratified {ratifiedCriteria} criterion(s) and accounted for none of "
-                    + "them — no spec measured itself against the branch, so there is nothing "
-                    + "to show it delivered. Recorded as FAILED.");
-
-        var unaccounted = all.Where(a => a.Problem is not null).ToList();
-        if (unaccounted.Count > 0)
-            return DeliveryVerdict.Fail(
-                "The run could not be accounted for: "
-                + string.Join("; ", unaccounted.Select(a => $"{a.RepoKey} — {a.Problem}"))
-                + ". An unaccounted run is not a delivered one.");
+        var mechanical = Mechanical(accounts, ratifiedCriteria);
+        if (!mechanical.Satisfied || all.Count == 0) return mechanical;
 
         var outstanding = Outstanding(accounts);
         if (outstanding.Count > 0)
@@ -61,6 +49,28 @@ public static class RunDeliveryGate
         return NothingProven.Refusal(all, "run") is { } nothing
             ? DeliveryVerdict.Fail(nothing + "\nRecorded as FAILED.")
             : DeliveryVerdict.Ok();
+    }
+
+    /// <summary>
+    /// 2026-11-18-c8e2c: a code run's delivery — its specs' accounts are their masters' reports, so a line the report
+    /// leaves open delivers; only a mechanical problem a verification recorded (a red stage, an unresolved build, an
+    /// unverified delivery) keeps the run from being a delivered one. <see cref="Evaluate"/> stays the scan's gate.
+    /// </summary>
+    public static DeliveryVerdict Mechanical(RunAccounts accounts, int ratifiedCriteria)
+    {
+        ArgumentNullException.ThrowIfNull(accounts);
+        if (accounts.All.Count == 0)
+            return ratifiedCriteria == 0
+                ? DeliveryVerdict.Ok()
+                : DeliveryVerdict.Fail(
+                    $"The run ratified {ratifiedCriteria} criterion(s) and accounted for none of "
+                    + "them — no spec recorded its master's report, so there is nothing "
+                    + "to show it delivered. Recorded as FAILED.");
+        var unaccounted = accounts.All.Where(a => a.Problem is not null).ToList();
+        return unaccounted.Count == 0 ? DeliveryVerdict.Ok() : DeliveryVerdict.Fail(
+            "The run could not be accounted for: "
+            + string.Join("; ", unaccounted.Select(a => $"{a.RepoKey} — {a.Problem}"))
+            + ". An unaccounted run is not a delivered one.");
     }
 
     private static IReadOnlyList<string> Outstanding(RunAccounts accounts) =>

@@ -173,7 +173,7 @@ public sealed class SpecDialogSubAgentTests
             loop, limits: new LoopLimitsConfig { MaxSubAgentsPerDialogTurn = 0 });
 
         loop.SeenRequests[0].Tools.OfType<AIFunction>().Should().NotBeEmpty()
-            .And.OnlyContain(tool => tool is ActivityReportingAIFunction);
+            .And.OnlyContain(tool => tool.UnderMidTurn() is ActivityReportingAIFunction);
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public sealed class SpecDialogSubAgentTests
             .ExecuteAsync(MasterHandlerFixture.BuildContext(CodingMaster), CancellationToken.None);
 
         loop.SeenRequests[0].Tools.OfType<AIFunction>().Should().NotBeEmpty()
-            .And.NotContain(tool => tool is ActivityReportingAIFunction);
+            .And.NotContain(tool => tool.UnderMidTurn() is ActivityReportingAIFunction);
     }
 
     [Fact]
@@ -236,10 +236,10 @@ public sealed class SpecDialogSubAgentTests
     }
 
     private static SubAgentRunner RealRunner(IAgenticLoopRunner childLoop) =>
-        new(childLoop, new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new LoopLimitsConfig { MaxConcurrentSubAgents = 4 },
-            new SubAgentActivityFrame(TurnActivityRecorder.Silent()),
-            NullLogger<SubAgentRunner>.Instance);
+        new(new SubAgentPass(childLoop, new SubAgentRequestBuilder(),
+                new SubAgentEvents(new AgentSmith.Tests.Events.RecordingEventPublisher()),
+                new SubAgentActivityFrame(TurnActivityRecorder.Silent()), NullLogger<SubAgentPass>.Instance),
+            new LoopLimitsConfig { MaxConcurrentSubAgents = 4 }, NullLogger<SubAgentRunner>.Instance);
 
     private static IReadOnlyList<string> MasterTools(DesignLoopRunner loop) =>
         [.. loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name)];

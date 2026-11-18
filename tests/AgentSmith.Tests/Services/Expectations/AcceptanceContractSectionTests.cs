@@ -78,20 +78,17 @@ public sealed class AcceptanceContractSectionTests
     }
 
     /// <summary>
-    /// 2026-09-06-3d81: the third answer is stated in the contract. AcceptanceStatus has had
-    /// not_applicable since p0340 and the gate has accepted it with a reason all along; the
-    /// master was never told, so a criterion the repository makes impossible was fought pass
-    /// after pass (run 989e bisected plugin versions for sixteen minutes) or, when a master
-    /// did decline it, the answer reached nobody.
+    /// 2026-11-18-98fa: the done list reaches the master as its spec's list, with no per-line vocabulary to answer in —
+    /// its report says what it saw for each, a line left says why, and missing tooling or a red test is work.
     /// </summary>
     [Fact]
-    public void Contract_TheSectionGivenToTheMaster_NamesNotApplicableAndItsEvidenceRule()
+    public void Contract_TheSectionGivenToTheMaster_AsksForTheReportNotADisposition()
     {
         var derived = ExpectationPromptSection.Build(WithSpec());
 
-        derived.Should().Contain("`not_applicable`", "the answer is named in the vocabulary the skill parses");
-        derived.Should().Contain("EVALUATED MEANING", "and what it costs to use it — the skill's own words");
-        derived.Should().Contain("does not count", "a bare N/A is refused, and the master is told so");
+        derived.Should().Contain("Your report says what you saw for each; a line you leave says why");
+        derived.Should().Contain("A red test is work.");
+        derived.Should().NotContain("not_applicable", "nothing is judged per line any more");
         // The rule is prose; the criteria list the gate reads back is untouched.
         Bullets(derived).Should().Equal(First, Second);
     }

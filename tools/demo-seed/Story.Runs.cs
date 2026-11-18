@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Verify;
 using AgentSmith.Infrastructure.Persistence.Services;
@@ -186,15 +187,25 @@ internal static partial class Story
                .Raw(new SpecStateChangedEvent(run.RunId, SpecA, 1, VolumeSpecs[0].Goal, SpecRunState.Done, "passed", run.Tick(0.2),
                    AcceptanceJson(("a 10-unit line is priced at the tier rate", "met", "VolumeTierTests covers 9, 10 and 50 units", "tests/Shop.Api.Tests/Pricing/VolumeTierTests.cs"),
                                   ("dotnet test passes", "met", "142 passed, 0 failed", null)))))
+           // 2026-11-18-c8e2d: the master leads — it briefs a builder, looks at its work, sends it back once, and reports.
            .Step("AgenticExecuteCommand", "Discount line in the cart total", SpecB, seconds: 96, body: b => b
                .Raw(new SpecStateChangedEvent(run.RunId, SpecB, 2, VolumeSpecs[1].Goal, SpecRunState.InProgress, null, run.Tick(0.1)))
                .Llm("primary", Sonnet, 38_900, 1_610, 0.1301m, 12.6, cached: 33_000, repo: "shop-api")
                .Tool("read_file", "src/Shop.Api/Cart/CartTotals.cs", repo: "shop-api")
-               .Tool("write_file", "src/Shop.Api/Cart/CartTotals.cs", repo: "shop-api")
-               .Llm("primary", Sonnet, 42_300, 1_380, 0.1356m, 11.2, cached: 38_000, repo: "shop-api")
+               .Raw(new SubAgentSpawnedEvent(run.RunId, "sa-cart1", "CartBuilder", "build the discount line in the cart total",
+                   null, "sha256:0c1d2e3f4a5b", run.Tick(0.4)))
+               .Tool("write_file", "src/Shop.Api/Cart/CartTotals.cs", repo: "shop-api", role: "CartBuilder")
+               .Llm("CartBuilder", Sonnet, 42_300, 1_380, 0.1356m, 11.2, cached: 38_000, repo: "shop-api")
+               .Tool("run_command", "dotnet test --filter CartTotals", repo: "shop-api", role: "CartBuilder", seconds: 18.0)
+               .Raw(new SubAgentCompletedEvent(run.RunId, "sa-cart1", "Succeeded", 3, 0, 0, 4, 0.1356m, run.Tick(0.5)))
+               .Tool("read_file", "src/Shop.Api/Cart/CartTotals.cs", repo: "shop-api")
+               .Raw(new SubAgentMessagedEvent(run.RunId, "sa-cart1",
+                   "Acceptance 3: a coupon still applies after the tier discount, and nothing tests that order. Add a test for it.",
+                   true, run.Tick(0.3)))
                .Decision("order", "Tier discount before coupons", "coupons first",
                    "Acceptance 3 says coupons still apply after the tier discount.")
-               .Tool("write_file", "tests/Shop.Api.Tests/Cart/CartTotalsTests.cs", repo: "shop-api")
+               .Tool("write_file", "tests/Shop.Api.Tests/Cart/CartTotalsTests.cs", repo: "shop-api", role: "CartBuilder")
+               .Raw(new SubAgentCompletedEvent(run.RunId, "sa-cart1", "Succeeded", 2, 0, 0, 2, 0.0412m, run.Tick(0.5)))
                .Tool("run_command", "dotnet test --filter CartTotals", repo: "shop-api", seconds: 18.0)
                .Llm("primary", Sonnet, 45_000, 540, 0.1395m, 6.1, cached: 42_000, repo: "shop-api"))
            .Step("VerifySpecCommand", "Build and test", SpecB, seconds: 51, body: b => b
@@ -203,8 +214,11 @@ internal static partial class Story
                    [new VerifyRepositoryPass("shop-api", "passed",
                        [new VerifyStageRun("build", "dotnet build", 0, false), new VerifyStageRun("test", "dotnet test", 0, false)])], []))
                .Raw(new SpecStateChangedEvent(run.RunId, SpecB, 2, VolumeSpecs[1].Goal, SpecRunState.Done, "passed", run.Tick(0.2),
-                   AcceptanceJson(("the cart total response carries a 'Volume discount' line", "met", "CartTotalsTests asserts the line and its amount", "tests/Shop.Api.Tests/Cart/CartTotalsTests.cs"),
-                                  ("a coupon still applies after the tier discount", "met", "tier first, then coupon; covered by CartTotalsTests.TierThenCoupon", null)))))
+                   ReportJson([("the cart total response carries a 'Volume discount' line", "met", "CartTotalsTests asserts the line and its amount", "tests/Shop.Api.Tests/Cart/CartTotalsTests.cs"),
+                               ("a coupon still applies after the tier discount", "met", "tier first, then coupon; covered by CartTotalsTests.TierThenCoupon", null)],
+                       ["CartTotals rounded the line total before the tier was applied; it rounds once, at the end"],
+                       [new FollowUpView("The order confirmation email shows the volume discount line",
+                           "the email template lives in shop-web and is its own change", SpecB)]))))
            .Step("WriteRunResultCommand", "Write the result", seconds: 6, body: b => b
                .Llm("summarization", Haiku, 12_300, 900, 0.0168m, 5.2)
                .Raw(new RunStoryRecordedEvent(run.RunId,
@@ -212,9 +226,12 @@ internal static partial class Story
                               ("Apply the tier in PriceCalculator", "done", "src/Shop.Api/Pricing/PriceCalculator.cs"),
                               ("Return the discount line from CartTotals", "done", "src/Shop.Api/Cart/CartTotals.cs"),
                               ("Tests for tiers, discount line and coupons", "done", "tests/Shop.Api.Tests/Pricing/VolumeTierTests.cs; tests/Shop.Api.Tests/Cart/CartTotalsTests.cs")),
-                   AcceptanceJson(("A cart line with 10+ units is priced at the tier rate.", "met", "VolumeTierTests", null),
-                                  ("The cart total shows the discount as a separate line.", "met", "CartTotalsTests", null),
-                                  ("Existing coupon codes still apply after the tier discount.", "met", "CartTotalsTests.TierThenCoupon", null)),
+                   ReportJson([("A cart line with 10+ units is priced at the tier rate.", "met", "VolumeTierTests", null),
+                               ("The cart total shows the discount as a separate line.", "met", "CartTotalsTests", null),
+                               ("Existing coupon codes still apply after the tier discount.", "met", "CartTotalsTests.TierThenCoupon", null)],
+                       ["CartTotals rounded the line total before the tier was applied; it rounds once, at the end"],
+                       [new FollowUpView("The order confirmation email shows the volume discount line",
+                           "the email template lives in shop-web and is its own change", SpecB)]),
                    run.Tick(0.2))))
            .Step("CommitAndPRCommand", "Commit and open the pull request", seconds: 7, body: b => b
                .Tool("git", "commit + push agent-smith/41-volume-discounts", repo: "shop-api", role: null, seconds: 3.1)

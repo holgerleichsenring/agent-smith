@@ -46,7 +46,7 @@ public sealed class AgenticMasterHandler(
     ScanMasterPasses scanPasses, // 2026-09-01-7df4/0e80: the scan's follow-up passes
     ISpecExecutionPromptFactory specPromptFactory,
     SpecDialogTurnFlow dialogTurn, // the dialog turn's prompt and reply, by the master that leads it
-    ITicketDocumentMaterializer documentMaterializer,
+    MasterTicketExtras ticketExtras, // p0317: conversation, attachments and images of the ticket
     MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this spec is built after
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
@@ -331,7 +331,7 @@ public sealed class AgenticMasterHandler(
         var dialog = isSpecDialog ? DialogImageParts.From(context) : DialogImageParts.None;
         var extras = isSpecDialog
             ? (Conversation: string.Empty, Attachments: string.Empty, ImageParts: dialog.Parts)
-            : await ComposeTicketExtrasAsync(
+            : await ticketExtras.ComposeAsync(
                 context, sandboxes[defaultKey], runRecordDir, repoPrefix, isScanMaster, cancellationToken);
 
         var userPrompt = isSpecDialog
@@ -370,10 +370,11 @@ public sealed class AgenticMasterHandler(
 
         // 2026-09-17-042ee/2026-09-22-5891: ONLY the design surface reports, wrapped where it
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
+        var team = SubAgentTeam.GetOrCreate(context.Pipeline, logger); // c8e2a: none outlives its loop; c8e2d: kept for the run
         var composed = composition.Compose(
             isScanMaster, isSpecDialog, fs, records, human, credentials, writeContextYaml, web,
-            progress, withdraw, readTicket, ticketWork, ticketRuns, context);
-        var masterTools = midTurn.Delivering(isSpecDialog ? reportingTools.Reporting(composed) : composed, context); // 4860b: code runs too
+            progress, withdraw, readTicket, ticketWork, ticketRuns, context, team);
+        var masterTools = midTurn.Delivering(isSpecDialog ? reportingTools.Reporting(composed) : composed, context, team.Notices); // 4860b, c8e2a
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
@@ -399,10 +400,12 @@ public sealed class AgenticMasterHandler(
         try
         {
             loopResult = await loopRunner.RunAsync(request, cancellationToken);
+            await team.StopAsync();
             conversation.Opened(request, loopResult.Response);
         }
         catch (MasterBudgetExhaustedException budgetEx)
         {
+            await team.StopAsync();
             // p0341c: the within-pass money fence tripped — stop cleanly, ship the partial
             // work + the current ledger, and record an honest cost-cap-exhausted outcome
             // (the pipeline finalizes with a record/partial PR). Never a laundered green.
@@ -425,6 +428,7 @@ public sealed class AgenticMasterHandler(
             // agent already wrote + decided, then FAIL with a clear reason so the
             // pipeline finalizes (records result.md + opens a record/partial PR)
             // instead of a bare ".NET "A task was canceled.".
+            await team.StopAsync();
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partialDecisions = records.Log.GetDecisions();
@@ -507,6 +511,7 @@ public sealed class AgenticMasterHandler(
                 var applyResult = await loopRunner.RunAsync(
                     request with { UserPrompt = applyNudge, PriorMessages = conversation.Thread() },
                     cancellationToken);
+                await team.StopAsync();
                 conversation.Continued(applyNudge, applyResult.Response);
                 TrackMasterResponse(applyResult.Response);
                 loopResult = applyResult; // the verdict comes from the apply pass
@@ -541,13 +546,12 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.MasterSystemPromptChars, masterBody.Length);
         context.Pipeline.Set(ContextKeys.MasterTurnsUsed, MasterTurnCount.From(loopResult.Response));
 
-        // p0241: parse the master's structured verification verdict from its final
-        // answer and publish it for the keystone. The model owns running the
-        // build/tests and declaring the result; the framework only enforces that
-        // an unverified/red run is never reported as success (CommitAndPRHandler).
-        var verification = MasterVerificationParser.TryParse(loopResult.Response.Text);
+        // p0241: the master's verification verdict, published for the keystone. The model owns running the
+        // build/tests and declaring the result; the framework only enforces that an unverified/red run is never
+        // reported as success. 2026-11-18-98fa: it is what finish_spec recorded, with the master's report beside it.
+        var verification = MasterReport.Standing(records.FinishSpec, conversation.Thread());
 
-        // p0263: the master changed source but emitted no parseable verdict ("Your verdict") — a
+        // p0263: the master changed source but did not call finish_spec (2026-11-18-98fa; was: a verdict block) — a
         // model-fitness miss (gpt-4.1-class models do the work yet skip the closing
         // artifact, sinking the run at the keystone). Sibling to the p0255 apply-drive:
         // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
@@ -564,9 +568,10 @@ public sealed class AgenticMasterHandler(
                 var verdictResult = await loopRunner.RunAsync(
                     request with { UserPrompt = verdictNudge, PriorMessages = conversation.Thread() },
                     cancellationToken);
+                await team.StopAsync();
                 conversation.Continued(verdictNudge, verdictResult.Response);
                 TrackMasterResponse(verdictResult.Response);
-                verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
+                verification = MasterReport.Standing(records.FinishSpec, conversation.Thread());
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
@@ -578,7 +583,8 @@ public sealed class AgenticMasterHandler(
         pass0?.Dispose();
         (loopResult, changes, verification) = await reengagement.RunAsync(
             new ReengageSession(context, request, userPrompt, pipelineName, progress, fs, records.Log, verdictOwed,
-                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions),
+                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions, team,
+                records.FinishSpec),
             new ReengageState(loopResult, changes, verification), pass0, verification, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
@@ -601,12 +607,10 @@ public sealed class AgenticMasterHandler(
         if (verification is not null)
         {
             context.Pipeline.Set(ContextKeys.MasterVerification, verification);
-            DeclinedCriteriaLedger.Record(context.Pipeline, verification);
             logger.LogInformation(
-                "Master '{Skill}' verdict: {Status} (build {BuildRan}/{BuildPassed}, tests {TestsRan}/{TestsPassed})",
-                context.MasterSkillName, verification.Status,
-                verification.BuildRan, verification.BuildPassed,
-                verification.TestsRan, verification.TestsPassed);
+                "Master '{Skill}' finished: {Status}, {FollowUps} follow-up(s), report {ReportChars} chars",
+                context.MasterSkillName, verification.Status, verification.FollowUps?.Count ?? 0,
+                verification.Report?.Length ?? 0);
         }
         else if (!isScanMaster && !isSpecDialog)
         {
@@ -614,7 +618,7 @@ public sealed class AgenticMasterHandler(
             // coding master is expected to, so don't warn about its absence on a scan.
             // p0315b: same for the design-partner conversation — it ships no code.
             logger.LogWarning(
-                "Master '{Skill}' emitted no parseable verification verdict", context.MasterSkillName);
+                "Master '{Skill}' ended without finish_spec", context.MasterSkillName);
         }
 
         if (decisions.Count > 0)
@@ -645,37 +649,4 @@ public sealed class AgenticMasterHandler(
             context.MasterSkillName, report.TotalTokens, report.CachedShare, report.DoneItems,
             report.TokensPerDoneItem?.ToString() ?? "n/a");
     }
-
-    // p0317: gathers what FetchTicket published — the conversation section, the
-    // attachments section (documents materialized into the run-record dir first),
-    // and the image content parts (vision-capable models only). Scan masters skip
-    // document materialization (read-only surface); their conversation section is
-    // rendered by ScanMasterPromptFactory instead.
-    private async Task<(string Conversation, string Attachments, IReadOnlyList<AIContent> ImageParts)>
-        ComposeTicketExtrasAsync(
-            AgenticMasterContext context, ISandbox sandbox, string runRecordDir,
-            string repoPrefix, bool isScanMaster, CancellationToken cancellationToken)
-    {
-        var images = MasterPipelineFacts.ListFrom<TicketImageAttachment>(context.Pipeline, ContextKeys.Attachments);
-        var documents = MasterPipelineFacts.ListFrom<TicketDocumentAttachment>(context.Pipeline, ContextKeys.TicketDocuments);
-        var refs = MasterPipelineFacts.ListFrom<AttachmentRef>(context.Pipeline, ContextKeys.TicketAttachmentRefs);
-
-        var materialized = isScanMaster || documents.Count == 0
-            ? []
-            : await documentMaterializer.MaterializeAsync(
-                sandbox, runRecordDir, documents, cancellationToken);
-        if (repoPrefix.Length > 0)
-            materialized = materialized.Select(m => m with { Path = repoPrefix + m.Path }).ToList();
-
-        var imageParts = context.AgentConfig.SupportsVision
-            ? TicketImagePromptParts.Build(images)
-            : [];
-
-        return (
-            isScanMaster ? string.Empty : TicketConversationPromptSection.Render(context.Pipeline),
-            TicketAttachmentPromptSection.Render(
-                images, imageParts.Count, materialized, MasterPipelineFacts.OtherBinaries(refs, materialized)),
-            imageParts);
-    }
-
 }

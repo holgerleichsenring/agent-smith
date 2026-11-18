@@ -33,7 +33,6 @@ public sealed class CommitAndPRHandler(
     PullRequestOutcomePublisher outcomes,
     TicketLifecycle ticketLifecycle,
     SandboxTargets sandboxTargets,
-    Specs.SpecDeliveryAccounting accounting,
     FailedRunPersistence failedRun,
     SpecOnlyPullRequests specOnlyPrs,
     ShortfallDelivery shortfallDelivery,
@@ -218,19 +217,10 @@ public sealed class CommitAndPRHandler(
     // run opens its PR(s) as DRAFT (visible for review, not mergeable) instead of a
     // normal PR that reads as a green, ready change. Same inputs the post-loop gate
     // uses — hoisted, not duplicated.
-    private async Task<DeliveryVerdict> EvaluateKeystoneAsync(
-        CommitAndPRContext context, CancellationToken ct)
-    {
-        // p0393a: the acceptance contract is the current spec's done-list, falling back to
-        // a ratified expectation for pipelines that still negotiate one.
-        var criteria = Specs.AcceptanceCriteria.For(context.Pipeline);
-        // p0421: ONE gate, reading what every spec accounted for against the branch.
-        // Its predecessor asked whether THIS run had committed code and needed six
-        // signals to teach that question its exceptions — a resumed branch carrying a
-        // complete delivery still came out FAILED.
-        var accounts = await accounting.TakeOrReuseAsync(context.Pipeline, criteria, ct);
-        return RunDeliveryGate.Evaluate(accounts, criteria.Count);
-    }
+    // 2026-11-18-c8e2c: what the run's verifications recorded — mechanical problems only; the reports are the record.
+    private static Task<DeliveryVerdict> EvaluateKeystoneAsync(CommitAndPRContext context, CancellationToken ct) =>
+        Task.FromResult(RunDeliveryGate.Mechanical(
+            Specs.RunAccountLedger.Current(context.Pipeline), Specs.AcceptanceCriteria.For(context.Pipeline).Count));
 
     // 2026-10-12-3a36c, generalised by 2026-10-12-f5f7e: every series repository without code keeps
     // the spec PR opened at derivation as an 'opened' outcome with the run's body, ready only when

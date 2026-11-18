@@ -100,7 +100,6 @@ public static class ContextBuildersExtensions
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
         AddBuilder<SpecGateContextBuilder>(services, CommandNames.SpecGate);
         AddBuilder<VerifySpecContextBuilder>(services, CommandNames.VerifySpec); // p0393
-        AddBuilder<ReviewSpecDiffContextBuilder>(services, CommandNames.ReviewSpecDiff); // 2026-09-17-042eh
         AddBuilder<MasterOpenQuestionsContextBuilder>(services, CommandNames.MasterOpenQuestions);
         AddBuilder<CommitSpecWorkContextBuilder>(services, CommandNames.CommitSpecWork); // p0437
         AddBuilder<WriteSpecRecordContextBuilder>(services, CommandNames.WriteSpecRecord);

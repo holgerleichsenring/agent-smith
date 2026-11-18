@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-98fa
+
+decisions:
+  - category: Architecture
+    chose: "The coding master's end is two things: its last message, free markdown for the person that nothing parses, and a typed finish_spec tool call (status green|no-tests|failed|blocked, summary, failing_tests, baseline_failing_tests, follow_ups {goal, why}, blocker, ignored_instructions) for what the pipeline acts on"
+    over: "The fenced verdict JSON block of 2026-11-18-c8e2b with per-done-line acceptance rows, not_met, fixed_in_passing"
+    reason: "decider: operator, 2026-11-18 — the verdict block copied the old verifier's per-criterion schema onto the master; a master decides freely. A person reads markdown, machines take typed tool calls validated when they are made — errors go back to the model at once instead of a parse that fails silently."
+  - category: Architecture
+    chose: "Removed with the verdict block, no second path: MasterVerificationParser (verdict + blocked claim), AcceptanceDisposition/AcceptanceStatus, MasterAcceptanceGate, AcceptanceJudgement, AcceptancePairing, the met-claim objection (AcceptanceClaimCheck/Objection/Evidence/Nudge), the surrender challenge and its nudge, DeclinedCriteriaLedger/DeclinedCriteriaSection with DeclinedCriterion(s) and ContextKeys.DeclinedCriteria. The open loop drives on red with open steps, unbacked done steps and a missing finish_spec (once); a blocker stops it"
+    over: "Keeping the per-line gate fed by empty dispositions, or keeping the parser as a fallback for older catalogs"
+    reason: "decider: operator (the removal follows the retired verdict block; no second path). Every one of them reads the per-line dispositions the operator retired; fed nothing they would re-drive forever or render an always-empty section. An older catalog still writing a verdict block is an upgrade_impact (its spec fails 'without finish_spec'), not a second path."
+  - category: Scope
+    chose: "The per-done-line acceptance table is gone for new runs: the run page, ticket page and run log show the master's markdown report and its follow-ups with File as a ticket; a reported spec is not 'without a verdict'. Runs stored before keep their rows, judgement control and counts"
+    over: "Synthesising rows from the report"
+    reason: "decider: operator, 2026-11-18 ('the per-done-line acceptance table disappears from the coding run's display'). Consequences accepted with it: the per-criterion judgement control, the criteria-met metric and memory evidence from a not-met judgement have nothing to act on for new runs."
+  - category: Implementation
+    chose: "finish_spec is offered beside hand_forward on a spec's coding master only (MasterRecordTools.SpecTools); a second call replaces the first, as hand_forward's does; invalid arguments are refused with every reason and record nothing"
+    over: "Refusing a second call; offering it to every non-scan master"
+    reason: "hand_forward's convention; the code preset is the only code-changing preset and always carries a spec, so the verdict nudge keyed on the preset and the tool keyed on the spec coincide."
+  - category: Implementation
+    chose: "The report is the master's last assistant message with text at or before its last finish_spec call, read over the whole master conversation; only when no text precedes the call is text after it taken"
+    over: "Reading only the drive that called the tool; a report argument on finish_spec"
+    reason: "Reviewer finding: a model that ends a drive on its report (no tool call ends the drive) calls finish_spec in the re-drive, whose own messages hold no report. The contract is fixed by the released skill (report message, then the call), so no report argument."
+  - category: Implementation
+    chose: "status blocked maps to VerificationStatus.Failed plus MasterVerification.Blocker; the blocked claim the open loop honours is read off it, and a standing blocker stops the loop at once. Build/test booleans are derived from status; ignored_instructions are quotes with an empty reason"
+    over: "A new VerificationStatus.Blocked and a reason field per ignored instruction"
+    reason: "A blocked spec is not delivered, exactly as a failed one; a new enum member would touch every status switch for no different outcome. The contract fixes ignored_instructions as a string array."
+  - category: Implementation
+    chose: "When the context-pressure finaliser ends a tool loop whose tools include finish_spec, the finalising turn keeps tool mode Auto and asks for the report and finish_spec only"
+    over: "ToolMode None for every finalising turn"
+    reason: "Reviewer finding: with tools switched off, a spec's master under input pressure could never call finish_spec and would fail 'without finish_spec'."
+  - category: Implementation
+    chose: "After a stage repair the repair's report stands (the first pass's when the repair gave none); follow-ups of both passes are kept"
+    over: "Showing both reports"
+    reason: "The repair's master continues the same spec and writes what is true now; follow-ups are proposals and are not lost."
+  - category: Implementation
+    chose: "Pin agent-smith-skills v5.37.1 (sha256 d3d4c9d8dc82deaf2431d27f242cf4277eddd3ea9fccf017c19b1b8d7f2d85b4, equal to the release's .sha256): coding-agent-master 3.1.1 writes the markdown report then calls finish_spec, and describes revise_spec again"
+    over: "v5.37.0"
+    reason: "Coordinator: v5.37.1 has the same finish_spec contract plus the revise_spec description, which resolves the contradiction 2026-11-18-4f3e recorded in favour of the backend's revise_spec."

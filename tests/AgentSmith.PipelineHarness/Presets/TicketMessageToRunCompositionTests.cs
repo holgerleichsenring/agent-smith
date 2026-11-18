@@ -31,9 +31,6 @@ public sealed class TicketMessageToRunCompositionTests
          "handback": {"case": "none", "reason": ""}}
         """;
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"An empty request body is answered with 400.","status":"met","evidence":"guard"}]}""";
-
     private sealed class OneMessage : ITicketConversationMessages
     {
         public Task<DateTimeOffset?> LastActivityAsync(string project, string ticketId, CancellationToken ct) =>
@@ -60,7 +57,7 @@ public sealed class TicketMessageToRunCompositionTests
             .EnqueueText(OneSpec)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         runner.RequestContext[ContextKeys.ProjectName] = "fixture";
 

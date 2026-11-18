@@ -423,44 +423,6 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     /// <summary>
-    /// The wire contract between 2026-09-17-042eh and this read, taken through the REAL
-    /// publisher: whatever it serializes is what this reader deserializes.
-    /// </summary>
-    [Fact]
-    public async Task FiledWork_SpecReviewWrittenByThePublisher_IsReadBackAsItWasRecorded()
-    {
-        var recorded = SpecReviewReport.Taken(
-            [new SpecFinding("api", "src/A.cs", 4, "no silent catch", "logs nothing", "P1", "reverted")]);
-        var events = new RecordingEventPublisher();
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, "r-1");
-        await new SpecReviewPublisher(events).PublishAsync(pipeline, "p1", recorded, default);
-
-        await ReviewedAsync(events.Published.OfType<SpecReviewedEvent>().Single().ReportJson);
-
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
-        review!.Reviewed.Should().BeTrue();
-        review.Findings.Should().BeEquivalentTo(recorded.Findings);
-    }
-
-    [Fact]
-    public async Task FiledWork_TemplateFinding_KeepsItsKind()
-    {
-        var recorded = SpecReviewReport.Taken(
-            [new SpecFinding("api", "src/A.cs", 4, "handlers live under Features/", "in Api/", "P1",
-                Kind: SpecFinding.TemplateKind)]);
-        var events = new RecordingEventPublisher();
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, "r-1");
-        await new SpecReviewPublisher(events).PublishAsync(pipeline, "p1", recorded, default);
-
-        var review = new FiledWorkSpecReviews(NullLogger<FiledWorkSpecReviews>.Instance)
-            .Of(events.Published.OfType<SpecReviewedEvent>().Single().ReportJson, "p1");
-
-        review!.Findings.Single().IsTemplate.Should().BeTrue("the page shows a template deviation as advice");
-    }
-
-    /// <summary>
     /// One malformed parked question used to take the whole read down — and with it every
     /// ticket of the conversation, over one run nobody was looking at.
     /// </summary>

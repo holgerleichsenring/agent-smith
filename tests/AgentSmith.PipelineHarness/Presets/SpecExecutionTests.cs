@@ -53,9 +53,6 @@ public sealed class SpecExecutionTests
           - "POST /widget stores the widget"
         """;
 
-    private const string GreenVerdict =
-        """All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"}]}""";
-
     [Fact]
     public async Task SpecExecution_RunsStepsThenVerifiesDoneCriteria()
     {
@@ -82,7 +79,7 @@ public sealed class SpecExecutionTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Widget.cs","content":"// widget endpoint"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"Add the widget endpoint + handler","status":"done"}]}""")
-            .EnqueueText("""All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"widget endpoint shipped","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+            .EnqueueFinish(summary: "widget endpoint shipped");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -123,11 +120,6 @@ public sealed class SpecExecutionTests
 
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
 
-        // 2026-09-17-042eh: the verified spec's own diff reaches a fresh instance — the step
-        // is in the block, so a preset that ships code asks this question once per spec.
-        harness.ChatClient.PromptsSeen.Should().Contain(
-            p => p.Contains(AgentSmith.PipelineHarness.Llm.SpecReviewScript.Marker, StringComparison.Ordinal),
-            "the spec review runs after the verification and before the record");
     }
 
     [Fact]
@@ -170,13 +162,10 @@ public sealed class SpecExecutionTests
     public async Task SpecExecution_SecondSpecFailsVerification_RecordsOnlyTheFirst()
     {
         await using var harness = BuildHarness(new SpecTicketProvider(SpecTicketBody()), TwoSpecSet());
-        // Outstanding at b's entry (so it is worked), at its gate and after its one repair pass
-        // (so it fails).
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding(SecondCriterion).LeaveOutstanding(SecondCriterion).LeaveOutstanding(SecondCriterion);
-        ScriptSpec(harness, "primary/src/Widget.cs");
-        ScriptSpec(harness, "primary/src/WidgetStore.cs");
-        harness.ChatClient.EnqueueText(GreenVerdict);
+        RedForTheSecondSpec(harness);
+        ScriptSpec(harness, "primary/src/Widget.cs", "impl");
+        ScriptSpec(harness, "primary/src/WidgetStore.cs", "store");
+        harness.ChatClient.EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");
@@ -201,7 +190,7 @@ public sealed class SpecExecutionTests
     {
         await using var harness = BuildHarness(
             new SpecTicketProvider(SpecTicketBody()), TwoSpecSet() with { Executed = [First] });
-        ScriptSpec(harness, "primary/src/WidgetStore.cs");
+        ScriptSpec(harness, "primary/src/WidgetStore.cs", "store");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -215,14 +204,102 @@ public sealed class SpecExecutionTests
             .Select(p => p.State).Should().Equal(SpecRunState.Done, SpecRunState.Done);
     }
 
+    /// <summary>
+    /// 2026-11-18-c8e2d: the lead loop end to end. Spec a's master starts a builder in the background, the builder leaves
+    /// the test out, the master sends the work back and the builder adds it. Spec b's first build is red; the red output
+    /// goes back to its master, which sends it to its builder, which fixes it; the master leaves one done line as a
+    /// follow-up instead of holding the spec. Both specs deliver and the run's report carries the follow-up.
+    /// </summary>
+    [Fact]
+    public async Task SpecExecution_MasterLeadsChildren_SendsWorkBack_ResolvesARedBuild_NamesAFollowUp()
+    {
+        await using var harness = BuildHarness(new SpecTicketProvider(SpecTicketBody()), LeadSpecSet());
+        harness.StubSandboxFactory!
+            .RedAfterWriting("WidgetStore.cs", "dotnet build", "error CS1002: ; expected")
+            .AnswerAfterWriting("WidgetStoreFix.cs", "dotnet build", null);
+        var chat = harness.ChatClient;
+        // Spec a: start, wait, send back, wait, report.
+        chat.EnqueueToolCall("spawn_agents", Spawn("WidgetBuilder", "build the widget endpoint"))
+            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("send_message", """{"agent_id":"WidgetBuilder","text":"The done list asks for the 404 to be tested; add that test."}""")
+            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"the work","status":"done"}]}""")
+            .EnqueueFinish(summary: "the widget endpoint", report: "## Delivered\n- GET /widget returns the widget (`src/Widget.cs`), its 404 tested");
+        chat.EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/src/Widget.cs","content":"// endpoint"}""")
+            .EnqueueForText("WidgetBuilder", "Built the endpoint in src/Widget.cs. No test yet.")
+            .EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/tests/WidgetTests.cs","content":"// 404 test"}""")
+            .EnqueueForText("WidgetBuilder", "Added tests/WidgetTests.cs covering the 404.");
+        // Spec b: start, wait, report with a follow-up; then the stage repair: send the red output back, wait, report again.
+        chat.EnqueueToolCall("spawn_agents", Spawn("StoreBuilder", "build the widget store"))
+            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"store","activity":"the work","status":"done"}]}""")
+            .EnqueueFinish(summary: "the widget store",
+                report: "## Delivered\n- POST /widget stores the widget (`src/WidgetStore.cs`)\n\n## Open\n- CSV export needs a paging contract first",
+                followUps: [("Stored widgets are exported as CSV over paging", "the paging contract is its own design")])
+            .EnqueueToolCall("send_message", """{"agent_id":"StoreBuilder","text":"The build is red: error CS1002. Fix it."}""")
+            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueFinish(summary: "the widget store, build fixed", report: "## Fixed\n- the missing semicolon (`src/WidgetStoreFix.cs`); the build is green");
+        chat.EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStore.cs","content":"// store"}""")
+            .EnqueueForText("StoreBuilder", "Built the store in src/WidgetStore.cs.")
+            .EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStoreFix.cs","content":"// fixed"}""")
+            .EnqueueForText("StoreBuilder", "Fixed the missing semicolon.");
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("code");
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        var builder = chat.AgentCalls("WidgetBuilder").Last();
+        builder.Should().Contain(m => m.Role == Microsoft.Extensions.AI.ChatRole.User && m.Text.Contains("add that test"),
+            "the master's feedback is the builder's next turn");
+        builder.Should().Contain(m => m.Text.Contains("No test yet"), "over its own earlier conversation");
+        chat.AgentCalls("StoreBuilder").Last().Should().Contain(m => m.Text.Contains("The build is red"));
+        var accounts = AgentSmith.Application.Services.Specs.RunAccountLedger.Current(runner.LastContext!);
+        accounts.All.SelectMany(a => a.FollowUps ?? []).Should().ContainSingle().Which.Goal.Should().Be("Stored widgets are exported as CSV over paging");
+        // 2026-11-18-98fa: the account is the master's markdown — the repair's report stands, nothing is judged per line.
+        var second = accounts.Specs.Single(s => s.SpecId == LeadSecond).Accounts.Single();
+        second.Criteria.Should().BeEmpty();
+        second.Report.Should().StartWith("## Fixed");
+        accounts.Specs.Single(s => s.SpecId != LeadSecond).Accounts.Single().Report.Should().Contain("its 404 tested");
+    }
+
+    private const string LeadSecond = "2026-10-06-5e5ec";
+
+    private static string Spawn(string name, string task) => $$$"""
+        {"background":true,"tasks":[{"name":"{{{name}}}","activity":"{{{task}}}","task_description":"{{{task}}}; report what you changed",
+          "inherited_context":{"pipeline_goal":"the widget service","prior_context_slice":"the spec and the code read so far"}}]}
+        """;
+
+    private static SpecSet LeadSpecSet() => SeededSet() with
+    {
+        Specs =
+        [
+            SeededSet().Specs[0],
+            new DerivedSpec(new SpecDraftReader().Read("""
+                spec: 2026-10-06-5e5ec
+                goal: "Store posted widgets in the sample service"
+                steps:
+                  - id: store
+                    action: "Add the widget store"
+                done:
+                  - "POST /widget stores the widget"
+                  - "Stored widgets are exported as CSV"
+                """), "store-posted-widgets", string.Empty, []),
+        ],
+    };
+
     private const string First = "2026-10-06-5e5ea";
     private const string Second = "2026-10-06-5e5eb";
     private const string SecondCriterion = "POST /widget stores the widget";
 
-    private static void ScriptSpec(RealCompositionHarness harness, string path) =>
+    private static void ScriptSpec(RealCompositionHarness harness, string path, string step) =>
         harness.ChatClient
             .EnqueueToolCall("write_file", $$"""{"path":"{{path}}","content":"// work"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueToolCall("update_progress", $$"""{"items":[{"id":"{{step}}","activity":"the work","status":"done"}]}""")
+            .EnqueueFinish(summary: "done");
+
+    // 2026-11-18-c8e2c: b fails on a red stage — red at its verification and again after its one repair pass.
+    private static void RedForTheSecondSpec(RealCompositionHarness harness) =>
+        harness.StubSandboxFactory!.RedAfterWriting("WidgetStore.cs", "dotnet build", "error CS1002: ; expected");
 
     private static List<AgentSmith.Sandbox.Wire.Step> Steps(RealCompositionHarness harness) =>
         [.. harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps)];

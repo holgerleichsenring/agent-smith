@@ -49,6 +49,7 @@ public sealed class MasterRecordToolHosts(
         {
             ReviseSpec = spec is not null && codingMaster && agent is not null && revision is not null
                 ? new Specs.Revision.ReviseSpecToolHost(revision, pipeline, agent) : null,
+            FinishSpec = spec is not null && codingMaster ? new FinishSpecToolHost() : null, // 2026-11-18-98fa
         };
     }
 
@@ -88,7 +89,11 @@ public sealed record MasterRecordTools(
     /// <summary>2026-11-17-ec48a: revise_spec, beside hand_forward on a coding master that executes a spec only.</summary>
     public Specs.Revision.ReviseSpecToolHost? ReviseSpec { get; init; }
 
-    /// <summary>The tools a spec's coding master gets beyond the base surface: hand_forward and revise_spec.</summary>
+    /// <summary>2026-11-18-98fa: finish_spec, beside hand_forward on a coding master that executes a spec only.</summary>
+    public FinishSpecToolHost? FinishSpec { get; init; }
+
+    /// <summary>The tools a spec's coding master gets beyond the base surface: hand_forward, revise_spec, finish_spec.</summary>
     public IEnumerable<Microsoft.Extensions.AI.AITool> SpecTools =>
-        [.. HandForward?.GetTools(null, null) ?? [], .. ReviseSpec?.GetTools(null, null) ?? []];
+        [.. HandForward?.GetTools(null, null) ?? [], .. ReviseSpec?.GetTools(null, null) ?? [],
+         .. FinishSpec?.GetTools(null, null) ?? []];
 }

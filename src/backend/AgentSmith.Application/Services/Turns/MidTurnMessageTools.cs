@@ -15,14 +15,16 @@ namespace AgentSmith.Application.Services.Turns;
 /// </summary>
 public sealed class MidTurnMessageTools(ITicketConversationMessages? conversations = null)
 {
-    public IList<AITool> Delivering(IList<AITool> tools, AgenticMasterContext context)
+    /// <param name="notices">2026-11-18-c8e2a: the master's sub-agent team notices — handed on beside the operator's
+    /// messages, and alone where there are none (a scan master, a ticketless run) or the steward keeps them.</param>
+    public IList<AITool> Delivering(IList<AITool> tools, AgenticMasterContext context, IMidTurnMessages? notices = null)
     {
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(context);
-        var messages = Seeded(context) ?? OfTicket(context.Pipeline);
+        var operatorMessages = Seeded(context) ?? OfTicket(context.Pipeline);
+        operatorMessages?.Lead(context.IsTicketSteward);
+        var messages = CombinedMidTurnMessages.Of(context.IsTicketSteward ? null : operatorMessages, notices);
         if (messages is null) return tools;
-        messages.Lead(context.IsTicketSteward);
-        if (context.IsTicketSteward) return tools;
         return [.. tools.Select(tool => tool is AIFunction f ? new MidTurnMessageAIFunction(f, messages) : tool)];
     }
 

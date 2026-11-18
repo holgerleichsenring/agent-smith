@@ -174,7 +174,7 @@ The source files the run changed.
 What was done.
 
 ## What this run accounted for
-The delivery account, per repository.
+The master's report, per spec.
 
 ## Decisions
 Choices made during execution.

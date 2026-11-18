@@ -36,7 +36,7 @@ public sealed class FixBugTests
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueText("""Build green; closing. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"patched","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+            .EnqueueFinish(summary: "patched");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -98,7 +98,7 @@ public sealed class FixBugTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+            .EnqueueFinish(summary: "fixed");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -138,7 +138,7 @@ public sealed class FixBugTests
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("a bug fix that changed no source must not be a success");
-        result.Message.Should().Contain("not satisfied by the branch");
+        result.Message.Should().Contain("ended without finish_spec");
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
 
@@ -222,12 +222,11 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        // p0421: the master's self-report stopped being a gate input. A change the branch
-        // carries, a build that ran, and criteria accounted for against the diff — that is
-        // the evidence. A verdict the master never emitted is not evidence either way, and
-        // failing on its absence made the gate depend on the author's own account.
-        result.IsSuccess.Should().BeTrue(
-            $"the branch and the build decide, not the master's self-report: {result.Message}");
+        // 2026-11-18-98fa: a master that ends without finish_spec — however its text reads — reported nothing the
+        // pipeline acts on, so the spec is not delivered and says why.
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("ended without finish_spec");
+        harness.ChatClient.LastScriptedMessages.Should().NotBeEmpty();
     }
 
     [Fact]
@@ -240,7 +239,7 @@ public sealed class FixBugTests
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueText("""Tests are red. {"status":"failed","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":false,"summary":"two tests fail"}""");
+            .EnqueueFinish("failed", summary: "two tests fail");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -269,7 +268,7 @@ public sealed class FixBugTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+            .EnqueueFinish(summary: "fixed");
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

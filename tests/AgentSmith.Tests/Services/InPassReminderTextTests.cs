@@ -27,7 +27,7 @@ public sealed class InPassReminderTextTests
             new ProgressLedgerEntry("1", "a", ProgressStatus.Done),
         ]));
 
-        text.Should().Contain("emit your verdict");
+        text.Should().Contain("write your report and call finish_spec");
         // p0391: the invitation to add steps is QUALIFIED. Unqualified it sat next to a
         // mechanism that turns any added item into another loop pass, so a model appending
         // "verify X once more" re-drove itself until the money or the operator stopped it.

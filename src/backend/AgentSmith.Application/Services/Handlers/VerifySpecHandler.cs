@@ -38,8 +38,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-08-28-5f71: that per-repository skip is narrowed by the RUN. Skipped is right
 /// while another repository verified something; when no repository anywhere ran a
 /// command over a delivery, nobody checked what shipped, and the run fails saying what
-/// was searched per repository. It fails after the spec account is taken, so the
-/// account still reaches the record and the pull request.
+/// was searched per repository.
+/// <para>2026-11-18-c8e2c: this step is mechanical. A red declared stage goes back to the master once (StageRepair);
+/// green, the spec's account is its master's report. No model judges the spec here.</para>
 ///
 /// p0430: what a spec SHIPS is no longer declared. p0400 introduced ships_code so a
 /// knowledge spec without a diff would not fail the no-diff rule, and p0421 deleted
@@ -56,10 +57,8 @@ public sealed class VerifySpecHandler(
     StageRelevance relevance,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
-    SpecDeliveryAccounting accounting,
     ISpecProgressRecorder progress,
     VerifiedHeads verifiedHeads,
-    SpecReviewRevert reviewRevert,
     VerifyPassReporter passReporter,
     ILogger<VerifySpecHandler> logger)
     : ICommandHandler<VerifySpecContext>
@@ -70,10 +69,6 @@ public sealed class VerifySpecHandler(
         VerifySpecContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        // A fix pass the commit step already reverted left the tree as the first verification
-        // saw it; that verdict and its account stand, as the review's do.
-        if (context.Pipeline.TryGet<string>(ContextKeys.SpecReviewReverted, out var reverted) && reverted is not null)
-            return CommandResult.Ok($"The fix pass was reverted, so the verified state stands ({reverted}).");
         if (!sandboxTargets.TryResolve(context.Pipeline, out var all, out _))
             return await RecordAsync(
                 context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),
@@ -158,71 +153,27 @@ public sealed class VerifySpecHandler(
             return await RecordAsync(context, StageRepair.Offer(context.Pipeline, ran, notes.Findings, mechanical) ?? mechanical, cancellationToken);
         }
 
-        var ranCommands = Specs.SpecEvidence.From(outcomes, context.Pipeline);
-        // After a green sync a secondary's diff is its primary's: one diff per repository.
-        var primaries = sandboxes.Where(s => !sandboxTargets.IsSecondary(context.Pipeline, s.Key)).ToDictionary();
-        var accounts = await accounting.TakeAsync(context.Pipeline, primaries, ranCommands, cancellationToken,
-            await verifiedHeads.RepairChangedAsync(context.Pipeline, primaries, cancellationToken)); // 2026-11-18-d6d2c
-        context.Pipeline.Set(ContextKeys.SpecAccounts, accounts);
-        RunAccountLedger.Record(context.Pipeline, accounts);
-        // 2026-08-28-5f71: the unverified run fails HERE and not as a resolution failure.
-        // That shape returns before the account is taken, which would strip the run of its
-        // per-criterion accounting, skip the repair pass, and make the run's delivery gate
-        // report "no spec measured itself" — the wrong cause, and the loss of the most
-        // actionable thing a run produces. The run fails carrying its account.
-        var verdict = SpecVerdict.From(
-            mechanical, accounts, delivered.Unverified(ran.Count > 0 || notes.NoStageApplies.Count > 0, notes.Searched));
-        // p0439: a spec that is through names the state it verified — the commit each
-        // sandbox stands at — so a run that stops later can deliver exactly that state. A
-        // repair pass is not through yet; its verdict comes from the verification after it.
-        // 2026-10-17-a196a: over EVERY sandbox — the review's fix pass and its revert need a head for each.
-        if (verdict.IsSuccess)
-            await verifiedHeads.RecordAsync(context.Pipeline, all, cancellationToken);
-        return await RecordAsync(
-            context, verdict.IsSuccess ? verdict : await RepairableAsync(context, sandboxes, accounts, verdict, cancellationToken),
-            cancellationToken);
-    }
-
-    /// <summary>
-    /// p0438: an outstanding criterion goes back to the agent that can close it, ONCE,
-    /// before it becomes the operator's problem.
-    /// <para>
-    /// The accountant produces the most actionable artefact of a run — what is missing, in
-    /// the contract's own words, checked against the real branch. Until now that was
-    /// rendered into an error message for the operator while the agent that wrote the work,
-    /// and is the only thing that could finish it, never saw it. The operator's question
-    /// named the defect: a correct "no" is half a mechanism.
-    /// </para>
-    /// <para>
-    /// One pass, not a loop: a second correct no is information, a third is a carousel. The
-    /// repair splices [master, commit, verify] — the same shape p0437 fixed — so it inherits
-    /// that ordering guarantee instead of restating it.
-    /// </para>
-    /// </summary>
-    private async Task<CommandResult> RepairableAsync(VerifySpecContext context,
-        IReadOnlyDictionary<string, ISandbox> sandboxes, IReadOnlyList<SpecAccount> accounts, CommandResult verdict,
-        CancellationToken cancellationToken)
-    {
-        if (!SpecVerdict.IsRepairable(accounts)) return verdict;
-        if (context.Pipeline.TryGet<bool>(ContextKeys.SpecRepairAttempted, out var tried) && tried)
-            return verdict;
-
-        var outstanding = SpecVerdict.Outstanding(accounts);
-        context.Pipeline.Set(ContextKeys.SpecRepairAttempted, true);
-        context.Pipeline.Set(ContextKeys.OutstandingCriteria, outstanding.ToList());
-        // 2026-11-18-d6d2c: where the repair starts, so the verification after it is told what the repair changed.
-        await verifiedHeads.RecordRepairBaseAsync(context.Pipeline, sandboxes, cancellationToken);
-        logger.LogInformation(
-            "{Count} criterion(s) outstanding — handing the list back to the agent for one "
-            + "repair pass before this becomes a verdict.", outstanding.Count);
-
-        // p0341g: stamped with the spec they repair — a repeated step belongs to the same
-        // spec as the step it repeats, in the rail and in every per-spec rollup.
-        var specId = context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var d)
-            ? d?.SpecId : null;
-        return CommandResult.OkAndContinueWith(
-            $"{outstanding.Count} criterion(s) outstanding; one repair pass follows",
-            [.. SpecVerdict.RepairSteps(specId)]);
+        // 2026-08-28-5f71: work delivered with no command run over it is not verified — a mechanical failure.
+        if (delivered.Unverified(ran.Count > 0 || notes.NoStageApplies.Count > 0, notes.Searched) is { } unverified)
+        {
+            RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, unverified);
+            return await RecordAsync(context, CommandResult.Fail(unverified), cancellationToken);
+        }
+        // 2026-11-18-c8e2c: green — the spec's account is its master's report, one per spec over its repositories. A spec
+        // with a done list whose master ended without finish_spec (98fa) has nobody's word on it: not delivered.
+        if (MasterReportAccount.Missing(context.Pipeline) is { } missing)
+        {
+            RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, missing);
+            return await RecordAsync(context, CommandResult.Fail(missing), cancellationToken);
+        }
+        var primaries = sandboxes.Where(s => !sandboxTargets.IsSecondary(context.Pipeline, s.Key)).Select(s => s.Key);
+        var account = MasterReportAccount.For(context.Pipeline, primaries);
+        context.Pipeline.Set<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts, [account]);
+        RunAccountLedger.Record(context.Pipeline, [account]);
+        // p0439: a spec that is through names the state it verified — the commit each sandbox stands at.
+        await verifiedHeads.RecordAsync(context.Pipeline, all, cancellationToken);
+        return await RecordAsync(context, CommandResult.Ok(
+            $"{mechanical.Message} — the master reported, {account.FollowUps?.Count ?? 0} follow-up(s) proposed."), cancellationToken);
     }
 
     // p0393a: verification is what makes a spec DONE, so this is where the sequence's
@@ -233,14 +184,9 @@ public sealed class VerifySpecHandler(
     private async Task<CommandResult> RecordAsync(
         VerifySpecContext context, CommandResult result, CancellationToken ct)
     {
-        // 2026-09-17-042eh: a verification that judges the REVIEW's one fix pass is not a
-        // verdict on the spec. Anything but success there is undone and the spec stands as
-        // its first verification left it — or, where the undo fails, fails saying which tree.
-        if (await reviewRevert.TryRevertAsync(context.Pipeline, result, ct) is { } reverted)
-            result = reverted;
         if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return result;
-        // 2026-10-13-9a59e: a spliced repair has not run yet — the spec stays in progress with its account.
+        // 2026-10-13-9a59e: a spliced stage repair has not run yet — the spec stays in progress.
         if (result.IsSuccess)
             await progress.RecordAsync(context.Pipeline, draft.SpecId,
                 result.InsertNext is { Count: > 0 } ? SpecRunState.InProgress : SpecRunState.Done,
@@ -267,8 +213,7 @@ public sealed class VerifySpecHandler(
                 + "(this is a resolution failure, not a build result). "
                 + string.Join(" ", findings));
 
-        // 2026-08-28-5f71: a delivery nothing ran against is still OK HERE — the verdict on
-        // it is passed to SpecVerdict, after the account, so the failing run keeps it.
+        // 2026-08-28-5f71: a delivery nothing ran against is still OK HERE — the handler fails it as unverified.
         if (ran.Count == 0)
             return delivered
                 ? CommandResult.Ok("No verification command ran.")

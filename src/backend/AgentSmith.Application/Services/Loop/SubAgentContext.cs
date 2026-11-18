@@ -33,4 +33,7 @@ public sealed record SubAgentContext(
     // spawns it wants one other than the agent config's. A design turn hands its own,
     // far smaller, number here — a child gets no governor hooks, so how far it may go IS
     // the bound on a fan-out. Null keeps the agent config's sub-agent ceiling.
-    int? ChildIterationCeiling = null);
+    int? ChildIterationCeiling = null,
+    // 2026-11-18-c8e2a: the master step's team every child joins, so the master can write to it, be told when it
+    // finishes and continue it. Null runs children as before, addressable by nobody.
+    SubAgentTeam? Team = null);

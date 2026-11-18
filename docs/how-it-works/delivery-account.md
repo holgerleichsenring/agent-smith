@@ -1,71 +1,41 @@
-# The delivery account
+# How a spec is checked
 
-Every spec ends in a "done when" list. The delivery account is how a run decides whether the branch actually delivers it — one criterion at a time, against what the branch carries, by a reader that never saw how the work was done.
+Every spec ends in a "done when" list. Two things decide what becomes of it: the repository's own build and test stages, which either pass or don't, and the coding master's report, which says in its own words what was delivered.
 
-We built it this way because "the tests are green" and "the ticket is done" are two different claims. A master that wrote the code and then reports its own work as finished is one party grading itself. The account is the second opinion, and it is the only thing the run's verdict listens to.
+This is how a Claude Code session works when one agent leads and another builds. The master never writes the spec's code itself. It briefs a sub-agent, looks at what that sub-agent did, sends work back until it holds, and then reports. The master knows the goal and didn't write the code, which is why it does the checking.
 
-## When it is taken
+## The master leads, a sub-agent builds
 
-The account is the second half of `VerifySpec`. The first half runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). A red stage wins: an account taken over a tree that doesn't build would be an opinion about work nobody can ship, so the spec fails on the stage and names the command, the exit code and the directory it ran in.
+The master starts a sub-agent with a brief: the goal and why it matters, the spec's steps and done list, what it already found (with paths), what is decided and what is still a guess to verify, the constraints, and what to report back. The sub-agent has none of the master's conversation, so the brief has to carry everything.
 
-A repository whose contexts need two toolchain images is worked in two sandboxes, two separate clones, while the master writes through one of them. Before a stage runs, every sandbox of one repository is brought to the union of their work, so a build in the second sandbox sees what was written in the first. When two sandboxes changed the same file to different contents, nothing is applied anywhere and verify is red, naming the file.
+While the sub-agent works, the master can write to it; the sub-agent reads the message with its next tool result. When it finishes, its answer reaches the master the same way. The master then looks for itself: it reads the diff and the files, builds and runs the tests, and runs what the spec changed where the sandbox can. It goes through the done list one line at a time, then the coding principles, then whether the diff does what the spec says and nothing it doesn't.
 
-When the stages pass, the account is taken per repository, over the spec's ratified criteria. It is also taken first, when a spec is entered: a spec whose criteria the branch already satisfies is recorded as done and skipped.
+Anything missing goes back to the sub-agent with what the master saw and what a good result looks like. The sub-agent keeps its own conversation, so it picks up where it was. Small things in scope the master fixes itself or has fixed.
 
-A run where no repository ran any verify command over a change it delivered fails, and says what was searched per repository. Nobody checked what shipped, and that isn't a pass.
+## The report
 
-## What a criterion can be
+The master ends in two parts, the way a Claude Code session reports to a person and to the tools around it:
 
-The account ends each row in one of three dispositions:
+- **Its report**, its last message, written in markdown for the person who accepts the work: what the spec delivered and how the master saw it (paths, commands and their outcome), what it fixed in passing, what is still open and why, what it did not check itself, and the follow-ups it proposes. Nothing parses it; it is shown as written.
+- **A `finish_spec` call** with what the pipeline acts on: the status (`green`, `no-tests`, `failed`, or `blocked` with its blocker), a one-line summary, the failing and already-failing test ids, the proposed follow-ups (a one-line goal and why each), and any ticket instructions it refused. The call is checked when it is made; a bad argument goes straight back to the master.
 
-| Disposition | Shown as | Means |
-|---|---|---|
-| `met` | proven | The branch delivers it, and the row cites the evidence |
-| `unmet` | failed | The branch does not show it |
-| `not_applicable` | n/a | The criterion's condition does not hold in this repository, proven by a search of the base that ran and found nothing |
+A line left open is the master's call, weighed by what it costs the spec's and the ticket's goal: would the person accepting this hold it back for it? Nothing is judged per done line. You decide whether a follow-up becomes work. A master that ends without `finish_spec` gets one more pass to call it; still without it, the spec fails and says so.
 
-A fourth status, `unproven`, shows up only on runs that had no account and fell back to the agent's report on its own work: a criterion the agent reported nothing for is unproven.
+## The build and test stages
 
-## When nothing could be measured
+After the master, `VerifySpec` runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). This is the only thing that blocks a spec, like a commit gate.
 
-Sometimes the account can't be taken at all. The build is red, the delivery diff wouldn't run, the accounting call failed. Such an account judged no criterion, so it isn't drawn as one. The run log's **Checked against the spec** section shows it under "Acceptance could not be measured", naming the repository and the reason verbatim, marked "not measured", and it is counted in neither the proven nor the failed side of "N of M". The run's outcome then reads "not measured", or "N of M proven · not measured" when other repositories were measured.
+A red stage goes back to the master once with its output; the master hands it to its sub-agent. If the stage is still red afterwards, the spec fails, and the run says so honestly. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong).
 
-We keep this apart from `unmet` on purpose. A criterion nobody could measure and a criterion that failed are different facts, and you act on them differently: the first usually wants the build fixed, the second wants the work redone. (A run from before this distinction stored the red build as an `unproven` row named after the repository; such stored rows are read the new way too.)
-
-## Evidence, and how it is checked
-
-A `met` row has to cite something real. A criterion about the repository's content is satisfied by a path the delivery really touched; a criterion about a build or test result is satisfied by a command that really ran. A citation that resolves to neither is a fabrication and the criterion goes back to unmet.
-
-The account doesn't have to take the agent's word for anything. It can search the branch itself, and the base ref of each repository too, and every search it reports names the ref it read. "Not there on `origin/main`" and "not there on the branch" are the two answers you need to be able to tell apart. Each accounting pass gets its own allowance of twelve searches, so an early pass can't spend the budget a later one needs.
-
-A `not_applicable` row has to bring more than a claim. It must cite a search of a real base ref that ran and matched nothing, and name the condition it takes to be false. A row that can't do that is not an error; it falls back to unmet. An account where every row is `not_applicable` and nothing is `met` does not pass either — it names what went unjudged, so you can overrule one line rather than the whole verdict.
-
-Two follow-up questions exist, each asked once:
-
-- **The citation correction.** A row that claimed `met` but cited something that resolves to nothing is asked again, with the objection and the accepted citation form. A row that answered unmet is never re-asked: that's an answer, not a formatting problem.
-- **The full-reach pass.** Large deliveries are read in diff windows. A criterion that no single window could settle — "every host in both repos configures X" — is put once more with the whole branch and its base in reach, the complete file list and a fresh search allowance. This pass can only raise a disposition, never lower one a window already settled, and the run says what it changed.
-
-## What happens with the result
-
-All criteria met: the spec is verified and the next one starts.
-
-Something outstanding: the list goes back to the master for one repair pass — it writes, the work is committed, the spec is verified again. One pass, not a loop. If the criterion is still outstanding afterwards, the spec fails. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong): a failure if nothing verified before it, a shortfall if earlier specs did.
-
-## Declined criteria
-
-Sometimes a ticket asks for something no change inside this repository can make true. The master can decline such a criterion, with what not doing it means. Declined criteria are listed beside the account, never among its rows — the account still judges the branch on its own. You find them in the ticket comment, in the PR body under "Declined by the run", in `result.md`, and in the run log under "Declined by the agent".
+A repository whose contexts need two toolchain images is worked in two sandboxes. Before a stage runs, every sandbox of one repository is brought to the union of their work. When two sandboxes changed the same file to different contents, nothing is applied and verify is red, naming the file. A run where a change was delivered and no repository ran any verify command over it fails too: nobody checked what shipped.
 
 ## Where you read it
 
-- The pull request body, under "What this run accounted for", itemised per repository.
-- `result.md` in the run record, and the spec record committed to the branch.
-- The run detail in the [dashboard](../reference/operations/dashboard.md): the **Checked against the spec** section of the run log lists one row per criterion with its disposition, its citation and the reason. The badge reads "N of M proven" or "N of M · K failed". A hint above the rows says whose read you are looking at — the independent account the gate decided on, or, on runs that had none, the agent's report on its own work. The ticket page's **Acceptance** section shows the same verdicts across every run of the ticket.
+- The run page in the [dashboard](../reference/operations/dashboard.md): each spec's section shows the master and its sub-agent at work, the messages the master sent and where work went back, and then the report.
+- The ticket page shows each spec's report and lists the proposed follow-ups across the run.
+- The pull request body and the spec record committed to the branch carry the report too.
 
-## When the verdict is wrong
-
-Next to each criterion there is a "this verdict is wrong" link. It opens a small form: pick what it actually was — "it was met", "it was not met", "it did not apply", "nothing measured it" — and write why. The reason is required. After you record it, the row shows "*your name* says: …" with the reason, and you can withdraw it later.
-
-Recording a judgement changes nothing about the run. It doesn't re-open the gate, re-run the spec, move the run's state or touch the PR. It is a labelled record of where the account got it wrong, so the account can be measured against people who know better. If you want the work redone, re-trigger the ticket.
+Runs from before this way of working show what they stored: the independent account with its "N of M proven" rows, or the master's per-line report with its "this verdict is wrong" link. They still read as they were stored.
 
 ## Next
 

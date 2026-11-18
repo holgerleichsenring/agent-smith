@@ -38,8 +38,7 @@ public sealed class MasterPassRecorder(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (pass is null) return;
         if (endedBecause == MasterPassReasons.Question) pipeline.Set(ContextKeys.MasterPassEndedOnQuestion, true);
-        var ended = MasterPassEnd.Event(pass, endedBecause, reengageReason, state,
-            MasterReengagementPolicy.RatifiedCriteria(pipeline), clock.GetUtcNow());
+        var ended = MasterPassEnd.Event(pass, endedBecause, reengageReason, state, clock.GetUtcNow());
         try
         {
             // Not the step's token: a pass that ends on a cancel still leaves its record.
@@ -55,7 +54,6 @@ public sealed class MasterPassRecorder(
     // After an answer first: a master resumed inside a repair would otherwise read "repair" and lose it.
     internal static string Opener(PipelineContext pipeline) =>
         pipeline.Flag(ContextKeys.MasterPassEndedOnQuestion) ? MasterPassReasons.AfterAnswer
-        : SpecReviewFixPass.InFlight(pipeline) ? MasterPassReasons.ReviewFix
         : pipeline.Has(ContextKeys.StructureFindings) ? MasterPassReasons.StructureCorrection
         : pipeline.Has(ContextKeys.OutstandingCriteria) ? MasterPassReasons.Repair
         : MasterPassReasons.First;

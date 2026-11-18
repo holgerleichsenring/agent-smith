@@ -7,9 +7,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Structure;
 
 /// <summary>
-/// What the commit step does with the gate's verdict. A pass clears the findings. Inside the
-/// review's fix pass any finding, or a grammar that would not load, is undone like a red build:
-/// the tree returns to its verified head, so the fix pass keeps its contract. Otherwise the
+/// What the commit step does with the gate's verdict. A pass clears the findings. The
 /// first finding in a spec goes back to the master once — master, questions, commit — ahead of
 /// the queued VerifySpec; a second one, or a grammar that would not load, fails the spec and
 /// records it with every finding. 2026-10-12-fbbdb: what the spec commit has to say besides the
@@ -17,7 +15,7 @@ namespace AgentSmith.Application.Services.Structure;
 /// the verdict, so a revert's reason (the first line) stays the structure finding; and a pass says
 /// how much was judged, or that nothing was and why.
 /// </summary>
-public sealed class StructureGateOutcome(SpecReviewRevert reviewRevert, ISpecProgressRecorder progress)
+public sealed class StructureGateOutcome(ISpecProgressRecorder progress)
 {
     private static readonly string[] CorrectionBlock =
         [CommandNames.AgenticMaster, CommandNames.MasterOpenQuestions, CommandNames.CommitSpecWork];
@@ -33,9 +31,6 @@ public sealed class StructureGateOutcome(SpecReviewRevert reviewRevert, ISpecPro
             return CommandResult.Ok(Noted($"Spec work is on the branch; {Judged(verdict)}", note));
         }
         var failure = CommandResult.Fail(Noted(Message(verdict), note));
-        if (SpecReviewFixPass.InFlight(pipeline))
-            return await RecordAsync(pipeline, await reviewRevert.TryRevertAsync(pipeline, failure, ct) ?? failure,
-                Note(verdict), ct);
         if (verdict.Unavailable is not null || pipeline.Flag(ContextKeys.StructureGateAttempted))
             return await RecordAsync(pipeline, failure, Note(verdict), ct);
         return Correction(pipeline, verdict, note);

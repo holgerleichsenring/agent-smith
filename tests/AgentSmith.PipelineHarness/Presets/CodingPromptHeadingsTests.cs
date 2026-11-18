@@ -22,8 +22,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class CodingPromptHeadingsTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"guarded","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     [Fact]
     public async Task Harness_CodingPrompt_HasOneHeadingPerMeaning()
@@ -32,7 +30,7 @@ public sealed class CodingPromptHeadingsTests
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         await runner.RunAsync("code");
@@ -44,11 +42,13 @@ public sealed class CodingPromptHeadingsTests
 
         headings.Should().NotContain(h => h.Contains("Phase", StringComparison.OrdinalIgnoreCase),
             "the spec is a spec, and the skill's own steps carry names");
-        headings.Should().ContainSingle(h => h == "## Execute",
+        // 2026-11-18-4f3e: coding-agent-master 3.0.0 heads its steps "## Working the spec" and its verdict
+        // "## Your report"; 2.1.0's "## Execute", "## Build & test" and "## Your verdict" are gone.
+        headings.Should().ContainSingle(h => h == "## Working the spec",
             "the step heading appears once, and nothing else is headed like it");
         headings.Should().Contain(h => h.StartsWith("## Spec 1 of 1: ", StringComparison.Ordinal))
             .And.Contain("## Spec contract")
-            .And.Contain("## Working the spec").And.Contain("## Build & test").And.Contain("## Your verdict");
+            .And.Contain("## Your role").And.Contain("## Ticket instructions").And.Contain("## Your report");
     }
 
     // 2026-11-09-0620i: a reference coding turn — the spec run lists its checkouts, and the server texts that
@@ -60,7 +60,7 @@ public sealed class CodingPromptHeadingsTests
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         await new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.RunAsync("code");
 

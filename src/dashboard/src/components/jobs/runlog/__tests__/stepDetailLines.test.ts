@@ -24,6 +24,25 @@ const events: RunEvent[] = [
 ];
 
 describe("stepDetailLines", () => {
+  // 2026-11-18-c8e2d: a master and its child — the child's own tool calls carry its name, what the master wrote and
+  // the work it sent back read as their own lines, and the child's end in words.
+  it("stepDetailLines_MasterAndChild_ReadApart", () => {
+    const lead = [
+      ev({ type: EventType.SubAgentSpawned, timestamp: at(1), subAgentId: "s9", name: "EndpointBuilder", activity: "build", parentSubAgentId: null, inheritedContextHash: "x" }),
+      ev({ type: EventType.ToolCall, timestamp: at(2), tool: "write_file", argsLength: 3, summary: "src/A.cs", intent: null, role: "EndpointBuilder", repoName: null }),
+      ev({ type: EventType.ToolCall, timestamp: at(3), tool: "read_file", argsLength: 3, summary: "src/A.cs", intent: null, role: "agentic-executor", repoName: null }),
+      ev({ type: EventType.SubAgentCompleted, timestamp: at(4), subAgentId: "s9", status: "Succeeded", observationsCount: 2, findingsCount: 0, filesWrittenCount: 0, toolCalls: 5, costUsd: 0.01 }),
+      ev({ type: EventType.SubAgentMessaged, timestamp: at(5), subAgentId: "s9", text: "the 404 is not tested", continued: true }),
+      ev({ type: EventType.SubAgentCompleted, timestamp: at(6), subAgentId: "s9", status: "Stopped", observationsCount: 0, findingsCount: 0, filesWrittenCount: 0, toolCalls: 0, costUsd: 0 }),
+    ];
+    const texts = stepDetailLines(lead, true).lines.map((l) => l.text);
+    expect(texts).toContain("EndpointBuilder: write_file  src/A.cs");
+    expect(texts).toContain("read_file  src/A.cs");
+    expect(texts).toContain("EndpointBuilder finished after 5 tool calls");
+    expect(texts).toContain("sent back to EndpointBuilder: the 404 is not tested");
+    expect(texts).toContain("EndpointBuilder stopped with its master's loop after 0 tool calls");
+  });
+
   it("stepDetailLines_EveryKind_NewestFirst", () => {
     const view = stepDetailLines(events, true);
     expect(view.lines.map((l) => l.kind)).toEqual(["write", "finding", "sub-agent", "decision", "tool", "write", "tool", "llm"]);

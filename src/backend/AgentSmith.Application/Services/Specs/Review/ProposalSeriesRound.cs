@@ -72,7 +72,8 @@ public sealed class ProposalSeriesRound(
     {
         foreach (var cut in result.Cuts)
             yield return new ProposalFinding(cut.SpecId!, Problem,
-                $"{cut.Register}: replace \"{cut.Quote}\" {(cut.Replacement is null ? "by nothing" : $"with \"{cut.Replacement}\"")}",
+                SpecCutAddition.Adds(cut) ? SpecCutAddition.Finding(cut, cut.SpecId).Text // 2026-11-18-c8e2e: never an edit
+                    : $"{cut.Register}: replace \"{cut.Quote}\" {(cut.Replacement is null ? "by nothing" : $"with \"{cut.Replacement}\"")}",
                 cut.Quote, cut.Evidence);
         if (result.Verdict != SpecReviewVerdicts.Build)
             yield return new ProposalFinding(parent, Problem,

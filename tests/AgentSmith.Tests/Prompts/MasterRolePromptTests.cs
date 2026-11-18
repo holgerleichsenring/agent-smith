@@ -39,7 +39,7 @@ public sealed class MasterRolePromptTests
     public void MasterClosing_Coding_NamesWhatIsParsedNotAProcedure()
     {
         MasterClosing.For("coding-agent-master", new PipelineContext()).Should()
-            .Contain("your verdict block, or, when you asked with ask_human, the question")
+            .Contain("the pipeline acts on finish_spec, or, when you asked with ask_human, on the question")
             .And.NotContain("plan your change");
     }
 

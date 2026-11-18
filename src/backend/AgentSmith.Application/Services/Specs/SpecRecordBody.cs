@@ -30,12 +30,8 @@ public static class SpecRecordBody
                 ? SpecAccountRenderer.ToMarkdown(accounts)
                 : string.Empty;
 
-        // 2026-09-17-042eh: what a fresh reviewer still finds in the diff, AFTER the account —
-        // the account says what was delivered, the review what it costs to keep. A review that
-        // was NOT taken says so here too: an absent answer is not a clean one.
-        var review = SpecReviewSection.ForTheRecord(SpecReviewLedger.ForThisSpec(pipeline));
         var runId = pipeline.TryGet<string>(ContextKeys.RunId, out var id) ? id : null;
-        return draft.Yaml.TrimEnd() + "\n" + SpecOutcomeBlock.Render(runId, delivered, review, HandForward(draft.SpecId, pipeline));
+        return draft.Yaml.TrimEnd() + "\n" + SpecOutcomeBlock.Render(runId, delivered, HandForward(draft.SpecId, pipeline));
     }
 
     private static SpecBuildNoteRead? HandForward(string specId, PipelineContext pipeline)

@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Events;
 /// </summary>
 public sealed class StepSubAgentLifecycleReader(IServiceScopeFactory scopeFactory, EventEnvelopeSerializer envelopes)
 {
-    private static readonly string[] LifecycleTypes = [nameof(EventType.SubAgentSpawned), nameof(EventType.SubAgentCompleted)];
+    private static readonly string[] LifecycleTypes =
+        [nameof(EventType.SubAgentSpawned), nameof(EventType.SubAgentCompleted), nameof(EventType.SubAgentMessaged)]; // + c8e2d
 
     /// <summary>The step's Spawned/Completed events with a sequence below <paramref name="belowSeq"/>, oldest first.</summary>
     public async Task<IReadOnlyList<object>> ReadOlderAsync(

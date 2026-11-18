@@ -37,17 +37,17 @@ public enum EventType
     // destructive / prompt-injection). One event per ignored instruction (quote +
     // reason) for the dashboard + audit trail; also persisted in result.md.
     TicketInstructionIgnored = 31,
-    // p0177: L2SubAgent events (60-range — separated from L2Orchestrator
-    // so sub-agent specific records stay visually grouped on the wire).
+    // p0177: L2SubAgent events (60-range — kept apart from L2Orchestrator, grouped on the wire).
     SubAgentSpawned = 60,
     SubAgentObservation = 61,
     SubAgentFinding = 62,
     SubAgentFileWritten = 63,
     SubAgentToolCall = 64,
     SubAgentCompleted = 65,
-    // p0200: operator-initiated or watchdog-initiated cancel signal.
-    // Landed on the run stream so late-subscribing dashboards see the
-    // cancellation request was made; RunFinished follows once the executor returns.
+    // 2026-11-18-c8e2d: what a master wrote to a child, or sent back to a finished one.
+    SubAgentMessaged = 66,
+    // p0200: an operator or watchdog cancel, landed on the run stream so late-subscribing dashboards
+    // see it was asked; RunFinished follows once the executor returns.
     RunCancelRequested = 70,
     // p0201: sandbox container died unexpectedly (docker daemon lost it,
     // OOM kill, manual rm, network partition). SandboxLivenessWatcher

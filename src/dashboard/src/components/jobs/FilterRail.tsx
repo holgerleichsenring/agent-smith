@@ -34,6 +34,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SubAgentFileWritten]: "SubAgentFileWritten",
   [EventType.SubAgentToolCall]: "SubAgentToolCall",
   [EventType.SubAgentCompleted]: "SubAgentCompleted",
+  [EventType.SubAgentMessaged]: "SubAgentMessaged",
   [EventType.RunCancelRequested]: "RunCancelRequested",
   [EventType.SandboxVanished]: "SandboxVanished",
   [EventType.RunCheckpointed]: "RunCheckpointed", // p0327

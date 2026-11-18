@@ -14,8 +14,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class CompletionCommentChangesTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""";
 
     [Fact]
     public async Task RealComposition_BranchCarriesAnEarlierCommit_TheCommentListsIt()
@@ -32,7 +30,7 @@ public sealed class CompletionCommentChangesTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: patch it.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var result = await new PipelineRunner(harness.Services).RunAsync("code");
 

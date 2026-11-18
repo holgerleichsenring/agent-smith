@@ -34,7 +34,7 @@ internal static class FormatFixture
 
     public static CommitSpecWorkHandler Handler() => new(
         Run(), Checkpointer(), StructureGateFixture.Gate(),
-        new StructureGateOutcome(TestSpecReview.Revert(), new Mock<ISpecProgressRecorder>().Object),
+        new StructureGateOutcome(new Mock<ISpecProgressRecorder>().Object),
         NullLogger<CommitSpecWorkHandler>.Instance);
 
     public static RemoteContextDiscovery Context(string name, string workdir, string? command) =>

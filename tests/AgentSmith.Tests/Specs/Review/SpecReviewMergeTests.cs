@@ -81,6 +81,20 @@ public sealed class SpecReviewMergeTests
             f.Text.Contains("A failed write is logged") && f.Evidence == "shop/a:3 [A3]");
     }
 
+    // 2026-11-18-c8e2e: a cut that holds its quote and more adds scope — the author weighs it as a finding.
+    [Fact]
+    public void ReviewMerge_AnAddingCut_BecomesAFindingAndOtherCutsStay()
+    {
+        var adding = new SpecReviewCut(SpecRegisterNames.Steps, "Document the order endpoints",
+            "Document the order endpoints in an OpenAPI route-and-schema matrix", "shop/a:4 [A4]");
+        var narrowing = new SpecReviewCut(SpecRegisterNames.Scope, "The writer flushes after every order", "once per batch", "shop/a:1 [A1]");
+
+        var merged = SpecReviewMerge.Merge([new SpecAttackResult(SpecReviewVerdicts.BuildWithCuts, [adding, narrowing], [])]);
+
+        merged.Cuts.Should().Equal(narrowing);
+        merged.Findings.Should().ContainSingle().Which.Text.Should().Contain("route-and-schema matrix").And.Contain("only removes or narrows");
+    }
+
     private static SpecReviewMerged Merge(params string[] verdicts) =>
         SpecReviewMerge.Merge([.. verdicts.Select(v => (SpecAttackResult?)new SpecAttackResult(v, [], []))]);
 }

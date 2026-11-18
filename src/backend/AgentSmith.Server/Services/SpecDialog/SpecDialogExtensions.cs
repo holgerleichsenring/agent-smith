@@ -53,7 +53,7 @@ internal static class SpecDialogExtensions
             .AddScoped<SpecDialogChatCard>().AddScoped<SpecDialogNotices>();
         // 2026-11-17-5701b: filing is the 'file' pipeline — its steps and the services the remaining server acts share
         // (recorder, branch write, starter, move) are registered once by AddFilingPipeline; FilingRun launches it.
-        services.AddFilingPipeline().AddScoped<IFilingRun, FilingRun>();
+        services.AddFilingPipeline().AddScoped<IFilingRun, FilingRun>().AddScoped<Tickets.FollowUps.TicketFollowUpAct>(); // + c8e2d
         // 2026-11-17-e061a: the acts on a filed ticket run as pipelines through the one act-run entry the filing shares.
         services.AddTicketActPipelines().AddScoped<IActRun, Acts.ActRun>()
             .AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier, Tickets.Closing.TicketCloseFailureClassifier>();

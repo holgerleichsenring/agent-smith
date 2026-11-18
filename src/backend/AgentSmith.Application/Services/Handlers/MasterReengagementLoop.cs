@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Passes;
 using AgentSmith.Contracts.Passes;
 using AgentSmith.Domain.Models;
@@ -16,13 +15,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// pass opens with the reason it was re-engaged for, and every exit ends the open pass with its own word.
 /// </para>
 /// <para>
-/// 2026-10-13-3890a: a stop on the master's own word — red on a drained ledger, a blocker, criteria
-/// declined — while a ratified criterion is unmet and money remains gets ONE challenge pass
-/// (<see cref="MasterSurrenderChallenge"/>), recorded as a pass opened because it was challenged.
+/// 2026-11-18-98fa: the standing verdict is what finish_spec recorded; no stop is challenged and no done line is
+/// judged — the master's report is its call.
 /// </para>
 /// </summary>
-public sealed class MasterReengagementLoop(
-    ReengagePass passes, MasterPassRecorder recorder, ReengageStopLog stopLog, AcceptanceClaimObjection objection)
+public sealed class MasterReengagementLoop(ReengagePass passes, MasterPassRecorder recorder, ReengageStopLog stopLog)
 {
     // An absolute anti-hang net for the fail-open case (no cost cap configured). It is NOT the control —
     // money and forward progress are.
@@ -31,49 +28,29 @@ public sealed class MasterReengagementLoop(
     internal async Task<ReengageState> RunAsync(
         ReengageSession s, ReengageState state, MasterPassFrame? pass, MasterVerification? emitted, CancellationToken ct)
     {
-        var criteria = MasterReengagementPolicy.RatifiedCriteria(s.Context.Pipeline);
-        var surrender = new MasterSurrenderChallenge();
-        var challenge = false;
-        var objected = false; // 2026-10-17-a196c: one objection to unresolved met claims per step
         for (var n = 0; n < HardSafetyCap; n++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based — every ledger
             // transition recorded from here carries the pass it happened in.
             s.SetPass(n + 1);
-            string? reason = MasterPassReasons.Challenged;
-            IReadOnlyList<string> claims = [];
-            if (!challenge)
+            var decision = ReengageReasonPolicy.Decide(
+                s.PipelineName, s.Progress.GetLedger(), state.Verification, s.CostTracker.IsBudgetExhausted,
+                state.Changes, n + 1, s.VerdictOwed.Demanded);
+            if (!decision.Reengage)
             {
-                claims = await objection.LinesAsync(s, state, criteria, objected, ct);
-                var decision = ReengageReasonPolicy.Decide(
-                    s.PipelineName, s.Progress.GetLedger(), state.Verification, s.CostTracker.IsBudgetExhausted,
-                    criteria, state.Changes, n + 1, s.VerdictOwed.Demanded, claims);
-                objected |= decision.Reason == MasterPassReasons.UnresolvedClaims;
-                reason = decision.Reason;
-                if (!decision.Reengage)
-                {
-                    stopLog.NotReengaging(s, state.Verification, n + 1, criteria.Count);
-                    var kind = MasterSurrenderChallenge.ClassifyTop(s.CostTracker.IsBudgetExhausted, state.Verification,
-                        criteria, n + 1, s.VerdictOwed.Demanded);
-                    challenge = surrender.TryChallenge(kind, s.CostTracker.IsBudgetExhausted, criteria, state.Verification,
-                        MasterVerificationParser.TryParseBlockedClaim(state.LoopResult.Response.Text));
-                    if (!challenge)
-                        return await StopAsync(s, surrender, kind, pass, decision.Reason ?? MasterPassReasons.NothingLeft, state, emitted, ct);
-                    reason = MasterPassReasons.Challenged;
-                }
+                stopLog.NotReengaging(s, state.Verification, n + 1);
+                var kind = MasterLoopStop.ClassifyTop(s.CostTracker.IsBudgetExhausted, state.Verification, n + 1, s.VerdictOwed.Demanded);
+                return await StopAsync(s, kind, pass, decision.Reason ?? MasterPassReasons.NothingLeft, state, emitted, ct);
             }
             if (s.TicketClarifications?.Captured is not null) // an operator question short-circuits — the caller parks
-                return await StopAsync(s, surrender, MasterStopKind.Question, pass, MasterPassReasons.Question, state, emitted, ct);
+                return await StopAsync(s, MasterStopKind.Question, pass, MasterPassReasons.Question, state, emitted, ct);
 
-            await EndAsync(s, pass, MasterPassReasons.Reengaged, reason, state, emitted);
-            pass = recorder.Open(s.Context.Pipeline, n + 1, reason);
-            var nudge = challenge ? surrender.Nudge(criteria, state.Verification, s.UserPrompt) : null;
-            challenge = false;
+            await EndAsync(s, pass, MasterPassReasons.Reengaged, decision.Reason, state, emitted);
+            pass = recorder.Open(s.Context.Pipeline, n + 1, decision.Reason);
             ReengagePassResult result;
             try
             {
-                result = await passes.RunAsync(s, state, criteria, ct, nudge,
-                    reason == MasterPassReasons.UnresolvedClaims ? claims : null);
+                result = await passes.RunAsync(s, state, ct);
             }
             finally
             {
@@ -85,21 +62,20 @@ public sealed class MasterReengagementLoop(
             {
                 MasterPassReasons.Budget => MasterStopKind.Budget,
                 MasterPassReasons.Question => MasterStopKind.Question,
-                _ => surrender.ClassifyBottom(result.Outcome, state.Verification, s.Progress.GetLedger(), criteria),
+                _ => MasterLoopStop.ClassifyBottom(result.Outcome, state.Verification, s.Progress.GetLedger()),
             };
-            challenge = ended is not (MasterStopKind.Budget or MasterStopKind.Question) && surrender.TryChallenge(
-                ended, s.CostTracker.IsBudgetExhausted, criteria, state.Verification, result.Block);
-            if (!challenge) return await StopAsync(s, surrender, ended, pass, stop, state, emitted, ct);
+            return await StopAsync(s, ended, pass, stop, state, emitted, ct);
         }
-        return await StopAsync(s, surrender, MasterStopKind.Cap, pass, MasterPassReasons.Cap, state, emitted, ct);
+        return await StopAsync(s, MasterStopKind.Cap, pass, MasterPassReasons.Cap, state, emitted, ct);
     }
 
     // 2026-10-13-3890a: every loop end is recorded once on the trail, naming the stop.
     private async Task<ReengageState> StopAsync(
-        ReengageSession s, MasterSurrenderChallenge surrender, MasterStopKind kind, MasterPassFrame? pass, string ended,
+        ReengageSession s, MasterStopKind kind, MasterPassFrame? pass, string ended,
         ReengageState state, MasterVerification? emitted, CancellationToken ct)
     {
-        if (s.Decisions is not null) await surrender.RecordAsync(s.Decisions, s.PipelineName, kind, ct);
+        if (s.Decisions is not null && MasterLoopStop.TrailLine(s.PipelineName, kind) is { } line)
+            await s.Decisions.LogAsync(null, AgentSmith.Contracts.Decisions.DecisionCategory.Implementation, line, ct);
         return await EndAsync(s, pass, ended, null, state, emitted);
     }
 

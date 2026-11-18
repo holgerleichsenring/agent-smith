@@ -13,8 +13,6 @@ namespace AgentSmith.PipelineHarness.Replay;
 [Trait("Category", "PipelineHarness")]
 public sealed class ReplayedRunTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"guarded the empty payload","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""";
 
     /// <summary>
     /// The whole loop: a run records itself, the recording is read back, and the recording
@@ -105,7 +103,7 @@ public sealed class ReplayedRunTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// guard"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

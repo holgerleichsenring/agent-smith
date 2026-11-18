@@ -25,11 +25,9 @@ There is one coding pipeline, `code`. Its shape is simple to say: the ticket bec
 
 **Check the premises before each spec.** A spec states what it rests on. Before its work starts, a fresh instance checks those premises against the repositories as they are now — it can run one of the verify stages the repository declares, by its label. A premise that no longer holds hands the spec back with what was looked at. The check reports; it never rewrites the specification.
 
-**One master, real commands.** The `coding-agent-master` skill does the spec's work: it edits the code and runs the repo's own build and tests via real commands, visible in the run timeline.
+**One master, real commands.** The `coding-agent-master` skill leads the spec's work: the code is edited and the repo's own build and tests are run via real commands, visible in the run timeline.
 
-**Verification the master doesn't grade.** `VerifySpec` runs the verify stages each repository declares, then takes the [delivery account](delivery-account.md): every criterion checked against the real branch, with citations that have to resolve, by a reader that never saw the master's reasoning. An outstanding criterion earns one repair pass. The run's verdict comes from these per-spec accounts and from nothing else.
-
-**A review after green.** A fresh reviewer reads the spec's diff against it and the repository's principles. Its findings get one fix pass; a fix that doesn't verify is undone, and what the review still finds goes into the spec record, the `spec_review` artifact and the PR. The review never fails a spec that verified.
+**A master that checks, a sub-agent that builds.** The master briefs a sub-agent with everything it needs, looks at what it built — the diff, the build and tests, the app where the sandbox can run it — sends work back until it holds, and ends with [its report](delivery-account.md) in markdown — what it delivered and how it saw it, what it fixed in passing, what is open and why, the follow-up specs it proposes — and a `finish_spec` call with the status and follow-ups the pipeline acts on. `VerifySpec` then runs the verify stages each repository declares; a red stage goes back to the master once, and only a stage that stays red stops the spec.
 
 A run that stops half way still delivers honestly: verified specs ship on a ready PR with a "Not delivered" section, unverified work is reset, and a run that verified nothing leaves a draft PR with a failure banner. See [Lifecycle](lifecycle.md#when-it-goes-wrong).
 
@@ -45,7 +43,7 @@ The methodology works on two levels. The runs follow it: every change starts as 
 
 Every run leaves a record in the repository, committed with the change. The run directory is `.agentsmith/runs/{run-id}/`:
 
-**`result.md`** — what got done. YAML frontmatter with the result, the duration, token counts and the cost block, then the changed files, the delivery account, declined criteria, decisions and the execution trail. A failed run leads with why. If `pricing` is configured for the agent, dollar costs are accurate; otherwise you get token counts.
+**`result.md`** — what got done. YAML frontmatter with the result, the duration, token counts and the cost block, then the changed files, the masters' reports, decisions and the execution trail. A failed run leads with why. If `pricing` is configured for the agent, dollar costs are accurate; otherwise you get token counts.
 
 **`plan.md`** — the master's own working plan for the run, when it wrote one.
 
@@ -57,7 +55,7 @@ The specification itself lives next to the code: one YAML spec and one Markdown 
 
 The evidence contract is the first mitigation. A finding without a file:line citation is a `Potential` observation by definition, and a claimed citation of a file nobody read is downgraded. The agent can still be wrong about the file:line it points at — but you can check, which is a much weaker class of failure than "the agent invented a function name".
 
-The second is role separation. The instance that judges the work is never the one that did it: the cut reviewer, the premise check, the delivery account and the spec review each start fresh, with no channel to the master's reasoning. Asking the author whether it is done is persuasion; looking at the branch is not.
+The second is role separation. The instance that judges the work is never the one that did it: the cut reviewer and the premise check start fresh, and the master that checks a spec did not write its code — it looks at what its sub-agent built instead of asking it. Asking the author whether it is done is persuasion; looking at the branch is not.
 
 ## Why this order
 
@@ -72,6 +70,6 @@ Review after green: the review reads verified work, so what it objects to is qua
 ## Next
 
 - [Lifecycle](lifecycle.md) — the same flow, step by step.
-- [The delivery account](delivery-account.md) — how "done" is decided.
+- [How a spec is checked](delivery-account.md) — the master's report and the build stages.
 - [Multi-repo](multi-repo.md) — what changes when one run touches several repos.
 - [Skills catalog](skills-catalog.md) — where the skill files live and how they version.

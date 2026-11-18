@@ -16,8 +16,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class DerivedSpecCodeTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     [Fact]
     public async Task Harness_OrdinaryTicket_RunsCodePresetEndToEndThroughDerivation()
@@ -29,7 +27,7 @@ public sealed class DerivedSpecCodeTests
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -50,18 +48,16 @@ public sealed class DerivedSpecCodeTests
         // p0460: spec 2 is ENTERED over a branch that already carries spec 1's work, and
         // the entry account is what decides whether it is worked at all. This case is about
         // one master pass per spec, so it says plainly that spec 2 is not yet delivered.
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // spec 1: plan, master, verdict
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             // spec 2: its own plan, its own master pass, its own verdict
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

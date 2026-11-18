@@ -14,20 +14,4 @@ namespace AgentSmith.Tests.SpecDialog.Ratification;
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class MockRatificationCompositionTests
 {
-    [Fact]
-    public void MockRatificationComposition_Server_ResolvesRatificationStampReviewAndBranchReader()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
-        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-        scope.ServiceProvider.GetRequiredService<MockRatification>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<RatifiedMockStamp>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<RatifiedMockReview>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<FiledSpecBranch>().Should().NotBeNull();
-        scope.ServiceProvider.GetService<AgentSmith.Contracts.Sandbox.IConversationMockReader>().Should()
-            .NotBeNull("the branch write's optional reader is filled from the server's conversation store");
-    }
 }

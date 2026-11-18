@@ -92,3 +92,15 @@ public sealed record SubAgentCompletedEvent(
     decimal CostUsd,
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.SubAgentCompleted, Timestamp);
+
+/// <summary>
+/// 2026-11-18-c8e2d: a master wrote to one of its children — to a running one, read with its next tool result, or to a
+/// finished one, which <paramref name="Continued"/> it over its conversation: the work went back.
+/// </summary>
+public sealed record SubAgentMessagedEvent(
+    string RunId,
+    string SubAgentId,
+    string Text,
+    bool Continued,
+    DateTimeOffset Timestamp)
+    : RunEvent(RunId, EventType.SubAgentMessaged, Timestamp);

@@ -22,9 +22,6 @@ public sealed class PremiseCorrectionSpecBlockTests
     private const string Series = "2026-11-17-c0de";
     private const string Premise = "every user foreign key is declared without ON DELETE";
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"Users are deleted only after their rows are.","status":"met","evidence":"restrict"}]}""";
-
     [Fact]
     public async Task Harness_ApprovedSpecWithAFalsePremise_IsBuiltAndItsMasterIsToldTheCorrection()
     {
@@ -42,7 +39,7 @@ public sealed class PremiseCorrectionSpecBlockTests
         harness.ChatClient
             .EnqueueText("Planning: map the users.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Users.cs","content":"// users"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         runner.RequestContext[ContextKeys.TrackerPlatform] = "github"; // the record's key, as the launcher spells it
         runner.RequestContext[ContextKeys.ApprovedSpecSet] = SpecApprovalJson.Write(Record());

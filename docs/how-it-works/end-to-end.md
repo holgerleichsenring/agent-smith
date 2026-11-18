@@ -50,7 +50,7 @@ From here on the branch is the truth. The ticket page reads the specs from the b
 
 ## 4. The coding run builds what was approved
 
-A filed ticket's run does not derive the specs again and does not review them a second time: the review in the design turn already passed them. It checks each spec's premises against the code as it is now, builds the spec, runs the repository's own build and tests, verifies every **Done when** criterion against the branch, has the diff reviewed, and moves on to the next spec.
+A filed ticket's run does not derive the specs again and does not review them a second time: the review in the design turn already passed them. It checks each spec's premises against the code as it is now, builds the spec, runs the repository's own build and tests, records the master's report on every **Done when** line, and moves on to the next spec.
 
 Things it handles without stopping:
 
@@ -89,7 +89,7 @@ Click a step and it opens in place. The **LLM** filter lists its calls in order:
 <figcaption>A step opened in place. Each call shows what went in and what came out, so you can see where the tokens went.</figcaption>
 </figure>
 
-More on the run page and the ticket page: [Dashboard](../reference/operations/dashboard.md). How a criterion gets its verdict: [The delivery account](delivery-account.md).
+More on the run page and the ticket page: [Dashboard](../reference/operations/dashboard.md). How a spec is checked: [the master's report](delivery-account.md).
 
 ## 5. CI decides when it merges
 

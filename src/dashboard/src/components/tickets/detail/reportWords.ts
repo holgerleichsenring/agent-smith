@@ -45,6 +45,11 @@ export function specsOf(attempt: TicketAttempt, series: TicketSeries | null): Ti
 
 /** "5 of 5 done criteria met"; null when no verdict was recorded. */
 export function criteriaTally(spec: TicketSeriesSpec): { words: string; all: boolean } | null {
+  // 2026-11-18-98fa: a master that ended with finish_spec judged no line; its report is the verdict.
+  if (spec.report) {
+    const n = spec.followUps?.length ?? 0;
+    return { words: n > 0 ? `reported · ${n} follow-up${n === 1 ? "" : "s"}` : "reported", all: true };
+  }
   if (spec.verdictRecorded === false || spec.done.length === 0) return null;
   const met = spec.done.filter((c) => c.verdict === "met").length;
   return { words: `${met} of ${spec.done.length} done criteria met`, all: met === spec.done.length };

@@ -38,7 +38,9 @@ public sealed class TicketSeriesSpecComposer
             [.. (draft?.Done ?? []).Select(done => TicketSeriesCriterionJoin.Of(done, acceptance, judgements))],
             acceptance?.Unmeasured ?? [],
             StepsAsWorkedFold.Fold(spec.SpecId, steps, records.Transitions ?? [], attemptNumbers), // 2026-10-13-9a59f
-            BuildNote(spec.SpecId, executed?.RunId, records), JudgedBy: ended?.RunId); // 2026-10-16-86e6e
+            BuildNote(spec.SpecId, executed?.RunId, records), JudgedBy: ended?.RunId, // 2026-10-16-86e6e
+            FollowUps: TicketSeriesFollowUpView.Of(acceptance, spec.SpecId, ended?.RunId), // 2026-11-18-c8e2d
+            Report: TicketSeriesFollowUpView.ReportOf(acceptance, spec.SpecId)); // 2026-11-18-98fa
     }
 
     // 2026-10-13-8762m: the note lives in the executing attempt's record, its only home.

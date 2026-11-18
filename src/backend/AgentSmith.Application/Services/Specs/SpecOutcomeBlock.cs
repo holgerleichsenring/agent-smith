@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-06-03c7e: the <c>outcome:</c> block an executed spec carries in <c>specs/done/</c> —
-/// the run that executed it, what it delivered and what the spec review still finds. Rendered
+/// the run that executed it and what it delivered (2026-11-18-c8e2c: the master's report). Rendered
 /// as YAML, multi-line text as literal blocks, so the done file stays one parseable document.
 /// 2026-10-13-8762m: and the build note the master handed forward — the four lists, the scalar
 /// <c>missing</c> when it left none, no key at all for a spec that ran no master.
@@ -15,14 +15,12 @@ public static class SpecOutcomeBlock
     public const string Key = "outcome";
     private const string RunKey = "run";
     private const string DeliveredKey = "delivered";
-    private const string ReviewKey = "review";
 
-    public static string Render(string? runId, string delivered, string review, SpecBuildNoteRead? handForward = null)
+    public static string Render(string? runId, string delivered, SpecBuildNoteRead? handForward = null)
     {
         var outcome = new YamlMappingNode();
         Add(outcome, RunKey, runId);
         Add(outcome, DeliveredKey, delivered);
-        Add(outcome, ReviewKey, review);
         if (handForward is { Note: { } note })
             outcome.Add(SpecBuildNoteReader.Key, new YamlMappingNode
             {

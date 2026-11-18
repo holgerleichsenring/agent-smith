@@ -31,14 +31,8 @@ internal static class AcceptanceSnapshot
     /// the negotiated source still decode, because the view shape did not change.
     /// </para>
     /// </summary>
-    public static string? Build(RunAccounts? accounts, IReadOnlyList<DeclinedCriterion>? declined = null)
-    {
-        var declinedViews = DeclinedViews(declined);
-        var view = FromAccounts(accounts);
-        if (view is null)
-            return declinedViews is null ? null : RunStoryJson.Serialize(DeclinedOnly(declinedViews));
-        return RunStoryJson.Serialize(view with { Declined = declinedViews });
-    }
+    public static string? Build(RunAccounts? accounts) =>
+        FromAccounts(accounts) is { } view ? RunStoryJson.Serialize(view) : null;
 
     /// <summary>
     /// Every criterion the run's accounts carry, with what it was decided on. An account that
@@ -52,25 +46,39 @@ internal static class AcceptanceSnapshot
         if (all is not { Count: > 0 }) return null;
 
         var criteria = all.SelectMany(account => account.Criteria.Select(Row)).ToList();
+        // 2026-11-18-98fa: an account that carries its master's report measured what it was asked to — it has no rows
+        // because nothing is judged per done line, not because no account could be taken.
         var unmeasured = all
-            .Where(account => account.Criteria.Count == 0)
+            .Where(account => account.Criteria.Count == 0 && !Reported(account))
             .Select(account => new UnmeasuredAccountView(account.RepoKey, account.Problem))
             .ToList();
-        if (criteria.Count == 0 && unmeasured.Count == 0) return null;
+        var reports = Reports(accounts!);
+        if (criteria.Count == 0 && unmeasured.Count == 0 && reports.Count == 0) return null;
 
+        // 2026-11-18-c8e2c: a spec's rows are its master's report; only a scan's coverage account is a delivery account.
+        var scan = all.All(a => a.RepoKey == Scans.ScanCoverageAccountant.RepoKey);
         return new AcceptanceView(
             criteria, ExpectationOutcomes.Verbatim, RatifiedByTheSpec,
-            AcceptanceSources.DeliveryAccount, Unmeasured: unmeasured);
+            scan ? AcceptanceSources.DeliveryAccount : AcceptanceSources.MasterVerification, Unmeasured: unmeasured,
+            FixedInPassing: scan ? null : [.. all.SelectMany(a => a.FixedInPassing ?? []).Distinct()],
+            FollowUps: scan ? null : FollowUps(accounts!), // 2026-11-18-c8e2d
+            Reports: scan ? null : reports);
     }
 
-    /// <summary>A run that declined something and was judged by nothing else — it ended
-    /// between the master's verdict and the account — still shows what it declined.</summary>
-    private static AcceptanceView DeclinedOnly(IReadOnlyList<DeclinedCriterionView> declined) =>
-        new([], ExpectationOutcomes.Verbatim, RatifiedByTheSpec, AcceptanceSources.MasterVerification, declined);
+    private static bool Reported(SpecAccount account) => account.Problem is null && account.Report is not null;
 
-    private static IReadOnlyList<DeclinedCriterionView>? DeclinedViews(IReadOnlyList<DeclinedCriterion>? declined) =>
-        declined is not { Count: > 0 } ? null
-            : [.. declined.Select(d => new DeclinedCriterionView(d.Criterion, d.Reason, d.SpecId))];
+    private static IReadOnlyList<MasterReportView> Reports(RunAccounts accounts) =>
+    [
+        .. accounts.Specs.SelectMany(spec => spec.Accounts
+            .Where(account => !string.IsNullOrWhiteSpace(account.Report))
+            .Select(account => new MasterReportView(account.Report!, spec.SpecId))),
+    ];
+
+    private static IReadOnlyList<FollowUpView> FollowUps(RunAccounts accounts) =>
+    [
+        .. accounts.Specs.SelectMany(spec => spec.Accounts.SelectMany(account =>
+            (account.FollowUps ?? []).Select(f => new FollowUpView(f.Goal, f.Why, spec.SpecId)))),
+    ];
 
     /// <summary>The spec IS the contract on this path — nobody edited it into one, so
     /// there is no person to name and saying so is more honest than borrowing a name.</summary>

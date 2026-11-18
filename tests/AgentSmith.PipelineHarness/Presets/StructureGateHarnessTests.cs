@@ -13,8 +13,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class StructureGateHarnessTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     // Signature, braces and 67 statements: a 70-line method.
     private static string LongMethod() =>
@@ -51,10 +49,10 @@ public sealed class StructureGateHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Correcting: I keep it as it is.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -75,10 +73,10 @@ public sealed class StructureGateHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Correcting: I split Handle by responsibility.")
             .EnqueueToolCall("write_file", Write(SplitMethod()))
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

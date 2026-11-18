@@ -65,15 +65,7 @@ public partial class CommitAndPRHandlerTests
             new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SecretPatternScanner(),
             new PullRequestOutcomePublisher(_events),
-            new TicketLifecycle(), new SandboxTargets(), new SpecDeliveryAccounting(
-                AgentSmith.Tests.TestHelpers.TestGit.Delivery,
-                new SpecAccountant(
-                new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
-                new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
-                    NullLogger<SpecAccountant>.Instance),
-                new SandboxTargets(),
-                NullLogger<SpecDeliveryAccounting>.Instance),
-            new FailedRunPersistence(new WipCommitMessage()),
+            new TicketLifecycle(), new SandboxTargets(), new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
@@ -385,35 +377,20 @@ public partial class CommitAndPRHandlerTests
             It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Once);
     }
 
-    /// <summary>
-    /// 2026-09-06-3d81: a criterion the master declined, with its reason, reaches the two
-    /// surfaces the ticket author reads — the completion comment and the pull request body.
-    /// Before this the answer satisfied the gate and was rendered nowhere.
-    /// </summary>
+    /// <summary>2026-11-18-98fa: the spec master's markdown report reaches the pull request body as written.</summary>
     [Fact]
-    public async Task Outcome_ADeclinedCriterion_IsRenderedInThePullRequestBody()
+    public async Task Outcome_TheMastersReport_IsRenderedInThePullRequestBody()
     {
         var pipeline = NewPipelineWithSandbox();
-        RunAccountLedger.Record(pipeline, [new SpecAccount("repo",
-            [new CriterionAccount("the endpoint rejects an anonymous call", AccountDisposition.Satisfied, "Auth.cs:20")])]);
-        DeclinedCriteriaLedger.Record(pipeline, new MasterVerification(
-            VerificationStatus.Green, true, true, true, true, "done",
-            AcceptanceDispositions: [new AcceptanceDisposition(
-                "`npm run lint` exits 0", AcceptanceStatus.NotApplicable,
-                "the lint config is a shared package this repository cannot change")]));
+        RunAccountLedger.Record(pipeline, [new SpecAccount("repo", [],
+            Report: "## Delivered\n- the endpoint rejects an anonymous call (`Auth.cs`)")]);
 
         await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
 
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(),
-            It.Is<string>(body => body.Contains(DeclinedCriteriaSection.Heading)
-                && body.Contains("**`npm run lint` exits 0** — the lint config is a shared package this repository cannot change")),
+            It.Is<string>(body => body.Contains("## Delivered\n- the endpoint rejects an anonymous call (`Auth.cs`)")),
             It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Once);
-        _ticketProviderMock.Verify(t => t.FinalizeAsync(
-            It.IsAny<TicketId>(),
-            It.Is<string>(s => s.Contains(DeclinedCriteriaSection.Heading)
-                && s.Contains("the lint config is a shared package this repository cannot change")),
-            It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

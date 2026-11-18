@@ -40,7 +40,7 @@ public sealed class VerdictOwedTests
 
         owed.Demanded.Should().BeTrue();
         demand.Should().Contain("checklist is complete");
-        demand.Should().Contain("end with your fenced ```verdict block");
+        demand.Should().Contain("write your report for the person and call finish_spec");
         demand.Should().Contain("step 1", "the demand carries the completed checklist");
     }
 }

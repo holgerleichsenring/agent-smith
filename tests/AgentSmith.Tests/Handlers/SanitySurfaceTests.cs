@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestHelpers;
 using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
@@ -38,7 +39,7 @@ public sealed class SanitySurfaceTests
                 maxSubAgents: 20, subAgents: children)
             .ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
-        loop.MasterTools.Should().NotBeEmpty().And.OnlyContain(t => t is SanityAnnotatedTool);
+        loop.MasterTools.Should().NotBeEmpty().And.OnlyContain(t => t.UnderMidTurn() is SanityAnnotatedTool);
         loop.MasterTools.Select(t => t.Name).Should().Contain(["spawn_agents", "write_file"]);
         children.SeenContexts.Single().ChildTools.Should().NotBeEmpty().And.OnlyContain(t => t is SanityAnnotatedTool);
     }

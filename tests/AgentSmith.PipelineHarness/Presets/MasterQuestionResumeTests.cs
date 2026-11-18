@@ -45,9 +45,6 @@ public sealed class MasterQuestionResumeTests
     private const string Answer = "15 minutes: the session must survive one full refresh.";
     private const string ParkStatus = "Question";
 
-    private const string GreenVerdict =
-        """Done per the operator's answer. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"refresh window set to 15 minutes","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""";
-
     [Fact]
     public async Task MasterAsks_OperatorAnswers_TheRunResumesIntoTheMasterAndFinishes()
     {
@@ -72,7 +69,7 @@ public sealed class MasterQuestionResumeTests
                 })
                 .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"csharp-fixture"}""")
                 .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-                .EnqueueText(GreenVerdict);
+                .EnqueueFinish();
             await AnswerAsync(second, checkpoint, Answer);
             (await Sweeper(second).ScanOnceAsync(CancellationToken.None)).Should().Be(1,
                 "the answered checkpoint enqueues exactly one resume");

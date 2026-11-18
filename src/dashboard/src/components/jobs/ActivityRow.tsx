@@ -380,6 +380,16 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.SubAgentMessaged: {
+      const e = event as Extract<RunEvent, { type: EventType.SubAgentMessaged }>;
+      return {
+        icon: e.continued ? "↩" : "→",
+        label: e.continued ? "Sent back to sub-agent" : "To sub-agent",
+        detail: `${e.subAgentId}: ${e.text}`,
+        reason: null,
+        severity: "info",
+      };
+    }
     case EventType.SubAgentCompleted: {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentCompleted }>;
       return {

@@ -106,6 +106,9 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
   const names = new Map<string, string>();
   for (const e of events) if (e.type === EventType.SubAgentSpawned) names.set(e.subAgentId, e.name);
   const who = (id: string) => (names.has(id) ? `${names.get(id)}: ` : "");
+  // 2026-11-18-c8e2d: a child's own tool calls carry its name as their role, so its work reads apart from the master's.
+  const children = new Set(names.values());
+  const by = (role: string | null) => (role && children.has(role) ? `${role}: ` : "");
   const add = (ts: string, kind: string, text: string, filter: DetailFilter | null, tone: DetailTone = "text", meta = "", href?: string) =>
     lines.push({ key: `${lines.length}`, ts, at: clockOf(ts) ?? "", kind, text, meta, filter, tone, href });
 
@@ -128,7 +131,7 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
   for (const e of events) {
     switch (e.type) {
       case EventType.ToolCall:
-        add(e.timestamp, "tool", `${e.tool}${e.summary ? `  ${e.summary}` : ""}`, "tool", "text", e.repeat && e.repeat > 1 ? `repeat ${e.repeat}` : "");
+        add(e.timestamp, "tool", `${by(e.role)}${e.tool}${e.summary ? `  ${e.summary}` : ""}`, "tool", "text", e.repeat && e.repeat > 1 ? `repeat ${e.repeat}` : "");
         break;
       case EventType.ToolResult:
         if (!e.ok) add(e.timestamp, "tool", `${e.tool} failed${e.errorMessage ? `: ${e.errorMessage}` : ""}`, "tool", "bad");
@@ -163,7 +166,12 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
         add(e.timestamp, "sub-agent", `${e.name} started: ${e.activity}`, "obs");
         break;
       case EventType.SubAgentCompleted:
-        add(e.timestamp, "sub-agent", `${names.get(e.subAgentId) ?? e.subAgentId} ${e.status}: ${e.observationsCount} observations, ${e.findingsCount} findings, ${e.filesWrittenCount} files`, "obs");
+        add(e.timestamp, "sub-agent", `${names.get(e.subAgentId) ?? e.subAgentId} ${childEnd(e.status)} after ${e.toolCalls} tool calls`, "obs",
+          e.status === "Succeeded" ? "text" : e.status === "Stopped" ? "dim" : "bad");
+        break;
+      case EventType.SubAgentMessaged:
+        add(e.timestamp, "sub-agent", `${e.continued ? "sent back to" : "to"} ${names.get(e.subAgentId) ?? e.subAgentId}: ${e.text}`, "obs",
+          e.continued ? "run" : "text");
         break;
       case EventType.PullRequestOutcome: {
         const url = e.url ?? extractUrls(e.reason)[0];
@@ -216,4 +224,15 @@ export function repoOutcomeWords(r: RepoOutcome): string {
   if (r.exitCode === -1) return "not run";
   const took = r.durationMs !== null ? ` · ${shortMs(r.durationMs)}` : "";
   return r.exitCode === 0 ? `passed${took}` : `failed (exit ${r.exitCode})${took}`;
+}
+
+/** 2026-11-18-c8e2d: how a child's pass ended, in the run log's words. */
+function childEnd(status: string): string {
+  switch (status) {
+    case "Succeeded": return "finished";
+    case "Failed": return "failed";
+    case "Empty": return "finished with no answer";
+    case "Stopped": return "stopped with its master's loop";
+    default: return status.toLowerCase();
+  }
 }

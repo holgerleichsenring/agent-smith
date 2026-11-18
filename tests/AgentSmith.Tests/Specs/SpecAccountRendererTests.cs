@@ -40,4 +40,28 @@ public sealed class SpecAccountRendererTests
     {
         SpecAccountRenderer.ToMarkdown([]).Should().BeEmpty();
     }
+
+    // 2026-11-18-c8e2d (characterised first): a scan's not-applicable row keeps naming the antecedent its search disproved.
+    [Fact]
+    public void AScansNotApplicableRow_KeepsTheAntecedentWording()
+    {
+        var md = SpecAccountRenderer.ToMarkdown([new SpecAccount("scan",
+            [new CriterionAccount("No Redis client", AccountDisposition.NotApplicable, "grep -rn Redis", Antecedent: "Redis client")])]);
+
+        md.Should().Contain("- [~] No Redis client — not applicable: the base carries no Redis client (`grep -rn Redis`)");
+    }
+
+    [Fact]
+    public void AMastersReport_ShowsItsWhyFixedInPassingAndFollowUps()
+    {
+        var md = SpecAccountRenderer.ToMarkdown([new SpecAccount("api",
+            [new CriterionAccount("Legacy DTO stays", AccountDisposition.NotApplicable, Note: "no DTO in this repository"),
+             new CriterionAccount("Exports stream CSV", AccountDisposition.NotSatisfied, Note: "needs paging; follow-up")],
+            FixedInPassing: ["a null check"], FollowUps: [new MasterFollowUp("Exports stream CSV over paging", "paging first")])]);
+
+        md.Should().Contain("- [~] Legacy DTO stays — not applicable: no DTO in this repository")
+            .And.Contain("- [ ] Exports stream CSV — needs paging; follow-up")
+            .And.Contain("Fixed in passing: a null check")
+            .And.Contain("Proposed follow-up: Exports stream CSV over paging — paging first");
+    }
 }

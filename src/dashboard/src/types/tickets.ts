@@ -360,6 +360,18 @@ export interface TicketSeriesSpec {
   verdictRecorded?: boolean;
   /** 2026-10-16-86e6e: the run whose acceptance gave the verdicts and whose judgements are read; null when none did. */
   judgedBy?: string | null;
+  /** 2026-11-18-c8e2d: the follow-up specs that attempt's master proposed; absent on runs before the master's report. */
+  followUps?: TicketSeriesFollowUp[] | null;
+  /** 2026-11-18-98fa: that attempt's master's markdown report, shown as written; absent before. */
+  report?: string | null;
+}
+
+/** 2026-11-18-c8e2d: a follow-up a spec's master proposed, filed by its run, spec and place. */
+export interface TicketSeriesFollowUp {
+  goal: string;
+  why: string;
+  runId: string;
+  index: number;
 }
 
 /** 2026-10-13-8762m: what a spec's master handed forward; `missing` when it left no note. */

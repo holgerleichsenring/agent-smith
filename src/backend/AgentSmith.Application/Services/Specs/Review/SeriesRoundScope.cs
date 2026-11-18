@@ -46,7 +46,8 @@ internal static class SeriesRoundScope
         foreach (var cut in result.Cuts)
         {
             var claim = $"series cut on {cut.SpecId}: \"{cut.Quote}\"";
-            if (set.Executed.Contains(cut.SpecId ?? string.Empty, StringComparer.Ordinal))
+            if (SpecCutAddition.Adds(cut)) findings.Add(SpecCutAddition.Finding(cut, cut.SpecId)); // 2026-11-18-c8e2e
+            else if (set.Executed.Contains(cut.SpecId ?? string.Empty, StringComparer.Ordinal))
                 dropped.Add(new(claim, "the member is executed, and an executed spec is append-only"));
             else if (!prefix.Any(spec => spec.SpecId == cut.SpecId))
                 dropped.Add(new(claim, "the member is at or past this attempt's stop; its text is not cleared"));
