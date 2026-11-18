@@ -12,27 +12,42 @@ From ticket to PR: codeably is an open source agentic software factory, a projec
 
 This page is the orientation of the documentation; the product overview is on [codeably.ai](https://codeably.ai) and the source on [GitHub](https://github.com/holgerleichsenring/agent-smith). There's a fast-path link list at the bottom — if you're here to ship today, skip the rest and jump straight in.
 
-## What it does, in one paragraph
+## What it does
 
-You drop a ticket into your tracker. codeably reads it and derives a specification from it: the specs the work needs and, per spec, the list of what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), works the specs in order, runs the verification each repository declares, and accounts for every criterion with the evidence it found. Then it opens one pull request per repo with the changes cross-linked and writes the ticket back with every PR URL in the comment. If the ticket is too thin, it asks instead of guessing.
+You describe a change, or drop a ticket into your tracker. codeably reads your code and turns the work into specs: per spec a goal, the steps and the list of what has to be true when it's done. It clones every repository the work touches into its own sandbox on your infrastructure, builds the specs one at a time, runs each repository's own build and tests, and checks every done criterion against the branch with the evidence it found. Then it opens one pull request per repository, cross-linked, and writes the ticket back. If the ticket is too thin, it asks instead of guessing.
 
-If you'd rather think the change through first, [Work it out](how-it-works/work-it-out.md) in the dashboard is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
+<ol class="cb-stages">
+<li><strong>Describe it.</strong> The home page asks "What should we work on?" and hands your first message to <a href="how-it-works/work-it-out/">Work it out</a>, a conversation with an agent that reads your code while it answers.</li>
+<li><strong>Approve reviewed specs.</strong> It drafts one or more tickets, each with specs a fresh reviewer has already attacked. You press File.</li>
+<li><strong>It builds and verifies.</strong> A run per ticket builds exactly the approved specs, verifies each criterion and opens the pull requests.</li>
+<li><strong>It merges on your terms.</strong> By hand, when the run is green, or when your CI is green, with red checks sent back to a fix run.</li>
+<li><strong>It reports.</strong> Every run records what it cost in tokens and dollars and why it did what it did.</li>
+</ol>
 
-![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](assets/lifecycle.svg)
+The whole flow, stage by stage with pictures: [How it works](how-it-works/end-to-end.md).
+
+<figure class="cb-shot" markdown>
+![The home page: "What should we work on?" with a composer, the project picker and the recent tickets](assets/screenshots/home.png)
+<figcaption>The dashboard's home page. Everything starts from one sentence.</figcaption>
+</figure>
 
 ## Watch it work
 
-The dashboard is a live mission-control view of every run — what's waiting on you, what's running, and what finished today, each with its cost and the story of how it got there.
+A ticket has one page. The section bar on the left splits it into what happened, the specs as they stand on the branch, the acceptance verdicts, every run, the cost and the defaults the agent chose on its own. A run that needs a decision it shouldn't make alone asks there, and no tokens burn while it waits.
 
-![codeably dashboard — runs overview](assets/screenshots/dashboard-runs.png)
+<figure class="cb-shot" markdown>
+![A ticket page on What happened, with tracker comments and two runs](assets/screenshots/ticket-page.png)
+<figcaption>A ticket page: comments from the tracker, two runs, and the second one's log opened in place.</figcaption>
+</figure>
 
-A run that hits a decision it shouldn't make alone pauses and asks; your answer resumes it, and no tokens burn while it waits. Every run keeps a five-beat story — ticket → plan → build → verify → outcome — you can open, and the verify beat shows each acceptance criterion with its verdict and the evidence behind it:
+A run reads as one log. Open any step and you see each LLM call in order, what it was fed, what it decided and what it cost.
 
-![Run detail — the story of a run](assets/screenshots/run-detail.png)
+<figure class="cb-shot" markdown>
+![A run page with one step opened, listing its LLM calls with cost and the fed and decided lines](assets/screenshots/run-step-llm-calls.png)
+<figcaption>A step opened in place, its LLM calls numbered with role, model, tokens, cost and time.</figcaption>
+</figure>
 
-Configuration for a server lives in the database and gets edited right here: agents, trackers, repos and connections wired into projects, with every reference picked from the catalog, so a project can never point at something that doesn't exist. Every edit is attributed and revertible, and the running server picks it up without a restart.
-
-![Configuration studio, the project wiring](assets/screenshots/config-projects.png)
+On a server the configuration lives in the database and is edited in the dashboard: agents, trackers, repositories and secrets wired into projects, every reference picked from the catalog, every edit attributed and revertible. See [The Config studio](configure-it/config-studio.md).
 
 ## What lands on disk after a run
 
@@ -83,24 +98,22 @@ The pages below are the fast-path. The only thing step 2 needs is an API key for
 5. [Connect your AI provider](connect-your-stuff/ai-providers.md) — the config block for the provider you have.
 6. Point the loop at a real ticket: `agent-smith code --ticket 54 --project todolist` — the [first-run page](get-it-running/first-run.md) walks it end to end. `agent-smith doctor` before that tells you whether the wiring holds.
 
-Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for production) and [pick a host setup](host-it/docker-compose.md) (docker-compose is the easiest, k8s is what you want for shared use). Once it runs server-side, the [dashboard](reference/operations/dashboard.md) is where you watch it: live step timeline, per-call LLM cost with the cached share, queued runs with their position, a cancel button that actually kills things.
+Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for production) and [pick a host setup](host-it/docker-compose.md) (docker-compose is the easiest, k8s is what you want for shared use). Once it runs server-side, the [dashboard](reference/operations/dashboard.md) is where you start work and watch it.
 
 ## How it works, when you have time
 
-- [Methodology](how-it-works/methodology.md) — spec first, then code, then an account of what got delivered, and why.
-- [Lifecycle](how-it-works/lifecycle.md) — what happens between ticket-in and ticket-back.
-- [The delivery account](how-it-works/delivery-account.md) — every acceptance criterion gets a verdict with evidence, and you can overrule one.
-- [Spec dialogue](how-it-works/spec-dialogue.md) — the conversation before the ticket, in Slack, Teams or the dashboard.
-- [Work it out](how-it-works/work-it-out.md) — the dashboard page for that conversation, and ticket conversations.
-- [Expectations & durable dialogue](how-it-works/expectations.md) — the done-list as the run's contract, and how a run waits days for your answer without burning compute.
-- [Multi-repo pipelines](how-it-works/multi-repo.md) — one ticket, N sandboxes, N pull requests.
-- [Skills catalog](how-it-works/skills-catalog.md) — where skills live, how versioning works.
+- [End to end](how-it-works/end-to-end.md): the whole flow with pictures.
+- [Work it out](how-it-works/work-it-out.md): the conversation before the ticket, and the ticket's own conversation.
+- [Lifecycle of a run](how-it-works/lifecycle.md): what happens between ticket-in and pull request.
+- [The delivery account](how-it-works/delivery-account.md): every acceptance criterion gets a verdict with evidence, and you can overrule one.
+- [CI loop and merge policy](how-it-works/ci-loop.md), [Stacked start](how-it-works/stacked-start.md) and [Series run](how-it-works/series-run.md): what happens after the pull request.
+- [Methodology](how-it-works/methodology.md): spec first, then code, then an account of what got delivered, and why.
 
-Everything else lives in Reference. That's where the per-pipeline pages, the full [agentsmith.yml schema](reference/configuration/agentsmith-yml-schema.md), the [architecture deep-dives](reference/architecture/index.md), the [pipeline-specific pages](reference/pipelines/index.md) and the historical run-logs sit.
+Everything else lives in Reference: the per-pipeline pages, the full [agentsmith.yml schema](reference/configuration/agentsmith-yml-schema.md), the [architecture deep-dives](reference/architecture/index.md) and the historical run logs.
 
 ## Who is behind it
 
-codeably is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](https://github.com/holgerleichsenring/agent-smith/blob/main/CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner; see [services](https://agent-smith.org/services).
+codeably is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](https://github.com/holgerleichsenring/agent-smith/blob/main/CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner; see [services](https://codeably.ai/services).
 
 How the project is run and who decides what is in [GOVERNANCE.md](https://github.com/holgerleichsenring/agent-smith/blob/main/GOVERNANCE.md).
 

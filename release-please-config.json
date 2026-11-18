@@ -5,7 +5,47 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "extra-files": [
-        "version.txt"
+        "version.txt",
+        {
+          "type": "generic",
+          "path": "docs/get-it-running/install.md"
+        },
+        {
+          "type": "generic",
+          "path": "docs/host-it/docker-compose.md"
+        },
+        {
+          "type": "generic",
+          "path": "docs/connect-your-stuff/tracker-azure-devops.md"
+        },
+        {
+          "type": "generic",
+          "path": "docs/connect-your-stuff/repos-multi.md"
+        },
+        {
+          "type": "generic",
+          "path": "docs/reference/concepts/sandbox-agent.md"
+        },
+        {
+          "type": "generic",
+          "path": "deploy/docker-compose.example.yml"
+        },
+        {
+          "type": "generic",
+          "path": "deploy/k8s/8-deployment-server.yaml"
+        },
+        {
+          "type": "generic",
+          "path": "deploy/k8s/10-deployment-dashboard.yaml"
+        },
+        {
+          "type": "generic",
+          "path": "deploy/k8s/examples/airgap-deployment.yaml"
+        },
+        {
+          "type": "generic",
+          "path": "deploy/k8s/examples/path-mode-deployment.yaml"
+        }
       ]
     }
   }

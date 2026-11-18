@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-15-5e9dc
-goal: "Docs screenshots come from a committed demo seeder and a real Azure DevOps project, so every surface shipped since 2026-09-28 has a current picture that can be retaken."
+goal: "Docs screenshots come from a committed demo seeder and a headless screenshot script, so every docs surface has a current picture that can be retaken."
 
 applies_to: "tools (a demo seeder and a screenshot script) and docs (docs/assets/screenshots, the pages that embed them)"
 
@@ -13,17 +13,18 @@ facts:
     evidence: "observed: 2026-07-17 session notes (p0346 screenshot rig)"
 
 assumptions:
-  - "The operator's Azure DevOps organisation has a project the run may write work items and pull requests to; its token is provided to the session before this spec starts."
+  - "Adopted 2026-11-18 by 2026-11-18-5fd3a without the Azure DevOps organisation part: no external access; a localhost tracker stub answers the ticket reads."
 
 scope:
   in: >
-    A demo seeder under tools/ that writes one story into a scratch database: an Azure Boards ticket over two
-    repositories, a series of three specs, a hand-back answered from a work item comment, a rework after a Wait
-    for author vote, two merged pull requests. A script that starts server and dashboard against it and takes
-    the screenshots headless at 2x. Screenshots of the Azure DevOps side (work item with the agent's comments,
-    pull request with the rework) from the operator's organisation. All names anonymised (acme, Sample).
+    A demo seeder under tools/demo-seed that writes one anonymised story (acme, shop, Sam Sample) into a scratch SQLite
+    database through the server's own services: a Work it out conversation with three drafted tickets and their specs,
+    a filed ticket with a green run, a CI fix run and a merged pull request, a series run with its status in the
+    conversation, an admin assistant conversation with a drafted config change, a stored secret; specs on local git
+    branches. A script that starts a tracker stub, the server and the dashboard on free ports and takes the
+    screenshots headless at 2x in dark mode.
   out: >
-    The operator's running deployment and its data — never touched. The website (it draws its panels).
+    The operator's running deployment and its data, and any external tracker or organisation. The website.
 
 decisions:
   - key: "THE RIG IS COMMITTED THIS TIME. A scratchpad rig was lost within a session; a committed seeder makes the next sweep a rerun."
@@ -32,11 +33,9 @@ steps:
   - id: seeder
     action: "tools/demo-seed: one story as above, idempotent against an empty database."
   - id: shoot
-    action: "tools/screenshots: server + dashboard on free ports, headless Chrome at 2x, one image per docs surface."
-  - id: azure
-    action: "Run the story once against the operator's Azure DevOps project and capture the work item and the pull request."
+    action: "tools/screenshots: tracker stub, server + dashboard on free ports, headless Chrome at 2x dark, one image per docs surface."
   - id: embed
-    action: "Replace stale images, delete unreferenced ones, embed the new ones on the pages 5e9db wrote."
+    action: "Replace stale images, delete unreferenced ones, embed the new ones (pages in 2026-11-18-5fd3a)."
 
 tests:
   - "the seeder runs twice against one database without error and without duplicating rows"

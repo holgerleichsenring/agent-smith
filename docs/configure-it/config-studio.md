@@ -1,8 +1,11 @@
 # The Config studio
 
-The dashboard has two halves. The **Runs** side is where you watch work happen. The **Configuration** side is where you decide what work is possible. Toggle between them at the top of the left rail, or go straight to `/config`.
+<p class="cb-lead">The Config studio is where a server's configuration lives: the catalog of agents, trackers, repositories and secrets, the projects that wire them together, and the global settings. Open it from <strong>Settings</strong> in the profile menu at the bottom of the sidebar, or go straight to <code>/config</code>; <strong>Back to work</strong> returns to the tickets.</p>
 
-![The Projects catalog, every project with the agent, tracker and repos it wires together](../assets/screenshots/config-projects.png)
+<figure class="cb-shot" markdown>
+![The Projects catalog with the shop project expanded into its wiring graph; the rail lists the catalog and the settings](../assets/screenshots/config-studio.png)
+<figcaption>Projects, with one project expanded into its wiring: agent and tracker, the project, its repositories, their contexts and templates.</figcaption>
+</figure>
 
 The rail is split the same way the configuration is: a **catalog** of things that exist, then the global **settings** that apply to all of them, then the change history. Counts next to each catalog tell you how many entries you have, which is a surprisingly good smoke test after an import. Every list and every picker is sorted alphabetically, ignoring case, so the entry you're looking for is where you expect it and not wherever the database happened to return it.
 
@@ -17,45 +20,13 @@ The rail is split the same way the configuration is: a **catalog** of things tha
 | Projects | the wiring: one agent, one tracker, a set of repos, templates, design sources, and how tickets route here |
 | MCP servers | external MCP tool servers |
 | Design sources | design tools a project reads designs from, with the token picked by secret name (Figma today) |
-| Secrets | the env var *names* your config refers to, with values staying in the runtime environment |
+| Secrets | the names your config refers to; values come from the environment or are stored encrypted ([Secrets](secrets.md)) |
 
-Secrets deserve the emphasis. The studio stores a secret's name, the environment variable it is read from, and the fact that something references it. The actual token lives in your environment or your k8s Secret, and it never enters the database or an export. A secret something still references can't be deleted, and that includes a design source naming it.
-
-### Which variable a secret reads
-
-A secret you create in the studio reads the environment variable of exactly its name, case included: a secret `GITHUB_TOKEN` reads `GITHUB_TOKEN`, and a secret `github_token` reads a variable called `github_token`. So name it after the variable. A secret that came in through **Import agentsmith.yml** keeps the reference its file gave it, so `github_token: ${GITHUB_TOKEN}` reads `GITHUB_TOKEN`. An entry of the same name in the `secrets:` block of the server's own `agentsmith.yml` wins over both, on every load ([what a server reads from the file](index.md#what-a-server-reads-from-the-file)).
-
-### Storing a value in the studio
-
-An admin can also give a secret its value right in the studio: open the secret, type the value into the password field and press **Set value**. The value goes straight to the server, runs as a `secret` run with a run id, and is stored encrypted. Each value gets a key of its own (AES-256-GCM with a random nonce, so two equal values never store equal bytes), and that key is wrapped by a master key that is not in the database: `AGENTSMITH_SECRET_MASTER_KEY` (the base64 of 32 random bytes, for example `openssl rand -base64 32`) or `AGENTSMITH_SECRET_MASTER_KEY_FILE` pointing at a mounted k8s Secret. Without a master key the field says so and stores nothing.
-
-A stored value is never shown again, by the studio, the API or the admin assistant; the studio shows who set it and when. When the environment variable the secret reads holds a value, the environment wins. To rotate the master key, move the old key to `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS`, set the new one, and press **Re-wrap with the current master key**.
-
-A stored value the server cannot open — the master key that wrapped it is gone, the vault cannot be reached, or the row was altered — resolves to nothing and is reported on every load, naming the secret and its key. For the webhook secrets (`GITHUB_WEBHOOK_SECRET`, `GITLAB_WEBHOOK_TOKEN`, `AZDO_WEBHOOK_SECRET`) and `SLACK_SIGNING_SECRET` that state refuses every delivery, and each refusal is logged with the secret and the reason, until the value is set again or the environment variable is. A secret with no value at all, in the environment or stored, still leaves verification off, as before.
-
-The admin assistant can draft the deletion of a stored value whose secret was removed. Applying that draft needs `secrets.write` besides `admin.assistant`; without it Apply is refused and names the permission.
-
-### Keeping the master key in Azure Key Vault
-
-The deployment can hold the master key wrapped instead of raw, so a leaked environment or k8s Secret is useless without access to the vault. Create an RSA key (2048 bits or more) in Key Vault, give the server's identity the **Key Vault Crypto Service Encryption User** role on it, and wrap a fresh 32-byte key with the key's public half:
-
-```bash
-az keyvault key download --vault-name <vault> --name <key> --file key.pub.pem
-openssl rand 32 | openssl pkeyutl -encrypt -pubin -inkey key.pub.pem \
-  -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 | base64
-```
-
-Set the output as `AGENTSMITH_SECRET_MASTER_KEY_WRAPPED` (or mount it and point `AGENTSMITH_SECRET_MASTER_KEY_WRAPPED_FILE` at it), and set `AGENTSMITH_SECRET_KEY_VAULT_KEY` to the key's versioned identifier, `https://<vault>.vault.azure.net/keys/<key>/<version>`. The server asks the vault to unwrap the key once, when it first needs it. It signs in as itself: workload identity, a managed identity (`AZURE_CLIENT_ID` picks a user-assigned one) or a service principal from the environment, never someone's `az login`. If the vault does not answer, stored values read as empty and the studio says why.
-
-To move an existing raw key into the vault, wrap that same key (`echo <base64 key> | base64 -d | openssl pkeyutl …`) and swap the variable. Stored values keep opening without a re-wrap. For a new key, keep the old one as `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS` or `AGENTSMITH_SECRET_MASTER_KEY_WRAPPED_PREVIOUS` and press **Re-wrap**. A previous wrapped key is unwrapped with `AGENTSMITH_SECRET_KEY_VAULT_KEY_PREVIOUS`, or with the current vault key when that variable is unset. The source is part of the deployment and not a setting, because anyone who can write the database could otherwise point it at a key they hold. The secret drawer shows which source is in use.
-
-An agent's key secret works a little differently. The agent first reads the environment variable that the secret's name spells. If that variable is empty, it uses the value of the secret with that name, which may be the value stored here. So name the secret after the variable, such as `AZURE_OPENAI_API_KEY`. The fallbacks for an empty variable are on [AI providers](../connect-your-stuff/ai-providers.md#api-keys).
+Secrets are names the rest of the catalog picks from. A value comes from the server's environment, or from a value an admin stored here, encrypted under a master key outside the database; the environment wins. Storing, rotating, the master key and Azure Key Vault are on [Secrets](secrets.md).
 
 ## Adding something
 
 Every catalog has a **New** button in the top right, and every entry has an edit on its card. Both open the same drawer.
-
-![The New Project drawer, where references are picked from the catalog and the footer refuses to save until they resolve](../assets/screenshots/config-new-project.png)
 
 Look at what the drawer does with references. `agent`, `tracker`, `connection` and the auth secret of a tracker or connection are dropdowns that list what you actually have. Repos are picked from the repo catalog or from a connection's discovered repos. Every reference is picked from the catalog. A hand edited config file lets you point a project at an agent you renamed last week, and you find out at 2am; picking from a list is how that stops being possible. For a project, the line at the bottom of the drawer names what is still unresolved, and **Create** stays disabled until every reference resolves.
 
@@ -91,7 +62,7 @@ Whether each repository is already bootstrapped is shown under **System → Conf
 
 ### The project drawer
 
-The project drawer has seven tabs. A tab that needs attention carries a mark.
+The project drawer has seven tabs: identity, repos, pipeline, templates, routing, sandbox and merge. A tab that needs attention carries a mark.
 
 **identity**. The project's name, and its agent and tracker, both picked from the catalogs. Once the Design sources catalog holds an entry, a **design sources** picker appears here too; see [Design sources](design-sources.md).
 
@@ -107,7 +78,12 @@ The project drawer has seven tabs. A tab that needs attention carries a mark.
 
 The cpu & memory group can't name one inherited number, because what a run gets depends on its pipeline, and a project's runs pick their pipeline per run (a ticket's labels, a trigger's default, the CLI). So it states both answers side by side: what a run that changes code gets (the process-wide sandbox default, or what the repository's context file names, clamped to the operator ceiling), and the fixed light profile every pipeline that changes no code is held to. Switching the group on seeds all four quantities from the code-run answer.
 
-**merge**. When a ticket that requires another may start (`requires_start`: once each prerequisite pushed a green branch, or once each merged), and the project's `merge:` block: whether a green code run merges its own pull requests, whether it waits for the host's branch protection, and whether a landing refreshes the other open pull requests on its base. The choices come from the server, so a mode it gains shows up here. A project with no `merge:` block reads as manual, and the block is written only once you change one of these. With `on_ci_green` the tab also shows how often CI is read, how long "no CI" must last, when a stuck pending head leaves the fast poll and how many red-CI fix runs may follow in a row; the evidence bounds (characters per failed check, failed checks whose logs are read) and the approval identity (a secret) show for every mode. Empty means the key's default. See [agentsmith.yml](../reference/configuration/agentsmith-yml.md).
+**merge**. When a ticket that requires another may start (`requires_start`: once each prerequisite pushed a green branch, or once each merged), and the project's `merge:` block: whether a green code run merges its own pull requests, whether it waits for the host's branch protection, and whether a landing refreshes the other open pull requests on its base. The choices come from the server, so a mode it gains shows up here. A project with no `merge:` block reads as manual, and the block is written only once you change one of these. With `on_ci_green` the tab also shows how often CI is read, how long "no CI" must last, when a stuck pending head leaves the fast poll and how many red-CI fix runs may follow in a row; the evidence bounds (characters per failed check, failed checks whose logs are read) and the approval identity (a secret) show for every mode. Empty means the key's default. What each mode does is on [CI loop and merge policy](../how-it-works/ci-loop.md) and [Stacked start](../how-it-works/stacked-start.md); every key is in [agentsmith.yml](../reference/configuration/agentsmith-yml.md).
+
+<figure class="cb-shot" markdown>
+![The merge tab of the project drawer](../assets/screenshots/config-merge.png)
+<figcaption>The merge tab with <code>on_ci_green</code>: the CI fields show under the mode they apply to.</figcaption>
+</figure>
 
 ## Trackers
 
@@ -163,11 +139,13 @@ A design source is a design tool account a project can read from. Today that's F
 
 ## Changes and revert
 
-Every write lands in the change feed with the fields it touched, the old value, the new value, who did it, and when.
-
-![The Changes view](../assets/screenshots/config-changes.png)
+The change feed is under **This installation > Changes**. Every write lands in the change feed with the fields it touched, the old value, the new value, who did it, and when.
 
 Each row has a revert, which is the part a mounted ConfigMap could never give you. Someone widened a cost cap three weeks ago, the run bills went up, and now you can find that exact edit and undo it, instead of reconstructing what the file used to say from a git history that may never have existed.
+
+## Changing configuration by asking
+
+An admin can also describe a change in words: the [admin assistant](../how-it-works/admin-assistant.md) drafts it as a diff, and **Apply** writes it through the same checks as this studio, attributed to the person and the run.
 
 ## What the studio does not carry
 

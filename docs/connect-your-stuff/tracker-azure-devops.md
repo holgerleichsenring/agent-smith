@@ -16,7 +16,7 @@ Five things, in this order, because each one references the one before it:
 
 Open the dashboard, switch the rail to **Configuration**, and work down the catalogs.
 
-**Secrets.** New secret, name it `AZURE_DEVOPS_TOKEN`, exactly like the environment variable that holds the PAT: a secret created in the studio reads the variable of its own name ([which variable a secret reads](../configure-it/config-studio.md#which-variable-a-secret-reads)). You're registering the *name*. The value stays in the environment of the server process (or your k8s Secret), and the studio never sees it. Do the same for your provider key, as `AZURE_OPENAI_API_KEY`.
+**Secrets.** New secret, name it `AZURE_DEVOPS_TOKEN`, exactly like the environment variable that holds the PAT: a secret created in the studio reads the variable of its own name ([which variable a secret reads](../configure-it/secrets.md#which-variable-a-secret-reads)). You're registering the *name*. The value comes from the environment of the server process (or your k8s Secret), or an admin stores it in the secret's drawer, encrypted ([Secrets](../configure-it/secrets.md)). Do the same for your provider key, as `AZURE_OPENAI_API_KEY`.
 
 **Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then add your deployments on the **Models** tab (a cheap one tiered `fast`, the good one `strong`) and pick one per activity on **Activities**: the good one for Coding, the cheap one for Quick lookups. A model the bundled price list knows is priced already; one it doesn't needs a price override, or the save is refused.
 
@@ -31,11 +31,7 @@ Open the dashboard, switch the rail to **Configuration**, and work down the cata
 - **Pipeline by label** and **Default pipeline**, which label runs which pipeline, and what a work item runs when no label matched. Both are picked from the pipelines that exist.
 - **Work item kind by filing role**, which work-item type a ticket codeably files is created as (see below).
 
-![Editing a tracker in the studio](../assets/screenshots/config-tracker-drawer.png)
-
 **Projects.** New project. Pick the agent and the tracker on the identity tab, the repos on the repos tab, and set the resolution strategy on the routing tab. For Azure DevOps that's `tag`, `area_path`, or `repo`. Tag is the common one: tag a work item `TodoList` and it routes to this project. **Create** stays disabled until every reference resolves, and once saved, the project card expands into a graph of what you've wired.
-
-![The New Project drawer](../assets/screenshots/config-new-project.png)
 
 That's the whole wiring. Two environment variables and codeably can claim a work item and open a pull request end to end.
 
@@ -46,12 +42,13 @@ The CLI reads this shape directly, and a server takes it through `agent-smith co
 <details>
 <summary>The full config for the example above</summary>
 
+<!-- x-release-please-start-version -->
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json
 
 deployment:
   registry: holgerleichsenring
-  version: 0.108.0
+  version: 0.188.0
 
 agents:
   azure-openai-default:
@@ -131,6 +128,7 @@ secrets:
   azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
   azure_devops_token:   ${AZURE_DEVOPS_TOKEN}
 ```
+<!-- x-release-please-end -->
 
 </details>
 

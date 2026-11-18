@@ -48,9 +48,7 @@ Export gives you back a file that round-trips through the real loader, which mak
 
 The studio writes a change record for each edit: who, when, which fields, old value to new value. The Changes view lists them newest first, and each one has a revert button.
 
-![The Changes view, every config edit attributed and revertible](../assets/screenshots/config-changes.png)
-
-The screenshot above is a fresh instance right after `agent-smith config import`, which is why every row says `by cli-import`. Edits from the studio carry the operator instead.
+A row written by `agent-smith config import` says `by cli-import`; edits from the studio carry the person, and changes the [admin assistant](../how-it-works/admin-assistant.md) applied carry the person and the run.
 
 A config write also bumps a counter in Redis, and the running server watches it. Change a tracker's polling interval and the poller picks it up on its next cycle, with no restart in the loop. The exceptions are the bootstrap slice (change `persistence:` and you're restarting the process, by definition) and the handful of settings the [Settings](settings.md) page marks as read at startup.
 

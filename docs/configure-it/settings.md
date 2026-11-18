@@ -2,8 +2,6 @@
 
 Below the catalogs in the studio rail sit fourteen global settings groups. Each one is a typed form over a top level block of `agentsmith.yml`, and each one applies to every project unless a project overrides it.
 
-![Pipeline cost cap, with a default, four tier caps, and per pipeline overrides](../assets/screenshots/config-settings-costcap.png)
-
 They save the same way the catalogs do: one **Save changes**, a row in the change feed, and a live pickup by the running server, except where a field says it applies after a restart. A value the server would refuse at run time (a negative round count, a series cap above 26) is refused on save instead, and the reason shows under the Save button.
 
 ## What each group changes
