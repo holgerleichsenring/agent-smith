@@ -1,31 +1,22 @@
-using System.Security.Cryptography;
-using System.Text;
-using AgentSmith.Application.Models;
-using AgentSmith.Application.Services.Turns;
-using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
-using AgentSmith.Domain.Models;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Loop;
 
 /// <summary>
 /// p0177: SemaphoreSlim(MaxConcurrentSubAgents) + Task.WhenAll over the
-/// SubAgentSpec list. Per spec: emit Spawned event, run the agentic loop
-/// via IAgenticLoopRunner, emit Completed event, map to SubAgentResult.
+/// SubAgentSpec list, each child one <see cref="SubAgentPass"/>.
 /// Returns results in deterministic spec order regardless of completion
 /// order — the merge index is the slot in the input list, not the time
 /// of arrival. NO fail-fast: a failed child returns Status=Failed and the
 /// siblings keep running.
+/// <para>2026-11-18-c8e2a: every child joins the context's team; <see cref="Start"/> and <see cref="Continue"/> run
+/// passes in the background, and each that ends — unless its master's loop stopped it — posts its notice to the team
+/// and hands its result to the caller's <c>finished</c>.</para>
 /// </summary>
 public sealed class SubAgentRunner(
-    IAgenticLoopRunner loopRunner,
-    IEventPublisher eventPublisher,
+    SubAgentPass pass,
     LoopLimitsConfig loopLimits,
-    SubAgentActivityFrame activityFrame,
     ILogger<SubAgentRunner> logger) : ISubAgentRunner
 {
     public async Task<IReadOnlyList<SubAgentResult>> RunAsync(
@@ -37,205 +28,114 @@ public sealed class SubAgentRunner(
         ArgumentNullException.ThrowIfNull(context);
         if (specs.Count == 0) return Array.Empty<SubAgentResult>();
 
-        var maxConcurrent = Math.Max(1, loopLimits.MaxConcurrentSubAgents);
-        using var throttle = new SemaphoreSlim(maxConcurrent);
+        using var throttle = new SemaphoreSlim(Math.Max(1, loopLimits.MaxConcurrentSubAgents));
         var slots = new SubAgentResult?[specs.Count];
-
-        var tasks = specs.Select((spec, index) => RunOneAsync(
-            spec, index, context, throttle, slots, cancellationToken)).ToArray();
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(specs.Select((spec, index) => RunOneAsync(
+            Enlist(spec, context), index, context, throttle, slots, cancellationToken)));
 
         var all = SubAgentAnswer.WithinCall(slots.Select(s => s!).ToArray(), out var cut); // 2026-11-10-85e2
         if (cut) logger.LogWarning("A spawn call's answers passed {Ceiling} characters together; the rest is cut", SubAgentAnswer.CallCeiling);
         return all;
     }
 
+    public IReadOnlyList<SubAgentMember> Start(
+        IReadOnlyList<SubAgentSpec> specs, SubAgentContext context,
+        Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(specs);
+        ArgumentNullException.ThrowIfNull(context);
+        var throttle = new SemaphoreSlim(Math.Max(1, loopLimits.MaxConcurrentSubAgents));
+        var members = specs.Select(spec => Enlist(spec, context)).ToList();
+        foreach (var (member, index) in members.Select((m, i) => (m, i)))
+        {
+            member.Begin();
+            member.Pass = Task.Run(() => BackgroundAsync(member, index, context, throttle, null, finished, cancellationToken));
+        }
+        return members;
+    }
+
+    /// <summary>The master's message is the child's next turn, after any word it ended before reading.</summary>
+    public void Continue(
+        SubAgentMember member, string message, SubAgentContext context,
+        Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        if (!member.Begin()) throw new InvalidOperationException($"Sub-agent {member.Id} is still running.");
+        var turn = string.Join("\n\n", [.. member.Inbox.Drain().Select(m => m.Text), message]);
+        member.Pass = Task.Run(() => BackgroundAsync(member, 0, context, null, turn, finished, cancellationToken));
+    }
+
+    private static SubAgentMember Enlist(SubAgentSpec spec, SubAgentContext context) =>
+        context.Team?.Enlist(spec) ?? SubAgentMember.For(spec);
+
     private async Task RunOneAsync(
-        SubAgentSpec spec, int index, SubAgentContext context,
+        SubAgentMember member, int index, SubAgentContext context,
         SemaphoreSlim throttle, SubAgentResult?[] slots, CancellationToken ct)
     {
         await throttle.WaitAsync(ct);
+        member.Begin();
         try
         {
-            slots[index] = await ExecuteAsync(spec, index, context, ct);
+            slots[index] = await pass.RunAsync(member, index, context, null, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Sub-agent slot {Index} threw outside the loop runner — recording as failed", index);
-            slots[index] = BuildFailureResult(spec, index, Guid.NewGuid().ToString("N"), 0m, DescribeFailure(ex));
+            slots[index] = pass.Failure(member, index, ex);
         }
         finally
         {
+            member.End();
             throttle.Release();
         }
     }
 
-    private async Task<SubAgentResult> ExecuteAsync(
-        SubAgentSpec spec, int index, SubAgentContext context, CancellationToken ct)
+    private async Task BackgroundAsync(
+        SubAgentMember member, int index, SubAgentContext context, SemaphoreSlim? throttle, string? turn,
+        Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken ct)
     {
-        using var frame = activityFrame.Open(spec.Name);
-        var subAgentId = $"sa-{Guid.NewGuid():N}".Substring(0, 8);
-        var contextHash = HashInheritedContext(spec.InheritedContext);
-        await PublishSpawnedAsync(spec, subAgentId, context, contextHash, ct);
-
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct, context.Team?.Stopping ?? CancellationToken.None);
+        var result = await BackgroundPassAsync(member, index, context, throttle, turn, stop.Token, ct);
+        member.End();
+        if (result is null || result.Status == SubAgentStatus.Stopped) return;
+        context.Team?.Notices.Post(SubAgentNotice.Of(member, result), SubAgentTeam.NoticeHeading);
         try
         {
-            var request = BuildLoopRequest(spec, subAgentId, context);
-            var loopResult = await loopRunner.RunAsync(request, ct);
-
-            if (SubAgentAnswer.IsRunaway(loopResult.Response.Text)) // 2026-11-10-14a3a: the one cut there is, logged
-                logger.LogWarning("Sub-agent {SubAgentId} ({Name}) ran past {Ceiling} characters; its answer is cut",
-                    subAgentId, spec.Name, SubAgentAnswer.Ceiling);
-            var status = string.IsNullOrWhiteSpace(loopResult.Response.Text) ? SubAgentStatus.Empty : SubAgentStatus.Succeeded;
-
-            // Each child's cost rolls up against the shared per-run tracker.
-            context.CostTracker.Track(loopResult.Response);
-            // The child's own cost, from its response usage at the shared tracker's pricing — race-free under
-            // concurrent children, unlike a before/after delta of the shared tracker.
-            var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
-            var observationsCount = CountObservations(loopResult.Response);
-            var toolCalls = CountToolCalls(loopResult.Response);
-            var answer = SubAgentAnswer.Whole(loopResult.Response.Text); // 2026-11-09-0620e, 14a3a: whole
-
-            await PublishCompletedAsync(
-                subAgentId, context, status,
-                observationsCount, findings: 0, files: 0, toolCalls, costUsd, ct);
-
-            return new SubAgentResult(
-                TaskIndex: index,
-                Status: status,
-                SubAgentId: subAgentId,
-                Name: spec.Name,
-                ToolCalls: toolCalls,
-                CostUsd: costUsd,
-                OccurredAt: DateTimeOffset.UtcNow,
-                Answer: answer);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
+            await finished(member, result);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Sub-agent {SubAgentId} ({Name}) failed inside the loop runner", subAgentId, spec.Name);
-            await PublishCompletedAsync(
-                subAgentId, context, SubAgentStatus.Failed,
-                0, 0, 0, 0, 0m, ct);
-            return BuildFailureResult(spec, index, subAgentId, 0m, DescribeFailure(ex));
+            logger.LogWarning(ex, "Recording sub-agent {SubAgentId}'s end failed", member.Id);
         }
     }
 
-    private AgenticLoopRequest BuildLoopRequest(
-        SubAgentSpec spec, string subAgentId, SubAgentContext context)
+    // Null when the whole run was cancelled: nobody is left to tell.
+    private async Task<SubAgentResult?> BackgroundPassAsync(
+        SubAgentMember member, int index, SubAgentContext context, SemaphoreSlim? throttle, string? turn,
+        CancellationToken stop, CancellationToken ct)
     {
-        // The master grants the child tool surface: read-only for a scan master, read/write
-        // for a coding master, never spawn_agents.
-        var tools = context.ChildTools.ToList();
-        var systemPrompt = BuildSystemPrompt(spec) + SubAgentSituation.Render( // 2026-11-09-0620e
-            context.Sandboxes.Keys, tools, context.ChildIterationCeiling ?? context.AgentConfig.MaxSubAgentLoopIterations);
-        var userPrompt = BuildUserPrompt(spec);
-        // The master's real AgentConfig, passed on the context: the coding-master path never
-        // publishes it to the pipeline, so a lookup there would fail every child at Create.
-        var agentConfig = context.AgentConfig;
-        return new AgenticLoopRequest(
-            AgentConfig: agentConfig,
-            TaskType: TaskType.Primary,
-            SystemPrompt: systemPrompt,
-            UserPrompt: userPrompt,
-            Tools: tools,
-            InheritedContext: spec.InheritedContext,
-            Name: spec.Name,
-            Activity: spec.Activity,
-            SubAgentId: subAgentId,
-            ParentSubAgentId: context.ParentSubAgentId,
-            // p0341c: a child gets a REAL iteration budget instead of the 25 default — a bulk
-            // "replace-all-X across repo Y" chunk stopped mid-way at 25 — and no governor hooks
-            // (no budget-fence/reminder); its cost rolls up to the shared tracker.
-            // 2026-09-22-5891: a master that declared a ceiling for ITS children (a design turn
-            // does) is honoured over the config's, and with no hooks it is the child's only bound.
-            MaxIterations: context.ChildIterationCeiling ?? agentConfig.MaxSubAgentLoopIterations);
-    }
-
-    private static string BuildSystemPrompt(SubAgentSpec spec)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"You are {spec.Name}.");
-        sb.AppendLine($"Activity: {spec.Activity}");
-        if (!string.IsNullOrWhiteSpace(spec.InheritedContext.OptionalSystemPromptBlock))
-            sb.AppendLine(spec.InheritedContext.OptionalSystemPromptBlock);
-        return sb.ToString();
-    }
-
-    private static string BuildUserPrompt(SubAgentSpec spec)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"Pipeline goal: {spec.InheritedContext.PipelineGoal}");
-        sb.AppendLine();
-        sb.AppendLine("Prior context:");
-        sb.AppendLine(spec.InheritedContext.PriorContextSlice);
-        sb.AppendLine();
-        sb.AppendLine($"Your task: {spec.TaskDescription}");
-        if (!string.IsNullOrWhiteSpace(spec.OutputHint))
+        var acquired = false;
+        try
         {
-            sb.AppendLine();
-            sb.AppendLine($"Output hint: {spec.OutputHint}");
+            if (throttle is not null) { await throttle.WaitAsync(stop); acquired = true; }
+            return await pass.RunAsync(member, index, context, turn, stop);
         }
-        return sb.ToString();
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return await pass.StoppedAsync(member, index, context);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Sub-agent {SubAgentId} threw outside the loop runner — recording as failed", member.Id);
+            return pass.Failure(member, index, ex);
+        }
+        finally
+        {
+            if (acquired) throttle!.Release();
+        }
     }
-
-    private Task PublishSpawnedAsync(
-        SubAgentSpec spec, string subAgentId, SubAgentContext context,
-        string contextHash, CancellationToken ct)
-    {
-        var evt = new SubAgentSpawnedEvent(
-            context.MasterRunId, subAgentId, spec.Name, spec.Activity,
-            context.ParentSubAgentId, contextHash, DateTimeOffset.UtcNow);
-        return eventPublisher.PublishAsync(evt, ct);
-    }
-
-    private Task PublishCompletedAsync(
-        string subAgentId, SubAgentContext context, SubAgentStatus status,
-        int observations, int findings, int files, int toolCalls, decimal costUsd,
-        CancellationToken ct)
-    {
-        var evt = new SubAgentCompletedEvent(
-            context.MasterRunId, subAgentId, status.ToString(),
-            observations, findings, files, toolCalls, costUsd, DateTimeOffset.UtcNow);
-        return eventPublisher.PublishAsync(evt, ct);
-    }
-
-    private static SubAgentResult BuildFailureResult(
-        SubAgentSpec spec, int index, string subAgentId, decimal cost, string? failureReason = null) =>
-        new(
-            TaskIndex: index,
-            Status: SubAgentStatus.Failed,
-            SubAgentId: subAgentId,
-            Name: spec.Name,
-            ToolCalls: 0,
-            CostUsd: cost,
-            OccurredAt: DateTimeOffset.UtcNow,
-            FailureReason: failureReason);
-
-    // p0341e: a one-line, operator-readable failure cause from the exception chain (the
-    // innermost message is usually the real reason — e.g. the provider error, not the wrapper).
-    private static string DescribeFailure(Exception ex)
-    {
-        var inner = ex;
-        while (inner.InnerException is not null) inner = inner.InnerException;
-        var message = string.IsNullOrWhiteSpace(inner.Message) ? ex.Message : inner.Message;
-        return $"{inner.GetType().Name}: {message}";
-    }
-
-    private static string HashInheritedContext(InheritedContext ctx)
-    {
-        var payload = $"{ctx.PipelineGoal}\n{ctx.PriorContextSlice}\n{ctx.OptionalSystemPromptBlock}";
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
-        return "sha256:" + Convert.ToHexString(bytes)[..12].ToLowerInvariant();
-    }
-
-    private static int CountObservations(ChatResponse response) =>
-        response.Messages?.Count(m => m.Role == ChatRole.Assistant) ?? 0;
-
-    private static int CountToolCalls(ChatResponse response) =>
-        response.Messages?.Sum(m => m.Contents?.OfType<FunctionCallContent>().Count() ?? 0) ?? 0;
 }

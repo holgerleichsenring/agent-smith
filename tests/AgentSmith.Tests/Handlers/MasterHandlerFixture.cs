@@ -49,7 +49,7 @@ internal static class MasterHandlerFixture
             BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecExecutionPromptFactory(new AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader()),
             TurnFlow(loop),
-            new NoOpTicketDocumentMaterializer(),
+            new MasterTicketExtras(new NoOpTicketDocumentMaterializer()),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
             new AgentSmith.Application.Services.Handlers.MasterTemplateScopes(
@@ -327,6 +327,24 @@ internal static class MasterHandlerFixture
                     TaskIndex: index, Status: SubAgentStatus.Succeeded,
                     SubAgentId: $"sa-{index}", Name: spec.Name, ToolCalls: 0,
                     CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
+        }
+
+        public IReadOnlyList<SubAgentMember> Start(
+            IReadOnlyList<SubAgentSpec> specs, SubAgentContext context,
+            Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken cancellationToken)
+        {
+            lock (_contexts)
+            {
+                _contexts.Add(context);
+                _waves.Add(specs);
+            }
+            return [.. specs.Select(spec => context.Team?.Enlist(spec) ?? SubAgentMember.For(spec))];
+        }
+
+        public void Continue(
+            SubAgentMember member, string message, SubAgentContext context,
+            Func<SubAgentMember, SubAgentResult, Task> finished, CancellationToken cancellationToken)
+        {
         }
     }
 

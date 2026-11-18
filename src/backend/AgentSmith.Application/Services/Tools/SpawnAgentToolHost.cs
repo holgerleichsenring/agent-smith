@@ -56,6 +56,8 @@ public sealed class SpawnAgentToolHost : IToolHost
                      "object with pipeline_goal + prior_context_slice + " +
                      "optional system_prompt_block.")]
         JsonElement tasks,
+        [Description("True starts the children and returns their ids at once; false (the default) waits for their answers.")]
+        bool background = false,
         CancellationToken ct = default)
     {
         var specs = ParseTasks(tasks, out var rejections);
@@ -64,6 +66,7 @@ public sealed class SpawnAgentToolHost : IToolHost
 
         var granted = _budget.TryReserve(specs.Count);
         var (toRun, deferred) = SplitByBudget(specs, granted);
+        if (background && _context.Team is not null) return Started(toRun, rejections, deferred, granted, ct);
 
         var runResults = toRun.Count == 0
             ? Array.Empty<SubAgentResult>()
@@ -71,38 +74,21 @@ public sealed class SpawnAgentToolHost : IToolHost
 
         await LogDecisionAsync(toRun, runResults, ct);
 
-        var combined = new List<object>(rejections.Cast<object>());
-        for (var i = 0; i < runResults.Count; i++)
-        {
-            var r = runResults[i];
-            combined.Add(new
-            {
-                task_index = r.TaskIndex,
-                status = r.Status.ToString(),
-                sub_agent_id = r.SubAgentId,
-                name = r.Name,
-                tool_calls = r.ToolCalls,
-                cost_usd = r.CostUsd,
-                answer = r.Answer, // 2026-11-09-0620e
-            });
-        }
-        for (var i = 0; i < deferred.Count; i++)
-        {
-            combined.Add(new
-            {
-                task_index = granted + i,
-                status = SubAgentStatus.Failed.ToString(),
-                sub_agent_id = (string?)null,
-                name = deferred[i].Name,
-                observations_count = 0, findings_count = 0, files_written_count = 0,
-                tool_calls = 0,
-                cost_usd = 0m,
-                reason = "budget_exhausted",
-                detail = _budget.Exhausted, // 2026-11-17-274ca
-            });
-        }
+        var combined = rejections.Concat(runResults.Select(SpawnResultRows.Answered))
+            .Concat(SpawnResultRows.Refused(deferred, granted, _budget.Exhausted)).ToList();
         var cut = runResults.Any(r => r.Answer?.StartsWith(SubAgentAnswer.CallCutPrefix, StringComparison.Ordinal) == true); // 85e2
         return JsonSerializer.Serialize(cut ? new { cut = SubAgentAnswer.CallCutLine, results = combined, granted } : (object)new { results = combined, granted });
+    }
+
+    // 2026-11-18-c8e2a: the children run in the background; each one's decision line is logged when it finishes.
+    private string Started(
+        IReadOnlyList<SubAgentSpec> toRun, List<object> rejections, IReadOnlyList<SubAgentSpec> deferred, int granted,
+        CancellationToken ct)
+    {
+        var members = toRun.Count == 0 ? [] : _runner.Start(toRun, _context,
+            (member, result) => LogDecisionAsync([member.Spec], [result], CancellationToken.None), ct);
+        var rows = rejections.Concat(members.Select(SpawnResultRows.Started)).Concat(SpawnResultRows.Refused(deferred, granted, _budget.Exhausted));
+        return JsonSerializer.Serialize(new { results = rows.ToList(), granted });
     }
 
     private List<SubAgentSpec> ParseTasks(JsonElement tasks, out List<object> rejections)

@@ -123,7 +123,10 @@ public sealed class SpawnAgentToolHostTests
         var (host, _) = BuildHost(new CountingLoopRunner());
 
         host.GetTools(null, null).Single().Description.Should().Be(
-            "Runs sub-agents in parallel, each in a fresh context, and returns when all have finished. Each task needs a "
+            "Runs sub-agents in parallel, each in a fresh context, and returns when all have finished — or, with background "
+            + "true, at once with their ids: each then works beside you, its answer reaches you with a later tool result, "
+            + "send_message writes to it while it works or continues it once it finished, and wait_for_agents waits for the "
+            + "next to finish. Each task needs a "
             + "descriptive name (a role, not 'agent1' or 'worker' — generic names are refused), a one-line activity, the "
             + "task description, and the inherited context: the goal and the slice of what you know that the child needs, "
             + "because it sees nothing else of your conversation. A child works in your checkouts with the base file and "
@@ -132,15 +135,61 @@ public sealed class SpawnAgentToolHostTests
             + "what a good answer holds, and only a runaway past 60000 characters is cut, saying so first.");
     }
 
+    [Fact]
+    public async Task SpawnAgents_Background_ReturnsTheIdsBeforeTheChildrenFinish()
+    {
+        var gate = new TaskCompletionSource();
+        var team = new SubAgentTeam(NullLogger.Instance);
+        var (sut, logger) = BuildHost(new GatedLoopRunner(gate.Task), team: team);
+
+        var result = await sut.GetTools(null, null).Single().InvokeAsync(new AIFunctionArguments
+        {
+            ["tasks"] = JsonDocument.Parse("""
+                [{"name":"EndpointBuilder","activity":"build","task_description":"t",
+                  "inherited_context":{"pipeline_goal":"g","prior_context_slice":"s"}}]
+                """).RootElement,
+            ["background"] = true,
+        });
+
+        var id = JsonDocument.Parse(result!.ToString()!).RootElement.GetProperty("results")[0].GetProperty("sub_agent_id").GetString();
+        team.Find(id!)!.IsRunning.Should().BeTrue("the call returned while its child still works");
+        logger.Decisions.Should().BeEmpty("a background child's line is logged when it finishes");
+        gate.SetResult();
+        await team.Find(id!)!.Pass;
+        team.Notices.Count.Should().Be(1);
+        logger.Decisions.Should().ContainSingle().Which.Decision.Should().Contain("EndpointBuilder");
+    }
+
+    [Fact]
+    public async Task SpawnAgents_Waited_EnlistsItsChildrenInTheTeam()
+    {
+        var team = new SubAgentTeam(NullLogger.Instance);
+        var (sut, _) = BuildHost(new CountingLoopRunner(), team: team);
+
+        await Invoke(sut, """
+        [{"name":"EndpointBuilder","activity":"build","task_description":"t",
+          "inherited_context":{"pipeline_goal":"g","prior_context_slice":"s"}}]
+        """);
+
+        team.Members.Should().ContainSingle().Which.IsRunning.Should().BeFalse();
+        team.Notices.Count.Should().Be(0, "a waited child's answer came back in the call itself");
+    }
+
+    private sealed class GatedLoopRunner(Task gate) : IAgenticLoopRunner
+    {
+        public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
+        {
+            await gate;
+            return new AgenticLoopResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "built")), TimeSpan.Zero);
+        }
+    }
+
     private static (SpawnAgentToolHost host, RecordingDecisionLogger logger) BuildHost(
-        IAgenticLoopRunner loopRunner, int budget = 100, int? childCeiling = null)
+        IAgenticLoopRunner loopRunner, int budget = 100, int? childCeiling = null, SubAgentTeam? team = null)
     {
         var publisher = new RecordingEventPublisher();
         var limits = new LoopLimitsConfig { MaxConcurrentSubAgents = 4 };
-        var runner = new SubAgentRunner(loopRunner, publisher, limits,
-            new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
-                new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
-            NullLogger<SubAgentRunner>.Instance);
+        var runner = AgentSmith.Tests.SubAgents.SubAgentRunnerTests.Compose(loopRunner, publisher, limits);
         var pipeline = new PipelineContext();
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
         var context = new SubAgentContext(
@@ -149,7 +198,7 @@ public sealed class SpawnAgentToolHostTests
             ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
             Budget: new SubAgentBudget(budget),
             AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" },
-            ChildIterationCeiling: childCeiling);
+            ChildIterationCeiling: childCeiling, Team: team);
         var logger = new RecordingDecisionLogger();
         return (
             new SpawnAgentToolHost(

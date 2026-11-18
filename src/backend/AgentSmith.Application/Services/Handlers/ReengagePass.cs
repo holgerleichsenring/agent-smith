@@ -46,6 +46,7 @@ public sealed class ReengagePass(
                 await ReadChangedPathsAsync(s.Context.Pipeline, ct), MasterPipelineFacts.StagedRegistries(s.Context.Pipeline));
             var reengaged = await loopRunner.RunAsync(
                 s.Request with { UserPrompt = nudge, PriorMessages = s.Conversation.Thread() }, ct);
+            if (s.Team is not null) await s.Team.StopAsync(); // 2026-11-18-c8e2a
             s.Conversation.Continued(nudge, reengaged.Response);
             // p0341e: a no-op for the coding master — its governor hook already recorded the spend.
             s.TrackMasterResponse(reengaged.Response);

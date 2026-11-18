@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-c8e2a
+goal: "A master can start a sub-agent in the background, is told when it finishes, can write to it while it works, and can continue a finished one with feedback."
+
+applies_to: "default (Application/Services/Loop: SubAgentRunner, ISubAgentRunner, SubAgentContext, new SubAgentTeam/SubAgentMember/SubAgentInbox; Tools/SpawnAgentToolHost, SpawnAgentsDescription, new SubAgentTeamToolHost; Handlers/MasterToolComposition, AgenticMasterHandler; Turns/MidTurnMessageTools, MidTurnMessageAIFunction; Contracts/Turns/MidTurnMessage)"
+
+facts:
+  - claim: "spawn_agents is one blocking call: the host awaits ISubAgentRunner.RunAsync, which awaits Task.WhenAll of every child and returns their answers once; a child has an id in the result but nothing can address it afterwards."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:55-104, src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:32-50"
+  - claim: "A child's loop request is built from its spec (system prompt, user prompt, the master-granted ChildTools, its iteration ceiling) and its final text is its answer; SubAgentSpawned/Completed events are published around it."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:68-125, src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:127-156"
+  - claim: "What the operator writes while a master works reaches it through IMidTurnMessages: MidTurnMessageTools wraps the master's functions in MidTurnMessageAIFunction, which appends each drained message to the next tool result under 'The operator wrote while you were working'. Sources: the design turn's seeded inbox, a code run's TicketRunMessages, a series beat's SeriesMidTurnMessages."
+    evidence: "src/backend/AgentSmith.Application/Services/Turns/MidTurnMessageTools.cs:17-36, src/backend/AgentSmith.Application/Services/Turns/MidTurnMessageAIFunction.cs:19-45, src/backend/AgentSmith.Application/Services/Series/SeriesMidTurnMessages.cs:8-20"
+  - claim: "The master's tool surface is composed once per master step in MasterToolComposition.Compose, which builds the SubAgentContext and the SpawnAgentToolHost; AgenticMasterHandler then wraps the composed tools with midTurn.Delivering."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:96-118, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:372-376"
+  - claim: "A loop request can continue a conversation: AgenticLoopRequest.PriorMessages is put between the system prompt and the new user turn, and MasterConversation keeps such a thread by appending."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRequest.cs:44-50, src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:44-47, src/backend/AgentSmith.Application/Services/Handlers/MasterConversation.cs:30-61"
+
+scope:
+  in: "A per-master-step team (SubAgentTeam) holds every child the master started: id, name, its own inbox and its transcript. spawn_agents gains 'background': false keeps today's call (waits, answers inline), true returns the ids at once and the children run inside the step. Every child, waited or not, is a team member. A finished child posts a notice (its name, id, status, whole answer) to the team's notices, an IMidTurnMessages the master's tools drain beside the operator's messages (or alone where there is no operator source: a scan master, a ticketless run, the ticket steward), under a heading of its own; a background child's decision line is logged when its notice is posted. New tools on the master beside spawn_agents: send_message(agent_id, text) — to a running child it reaches the child with its next tool result (the child's functions are wrapped by MidTurnMessageAIFunction over its inbox); to a finished child it continues the child in the background over its kept transcript; wait_for_agents returns once a notice waits or no child runs. MidTurnMessage gains an optional heading. A child does not outlive its master's loop: after each loop of the master returns (first pass, apply drive, verdict nudge, re-engagement), the handler stops the children still running and waits for them before it reads the changes; a stopped child's edits stay in the tree and are read with the rest, it publishes SubAgentCompleted with status Stopped and posts no notice. A continuation publishes Completed again; Spawned once per child. While children run the master keeps its whole surface (gate stage, progress, files): the master leads and decides when to look."
+  out: "Children of children (a child still never gets spawn_agents or the team tools). Persisting a child's transcript across master steps or a resume. Any change to the coding master's role (2026-11-18-c8e2b). New limits: a continuation reserves no budget, the existing per-run fan-out and child iteration ceiling stay as they are."
+
+upgrade_impact: "None to configure. Every master that can spawn (coding, scan, design turn, steward) lists send_message and wait_for_agents beside spawn_agents, so its tool list changes once; the skills learn of the tools in 2026-11-18-c8e2b."
+
+steps:
+  - id: inbox
+    action: "MidTurnMessage(Text, At, Heading = null); MidTurnMessageAIFunction writes message.Heading ?? its operator heading. SubAgentInbox : IMidTurnMessages — thread-safe post/drain, Count; Lead is a no-op."
+  - id: team
+    action: "SubAgentMember (id, name, spec, inbox, transcript, running task); SubAgentTeam (members by id, Notices inbox, Enlist, Message, Continue, WaitAsync, Running, DisposeAsync cancelling and awaiting running children). SubAgentContext gains Team."
+  - id: runner
+    action: "SubAgentRunner: every child is enlisted in the team; its tools are wrapped over its inbox; its transcript is kept (first pass and each continuation); on finish it posts its notice when it ran in the background. RunAsync(specs) keeps waiting; Start(specs) and Continue(member, text) run in the background."
+  - id: tools
+    action: "spawn_agents takes background; SubAgentTeamToolHost exposes send_message and wait_for_agents; MasterToolComposition builds the team tools beside spawn_agents from the team the handler hands it; AgenticMasterHandler creates the team per step, passes its notices to MidTurnMessageTools.Delivering and disposes it when the step returns."
+
+tests:
+  - "SubAgentTeamLoopTests (real AgenticLoopRunner, a chat client scripted per agent): a background child receives a message the master sends mid-way with its next tool result; a finished child's answer reaches the master with its next tool result; send_message to a finished child continues it with its earlier transcript in the request; wait_for_agents returns once the child finished; disposing the team cancels a running child."
+  - "MidTurnMessageToolsTests: notices wrap a scan master's and the steward's tools with no operator source; a stopped child publishes Completed with Stopped and posts no notice."
+  - "SpawnAgentToolHostTests: background returns ids without waiting; the waited call still returns answers inline and enlists its children; SubAgentRunnerTests stay green."
+  - "MidTurnMessageToolsTests: a message's own heading is written; the team's notices are drained beside the operator's."
+
+done:
+  - "spawn_agents with background true returns the children's ids before they finish, and each finished child's answer reaches the master with its next tool result."
+  - "send_message reaches a running child with its next tool result, and continues a finished child over its kept transcript."
+  - "spawn_agents without background behaves as before for the design turn and scan masters, and SubAgentSpawned is published once per child, SubAgentCompleted per finished or stopped pass."
+  - "No child is still running when the master handler reads its changes after a loop."

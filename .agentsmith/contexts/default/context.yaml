@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-c8e2a: "SUB-AGENT TEAM AND MESSAGES (SubAgentTeam, SubAgentInbox, SubAgentTeamToolHost, spawn_agents background). A master starts children in the background, hears when one finishes with its next tool result, writes to a running one and continues a finished one over its conversation; children stop with the master's loop. -> .agentsmith/specs/done/2026-11-18-c8e2a-subagent-team-messages.yaml"
     2026-11-18-9fae: "RUNLOG STEP OPEN KEEPS SECTION (RunSectionedLog). Only the step named on arrival opens its section; a step clicked in a section the person opened no longer cancels their toggle and closes it. -> .agentsmith/specs/done/2026-11-18-9fae-runlog-step-open-section.yaml"
     2026-11-18-550ac: "SKILLS PIN v5.35.0 (embedded catalog, SpecCutVerdicts, skill-text tests, docs). Design partner 3.5.0 cuts one ticket per theme, steward 1.2.3 reads what its answer depends on, derivation 1.10.1 makes the done list the verdict; DONE DROPPED excepts a process item. -> .agentsmith/specs/done/2026-11-18-550ac-skills-pin-v5350.yaml"
     2026-11-18-550ab: "VERIFIER READS THE PREVIOUS ATTEMPT (PreviousAttemptFindings, IRunSpecAcceptanceReader, AccountRecord, AccountRecordPrompt). After a failed attempt, the retry's verification of a spec gets that attempt's stored unmet findings and the files the retry changed; a gap missed before in untouched code is advice. -> .agentsmith/specs/done/2026-11-18-550ab-verifier-previous-attempt-findings.yaml"

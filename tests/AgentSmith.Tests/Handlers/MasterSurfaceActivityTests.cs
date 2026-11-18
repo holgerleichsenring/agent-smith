@@ -25,7 +25,7 @@ public sealed class MasterSurfaceActivityTests
         await RunAsync(loop, SpecDialog: true);
 
         loop.SeenRequests[0].Tools.OfType<AIFunction>().Should().NotBeEmpty()
-            .And.OnlyContain(tool => tool is ActivityReportingAIFunction);
+            .And.OnlyContain(tool => tool.UnderMidTurn() is ActivityReportingAIFunction);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public sealed class MasterSurfaceActivityTests
         await RunAsync(loop, SpecDialog: false);
 
         loop.SeenRequests[0].Tools.OfType<AIFunction>().Should().NotBeEmpty()
-            .And.NotContain(tool => tool is ActivityReportingAIFunction);
+            .And.NotContain(tool => tool.UnderMidTurn() is ActivityReportingAIFunction);
     }
 
     private static async Task RunAsync(RecordingLoopRunner loop, bool SpecDialog)

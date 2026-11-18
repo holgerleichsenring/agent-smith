@@ -237,11 +237,16 @@ public sealed class SubAgentRunnerTests
     {
         var limits = new LoopLimitsConfig { MaxConcurrentSubAgents = maxConcurrent };
         var pub = publisher ?? new RecordingEventPublisher();
-        return new SubAgentRunner(loopRunner, pub, limits,
-            new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
-                new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
-            NullLogger<SubAgentRunner>.Instance);
+        return AgentSmith.Tests.SubAgents.SubAgentRunnerTests.Compose(loopRunner, pub, limits);
     }
+
+    /// <summary>2026-11-18-c8e2a: the runner over a real pass, request builder and events.</summary>
+    internal static SubAgentRunner Compose(IAgenticLoopRunner loopRunner, IEventPublisher publisher, LoopLimitsConfig limits) =>
+        new(new SubAgentPass(loopRunner, new SubAgentRequestBuilder(), new SubAgentEvents(publisher),
+                new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
+                    new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
+                NullLogger<SubAgentPass>.Instance),
+            limits, NullLogger<SubAgentRunner>.Instance);
 
     internal static SubAgentContext BuildContext(
         IReadOnlyDictionary<string, ISandbox>? sandboxes = null)

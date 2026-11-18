@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-c8e2a
+
+decisions:
+  - category: Architecture
+    chose: "One spawn_agents tool with a 'background' flag (default false = today's waited call); every child of either kind joins the step's team"
+    over: "A second start tool beside spawn_agents, or making every spawn background"
+    reason: |
+      The design turn's and scan masters' skills read answers inline; flipping the default would break them until their
+      skills change, and a second start tool would be a second path into the same runner. With the flag both shapes are
+      one mechanism: enlisted, addressable, continuable.
+  - category: Architecture
+    chose: "A child's answer and a master's word travel as MidTurnMessages through IMidTurnMessages (SubAgentInbox), appended to the reader's next tool result by MidTurnMessageAIFunction"
+    over: "A separate inbox or a polling tool that returns answers itself"
+    reason: |
+      The operator's mid-turn messages already reach a master this way; the team's notices are a second source
+      combined with the operator's (CombinedMidTurnMessages), and a child's inbox is the same type over the child's
+      functions. MidTurnMessage gained an optional heading so each source says who wrote.
+  - category: Behaviour
+    chose: "The team lives for one master step; after each loop of the master (first pass, apply drive, verdict nudge, every re-engagement pass) the handler stops the children still running and waits for them before reading the changes"
+    over: "Keeping children for the whole run, or stopping them only when the handler returns"
+    reason: |
+      Review cut: the handler reads fs and the ledger right after each loop and the commit follows; a child still
+      editing then would leave half-applied work the record does not list. A stopped child's edits stay in the tree
+      (they are real writes the file tool already recorded) and are read with the rest; it publishes Completed with
+      the new status Stopped and posts no notice.
+  - category: Behaviour
+    chose: "Notices wrap the master's tools even with no operator source (scan master, ticketless run) and on the ticket steward"
+    over: "Wrapping only where an operator source exists"
+    reason: "Review cut: MidTurnMessageTools returned the surface unwrapped there, so a background child's answer would never arrive. Tests that asserted the outermost wrapper now look one layer under it."
+  - category: TradeOff
+    chose: "While children run the master keeps its whole surface, gate stage and update_progress included"
+    over: "Hiding those tools while a child runs"
+    reason: "The master leads: deciding when to look at a child's work, run a gate or wait is its judgment, as in a Claude Code session. A gate run beside an editing child shows a moment of the tree, which the master can read as such."
+  - category: TradeOff
+    chose: "A continuation reserves no fan-out budget; each pass is bounded by the child's iteration ceiling and the master's own iterations"
+    over: "Reserving one budget slot per continuation"
+    reason: "A continuation is the same child, not a new one; the budget counts children. No new limit is added."
+  - category: Implementation
+    chose: "A background child's decision line is logged when it finishes; notices are each whole (the per-answer runaway ceiling) and do not count against the per-call ceiling"
+    over: "Logging at start with no result"
+    reason: "Review finding: the decision zipped specs with results, which a background call does not have when it returns."
+  - category: Implementation
+    chose: "A message posted to a child just as it finishes is not lost: the notice says the child ended before reading it, and a continuation opens with the unread words"
+    over: "Locking the child's whole pass against posting"
+    reason: "TryPost and the end of a pass share a lock on the member; whatever the inbox still holds afterwards is carried into the continuation."
+  - category: Architecture
+    chose: "SubAgentRunner split into SubAgentPass (one pass), SubAgentRequestBuilder and SubAgentEvents; the handler's ticket extras moved to MasterTicketExtras; spawn result rows to SpawnResultRows"
+    over: "Growing SubAgentRunner, SpawnAgentToolHost and AgenticMasterHandler past their ratchet baselines"
+    reason: "FileLengthRatchetTests lets a file over the limit only shrink; each of these is its own responsibility, and the split leaves every file shorter than before."

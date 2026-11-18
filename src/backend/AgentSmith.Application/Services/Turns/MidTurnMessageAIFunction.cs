@@ -20,6 +20,9 @@ public sealed class MidTurnMessageAIFunction(AIFunction inner, IMidTurnMessages 
 {
     public const string Heading = "The operator wrote while you were working";
 
+    /// <summary>The function it hands messages on for.</summary>
+    public AIFunction Inner => inner;
+
     public override string Name => inner.Name;
     public override string Description => inner.Description;
     public override JsonElement JsonSchema => inner.JsonSchema;
@@ -37,7 +40,7 @@ public sealed class MidTurnMessageAIFunction(AIFunction inner, IMidTurnMessages 
     {
         var text = new StringBuilder(result);
         foreach (var message in waiting)
-            text.Append("\n\n").Append(Heading).Append(" (")
+            text.Append("\n\n").Append(message.Heading ?? Heading).Append(" (")
                 .Append(message.At.UtcDateTime.ToString("HH:mm", CultureInfo.InvariantCulture)).Append("):\n")
                 .Append(message.Text);
         return text.ToString();

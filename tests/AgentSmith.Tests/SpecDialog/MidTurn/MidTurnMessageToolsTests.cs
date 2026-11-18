@@ -58,6 +58,45 @@ public sealed class MidTurnMessageToolsTests
         result!.ToString().Should().Be("file text");
     }
 
+    [Fact]
+    public async Task Delivering_ScanMasterWithNoOperatorSource_HandsOnTheTeamsNotices()
+    {
+        var notices = new AgentSmith.Application.Services.Loop.SubAgentInbox();
+        var tools = new MidTurnMessageTools().Delivering(_tools, Context("api-security-master", new PipelineContext()), notices);
+        notices.Post("RepoScout (sa-1) ended: Succeeded.\nfound two routes", "A sub-agent finished");
+
+        var result = await tools.Single().Should().BeOfType<MidTurnMessageAIFunction>().Which.InvokeAsync(new AIFunctionArguments());
+
+        result!.ToString().Should().Contain("A sub-agent finished (").And.Contain("found two routes");
+    }
+
+    [Fact]
+    public void Delivering_TicketStewardWithNotices_WrapsForTheNoticesAndStillLeadsAsSteward()
+    {
+        var messages = new Mock<IMidTurnMessages>();
+
+        var tools = new MidTurnMessageTools().Delivering(
+            _tools, Context(PipelinePresets.TicketStewardMaster, Seeded(messages.Object)),
+            new AgentSmith.Application.Services.Loop.SubAgentInbox());
+
+        tools.Should().ContainSingle().Which.Should().BeOfType<MidTurnMessageAIFunction>();
+        messages.Verify(m => m.Lead(true), Times.Once);
+        messages.Verify(m => m.DrainAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MidTurnMessageAIFunction_AMessageWithItsOwnHeading_IsWrittenUnderIt()
+    {
+        var messages = new Mock<IMidTurnMessages>();
+        messages.Setup(m => m.DrainAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new MidTurnMessage("add a test", DateTimeOffset.UtcNow, "Your master wrote while you were working")]);
+
+        var result = await new MidTurnMessageAIFunction(AIFunctionFactory.Create(() => "ok", "read_file"), messages.Object)
+            .InvokeAsync(new AIFunctionArguments());
+
+        result!.ToString().Should().Contain("Your master wrote while you were working (").And.NotContain(MidTurnMessageAIFunction.Heading);
+    }
+
     private static PipelineContext Seeded(IMidTurnMessages messages)
     {
         var pipeline = new PipelineContext();

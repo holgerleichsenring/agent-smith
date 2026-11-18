@@ -45,7 +45,7 @@ public sealed class MasterToolComposition(
         WebToolHost? web, ProgressLedgerToolHost progress,
         WithdrawFiledTicketToolHost? withdraw, ReadTicketToolHost? readTicket,
         TicketWorkToolHost? ticketWork, TicketRunsToolHost? ticketRuns,
-        AgenticMasterContext context)
+        AgenticMasterContext context, SubAgentTeam team)
     {
         Loop.Sanity.RefusedWriteLog.OpenFresh(context.Pipeline); // 2026-10-17-a196a: this step's refusals only
         // p0380: recall (read) + remember (memory-only proposal) join EVERY master surface, including Review/scan.
@@ -112,8 +112,9 @@ public sealed class MasterToolComposition(
             ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
             Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
-            ChildIterationCeiling: isSpecDialog ? context.AgentConfig.DialogSubAgentLoopIterations : null); // cd4cl
-        var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx);
-        return sanity.Wrap(master.Concat(spawn.GetTools(null, null)), context.Pipeline);
+            ChildIterationCeiling: isSpecDialog ? context.AgentConfig.DialogSubAgentLoopIterations : null, // cd4cl
+            Team: team); // 2026-11-18-c8e2a
+        var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx).GetTools(null, null);
+        return sanity.Wrap([.. master, .. spawn, .. new SubAgentTeamToolHost(team, subAgentRunner, subCtx, decisionLogger).GetTools(null, null)], context.Pipeline);
     }
 }

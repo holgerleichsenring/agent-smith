@@ -26,7 +26,9 @@ internal sealed record ReengageSession(
     TicketClarificationToolHost? TicketClarifications,
     MasterConversation Conversation,
     Action<int> SetPass,
-    Contracts.Decisions.IDecisionLogger? Decisions = null);
+    Contracts.Decisions.IDecisionLogger? Decisions = null,
+    // 2026-11-18-c8e2a: the step's sub-agents, stopped after each drive before its changes are read.
+    SubAgentTeam? Team = null);
 
 /// <summary>2026-10-13-9a59f: the loop's result so far — the last drive, the run's changes, the standing verdict.</summary>
 internal sealed record ReengageState(
