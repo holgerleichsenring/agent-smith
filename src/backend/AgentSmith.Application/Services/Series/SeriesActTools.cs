@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-17-0207a: what the series master does — through the paths a person's act takes, as the series' approver.
 /// Start, retry and tell reach a member ticket; a re-cut is proposed to the operator in the conversation; stop ends the
-/// series and hands the conversation back to the design partner.
+/// series and hands the conversation back to the design partner. 2026-11-18-3863h: deploy, to a no-approval environment.
 /// </summary>
 public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISeriesRunStore store)
 {
@@ -18,7 +18,20 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         AIFunctionFactory.Create(TellTicketAsync, "tell_ticket"),
         AIFunctionFactory.Create(ProposeRecut, "propose_recut"),
         AIFunctionFactory.Create(StopSeriesAsync, "stop_series"),
+        AIFunctionFactory.Create(DeployAsync, "deploy"), // 2026-11-18-3863h
     ];
+
+    [Description("Starts a deploy of a context to an environment its deployment binding delivers without a person's approval, as a person's Deploy does; an approval environment is refused. Name the version for an entry environment; leave it empty for one that promotes from another.")]
+    public async Task<string> DeployAsync(
+        [Description("The context of the project to deliver.")] string context, [Description("The environment.")] string environment,
+        [Description("The version (a tag or commit); empty to promote.")] string? version = null,
+        [Description("The member ticket whose page lists the deploy, if any.")] string? ticket = null, CancellationToken ct = default)
+    {
+        if (!beat.Record.MayStartRuns)
+            return $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series deploys nothing.";
+        var listed = ticket is null ? null : SeriesTicketLookup.Find(beat, ticket)?.Ticket.TicketId;
+        return await acts.DeployAsync(beat.Record.Project, context, environment, string.IsNullOrWhiteSpace(version) ? null : version, listed, ct);
+    }
 
     [Description("Starts a ticket no run has worked yet, once the tickets it requires are met.")]
     public Task<string> StartTicketAsync([Description("The ticket's key or id.")] string ticket, CancellationToken ct = default) =>

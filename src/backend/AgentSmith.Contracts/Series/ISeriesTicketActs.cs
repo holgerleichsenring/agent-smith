@@ -15,4 +15,9 @@ public interface ISeriesTicketActs
     Task<string> TellAsync(
         string project, string ticketId, string text, string principal, bool mayStartRuns,
         CancellationToken cancellationToken);
+
+    /// <summary>2026-11-18-3863h: a 'deploy' run through the entry a person's deploy takes, for an environment the
+    /// binding delivers without approval only; listed on <paramref name="ticketId"/> when one is named.</summary>
+    Task<string> DeployAsync(
+        string project, string context, string environment, string? version, string? ticketId, CancellationToken cancellationToken);
 }

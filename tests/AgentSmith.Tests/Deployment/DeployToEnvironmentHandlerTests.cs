@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
@@ -25,6 +26,9 @@ public sealed class DeployToEnvironmentHandlerTests
             It.Is<IReadOnlyList<RepoFile>>(f => f.Single().Path == "deploy/test/kustomization.yaml"
                 && f.Single().Content == DeployFixture.Manifest("v2")),
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        fixture.Published.OfType<DeployDeliveredEvent>().Single().Should().Match<DeployDeliveredEvent>(e => // 2026-11-18-3863f
+            e.RunId == "20261118-0101-ab12" && e.Environment == "test" && e.Version == "v2" && e.Repo == "app"
+            && e.PullRequestUrl == "https://stub.test/app/pull/1" && e.PipelineRunId == null);
     }
 
     [Fact]
@@ -63,6 +67,7 @@ public sealed class DeployToEnvironmentHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("already carries it");
+        fixture.Published.Should().BeEmpty("nothing was delivered, so nothing is followed");
         fixture.App.Verify(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(),
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }

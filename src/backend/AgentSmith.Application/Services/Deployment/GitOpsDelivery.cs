@@ -11,20 +11,20 @@ namespace AgentSmith.Application.Services.Deployment;
 /// </summary>
 public sealed class GitOpsDelivery(ISourceProviderFactory sources, DeployCiStatus ci)
 {
-    /// <summary>Whether the pull request stands, and the sentence that says where it stands.</summary>
-    public async Task<(bool Opened, string Sentence)> DeliverAsync(GitOpsOrder order, CancellationToken cancellationToken)
+    /// <summary>Whether the pull request stands, the sentence that says where it stands, and its url.</summary>
+    public async Task<(bool Opened, string Sentence, string? Url)> DeliverAsync(GitOpsOrder order, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(order);
         var provider = sources.Create(order.Repo);
         var write = await provider.WriteFilesToBranchAsync(
             order.Branch, [new RepoFile(order.Path, order.Content)], order.Title, cancellationToken);
-        if (!write.Written) return (false, $"the manifest could not be written to `{order.Branch.Value}`: {write.Error}");
+        if (!write.Written) return (false, $"the manifest could not be written to `{order.Branch.Value}`: {write.Error}", null);
         var url = await provider.CreatePullRequestAsync(
             new Repository(order.Branch, order.Repo.Url), order.Title, order.Body, cancellationToken);
         var stands = order.Approval
             ? $"pull request {url} waits for a person to merge it"
             : Merged(url, await provider.MergePullRequestAsync(url, order.Branch, order.Protection, cancellationToken));
-        return (true, $"{stands}; {await ci.ReadAsync(provider, url, order.Ci, cancellationToken)}");
+        return (true, $"{stands}; {await ci.ReadAsync(provider, url, order.Ci, cancellationToken)}", url);
     }
 
     private static string Merged(string url, PullRequestCompletion merge) => merge.Outcome switch

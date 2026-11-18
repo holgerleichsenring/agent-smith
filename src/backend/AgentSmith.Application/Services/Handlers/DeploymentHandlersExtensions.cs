@@ -12,5 +12,7 @@ public static class DeploymentHandlersExtensions
         services.AddTransient<DeploymentDeclarationParser>().AddTransient<ManifestVersionKey>()
             .AddTransient<DeploymentManifest>().AddTransient<DeployVersion>().AddTransient<DeployCiStatus>()
             .AddTransient<DeploymentTemplateRead>().AddTransient<DeployManifestPlan>().AddTransient<GitOpsDelivery>()
+            .AddTransient<IDeployDelivery, GitOpsDeployDelivery>().AddTransient<DeployDeliveredPublisher>() // 3863e, 3863f
+            .AddTransient<DeployPipelinePlan>().AddTransient<PipelineDelivery>().AddTransient<IDeployDelivery, PipelineDeployDelivery>()
             .AddTransient<ICommandHandler<DeployToEnvironmentContext>, DeployToEnvironmentHandler>();
 }

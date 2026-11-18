@@ -46,6 +46,9 @@ projects:
         environments:
           - name: test
             approval: false
+          - name: preview
+            repo: gitops
+            approval: false
           - name: prod
             repo: gitops
   fixture-platform:

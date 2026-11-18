@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.SpecDialog.Writes;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -39,7 +40,7 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
                 "The design-partner master produced no reply text."));
         if (string.IsNullOrWhiteSpace(answer)) answer = $"The draft holds {ProposalDraftHolding.Of(slot.Proposal.Current)}.";
 
-        slot.Reply = answer;
+        slot.Reply = WithSuggestion(answer, outcome, context.Pipeline); // 2026-11-18-3863g
         // 2026-11-10-d854a: every review path ends here, so the questions and the turn's total spend are set once.
         slot.Outcome = outcome with
         {
@@ -51,5 +52,12 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
         slot.Stewarded = context.Pipeline.TryGet<string>(ContextKeys.MasterSkillName, out var master)
             && string.Equals(master, PipelinePresets.TicketStewardMaster, StringComparison.Ordinal);
         return Task.FromResult(CommandResult.Ok("Spec-dialog reply collected"));
+    }
+
+    private static string WithSuggestion(string answer, OutcomeProposal outcome, PipelineContext pipeline)
+    {
+        var project = pipeline.TryGet<ResolvedProject>(ContextKeys.SpecDialogProject, out var p) ? p : null;
+        var grounded = pipeline.TryGet<IReadOnlyList<ContextDocument>>(ContextKeys.RepoContextYamls, out var g) ? g : null;
+        return DeployableSuggestion.Of(outcome, project, grounded) is { } line ? $"{answer}\n\n{line}" : answer;
     }
 }

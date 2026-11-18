@@ -23,7 +23,7 @@ internal static class RunEventAppliers
         new RunRowFamily(
             new RunStartProjection(new(), NullLogger<RunStartProjection>.Instance, activity),
             finalization: new(new(), budget), checkpoints: new(), expectations: new(),
-            pullRequests: new(), classification: new()),
+            pullRequests: new(), classification: new(), deploys: new()),
         new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
         new RunSandboxFamily(new(new(), new(), new()), new()),
         new RunSpecFamily(new(), new(new())),

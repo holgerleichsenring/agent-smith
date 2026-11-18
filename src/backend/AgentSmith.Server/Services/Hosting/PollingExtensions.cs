@@ -41,6 +41,9 @@ internal static class PollingExtensions
             sp.GetRequiredService<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>().Health);
 
         services.AddSingleton<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>(); // 2026-10-14-dbceg
+        services.AddSingleton<AgentSmith.Server.Services.Deployment.DeployFollow>().AddSingleton<AgentSmith.Server.Services.Deployment.DeployFollowPass>() // 2026-11-18-3863f
+            .AddScoped<AgentSmith.Server.Services.Deployment.DeployPromotion>(); // 2026-11-18-3863h
+        services.TryAddScoped<AgentSmith.Server.Services.Deployment.DeployLauncher>(); // what a promotion launches through
         services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>());
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>().Health);
 

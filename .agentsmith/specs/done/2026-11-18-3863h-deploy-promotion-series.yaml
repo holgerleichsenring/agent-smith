@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863h
+goal: "Once a deploy settles green, the environments that promote from it and need no approval are deployed automatically, and the series master can start a deploy through the ticket page's entry."
+
+applies_to: "default (deploy event and record, deploy follow, series acts and tools)"
+
+requires: [2026-11-18-3863c, 2026-11-18-3863f, 2026-11-17-0207a]
+
+upgrade_impact: "Only environments an operator set to approval: false are ever deployed without a person; approval stays on by default. A new column (DeployRecords.PromotesTo) on SQLite, SQL Server and PostgreSQL."
+
+facts:
+  - claim: "DeployLauncher is the one entry that starts a deploy run; the ticket page's endpoint calls it."
+    evidence: "src/backend/AgentSmith.Server/Services/Deployment/DeployLauncher.cs:14-36, src/backend/AgentSmith.Server/Extensions/DeploymentEndpoints.cs:24-36"
+  - claim: "promotes_from lives in the template's deployment.yaml, which only the deploy run reads (through a template scope); approval lives in the binding."
+    evidence: "src/backend/AgentSmith.Application/Services/Deployment/DeploymentTemplateRead.cs:14-30, src/backend/AgentSmith.Contracts/Models/Configuration/DeploymentEnvironment.cs:10-16"
+  - claim: "The deploy follow settles records under the re-read loop's leader lease; a lease handover can overlap briefly, so settling must be conditional in the store."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:33-41, src/backend/AgentSmith.Server/Services/Deployment/DeployFollowPass.cs:12-30"
+  - claim: "The series master acts through ISeriesTicketActs, the paths a person's act takes, and only when the series' approver may start runs."
+    evidence: "src/backend/AgentSmith.Contracts/Series/ISeriesTicketActs.cs:1-20, src/backend/AgentSmith.Application/Services/Series/SeriesActTools.cs:55-61"
+
+scope:
+  in: "The deploy run names in its DeployDeliveredEvent the environments the template says promote from this one and the binding delivers without approval (PromotesTo); the record keeps it. When the follow settles a record green (a pull request merged with CI green or none; a pipeline run green), DeployPromotion settles it in the store with a conditional update and, only if that update won, launches a deploy of each through DeployLauncher.PromoteAsync with the settled version as a server-only seed (DeployPromotedVersion; a person's typed version for a promoted environment is still refused), listed on the source run's ticket (none when it had none), after re-checking the live binding still has approval off; what it started or why not is the record's note. The promoted run takes the settled version, and refuses when the source manifest, where there is one, carries another by then. The parser refuses a promotion cycle. Series: ISeriesTicketActs.DeployAsync and a 'deploy' tool of the series master (context, environment, optional version, optional member ticket) — refused for an approval environment (a person deploys there from the ticket page) and when the approver may not start runs; otherwise DeployLauncher."
+  out: "Promoting into an approval environment (always a person). A setting beyond the binding's approval (approval off is the opt-in)."
+
+steps:
+  - id: event
+    action: "DeployDeliveredEvent.PromotesTo (+ hub-events mirror), DeployDeliveredPublisher fills it; DeployRecord.PromotesTo, migrations AddDeployRecordPromotesTo, projection."
+  - id: promotion
+    action: "DeployFollowVerdict.Succeeded; DeployPromotion (scoped DeployLauncher, ticket from the source run's row); DeployFollowPass calls it for a record that settled green."
+  - id: series
+    action: "ISeriesTicketActs.DeployAsync, SeriesTicketActs via DeployLauncher, SeriesActTools 'deploy'."
+  - id: docs
+    action: "deployment-templates.md: promotion and the series."
+
+tests:
+  - "DeployDeliveredPublisher: PromotesTo names only promoting environments bound without approval"
+  - "DeployPromotion (RealCompositionHarness): a green settled record launches its no-approval PromotesTo environment once with the settled version; an approval environment is not deployed and the note says so"
+  - "DeployVersion: a promotion at the settled version delivers; a source manifest carrying a newer version refuses it. Parser: a promotion cycle is refused. Succeeded: merged+green/none or a green pipeline"
+  - "SeriesActTools/SeriesTicketActs: deploy to an approval environment is refused; to a no-approval one it queues a deploy run (RealCompositionHarness)"
+
+done:
+  - "A merged test deploy starts the staging deploy when staging promotes from test without approval, and the series master can deploy to a no-approval environment."

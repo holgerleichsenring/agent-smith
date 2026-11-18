@@ -19,6 +19,7 @@ import { RunStepDetail } from "./RunStepDetail";
 import { useRunTicket } from "./useRunTicket";
 import { useStepAddress } from "./useStepAddress";
 import { isRunLive } from "@/lib/runLiveness";
+import { DeployFollowBlock } from "@/components/tickets/deploying/DeployFollowBlock";
 
 // 2026-11-16-6877b: the run page's default view. 2026-11-17-6d9ea: the head and the Now block.
 // 2026-11-17-6d9eb: then ONE sectioned log, as the approved mock draws it — Ticket, Got ready, The plan, a section per
@@ -84,6 +85,7 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
       <RunPageHead runId={runId} snapshot={snapshot} ticket={ticket} repoNames={repoNames} stepCount={stepCount}
         connectionState={connectionState} onDeleted={onDeleted} />
       <RunNow runId={runId} snapshot={snapshot} events={events} steps={steps} ticket={ticket} />
+      {snapshot?.pipeline === "deploy" && !isRunLive(snapshot.status) && <DeployFollowBlock runId={runId} />}
       <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((t) => flip(t, id))}
         openStep={openStep} onToggleStep={(i) => { scrolled.current = true; setOpenStep(openStep === i ? null : i); }}
         mechanicsOpen={mechanics} onToggleMechanics={(id) => setMechanics((m) => flip(m, id))}

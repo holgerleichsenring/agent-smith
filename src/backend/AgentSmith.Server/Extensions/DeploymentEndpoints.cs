@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Deployment;
 
@@ -16,6 +17,8 @@ internal static class DeploymentEndpoints
             .Needs(Permissions.RunsControl).InProject(ProjectFrom.Route("project"));
         app.MapGet("/api/projects/{project}/deployments", List)
             .Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
+        app.MapGet("/api/runs/{runId}/deployment", RecordAsync) // 2026-11-18-3863f
+            .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
     }
 
@@ -33,6 +36,10 @@ internal static class DeploymentEndpoints
             _ => Results.Text(launch.Reason, "text/plain", statusCode: StatusCodes.Status409Conflict),
         };
     }
+
+    /// <summary>2026-11-18-3863f: where a deploy run's delivery stands; 404 for a run that delivered nothing.</summary>
+    internal static async Task<IResult> RecordAsync(string runId, DeployRecordRepository records, CancellationToken cancellationToken) =>
+        await records.ByRunAsync(runId, cancellationToken) is { } record ? Results.Ok(record) : Results.NotFound();
 
     internal static IResult List(string project, DeploymentBindings bindings) =>
         bindings.Of(project) is { } list ? Results.Ok(list) : Results.NotFound();

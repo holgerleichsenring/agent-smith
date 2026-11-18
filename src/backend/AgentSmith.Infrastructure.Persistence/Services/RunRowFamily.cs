@@ -17,14 +17,15 @@ public sealed class RunRowFamily(
     RunCheckpointProjection checkpoints,
     RunExpectationProjection expectations,
     RunPullRequestProjection pullRequests,
-    RunClassificationProjection classification) : IRunEventFamily
+    RunClassificationProjection classification,
+    DeployRecordProjection deploys) : IRunEventFamily // 2026-11-18-3863f
 {
     public IReadOnlyCollection<Type> Events { get; } =
     [
         typeof(RunStartedEvent), typeof(TicketFetchedEvent), typeof(RunFinishedEvent),
         typeof(PullRequestOutcomeEvent), typeof(RunCancelRequestedEvent), typeof(RunCheckpointedEvent),
         typeof(ExpectationRatifiedEvent), typeof(RunStoryRecordedEvent), typeof(PipelineStepsPlannedEvent),
-        typeof(RunBudgetResolvedEvent), typeof(RunWorkShapeResolvedEvent),
+        typeof(RunBudgetResolvedEvent), typeof(RunWorkShapeResolvedEvent), typeof(DeployDeliveredEvent),
     ];
 
     public Task ApplyAsync(IUnitOfWork uow, RunEvent runEvent, long? eventSeq, CancellationToken ct) => runEvent switch
@@ -53,6 +54,7 @@ public sealed class RunRowFamily(
         // p0357/p0413: the ticket's size (budget) and its shape (the cut it earned).
         RunBudgetResolvedEvent e => classification.ApplyBudgetAsync(uow, e, ct),
         RunWorkShapeResolvedEvent e => classification.ApplyShapeAsync(uow, e, ct),
+        DeployDeliveredEvent e => deploys.ApplyAsync(uow, e, ct), // 2026-11-18-3863f
         _ => Task.CompletedTask,
     };
 

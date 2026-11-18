@@ -1,13 +1,14 @@
 using System.Globalization;
 using System.Text.Json;
 using AgentSmith.Contracts.Reviews;
+using AgentSmith.Infrastructure.Services.Providers.Pipelines;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
 /// 2026-11-17-3435a: a GitLab merge request's CI — its head pipeline, decided per pipeline as GitLab does (a running
-/// pipeline with a failed job is pending until GitLab calls it failed). A red one is read with its failed jobs, allowed
-/// failures left out: stage and name, the failure reason, and the end of each job's trace for at most FailuresRead jobs.
+/// pipeline with a failed job is pending until GitLab calls it failed). A red one is read with its failed jobs through
+/// <see cref="GitLabPipelineFailures"/> (2026-11-18-3863e), as a deploy's pipeline is.
 /// </summary>
 public sealed class GitLabCiReader(string baseUrl, string projectPath, string token, HttpClient http)
 {
@@ -22,40 +23,11 @@ public sealed class GitLabCiReader(string baseUrl, string projectPath, string to
         if (!mr.RootElement.TryGetProperty("head_pipeline", out var pipeline) || pipeline.ValueKind != JsonValueKind.Object)
             return PullRequestCi.NoneOn(head);
         var at = Time(pipeline, "finished_at") ?? Time(pipeline, "updated_at");
-        var outcome = Str(pipeline, "sha") != head ? CiCheckOutcome.Pending : Outcome(Str(pipeline, "status"));
+        var outcome = Str(pipeline, "sha") != head ? CiCheckOutcome.Pending : GitLabPipelineStatus.Outcome(Str(pipeline, "status"));
         var state = CiVerdict.Of([new CiCheck("pipeline", outcome, false, at)]);
         return new PullRequestCi(state, head, at, state == CiStates.Red
-            ? await FailuresAsync(pipeline.GetProperty("id").GetInt64(), Str(pipeline, "web_url"), request, ct) : []);
-    }
-
-    private static CiCheckOutcome Outcome(string? status) => status switch
-    {
-        "success" or "skipped" => CiCheckOutcome.Passed,
-        "failed" or "canceled" => CiCheckOutcome.Failed,
-        _ => CiCheckOutcome.Pending,
-    };
-
-    private async Task<IReadOnlyList<CiFailure>> FailuresAsync(long pipelineId, string? pipelineUrl, CiReadRequest request, CancellationToken ct)
-    {
-        using var jobs = await GetJsonAsync($"{Api}/pipelines/{pipelineId}/jobs?scope[]=failed&per_page=100", ct);
-        var failures = new List<CiFailure>();
-        foreach (var job in jobs.RootElement.EnumerateArray().Where(j => !(j.TryGetProperty("allow_failure", out var a) && a.ValueKind == JsonValueKind.True)))
-        {
-            var trace = failures.Count < request.FailuresRead ? await TraceAsync(job.GetProperty("id").GetInt64(), ct) : null;
-            failures.Add(new CiFailure($"{Str(job, "stage")}: {Str(job, "name")}", Str(job, "web_url"),
-                CiExcerpt.Of([Str(job, "failure_reason") is { } why ? $"failure reason: {why}" : null], trace, request.ExcerptChars)));
-        }
-        return failures.Count > 0 ? failures : [new CiFailure("pipeline", pipelineUrl, "The pipeline failed; GitLab lists no failed job.")];
-    }
-
-    // A trace that cannot be read costs the tail, not the evidence.
-    private async Task<string?> TraceAsync(long jobId, CancellationToken ct)
-    {
-        using var request = Get($"{Api}/jobs/{jobId}/trace");
-        using var response = await http.SendAsync(request, ct);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadAsStringAsync(ct)
-            : $"(trace not readable: GitLab answered {(int)response.StatusCode})";
+            ? await new GitLabPipelineFailures(new PipelineHttp(http, r => r.Headers.Add("PRIVATE-TOKEN", token)), Api)
+                .ReadAsync(pipeline.GetProperty("id").GetInt64(), Str(pipeline, "web_url"), request, ct) : []);
     }
 
     private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken ct)

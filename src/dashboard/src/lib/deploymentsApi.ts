@@ -40,3 +40,38 @@ export async function startDeploy(project: string, start: DeployStart): Promise<
   if (res.status === 400 || res.status === 404 || res.status === 409) return { kind: "refused", text: (await res.text()).trim() };
   throw await refused(res, path(project));
 }
+
+/** 2026-11-18-3863f: one failed check, job or task, as the CI reader and the pipeline runner tell it. */
+export interface DeployFailure {
+  name: string;
+  url?: string | null;
+  excerpt: string;
+}
+
+/** 2026-11-18-3863f: where a deploy run's delivery stands, followed by the server until it settles. */
+export interface DeployRecordView {
+  runId: string;
+  project: string;
+  context: string;
+  environment: string;
+  version: string;
+  delivery: string;
+  repo: string;
+  url: string;
+  pullRequestState?: string | null;
+  ciState: string;
+  failures: DeployFailure[];
+  deliveredAt: string;
+  checkedAt?: string | null;
+  settledAt?: string | null;
+  note?: string | null;
+}
+
+/** The run's deploy record, or null for a run that delivered nothing (refused, or already at the version). */
+export async function getDeployRecord(runId: string, signal?: AbortSignal): Promise<DeployRecordView | null> {
+  const at = `/api/runs/${encodeURIComponent(runId)}/deployment`;
+  const res = await apiFetch(at, { signal });
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, at);
+  return (await res.json()) as DeployRecordView;
+}

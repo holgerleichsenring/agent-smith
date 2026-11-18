@@ -23,6 +23,7 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(PipelineStepsPlannedEvent)] = ["RunRowFamily"],
         [typeof(RunBudgetResolvedEvent)] = ["RunRowFamily"],
         [typeof(RunWorkShapeResolvedEvent)] = ["RunRowFamily"],
+        [typeof(DeployDeliveredEvent)] = ["RunRowFamily"], // 2026-11-18-3863f
         [typeof(StepStartedEvent)] = ["RunStepFamily"],
         [typeof(StepFinishedEvent)] = ["RunStepFamily"],
         [typeof(LlmCallFinishedEvent)] = ["RunStepFamily"],

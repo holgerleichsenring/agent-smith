@@ -70,6 +70,8 @@ environments:
 
 Making a context deployable is ordinary work: a ticket, or a Work it out conversation, that says "make the api deployable to test". The run opens the deployment template read only, next to the code, as `template:deploy:<context>`. The coding master is told which environments this project binds and with which parameter values, and it copies or adapts the declared files into the context. A parameter with no value in the binding and no default in the template becomes a question to a person, with the value the master recommends; until it is answered the ticket waits in needs clarification. A secret is written into the files by its name only.
 
+When a Work it out proposal adds a context that doesn't exist yet, in a project whose other contexts are bound to a deployment template, the reply ends with a line that says so: bind the new context to the template its siblings use (in the project's templates, kind deployment), then cut a spec that makes it deployable. Nothing is bound or cut for you.
+
 Because the template is opened like a code template, a coding run of a bound context needs to reach it: a revision that no longer exists fails the run before its first model call, the same as for a code template.
 
 ## Deploying
@@ -93,4 +95,58 @@ A version is letters, digits, `.`, `_` and `-`, starting with a letter or digit,
 
 The run is listed on the ticket it was started from, and it doesn't touch that ticket's own runs, status or lease. The pull request it opens isn't one of the ticket's pull requests, so the merge policy, base refreshes and rework never act on it.
 
-Only the GitOps pull request is built so far. Starting a provider's pipeline instead, following a deploy's pull request until it is merged and its CI settled, promoting automatically into environments without approval, and the series run calling a deploy are planned.
+## Delivering by a pipeline
+
+A template can say `delivery: pipeline_trigger` instead. The deploy then starts the host's own pipeline for the environment and passes the version as one of its inputs:
+
+```yaml
+delivery: pipeline_trigger
+parameters:
+  - name: image
+    default: registry.example.com/todolist-api
+environments:
+  - name: test
+    pipeline: deploy.yml                  # GitHub: the workflow file or id. Azure DevOps: the pipeline's name (folder\name). GitLab: leave it out
+    ref: main                             # optional: the branch or tag it runs on. Absent: the repository's default branch
+    inputs:                               # GitHub workflow inputs, Azure DevOps template parameters, GitLab pipeline variables
+      version: "{version}"
+      environment: "{environment}"
+      image: "{image}"
+    manifest: deploy/overlays/test/kustomization.yaml   # optional: where the pipeline records the version it deployed
+    version_key: images.0.newTag
+  - name: prod
+    pipeline: deploy.yml
+    inputs: { version: "{version}", environment: "{environment}" }
+    promotes_from: test
+```
+
+An input's value can use `{version}`, `{environment}`, `{context}` and the names of the template's parameters. A parameter takes the environment's value from the binding, else the template's default. Every environment has to pass `{version}` in one of its inputs, and a name that is none of these is refused when the template is read. A parameter with neither a value nor a default is refused when you deploy, so an input is never sent empty.
+
+The pipeline is started in the environment's repository, or the context's own when the environment names none, with that repository's token:
+
+| Host | What starts | Token needs |
+|---|---|---|
+| GitHub | `workflow_dispatch` of the workflow, which must declare `workflow_dispatch:` and every input you pass (GitHub answers 422 otherwise) | Actions: write (classic token: `repo`) |
+| Azure DevOps | a run of the YAML pipeline with the inputs as template parameters, which the pipeline must declare (it answers 400 otherwise); a short `ref` is a branch | Build: read & execute |
+| GitLab | a pipeline of the project for the ref, with the inputs as variables. A project that restricts pipeline variables refuses them (400/403) until a maintainer allows them | `api` |
+
+The run's outcome names the started run with its link and what the host says of it then: running, green, or failed with the failed jobs (on Azure DevOps the failed tasks) and their links, read within `merge.ci_excerpt_chars` and `merge.ci_failed_checks_read`. A GitHub Enterprise Server that doesn't return the run it started gets the workflow's runs page instead; agent-smith doesn't guess which run is yours.
+
+Every deploy starts the pipeline, a redeploy of the version an environment already runs too. A pipeline doesn't write a manifest agent-smith reads, so an environment promotes from a pipeline environment only when that one names a `manifest` and `version_key` its pipeline keeps up to date. `approval` means the same as for a pull request: only a person starts the deploy. Gate the run itself with the host's own environment approvals.
+
+## Following a deploy
+
+A deploy doesn't end with its run. agent-smith keeps reading what it delivered until it settles, and the deploy run's page and its line on the ticket show where it stands:
+
+- a **pull request**: its state (open, merged, closed) and its CI on the head it has then, with each failed check's name, the end of its log and its link. It has settled once it is merged or closed and its CI is no longer running. While it waits for a person with its CI done, it is read every `tickets.pr_reread_interval_seconds`.
+- a **pipeline run**: running, green, or failed with its failed jobs, their log ends and links. It has settled once it finished.
+
+While CI or the pipeline runs, it is read every `merge.ci_poll_seconds`. One still running `merge.ci_pending_seconds` after delivery stops being followed and says so, with the link to look yourself. Excerpts are bounded by `merge.ci_excerpt_chars` and `merge.ci_failed_checks_read`. A deploy whose binding no longer leads to the repository it went to stops being followed with that reason. All of these are the project's existing merge and tickets settings in the studio; agent-smith only reads the host here.
+
+## Promotion and the series
+
+Once a deploy settles green (its pull request merged with CI green or none reporting, or its pipeline run green), agent-smith deploys each environment the template says `promotes_from` it **and** the binding sets to `approval: false`, at the version that settled. The promoted deploy is a run like any other, listed on the same ticket. If the source environment's manifest carries a newer version by then, that one hasn't settled, so nothing is promoted and the note says so. A GitOps promotion follows the merge, not a healthy rollout: agent-smith can't see the cluster.
+
+An environment with approval on, the default, is never deployed without a person. If its approval was turned on after the source deploy started, it is left for a person too. A template whose environments promote in a cycle is refused when it is read.
+
+A series run's master can deploy as well, through the same entry the ticket page uses, but only to environments the binding delivers without approval and only when the series' approver holds `runs.control`. It names the context, the environment and, for an entry environment, the version.

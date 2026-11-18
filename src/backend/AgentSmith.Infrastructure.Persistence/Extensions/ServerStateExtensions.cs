@@ -26,6 +26,7 @@ public static class ServerStateExtensions
         services.AddScoped<PrReviewRecordRepository>().AddScoped<PrReviewRecordWriter>().AddScoped<NamedPullRequestReader>();
         services.AddScoped<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<RunRetryRequestRepository>(); // 2026-10-13-9a59n
+        services.AddScoped<DeployRecordRepository>(); // 2026-11-18-3863f
         services.RemoveAll<IReworkNudges>().RemoveAll<IReworkWatermark>();
         services.AddSingleton<DbReworkNudges>();
         services.AddSingleton<IReworkNudges>(sp => sp.GetRequiredService<DbReworkNudges>());

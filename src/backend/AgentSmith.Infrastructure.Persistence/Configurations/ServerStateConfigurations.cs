@@ -24,5 +24,6 @@ public sealed class ServerStateConfigurations
         modelBuilder.ApplyConfiguration(new PrSweepStateConfiguration());
         modelBuilder.ApplyConfiguration(new MemoryEvidenceConfiguration()); // 2026-10-25-9324a
         modelBuilder.ApplyConfiguration(new ProjectMemoryConfiguration()); // 2026-11-10-fcd7a
+        modelBuilder.ApplyConfiguration(new DeployRecordConfiguration()); // 2026-11-18-3863f
     }
 }

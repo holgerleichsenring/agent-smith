@@ -56,6 +56,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.MemoryUseRecorded]: "MemoryUseRecorded", // 2026-10-25-9324b
   [EventType.DialogActivity]: "DialogActivity", // 2026-11-10-d854c
   [EventType.VerifyPassRecorded]: "VerifyPassRecorded", // 2026-11-17-d6fbc
+  [EventType.DeployDelivered]: "DeployDelivered", // 2026-11-18-3863f
 };
 
 interface FilterRailProps {

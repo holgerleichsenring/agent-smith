@@ -20,7 +20,7 @@ public sealed partial class DeployManifestPlan(DeployVersion versions, Deploymen
         if (input.Declaration.Environment(request.Environment) is not { } declared)
             return (null, $"the deployment template declares no environment '{request.Environment}'");
         var (version, versionError) = await versions.DecideAsync(
-            new DeployVersionQuestion(project, target, input.Declaration, declared, request.Version), cancellationToken);
+            new DeployVersionQuestion(project, target, input.Declaration, declared, request.Version, request.PromotedVersion), cancellationToken);
         if (version is null) return (null, versionError);
         var (repo, repoError) = target.RepoOf(project, target.Environment);
         if (repo is null) return (null, repoError);
@@ -29,7 +29,7 @@ public sealed partial class DeployManifestPlan(DeployVersion versions, Deploymen
         var headline = $"Deploy of `{request.Context}` {version} to {declared.Name}";
         if (current == version)
             return (new DeployPlan($"{headline}: `{declared.Manifest}` of `{repo.Name}` already carries it; nothing written", null), null);
-        var (changed, changeError) = keys.Replace(text, declared.VersionKey, version);
+        var (changed, changeError) = keys.Replace(text, declared.VersionKey!, version);
         return changed is null ? (null, changeError) : (new DeployPlan(headline, Order(input, declared, repo, changed, version)), null);
     }
 
@@ -42,9 +42,9 @@ public sealed partial class DeployManifestPlan(DeployVersion versions, Deploymen
         var body = $"Delivers `{request.Context}` version `{version}` to `{declared.Name}`: sets `{declared.VersionKey}` in "
             + $"`{declared.Manifest}`. Per the deployment template `{binding.TemplateContext}` of `{binding.Repo.Name}` at "
             + $"`{input.TemplateSha ?? binding.Revision ?? "its default branch"}`, by agent-smith run {run}.";
-        return new GitOpsOrder(repo, declared.Manifest, content, branch, $"Deploy {request.Context} {version} to {declared.Name}",
+        return new GitOpsOrder(repo, declared.Manifest!, content, branch, $"Deploy {request.Context} {version} to {declared.Name}",
             body, input.Target.Environment.Approval, project.Merge.Protection,
-            new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead));
+            new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead), version);
     }
 
     private static string Segment(string value) => NotRefSafe().Replace(value, "-");

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863g
+
+decisions:
+  - category: Architecture
+    chose: "A deterministic line appended to the turn's reply in CollectSpecDialogReplyHandler, from the drafts' contexts, the grounded contexts and the project's deployment bindings"
+    over: "Telling the design master in its prompt to recommend it"
+    reason: "Every turn's reply passes through that one step, and the facts are data the turn already holds; a prompt instruction would be followed sometimes. The done criterion is that the proposal ends with the suggestion."
+  - category: Implementation
+    chose: "A new context is one the drafts name under contexts that neither the grounded repositories hold nor a deployment binding names; no grounding, no contexts or no deployment binding gives no line"
+    over: "Reading applies_to, or treating every unbound context as new"
+    reason: "applies_to is free text and never parsed; an existing context the operator chose not to deploy is not ours to nag about. What exists is not guessed (no heuristic for missing data)."
+  - category: Scope
+    chose: "Suggest only; the person binds and cuts"
+    over: "Writing the binding or adding a make-deployable draft"
+    reason: "Config writes from a conversation belong to the admin assistant; a draft the person did not ask for changes the proposal they are reviewing."

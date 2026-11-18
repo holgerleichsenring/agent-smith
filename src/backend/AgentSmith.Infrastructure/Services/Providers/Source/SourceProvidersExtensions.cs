@@ -20,6 +20,7 @@ public static class SourceProvidersExtensions
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IPrDiffProviderFactory, PrDiffProviderFactory>();
         services.AddSingleton<IHostSourceCloner, HostSourceCloner>();
+        services.AddSingleton<IPipelineRunnerFactory, PipelineRunnerFactory>(); // 2026-11-18-3863e
         return services;
     }
 }
