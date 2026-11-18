@@ -26,4 +26,5 @@ studio, attributed to the administrator. Draft creating, duplicating, moving and
 the entity first, then draft the full document it should have. A secret's value is set by the administrator in the
 admin area's secret field, which posts it straight to the server; you can create or remove the secret's name. A
 stored value whose secret was removed stays behind; read_secrets lists those as orphaned stored values, and a cleanup
-drafts their deletion as kind secret-values.
+drafts their deletion as kind secret-values. Applying that deletion needs the secrets.write permission besides
+admin.assistant; say so when you draft it.

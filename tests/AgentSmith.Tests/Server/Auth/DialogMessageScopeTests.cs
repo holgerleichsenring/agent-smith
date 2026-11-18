@@ -54,6 +54,18 @@ public sealed class DialogMessageScopeTests : IDisposable
         admission.Should().Be(new DialogAdmission(true, true), "an installation that enforces nothing refuses nothing");
     }
 
+    // 2026-11-18-78efa: applying a stored value's deletion needs secrets.write, held globally only.
+    [Fact]
+    public void MayWriteSecrets_HeldGlobally_NotThroughAProjectBinding_AndEveryoneWhenNothingIsEnforced()
+    {
+        var maker = ResolverUnderTest.Caller(Auth, ("groups", "makers"));
+        var admin = ResolverUnderTest.Caller(Auth, (PermissionClaims.Type, Permissions.SecretsWrite));
+
+        _scope.MayWriteSecrets(maker).Should().BeFalse();
+        _scope.MayWriteSecrets(admin).Should().BeTrue();
+        ProjectScopeUnderTest.Scope(ProjectScopeUnderTest.Access(new TokenAuthorityConfig())).MayWriteSecrets(maker).Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

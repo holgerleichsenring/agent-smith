@@ -47,7 +47,8 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body, owner, admission.MayStartRuns, Security.DisplayName.Of(ctx.User));
+        var mayWriteSecrets = ctx.RequestServices.GetRequiredService<Security.DialogMessageScope>().MayWriteSecrets(ctx.User);
+        Dispatch(ctx, body, owner, admission.MayStartRuns, mayWriteSecrets, Security.DisplayName.Of(ctx.User));
         return Results.Accepted();
     }
 
@@ -59,7 +60,7 @@ internal static class SpecDialogEndpoints
     /// sandbox coordinator, and a synchronous Dispose throws after the reply is written.</para>
     /// </summary>
     private static void Dispatch(
-        HttpContext ctx, SpecDialogMessageRequest body, string owner, bool mayStartRuns, string? author)
+        HttpContext ctx, SpecDialogMessageRequest body, string owner, bool mayStartRuns, bool mayWriteSecrets, string? author)
     {
         var (dialogId, text) = (body.DialogId, body.Text.Trim());
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
@@ -71,6 +72,8 @@ internal static class SpecDialogEndpoints
             try
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
+                // 2026-11-18-78efa: what the poster holds beyond the dialog, for an Apply this message decides.
+                scope.ServiceProvider.GetRequiredService<DialogDeciderGrants>().Hold(mayWriteSecrets);
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
                     .DispatchAsync(dialogId, text, owner, mayStartRuns, body.Project, CancellationToken.None,
                         body.TicketId, author, body.ProposalId);

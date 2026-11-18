@@ -12,13 +12,13 @@ namespace AgentSmith.Server.Services.Admin.Config;
 /// </summary>
 public sealed class ConfigApplyRun(IActRun runs) : IConfigApplyRun
 {
-    public async Task<ConfigApplyReport> RunAsync(ConfigChangeOutcome changes, string person)
+    public async Task<ConfigApplyReport> RunAsync(ConfigChangeOutcome changes, string person, bool mayWriteSecrets)
     {
         ArgumentNullException.ThrowIfNull(changes);
         var slot = new ActSlot<ConfigApplyReport>();
         var result = await runs.RunAsync(InstallationScope.Name, PipelinePresets.ConfigName, new Dictionary<string, object>
         {
-            [ContextKeys.ConfigChangeRequest] = new ConfigChangeRequest(changes.Changes, person),
+            [ContextKeys.ConfigChangeRequest] = new ConfigChangeRequest(changes.Changes, person, mayWriteSecrets),
             [ContextKeys.ConfigApplyReport] = slot,
         });
         return slot.IsSet ? slot.Value! : new ConfigApplyReport(false, result.Message ?? "The config run ended before it applied anything.");

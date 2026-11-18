@@ -40,6 +40,13 @@ internal sealed class DialogMessageScope(ProjectAccess access, ResourceProjectRe
             : projects.All(name => access.HoldsIn(user, control, name));
     }
 
+    /// <summary>
+    /// 2026-11-18-78efa: whether the caller holds secrets.write — globally, the only way it is held — which applying
+    /// the deletion of a stored secret value needs besides admin.assistant. Everyone when nothing is enforced.
+    /// </summary>
+    public bool MayWriteSecrets(ClaimsPrincipal user) =>
+        !access.Enforcing || access.HoldsEverywhere(user, [Permissions.SecretsWrite]);
+
     /// <summary>Whether the conversation open on this thread may be entered — the resume route's target.</summary>
     public async Task<bool> MayEnterAsync(ClaimsPrincipal user, string dialogId, CancellationToken ct)
     {
