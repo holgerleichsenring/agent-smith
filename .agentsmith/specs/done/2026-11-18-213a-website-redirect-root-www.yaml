@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-213a
+goal: "agent-smith.org and www.agent-smith.org redirect every path, the root included, in one hop to www.codeably.ai."
+
+applies_to: "default (website/vercel.json)"
+
+requires: [2026-11-16-658ca]
+
+facts:
+  - claim: "The redirects target https://codeably.ai/:path*, which Vercel answers with a second 308 to www.codeably.ai, its primary domain."
+    evidence: "Vercel project domains: codeably.ai 308 → www.codeably.ai (operator screenshot 2026-11-18)"
+  - claim: "The root / of www.agent-smith.org answered 200 instead of redirecting, because source /:path* did not match it."
+    evidence: "curl -sIL https://www.agent-smith.org → HTTP/2 200 (2026-11-18)"
+
+scope:
+  in: "website/vercel.json redirects: both agent-smith hosts, source / and /:path*, destination https://www.codeably.ai."
+  out: "DNS, Vercel domain settings, docs domain (operator's)."
+
+steps:
+  - id: redirects
+    action: "Point the host redirects at https://www.codeably.ai and add an explicit '/' source for each host."
+
+tests:
+  - "website/vercel.json parses; four redirects, each permanent, each to https://www.codeably.ai."
+
+done:
+  - "website/vercel.json redirects both agent-smith hosts, root and any path, to www.codeably.ai in one hop."

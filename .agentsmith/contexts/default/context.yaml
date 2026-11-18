@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-213a: "WEBSITE REDIRECT ROOT WWW (website/vercel.json). agent-smith.org and www.agent-smith.org redirect root and every path in one hop to www.codeably.ai; /:path* had left the root unredirected. -> .agentsmith/specs/done/2026-11-18-213a-website-redirect-root-www.yaml"
     2026-11-18-78efb: "SIGNATURE SECRETS FAIL CLOSED (CredentialLookup, StoredSecretLoad, UnreadableSecrets, Webhook and Slack signature verifiers). A webhook or Slack signing secret whose stored value cannot be opened refuses every delivery, naming the secret; no value at all stays open. -> .agentsmith/specs/done/2026-11-18-78efb-signature-secret-fail-closed.yaml"
     2026-11-18-78efa: "SECRET CLEANUP NEEDS SECRETS.WRITE (SecretValuesApproval, DialogDeciderGrants, ConfigOutcomeSink, ConfigChangeRequest.MayWriteSecrets). Applying an admin draft that deletes a stored secret value needs secrets.write besides admin.assistant; Apply and the config run both refuse. -> .agentsmith/specs/done/2026-11-18-78efa-secret-cleanup-approval-grant.yaml"
     2026-11-18-e06be: "RUN STEP CALL SEQUENCE (callSequence, StepCallSequence, fetchPromptDigest, promptId on PairedLlmCall). The LLM filter of an open step lists its calls numbered: role · model · tokens (cache) · cost · time, then fed and decided lines from the digest or tool events; a click opens CallPrompt; newest 20, show earlier. -> .agentsmith/specs/done/2026-11-18-e06be-runlog-call-sequence.yaml"

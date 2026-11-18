@@ -1,0 +1,5 @@
+spec: 2026-11-18-213a
+decisions:
+  - decision: "Redirect straight to www.codeably.ai and list '/' as its own source next to '/:path*'."
+    alternatives: "Keep codeably.ai as target (two hops); make codeably.ai the Vercel primary instead (operator's domain setting)."
+    why: "The operator set www.codeably.ai as primary in Vercel; one hop is faster and keeps path and SEO signal clean. '/:path*' left the root unredirected on Vercel."
