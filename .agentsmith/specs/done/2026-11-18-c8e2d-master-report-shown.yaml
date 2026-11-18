@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-c8e2d
+goal: "The master's report and its sub-agent's work show on the record, pull request, run page and ticket page, and a proposed follow-up is filed with one action."
+
+applies_to: "default (Contracts/Runs AcceptanceView, Contracts/Events L2SubAgentEvents/EventType, Application AcceptanceSnapshot, SpecAccountRenderer, SubAgentTeamToolHost, Server TicketSeries views + a follow-up endpoint over IFilingRun); dashboard (VerifySummary, stepDetailLines, ticket page acceptance, types, mock parity); docs dashboard reference; PipelineHarness end-to-end"
+
+requires: [2026-11-18-c8e2c]
+
+facts:
+  - claim: "After c8e2c a spec's SpecAccount is its master's report and carries FixedInPassing and FollowUps; AcceptanceSnapshot builds the AcceptanceView every reader serves (run detail, SpecStateChangedEvent, RunSpec.AcceptanceJson) from the accounts, without those two lists."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:18-31, src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:34-70, src/backend/AgentSmith.Contracts/Runs/AcceptanceView.cs:24-31"
+  - claim: "SpecAccountRenderer writes the account into the spec record and the pull request; a not-applicable row renders 'the base carries no {Antecedent}', which a master's row does not carry."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountRenderer.cs:14-75"
+  - claim: "The run page's 'Checked against the spec' renders VerifySummary over snapshot.acceptance, with a source hint that calls a master_verification source 'not the independent read the gate uses'."
+    evidence: "src/dashboard/src/components/jobs/story/VerifySummary.tsx:125-170, src/dashboard/src/components/jobs/runlog/runLogSections.ts:160-170"
+  - claim: "Step detail lines draw SubAgentSpawned and SubAgentCompleted per child; nothing records what a master wrote to a child."
+    evidence: "src/dashboard/src/components/jobs/runlog/stepDetailLines.ts:161-166, src/backend/AgentSmith.Contracts/Events/L2SubAgentEvents.cs:14-22"
+  - claim: "The ticket page's series view reads each spec's RunSpec.AcceptanceJson into TicketSeriesSpecView rows; no place lists items gathered across a series."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:29-41, src/backend/AgentSmith.Server/Models/TicketSeriesSpecView.cs:21-33"
+  - claim: "A follow-up is filed as one work ticket through IFilingRun.RunRequestAsync with a FilingRequest carrying FilingFollowUp(Title, Body), in a 'file' run; today only server-side acts call it."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:64-75, src/backend/AgentSmith.Application/Services/Filing/FilingRequest.cs:17-27"
+
+scope:
+  in: "AcceptanceView gains FixedInPassing and FollowUps (FollowUpView(Goal, Why, SpecId)), filled by AcceptanceSnapshot from the accounts; mirrored in the dashboard types; stored views without them read as empty. SpecAccountRenderer renders the master's rows (a not-applicable row's why from its note) and the report's fixed-in-passing and follow-ups in the spec record and the pull request. A new SubAgentMessagedEvent (run, sub-agent id, text, continued) is published by send_message (resolver, frozen fixture, filter key, lifecycle reader included); the step detail draws it as 'to {child}: …' or 'sent back to {child}: …', a tool call line names the agent that made it when it is not the master, and Completed reads one word per status (finished, failed, empty, stopped). The run page's Checked against the spec shows the rows as the master's report, then Fixed in passing and Proposed follow-ups, when the stored view carries those lists; a stored view without them keeps today's hint and rows. The ticket series view carries each spec's follow-ups (both TicketSeriesSpecView constructors: TicketSeriesSpecComposer and TicketRunRecordVerdicts), from the same attempt that ended the spec, each with whether it was filed; the ticket page lists them under the acceptance section with a 'File as a ticket' button that posts (runId, specId, index) to POST /api/tickets/{project}/{ticketId}/follow-ups (runs.control). The server reads the follow-up from that run's stored spec acceptance, marks the existing rework ledger key follow-up|run|spec|index (so a second request files nothing), files it through IFilingRun as a FilingFollowUp (title the goal, body the why and where it came from) and answers with the filed ticket; a filed one shows as filed. Docs: the dashboard reference describes the report, the sub-agent lines and the follow-up action. The PipelineHarness proves the loop end to end on a two-spec code run with scripted master and child."
+  out: "The steward's ticket_runs facts (TicketRunsAcceptance) stay as they are. A published mock of the new sections (the run is non-interactive; the screenshot rig is looked at instead). Linking the filed follow-up back to the source ticket with a comment (FollowUpLink): proposed as a follow-up of this spec in its decisions. Changing the per-line judgement control. Screenshots in docs/assets beyond what the rig regenerates."
+
+upgrade_impact: "None to configure. A new event type (SubAgentMessaged) and two optional view fields; stored runs read as before."
+
+steps:
+  - id: characterise
+    action: "Before changing the renderer: a test pins a scan account's not-applicable row ('the base carries no …') and today's satisfied/outstanding forms; they stay."
+  - id: contracts
+    action: "FollowUpView; AcceptanceView.FixedInPassing/FollowUps; SubAgentMessagedEvent + EventType.SubAgentMessaged with EventTypeResolver, a frozen fixture under tests/AgentSmith.Tests/Events/fixtures/events/L2SubAgent/, the dashboard filter key and StepSubAgentLifecycleReader's types; TS mirror in hub-events.ts and RunAcceptance."
+  - id: backend
+    action: "AcceptanceSnapshot fills the two lists; SpecAccountRenderer renders them; SubAgentTeamToolHost publishes SubAgentMessagedEvent; TicketSeriesSpecView carries FollowUps; TicketFollowUpEndpoints + TicketFollowUpAct filing through IFilingRun."
+  - id: dashboard
+    action: "VerifySummary report sections; stepDetailLines for SubAgentMessaged; ticket page follow-up list with the file action and its API call."
+  - id: harness
+    action: "ScriptedChatClient routes a call whose system prompt opens 'You are {name}.' to that agent's own script (EnqueueFor), thread-safe. MasterLeadsChildHarnessTests: a two-spec code run — spec a's master starts a child in the background, the child leaves a done line out, the master sends it back, the child fixes it, the master reports; spec b's first build is red, the red output goes back to the master, its child fixes it, the master reports a follow-up instead of holding the spec; both specs Done, the run's acceptance carries the follow-up, the run succeeds."
+  - id: docs
+    action: "docs/reference/operations/dashboard.md: the report, the sub-agent lines, proposed follow-ups and filing one."
+
+tests:
+  - "AcceptanceSnapshotReportTests: the view carries fixed in passing and follow-ups with their spec id; a stored view without them deserializes empty."
+  - "SpecAccountRendererTests: the record shows the master's rows with a not-applicable why and the report's two lists."
+  - "SubAgentTeamToolHost test: send_message publishes SubAgentMessaged with continued false/true."
+  - "TicketFollowUpActTests: a follow-up becomes a FilingRequest with a FilingFollowUp and the filed ticket is answered; a blank goal is refused."
+  - "MasterLeadsChildHarnessTests (above)."
+  - "dashboard: VerifySummary shows the report lists; stepDetailLines draws a message; the ticket follow-up list posts the follow-up."
+
+done:
+  - "A run page shows each spec's master and child at work — start, messages, sent back, finished — and the master's report with fixed in passing and proposed follow-ups."
+  - "The ticket page lists the proposed follow-ups of the series and files one as a ticket with one action."
+  - "The spec record and the pull request carry the report's lines, fixed in passing and follow-ups."
+  - "The harness proves a two-spec run where work goes back to a child, a red build is resolved, a follow-up is named and both specs deliver."

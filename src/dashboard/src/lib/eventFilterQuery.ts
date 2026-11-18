@@ -64,6 +64,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   SubAgentFileWritten: EventType.SubAgentFileWritten,
   SubAgentToolCall: EventType.SubAgentToolCall,
   SubAgentCompleted: EventType.SubAgentCompleted,
+  SubAgentMessaged: EventType.SubAgentMessaged,
   RunCancelRequested: EventType.RunCancelRequested,
   SandboxVanished: EventType.SandboxVanished,
   DesignRead: EventType.DesignRead, // 2026-10-01-7f7ae

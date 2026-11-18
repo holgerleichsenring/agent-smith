@@ -424,6 +424,7 @@ public sealed class VerifySpecHandlerTests
         var (context, sandbox) = Setup(
             Map("csharp", new CiConfig(true, "dotnet build", null, null)));
         sandbox.FailingCommand = "dotnet build";
+        context.Pipeline.Set(ContextKeys.SpecRepairAttempted, true); // 2026-11-18-c8e2d: past the one hand-back
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
@@ -441,6 +442,7 @@ public sealed class VerifySpecHandlerTests
         var (context, sandbox) = Setup(
             Map("csharp", new CiConfig(true, "dotnet build", null, null)));
         sandbox.FailingCommand = "dotnet build";
+        context.Pipeline.Set(ContextKeys.SpecRepairAttempted, true); // 2026-11-18-c8e2d: past the one hand-back
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 

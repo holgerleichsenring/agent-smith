@@ -96,7 +96,9 @@ The log itself has a section per piece of work: **Ticket** (the ticket as the ru
 
 Click a step and its detail opens in place: its status, where its time went and its result message, each repository's outcome, then every LLM call (role, model, tokens in and out, cached tokens, cost, duration), command (exit code, duration, a timeout and its limit), write, decision, finding and observation, newest first. Filter with **All · Findings · Obs · Tools · LLM · Files · Decisions**, flip the order, search the step, **show all**, and page back into older events. The open step is in the address (`?step=24`), so a link lands on it; older `#n=step-24` links still work. A run whose cached share is 0% has a dead prompt cache, which is an alarm, not a detail (see [cost tracking](../concepts/cost-tracking.md)).
 
-In **Checked against the spec**, each done line shows what the spec's master reported — met, not applicable or not met — with the evidence it cites and its why. When you think a line is wrong, **this verdict is wrong** records your own judgement with a reason. That's a label for later measurement; it doesn't re-open anything. How the report comes about is on [how a spec is checked](../../how-it-works/delivery-account.md).
+A spec's master works through a sub-agent, and its step shows both: the sub-agent starting, its own tool calls under its name, what the master wrote to it ("to *builder*: …"), work sent back ("sent back to *builder*: …"), and how each pass of it ended.
+
+In **Checked against the spec**, each done line shows what the spec's master reported — met, not applicable or not met — with the evidence it cites and its why, followed by what it **fixed in passing** and the **proposed follow-ups**. When you think a line is wrong, **this verdict is wrong** records your own judgement with a reason. That's a label for later measurement; it doesn't re-open anything. How the report comes about is on [how a spec is checked](../../how-it-works/delivery-account.md).
 
 The header of the detail page carries **cancel** and **delete**, both with a confirming second click. Cancel enforces: graceful window, then force-kill, pods released ([cancel semantics](capacity.md#cancel-is-a-state-not-a-wish)). Failures lead with why: a cancelled run says who cancelled it, a timeout names the limit that fired.
 
@@ -176,7 +178,7 @@ When the tracker's text no longer states what the approved specs say, a notice n
 <figcaption>Specs, read from the ticket branch.</figcaption>
 </figure>
 
-**Acceptance** lists every done line with the master's report on it, its why and the evidence, with a link to the run that reported it ([how a spec is checked](../../how-it-works/delivery-account.md)).
+**Acceptance** lists every done line with the master's report on it, its why and the evidence, with a link to the run that reported it ([how a spec is checked](../../how-it-works/delivery-account.md)). Below them, **Proposed follow-ups** lists the follow-up specs the masters proposed across the series; **File as a ticket** files one as a work ticket through a `file` run (runs.control), once.
 
 **Runs** lists every attempt and derivation, act runs included (`merge-green`, `retarget`, `refresh-base`, `deploy`), one line each: outcome, how it ended, start, duration, cost, a link to the run and what caused it. A deploy also shows its pull request or pipeline run with any failed checks.
 

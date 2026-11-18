@@ -26,7 +26,7 @@ public sealed class MasterToolComposition(
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory,
     LoopLimitsConfig loopLimits,
     SubAgentBudget subAgentBudget,
-    ISubAgentRunner subAgentRunner,
+    ISubAgentRunner subAgentRunner, SubAgentEvents subAgentEvents,
     SubAgentNameValidator subAgentNameValidator,
     IDecisionLogger decisionLogger,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
@@ -115,6 +115,6 @@ public sealed class MasterToolComposition(
             ChildIterationCeiling: isSpecDialog ? context.AgentConfig.DialogSubAgentLoopIterations : null, // cd4cl
             Team: team); // 2026-11-18-c8e2a
         var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx).GetTools(null, null);
-        return sanity.Wrap([.. master, .. spawn, .. new SubAgentTeamToolHost(team, subAgentRunner, subCtx, decisionLogger).GetTools(null, null)], context.Pipeline);
+        return sanity.Wrap([.. master, .. spawn, .. new SubAgentTeamToolHost(team, subAgentRunner, subCtx, decisionLogger, subAgentEvents).GetTools(null, null)], context.Pipeline);
     }
 }

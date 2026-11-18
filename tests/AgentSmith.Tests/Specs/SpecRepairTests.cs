@@ -38,10 +38,7 @@ public sealed class SpecRepairTests
         var block = AgentSmith.Application.Services.SpecExecutionPromptBlocks
             .OutstandingCriteria(pipeline);
 
-        block.Should().Contain("REPAIR pass")
-            .And.Contain("the inventory enumerates all MediatR handlers")
-            .And.Contain("Close exactly these",
-                "widening the repair into the rest of the spec is scope it was not given");
+        block.Should().Contain("ran red").And.Contain("the inventory enumerates all MediatR handlers");
     }
 
     /// <summary>2026-10-17-a196a: the repair is told which repositories are its own.</summary>

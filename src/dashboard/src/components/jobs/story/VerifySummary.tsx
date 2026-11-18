@@ -145,17 +145,24 @@ function AcceptanceVerify({
 }) {
   const badge = badgeFor(acceptance);
   const unmeasured = acceptance.unmeasured ?? [];
+  // 2026-11-18-c8e2d: a run whose rows are its masters' reports carries the report's lists (maybe empty).
+  const report = acceptance.fixedInPassing != null || acceptance.followUps != null;
   return (
     <section className="card" data-testid="verify-summary" data-source="acceptance">
       <div className="card-h">
-        <h3>Verify against the ratified acceptance</h3>
+        <h3>{report ? "The master's report" : "Verify against the ratified acceptance"}</h3>
         <span className={cn("badge", badge.cls)} data-testid="verify-outcome-badge">
           {badge.label}
         </span>
       </div>
       <div className="card-b">
         <div className="hint" style={{ marginBottom: 6 }} data-testid="verify-source">
-          {acceptance.source === "master_verification" ? (
+          {report ? (
+            <>
+              Each done line as <b>the spec&apos;s master reported it</b> after looking at what its sub-agent built —
+              met, not applicable, or left with its why.
+            </>
+          ) : acceptance.source === "master_verification" ? (
             <>
               Each criterion the requester agreed to, as <b>the agent reported on its own
               work</b>. This is not the independent read the gate uses.
@@ -246,6 +253,7 @@ function AcceptanceVerify({
             ))}
           </div>
         )}
+        {report && <ReportLists acceptance={acceptance} />}
         {acceptance.ratifiedBy && (
           <p className="hint" style={{ marginTop: 12 }} data-testid="verify-ratified-by">
             ratified by {acceptance.ratifiedBy}
@@ -253,6 +261,38 @@ function AcceptanceVerify({
         )}
       </div>
     </section>
+  );
+}
+
+/** 2026-11-18-c8e2d: the rest of the masters' reports — what they fixed in passing and the follow-ups they propose. */
+function ReportLists({ acceptance }: { acceptance: RunAcceptance }) {
+  const fixed = acceptance.fixedInPassing ?? [];
+  const followUps = acceptance.followUps ?? [];
+  return (
+    <>
+      {fixed.length > 0 && (
+        <div data-testid="verify-fixed-in-passing">
+          <p className="hint" style={{ marginTop: 12 }}><b>Fixed in passing</b></p>
+          {fixed.map((line, i) => (
+            <div key={i} className="crit pass"><div className="c-mark">+</div><div><div className="c-txt">{line}</div></div><div className="c-stat">fixed</div></div>
+          ))}
+        </div>
+      )}
+      {followUps.length > 0 && (
+        <div data-testid="verify-follow-ups">
+          <p className="hint" style={{ marginTop: 12 }}>
+            <b>Proposed follow-ups</b> — work a master judged not worth holding its spec for; file one from the ticket page.
+          </p>
+          {followUps.map((f, i) => (
+            <div key={i} className="crit wait" data-testid="verify-follow-up">
+              <div className="c-mark">→</div>
+              <div><div className="c-txt">{f.goal}</div>{f.why && <div className="c-proof">{f.why}</div>}</div>
+              <div className="c-stat">{f.specId ? `follow-up · ${f.specId}` : "follow-up"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

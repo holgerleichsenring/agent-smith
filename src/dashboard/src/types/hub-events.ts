@@ -31,6 +31,7 @@ export enum EventType {
   SubAgentFileWritten = 63,
   SubAgentToolCall = 64,
   SubAgentCompleted = 65,
+  SubAgentMessaged = 66,
   RunCancelRequested = 70,
   SandboxVanished = 71,
   RunCheckpointed = 72,
@@ -430,6 +431,15 @@ export interface SubAgentCompletedEvent extends RunEventBase {
   filesWrittenCount: number;
   toolCalls: number;
   costUsd: number;
+}
+
+/** 2026-11-18-c8e2d: what a master wrote to one of its children; `continued` when the child had finished and the
+ *  message sent the work back to it. */
+export interface SubAgentMessagedEvent extends RunEventBase {
+  type: EventType.SubAgentMessaged;
+  subAgentId: string;
+  text: string;
+  continued: boolean;
 }
 
 /**
@@ -882,6 +892,7 @@ export type RunEvent =
   | SubAgentFileWrittenEvent
   | SubAgentToolCallEvent
   | SubAgentCompletedEvent
+  | SubAgentMessagedEvent
   | RunCancelRequestedEvent
   | SandboxVanishedEvent
   | RunCheckpointedEvent
@@ -968,6 +979,18 @@ export interface RunAcceptance {
   /** 2026-10-12-6bfad: accounts nobody could take — a red build, a diff that would not run —
    *  with why. Not criteria and never counted as one. Absent on runs served before. */
   unmeasured?: UnmeasuredAccount[] | null;
+  /** 2026-11-18-c8e2d: what the masters fixed beyond their specs' lines. Absent on runs before the master's report
+   *  was the account — which is how the page tells the two apart. */
+  fixedInPassing?: string[] | null;
+  /** 2026-11-18-c8e2d: the follow-up specs the masters proposed, each with the spec it came from. */
+  followUps?: FollowUp[] | null;
+}
+
+/** 2026-11-18-c8e2d: a follow-up spec a master proposed instead of holding its spec for it. */
+export interface FollowUp {
+  goal: string;
+  why: string;
+  specId?: string | null;
 }
 
 /** 2026-10-12-6bfad: one account that judged no criterion. `repositories` is one repository

@@ -125,15 +125,56 @@ public sealed class ScriptedChatClient : IChatClient
         return this;
     }
 
+    /// <summary>2026-11-18-c8e2d: each sub-agent's own script, by the name its system prompt opens with ("You are
+    /// {name}."), so a child working beside its master never draws from the master's FIFO.</summary>
+    private readonly Dictionary<string, Queue<ChatResponse>> _agents = new(StringComparer.Ordinal);
+    private readonly Lock _gate = new();
+
+    /// <summary>2026-11-18-c8e2d: scripts a sub-agent's next tool call.</summary>
+    public ScriptedChatClient EnqueueForToolCall(string agent, string toolName, string arguments)
+    {
+        var call = new FunctionCallContent("agent_" + Interlocked.Increment(ref _toolCallCounter), toolName, ParseArgs(arguments));
+        return EnqueueFor(agent, new ChatResponse(new ChatMessage(ChatRole.Assistant, [call])));
+    }
+
+    /// <summary>2026-11-18-c8e2d: scripts a sub-agent's next answer.</summary>
+    public ScriptedChatClient EnqueueForText(string agent, string text) =>
+        EnqueueFor(agent, new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
+
+    /// <summary>Every call a sub-agent made, its whole message list each.</summary>
+    public IReadOnlyList<IReadOnlyList<ChatMessage>> AgentCalls(string agent)
+    {
+        lock (_gate)
+            return [.. _callMessages.Where(m => AgentOf(m) == agent)];
+    }
+
+    private ScriptedChatClient EnqueueFor(string agent, ChatResponse response)
+    {
+        lock (_gate) (_agents.TryGetValue(agent, out var q) ? q : _agents[agent] = new Queue<ChatResponse>()).Enqueue(response);
+        return this;
+    }
+
+    private string? AgentOf(IReadOnlyList<ChatMessage> messages) =>
+        messages.FirstOrDefault(m => m.Role == ChatRole.System)?.Text is { } system
+            ? _agents.Keys.FirstOrDefault(name => system.StartsWith($"You are {name}.", StringComparison.Ordinal))
+            : null;
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
+    {
+        lock (_gate) return Respond(messages, options);
+    }
+
+    private Task<ChatResponse> Respond(IEnumerable<ChatMessage> messages, ChatOptions? options)
     {
         InvocationCount++;
         LastMessages = messages.ToList();
         _callMessages.Add(LastMessages);
         LastOptions = options;
         FirstOptions ??= options;
+        if (AgentOf(LastMessages) is { } agent)
+            return Task.FromResult(_agents[agent].Count > 0 ? _agents[agent].Dequeue() : DefaultEmpty());
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
         if (SpecAttackScript.Answers(LastMessages))

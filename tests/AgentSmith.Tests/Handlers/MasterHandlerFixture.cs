@@ -163,6 +163,7 @@ internal static class MasterHandlerFixture
             limits ?? new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new SubAgentBudget(20),
             subAgents ?? new StubSubAgentRunner(),
+            new SubAgentEvents(new AgentSmith.Application.Services.Events.NoOpEventPublisher()),
             new SubAgentNameValidator(),
             new NoOpDecisionLogger(),
             // 2026-10-01-7f7ab: a project with no figma source never reaches the client.

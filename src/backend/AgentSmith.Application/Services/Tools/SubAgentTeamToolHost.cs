@@ -14,7 +14,8 @@ namespace AgentSmith.Application.Services.Tools;
 /// master as a notice with its next tool result, so waiting returns only who still runs.
 /// </summary>
 public sealed class SubAgentTeamToolHost(
-    SubAgentTeam team, ISubAgentRunner runner, SubAgentContext context, IDecisionLogger decisionLogger) : IToolHost
+    SubAgentTeam team, ISubAgentRunner runner, SubAgentContext context, IDecisionLogger decisionLogger, SubAgentEvents events)
+    : IToolHost
 {
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? executionStage, string? investigatorMode) =>
     [
@@ -26,14 +27,19 @@ public sealed class SubAgentTeamToolHost(
             "Waits until a sub-agent you started finishes (its answer comes with this result) or none is running."),
     ];
 
-    public string SendMessage(
-        [Description("The sub-agent's id, as spawn_agents returned it.")] string agent_id,
+    public async Task<string> SendMessage(
+        [Description("The sub-agent's id, as spawn_agents returned it, or its name.")] string agent_id,
         [Description("What you tell it: feedback, a correction, the next thing to do.")] string text,
         CancellationToken ct = default)
     {
         if (team.Find(agent_id) is not { } member)
             return $"No sub-agent has the id '{agent_id}'. Yours: {Roster()}.";
-        if (member.TryPost(text)) return $"Delivered: {member.Name} reads it with its next tool result.";
+        if (member.TryPost(text))
+        {
+            await events.MessagedAsync(member.Id, context, text, continued: false, ct); // 2026-11-18-c8e2d
+            return $"Delivered: {member.Name} reads it with its next tool result.";
+        }
+        await events.MessagedAsync(member.Id, context, text, continued: true, ct);
         runner.Continue(member, text, context, (m, result) => decisionLogger.LogAsync(
             repositoryFiles: null, DecisionCategory.Implementation,
             $"Continued sub-agent {m.Name} ({m.Spec.Activity}) — {result.Status} cost ${result.CostUsd:F4}", CancellationToken.None), ct);

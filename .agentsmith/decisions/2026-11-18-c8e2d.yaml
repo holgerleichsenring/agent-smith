@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-c8e2d
+
+decisions:
+  - category: Architecture
+    chose: "The report's two lists ride on AcceptanceView (FixedInPassing, FollowUps with their spec id), built by AcceptanceSnapshot from the accounts"
+    over: "A separate report view and endpoint"
+    reason: "Every page already reads AcceptanceView from the run snapshot, RunSpec.AcceptanceJson and the ticket series; two optional members reach all of them, and their absence marks a run from before (the run page keeps its old hint for those)."
+  - category: Architecture
+    chose: "Filing a follow-up: POST /api/tickets/{project}/{ticketId}/follow-ups with (runId, specId, index); the server reads the follow-up from the stored report, spends the rework ledger key follow-up|run|spec|index, and files it through IFilingRun.RunRequestAsync as a FilingFollowUp in a 'file' run"
+    over: "Posting the goal text from the client, or a new filing path"
+    reason: "Review cut: the text comes from what the master reported, not from the client, and the existing ledger makes a second click file nothing. IFilingRun is the follow-up filing 2026-11-17-e061d built — no second path; the server accepts the request and starts the run. MayStartRuns is false: the filed ticket waits for the person."
+  - category: Scope
+    chose: "The filed follow-up is not linked back with a comment on the source ticket, and the ticket page does not read the ledger to show 'filed' after a reload (the server refuses a second filing and says so)"
+    over: "FollowUpLink and a ledger read in the series view now"
+    reason: "Proposed follow-up: link a filed follow-up back to its source ticket (FollowUpLink) and show it as filed on the ticket page."
+  - category: Behaviour
+    chose: "The sub-agent team lives for the run (ContextKeys.SubAgentTeam, never checkpointed), not for one master step"
+    over: "c8e2a's per-step team"
+    reason: "The harness proof showed it: a red stage's repair is a new AgenticMaster step, and its master must send the red output to the child that built the spec, over that child's conversation. Children still never outlive the loop that started them."
+  - category: Behaviour
+    chose: "send_message addresses a child by id or, when exactly one child carries it, by name"
+    over: "Ids only"
+    reason: "A repair pass's master knows the child it briefed by the name it gave; ids are random per run."
+  - category: Behaviour
+    chose: "A red stage goes back to the master whether the context declared it or the analyzer inferred it"
+    over: "Declared stages only"
+    reason: "The red output is what the master needs to have it fixed; an inferred command that is wrong costs one pass, and a spec still red fails as before. The repair prompt block now speaks only of the red stage."
+  - category: Implementation
+    chose: "SubAgentMessagedEvent (66) with resolver, frozen fixture, filter key and lifecycle reader; a child's own tool calls are named by their role in the step detail; SubAgentCompleted reads finished / failed / finished with no answer / stopped"
+    over: "A message line only in the activity feed"
+    reason: "Review finding: children's tool calls arrive as ToolCall events whose role is the child's name, so the step reads master and child apart without new events."
+  - category: Implementation
+    chose: "The harness's ScriptedChatClient gains a script per sub-agent (EnqueueForToolCall/EnqueueForText, routed by the 'You are {name}.' system prompt), thread-safe"
+    over: "One shared FIFO"
+    reason: "A background child and its master call the model at the same time; one FIFO would make the order a race."
+  - category: Scope
+    chose: "No published mock before the new dashboard sections"
+    over: "An artifact mock and the operator's yes first"
+    reason: "The run is non-interactive and the operator asked to build it through; the sections reuse the existing VerifySummary and acceptance-row styles, and the screenshot rig was looked at instead."

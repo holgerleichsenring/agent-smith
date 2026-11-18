@@ -32,6 +32,7 @@ public static class SpecAccountRenderer
                 continue;
             }
             lines.AddRange(account.Criteria.Select(Row));
+            lines.AddRange(Report(account)); // 2026-11-18-c8e2d
             if (account.Measures is { } measures) lines.AddRange(Measured(measures));
             lines.Add(string.Empty);
         }
@@ -55,6 +56,13 @@ public static class SpecAccountRenderer
         + $"{measures.DistinctReadCount} distinct source file(s) read",
     ];
 
+    /// <summary>2026-11-18-c8e2d: the rest of the master's report — fixed in passing and the follow-ups it proposes.</summary>
+    private static IEnumerable<string> Report(SpecAccount account) =>
+    [
+        .. (account.FixedInPassing ?? []).Select(f => $"Fixed in passing: {f}"),
+        .. (account.FollowUps ?? []).Select(f => $"Proposed follow-up: {f.Goal}" + (string.IsNullOrWhiteSpace(f.Why) ? "" : $" — {f.Why}")),
+    ];
+
     private static string Row(CriterionAccount criterion) =>
         $"- [{Mark(criterion.Disposition)}] {criterion.Criterion}{Evidence(criterion)}";
 
@@ -72,6 +80,8 @@ public static class SpecAccountRenderer
     {
         { Disposition: AccountDisposition.Satisfied, Mechanical: true } => " — verified by command",
         { Disposition: AccountDisposition.Satisfied, Citation: not null } => $" — `{criterion.Citation}`",
+        // 2026-11-18-c8e2d: a master's row says its own why; a scan's names the antecedent its search disproved.
+        { Disposition: AccountDisposition.NotApplicable, Antecedent: null, Note: not null } => $" — not applicable: {criterion.Note}",
         { Disposition: AccountDisposition.NotApplicable } =>
             $" — not applicable: the base carries no {criterion.Antecedent}"
             + (criterion.Citation is null ? string.Empty : $" (`{criterion.Citation}`)"),

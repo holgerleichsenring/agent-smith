@@ -370,7 +370,7 @@ public sealed class AgenticMasterHandler(
 
         // 2026-09-17-042ee/2026-09-22-5891: ONLY the design surface reports, wrapped where it
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
-        await using var team = new SubAgentTeam(logger); // 2026-11-18-c8e2a: none outlives the loop that started it
+        var team = SubAgentTeam.GetOrCreate(context.Pipeline, logger); // c8e2a: none outlives its loop; c8e2d: kept for the run
         var composed = composition.Compose(
             isScanMaster, isSpecDialog, fs, records, human, credentials, writeContextYaml, web,
             progress, withdraw, readTicket, ticketWork, ticketRuns, context, team);

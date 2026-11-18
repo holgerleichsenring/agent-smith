@@ -135,6 +135,7 @@ POST	/api/teams/messages	anonymous	-
 POST	/api/tickets/{project}/{ticketId}/body	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/follow-ups	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/derive-specs	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/reopen	runs.control	route:project

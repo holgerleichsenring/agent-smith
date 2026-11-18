@@ -44,7 +44,7 @@ public sealed class SpecRepairScopeTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "spec b's criterion" });
-        SpecExecutionPromptBlocks.OutstandingCriteria(pipeline).Should().Contain("REPAIR pass");
+        SpecExecutionPromptBlocks.OutstandingCriteria(pipeline).Should().Contain("ran red");
 
         SpecRepairScope.Reset(pipeline);
 

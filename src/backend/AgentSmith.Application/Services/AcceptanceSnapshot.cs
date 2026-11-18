@@ -59,11 +59,19 @@ internal static class AcceptanceSnapshot
         if (criteria.Count == 0 && unmeasured.Count == 0) return null;
 
         // 2026-11-18-c8e2c: a spec's rows are its master's report; only a scan's coverage account is a delivery account.
-        var source = all.All(a => a.RepoKey == Scans.ScanCoverageAccountant.RepoKey)
-            ? AcceptanceSources.DeliveryAccount : AcceptanceSources.MasterVerification;
+        var scan = all.All(a => a.RepoKey == Scans.ScanCoverageAccountant.RepoKey);
         return new AcceptanceView(
-            criteria, ExpectationOutcomes.Verbatim, RatifiedByTheSpec, source, Unmeasured: unmeasured);
+            criteria, ExpectationOutcomes.Verbatim, RatifiedByTheSpec,
+            scan ? AcceptanceSources.DeliveryAccount : AcceptanceSources.MasterVerification, Unmeasured: unmeasured,
+            FixedInPassing: scan ? null : [.. all.SelectMany(a => a.FixedInPassing ?? []).Distinct()],
+            FollowUps: scan ? null : FollowUps(accounts!)); // 2026-11-18-c8e2d
     }
+
+    private static IReadOnlyList<FollowUpView> FollowUps(RunAccounts accounts) =>
+    [
+        .. accounts.Specs.SelectMany(spec => spec.Accounts.SelectMany(account =>
+            (account.FollowUps ?? []).Select(f => new FollowUpView(f.Goal, f.Why, spec.SpecId)))),
+    ];
 
     /// <summary>A run that declined something and was judged by nothing else — it ended
     /// between the master's verdict and the account — still shows what it declined.</summary>

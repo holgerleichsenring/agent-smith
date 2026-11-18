@@ -99,4 +99,27 @@ public sealed class DeliveryAccountOnTheRunDetailTests
         view.Unmeasured.Should().ContainSingle().Which.Reason.Should().Be("sbt: not found");
         view.Source.Should().Be(AcceptanceSources.MasterVerification, "2026-11-18-c8e2c: a spec's account is its master's report");
     }
+
+    // 2026-11-18-c8e2d: the view carries the report's lists, each follow-up with the spec it came from.
+    [Fact]
+    public void RunStory_AMastersReport_CarriesFixedInPassingAndFollowUpsWithTheirSpec()
+    {
+        var accounts = RunAccounts.Empty.With("s2", [new SpecAccount("Sample.Server",
+            [new CriterionAccount("c", AccountDisposition.Satisfied, "src/A.cs")],
+            FixedInPassing: ["a null check"], FollowUps: [new MasterFollowUp("Exports stream CSV", "paging first")])]);
+
+        var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(accounts));
+
+        view.FixedInPassing.Should().Equal("a null check");
+        view.FollowUps.Should().Equal(new FollowUpView("Exports stream CSV", "paging first", "s2"));
+    }
+
+    [Fact]
+    public void RunStory_AStoredViewWithoutTheReport_ReadsTheListsAsAbsent()
+    {
+        var view = Deserialize("""{"criteria":[],"outcome":"verbatim","ratifiedBy":"x","source":"delivery_account"}""");
+
+        view.FixedInPassing.Should().BeNull();
+        view.FollowUps.Should().BeNull();
+    }
 }

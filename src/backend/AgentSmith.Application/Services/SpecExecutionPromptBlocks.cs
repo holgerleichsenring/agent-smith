@@ -33,14 +33,8 @@ public static class SpecExecutionPromptBlocks
     }
 
     /// <summary>
-    /// p0438: what the accountant said is missing, quoted, in the repair pass's own prompt.
-    /// The repair is only worth a master pass if the agent is told exactly which criteria
-    /// the branch does not satisfy — a generic "try again" spends the pass and closes
-    /// nothing.
-    /// <para>
-    /// A structure correction that follows a repair takes its place: the repair's work is done
-    /// and committed, and the correction may change nothing but the units it names.
-    /// </para>
+    /// p0438, 2026-11-18-c8e2c: what the verification after the master's work found red, quoted in the repair pass's
+    /// own prompt — the one thing a repair is for. A structure correction that follows takes its place.
     /// </summary>
     public static string OutstandingCriteria(PipelineContext pipeline)
     {
@@ -48,14 +42,9 @@ public static class SpecExecutionPromptBlocks
         if (!pipeline.TryGet<List<string>>(ContextKeys.OutstandingCriteria, out var outstanding)
             || outstanding is not { Count: > 0 })
             return string.Empty;
-        return "\n**This is a REPAIR pass. The verification of the branch against this "
-            + "spec found these NOT satisfied:**\n"
+        return "\n**The verification after your work ran red:**\n"
             + string.Join("\n", outstanding.Select(c => "- " + c))
-            + "\nClose exactly these. " + (outstanding.Any(c => c.StartsWith(StageRepair.ItemPrefix, StringComparison.Ordinal))
-                ? "No criterion has been accounted for yet; the verification after this pass takes the account. "
-                : "The rest of the spec is already accounted for — adding more is scope you were not given. ")
-            + "If one of them cannot be satisfied, say which and why rather than working around it."
-            + WrittenInto(pipeline);
+            + "\nHave it fixed, then report again." + WrittenInto(pipeline);
     }
 
     /// <summary>2026-10-17-a196a: the repositories the repair is confined to — the spec's own.</summary>

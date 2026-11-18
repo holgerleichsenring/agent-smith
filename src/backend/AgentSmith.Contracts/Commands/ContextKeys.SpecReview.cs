@@ -22,4 +22,8 @@ public static partial class ContextKeys
     /// disposed by the pipeline executor; the master and the diff reviewer's look borrow from it.
     /// A live handle, never checkpointed.</summary>
     public const string RunTemplateScopes = "RunTemplateScopes";
+
+    /// <summary>2026-11-18-c8e2d: the run's sub-agent team — every child its masters started, so a later pass of a spec
+    /// continues the child that built it. A live handle, never checkpointed.</summary>
+    public const string SubAgentTeam = "SubAgentTeam";
 }

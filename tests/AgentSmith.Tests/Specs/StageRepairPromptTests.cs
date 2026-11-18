@@ -17,7 +17,6 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class StageRepairPromptTests
 {
-    private const string AlreadyAccounted = "The rest of the spec is already accounted for";
 
     [Fact]
     public void SpecExecutionPrompt_StageRepair_NamesTheVerificationAndCarriesTheOutput()
@@ -30,17 +29,7 @@ public sealed class StageRepairPromptTests
 
         var block = SpecExecutionPromptBlocks.OutstandingCriteria(pipeline);
 
-        block.Should().Contain("The verification").And.Contain("FAIL src/app.test.ts")
-            .And.Contain("No criterion has been accounted for yet").And.NotContain(AlreadyAccounted);
-    }
-
-    [Fact]
-    public void SpecExecutionPrompt_AccountRepair_KeepsTheAlreadyAccountedForSentence()
-    {
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "shop: the export lists every order" });
-
-        SpecExecutionPromptBlocks.OutstandingCriteria(pipeline).Should().Contain(AlreadyAccounted);
+        block.Should().Contain("The verification after your work ran red").And.Contain("FAIL src/app.test.ts");
     }
 
     [Fact]

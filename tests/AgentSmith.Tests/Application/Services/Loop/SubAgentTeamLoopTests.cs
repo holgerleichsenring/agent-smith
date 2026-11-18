@@ -74,6 +74,8 @@ public sealed class SubAgentTeamLoopTests
         provider.Requests(Child).Should().HaveCount(2, "the child ran once and was continued once");
         rig.Publisher.Events.OfType<SubAgentSpawnedEvent>().Should().ContainSingle();
         rig.Publisher.Events.OfType<SubAgentCompletedEvent>().Should().HaveCount(2);
+        rig.Publisher.Events.OfType<SubAgentMessagedEvent>().Should().ContainSingle() // 2026-11-18-c8e2d
+            .Which.Should().Match<SubAgentMessagedEvent>(e => e.Continued && e.Text == "the done list wants a test too");
     }
 
     [Fact]
@@ -183,7 +185,7 @@ public sealed class SubAgentTeamLoopTests
             var decisions = new Handlers.MasterHandlerFixture.NoOpDecisionLogger();
             var tools = new SpawnAgentToolHost(Runner, Context.Budget, new SubAgentNameValidator(), decisions, Context)
                 .GetTools(null, null)
-                .Concat(new SubAgentTeamToolHost(Team, Runner, Context, decisions).GetTools(null, null));
+                .Concat(new SubAgentTeamToolHost(Team, Runner, Context, decisions, new SubAgentEvents(Publisher)).GetTools(null, null));
             return [.. tools.Select(f => (AITool)new MidTurnMessageAIFunction(f, Team.Notices))];
         }
     }
