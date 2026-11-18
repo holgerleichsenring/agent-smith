@@ -142,3 +142,28 @@
 .mock-viewer .rl-plain .hint { font-size: 12px; }
 .mock-viewer .rl-plain .btn-link { text-decoration: underline; }
 @media (max-width: 640px) { .mock-viewer .rl-step-llm { display: none; } .mock-viewer .rl-log .rl-sec-body { padding-left: 12px; } .mock-viewer .rl-log .rl-sec-head { flex-wrap: wrap; } }
+
+/* 2026-11-17-6d9ec: an open step's detail, terminal-like — filters as text links, the summary on the right, one line per
+   event with its time, kind, text and meta. */
+.mock-viewer .rl-detail-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; padding-bottom: 4px; font-family: var(--sans); font-size: 12px; color: var(--ink-3); }
+.mock-viewer .rl-filter { padding: 0; border: 0; background: none; font: inherit; color: var(--ink-3); cursor: pointer; }
+.mock-viewer .rl-filter:hover { color: var(--ink-2); }
+.mock-viewer .rl-filter[aria-pressed="true"] { color: var(--ink); text-decoration: underline; }
+.mock-viewer .rl-find { width: 150px; padding: 0 0 1px; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: var(--ink-2); outline: none; }
+.mock-viewer .rl-find:focus { border-bottom-color: var(--ink-3); }
+.mock-viewer .rl-detail-sum { margin-left: auto; }
+.mock-viewer .rl-detail-line { display: grid; grid-template-columns: 62px 74px minmax(0, 1fr) auto; gap: 12px; color: var(--ink-2); }
+.mock-viewer .rl-detail-line .rl-kind { color: var(--ink-3); }
+.mock-viewer .rl-detail-line .rl-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-viewer .rl-detail-line:hover .rl-text { white-space: normal; overflow-wrap: anywhere; }
+.mock-viewer .rl-detail-line .rl-text a { color: inherit; }
+.mock-viewer .rl-detail-line .rl-meta-col { color: var(--ink-3); white-space: nowrap; }
+.mock-viewer .rl-detail-line[data-tone="ok"] .rl-text { color: var(--ok); }
+.mock-viewer .rl-detail-line[data-tone="run"] .rl-text { color: var(--run); }
+.mock-viewer .rl-detail-line[data-tone="bad"] .rl-text, .mock-viewer .rl-detail-line[data-tone="bad"] .rl-meta-col { color: var(--bad); }
+.mock-viewer .rl-detail-line[data-tone="dim"] .rl-text { color: var(--ink-3); }
+.mock-viewer .rl-detail-repo { color: var(--ink-2); }
+.mock-viewer .rl-detail-older { color: var(--ink-3); font-family: var(--sans); font-size: 12px; }
+.mock-viewer .rl-more-lines { font-family: var(--sans); font-size: 12px; padding-top: 4px; text-align: left; }
+.mock-viewer .rl-output { max-height: 320px; overflow: auto; padding: 4px 0 4px 14px; white-space: pre-wrap; color: var(--ink-2); }
+@media (max-width: 640px) { .mock-viewer .rl-detail-line { grid-template-columns: 62px minmax(0, 1fr); } .mock-viewer .rl-detail-line .rl-kind, .mock-viewer .rl-detail-line .rl-meta-col { display: none; } }
