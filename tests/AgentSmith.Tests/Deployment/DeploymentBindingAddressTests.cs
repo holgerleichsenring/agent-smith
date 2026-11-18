@@ -31,14 +31,6 @@ public sealed class DeploymentBindingAddressTests
         TemplateScopeName.Owns(declarations, 1).Should().BeTrue("the deployment binding's address is its own");
     }
 
-    [Fact]
-    public void Of_DeploymentBinding_IsNotSelected()
-    {
-        var project = new ResolvedProject { Templates = [Binding(TemplateKinds.Code), Binding(TemplateKinds.Deployment)] };
-
-        TemplateDeclarations.Of(project, [], contexts: null).Keys.Should().Equal("template:api");
-    }
-
     private static ProjectTemplate Binding(string kind, string? contextRepo = null) =>
         new("api", "k8s-gitops", "v1", Repo, contextRepo, kind, []);
 }

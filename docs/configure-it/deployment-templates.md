@@ -37,3 +37,37 @@ projects:
 | `environments[].parameters` | values of the parameters the template declares, as strings |
 
 Secrets are not configured here. The template names the secrets an application needs, and the files it delivers reference them by name. Where their values come from (a cluster secret store, the pipeline's variables) stays the platform's business.
+
+## The template's declaration
+
+A deployment template is a context of its repository with one more file beside its `context.yaml`: `.agentsmith/contexts/<template_context>/deployment.yaml`. The files it names are relative to the template repository's root.
+
+```yaml
+delivery: gitops_pr              # how a version reaches an environment: a pull request to its manifest
+files:                           # what an application of this kind needs, copied or adapted into it
+  - Dockerfile
+  - .github/workflows/build-image.yml
+  - deploy/
+parameters:                      # values come from each environment's parameters in the binding
+  - name: image
+    description: the container image repository, without a tag
+  - name: replicas
+    default: "1"
+secrets:                         # referenced by name in the files, never created or stored by agent-smith
+  - name: DATABASE_URL
+    description: the database connection string, from the cluster's secret store
+environments:
+  - name: test
+    manifest: deploy/overlays/test/kustomization.yaml   # in the environment's repository
+    version_key: images.0.newTag                        # the scalar that carries the version
+  - name: prod
+    manifest: deploy/overlays/prod/kustomization.yaml
+    version_key: images.0.newTag
+    promotes_from: test                                 # prod takes the version test runs
+```
+
+## Making a context deployable
+
+Making a context deployable is ordinary work: a ticket, or a Work it out conversation, that says "make the api deployable to test". The run opens the deployment template read only, next to the code, as `template:deploy:<context>`. The coding master is told which environments this project binds and with which parameter values, and it copies or adapts the declared files into the context. A parameter with no value in the binding and no default in the template becomes a question to a person, with the value the master recommends; until it is answered the ticket waits in needs clarification. A secret is written into the files by its name only.
+
+Because the template is opened like a code template, a coding run of a bound context needs to reach it: a revision that no longer exists fails the run before its first model call, the same as for a code template.
