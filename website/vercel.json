@@ -67,6 +67,28 @@
       ],
       "destination": "https://www.codeably.ai/:path*",
       "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "docs.agent-smith.org"
+        }
+      ],
+      "destination": "https://docs.codeably.ai/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "docs.agent-smith.org"
+        }
+      ],
+      "destination": "https://docs.codeably.ai/:path*",
+      "permanent": true
     }
   ]
 }
