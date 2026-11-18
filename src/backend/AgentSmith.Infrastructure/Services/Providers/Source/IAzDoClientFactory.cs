@@ -1,3 +1,5 @@
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.Policy.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Identity.Client;
@@ -28,5 +30,13 @@ public interface IAzDoClientFactory
     /// <summary>2026-10-08-f147: the identity id the token acts as (connectionData), or null when
     /// the connection cannot say.</summary>
     Task<string?> AuthorizedIdentityIdAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-17-3435a: the policy client a pull request's build-validation evaluations are read through.</summary>
+    Task<PolicyHttpClient> CreatePolicyClientAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-17-3435a: the build client a failed build's timeline and log are read through.</summary>
+    Task<BuildHttpClient> CreateBuildClientAsync(
         string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
 }

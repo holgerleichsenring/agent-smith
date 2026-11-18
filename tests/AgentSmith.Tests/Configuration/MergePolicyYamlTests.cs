@@ -40,6 +40,30 @@ public sealed class MergePolicyYamlTests
         project.Merge.Protection.Should().Be(BranchProtection.Respect);
     }
 
+    // 2026-11-17-3435a
+    [Fact]
+    public void MergeBlock_Loads_CiEvidenceBounds()
+    {
+        var project = Load(Head + "    merge:\n      ci_excerpt_chars: 1500\n      ci_failed_checks_read: 2\n");
+
+        project.Merge.CiExcerptChars.Should().Be(1500);
+        project.Merge.CiFailedChecksRead.Should().Be(2);
+        Load(Head).Merge.CiExcerptChars.Should().Be(4000, "the default when the block says nothing");
+    }
+
+    // 2026-11-17-3435b
+    [Fact]
+    public void MergeBlock_Loads_OnCiGreen_AndItsKeys()
+    {
+        var project = Load(Head + "    merge:\n      when: on_ci_green\n      ci_poll_seconds: 30\n      ci_settle_seconds: 90\n"
+            + "      ci_pending_seconds: 600\n      approval_auth: approver\n      ci_fix_attempts: 5\n");
+
+        project.Merge.When.Should().Be(MergeWhen.OnCiGreen);
+        (project.Merge.CiPollSeconds, project.Merge.CiSettleSeconds, project.Merge.CiPendingSeconds).Should().Be((30, 90, 600));
+        project.Merge.ApprovalAuth.Should().Be("approver");
+        project.Merge.CiFixAttempts.Should().Be(5); // 2026-11-17-3435c
+    }
+
     [Fact]
     public void NoMergeBlock_IsManual_AndWouldBypass()
     {

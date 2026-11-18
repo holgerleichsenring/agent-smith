@@ -7,7 +7,8 @@ public static partial class PipelinePresets
     /// <summary>2026-10-26-bdd0b: true for a run that carries a ticket id but never moves the ticket: no working
     /// or failure comment, no status, no lifecycle label, no queue entry, no taken-ticket record.</summary>
     public static bool LeavesTicketAlone(string? pipelineName) =>
-        string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase) || ShownOnTicketOnly(pipelineName);
+        string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase) || ShownOnTicketOnly(pipelineName)
+        || string.Equals(pipelineName, MergeGreenName, StringComparison.OrdinalIgnoreCase); // 2026-11-17-3435b: merges, moves nothing
 
     /// <summary>2026-11-17-b34ed: a run that acts beside a ticket — on its pull request or branch — and is shown on its
     /// page: its row carries the ticket's id (PipelineRequest.ShownOnTicket), it leaves the ticket alone and nudges no

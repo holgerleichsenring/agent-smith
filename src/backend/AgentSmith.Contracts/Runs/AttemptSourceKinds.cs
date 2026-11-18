@@ -20,4 +20,7 @@ public static class AttemptSourceKinds
 
     /// <summary>2026-10-13-8762p: an overruled default; the id is its row.</summary>
     public const string Default = "default";
+
+    /// <summary>2026-11-17-3435c: a red CI on a pull request; the url is the pull request, the detail its failed checks.</summary>
+    public const string Ci = "ci";
 }

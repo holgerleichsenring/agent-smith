@@ -25,6 +25,24 @@ function options(testId: string): string[] {
 }
 
 describe("ProjectMergeSection", () => {
+  // 2026-11-17-3435d
+  it("shows the CI loop's keys for on_ci_green and writes them", () => {
+    const onChange = vi.fn();
+    const ci = { ...project, merge: { when: "on_ci_green", respectBranchProtection: true, refreshOpenPullRequests: false } };
+    render(<ProjectMergeSection project={ci} onChange={onChange} capabilities={capabilities} secrets={[{ id: "approver" } as never]} />);
+
+    fireEvent.change(screen.getByTestId("form-field-merge-ciFixAttempts"), { target: { value: "5" } });
+    expect(onChange.mock.calls.at(-1)![0].merge).toMatchObject({ when: "on_ci_green", ciFixAttempts: 5 });
+    fireEvent.change(screen.getByTestId("form-field-merge-approvalAuth"), { target: { value: "approver" } });
+    expect(onChange.mock.calls.at(-1)![0].merge.approvalAuth).toBe("approver");
+  });
+
+  it("hides the CI cadence for another mode but keeps the evidence bounds", () => {
+    render(<ProjectMergeSection project={project} onChange={() => {}} capabilities={capabilities} />);
+    expect(screen.queryByTestId("form-field-merge-ciPollSeconds")).toBeNull();
+    expect(screen.getByTestId("form-field-merge-ciExcerptChars")).toBeTruthy();
+  });
+
   it("offers the server's modes, a mode it gained included", () => {
     render(<ProjectMergeSection project={project} onChange={() => {}} capabilities={capabilities} />);
     expect(options("form-field-merge-when")).toEqual(["manual", "on_gate_green", "on_ci_green"]);

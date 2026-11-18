@@ -39,6 +39,36 @@ public sealed class MergeOnGateGreenTests
         merges.Should().BeEmpty();
     }
 
+    // 2026-11-17-3435b: on_ci_green — the code run merges nothing; the merge-green run merges what CI cleared.
+    [Fact]
+    public async Task GreenRun_OnCiGreen_MergesNothing()
+    {
+        var merges = new List<BranchProtection>();
+        var result = await RunGreenAsync(merges, new MergePolicyConfig { When = MergeWhen.OnCiGreen });
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        merges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task MergeGreenRun_MergesTheSeededPullRequest()
+    {
+        var merges = new List<BranchProtection>();
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
+        {
+            services.RemoveAll<ISourceProviderFactory>();
+            services.AddSingleton<ISourceProviderFactory>(new RecordingFactory(new StubSourceProviderFactory(), merges));
+        });
+        var runner = new PipelineRunner(harness.Services) { MergeOverride = new MergePolicyConfig { When = MergeWhen.OnCiGreen } };
+        runner.RequestContext[AgentSmith.Contracts.Commands.ContextKeys.CiGreenMerge] = new AgentSmith.Contracts.Runs.CiGreenMergeRequest(
+            "42", "attempt-1", "agent-smith/42", [new AgentSmith.Contracts.Runs.CiGreenPullRequest("primary", "https://stub.test/primary/pull/1")]);
+
+        var result = await runner.RunAsync(AgentSmith.Contracts.Commands.PipelinePresets.MergeGreenName);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        merges.Should().Equal(BranchProtection.Bypass);
+    }
+
     private static async Task<AgentSmith.Domain.Models.CommandResult> RunGreenAsync(List<BranchProtection> merges, MergePolicyConfig? merge)
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>

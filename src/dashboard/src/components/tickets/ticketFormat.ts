@@ -56,6 +56,7 @@ const CHANNEL_WORDS: Record<string, string> = {
   overrule: "overruled default",
   series: "series, started automatically",
   precondition: "restarted once the precondition held",
+  ci: "red CI on the pull request", // 2026-11-17-3435c
 };
 
 export function channelWords(channel: string): string {

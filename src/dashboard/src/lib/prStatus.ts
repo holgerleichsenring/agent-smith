@@ -13,7 +13,8 @@ export function hasPullRequest(status: PullRequestStatus): boolean {
     status === "opened" ||
     status === "completed" ||
     status === "completion_armed" ||
-    status === "completion_refused"
+    status === "completion_refused" ||
+    status === "awaiting_ci"
   );
 }
 
@@ -33,6 +34,8 @@ export function pullRequestStatusLabel(status: PullRequestStatus): string {
       return "auto-merging";
     case "completion_refused":
       return "still open";
+    case "awaiting_ci":
+      return "waiting for CI";
     case "no_changes":
       return "no changes";
     case "failed":

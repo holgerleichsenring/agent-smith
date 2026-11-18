@@ -267,9 +267,16 @@ Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md)
 
 ```yaml
 merge:
-  when: on_gate_green               # manual (default) | on_gate_green
+  when: on_gate_green               # manual (default) | on_gate_green | on_ci_green
   respect_branch_protection: false  # default false
   refresh_open_pull_requests: false # default false
+  ci_excerpt_chars: 4000            # default 4000
+  ci_failed_checks_read: 5          # default 5
+  ci_poll_seconds: 60               # on_ci_green: default 60
+  ci_settle_seconds: 180            # on_ci_green: default 180
+  ci_pending_seconds: 3600          # on_ci_green: default 3600
+  ci_fix_attempts: 3                # on_ci_green: default 3
+  approval_auth: github_approver    # optional: a secret name
 ```
 
 | Key | Description |
@@ -278,6 +285,17 @@ merge:
 | `respect_branch_protection` | `false`: merge past branch policies, protection rules and approval rules, which are there for people. That needs the token's permission: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with *Do not allow bypassing the above settings* off, or the token's actor on a ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow. `true`: Azure DevOps arms auto-complete, GitHub enables auto-merge, GitLab merges when the pipeline succeeds. |
 
 | `refresh_open_pull_requests` | `true`: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch unchanged and is said on the pull request. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |
+
+| `on_ci_green` (a `when` value) | A run whose every spec passed merges nothing at its end: each of its pull requests reads *waiting for CI*. agent-smith reads their CI every `ci_poll_seconds`; once it is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, approves where the host requires a review and merges them, and the ticket lands. A head is acted on once per verdict; a new head or a new verdict is acted on again. |
+| `ci_poll_seconds` | With `on_ci_green`, how often the open pull requests' CI is read. Default 60. |
+| `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push. |
+| `ci_pending_seconds` | After how long a head still pending is no longer read every `ci_poll_seconds`; the five-minute re-read still sees it move. Default 3600. |
+| `ci_fix_attempts` | With `on_ci_green`, a red CI on the head the newest green attempt pushed starts a rework run that carries the failed checks' evidence (names, excerpts, links) as its task; the fix is verified locally and pushed to the same pull request, never force-pushed, and CI is watched again. After `ci_fix_attempts` such runs in a row (default 3), or after a fix that pushed nothing, the next run hands the ticket back in its clarification status with the evidence on the ticket; a person's comment or approval starts the next attempt and the count starts again. A red pull request is never merged. |
+| `approval_auth` | With `respect_branch_protection: true`, the secret of the identity that approves a pull request whose host requires a review. GitHub never lets the author approve its own pull request, and the author is the repo's own token, so a required review there needs a second identity (a machine user or app token); Azure DevOps and GitLab need it when the host forbids the author approving. Without it the repo's token approves where the host allows; a refusal leaves the pull request open and names this key. With the default `respect_branch_protection: false` no approval is needed: the merge goes past the review rule. |
+| `ci_excerpt_chars` | How many characters of each failed CI check's evidence are read, stored and shown: the host's summary and annotations, then the end of its log. Default 4000. |
+| `ci_failed_checks_read` | How many failed checks of one red head have their logs read; the rest are named with their links. Default 5. |
+
+Every open pull request's CI is read with its record and shown on the ticket page: `none` (nothing reports on the head), `pending`, `green` or `red`. One rule decides for every host: where checks are marked required only those count; any failed check is red; else anything running is pending; else green. GitHub reads the check runs and commit statuses of the head (a failed GitHub Actions job adds the end of its log), Azure DevOps the build-validation policies (the failed build's task issues and log end) and the pull request's statuses of its latest iteration, GitLab the head pipeline (each failed job's stage, name and trace end). The token needs read access to checks, commit statuses and Actions logs on GitHub, Build (read) on Azure DevOps, and `read_api` on GitLab; a refused read leaves the stored CI as it was.
 
 A merge the host refuses leaves the pull request open. The step result and the run's pull-request record name the reason; a missing bypass permission reads `cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true`. Repositories merge in order and the first refusal stops the rest. A pull request opened against a feature rung is left open. A local repository fast-forwards its default branch either way.
 

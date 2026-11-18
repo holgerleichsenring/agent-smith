@@ -22,6 +22,8 @@ public sealed class CompletePullRequestsHandlerTests
     private readonly List<(string Url, BranchProtection Mode)> _merged = [];
     private readonly List<PullRequestOutcomeEvent> _outcomes = [];
     private readonly Dictionary<string, PullRequestCompletion> _answers = new();
+    private readonly List<string> _approved = [];
+    private PullRequestApproval _approval = PullRequestApproval.Approved;
 
     [Fact]
     public async Task Manual_MergesNothing()
@@ -89,6 +91,56 @@ public sealed class CompletePullRequestsHandlerTests
         _outcomes.Single().Status.Should().Be(PullRequestStatuses.CompletionRefused);
     }
 
+    // 2026-11-17-3435b
+    [Fact]
+    public async Task OnCiGreen_CodeRun_RecordsAwaitingCi_AndMergesNothing()
+    {
+        var result = await RunAsync(OnCi(), Passed("a", "b"));
+
+        _merged.Should().BeEmpty();
+        _outcomes.Should().HaveCount(2).And.AllSatisfy(o => o.Status.Should().Be(PullRequestStatuses.AwaitingCi));
+        result.Message.Should().Contain("a, b wait for CI");
+    }
+
+    [Fact]
+    public async Task OnCiGreen_MergeGreenRun_ApprovesInRespect_MergesAndTellsTheAttempt()
+    {
+        var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
+
+        _approved.Should().Equal("https://x/a/pull/1");
+        _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Respect));
+        _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal(
+            ("run-1", PullRequestStatuses.Completed), ("attempt-1", PullRequestStatuses.Completed));
+        result.Message.Should().Contain("CI green").And.Contain("a: merged");
+    }
+
+    [Fact]
+    public async Task OnCiGreen_Bypass_NeedsNoApproval()
+    {
+        await RunAsync(OnCi(), passed: null, Green("a"));
+
+        _approved.Should().BeEmpty();
+        _merged.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task OnCiGreen_RefusedApproval_LeavesItOpen_NamingTheKey()
+    {
+        _approval = PullRequestApproval.Refused("Can not approve your own pull request");
+
+        var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("Can not approve your own pull request").And.Contain("merge.approval_auth");
+        _outcomes.Should().AllSatisfy(o => o.Status.Should().Be(PullRequestStatuses.CompletionRefused));
+    }
+
+    private static Action<PipelineContext> Green(params string[] repos) => pipeline => pipeline.Set(ContextKeys.CiGreenMerge,
+        new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42", [.. repos.Select(r => new CiGreenPullRequest(r, $"https://x/{r}/pull/1"))]));
+
+    private static MergePolicyConfig OnCi(bool respect = false) =>
+        new() { When = MergeWhen.OnCiGreen, RespectBranchProtection = respect };
+
     private static MergePolicyConfig OnGreen(bool respect = false) =>
         new() { When = MergeWhen.OnGateGreen, RespectBranchProtection = respect };
 
@@ -104,6 +156,12 @@ public sealed class CompletePullRequestsHandlerTests
         arrange?.Invoke(pipeline);
         var repos = new[] { "a", "b" }.Select(n => new RepoConnection { Name = n, Type = RepoType.GitHub }).ToList();
         var provider = new Mock<ISourceProvider>();
+        provider.As<IPullRequestApprover>().Setup(a => a.ApproveIfRequiredAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((url, _) =>
+            {
+                _approved.Add(url);
+                return Task.FromResult(_approval);
+            });
         provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()))
             .Returns<string, BranchName, BranchProtection, CancellationToken>((url, _, mode, _) =>
             {
@@ -116,9 +174,9 @@ public sealed class CompletePullRequestsHandlerTests
         events.Setup(e => e.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))
             .Callback<RunEvent, CancellationToken>((e, _) => { if (e is PullRequestOutcomeEvent o) _outcomes.Add(o); })
             .Returns(Task.CompletedTask);
-        var handler = new CompletePullRequestsHandler(
-            new PullRequestCompleter(factory.Object, events.Object, NullLogger<PullRequestCompleter>.Instance),
-            NullLogger<CompletePullRequestsHandler>.Instance);
+        var completer = new PullRequestCompleter(factory.Object, events.Object, NullLogger<PullRequestCompleter>.Instance);
+        var handler = new CompletePullRequestsHandler(new PullRequestMergeSequence(completer, new PullRequestApprovalStep(factory.Object),
+            NullLogger<PullRequestMergeSequence>.Instance), completer);
         return await handler.ExecuteAsync(
             new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline), CancellationToken.None);
     }

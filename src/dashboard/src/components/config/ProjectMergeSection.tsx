@@ -1,7 +1,8 @@
 "use client";
 
-import type { ConfigCapabilities, ProjectMerge, StudioProject } from "@/lib/configApi";
+import type { ConfigCapabilities, ProjectMerge, StudioEntity, StudioProject } from "@/lib/configApi";
 import { CheckField, SelectField } from "./formFields";
+import { MergeCiFields } from "./MergeCiFields";
 
 // 2026-11-17-b34eb: requires_start (2026-11-17-9a39a) and the merge: block (2026-11-17-023fa/b). The mode lists come
 // from the server's enums through capabilities, so a mode the server gains is offered without a change here. A
@@ -13,10 +14,13 @@ export function ProjectMergeSection({
   project,
   onChange,
   capabilities,
+  secrets = [],
 }: {
   project: StudioProject;
   onChange: (next: StudioProject) => void;
   capabilities: ConfigCapabilities | null;
+  /** 2026-11-17-3435d: the catalog's secrets, for the approval identity. */
+  secrets?: StudioEntity[];
 }) {
   const merge = project.merge ?? NO_MERGE;
   const setMerge = (patch: Partial<ProjectMerge>) => onChange({ ...project, merge: { ...merge, ...patch } });
@@ -54,6 +58,7 @@ export function ProjectMergeSection({
         testId="form-field-merge-refreshOpenPullRequests"
         onChange={(v) => setMerge({ refreshOpenPullRequests: v })}
       />
+      <MergeCiFields merge={merge} secrets={secrets} onChange={setMerge} />
     </>
   );
 }

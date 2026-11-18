@@ -16,7 +16,7 @@ internal static class SpecHandbackWithoutTracker
         SpecHandbackCase.Refused => CommandResult.Fail(
             $"Refused: {handback.Reason} — quoted: \"{handback.Quote}\" — "
             + "and the run has no tracker to park the ticket on"),
-        SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep => CommandResult.Fail(
+        SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep or SpecHandbackCase.CiFixBudgetSpent => CommandResult.Fail(
             $"{handback.Reason} — and the run has no tracker to park the ticket on"),
         _ => CommandResult.Ok($"Derivation handed back ({handback.Case}) but the run has no tracker"),
     };
