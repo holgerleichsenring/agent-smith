@@ -17,7 +17,7 @@ public static class ServerStateExtensions
     {
         services.AddScoped<ConnectionDiscoveryRepository>();
         services.AddScoped<PendingClarificationRepository>(); // 2026-10-02-5ab2d
-        services.AddScoped<WebhookLastSeenRepository>(); // 2026-10-02-5ab2e
+        services.AddScoped<WebhookLastSeenRepository>().AddSecretStore(); // 2026-10-02-5ab2e, 2026-11-17-f3a8d
         // 2026-10-08-0781: the rework nudge queue and its ledger.
         services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
         services.AddScoped<AgentSmith.Contracts.Sweep.ISweepCursors, SweepCursorStore>(); // 2026-10-08-9e6e

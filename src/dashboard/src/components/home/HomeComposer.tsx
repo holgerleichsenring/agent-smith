@@ -1,5 +1,6 @@
 "use client";
 
+import { pickable, projectLabel } from "@/lib/installation";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DialogComposer } from "@/components/dialog/DialogComposer";
@@ -43,7 +44,7 @@ export function NewWorkComposer({ projects, read, onStart }: {
   const [picked, setPicked] = useState("");
   const [images, setImages] = useState<File[]>([]);
   const [sets, setSets] = useState<Array<{ files: File[]; leftOut?: PickLeftOut }>>([]);
-  const project = (picked && projects.includes(picked) ? picked : "") || projects[0] || "";
+  const project = (picked && projects.includes(picked) ? picked : "") || pickable(projects)[0] || projects[0] || "";
   const fileCount = images.length + sets.reduce((n, set) => n + set.files.length, 0);
 
   const send = (text: string) => {
@@ -80,12 +81,12 @@ function ProjectPick({ projects, read, value, onPick }: {
   if (projects.length === 0) {
     return <span className="home-dim" data-testid="home-composer-no-project">No project is configured yet. Add one in Settings to start work.</span>;
   }
-  if (projects.length === 1) return <span className="home-project" data-testid="home-composer-project">{projects[0]}</span>;
+  if (projects.length === 1) return <span className="home-project" data-testid="home-composer-project">{projectLabel(projects[0])}</span>;
   return (
     <span className="home-project-pick">
       <select className="home-project" aria-label="Project" value={value} onChange={(event) => onPick(event.target.value)}
         data-testid="home-composer-project">
-        {projects.map((name) => <option key={name} value={name}>{name}</option>)}
+        {projects.map((name) => <option key={name} value={name}>{projectLabel(name)}</option>)}
       </select>
     </span>
   );

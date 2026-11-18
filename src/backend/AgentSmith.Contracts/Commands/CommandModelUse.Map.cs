@@ -51,6 +51,8 @@ public static partial class CommandModelUse
             ModelUse.Loop, "project-bootstrap", "context + principles files (schema: bootstrap)"),
         [CommandNames.AgenticMaster] = new(
             ModelUse.Loop, "", "the master's own declared output_schema"),
+        [CommandNames.AdminAssistantTurn] = new( // 2026-11-17-f3a8a
+            ModelUse.Loop, PipelinePresets.AdminAssistantMaster, "the reply to the admin, with what it drafted"),
         [CommandNames.SubstantiateFindings] = new(
             ModelUse.Call, "finding refutation prompt", "per-finding: substantiated, with a quote"),
         // 2026-08-30-c6ec: the client call sites are read by a model, not by a parser —
@@ -84,6 +86,7 @@ public static partial class CommandModelUse
         CommandNames.CompilePrReviewFindings, CommandNames.CollectSpecDialogReply,
         CommandNames.PlanFiling, CommandNames.FileTickets, // 2026-11-17-5701b
         CommandNames.CloseTicket, CommandNames.ReopenTicket, CommandNames.StartTicket, // 2026-11-17-e061a, e061b
+        CommandNames.ApplyConfigChanges, CommandNames.WriteSecret, // 2026-11-17-f3a8c, f3a8d
         CommandNames.AmendTicket, CommandNames.PostTicketComments, // 2026-11-17-e061c
         CommandNames.RenderTicketBody, CommandNames.RetargetPullRequests, // 2026-11-17-dd05b, 9a39c
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,

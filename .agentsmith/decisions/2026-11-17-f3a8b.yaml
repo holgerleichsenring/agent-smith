@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f3a8b
+
+decisions:
+  - category: Architecture
+    chose: "Curated read tools in the Server behind IAdminToolSurface (list_runs, read_run, read_llm_calls, read_run_events, read_prompt, read_ticket_records, read_config, read_secrets, read_health), each a small class over the store, PromptRecordReader, TicketDetailReader, PrReviewRecordRepository and the Config studio's snapshot"
+    over: "Free SQL, or one reader class with every query"
+    reason: "Operator decision: curated tools, the same on sqlite, SQL Server and Postgres. Queries order by Id/Seq and fold sums in memory, because sqlite cannot order DateTimeOffset or sum decimals in SQL."
+  - category: Security
+    chose: "Every tool result passes SecretMasker over ISecretValues.All() (provider placeholder) and then BoundedResultTool at dialogue.admin_result_max_chars; the tools read through a unit of work of their own for the turn"
+    over: "Relying on the provider-side masking client, or curating payload fields per event type"
+    reason: "Review round 1: RunEvents.PayloadJson, EndDetailJson and recorded prompts can hold a credential unmasked. Masking at the source covers every tool at once; the harness test seeds a secret into an end detail and asserts it never reaches the model."
+  - category: Implementation
+    chose: "dialogue.admin_read_limit (50) and dialogue.admin_result_max_chars (40000), with their Dialogue settings fields; a prompt is read in pages of half the result size with a nextOffset"
+    over: "Constants in code"
+    reason: "A new limit lives in config with its UI field (operator requirement 2026-11-17 23:20). Half the bound leaves room for JSON escaping, so a page is never cut by the outer bound."
+  - category: Scope
+    chose: "No server log tail (read_health says the log is not kept in memory and gives the recent system events and the answering replica); no proposal reads; secret sources come with f3a8d"
+    over: "Adding a log ring buffer"
+    reason: "The server keeps no log buffer; a buffer is its own change with retention and masking questions. Review round 1 cut the proposal tool (read by session only, low value for debugging)."
+  - category: Implementation
+    chose: "The ticket tool is offered when the dashboard API's TicketDetailReader is composed, built with ActivatorUtilities; AdminReadSettings reads the loader, not CurrentConfigSnapshot"
+    over: "Registering them with those dependencies"
+    reason: "NonDiCtorRuleTests: a registered service may only take types registered in the server composition it checks."

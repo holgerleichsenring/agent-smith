@@ -56,7 +56,7 @@ Consumer backpressure, and how often the queue retries against Redis.
 
 How long a run waits for you. `HotWaitSeconds` is the window it holds the sandbox open expecting a fast answer. `ApprovalTimeoutSeconds` is how long the question stays answerable before the run gives up. The defaults are ten minutes and three days.
 
-The same block carries `dashboard_url`, your dashboard's address, so the ticket comment that asks a question links to the run's page. Without it the comment carries no link. The form has no field for it; set it through import.
+The same block carries `dashboard_url`, your dashboard's address, so the ticket comment that asks a question links to the run's page. Without it the comment carries no link. It also carries `admin_agent`, the configured agent the admin assistant runs on (Work it out > Agent Smith, admins only). `admin_read_limit` and `admin_result_max_chars` bound what one of its reads returns. All of them have a field in the form.
 
 ### Spec review
 

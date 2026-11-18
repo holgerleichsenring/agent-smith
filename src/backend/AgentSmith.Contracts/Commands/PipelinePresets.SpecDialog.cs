@@ -29,6 +29,7 @@ public static partial class PipelinePresets
     /// design turn, which the wall-time watchdog leaves to its cost cap and to a person.</summary>
     public static Services.RegisteredRunKind RunKindOf(string pipelineName) =>
         string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(pipelineName, AdminTurnName, StringComparison.OrdinalIgnoreCase) // 2026-11-17-f3a8a
             ? Services.RegisteredRunKind.DesignTurn
             : Services.RegisteredRunKind.Pipeline;
 }

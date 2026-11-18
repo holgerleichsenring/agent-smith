@@ -20,7 +20,8 @@ namespace AgentSmith.Contracts.Runs;
 public sealed class SecretMasker(ISecretValues secrets)
 {
     private const string Mask = "***";
-    private const int TooShortToBeWorthMasking = 6;
+    /// <summary>2026-11-17-f3a8d: the shortest value the masker masks — a stored secret must be at least this long.</summary>
+    public const int MinimumMaskedLength = 6;
 
     /// <summary>
     /// 2026-10-25-c5a7i: what a model provider sees in place of a secret. Named, unlike the
@@ -52,7 +53,7 @@ public sealed class SecretMasker(ISecretValues secrets)
 
     private static IReadOnlyList<string> Order(IReadOnlyList<string> values) =>
         values
-            .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length >= TooShortToBeWorthMasking)
+            .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length >= MinimumMaskedLength)
             .Distinct(StringComparer.Ordinal)
             // Longest first: a token that contains a shorter secret must not be left
             // half-masked by the shorter replacement running first.

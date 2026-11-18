@@ -197,8 +197,8 @@ function SubLine({
       const used = secretUsers(catalog, s.id);
       return (
         <div className="ec-sub" data-testid={`config-secret-redaction-${s.id}`}>
-          {used.length > 0 ? `used by ${used.join(", ")}` : "not referenced yet"} · value resolved
-          from runtime, never stored here
+          {used.length > 0 ? `used by ${used.join(", ")}` : "not referenced yet"} · value from the environment
+          or stored encrypted, never shown
         </div>
       );
     }

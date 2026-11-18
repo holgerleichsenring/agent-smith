@@ -1,5 +1,6 @@
 "use client";
 
+import { projectLabel } from "@/lib/installation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -162,7 +163,7 @@ function Row({
       >
         <span className="block dsh-body font-medium text-ink">{name}</span>
         <span className="ec-marks ec-sub items-center">
-          <span className="ec-mark given">{conversation.project}</span>
+          <span className="ec-mark given">{projectLabel(conversation.project)}</span>
           {/* 2026-09-27-5c1eb: the same mark as the panel's row, built separately — see there. */}
           {conversation.ticket && (
             <span

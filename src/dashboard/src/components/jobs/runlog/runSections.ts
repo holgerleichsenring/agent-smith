@@ -36,6 +36,7 @@ const SECTION_OF: Record<string, StepSectionId> = {
   SelectSpec: "spec", EmptyPlanCheck: "spec", Approval: "spec", CheckSpecPremises: "spec", SpecGate: "spec",
   Ask: "spec", GeneratePlan: "spec", PlanOpenQuestions: "spec", RatifyScanContract: "spec",
   AnalyzeCode: "build", AgenticExecute: "build", AgenticMaster: "build", MasterOpenQuestions: "build",
+  AdminAssistantTurn: "build", // 2026-11-17-f3a8a
   SkillRound: "build", FilterRound: "build", SwitchSkill: "build", RunFinalPhase: "build", GenerateTests: "build",
   GenerateDocs: "build", CompileDiscussion: "build", CommitSpecWork: "build",
   VerifySpec: "verify", RunVerifyPhase: "verify", ConvergenceCheck: "verify",

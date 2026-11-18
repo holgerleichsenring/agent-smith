@@ -30,12 +30,15 @@ public sealed class RoutingPipelineChoiceTests
         PipelinePresets.NeedsHostContext("init-project").Should().BeFalse();
     }
 
+    // 2026-11-17-f3a8a: the runs on the installation, which only the admin area starts.
+    private static readonly int InstallationRuns = PipelinePresets.Names.Count(PipelinePresets.RunsOnInstallation);
+
     [Fact]
     public void Presets_TheOffer_HoldsEveryOtherPreset()
     {
         PipelinePresets.Routable.Should().Contain(PipelinePresets.CodeName)
             .And.Contain("security-scan").And.Contain("pr-review");
-        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 14,
+        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 14 - InstallationRuns,
             "the offer is DERIVED — it is the presets minus the fourteen no label can start (the design "
             + "conversation, the spec derivation, the branch cleanup, 2026-11-17-5701b's filing and e061a's close and reopen "
             + "e061b's start, e061c's amend and comment, dd05b's ticket-body, 9a39c's retarget, 023fb's refresh-base, 3435b's merge-green, 3863c's deploy), not a hand-written list the next preset would silently join");

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f3a8c
+
+decisions:
+  - category: Architecture
+    chose: "The admin assistant's drafted changes are a new outcome kind (ConfigChangeOutcome, 'config') stored and shown like every proposal; Apply is the existing approve decision, routed by an OutcomeSinkRouter to a ConfigOutcomeSink that starts a 'config' pipeline run through IActRun"
+    over: "A separate config-draft store and an Apply endpoint beside the proposal path, or a branch inside TicketFilingOutcomeSink"
+    reason: "Operator decision 2026-11-17: shown like a Work it out draft and applied like File, as a config pipeline run with run id and audit. The new kind and sink are the operator's ask, not a second path: they replace hand edits in the Config studio for this surface. TicketFilingOutcomeSink sits at 110 lines with filing-only success handling (review round 1), so the router keeps it untouched."
+  - category: Architecture
+    chose: "The config run writes through IConfigStore's Upsert/Delete/SaveSetting with ChangeAttribution '<person> via admin assistant (run <id>)', so the studio's validators decide and every write is a revertible change row naming who, when and the run"
+    over: "Writing documents directly or validating in a dry run"
+    reason: "The same API the Config studio uses (operator); refusals are the store's ConfigurationException messages."
+  - category: Implementation
+    chose: "Every item carries the entity as the store held it when drafted; applying refuses an item whose entity changed since; the first refusal stops the run and the items this run applied are reverted newest first, a failed revert named in the report"
+    over: "Claiming atomic application"
+    reason: "Review round 1: the store checks versions against its own cache, Revert writes with no expected version and a delete can be refused while referenced — compensation is what the store can deliver, and the report says so."
+  - category: Implementation
+    chose: "A kind table in Application (ConfigEntityKinds) mapping the studio's route names to the store calls, entities as camelCase JSON with enum names; the role mapping is refused (access.write surface)"
+    over: "Refactoring ConfigEntityRoutes onto one shared table"
+    reason: "The routes are generic minimal-API mappings with permissions per kind; sharing them would change every config route in this spec. The duplication is eight lines of delegates; ConfigEntityKinds names the routes it mirrors."
+  - category: Implementation
+    chose: "ConfigChangedSignal (Application) bumps the reload epoch and publishes ConfigChanged after the config run; ConfigStudioWriteGuard keeps its own static copy"
+    over: "Moving the guard onto the service in this spec"
+    reason: "The guard's callers pass the reload signal and publisher from their route parameters; moving them all is a refactor of every studio route. Debt named here for the next change to the guard."
+  - category: Scope
+    chose: "Adversarial review BUILD WITH CUTS applied: every switch over outcome kinds handles config (JSON, composer, turn kind, transcript window, confirmation text, refusal inside/outside the installation), separate sink, drift check, compensation wording, role_mapping refused, preset footprint"
+    over: "The first draft"
+    reason: "The first draft would have thrown on the first config proposal and silently overwritten concurrent edits."

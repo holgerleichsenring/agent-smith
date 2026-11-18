@@ -235,7 +235,7 @@ describe("ProjectCard wiring graph", () => {
     expect(container.querySelector(".ec-disclosure")).toBeNull();
     expect(container.querySelector(".ec-id.row")).toBeNull();
     expect(screen.getByTestId("config-secret-redaction-AZDO_PAT").textContent)
-      .toContain("value resolved from runtime, never stored here");
+      .toContain("value from the environment or stored encrypted, never shown");
     expect(container.querySelector(".edit-hint")).not.toBeNull();
 
     fireEvent.click(root);

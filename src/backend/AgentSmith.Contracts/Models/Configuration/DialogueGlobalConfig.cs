@@ -28,6 +28,19 @@ public sealed class DialogueGlobalConfig
     /// </summary>
     public string? DashboardUrl { get; set; }
 
+    /// <summary>
+    /// 2026-11-17-f3a8a: the agent the admin assistant runs on — the installation's own conversation has no project to
+    /// take one from. Unset means an admin's "Agent Smith" conversation answers that it names none.
+    /// </summary>
+    public string? AdminAgent { get; set; }
+
+    /// <summary>2026-11-17-f3a8b: the most rows one admin assistant read returns — runs, events or calls. Default 50.</summary>
+    public int AdminReadLimit { get; set; } = 50;
+
+    /// <summary>2026-11-17-f3a8b: the most characters one admin assistant tool result carries; a longer one is cut and
+    /// says so, and a prompt is read page by page in this size. Default 40000.</summary>
+    public int AdminResultMaxChars { get; set; } = 40_000;
+
     /// <summary>2026-11-17-f9b0c: the longest HTML mock a design conversation keeps, below the tool-result bound
     /// so it reads back whole.</summary>
     public int MockMaxChars { get; set; } = 90_000;

@@ -27,6 +27,7 @@ internal static class ConfigStudioEndpoints
         app.MapConfigTransferEndpoints();
         app.MapConfigChangeEndpoints();
         app.MapConfigSettingsEndpoints();
+        app.MapSecretValueEndpoints(); // 2026-11-17-f3a8d
         return app;
     }
 }

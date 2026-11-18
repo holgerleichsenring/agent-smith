@@ -15,6 +15,8 @@ export interface ApprovalDecision {
   summary: string | null;
   /** The bound preview answered: approving continues the ticket rather than filing a new one. */
   bound: boolean;
+  /** 2026-11-17-f3a8c: what the approve button says — Apply for the admin assistant's configuration changes. */
+  action?: "File" | "Apply";
 }
 
 /** 2026-11-15-bf77: an offer-led proposal the design partner has not offered to file yet. */
@@ -49,6 +51,7 @@ export function approvalDecision(
     approvable: !boundList && !unoffered && !(effect && !effect.approvable),
     summary: boundList ? BOUND_LIST : unoffered ? NOT_OFFERED : offer ?? (effect ? effect.summary : proposal ? summaryOf(proposal) : null),
     bound: effect !== null,
+    action: proposal?.kind === "config" ? "Apply" : "File",
   };
 }
 
@@ -56,6 +59,10 @@ export function approvalDecision(
 export function summaryOf(proposal: SpecDialogProposalPush): string | null {
   if (proposal.bug) return "File this bug? One bug ticket.";
   if (proposal.kind === "comment") return "Post this comment on the ticket? Nothing starts.";
+  if (proposal.kind === "config") {
+    const count = proposal.configChanges?.length ?? 0;
+    return `Apply ${count === 1 ? "this configuration change" : `these ${count} configuration changes`}? A config run writes them through the Config studio's checks.`;
+  }
   if (proposal.kind === "tickets") {
     // Not "starts when filed": that depends on the landing of what it requires, read at filing.
     const [count, roots] = [proposal.tickets?.length ?? 0, (proposal.tickets ?? []).filter((t) => t.requires.length === 0).length];

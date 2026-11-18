@@ -21,12 +21,13 @@ public sealed class RawConfigMaterializer(
     ConfigSecretReferences? secretReferences = null,
     ModelRoleFindings? modelRoles = null,
     LegacyCredentialMigration? legacyCredentials = null,
-    IMaterializingSecrets? inFlight = null)
+    IMaterializingSecrets? inFlight = null,
+    IStoredSecretValues? storedSecrets = null) // 2026-11-17-f3a8d: values stored in the admin area
 {
     private readonly ModelRoleFindings _modelRoles = modelRoles ?? new ModelRoleFindings();
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
     private readonly ConfigSecretResolver _secrets = new(
-        secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
+        secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable), storedSecrets);
     private readonly List<StartupFinding> _unmaterializable = [];
     private readonly LegacyTriggerFold _legacyTriggers = new();
     private readonly LegacyDockerHubLibraryMigration _legacyLibrary = new();

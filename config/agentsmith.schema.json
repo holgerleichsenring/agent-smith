@@ -332,6 +332,18 @@
           "type": "string",
           "description": "This deployment's dashboard address. A ticket comment that asks a question links to the run's page here; unset, it carries no link."
         },
+        "admin_agent": {
+          "type": "string",
+          "description": "The agent the admin assistant (Work it out > Agent Smith, admins only) runs on. Unset, the conversation says it names none."
+        },
+        "admin_read_limit": {
+          "type": "integer",
+          "description": "The most rows one admin assistant read returns (runs, events, calls). Default 50."
+        },
+        "admin_result_max_chars": {
+          "type": "integer",
+          "description": "The most characters one admin assistant tool result carries; prompts are read page by page in this size. Default 40000."
+        },
         "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
         "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
         "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." }

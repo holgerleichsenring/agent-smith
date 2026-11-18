@@ -25,6 +25,12 @@ Secrets deserve the emphasis. The studio stores a secret's name, the environment
 
 A secret you create in the studio reads the environment variable of exactly its name, case included: a secret `GITHUB_TOKEN` reads `GITHUB_TOKEN`, and a secret `github_token` reads a variable called `github_token`. So name it after the variable. A secret that came in through **Import agentsmith.yml** keeps the reference its file gave it, so `github_token: ${GITHUB_TOKEN}` reads `GITHUB_TOKEN`. An entry of the same name in the `secrets:` block of the server's own `agentsmith.yml` wins over both, on every load ([what a server reads from the file](index.md#what-a-server-reads-from-the-file)).
 
+### Storing a value in the studio
+
+An admin can also give a secret its value right in the studio: open the secret, type the value into the password field and press **Set value**. The value goes straight to the server, runs as a `secret` run with a run id, and is stored encrypted. Each value gets a key of its own (AES-256-GCM with a random nonce, so two equal values never store equal bytes), and that key is wrapped by a master key that is not in the database: `AGENTSMITH_SECRET_MASTER_KEY` (the base64 of 32 random bytes, for example `openssl rand -base64 32`) or `AGENTSMITH_SECRET_MASTER_KEY_FILE` pointing at a mounted k8s Secret. Without a master key the field says so and stores nothing.
+
+A stored value is never shown again, by the studio, the API or the admin assistant; the studio shows who set it and when. When the environment variable the secret reads holds a value, the environment wins. To rotate the master key, move the old key to `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS`, set the new one, and press **Re-wrap with the current master key**. Agent API keys still read their environment variable directly.
+
 An agent's key secret works differently. The agent reads the environment variable the secret's name spells, directly, whatever the secret maps to. Name that secret after the variable in every case, such as `AZURE_OPENAI_API_KEY`. The fallbacks when that variable is empty are on [AI providers](../connect-your-stuff/ai-providers.md#api-keys).
 
 ## Adding something
@@ -148,6 +154,5 @@ Each row has a revert, which is the part a mounted ConfigMap could never give yo
 ## What the studio does not carry
 
 - `pipeline_triggers:`, the global label to pipeline map. It's stored in the database and the server serves it, but there's no catalog screen for it. To change it: export, edit the block, import with `--force`.
-- `dialogue.dashboard_url`, the dashboard address a question comment links to. Set it through import.
 
 Everything else you'd want to change day to day is here or under [Settings](settings.md).

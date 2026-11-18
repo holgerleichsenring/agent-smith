@@ -1,5 +1,6 @@
 "use client";
 
+import { SecretValueField } from "./SecretValueField";
 import type {
   ConfigCapabilities,
   ConfigEntityKind,
@@ -204,9 +205,10 @@ export function EntityForm({
               value redacted
             </span>
             <span className="dsh-body text-amber-700">
-              The studio stores the env-NAME only — the value is resolved from the runtime secret store and is never entered or shown here.
+              A value set here is stored encrypted and never shown again; an environment variable of the same name wins.
             </span>
           </div>
+          {!isNew && <SecretValueField name={draft.id} />}
         </div>
       );
     }

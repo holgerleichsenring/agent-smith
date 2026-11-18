@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
@@ -9,7 +10,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// orchestrates the raw-to-typed pipeline; which keys carry a reference is a separate reason
 /// to change, and p0506 had to touch it once already.
 /// </summary>
-public sealed class ConfigSecretResolver(ConfigSecretReferences references)
+public sealed class ConfigSecretResolver(ConfigSecretReferences references, IStoredSecretValues? stored = null)
 {
     public void Apply(RawAgentSmithConfig raw)
     {
@@ -17,11 +18,19 @@ public sealed class ConfigSecretResolver(ConfigSecretReferences references)
         ResolveReferences(raw);
     }
 
+    // 2026-11-17-f3a8d: the environment wins when it holds a value; otherwise the value stored in the admin area.
+    // Stored values are opened once per load, so a run and the masker reading this load see the same generation.
     private void ResolveSecrets(RawAgentSmithConfig raw)
     {
+        var values = stored?.Load() ?? new Dictionary<string, string>();
         var resolved = new Dictionary<string, string>();
         foreach (var (key, value) in raw.Secrets)
-            resolved[key] = references.ResolveFromEnvironment(value);
+        {
+            var fromEnvironment = references.ResolveFromEnvironment(value);
+            resolved[key] = string.IsNullOrEmpty(fromEnvironment)
+                ? values.GetValueOrDefault(key.ToLowerInvariant()) ?? fromEnvironment
+                : fromEnvironment;
+        }
         raw.Secrets = resolved;
     }
 

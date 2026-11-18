@@ -24,7 +24,7 @@ public static partial class CommandStepClasses
         ["GeneratePlanCommand"] = Milestone,     // retired p0394a; old records still classify
         [CommandNames.Approval] = Milestone,
         [CommandNames.AgenticExecute] = Milestone,
-        [CommandNames.AgenticMaster] = Milestone,
+        [CommandNames.AgenticMaster] = Milestone, [CommandNames.AdminAssistantTurn] = Milestone, [CommandNames.ApplyConfigChanges] = Milestone, [CommandNames.WriteSecret] = Milestone, // f3a8a, c, d
         [CommandNames.CommitSpecWork] = Milestone, // p0437
         [CommandNames.CheckSpecPremises] = Milestone, // 2026-09-17-0e79c: it can stop a spec
         [CommandNames.VerifySpec] = Milestone,

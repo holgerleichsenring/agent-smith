@@ -29,6 +29,7 @@ public static partial class PipelinePresets
             [ReopenName] = string.Empty, [StartName] = string.Empty, [AmendName] = string.Empty, [CommentName] = string.Empty,
             [TicketBodyName] = string.Empty, // 2026-11-17-dd05b
             [RetargetName] = string.Empty, // 2026-11-17-9a39c
+            [AdminTurnName] = AdminAssistantMaster, [ConfigName] = string.Empty, [SecretName] = string.Empty, // f3a8a, f3a8c, f3a8d
             [MergeGreenName] = string.Empty, // 2026-11-17-3435b
         };
 

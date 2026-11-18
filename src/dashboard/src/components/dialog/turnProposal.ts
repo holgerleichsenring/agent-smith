@@ -6,6 +6,7 @@ import type {
   SpecDialogReviewRound,
   SpecDialogSpend,
   SpecDraftFact,
+  SpecDialogConfigChange,
 } from "@/types/spec-dialog";
 
 // 2026-11-10-d854b: the one shape a turn's result renders from. The conversation's push and the ticket page's
@@ -33,6 +34,7 @@ export interface TurnProposal {
   comment?: string | null;
   bug?: { title: string; body: string } | null;
   tickets?: SpecDialogGraphTicket[];
+  configChanges?: SpecDialogConfigChange[] | null; // 2026-11-17-f3a8c
 }
 
 export type SpecStatus = "clean" | "findings" | "pending";
@@ -53,6 +55,7 @@ export function turnProposalOf(push: SpecDialogProposalPush): TurnProposal {
   return {
     kind: push.kind, drafts, findings: push.findings, reviewRounds: push.reviewRounds, notReviewed: push.notReviewed,
     questions: push.questions, spend: push.spend, comment: push.comment, bug: push.bug, tickets: push.tickets,
+    configChanges: push.configChanges,
   };
 }
 

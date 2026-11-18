@@ -38,6 +38,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
     public async Task Run_OptionsEnvironment_ReachesTheProcess()
     {
         if (OperatingSystem.IsWindows()) return;
+        // The shell reads its stdin first: a process that exits before the prompt is written breaks the pipe under load.
         var options = Shell("cat > /dev/null; printf '%s' \"$CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC\"") with
         {
             Environment = new Dictionary<string, string> { ["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1" },
