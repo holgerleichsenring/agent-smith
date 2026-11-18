@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-e06be
+
+decisions:
+  - category: Architecture
+    chose: "The call list comes from the step's own LlmCallStarted/Finished events (pairLlmCalls, now keeping promptId), not from /statistics"
+    over: "Joining the step's calls from the run statistics' RunCallPoint list"
+    reason: "The open step already holds its events, paged and followed live; the finish event carries role, model, tokens, cache, cost, time and promptId, so no second read and no join by position."
+  - category: Behaviour
+    chose: "The LLM filter shows only the call sequence, oldest at the top, the newest 20 first; 'show earlier' adds 20 and asks for older events once the loaded page is spent"
+    over: "LLM lines in the newest-first event list capped at 12"
+    reason: "A sequence reads in order; a live step appends at the bottom where the eye already is."
+  - category: Behaviour
+    chose: "A call is numbered from 1 when the whole step is loaded, else back from the step row's llm count; unknown numbers show '#?'"
+    over: "Numbering the loaded page from 1"
+    reason: "A number must say the same call on every load; a page-relative number would change as older events arrive."
+  - category: Behaviour
+    chose: "Fed and decided come from the prompt digest (e06bd) and fall back to the step's events: the tool results since the previous call, the tool calls before the next one"
+    over: "Digest only"
+    reason: "Prompts written before 0620a or dropped by a full queue have no digest; the events still say what the loop did."
+  - category: Architecture
+    chose: "Reuse the Why page's CallPrompt for the opened call, its '.kv' line restyled under the log; CallTable is not reused"
+    over: "Rendering the calls in CallTable"
+    reason: "CallTable is a bordered table with badges; the operator's request is one plain line per call with two dim lines under it. CallPrompt and its API are the same."
+  - category: Behaviour
+    chose: "VerifySummary also takes a renderText slot; the run log draws criterion text and reason through InlineText"
+    over: "Leaving the Check section's criterion text unrendered"
+    reason: "The screenshot pass showed backticks in a criterion; markdown in all log text was asked for, and the Why page keeps its plain text."
+  - category: Behaviour
+    chose: "A plan step's target is cut at its start (rtl overflow, the text isolated in bdi), so the file name stays visible"
+    over: "Cutting at the end"
+    reason: "The screenshot pass showed 'Shop.Server/…/Shop.Infrastruct…', losing the part that names the file."

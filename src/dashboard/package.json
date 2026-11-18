@@ -31,7 +31,8 @@
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.5.4",
-    "unified": "11.0.5"
+    "unified": "11.0.5",
+    "yaml": "2.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

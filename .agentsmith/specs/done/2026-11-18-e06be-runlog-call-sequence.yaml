@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-e06be
+goal: "An open step's LLM filter shows its calls as a numbered sequence, each with what it was fed and what it decided, its full prompt opening in place."
+
+applies_to: "dashboard (components/jobs/runlog: callSequence, StepCallSequence, RunStepDetail; lib/runStoryApi; llmPairing)"
+
+requires: [2026-11-18-e06bd, 2026-11-18-e06bb]
+
+facts:
+  - claim: "LlmCallFinished carries promptId; pairLlmCalls drops it."
+    evidence: "src/dashboard/src/types/hub-events.ts:215-217; src/dashboard/src/hooks/execution-tree/llmPairing.ts:96-117"
+  - claim: "The LLM filter shows llm lines mixed in the newest-first list, capped at 12."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunStepDetail.tsx:19-22, 83-89"
+  - claim: "CallPrompt reads /prompts/{id} and lists the call's blocks."
+    evidence: "src/dashboard/src/components/jobs/why/CallPrompt.tsx:11-48"
+
+scope:
+  in: "pairLlmCalls keeps promptId. callSequence.ts numbers a step's calls oldest first (from the step's llm count when older events are not loaded) and joins each with the tool calls between its finish and the next start and the failed results before it, as fallback fed/decided. fetchPromptDigest reads e06bd for the visible calls. StepCallSequence: '#12  role · model · in (cache) / out · $ · time', then '← fed' and '→ decided' dim; a click opens CallPrompt under it; the newest 20 show, 'show earlier' adds 20 and loads older events when the page ends. The LLM filter shows exactly this sequence."
+  out: "CallTable's table shape (the log draws lines); backend changes beyond e06bd."
+
+steps:
+  - id: pair
+    action: "promptId on PairedLlmCall."
+  - id: model
+    action: "callSequence.ts and fetchPromptDigest."
+  - id: draw
+    action: "StepCallSequence in RunStepDetail under the LLM filter."
+
+tests:
+  - "callSequence: numbering, cache, fed/decided fallbacks from tool events."
+  - "StepCallSequence: 30 calls show 20, 'show earlier' shows all; digest lines replace fallbacks; a click opens the prompt."
+  - "RunStepDetail: the LLM filter renders the sequence."
+
+done:
+  - "Opening a step and choosing LLM lists its calls numbered with fed and decided lines; a click shows the prompt."
+  - "pnpm test and build are green."

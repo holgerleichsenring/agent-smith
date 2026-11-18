@@ -65,6 +65,7 @@ GET	/api/runs/{runId}/decisions	runs.read	run
 GET	/api/runs/{runId}/deployment	runs.read	run
 GET	/api/runs/{runId}/dialog-activity	runs.read	run
 GET	/api/runs/{runId}/passes	runs.read	run
+GET	/api/runs/{runId}/prompts/digest	runs.read	run
 GET	/api/runs/{runId}/prompts/{promptId}	runs.read	run
 GET	/api/runs/{runId}/specs	runs.read	run
 GET	/api/runs/{runId}/specs/{specId}	runs.read	run

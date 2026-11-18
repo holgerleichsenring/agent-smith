@@ -24,6 +24,7 @@ public static class RunTracingExtensions
         services.AddSingleton<Services.Prompts.PromptRecentRecords>();
         services.AddSingleton<AgentSmith.Contracts.Prompts.IPromptRecorder, Services.Prompts.PromptRecorder>();
         services.TryAddScoped<Services.Prompts.PromptRecordReader>();
+        services.TryAddScoped<Services.Prompts.PromptDigestReader>();
         return services;
     }
 }

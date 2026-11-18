@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-e06bd
+
+decisions:
+  - category: Architecture
+    chose: "Read 'decided' from the successor record: the record whose parent is the call and whose ParentLength equals the call's block count holds the call's answer at that position"
+    over: "Storing each call's answer as a new column or event"
+    reason: "A tool loop resends the answer as the next call's message, and the store already keeps it there; no write path changes, nothing is stored twice. The last call of a loop has no successor and says so with null."
+  - category: Architecture
+    chose: "PromptChain extracted from PromptRecordReader (chain walk and positions), used by both readers"
+    over: "Copying the chain logic into the digest reader"
+    reason: "One rule for what a call was sent; a second copy would drift."
+  - category: Behaviour
+    chose: "Fed is the call's last message: a tool result named by the tool call with the same id among the call's last six messages, else 'role: first line'; decided lists each tool call as 'Name argument-values', else the first text line; both cut to 160 characters"
+    over: "Returning the raw blocks and summarising in the browser"
+    reason: "A tool result can run to megabytes; the endpoint ships two short lines per call for the page's 20."
+  - category: Architecture
+    chose: "GET /api/runs/{runId}/prompts/digest?ids=a,b, runs.read in the run's project; unknown ids are left out and no count cap is set"
+    over: "A per-step endpoint keyed by step index, or a hard-coded cap on ids"
+    reason: "The page already has the prompt ids from LlmCallFinished, so ids keep the read pipeline-neutral; the run's own records bound the read, and the hard-coded-limit rule forbids an unconfigured cap."
+  - category: Behaviour
+    chose: "The 160-character line width and the six-message name lookup are marked '// not a limit'"
+    over: "Configuration keys for them"
+    reason: "Neither bounds work an operator would tune: one is a display width with the full prompt one click away, the other where a tool call sits relative to its result."

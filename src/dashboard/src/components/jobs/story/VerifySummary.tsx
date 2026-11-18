@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
@@ -57,6 +58,10 @@ interface VerifySummaryProps {
   judgementBusy?: boolean;
   /** Event-derived legacy view — used ONLY when acceptance is absent. */
   fallback: VerifyFallbackView;
+  /** 2026-11-18-e06bc: how a criterion's citation is drawn after "cited:"; the text itself when absent. */
+  renderCitation?: (citation: string) => ReactNode;
+  /** 2026-11-18-e06bc: how a criterion's text and reason are drawn; the plain text when absent. */
+  renderText?: (text: string) => ReactNode;
 }
 
 export function VerifySummary({
@@ -66,10 +71,14 @@ export function VerifySummary({
   onRecordJudgement,
   onWithdrawJudgement,
   judgementBusy,
+  renderCitation,
+  renderText,
 }: VerifySummaryProps) {
   return acceptance ? (
     <AcceptanceVerify
       acceptance={acceptance}
+      renderCitation={renderCitation}
+      renderText={renderText}
       judgements={judgements}
       onRecordJudgement={onRecordJudgement}
       onWithdrawJudgement={onWithdrawJudgement}
@@ -123,8 +132,12 @@ function AcceptanceVerify({
   onRecordJudgement,
   onWithdrawJudgement,
   judgementBusy,
+  renderCitation,
+  renderText = (text: string) => text,
 }: {
   acceptance: RunAcceptance;
+  renderCitation?: (citation: string) => ReactNode;
+  renderText?: (text: string) => ReactNode;
   judgements?: CriterionJudgement[];
   onRecordJudgement?: VerifySummaryProps["onRecordJudgement"];
   onWithdrawJudgement?: VerifySummaryProps["onWithdrawJudgement"];
@@ -176,15 +189,15 @@ function AcceptanceVerify({
                     {cls === "pass" ? CHECK : cls === "fail" ? CROSS : "?"}
                   </div>
                   <div>
-                    <div className="c-txt">{criterion.text}</div>
+                    <div className="c-txt">{renderText(criterion.text)}</div>
                     {criterion.reason && (
                       <div className="c-proof" data-testid="verify-criterion-reason">
-                        {criterion.reason}
+                        {renderText(criterion.reason)}
                       </div>
                     )}
                     {criterion.citation && (
                       <div className="c-proof" data-testid="verify-criterion-citation">
-                        cited: {criterion.citation}
+                        cited: {renderCitation ? renderCitation(criterion.citation) : criterion.citation}
                       </div>
                     )}
                     {onRecordJudgement && onWithdrawJudgement && (
