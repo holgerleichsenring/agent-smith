@@ -273,6 +273,7 @@ merge:
   ci_poll_seconds: 60               # on_ci_green: default 60
   ci_settle_seconds: 180            # on_ci_green: default 180
   ci_pending_seconds: 3600          # on_ci_green: default 3600
+  ci_fix_attempts: 3                # on_ci_green: default 3
   approval_auth: github_approver    # optional: a secret name
 ```
 
@@ -287,6 +288,7 @@ merge:
 | `ci_poll_seconds` | With `on_ci_green`, how often the open pull requests' CI is read. Default 60. |
 | `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push. |
 | `ci_pending_seconds` | After how long a head still pending is no longer read every `ci_poll_seconds`; the five-minute re-read still sees it move. Default 3600. |
+| `ci_fix_attempts` | With `on_ci_green`, a red CI on the head the newest green attempt pushed starts a rework run that carries the failed checks' evidence (names, excerpts, links) as its task; the fix is verified locally and pushed to the same pull request, never force-pushed, and CI is watched again. After `ci_fix_attempts` such runs in a row (default 3), or after a fix that pushed nothing, the next run hands the ticket back in its clarification status with the evidence on the ticket; a person's comment or approval starts the next attempt and the count starts again. A red pull request is never merged. |
 | `approval_auth` | With `respect_branch_protection: true`, the secret of the identity that approves a pull request whose host requires a review. GitHub never lets the author approve its own pull request, and the author is the repo's own token, so a required review there needs a second identity (a machine user or app token); Azure DevOps and GitLab need it when the host forbids the author approving. Without it the repo's token approves where the host allows; a refusal leaves the pull request open and names this key. With the default `respect_branch_protection: false` no approval is needed: the merge goes past the review rule. |
 | `ci_excerpt_chars` | How many characters of each failed CI check's evidence are read, stored and shown: the host's summary and annotations, then the end of its log. Default 4000. |
 | `ci_failed_checks_read` | How many failed checks of one red head have their logs read; the rest are named with their links. Default 5. |

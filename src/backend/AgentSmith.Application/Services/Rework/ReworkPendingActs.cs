@@ -20,16 +20,20 @@ namespace AgentSmith.Application.Services.Rework;
 /// </summary>
 public sealed class ReworkPendingActs(
     ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust,
-    ISpecApprovalStore approvals) : IReworkPendingActs
+    ISpecApprovalStore approvals, ICiReworkAct? ci = null) : IReworkPendingActs // 2026-11-17-3435c
 {
     private readonly PrStandingAct _standing = new(trust);
 
     public async Task<PendingReworkAct?> NewestAsync(
-        ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken) =>
-        Newer(Newer(Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
+        ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken)
+    {
+        var newest = Newer(Newer(Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
             await NewestHandbackAnswerAsync(project, ticketId, since, cancellationToken)),
             RetryAct.Of(since) is { } retry ? new PendingReworkAct(retry) : null),
             OverruleAct.Of(since) is { } overrule ? new PendingReworkAct(overrule, Text: OverruleAct.TextOf(since)) : null);
+        // 2026-11-17-3435c: a red CI on a merge: on_ci_green ticket — never a hand-back's answer, so not read there.
+        return ci is null ? newest : Newer(newest, await ci.NewestAsync(project, ticketId, since, cancellationToken));
+    }
 
     public async Task<PendingReworkAct?> NewestHandbackAnswerAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken)

@@ -89,6 +89,7 @@ public sealed class AttemptCauseReader(
         ReworkChannel.Operator => AttemptChannels.Operator,
         ReworkChannel.Retry => AttemptChannels.Retry,
         ReworkChannel.Overrule => AttemptChannels.Overrule,
+        ReworkChannel.Ci => AttemptChannels.Ci, // 2026-11-17-3435c
         _ => AttemptChannels.TicketComment,
     };
 }

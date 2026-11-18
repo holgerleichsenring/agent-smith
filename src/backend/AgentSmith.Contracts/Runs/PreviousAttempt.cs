@@ -54,6 +54,15 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// <summary>2026-10-13-8762p: the overruled defaults of the ticket's code runs — the stored verdict is the act.</summary>
     public IReadOnlyList<DecidedDefault> Overrules { get; init; } = [];
 
+    /// <summary>2026-11-17-3435c: why this attempt began (its RunAttempt cause channel); null when it recorded none.</summary>
+    public string? CauseChannel { get; init; }
+
+    /// <summary>2026-11-17-3435c: when the attempt finished; null while it runs or waits.</summary>
+    public DateTimeOffset? FinishedAt { get; init; }
+
+    /// <summary>2026-11-17-3435c: how many of the ticket's newest attempts in a row, this one included, a red CI started.</summary>
+    public int CiFixStreak { get; init; }
+
     /// <summary>2026-10-08-0781: what the run had seen: its read, else its start.</summary>
     public DateTimeOffset Cutoff => ActsReadAt ?? StartedAt;
 

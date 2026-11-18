@@ -60,6 +60,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
     };
 
     public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance), CiMerge(),
+        new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
 

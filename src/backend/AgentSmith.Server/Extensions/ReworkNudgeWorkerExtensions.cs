@@ -15,13 +15,14 @@ internal static class ReworkNudgeWorkerExtensions
 {
     internal static IServiceCollection AddReworkNudgeWorker(this IServiceCollection services)
     {
+        services.AddSingleton<Application.Services.Rework.ICiReworkAct, Application.Services.Rework.CiReworkAct>(); // 2026-11-17-3435c
         services.AddSingleton<IReworkPendingActs, ReworkPendingActs>();
         services.AddSingleton<ReworkSpeech>();
         services.AddSingleton<ReworkWithheld>();
         services.AddSingleton<ReworkFallbackSpawn>();
         services.AddSingleton<ReworkNudgeHandler>().AddSingleton<ClosedTicketActFollowUp>(); // 2026-10-13-9a59t
         services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrRecordCiRead>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b, 3435a
-        services.AddSingleton<IMergeGreenRun, MergeGreenRun>().AddSingleton<CiGreenMerge>(); // 2026-11-17-3435b
+        services.AddSingleton<IMergeGreenRun, MergeGreenRun>().AddSingleton<CiGreenMerge>().AddSingleton<CiRedNudge>(); // 3435c // 2026-11-17-3435b
         services.AddSingleton<TicketLandingRecorder>(); // 2026-10-14-dbceg
         // 2026-11-17-023fb: the landing hook's first subscriber, and the scoped launch it starts runs with.
         services.AddSingleton<ITicketLandedSubscriber, Services.Branches.SiblingBaseRefresh>();

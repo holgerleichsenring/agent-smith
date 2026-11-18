@@ -33,6 +33,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         // 2026-10-13-9a59n: the Retry a person asked of this attempt, a row of the run.
         var retry = await uow.Set<RunRetryRequest>().AsNoTracking().Where(q => q.RunId == run.Id)
             .Select(q => new { q.RequestedBy, q.RequestedAt }).FirstOrDefaultAsync(cancellationToken);
+        var causes = await CausesAsync(uow, project, ticketId, run.Id, cancellationToken); // 2026-11-17-3435c
         return new PreviousAttempt(run.Id, run.Status, run.StartedAt, run.FinishedAt is not null)
         {
             RetryRequestedBy = retry?.RequestedBy,
@@ -40,6 +41,9 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
             OpenedPullRequest = OpenedAny(run.PullRequestsJson), // 2026-11-17-9a39a: this attempt's own
             AwaitingCiUrls = AwaitingCi(run.PullRequestsJson), // 2026-11-17-3435b
+            FinishedAt = run.FinishedAt, // 2026-11-17-3435c: and why it and the attempts before it began
+            CauseChannel = causes.FirstOrDefault(),
+            CiFixStreak = causes.TakeWhile(c => c == AttemptChannels.Ci).Count(),
             ActsReadAt = run.ActsReadAt,
             // 2026-11-16-f3fbb: a failed end a precondition decided holds the ticket until it holds or a person starts it.
             StoppedOnPrecondition = run.FinishedAt is not null && run.Status == RunStatuses.Failed
@@ -57,6 +61,18 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             Overrules = [.. (await decided.ReadAsync(project, ticketId, null, cancellationToken))
                 .Where(d => d.Verdict == DefaultDecisionVerdicts.Overruled)],
         };
+    }
+
+    // 2026-11-17-3435c: the cause channel of the ticket's code attempts, from this one back, newest first.
+    private static async Task<List<string?>> CausesAsync(IUnitOfWork uow, string project, string ticketId, string fromRunId, CancellationToken ct)
+    {
+        var ids = await uow.Set<Run>().AsNoTracking().Where(r => r.Project == project && r.TicketId == ticketId
+                && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued && string.Compare(r.Id, fromRunId) <= 0)
+            .OrderByDescending(r => r.Id).Select(r => r.Id).ToListAsync(ct);
+        var causes = await uow.Set<RunAttempt>().AsNoTracking().Where(a => ids.Contains(a.RunId))
+            .Select(a => new { a.RunId, a.CauseChannel }).ToListAsync(ct);
+        var byRun = causes.GroupBy(a => a.RunId).ToDictionary(g => g.Key, g => g.First().CauseChannel, StringComparer.Ordinal);
+        return [.. ids.Select(id => byRun.GetValueOrDefault(id))];
     }
 
     private static IReadOnlyDictionary<string, string> AwaitingCi(string? json) =>

@@ -550,6 +550,7 @@ projects:
     #   ci_poll_seconds: 60           # on_ci_green: how often CI is read
     #   ci_settle_seconds: 180        # on_ci_green: "no CI" must last this long
     #   ci_pending_seconds: 3600      # on_ci_green: stop fast polling a stuck head
+    #   ci_fix_attempts: 3            # on_ci_green: red-CI fix runs in a row before a hand-back
     #   approval_auth: github_approver # a second identity's secret for required reviews
     #   ci_excerpt_chars: 4000        # evidence kept per failed check
     #   ci_failed_checks_read: 5      # failed checks whose logs are read

@@ -25,7 +25,7 @@ public sealed class InlineHandbackAsk(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(handback);
         if (handback.Case is SpecHandbackCase.Refused or SpecHandbackCase.ScopeUnassigned
-            or SpecHandbackCase.SeriesOutOfStep)
+            or SpecHandbackCase.SeriesOutOfStep or SpecHandbackCase.CiFixBudgetSpent)
             return SpecHandbackWithoutTracker.Result(handback);
         if (handback.TakenReading is not null && handback.QuestionKind == SpecQuestionKind.ReviewObjection)
             return await AskObjectionAsync(pipeline, handback, cancellationToken);

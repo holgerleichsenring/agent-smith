@@ -27,7 +27,7 @@ public sealed class PrReviewRecordRefresh(
     ISourceProviderFactory sources,
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
-    PrRecordCiRead ci, CiGreenMerge ciMerge, // 2026-11-17-3435a/b
+    PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
     TicketLandingRecorder landing,
     ITicketActivityNudge activity,
     TimeProvider clock,
@@ -48,7 +48,7 @@ public sealed class PrReviewRecordRefresh(
         var once = new PrReviewAuthorTrustOnce(trust);
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
             changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, ct);
-        await ciMerge.AfterRefreshAsync(project, ticketId, ct); // 2026-11-17-3435b: merge once CI is green
+        if (!await ciMerge.AfterRefreshAsync(project, ticketId, ct)) await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c
         await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }

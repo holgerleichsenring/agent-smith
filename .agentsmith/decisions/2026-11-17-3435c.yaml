@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-3435c
+
+decisions:
+  - category: Architecture
+    chose: "A red CI is a rework act on a new channel (ReworkChannel.Ci, cause 'ci'), read from the pull-request records by one rule (CiAct) both the rework worker (CiReworkAct beside the other acts) and the fix run (CiRework in FetchTicket) apply"
+    over: "A new ReworkNudgeOrigin.Ci, or a CI entry written into the review entries"
+    reason: "Nudge origins merge by maximum; an appended Ci (8) would outrank PreconditionsMet and RequirementsMet and swallow their paths (review round 1). The act's channel carries the meaning; the nudge that brings the handler is a plain Sweep. Reading the stored records keeps the evidence the refresh bounded and the record's first-seen time as the act's time, so the attempt's cutoff makes the act idempotent."
+  - category: Architecture
+    chose: "The red-CI act is weighed in NewestAsync only, never in NewestHandbackAnswerAsync"
+    over: "Treating it like a pull-request review act"
+    reason: "A red CI answering a hand-back would release a ticket a person is being asked about and loop the fix past its budget."
+  - category: Implementation
+    chose: "Budget: PreviousAttempt.CiFixStreak counts the newest attempts in a row whose stored cause is 'ci'; at merge.ci_fix_attempts (default 3), or after a CI fix that left the red head unmoved, the run sets SpecHandback CiFixBudgetSpent and FetchTicket splices the hand-back step in, so it parks with the evidence before a sandbox or a model call"
+    over: "Counting in the server and posting a comment from there, or parking after the derivation"
+    reason: "Everything that writes is a pipeline step; the existing hand-back path parks the ticket in its clarification status, comments the evidence and shows it on the ticket page, and a person's comment or approval starts the next attempt with a non-ci cause, which resets the streak. Review round 1: a fix that pushes nothing makes no new head and no new red, so without the unmoved-head rule the loop would stop silently instead of handing back."
+  - category: Implementation
+    chose: "CiRedNudge marks the record acted (head:red) and enqueues one Sweep nudge; the act does not depend on the mark"
+    over: "Requiring 'not acted' in the act"
+    reason: "Review round 1: the mark is written before the handler reads the act, so an act that required it unmarked could never be served. The mark only de-duplicates the nudge and takes the red head out of the fast poll."
+  - category: Scope
+    chose: "Fixing a red CI only follows an attempt that passed its own gate; a run that failed its gate is not fixed on CI"
+    over: "Reworking every red CI"
+    reason: "A run that ended red already hands the ticket to a person; a CI loop on top would spend on work the gate rejected. Never merge red: CiGreenMerge needs green on every awaited head."
+  - category: Review
+    chose: "Adversarial review round 1: BUILD WITH CUTS (act without the acted condition, every channel and case switch site, the fix that pushed nothing, file lengths, loop test with a re-run green); every cut applied"
+    over: "Building the first draft"
+    reason: "The first draft's act could never be served and its loop could stop without a hand-back."

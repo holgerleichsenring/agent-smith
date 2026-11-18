@@ -59,6 +59,13 @@ public sealed class MergePolicyConfig
     /// </summary>
     public string? ApprovalAuth { get; set; }
 
+    /// <summary>
+    /// 2026-11-17-3435c: with on_ci_green, how many rework runs in a row a red CI may start before the ticket is handed
+    /// back with the evidence. Three gives a flaky suite and a follow-up fix room while a fix that cannot converge stops
+    /// spending; a person's answer resets the count.
+    /// </summary>
+    public int CiFixAttempts { get; set; } = 3;
+
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;
 }
