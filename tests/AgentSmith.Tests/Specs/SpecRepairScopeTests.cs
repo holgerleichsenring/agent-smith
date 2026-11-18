@@ -28,14 +28,14 @@ public sealed class SpecRepairScopeTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "spec b's criterion" });
-        pipeline.Set(ContextKeys.SpecRepairAttempted, true);
+        pipeline.Set(ContextKeys.SpecRepairRed, "build exited 1");
 
         SpecRepairScope.Reset(pipeline);
 
         pipeline.TryGet<List<string>>(ContextKeys.OutstandingCriteria, out _).Should().BeFalse(
             "a fresh spec is not repairing anything yet");
-        pipeline.TryGet<bool>(ContextKeys.SpecRepairAttempted, out _).Should().BeFalse(
-            "each spec gets its own single repair, not the remains of the last one's");
+        pipeline.TryGet<string>(ContextKeys.SpecRepairRed, out _).Should().BeFalse(
+            "each spec's repairs start fresh, not from the remains of the last one's");
     }
 
     /// <summary>The block is what the master reads; with the state gone it says nothing.</summary>
@@ -59,6 +59,6 @@ public sealed class SpecRepairScopeTests
         var reset = () => SpecRepairScope.Reset(pipeline);
 
         reset.Should().NotThrow();
-        pipeline.TryGet<bool>(ContextKeys.SpecRepairAttempted, out _).Should().BeFalse();
+        pipeline.TryGet<string>(ContextKeys.SpecRepairRed, out _).Should().BeFalse();
     }
 }

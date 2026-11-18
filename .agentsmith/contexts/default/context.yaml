@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-9c1cc: "MASTER LOOP HEURISTICS REMOVED (StageRepair, MasterLoopGovernorChatClient, ContextPressureFinalizingChatClient, RetiredConfigKeys). A red stage returns to the master while repairs change the failure; the drift reminder and ledger-complete brake are gone; the forced final turn keeps its tools. -> .agentsmith/specs/done/2026-11-18-9c1cc-master-loop-heuristics-removed.yaml"
     2026-11-18-9c1cb: "SPEC JUDGES REMOVED (PipelinePresets, ScopeReposHandler, SpecSetDeriver, ContradictionHandbackGate, SpecSequenceHandler). Nothing judges a spec before its master: ReviewSpecs, CheckSpecPremises, the cut review and contradiction checker are deleted; ScopeRepos estimates and refuses but narrows no repository. -> .agentsmith/specs/done/2026-11-18-9c1cb-spec-judges-removed.yaml"
     2026-11-18-73ca: "SIDEBAR HOME AND WORK IT OUT (AppSidebar, app-shell.css). + New work and the brand lead to home (/); Work it out is its own item for the conversations. -> .agentsmith/specs/done/2026-11-18-73ca-sidebar-home-work-it-out.yaml"
     2026-11-18-98fa: "MASTER REPORT MARKDOWN (FinishSpecToolHost, MasterReport, MasterReportAccount, AcceptanceView.Reports, VerifySummary, ticket run log; pin v5.37.1). The coding master reports in markdown, never parsed, and ends with a typed finish_spec; verdict parser, per-line gate, claim objection, surrender challenge, declined criteria gone. -> .agentsmith/specs/done/2026-11-18-98fa-master-report-markdown.yaml"

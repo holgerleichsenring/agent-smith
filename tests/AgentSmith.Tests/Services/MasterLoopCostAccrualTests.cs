@@ -60,7 +60,7 @@ public sealed class MasterLoopCostAccrualTests
         // Mirror BuildMasterLoopHooks: RecordIterationUsage feeds the shared tracker per iteration.
         var hooks = new MasterLoopHooks(
             RecordIterationUsage: tracker.Track,
-            ReminderEveryNIterations: 0, DriftEditlessIterations: 0);
+            ReminderEveryNIterations: 0);
         var inner = new MultiIterationInner(toolIterations: 3); // 3 tool turns + 1 final = 4 provider calls
         var loop = BuildLoop(inner, hooks);
         var tools = new List<AITool> { AIFunctionFactory.Create(() => "ok", name: "noop") };
@@ -86,7 +86,7 @@ public sealed class MasterLoopCostAccrualTests
             // fence firing mid-pass; the governor throws MasterBudgetExhaustedException.
             IsBudgetExhausted: () => iterations >= 3,
             RecordIterationUsage: r => { iterations++; tracker.Track(r); },
-            ReminderEveryNIterations: 0, DriftEditlessIterations: 0);
+            ReminderEveryNIterations: 0);
         var inner = new MultiIterationInner(toolIterations: 10);
         var loop = BuildLoop(inner, hooks);
         var tools = new List<AITool> { AIFunctionFactory.Create(() => "ok", name: "noop") };

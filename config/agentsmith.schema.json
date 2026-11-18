@@ -637,8 +637,6 @@
         "max_master_loop_iterations": { "type": "integer", "description": "Default 200." },
         "max_sub_agent_loop_iterations": { "type": "integer", "description": "Default 100." },
         "ledger_reminder_every_n_iterations": { "type": "integer", "description": "Default 10." },
-        "reminder_drift_editless_iterations": { "type": "integer", "description": "Default 8." },
-        "verdict_owed_after_iterations": { "type": "integer", "description": "Default 3." },
         "worker_structured_result": {
           "type": "boolean",
           "description": "external_worker only: whether the CLI is asked for a structured result. true also marks the binary as Claude Code's CLI, started with --tools \"\", --strict-mcp-config and --no-session-persistence (always so for the default claude binary)."

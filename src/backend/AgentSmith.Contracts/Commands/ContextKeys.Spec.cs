@@ -42,9 +42,9 @@ public static partial class ContextKeys
     /// one repair pass. Present only while that pass is being prepared.</summary>
     public const string OutstandingCriteria = "OutstandingCriteria";
 
-    /// <summary>p0438: set once a spec has had its repair pass, so a second outstanding
-    /// verdict is final rather than a carousel.</summary>
-    public const string SpecRepairAttempted = "SpecRepairAttempted";
+    /// <summary>2026-11-18-9c1cc: the signature of the last red stage handed back to the master (repository,
+    /// stage, exit code and output tail), so the same red after a repair is final rather than a carousel.</summary>
+    public const string SpecRepairRed = "SpecRepairRed";
 
     /// <summary>p0421: every spec's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";

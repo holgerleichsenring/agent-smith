@@ -95,7 +95,7 @@ public sealed class ScoutContextWindowTests
         await client.GetResponseAsync(ToolSweep(3), ToolOptions(), CancellationToken.None);
 
         var options = chat.Options[^1]!;
-        options.ToolMode.Should().Be(ChatToolMode.None, "the exploration ends here");
+        options.ToolMode.Should().BeNull("2026-11-18-9c1cc: the tool set never changes during a run; the text steers");
         options.Tools.Should().NotBeNullOrEmpty("a tool-bearing history needs the tools declared");
         chat.Forwarded[^1][^1].Text.Should().Contain("reply now with your final answer");
         CompactingChatClient.EstimateTokens(chat.Forwarded[^1]).Should().BeLessThan((int)(Window * 0.85),
@@ -103,7 +103,7 @@ public sealed class ScoutContextWindowTests
     }
 
     // The caller's ChatOptions is shared by FunctionInvokingChatClient across every
-    // iteration — finalising must not leave ToolMode=None behind on it.
+    // iteration — finalising must not change it.
     [Fact]
     public async Task Sweep_Finalised_DoesNotMutateTheCallersOptions()
     {
@@ -124,7 +124,7 @@ public sealed class ScoutContextWindowTests
 
         var response = await client.GetResponseAsync(ToolSweep(3), ToolOptions(), CancellationToken.None);
 
-        chat.Options[^1]!.ToolMode.Should().Be(ChatToolMode.None, "the turn was finalised");
+        chat.Forwarded[^1][^1].Text.Should().Contain("reply now with your final answer", "the turn was finalised");
         new ProjectMapJsonReader()
             .TryRead(response.Text ?? string.Empty, out var map, out _).Should().BeTrue();
         map!.PrimaryLanguage.Should().Be("csharp");

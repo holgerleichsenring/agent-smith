@@ -6,33 +6,27 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// <summary>
 /// p0341c: the master loop's in-pass governor — a <see cref="DelegatingChatClient"/> that
 /// sits BELOW UseFunctionInvocation, so the FunctionInvokingChatClient re-enters it on
-/// every tool iteration. Two levers, the harness analogue of how an interactive coding
-/// harness stringently drives a model:
+/// every tool iteration:
 /// <list type="bullet">
 ///   <item>WITHIN-pass money fence — before each iteration it consults the live budget;
 ///     an exhausted budget throws <see cref="MasterBudgetExhaustedException"/> so a single
 ///     runaway pass stops on money, not only the 200-iteration anti-runaway ceiling. After
 ///     each iteration it feeds the response usage back to the budget estimator.</item>
 ///   <item>Ledger reminder — after N iterations WITHOUT an <c>update_progress</c> call
-///     (p0359: staleness, not a blunt modulo — a disciplined model is never nagged), and
-///     on drift (K consecutive iterations with reads but no edit), it appends the current
-///     ledger + a discipline reminder as a synthetic user message, re-surfacing the
-///     checklist into the running conversation.</item>
-///   <item>Ledger-complete brake (2026-09-08-805f) — once every checklist item is done and
-///     the model keeps calling tools, <see cref="LedgerCompleteBrake"/> demands the verdict
-///     once after the allowance and ends the pass after the allowance again.</item>
+///     (p0359: staleness, not a blunt modulo — a disciplined model is never nagged), it
+///     appends the current ledger as a synthetic user message, re-surfacing the master's
+///     own checklist into the running conversation.</item>
 /// </list>
-/// Stateless config, per-pass counters — one instance is built per <c>Create</c> call, so
-/// its counters are naturally scoped to the single pass it governs.
+/// 2026-11-18-9c1cc: no drift trigger and no ledger-complete brake — nothing in the loop judges
+/// whether the master reads too much or should have finished; money and its own checklist are all.
+/// Stateless config, per-pass counters — one instance is built per <c>Create</c> call.
 /// </summary>
 public sealed class MasterLoopGovernorChatClient(IChatClient inner, MasterLoopHooks hooks)
     : DelegatingChatClient(inner)
 {
     private const string LedgerToolName = "update_progress";
 
-    private readonly LedgerCompleteBrake _brake = new(hooks.VerdictOwedAfterIterations);
     private int _sinceLedgerUpdate;
-    private int _editlessStreak;
 
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -49,25 +43,13 @@ public sealed class MasterLoopGovernorChatClient(IChatClient inner, MasterLoopHo
                 + "cost-cap-exhausted.");
 
         var list = messages as IList<ChatMessage> ?? messages.ToList();
-        UpdateStreaks(list);
+        if (TouchedLedger(list)) _sinceLedgerUpdate = 0;
         _sinceLedgerUpdate++;
 
-        var brake = hooks.IsLedgerComplete is null
-            ? LedgerBrakeAction.None
-            : _brake.Observe(hooks.IsLedgerComplete());
-        if (brake == LedgerBrakeAction.Stop)
-        {
-            hooks.OnVerdictBrake?.Invoke(_brake.TurnsSinceComplete);
-            return LedgerCompleteBrake.EndOfPass();
-        }
-        // The demand supersedes the reminder on the iteration it lands.
-        var injected = brake == LedgerBrakeAction.Demand
-            ? hooks.RenderVerdictDemand?.Invoke()
-            : ShouldInjectReminder() ? hooks.RenderReminder?.Invoke() : null;
+        var injected = Stale() ? hooks.RenderReminder?.Invoke() : null;
         if (!string.IsNullOrWhiteSpace(injected))
         {
             list = new List<ChatMessage>(list) { new(ChatRole.User, injected) };
-            _editlessStreak = 0; // the nag resets both windows
             _sinceLedgerUpdate = 0;
         }
 
@@ -76,36 +58,13 @@ public sealed class MasterLoopGovernorChatClient(IChatClient inner, MasterLoopHo
         return response;
     }
 
-    // Staleness (N iterations without an update_progress call) OR drift (K edit-less
-    // iterations). N<=0 disables the staleness trigger; K<=0 disables the drift trigger.
-    private bool ShouldInjectReminder()
-    {
-        var stale = hooks.ReminderEveryNIterations > 0
-            && _sinceLedgerUpdate >= hooks.ReminderEveryNIterations;
-        var drift = hooks.DriftEditlessIterations > 0
-            && _editlessStreak >= hooks.DriftEditlessIterations;
-        return stale || drift;
-    }
+    // N iterations without an update_progress call; N<=0 disables the reminder.
+    private bool Stale() =>
+        hooks.ReminderEveryNIterations > 0 && _sinceLedgerUpdate >= hooks.ReminderEveryNIterations;
 
-    // Drift = the model reads/searches but does not edit — reset on an edit/write call.
-    // Staleness = iterations since the model last touched its ledger — reset on an
-    // update_progress call. Both read the latest assistant turn's tool calls.
-    private void UpdateStreaks(IList<ChatMessage> messages)
-    {
-        var lastAssistant = messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
-        if (lastAssistant is null) return;
-        var calls = lastAssistant.Contents.OfType<FunctionCallContent>().ToList();
-        if (calls.Count == 0) return; // a text-only turn is not a signal by itself
-        if (calls.Any(c => string.Equals(c.Name, LedgerToolName, StringComparison.OrdinalIgnoreCase)))
-            _sinceLedgerUpdate = 0;
-        if (calls.Any(c => IsEditTool(c.Name)))
-            _editlessStreak = 0;
-        else
-            _editlessStreak++;
-    }
-
-    private static bool IsEditTool(string? name) =>
-        name is not null
-        && (name.Contains("edit", StringComparison.OrdinalIgnoreCase)
-            || name.Contains("write", StringComparison.OrdinalIgnoreCase));
+    // Whether the latest assistant turn called update_progress.
+    private static bool TouchedLedger(IList<ChatMessage> messages) =>
+        messages.LastOrDefault(m => m.Role == ChatRole.Assistant) is { } last
+        && last.Contents.OfType<FunctionCallContent>()
+            .Any(c => string.Equals(c.Name, LedgerToolName, StringComparison.OrdinalIgnoreCase));
 }

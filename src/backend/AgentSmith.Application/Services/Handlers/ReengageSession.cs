@@ -20,7 +20,6 @@ internal sealed record ReengageSession(
     ProgressLedgerToolHost Progress,
     FilesystemToolHost Fs,
     LogDecisionToolHost Log,
-    VerdictOwed VerdictOwed,
     PipelineCostTracker CostTracker,
     Action<ChatResponse> TrackMasterResponse,
     TicketClarificationToolHost? TicketClarifications,

@@ -18,7 +18,7 @@ public static class SpecRepairScope
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         pipeline.Remove(ContextKeys.OutstandingCriteria);
-        pipeline.Remove(ContextKeys.SpecRepairAttempted);
+        pipeline.Remove(ContextKeys.SpecRepairRed);
         pipeline.Remove(ContextKeys.MasterVerification);
         pipeline.Remove(ContextKeys.MasterVerificationBeforeRepair);
         // One structure correction per spec, so the next spec starts fresh.

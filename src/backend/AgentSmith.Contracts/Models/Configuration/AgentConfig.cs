@@ -73,26 +73,9 @@ public sealed partial class AgentConfig
     /// update_progress call, the harness injects a ledger discipline reminder INTO the
     /// running master pass — the system-reminder analogue that keeps the model on the
     /// checklist and attacks early self-termination. Staleness-based: a model that keeps
-    /// its ledger current is never nagged. Also fires on drift (see
-    /// <see cref="ReminderDriftEditlessIterations"/>). Default 10; set &lt;= 0 to disable.
+    /// its ledger current is never nagged. Default 10; set &lt;= 0 to disable.
     /// </summary>
     public int LedgerReminderEveryNIterations { get; set; } = 10;
-
-    /// <summary>
-    /// p0341c: drift signal — after this many consecutive tool iterations with reads but
-    /// NO edit/write, the harness injects the ledger reminder early (the model is
-    /// spinning without moving the work). Default 8; set &lt;= 0 to disable the drift
-    /// trigger (the staleness trigger still fires).
-    /// </summary>
-    public int ReminderDriftEditlessIterations { get; set; } = 8;
-
-    /// <summary>
-    /// The ledger-complete brake's allowance: once every checklist item is done, the master
-    /// may make this many further tool iterations before the run demands its verdict, and
-    /// this many more before the pass is ended for it. The ledger decides nothing about the
-    /// outcome, only when the verdict is owed. Default 3; &lt;= 0 disables. Set via <c>agent.verdict_owed_after_iterations</c>.
-    /// </summary>
-    public int VerdictOwedAfterIterations { get; set; } = 3;
 
     /// <summary>
     /// p0360: minimum seconds between mid-run checkpoint pushes. On every accepted

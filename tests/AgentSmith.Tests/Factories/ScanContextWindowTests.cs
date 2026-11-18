@@ -52,7 +52,8 @@ public sealed class ScanContextWindowTests
         await ScanClient(chat, compaction: false, window: Window)
             .GetResponseAsync(ToolSweep(3), ToolOptions(), CancellationToken.None);
 
-        chat.Options[^1]!.ToolMode.Should().Be(ChatToolMode.None, "the exploration ends here");
+        chat.Options[^1]!.ToolMode.Should().BeNull("2026-11-18-9c1cc: tools stay as the caller declared them");
+        chat.Options[^1]!.Tools.Should().NotBeNullOrEmpty();
         chat.Forwarded[^1][^1].Text.Should().Contain("reply now with your final answer");
         CompactingChatClient.EstimateTokens(chat.Forwarded[^1]).Should().BeLessThan((int)(Window * 0.85),
             "the forwarded copy is re-cut to the finaliser's bound");

@@ -15,24 +15,18 @@ public sealed class MasterVerdictNudgeTests
 
     [Fact]
     public void ShouldNudge_GreenTestsPipeline_NoVerdict_True()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", null, verdictDemandedInPass: false).Should().BeTrue();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", null).Should().BeTrue();
 
     [Fact]
     public void ShouldNudge_VerdictAlreadyPresent_False()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", Verdict(), verdictDemandedInPass: false).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", Verdict()).Should().BeFalse();
 
     [Fact]
     public void ShouldNudge_NonGreenTestsPipeline_NoVerdict_False()
         // security-scan is read-only / no green-tests requirement — never nudge.
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("security-scan", null, verdictDemandedInPass: false).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("security-scan", null).Should().BeFalse();
 
     [Fact]
     public void ShouldNudge_NoPipelineName_False()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict(null, null, verdictDemandedInPass: false).Should().BeFalse();
-
-    // 2026-09-08-805f: a demand the ledger-complete brake appended inside the pass is this
-    // re-drive; the handler does not ask a second time.
-    [Fact]
-    public void ShouldNudgeForVerdict_DemandedInPass_False()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", null, verdictDemandedInPass: true).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict(null, null).Should().BeFalse();
 }

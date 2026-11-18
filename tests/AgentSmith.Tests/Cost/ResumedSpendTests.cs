@@ -84,8 +84,7 @@ public sealed class ResumedSpendTests
 
         var hooks = MasterLoopHooksFactory.Build(
             context, tracker, ledger,
-            new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), null),
-            new VerdictOwed("master", ledger, () => 0m, 3, NullLogger.Instance));
+            new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), null));
 
         hooks.RenderBudgetStop.Should().NotBeNull();
         hooks.RenderBudgetStop!().Should().Contain("$100.00 / 1,000,000 tokens")

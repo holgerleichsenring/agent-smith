@@ -139,7 +139,7 @@ public sealed class ReengageProgressPolicyTests
         });
         var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "green");
         ReengageReasonPolicy.Decide("code", ledger, green, budgetExhausted: false, System.Array.Empty<CodeChange>(),
-            reengagePass: 1, verdictDemandedInPass: false).Reengage.Should().BeTrue();
+            reengagePass: 1).Reengage.Should().BeTrue();
     }
 
     // ---- 2026-11-18-98fa: finish_spec's blocker is the blocked claim ----

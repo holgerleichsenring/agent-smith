@@ -22,7 +22,6 @@ public static partial class SpecRenameTable
         new("PhaseStartHeads", "SpecStartHeads"),
         new("PhaseCommands", "SpecRunCommands"),
         new("PhaseAccounts", "SpecAccounts"),
-        new("PhaseRepairAttempted", "SpecRepairAttempted"),
         new("PhaseAppliesTo", "SpecAppliesTo"),
         new("ActivePhaseStep", "ActiveStep"),
     ];

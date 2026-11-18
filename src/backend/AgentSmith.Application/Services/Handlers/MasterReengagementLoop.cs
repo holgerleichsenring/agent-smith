@@ -35,11 +35,11 @@ public sealed class MasterReengagementLoop(ReengagePass passes, MasterPassRecord
             s.SetPass(n + 1);
             var decision = ReengageReasonPolicy.Decide(
                 s.PipelineName, s.Progress.GetLedger(), state.Verification, s.CostTracker.IsBudgetExhausted,
-                state.Changes, n + 1, s.VerdictOwed.Demanded);
+                state.Changes, n + 1);
             if (!decision.Reengage)
             {
                 stopLog.NotReengaging(s, state.Verification, n + 1);
-                var kind = MasterLoopStop.ClassifyTop(s.CostTracker.IsBudgetExhausted, state.Verification, n + 1, s.VerdictOwed.Demanded);
+                var kind = MasterLoopStop.ClassifyTop(s.CostTracker.IsBudgetExhausted, state.Verification, n + 1);
                 return await StopAsync(s, kind, pass, decision.Reason ?? MasterPassReasons.NothingLeft, state, emitted, ct);
             }
             if (s.TicketClarifications?.Captured is not null) // an operator question short-circuits — the caller parks

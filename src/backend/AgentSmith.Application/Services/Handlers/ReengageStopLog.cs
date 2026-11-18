@@ -18,7 +18,7 @@ public sealed class ReengageStopLog(ILogger<ReengageStopLog> logger)
         var skill = session.Context.MasterSkillName;
         if (session.CostTracker.IsBudgetExhausted)
             logger.LogWarning("Master '{Skill}' will not re-engage — {Stop}", skill, CostCapStop.Describe(session.CostTracker));
-        if (verification is not null || !ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass, session.VerdictOwed.Demanded))
+        if (verification is not null || !ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass))
             return;
         logger.LogWarning(
             "Master '{Skill}' did not call finish_spec across {Passes} pass(es) — ending the open loop without it "

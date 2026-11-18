@@ -116,11 +116,10 @@ internal sealed class LoopRig
         var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["default"] = new Mock<ISandbox>().Object };
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, sandboxes);
         var context = MasterHandlerFixture.BuildContext("coding-agent-master") with { Pipeline = pipeline };
-        var verdictOwed = new VerdictOwed("coding-agent-master", Progress.GetLedger, () => 0m, 1000, NullLogger.Instance);
         Session = new ReengageSession(context,
             new AgenticLoopRequest(new AgentConfig(), TaskType.Primary, "system", "user", [.. Finish.GetTools(null, null)]),
             "user", PipelinePresets.CodeName, Progress, new FilesystemToolHost(sandboxes, "default", "/work"),
-            new LogDecisionToolHost(new MasterHandlerFixture.NoOpDecisionLogger(), null), verdictOwed,
+            new LogDecisionToolHost(new MasterHandlerFixture.NoOpDecisionLogger(), null),
             PipelineCostTracker.GetOrCreate(pipeline), _ => { }, Clarifications, Conversation, _ => { }, Finish: Finish);
     }
 

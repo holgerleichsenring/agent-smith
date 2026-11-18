@@ -41,7 +41,7 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | AgenticMaster | The coding master does the spec's work |
 | MasterOpenQuestions | Parks the run when the master asked a person something |
 | CommitSpecWork | Runs the declared formatter, judges the structure limits, and puts the spec's work on the branch before it is judged |
-| VerifySpec | Runs the declared verify stages; a red one goes back to the master once; green records the master's report |
+| VerifySpec | Runs the declared verify stages; a red one goes back to the master while its repairs change the failure; green records the master's report |
 | WriteSpecRecord | Moves the spec to `.agentsmith/specs/done/` with its outcome and build note |
 
 ```mermaid

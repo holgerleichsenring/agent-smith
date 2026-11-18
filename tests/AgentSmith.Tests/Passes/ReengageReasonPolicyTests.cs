@@ -24,8 +24,7 @@ public sealed class ReengageReasonPolicyTests
 
     private static ReengageDecision Decide(
         ProgressLedger ledger, MasterVerification? verdict, IReadOnlyList<CodeChange> changes, int pass = 1) =>
-        ReengageReasonPolicy.Decide(PipelinePresets.CodeName, ledger, verdict, budgetExhausted: false, changes,
-            pass, verdictDemandedInPass: false);
+        ReengageReasonPolicy.Decide(PipelinePresets.CodeName, ledger, verdict, budgetExhausted: false, changes, pass);
 
     [Fact]
     public void Reengage_RedWithOpenSteps_NamesThatReason() =>
@@ -64,5 +63,5 @@ public sealed class ReengageReasonPolicyTests
     [Fact]
     public void Reengage_Budget_IsANamedStop() =>
         ReengageReasonPolicy.Decide(PipelinePresets.CodeName, Ledger(ProgressStatus.Pending), Verdict(VerificationStatus.Failed),
-            budgetExhausted: true, [], 1, false).Should().Be(new ReengageDecision(false, MasterPassReasons.Budget));
+            budgetExhausted: true, [], 1).Should().Be(new ReengageDecision(false, MasterPassReasons.Budget));
 }
