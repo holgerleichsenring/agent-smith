@@ -23,8 +23,6 @@
      capacity cell — no live slot data on the overview payload).
    - .mock-runs .rrow grid gains one auto column: the always-visible per-row
      delete button (a required real behavior the mock did not carry).
-   - .mock-viewer .drawer.wide: the trace drawer hosts the existing
-     NavRail+DetailPane master/detail, which needs more than 560px.
    - a handful of button-reset/idle-state helpers at the bottom, each marked.
    - runs-list.html's .need answer card is no longer rendered on the runs home: a
      ticket's question is answered on the ticket list, a ticketless run in the run
@@ -957,47 +955,12 @@
 .mock-viewer .metric.compute { cursor: pointer; transition: background 0.15s; }
 .mock-viewer .metric.compute:hover { background: var(--panel-2); }
 .mock-viewer .metric.compute .v { font-size: 14.5px; font-weight: 600; align-items: center; gap: 7px; }
-.mock-viewer .metric.compute .cdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
 .mock-viewer .wrap.is-prov .metric.compute { background: var(--run-wash); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--run) 40%, transparent); }
-.mock-viewer .wrap.is-prov .metric.compute .cdot { background: var(--run); }
 .mock-viewer .meter { height: 4px; border-radius: 3px; background: var(--line-2); margin-top: 6px; overflow: hidden; }
 .mock-viewer .meter > span { display: block; height: 100%; background: var(--accent); }
 /* pod detail (collapsible) */
-.mock-viewer .pods { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 16px 12px; }
-.mock-viewer .pods.closed { display: none; }
-.mock-viewer .pods .ph { font-size: 11px; color: var(--ink-3); padding: 8px 0 2px; }
-.mock-viewer .pod { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line-2); font-size: 12.5px; align-items: center; }
-.mock-viewer .pod .p-name { font-family: var(--mono); font-size: 12px; }
-.mock-viewer .pod .p-img { color: var(--ink-3); font-size: 11px; font-family: var(--mono); }
-.mock-viewer .pod .p-res { font-family: var(--mono); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mock-viewer .health-plain { margin-bottom: 20px; }
 
-/* ===== MAIN GRID: stage + side panel ===== */
-.mock-viewer .grid { display: grid; grid-template-columns: minmax(0, 1fr) 254px; gap: 20px; align-items: start; }
-@media (max-width: 900px) { .mock-viewer .grid { grid-template-columns: 1fr; } .mock-viewer .sidebox { position: static; } }
-.mock-viewer .sidebox { position: sticky; top: 14px; display: flex; flex-direction: column; gap: 12px; }
-.mock-viewer .sidebox .trace-btn { width: 100%; justify-content: center; }
-
-/* ===== STORY BAR — the beats, horizontal, on top ===== */
-.mock-viewer .storybar { display: flex; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 7px; margin-bottom: 18px; overflow-x: auto; }
-.mock-viewer .beat { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: var(--r-s); cursor: pointer; transition: background 0.14s; flex: 1; min-width: 150px; }
-.mock-viewer .beat > div:last-child { min-width: 0; }
-.mock-viewer .beat:hover { background: var(--panel-2); }
-.mock-viewer .beat[aria-current="true"] { background: var(--accent-wash); }
-.mock-viewer .beat + .beat { margin-left: 7px; position: relative; }
-.mock-viewer .beat + .beat::before { content: ""; position: absolute; left: -5.5px; top: 50%; width: 4px; height: 4px; border-radius: 50%; background: var(--line); transform: translateY(-50%); }
-.mock-viewer .beat .marker { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--line); background: var(--panel); font-size: 10.5px; color: var(--ink-3); font-weight: 700; position: relative; }
-.mock-viewer .beat.s-done .marker { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
-.mock-viewer .beat.s-run .marker { background: var(--run); border-color: var(--run); color: var(--on-fill); }
-.mock-viewer .beat.s-wait .marker { background: var(--run); border-color: var(--run); color: var(--on-fill); }
-.mock-viewer .beat.s-fail .marker { background: var(--bad); border-color: var(--bad); color: var(--on-fill); }
-.mock-viewer .beat.s-run .marker::after, .mock-viewer .beat.s-wait .marker::after { content: ""; position: absolute; inset: -1.5px; border-radius: 50%; box-shadow: 0 0 0 0 var(--run-wash); animation: mock-pulse 1.8s infinite; }
-.mock-viewer .beat .bt { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-.mock-viewer .beat.s-idle .bt { color: var(--ink-2); }
-.mock-viewer .beat .bs { font-size: 11px; color: var(--ink-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.mock-viewer .trace-btn { font: inherit; font-size: 12.5px; font-weight: 560; color: var(--ink-2); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: var(--shadow); }
-.mock-viewer .trace-btn:hover { color: var(--ink); border-color: var(--ink-3); }
 
 /* stage */
 .mock-viewer .stage { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -1006,74 +969,7 @@
 .mock-viewer .card-h h3 { font-size: 14px; margin: 0; font-weight: 640; letter-spacing: -0.01em; flex: 1; }
 .mock-viewer .card-b { padding: 16px 18px; }
 
-/* beat header — slim section rule, not a floating card */
-.mock-viewer .section-head { display: flex; align-items: center; gap: 11px; padding: 0 2px 13px; border-bottom: 1px solid var(--line); }
-.mock-viewer .section-head .bh-ic { width: 26px; height: 26px; border-radius: 8px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 14px; flex: none; }
-.mock-viewer .section-head .bh-ic.bad { background: var(--bad-wash); color: var(--bad); }
-.mock-viewer .section-head .bh-t { flex: 1; min-width: 0; }
-.mock-viewer .section-head .bh-t .n { font-size: 18px; font-weight: 670; letter-spacing: -0.02em; }
-.mock-viewer .section-head .bh-t .s { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
 
-/* ticket = reading mode: two-column document */
-.mock-viewer .ticket-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
-@media (max-width: 1000px) { .mock-viewer .ticket-layout { grid-template-columns: 1fr; } }
-.mock-viewer .ticket-aside { display: flex; flex-direction: column; gap: 16px; }
-.mock-viewer .asd-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 12px; }
-.mock-viewer .aside-fields { display: flex; flex-direction: column; gap: 0; }
-.mock-viewer .aside-fields .af { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line-2); font-size: 12.5px; }
-.mock-viewer .aside-fields .af:first-child { border-top: 0; }
-.mock-viewer .aside-fields .af .k { color: var(--ink-3); }
-.mock-viewer .aside-fields .af .v { font-weight: 600; text-align: right; }
-
-/* ===== TICKET (fully readable) ===== */
-.mock-viewer .ticket-doc { max-width: 70ch; }
-.mock-viewer .ticket-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); margin-bottom: 14px; }
-.mock-viewer .ticket-meta b { color: var(--ink-2); font-weight: 600; }
-.mock-viewer .ticket-doc h4 { font-size: 13px; margin: 20px 0 8px; letter-spacing: -0.01em; }
-.mock-viewer .ticket-doc p { margin: 0 0 12px; color: var(--ink); }
-.mock-viewer .ticket-doc ul { margin: 0 0 12px; padding-left: 20px; color: var(--ink); }
-.mock-viewer .ticket-doc li { margin: 4px 0; }
-.mock-viewer .att-grid { display: flex; gap: 12px; flex-wrap: wrap; margin: 0; }
-.mock-viewer .ticket-aside .att-grid { flex-direction: column; }
-.mock-viewer .ticket-aside .att-file { width: 100%; }
-.mock-viewer .att-file { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); width: 172px; }
-.mock-viewer .att-file .fi { width: 30px; height: 30px; border-radius: 7px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 13px; flex: none; }
-.mock-viewer .att-file .fn { font-size: 12px; font-family: var(--mono); }
-.mock-viewer .att-file .fs { font-size: 10.5px; color: var(--ink-3); }
-.mock-viewer .accept-box { margin-top: 8px; border: 1px solid var(--ok); background: var(--ok-wash); border-radius: var(--r-s); padding: 14px 16px; }
-.mock-viewer .accept-box .ab-h { font-size: 12px; font-weight: 660; color: var(--ok); letter-spacing: 0.02em; display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
-.mock-viewer .accept-box ul { margin: 0; padding-left: 18px; }
-.mock-viewer .accept-box li { margin: 5px 0; color: var(--ink); font-size: 13px; }
-
-/* ===== LEDGER ===== */
-.mock-viewer .li { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; padding: 12px 2px; align-items: start; border-top: 1px solid var(--line-2); }
-.mock-viewer .li:first-child { border-top: 0; }
-.mock-viewer .li .box { width: 19px; height: 19px; border-radius: 6px; border: 1.5px solid var(--line); display: grid; place-items: center; margin-top: 1px; }
-.mock-viewer .li.done .box { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
-.mock-viewer .li.run .box { border-color: var(--run); background: var(--run-wash); }
-.mock-viewer .li.reopened .box { border-color: var(--run); border-style: dashed; background: var(--panel); }
-.mock-viewer .li .box svg { width: 12px; height: 12px; }
-.mock-viewer .li .act { font-size: 13.5px; font-weight: 520; }
-.mock-viewer .li.done .act { color: var(--ink-2); }
-.mock-viewer .li.pending .act { color: var(--ink-3); }
-.mock-viewer .li.run .act, .mock-viewer .li.reopened .act { font-weight: 640; }
-.mock-viewer .li .note { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; font-family: var(--mono); }
-.mock-viewer .li .tag { font-size: 10px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; align-self: center; white-space: nowrap; color: var(--ink-3); }
-.mock-viewer .li.run .tag, .mock-viewer .li.reopened .tag { background: var(--run-wash); color: var(--run); }
-.mock-viewer .ledger-foot { display: flex; align-items: center; gap: 14px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-3); }
-.mock-viewer .ledger-foot .bar { flex: 1; height: 6px; border-radius: 4px; background: var(--line-2); overflow: hidden; display: flex; }
-.mock-viewer .ledger-foot .bar i { display: block; height: 100%; }
-.mock-viewer .ledger-foot .bar .d { background: var(--ok); }
-.mock-viewer .ledger-foot .bar .r { background: var(--run); }
-
-.mock-viewer .note-row { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line-2); }
-.mock-viewer .note-row:first-child { border-top: 0; }
-.mock-viewer .note-row .ic { width: 26px; height: 26px; border-radius: 8px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; flex: none; font-size: 13px; }
-.mock-viewer .note-row .body { font-size: 13px; color: var(--ink); }
-.mock-viewer .note-row .body .w { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
-.mock-viewer .file { font-family: var(--mono); font-size: 12px; }
-.mock-viewer .file .add { color: var(--ok); }
-.mock-viewer .file .del { color: var(--bad); }
 
 /* verify */
 .mock-viewer .crit { display: grid; grid-template-columns: 24px 1fr auto; gap: 13px; padding: 15px 2px; border-top: 1px solid var(--line-2); align-items: start; }
@@ -1097,8 +993,6 @@
 .mock-viewer .cov-warn b { color: var(--bad); }
 
 /* outcome */
-.mock-viewer .outcome-hero { display: flex; gap: 16px; align-items: flex-start; }
-.mock-viewer .outcome-hero .big-ic { width: 46px; height: 46px; border-radius: 12px; background: var(--ok-wash); color: var(--ok); display: grid; place-items: center; flex: none; }
 .mock-viewer .pr-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 9px 14px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 600; font-size: 13px; }
 .mock-viewer .kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-s); overflow: hidden; margin-top: 16px; }
 .mock-viewer .kv > div { background: var(--panel); padding: 12px 14px; }
@@ -1107,33 +1001,11 @@
 .mock-viewer .hint { font-size: 12.5px; color: var(--ink-3); }
 
 /* attention banner */
-.mock-viewer .banner { border-radius: var(--r); padding: 15px 18px; display: flex; gap: 14px; align-items: flex-start; box-shadow: var(--shadow); border: 1px solid; }
-.mock-viewer .banner.wait, .mock-viewer .banner.redrive { background: var(--run-wash); border-color: color-mix(in srgb, var(--run) 30%, transparent); }
-.mock-viewer .banner.fail { background: var(--bad-wash); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
-.mock-viewer .banner .b-ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex: none; font-size: 16px; font-weight: 700; }
-.mock-viewer .banner.wait .b-ic, .mock-viewer .banner.redrive .b-ic { background: var(--run); color: var(--on-fill); }
-.mock-viewer .banner.fail .b-ic { background: var(--bad); color: var(--on-fill); }
-.mock-viewer .banner .b-body { flex: 1; min-width: 0; }
-.mock-viewer .banner .b-title { font-size: 14px; font-weight: 660; letter-spacing: -0.01em; }
-.mock-viewer .banner.fail .b-title { color: var(--bad); }
-.mock-viewer .banner.wait .b-title, .mock-viewer .banner.redrive .b-title { color: color-mix(in srgb, var(--run) 78%, var(--ink)); }
-.mock-viewer .banner .b-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
-.mock-viewer .banner .b-actions { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
-.mock-viewer .banner .b-btn { font: inherit; font-size: 12.5px; font-weight: 600; border-radius: 9px; padding: 7px 13px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
-.mock-viewer .banner .b-btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.mock-viewer .banner .q { font-size: 13px; padding: 9px 12px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 9px; margin-top: 8px; }
-.mock-viewer .banner .q .qmeta { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
 
 /* drawer */
-.mock-viewer .drawer-bg { position: fixed; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 40; }
-.mock-viewer .drawer-bg.open { opacity: 1; pointer-events: auto; }
 .mock-viewer .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 94vw); background: var(--panel); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1); z-index: 41; display: flex; flex-direction: column; box-shadow: -20px 0 50px -20px rgba(0, 0, 0, 0.4); }
 .mock-viewer .drawer.open { transform: translateX(0); }
-@media (prefers-reduced-motion: reduce) { .mock-viewer .drawer, .mock-viewer .drawer-bg { transition: none; } }
-.mock-viewer .drawer-h { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line-2); }
-.mock-viewer .drawer-h h3 { margin: 0; font-size: 14px; font-weight: 640; flex: 1; }
-.mock-viewer .drawer-h button { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; color: var(--ink-2); font-size: 15px; }
-.mock-viewer .drawer-b { overflow: auto; padding: 6px 0; }
+@media (prefers-reduced-motion: reduce) { .mock-viewer .drawer { transition: none; } }
 .mock-viewer .tline { display: grid; grid-template-columns: 60px 1fr auto; gap: 12px; padding: 8px 18px; font-family: var(--mono); font-size: 11.5px; align-items: center; border-top: 1px solid var(--line-2); }
 .mock-viewer .tline:first-child { border-top: 0; }
 .mock-viewer .tline .t { color: var(--ink-3); }
@@ -1143,7 +1015,6 @@
 .mock-viewer .tline .r.ok { color: var(--ok); }
 
 /* ===== dialogue (LLM interaction) ===== */
-.mock-viewer .dlg-cnt { font-size: 10.5px; font-weight: 700; background: var(--run-wash); color: var(--run); border-radius: 20px; padding: 2px 8px; }
 .mock-viewer .chat { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; overflow: auto; flex: 1; }
 .mock-viewer .msg { max-width: 88%; }
 .mock-viewer .msg .mb { border: 1px solid var(--line); background: var(--panel-2); border-radius: 12px; padding: 10px 13px; font-size: 13px; }
@@ -1348,27 +1219,13 @@
 /* =========================================================================
    parity-port helpers (documented additions — NOT from the mocks)
    ========================================================================= */
-/* the trace drawer hosts the existing NavRail+DetailPane master/detail.
-   p0395: width/split are CSS custom properties set from persisted operator
-   drags; the values here stay the untouched defaults. */
-.mock-viewer .drawer.wide { width: min(var(--trace-drawer-w, 1320px), 96vw); }
-
-/* p0343e: the trace drawer hosts the master/detail — the step INDEX is a fixed
-   narrow rail, the selected node's content is the WIDE reading pane (the Tailwind
-   grid template was being overridden, collapsing to content-sized auto columns
-   → a too-thin detail). Explicit unlayered grid wins deterministically. */
+/* p0343e: a two-column reading grid — a fixed narrow index, the WIDE reading pane (the Tailwind grid template was
+   being overridden, collapsing to content-sized auto columns). 2026-11-17-6d9ed: the Why page's trace reader uses it;
+   the run page's trace drawer is gone. */
 .mock-viewer .trace-grid { position: relative; display: grid; height: 100%; grid-template-columns: var(--trace-rail-w, 300px) minmax(0, 1fr); min-height: 0; }
 .mock-viewer .trace-grid > :first-child { overflow-y: auto; }
 .mock-viewer .trace-grid > :last-child { min-width: 0; overflow: auto; }
 @media (max-width: 760px) { .mock-viewer .trace-grid { grid-template-columns: 1fr; } }
-
-/* p0395: the drag handles — the drawer's left edge and the master/detail split.
-   Absolutely positioned, so neither occupies a grid column or shifts layout. */
-.mock-viewer .drawer-edge-handle { position: absolute; top: 0; bottom: 0; left: 0; width: 8px; cursor: col-resize; z-index: 5; touch-action: none; }
-.mock-viewer .drawer-edge-handle:hover { background: var(--line); }
-.mock-viewer .trace-split-handle { position: absolute; top: 0; bottom: 0; left: var(--trace-rail-w, 300px); transform: translateX(-50%); width: 9px; cursor: col-resize; z-index: 5; touch-action: none; }
-.mock-viewer .trace-split-handle:hover { background: var(--line); }
-@media (max-width: 760px) { .mock-viewer .trace-split-handle, .mock-viewer .drawer-edge-handle { display: none; } }
 
 /* p0395: long command lines WRAP inside the detail pane — the pane scrolls
    vertically only. */
@@ -1384,18 +1241,10 @@
 /* idle variants for the honest liveness states the mock hard-coded green */
 .mock-runs .inflow .id.idle { background: var(--idle); color: var(--idle); animation: none; }
 /* mock elements that became real <button>s need their UA chrome reset */
-.mock-viewer button.beat { font: inherit; text-align: left; border: 0; background: transparent; }
-.mock-viewer button.beat[aria-current="true"] { background: var(--accent-wash); }
-.mock-viewer button.beat:hover { background: var(--panel-2); }
-.mock-viewer button.metric { font: inherit; text-align: left; border: 0; }
 .mock-config button.ecard { font: inherit; text-align: left; padding: 0; display: block; width: 100%; }
 .mock-config button.edit-hint { background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px; color: var(--ink-3); cursor: pointer; }
 .mock-config button.edit-hint:hover { color: var(--ink); }
 .mock-config button.dbg { border: 0; }
-/* neutral banner variant for a cancelled run (the mock ships wait/redrive/fail) */
-.mock-viewer .banner.cancel { background: var(--panel-2); border-color: var(--line); }
-.mock-viewer .banner.cancel .b-ic { background: var(--ink-3); color: var(--on-fill); }
-.mock-viewer .banner.cancel .b-title { color: var(--ink-2); }
 /* dangling ref state for the config wiring chips (mock had no broken data) */
 .mock-config .wchip[data-resolved="false"] { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: var(--bad-wash); color: var(--bad); }
 .mock-config .wchip[data-resolved="false"] .wd { background: var(--bad); }

@@ -88,60 +88,44 @@ describe("The run page of a parked run", () => {
     renderPage(parked({ queuePosition: 3 }));
 
     // 1. the status sentence — 2026-11-16-6877b: the default view's one line, no question card.
-    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Resuming, place 3 in line. Nothing for you to do.");
-    expect(screen.getByTestId("run-status")).toHaveAttribute("data-tone", "run");
+    expect(await screen.findByTestId("run-now-line")).toHaveTextContent("Answered, place 3 in line. Nothing for you to do.");
+    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("resuming, place 3");
+    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "run");
     expect(screen.queryByTestId("run-question")).not.toBeInTheDocument();
-    // 2. the graph view's wrapper class that themes it.
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    expect(screen.getByTestId("run-viewer-root").className).toContain("is-prov");
-    expect(screen.getByTestId("run-viewer-root").className).not.toContain("is-blocked");
-    // 3. the full-width banner, which renders with or without a question attached.
-    expect(screen.queryByTestId("run-banner")).not.toBeInTheDocument();
-    // 4. the side rail's state label.
-    expect(screen.getByTestId("side-rail-state")).toHaveTextContent("Resuming · place 3");
-    // 5. the story spine.
-    expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("resuming");
-
-    expect(screen.getByTestId("run-viewer-root")).not.toHaveTextContent("Needs you");
+    // 2026-11-17-6d9ed: the graph view's wrapper, banner, side rail and story spine are gone; the page says it once.
+    expect(screen.getByTestId("run-log")).not.toHaveTextContent("Needs you");
+    expect(screen.getByTestId("run-log")).not.toHaveTextContent("needs you");
   });
 
   it("RunPage_AWaitingRunWithNoQueuePlace_StillSaysNeedsYou", async () => {
     renderPage(parked());
 
-    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Waiting for your answer.");
-    expect(screen.getByTestId("run-status")).toHaveAttribute("data-tone", "amber");
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    expect(screen.getByTestId("run-viewer-root").className).toContain("is-blocked");
-    expect(screen.getByTestId("run-banner")).toBeInTheDocument();
-    expect(screen.getByTestId("side-rail-state")).toHaveTextContent("Needs you");
-    expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("paused · needs you");
+    expect(await screen.findByTestId("run-now-label")).toHaveTextContent("Waiting for your answer");
+    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("needs you");
+    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "amber");
   });
 });
 
-// 2026-11-17-d6fbb: the default log is complete without the graph, and the graph is an address.
+// 2026-11-17-d6fbb: the default log is complete without the graph. 2026-11-17-6d9ed: and the graph is gone.
 describe("The run page without the graph", () => {
   it("RunPage_DefaultLog_CarriesTheTicketPlanAndOutcomeSections_Closed", async () => {
     renderPage(parked());
-    for (const id of ["ticket", "plan", "outcome"]) {
+    for (const id of ["ticket", "plan", "deliver"]) {
       const section = await screen.findByTestId(`run-section-${id}`);
       expect(section.querySelector("button")).toHaveAttribute("aria-expanded", "false");
     }
     fireEvent.click(screen.getByTestId("run-section-ticket").querySelector("button")!);
-    expect(screen.getByTestId("ticket-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("run-meta")).toHaveTextContent("run r1");
-    expect(screen.getByTestId("run-status-note")).toHaveTextContent("Reserved compute is held");
+    expect(screen.getByTestId("ticket-body")).toBeInTheDocument();
+    expect(screen.getByTestId("run-details")).toHaveTextContent("run r1");
+    expect(screen.getByTestId("run-now")).toHaveTextContent("Reserved compute is held");
     expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();
   });
 
-  it("RunPage_ShowAsGraph_WritesViewGraph_AndAnAddressWithItOpensTheGraph", async () => {
-    renderPage(parked());
-    fireEvent.click(await screen.findByTestId("run-show-graph"));
-    expect(window.location.search).toBe("?view=graph");
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    expect(window.location.search).toBe("");
-
+  it("RunPage_AnOldGraphAddress_ShowsTheLog", async () => {
     window.history.replaceState(null, "", "/jobs/r1?view=graph");
-    const second = renderPage(parked());
-    expect(await second.findByTestId("run-viewer-root")).toBeInTheDocument();
+    renderPage(parked());
+    expect(await screen.findByTestId("run-log")).toBeInTheDocument();
+    expect(screen.queryByTestId("run-viewer-root")).toBeNull();
+    expect(screen.queryByTestId("run-show-graph")).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunSnapshot } from "@/types/hub-events";
-import { budgetShare, computeOf, costWords, progressWords, timeSplitWords } from "../runFactWords";
+import { budgetShare, computeOf, timeSplitWords } from "../runFactWords";
 
 // 2026-11-17-d6fbb: the graph view's side-rail facts, said in words for the run log.
 
@@ -14,12 +14,6 @@ function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
 }
 
 describe("runFactWords", () => {
-  it("costWords_WithACap_SaysSpentOfCapAndTier", () => {
-    expect(costWords(snap({ budgetCapUsd: 5, budgetTier: "medium" }))).toBe("$4.50 of $5.00 cap, tier medium");
-    expect(costWords(snap())).toBe("$4.50");
-    expect(costWords(snap({ costUsd: 0 }))).toBeNull();
-  });
-
   it("budgetShare_NearAndOverTheCap_ChangeTone", () => {
     expect(budgetShare(snap({ budgetCapUsd: 5 }))).toEqual({ percent: 90, tone: "near" });
     expect(budgetShare(snap({ budgetCapUsd: 4 }))).toEqual({ percent: 100, tone: "over" });
@@ -45,8 +39,4 @@ describe("runFactWords", () => {
     expect(timeSplitWords(snap())).toBeNull();
   });
 
-  it("progressWords_SaysTheStep", () => {
-    expect(progressWords(snap())).toBe("step 4 of 12");
-    expect(progressWords(snap({ totalSteps: 0 }))).toBeNull();
-  });
 });

@@ -1,17 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { runStatusWord, statusSpill, toNodeStatus } from "../runStatus";
-
-// 2026-11-16-6877b: moved from RunDetailHeader; the graph view's wrapper still reads it.
-describe("statusSpill", () => {
-  it("statusSpill_MapsStatusToStateWordAndClass", () => {
-    expect(statusSpill("running")).toEqual({ cls: "is-run", label: "Running" });
-    expect(statusSpill("waiting_for_input")).toEqual({ cls: "is-blocked", label: "Needs you" });
-    expect(statusSpill("waiting_for_input", true)).toEqual({ cls: "is-prov", label: "Resuming" });
-    expect(statusSpill("success").label).toBe("Done");
-    expect(statusSpill("shortfall").label).toBe("Done, with a shortfall");
-    expect(statusSpill("failed")).toEqual({ cls: "is-failed", label: "Failed" });
-  });
-});
+import { runStatusWord, toNodeStatus } from "../runStatus";
 
 describe("toNodeStatus", () => {
   it("toNodeStatus_KnownStatuses_MapToNodeStatus", () => {

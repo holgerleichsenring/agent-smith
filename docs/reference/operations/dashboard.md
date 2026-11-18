@@ -69,26 +69,17 @@ Finished runs say how they ended: done, done with a shortfall (the verified spec
 
 ### Run detail
 
-![A finished run as a story: the five beats ticket, plan, build, verify, outcome, the rendered result.md, and the cost, progress and elapsed rail](../../assets/screenshots/run-detail.png)
+One run reads as one log, top to bottom, in plain text.
 
-One run reads as a story of five beats, ticket, plan, building, verify and outcome, so you get the arc before the detail. A failed run lights the beat it died in. Clicking a beat switches the stage:
+The header names the run: **Runs / run id · ticket · Run n of m**, the title, and one line with the state, the steps, the time so far (or in total), the cost against the run's cap, the pods and their memory, and the work shape. The cost turns amber past 80% of the cap and red over it. **details** opens everything else the run recorded: when it started and finished, the model and its call count, the repositories, the pipeline, the run id, where the time went (model, sandbox, scaffolding, throttled), the share of the budget spent and its tier, the reserved Gi·min, why the run got its shape, the live sandbox command count, and the pods with image and memory (or the reservation while none has landed).
 
-- **The ticket** is the ticket body as fetched.
-- **The plan** is the run's `plan.md`.
-- **Building** shows the progress ledger, the latest decisions and changes, and a **Specs** panel. Each finished spec opens with its **Decisions**, its steps, and **The spec it executed**.
-- **Verify against acceptance** shows the delivery account, one row per acceptance criterion with its disposition, the evidence it cites and the reason. When you think a disposition is wrong you can record your own judgement with a reason. That's a label for later measurement, it doesn't re-open anything. What the account is and how it's built is on [the delivery account](../../how-it-works/delivery-account.md).
-- **Outcome** renders `result.md`, with the PRs and the cost, wall-clock and LLM figures.
+Under the header, **Now — follows the agent** shows the last few things the agent did, as they arrive: the step it is in with what it says it is doing, the last command it ran, its newest decisions, tool calls, files written and findings. A run that waits on you shows its question with the answer form here, and that its compute is held. A queued or resuming run says its place in line. Once the run ends the block becomes **How it ended**: the outcome with its pull requests, criteria and cost, the run's own end text, the step it stopped at and what to set to lift the stop, the review's result and the last verify pass per repository. Its links open the pull requests, **Retry unchanged** (on the ticket's newest attempt, when it did not succeed), the setting, the ticket and the Why page.
 
-The rail beside the story is the run at a glance:
+The log itself has a section per piece of work: **Ticket** (the ticket as the run read it, with its tracker link), **Got ready**, **The plan** (the work spec, the agreed plan and the progress ledger), one section per spec, **Checked against the spec** and **Delivered** (the pull requests and the run report, `result.md`). A run without specs reads Got ready, The work, Delivered. Every section and step line says its LLM calls, cost and time; internal steps and silent gates fold into one "mechanics" line per section. A running or stopped section starts open.
 
-- **State**, **Progress** (`x of y steps`) and **Compute**, the pods the run spawned with image and memory. Until the first pod lands it shows "calculating…" and the footprint reserved at admission.
-- **Cost**, next to the run's cost cap and budget tier when one was sized, with a bar that turns red at the cap.
-- **Shape**, the work shape the run was classified as, with the one-line reason. It's what decided how many specs the ticket was cut into.
-- **Started** as an absolute time, **Elapsed** with the number of LLM calls, and while the run works, a live **Sandbox** line with the command count and the last command.
-- **Time split**: where the elapsed time went, model, sandbox, scaffolding, and how much of it was spent throttled by the rate limiter.
-- The PRs the run opened, one link per repo, or a plain note that none was opened.
+Click a step and its detail opens in place: its status, where its time went and its result message, each repository's outcome, then every LLM call (role, model, tokens in and out, cached tokens, cost, duration), command (exit code, duration, a timeout and its limit), write, decision, finding and observation, newest first. Filter with **All · Findings · Obs · Tools · LLM · Files · Decisions**, flip the order, search the step, **show all**, and page back into older events. The open step is in the address (`?step=24`), so a link lands on it; older `#n=step-24` links still work. A run whose cached share is 0% has a dead prompt cache, which is an alarm, not a detail (see [cost tracking](../concepts/cost-tracking.md)).
 
-Below that, **Full pipeline** opens the step-by-step view. By default it shows the story steps, milestones plus gates that have something to say; internal steps and silent gates fold into one "mechanics" row per segment that expands in place. Nothing is dropped from the data, only from the default view. A running pipeline also lists the steps it hasn't reached yet, marked "The run has not reached this step yet." A step's detail follows it while it runs, shows the newest events first and lets you page back into older ones. Every step carries its LLM cost with model, tokens and the cached share of input tokens. A run whose cached share is 0% has a dead prompt cache, which is an alarm, not a detail (see [cost tracking](../concepts/cost-tracking.md)).
+In **Checked against the spec**, each acceptance criterion shows its disposition, the evidence it cites and the reason. When you think a disposition is wrong, **this verdict is wrong** records your own judgement with a reason. That's a label for later measurement; it doesn't re-open anything. What the account is and how it's built is on [the delivery account](../../how-it-works/delivery-account.md).
 
 The header of the detail page carries **cancel** and **delete**, both with a confirming second click. Cancel enforces: graceful window, then force-kill, pods released ([cancel semantics](capacity.md#cancel-is-a-state-not-a-wish)). Failures lead with why: a cancelled run says who cancelled it, a timeout names the limit that fired.
 

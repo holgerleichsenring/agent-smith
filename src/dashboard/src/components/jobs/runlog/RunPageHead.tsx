@@ -1,21 +1,25 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { DeleteRunButton } from "@/components/jobs/DeleteRunButton";
+import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import { RUNS_PATH } from "@/lib/RunBucketFilter";
-import { shortRunId } from "@/lib/runId";
 import type { RunSnapshot } from "@/types/hub-events";
-import { computeOf, costWords } from "./runFactWords";
-import { sectionDuration } from "./runSections";
+import { computeOf } from "./runFactWords";
+import { detailLines, metaParts } from "./runMetaWords";
 import type { RunTicket } from "./useRunTicket";
 
-// 2026-11-16-6877b: the run page's header — the way back to the ticket ("GH-101 / Run 2 of 2"), the title, one line
-// of what is recorded (when, how long, the model, the containers, what it cost) and the run's own acts: cancel while
-// it can be stopped, delete always.
+// 2026-11-16-6877b: the run page's header — the way back, the title and the run's own acts: cancel while it can be
+// stopped, delete always.
+// 2026-11-17-6d9ea: in the approved mock's shape — the crumb "Runs / run id · ticket · Run n of m", the title, ONE meta
+// line (state in its colour · steps · elapsed · cost of its cap · pods · memory · shape), and every other recorded fact
+// behind "details": when, the model, the repositories, the pipeline, the time split, the budget share, the shape's
+// reason, the sandbox beat and the pods.
 
 const CANCELLABLE = new Set(["running", "queued", "waiting_for_input"]);
 
@@ -24,28 +28,36 @@ interface Props {
   snapshot: RunSnapshot | null;
   ticket: RunTicket | null;
   repoNames: string[];
+  /** Steps the run reached, for the meta line once it has ended. */
+  stepCount: number;
   /** The live connection, said beside the acts when it is not connected. */
   connectionState?: HubConnectionState;
   onDeleted: () => void;
 }
 
-export function RunPageHead({ runId, snapshot, ticket, repoNames, connectionState, onDeleted }: Props) {
+export function RunPageHead({ runId, snapshot, ticket, repoNames, stepCount, connectionState, onDeleted }: Props) {
   const status = (snapshot?.status ?? "").toLowerCase();
   const title = snapshot?.ticketTitle ?? snapshot?.pipeline ?? "run";
+  const beat = useSandboxActivity(snapshot?.runId ?? null);
+  const parts = snapshot ? metaParts(snapshot, stepCount) : [];
+  const details = snapshot ? detailLines(snapshot, repoNames, beat) : [];
+  const pods = snapshot ? computeOf(snapshot) : null;
   return (
     <header className="rl-head" data-testid="run-head">
       <nav className="rl-crumb" aria-label="Breadcrumb">
-        {ticket ? (
+        <Link href={RUNS_PATH}>Runs</Link>
+        <span aria-hidden="true">/</span>
+        <span className="rl-mono" data-testid="run-crumb-run" title={runId}>{runId}</span>
+        {ticket && (
           <>
-            <Link href={ticket.href} data-testid="run-crumb-ticket">{ticket.label}</Link>
-            <span aria-hidden="true">/</span>
-            <span data-testid="run-crumb-run">{ticket.number !== null && ticket.of !== null ? `Run ${ticket.number} of ${ticket.of}` : `Run ${shortRunId(runId)}`}</span>
-          </>
-        ) : (
-          <>
-            <Link href={RUNS_PATH}>Runs</Link>
-            <span aria-hidden="true">/</span>
-            <span data-testid="run-crumb-run" title={runId}>Run {shortRunId(runId)}</span>
+            <span aria-hidden="true">·</span>
+            <Link href={ticket.href} data-testid="run-crumb-ticket">ticket {ticket.label}</Link>
+            {ticket.number !== null && ticket.of !== null && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span data-testid="run-crumb-count">Run {ticket.number} of {ticket.of}</span>
+              </>
+            )}
           </>
         )}
       </nav>
@@ -59,37 +71,30 @@ export function RunPageHead({ runId, snapshot, ticket, repoNames, connectionStat
           <DeleteRunButton runId={runId} onDeleted={onDeleted} />
         </span>
       </div>
-      <div className="rl-meta" data-testid="run-meta">{metaLine(snapshot, repoNames).join(" · ")}</div>
+      {parts.length > 0 && (
+        <div className="rl-meta" data-testid="run-meta">
+          {parts.map((p, i) => (
+            <Fragment key={p.key}>
+              {i > 0 && " · "}
+              <span data-testid={`run-meta-${p.key}`} data-tone={p.tone}>{p.text}</span>
+            </Fragment>
+          ))}
+        </div>
+      )}
+      {details.length > 0 && (
+            <details className="rl-details" data-testid="run-details">
+              <summary>details</summary>
+              {details.map((d) => <div key={d} data-testid="run-detail-line">{d}</div>)}
+              {pods && pods.pods.length > 0 && (
+                <>
+                  <div className="rl-dim">{pods.heading}</div>
+                  {pods.pods.map((pod) => (
+                    <div key={pod.name} data-testid="run-detail-pod">{pod.name} · {pod.resources} · <span className="rl-dim">{pod.image}</span></div>
+                  ))}
+                </>
+              )}
+            </details>
+      )}
     </header>
   );
-}
-
-/** When, how long, the model, the repositories and compute, the cost against its cap, the shape, the pipeline and
- *  the run id; each only when recorded. */
-export function metaLine(snapshot: RunSnapshot | null, repoNames: string[]): string[] {
-  if (!snapshot) return [];
-  const parts: string[] = [];
-  const start = new Date(snapshot.startedAt);
-  if (!Number.isNaN(start.getTime())) {
-    const day = start.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-    const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-    parts.push(snapshot.finishedAt ? `${day}, ${time(snapshot.startedAt)} to ${time(snapshot.finishedAt)}` : `${day}, since ${time(snapshot.startedAt)}`);
-    const end = snapshot.finishedAt ? Date.parse(snapshot.finishedAt) : Date.now();
-    const took = sectionDuration((end - start.getTime()) / 1000);
-    if (took) parts.push(took);
-  }
-  if (snapshot.agentName) parts.push(snapshot.llmCalls > 0 ? `${snapshot.agentName}, ${snapshot.llmCalls} model calls` : snapshot.agentName);
-  if (repoNames.length > 0) parts.push(repoNames.join(", "));
-  const compute = computeOf(snapshot);
-  if (compute) parts.push(compute.words);
-  else if (snapshot.sandboxes > 0) parts.push(snapshot.sandboxes === 1 ? "1 container" : `${snapshot.sandboxes} containers`);
-  const cost = costWords(snapshot);
-  if (cost) parts.push(cost);
-  if (snapshot.reservedGiMinutes != null) parts.push(`reserved ${snapshot.reservedGiMinutes.toFixed(1)} Gi·min`);
-  // 2026-11-17-d6fbb: what the graph view's side rail carried — the shape that decided the process, the pipeline
-  // and the full run id.
-  if (snapshot.workShape) parts.push(`shape ${snapshot.workShape}`);
-  if (snapshot.pipeline) parts.push(`pipeline ${snapshot.pipeline}`);
-  parts.push(`run ${snapshot.runId}`);
-  return parts;
 }

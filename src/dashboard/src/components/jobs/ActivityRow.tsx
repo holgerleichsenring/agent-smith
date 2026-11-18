@@ -287,13 +287,15 @@ function projectEvent(event: RunEvent): RowView {
         ? "no changes — no PR needed"
         : e.status === "opened"
           ? `PR opened — ${e.url}`
-          : "failed";
+          : e.status === "awaiting_ci" // 3435b: merges once CI is green
+            ? `PR opened, waiting for CI — ${e.url}`
+            : "failed";
       return {
-        icon: e.status === "opened" ? "✓" : e.status === "failed" ? "✕" : "○",
+        icon: e.status === "opened" || e.status === "awaiting_ci" ? "✓" : e.status === "failed" ? "✕" : "○",
         label: "PR",
         detail: `${e.repo}: ${detail}`,
         reason: e.status === "failed" ? e.reason : null,
-        severity: e.status === "failed" ? "error" : e.status === "opened" ? "ok" : "info",
+        severity: e.status === "failed" ? "error" : e.status === "opened" || e.status === "awaiting_ci" ? "ok" : "info",
       };
     }
     case EventType.TicketInstructionIgnored: {

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-6d9ec
+goal: "A step line opens its detail in place: a summary, filter links and every llm call, tool call, write, decision, finding and observation of the step as terminal-like lines, addressable by URL."
+
+applies_to: "dashboard (components/jobs/runlog: stepDetailLines, RunStepDetail, useStepAddress)"
+
+requires: [2026-11-17-6d9eb]
+
+facts:
+  - claim: "A step's events are one clamped page fetched by step index, newest first, polled while live, with loadOlder."
+    evidence: "src/dashboard/src/hooks/useRunStepEvents.ts:38-60"
+  - claim: "The graph panel composed the step body from PR outcomes, sandboxes per repository, catalog/ticket bodies, the event drawer and the command timeline."
+    evidence: "src/dashboard/src/hooks/useRunExecutionTree.tsx:280-325"
+  - claim: "LLM start and finish events are paired by role, model and time."
+    evidence: "src/dashboard/src/hooks/execution-tree/llmPairing.ts:59-80"
+  - claim: "A file write carries a path and bytes, no line counts; a sandbox command carries isWrite."
+    evidence: "src/dashboard/src/types/hub-events.ts:218-236, 408-413"
+  - claim: "Today's deep link is #n=step-<index> (and x=<expanded>)."
+    evidence: "src/dashboard/src/hooks/useRailSelection.ts:38-53"
+
+scope:
+  in: "stepDetailLines turns a step page into lines {time, kind, text, meta, filter} newest first: llm (role or phase · model · tokens in/out · cache · cost · duration, in flight/ended), tool (repo verb summary, exit or timeout, duration; tool calls and results; sub-agent tool calls), write (written path and bytes, write commands), decision (chose over, reason; gates), finding, obs (step detail, observations, sub-agent start/end), pr (outcome and link), ticket, catalog; and the summary 'N actions · M writes · K llm · $X'. RunStepDetail: head line (status, time split, result message with links, a multi-repository summary 'n/m ok, failed: repo'), filter links All/Findings/Obs/Tools/LLM/Files/Decisions, newest/oldest, find, show all, older events, per-repository live output (SandboxOutput is never stored, so a finished step says the output was live only), analyze.md under Analyze codebase, the catalog browse link. ?step=<index> opens the step and its section; #n=step-<index> is read and rewritten to it."
+  out: "Line counts for writes (not recorded); backend changes."
+
+steps:
+  - id: lines
+    action: "stepDetailLines.ts, pure, reusing pairLlmCalls and describeEvent/kindOf from eventDescriptors."
+  - id: draw
+    action: "RunStepDetail renders the lines and links under the open step line."
+  - id: address
+    action: "useStepAddress reads ?step= and the old #n=step- hash, writes ?step= with replaceState; RunLog opens the addressed step's section."
+
+tests:
+  - "stepDetailLines: each kind, LLM pairing and cost, sandbox exit/timeout, summary counts."
+  - "RunStepDetail: filter links narrow the lines; show all; load older; analyze.md on Analyze codebase."
+  - "useStepAddress: ?step=24 opens step 24; #n=step-24 maps to ?step=24."
+
+done:
+  - "Clicking a step shows what the graph's step panel showed, as plain lines."
+  - "A link with ?step= or #n=step- lands on the step."
+  - "pnpm test and build are green."

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -97,13 +97,14 @@ describe("The live view", () => {
   it("LiveView_ShowsProgress_AndNoStatistics", async () => {
     renderLiveView();
 
-    // 2026-11-16-6877b: what is happening, in one sentence, and where in the seven sections the run is.
-    expect(await screen.findByTestId("run-status-text")).toHaveTextContent("Working: Implement. Nothing for you to do.");
-    await waitFor(() => expect(screen.getByTestId("run-section-build")).toHaveAttribute("data-state", "running"));
-    expect(screen.getByTestId("run-section-ready")).toHaveAttribute("data-state", "done");
+    // 2026-11-17-6d9ea: what the agent is doing, under the Now label.
+    expect(await screen.findByTestId("run-now-label")).toHaveTextContent("Now — follows the agent");
+    expect(screen.getAllByTestId("run-now-line")[0]).toHaveTextContent("Implement");
+    // 2026-11-17-6d9eb: the spec's section is running and starts open, its step lines say llm · cost · time.
+    await waitFor(() => expect(screen.getByTestId("run-section-spec:p19106a")).toHaveAttribute("data-state", "running"));
     expect(screen.getByTestId("run-section-deliver")).toHaveAttribute("data-state", "pending");
+    expect(screen.getByTestId("run-step-1")).toHaveTextContent("Implement9 llm$1.50");
     expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();
-    expect(screen.getByTestId("run-open-trace")).toHaveTextContent("Show all 2 steps and the raw trace");
 
     // None of the story view's statistics are on this screen.
     expect(screen.queryByTestId("call-size-plot")).not.toBeInTheDocument();
@@ -123,14 +124,12 @@ describe("The live view", () => {
     expect(urlsFetched().some((u) => u.includes("/trace"))).toBe(false);
   });
 
-  it("LiveView_OffersTheStoryView_AsADeliberateStep", async () => {
+  it("LiveView_OffersTheWhyPage_AsADeliberateStep_AndNoGraph", async () => {
     renderLiveView();
 
     expect(await screen.findByTestId("run-open-why")).toHaveAttribute("href", "/jobs/r1/why");
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    const link = await screen.findByTestId("side-rail-why");
-    expect(link).toHaveTextContent("Why this run did that");
-    expect(link).toHaveAttribute("href", "/jobs/r1/why");
-    expect(within(screen.getByTestId("run-viewer-root")).getByTestId("side-rail-progress")).toHaveTextContent("of 2 steps");
+    expect(screen.queryByTestId("run-show-graph")).toBeNull();
+    expect(screen.queryByTestId("run-side-rail")).toBeNull();
+    expect(screen.getByTestId("run-meta-steps")).toHaveTextContent("step 2 of 2");
   });
 });
