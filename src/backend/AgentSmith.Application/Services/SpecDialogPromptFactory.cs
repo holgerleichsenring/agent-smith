@@ -31,7 +31,6 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             {SpecDialog.SeededTicketSection.Render(pipeline)}
             {SpecDialog.FrameworkFactsSection.Render(pipeline)}
             {SpecDialog.DialogScopeRepositoriesSection.Render(pipeline)}
-            {SpecDialogRevisionSection.Render(pipeline)}
             {SpecDialog.Writes.ProposalDraftSection.Render(pipeline)}
 
             ## Your reply

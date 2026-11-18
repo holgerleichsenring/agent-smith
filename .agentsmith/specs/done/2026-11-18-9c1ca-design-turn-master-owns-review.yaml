@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-9c1ca
+goal: "A design turn ends when its master ends: no automatic review re-drives it, no review_proposal tool, and only mechanical checks (cited files, ticket existence) run on its draft."
+
+applies_to: "default (spec-dialog turn flow, design master tools, spec_review config), dashboard (settings, turn activity)"
+
+requires: [2026-11-12-92e9b, 2026-11-12-cd4ch, 2026-11-12-cd4ci]
+
+facts:
+  - claim: "After the loop, DesignTurnReviewDrive runs SpecDialogProposalReview until every draft text was reviewed and re-drives the master with the report; live, six REFUSE turned five thematic tickets into one epic."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DesignTurnReviewDrive.cs:30-37, SpecDialog/SpecDialogTurnFlow.cs:40"
+  - claim: "spec_review.design_turn (default true) switches the pass; off, only ProposalMechanicalChecks runs."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:24, SpecDialog/SpecDialogProposalReview.cs:33-34"
+  - claim: "review_proposal runs the same ProposalReviewPass on demand; ProposalReviewLedger/CarryOver/ReviewedProposalSource serve only this pass and the tool."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:44-45, Tools/ReviewProposalToolHost.cs"
+  - claim: "ProposalMechanicalChecks calls TicketPlanReview.CheckAsync, the existence half of a review whose other half is a model call (TicketPlanReviewer)."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalMechanicalChecks.cs:20, SpecDialog/TicketPlanReview.cs:34"
+  - claim: "SpecDialogRevisionSection puts earlier review findings into the revision prompt."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:34"
+  - claim: "verify_series (SeriesVerification) calls ISpecCutReviewer and ProposalEvidenceReview when the master asks; it stays."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeriesVerification.cs:18-20"
+
+scope:
+  in: "Delete the post-turn drive and pass, review_proposal, the ticket-plan model review, the revision findings section, the design_turn switch (model, schema, docs, settings UI; retired with a RetiredConfigKeys row), the Reviewing turn activity, the attack input's design-turn-only fields (Proposal, Siblings) and every class only these used. The turn flow runs ProposalMechanicalChecks on the master's draft and publishes it."
+  out: "The run's review before building (ReviewSpecsHandler), verify_series, the persisted under-review draft read path (DB state 'reviewing', view Reviewing — nothing writes it after this; removing it is the follow-up 'retire the under-review proposal state'), the skills repo text (notes file)."
+
+steps:
+  - id: flow
+    action: "SpecDialogTurnFlow.ConcludeAsync: the draft from the reply slot -> ProposalMechanicalChecks -> publish; no re-drive."
+  - id: delete
+    action: "Delete DesignTurnReviewDrive, DesignTurnReview(+Report, SpecReport), SpecDialogProposalReview, ProposalReviewPass, ProposalWholeSetReview, ReviewProposalToolHost/Answer, ReviewedProposalSource, TicketPlanReview(er, Prompt, FindingWire), SpecDialogRevisionSection, ProposalAttackPass and the Proposal* review classes left unreferenced, ContextKeys.ProposalReviewLedger, ITurnProposalObserverAccessor.PublishUnderReviewAsync, TurnActivityKind.Reviewing, SpecReviewConfig.DesignTurn."
+  - id: mechanical
+    action: "ProposalMechanicalChecks: ticket list = bound-conversation finding or TicketExistenceFindings; plus the evidence findings. No model call."
+  - id: surface
+    action: "Remove design_turn from config schema, docs and the dashboard settings form; remove the 'reviewing' activity kind from the dashboard."
+  - id: notes
+    action: ".agentsmith/notes/2026-11-18-9c1ca-skill-notes.md: the design-partner-master sentences to change, with replacements."
+
+tests:
+  - "A design turn whose master ends with a draft runs the loop once and publishes the draft with the mechanical findings."
+  - "The design master's tool surface has no review_proposal."
+  - "ProposalMechanicalChecks: a ticket list gets existence findings without a model call; a spec gets its evidence findings."
+
+done:
+  - "No design-turn code path calls a reviewer the master did not commission; build and suite green; the dashboard has no design-turn review setting."

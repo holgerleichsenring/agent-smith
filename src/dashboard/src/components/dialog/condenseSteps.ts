@@ -72,7 +72,6 @@ function burstLine(burst: Burst): StepLine {
 
 function lineOf(step: RawStep, name: string): StepLine {
   if (step.kind === "model") return { key: step.seq, kind: "said", text: step.detail!.trim() };
-  if (step.kind === "reviewing") return { key: step.seq, kind: "step", text: "reviewing its proposal" };
   if (step.kind === "revising") return { key: step.seq, kind: "step", text: "revising its answer" };
   const text = [name || step.kind, step.detail].filter(Boolean).join(" ");
   return { key: step.seq, kind: step.kind === "tool" && WRITE.test(toolOf(name)) ? "write" : "step", text };

@@ -92,7 +92,7 @@ A `DESIGN.md` at the root of a repository (design tokens as frontmatter, then pr
 A turn takes anywhere from seconds to a few minutes, so the exchange shows what it's doing instead of a spinner and nothing else. The working line says what it's opening: "Reading the ticket…", "Opening the repositories it needs…", or "Working it out…" once everything is open. Beside that, the elapsed time and the number of steps taken. Under it:
 
 - one line per repository (and the bound ticket) with its state: opening, ready, or could not be opened;
-- the latest three steps: which tool read what, "thinking", "reviewing its own proposal against the code", "revising its answer". Older steps fold into "N earlier steps", which counts every step the turn took before the ones shown. A page that holds fewer than that says how many it lists.
+- the latest three steps: which tool read what, "thinking", "revising its answer". Older steps fold into "N earlier steps", which counts every step the turn took before the ones shown. A page that holds fewer than that says how many it lists.
 
 If you leave and come back to a conversation mid-turn, the working line is still there.
 
@@ -130,9 +130,9 @@ The right-hand pane has up to six tabs, written as plain words with the chosen o
 
 ### Review
 
-The review happens inside the turn, before you are asked anything. When the design partner has written its draft, fresh reviewers read each spec against the code, beside its sibling specs and your open questions, and answer build, build with cuts, or refuse, each with file and line. For a list of tickets the plan is reviewed too, and every ticket's own specs beside it. The design partner sees the findings, applies the cuts, and only then offers the draft for filing. `spec_review.design_turn` (on by default) switches this review off.
+The design partner owns its draft. Nothing reviews the draft after the turn ends, and nothing sends the partner back to revise it. If it wants a review, it asks for one the way a person working with an agent would: it starts a helper with a review brief ("attack this spec before anyone builds it, check every step against the code, answer build, build with cuts or refuse, with file and line") and decides what to do with the answer. What runs on every draft are the mechanical checks: every file a spec cites must exist, and every ticket a list requires must exist on the tracker. Their findings show on the proposal, and you decide what happens next.
 
-The Proposal tab shows the outcome per spec: what each reviewer answered, the cuts and the findings. A draft no reviewer could attack reads "not yet reviewed, will be reviewed before it is built", with the reason: the cost cap, the turn ended while it was under review, no reviewer answered, or its reviewers couldn't read the repositories it names.
+The Proposal tab shows the outcome per spec: the mechanical findings, and for a spec a run already reviewed, what each reviewer answered and the cuts. A draft nobody reviewed reads "not yet reviewed, will be reviewed before it is built".
 
 The guarantee sits in one place, before building. A spec is reviewed in its exact text or it is not: when a review ends with build on a draft's current text, that text is recorded by its hash. A run builds an approved spec without reviewing it again only when its text is exactly the one recorded. Any other spec, approved but not reviewed, changed after its review, or interrupted, is attacked by the run's own review before the agent builds it, and so is a series contract no review ended clean on.
 
@@ -161,7 +161,7 @@ These are the only controls on the page besides send; nothing in the exchange is
 
 Some work is several themes, each one a person reviews and accepts as a whole: the workflow and its API, the delivery, the admin views. A list of tickets files each theme as its own ticket, ordered by what must land first, and records which one waits for which.
 
-A conversation with no ticket may propose 2 to 20 tickets joined by `requires`. Each ticket carries its title, what it must achieve, its done items, its repositories, what it requires (another ticket of the list or one already in the tracker), and **its own specs**, written by the design partner and reviewed in the turn. The partner can offer the list for filing only once every ticket has at least one spec. The pane lists the tickets in the order they must merge, each with its specs and what it waits for.
+A conversation with no ticket may propose 2 to 20 tickets joined by `requires`. Each ticket carries its title, what it must achieve, its done items, its repositories, what it requires (another ticket of the list or one already in the tracker), and **its own specs**, written by the design partner. The partner can offer the list for filing only once every ticket has at least one spec. The pane lists the tickets in the order they must merge, each with its specs and what it waits for.
 
 A dependent ticket starts when its prerequisite's run is green, stacked on its branch, unless the project waits for the merge ([Stacked start](stacked-start.md)). A filing of two or more tickets also opens a [series run](series-run.md), which reports in this conversation.
 

@@ -18,11 +18,6 @@ public sealed class SpecReviewConfig
     /// <summary>The percent of the run's cost cap and wall clock the review may use.</summary>
     public int BudgetSharePercent { get; set; } = 40;
 
-    /// <summary>2026-11-12-cd4ch: whether a design turn's proposal gets one advisory review pass after the turn.
-    /// Off, only the mechanical evidence check runs there (2026-11-18-9c1cb: no run reviews a spec before its master).
-    /// 2026-11-12-7c1c: on by default.</summary>
-    public bool DesignTurn { get; set; } = true;
-
     /// <summary>2026-11-17-f9b0b: the fewest looks one attack reviewer gets; a spec citing many paths gets its
     /// distinct cited paths plus 12 instead. Ratified 24 by the operator 2026-11-17.</summary>
     public int AttackLookFloor { get; set; } = 24;

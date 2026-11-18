@@ -47,7 +47,6 @@ public static class SpecAttackPrompt
             {{Brief}} {{ReadOnlyLine}}
 
             {{DecidabilityLens}}
-            {{SpecAttackJudgement.For(input)}}
             You are reviewer {{input.Reviewer + 1}} of round {{input.Round}} ({{input.Scope}} scope). You did not
             write this spec and have no stake in it.
             {{WiderGoal(input.WiderGoal)}}
@@ -77,7 +76,7 @@ public static class SpecAttackPrompt
             - Anything resting on a file you did not open is discarded, and so is a verdict that rests on it.
             {{Today(input.DescribesToday)}}
             ## What the evidence check found before you
-            {{Evidence(input)}}{{Residues(input.PriorResidues)}}{{input.QuestionPin}}{{SpecAttackSiblingsSection.Render(input.Siblings)}}{{SpecAttackQuestionsSection.Render(input.OpenQuestions)}}{{SpecAttackOwnerWordsSection.Render(input.OperatorTurns)}}{{ApprovalOwnerWordsSection.Render(input.OwnerWords)}}
+            {{Evidence(input)}}{{Residues(input.PriorResidues)}}{{input.QuestionPin}}{{SpecAttackQuestionsSection.Render(input.OpenQuestions)}}{{SpecAttackOwnerWordsSection.Render(input.OperatorTurns)}}{{ApprovalOwnerWordsSection.Render(input.OwnerWords)}}
             ## The spec
             {{input.Draft.Yaml.TrimEnd()}}
             {{DerivationLookPromptSection.Render(look)}}

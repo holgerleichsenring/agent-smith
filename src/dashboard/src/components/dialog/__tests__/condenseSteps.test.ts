@@ -13,7 +13,7 @@ const raw: RawStep[] = [
   { seq: 6, kind: "tool", name: "write_file", detail: "draft:specs/p0001.yaml" },
   { seq: 7, kind: "model", name: "m", detail: "  " },
   { seq: 8, kind: "tool", name: "find_files", detail: "*.ts" },
-  { seq: 9, kind: "reviewing", name: null, detail: null },
+  { seq: 9, kind: "revising", name: null, detail: null },
 ];
 
 const live: SpecDialogActivityPush[] = raw.map((step) => ({
@@ -31,7 +31,7 @@ describe("condenseSteps", () => {
       ["reads", "2 reads · 1 search"],
       ["write", "write_file draft:specs/p0001.yaml"],
       ["reads", "1 search"],
-      ["step", "reviewing its proposal"],
+      ["step", "revising its answer"],
     ]);
     expect(lines.map((line) => line.key)).toEqual([1, 2, 6, 8, 9]);
     expect(condenseSteps(fetched)).toEqual(lines);
@@ -74,13 +74,13 @@ describe("condenseSteps", () => {
   it("MasterNarration_Kept", () => {
     const lines = condenseSteps([
       { seq: 1, kind: "model", name: "master-model", detail: "Checking the router." },
-      { seq: 2, kind: "reviewing", name: null, detail: null },
+      { seq: 2, kind: "revising", name: null, detail: null },
       { seq: 3, kind: "model", name: "Review › stub-model", detail: "[]" },
     ]);
 
     expect(lines.map((line) => [line.kind, line.text])).toEqual([
       ["said", "Checking the router."],
-      ["step", "reviewing its proposal"],
+      ["step", "revising its answer"],
     ]);
   });
 });

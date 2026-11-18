@@ -27,12 +27,9 @@ public static class SpecReviewRegistrations
             .AddTransient<ISpecRoundEvidence, SpecRoundEvidence>()
             .AddTransient<SpecReviewPanel>().AddTransient<SpecReviewRevision>()
             .AddSingleton<ISpecReviewSettingsReader, LoaderSpecReviewSettingsReader>()
-            // 2026-11-12-cd4ch: the design turn's one advisory pass and its panel.
-            .AddTransient<ProposalAttackPanel>().AddTransient<ProposalAttackPass>()
             .AddTransient<SeriesContractCheck>().AddTransient<SeriesContractReader>() // 2026-10-13-8762j
-            // 2026-10-13-8762k: the set-scope round — reviewer, admission, the run's round and the turn's.
+            // 2026-10-13-8762k: the set-scope round — reviewer, admission, and the run's round.
             .AddTransient<SeriesContractAdmission>().AddTransient<ISeriesContractReviewer, SeriesContractReviewer>()
-            .AddTransient<ProposalSeriesRound>()
             // 2026-10-13-8762n: the entered spec's citation re-ground — history, regrounder, entry.
             .AddTransient<SpecCitationHistory>().AddTransient<SpecCitationRegrounder>()
             .AddTransient<ISpecEntryGrounding, SpecEntryGrounding>()

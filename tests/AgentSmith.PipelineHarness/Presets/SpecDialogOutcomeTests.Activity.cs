@@ -6,8 +6,8 @@ using FluentAssertions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-09-17-042ee: the review is the slow part of a turn that no
-/// tool call names, so each says what it is. Proven over the REAL turn: the observer is
+/// 2026-09-17-042ee: a turn reports the steps no tool call names. 2026-11-18-9c1ca: no review runs after a turn, so
+/// none reports reviewing. Proven over the REAL turn: the observer is
 /// ambient, so a case sets one around the run and reads back what the turn reported.
 /// <para>
 /// These cases run on a chat platform, where the runner sets no observer of its own — which
@@ -17,7 +17,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed partial class SpecDialogOutcomeTests
 {
     [Fact]
-    public async Task DialogTurn_Review_ReportsReviewing()
+    public async Task DialogTurn_SpecProposal_ReportsNoReviewing()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         ScriptSpec(harness.ChatClient);
@@ -25,7 +25,7 @@ public sealed partial class SpecDialogOutcomeTests
 
         await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        recorder.Lines.Should().Contain("reviewing", "the review is a model call the operator waits through");
+        recorder.Lines.Should().NotContain("reviewing", "the master owns its draft; nothing reviews it after the turn");
     }
 
     [Fact]

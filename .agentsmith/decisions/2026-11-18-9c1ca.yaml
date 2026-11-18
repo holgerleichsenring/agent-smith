@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-9c1ca
+
+decisions:
+  - category: Architecture
+    chose: "A design turn ends when its master ends: the draft the write tools stored gets ProposalMechanicalChecks (cited files, ticket existence, bound-conversation list) and is published; no reviewer runs and nothing re-drives the master"
+    over: "Keeping the post-turn pass advisory-only (no re-drive), or behind the design_turn switch"
+    reason: "Operator rule: one master owns the outcome; only mechanical checks and the human stop or redirect it. Live, the automatic pass judged each spec of five thematic tickets in isolation, returned six REFUSE and the master merged them into one epic. An advisory pass still judges content the master did not ask about."
+  - category: Architecture
+    chose: "review_proposal is deleted; a master that wants a review spawns a sub-agent with a review brief through spawn_agents (skill text, see .agentsmith/notes/2026-11-18-9c1ca-skill-notes.md)"
+    over: "Keeping review_proposal as a master-requested tool"
+    reason: "Operator: no dedicated reviewer tools; few tools without overlap, and spawn_agents already does it the way a Claude Code session does. verify_series (SeriesVerification -> ISpecCutReviewer) stays: it is master-requested on a filed series, not a design-turn draft."
+  - category: Architecture
+    chose: "TicketPlanReview and its model reviewer are deleted; ProposalMechanicalChecks reads TicketExistenceFindings directly and owns the list key and the bound-conversation finding"
+    over: "Keeping TicketPlanReview.CheckAsync as the mechanical half"
+    reason: "Audit row 8: the class held a model call labelled mechanical; only the existence read is mechanical."
+  - category: Architecture
+    chose: "SpecDialogRevisionSection is deleted, as the operator's audit row 9 asks"
+    over: "Rewording it to show the mechanical findings to the next turn (the reviewer's cut 1)"
+    reason: "The operator named it for deletion. Its findings came from the review pass; old stored proposals still carry review findings, which a reworded section would present as mechanical. The mechanical findings stay on the proposal card for the operator, who decides what the next turn does."
+  - category: Implementation
+    chose: "spec_review.design_turn is removed from the model, schema, docs and the settings form, and gets a RetiredConfigKeys row"
+    over: "Deleting the key silently"
+    reason: "Review: a file or stored document that still sets it gets the retired-key advisory instead of a misleading unknown-key import message; the schema closes spec_review, so the key is not kept declared."
+  - category: Implementation
+    chose: "SpecAttackInput loses Proposal and Siblings with SpecAttackJudgement, SpecAttackSiblingsSection and SpecAttackSibling; OpenQuestions and OperatorTurns stay"
+    over: "Leaving the design-turn-only inputs in place"
+    reason: "Only the deleted ProposalAttackPanel set Proposal and Siblings, so they rendered nothing. OperatorTurns is read by the coding master's revise_spec review (SpecRevisionReview) and the open-questions section renders the decision rule even when empty, so both stay."
+  - category: Scope
+    chose: "The persisted under-review proposal (ITurnProposalObserver, DialogProposalObserver, DB state 'reviewing', view Reviewing, OutcomeProposal.UnderReview) stays; only its producer PublishUnderReviewAsync goes"
+    over: "Retiring the whole path in this spec"
+    reason: "Readers already clear the flag when no turn runs, and old rows still display. Removing the state touches persistence, migrations and the dashboard's draft continuity; it is the named follow-up 'retire the under-review proposal state'."

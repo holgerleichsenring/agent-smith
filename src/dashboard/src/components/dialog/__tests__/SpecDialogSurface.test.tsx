@@ -2027,7 +2027,7 @@ describe("SpecDialogSurface", () => {
       activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "read_file", detail: "repo-a/src/A.cs", at, seq: 1, turnStartedAt: TURN });
       activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "grep_in_files", detail: "Dispatch", at, seq: 2, turnStartedAt: TURN });
       activity.emit({ dialogId: heldDialogId(), kind: "model", name: "sample-model", detail: "Checking the router.", at, seq: 3, turnStartedAt: TURN });
-      activity.emit({ dialogId: heldDialogId(), kind: "reviewing", name: null, detail: null, at, seq: 4, turnStartedAt: TURN });
+      activity.emit({ dialogId: heldDialogId(), kind: "revising", name: null, detail: null, at, seq: 4, turnStartedAt: TURN });
       activity.emit({ dialogId: "someone-else", kind: "tool", name: "read_file", detail: "foreign", at, seq: 1, turnStartedAt: TURN });
     });
 
@@ -2036,7 +2036,7 @@ describe("SpecDialogSurface", () => {
     expect(within(shown).getAllByTestId("dialog-activity-line").map((line) => line.textContent)).toEqual([
       "1 read · 1 search",
       "Checking the router.",
-      "reviewing its proposal",
+      "revising its answer",
     ]);
     expect(screen.queryByTestId("dialog-activity-folded")).toBeNull();
   });

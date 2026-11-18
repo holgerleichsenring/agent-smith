@@ -2,7 +2,7 @@ namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// One step a running design turn took — the payload of the hub's "SpecDialogActivity" push.
-/// <paramref name="Kind"/> is "tool", "model", "reviewing" or "revising"; <paramref name="Name"/>
+/// <paramref name="Kind"/> is "tool", "model" or "revising"; <paramref name="Name"/>
 /// is the tool or model it used and <paramref name="Detail"/> the whitelisted argument summary
 /// or the model's own intent sentence, either of which may be absent.
 /// <para>
