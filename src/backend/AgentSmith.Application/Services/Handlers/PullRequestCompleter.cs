@@ -50,14 +50,20 @@ public sealed class PullRequestCompleter(
     }
 
     /// <summary>Records <paramref name="completion"/> on the run's per-repo record.</summary>
-    public async Task PublishAsync(
-        PipelineContext pipeline, OpenedPullRequest entry, PullRequestCompletion completion, CancellationToken ct)
+    public Task PublishAsync(
+        PipelineContext pipeline, OpenedPullRequest entry, PullRequestCompletion completion, CancellationToken ct) =>
+        PublishStatusAsync(pipeline, entry, InitCompletionReport.StatusOf(completion), completion.Reason, ct);
+
+    /// <summary>2026-11-17-3435b: records a status on the run's per-repo record — awaiting_ci among them.</summary>
+    public async Task PublishStatusAsync(
+        PipelineContext pipeline, OpenedPullRequest entry, string status, string? reason, CancellationToken ct)
     {
         if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId)) return;
-        await events.PublishAsync(
-            new PullRequestOutcomeEvent(
-                runId!, entry.RepoName, InitCompletionReport.StatusOf(completion),
-                DateTimeOffset.UtcNow, entry.Url, completion.Reason),
-            ct);
+        await PublishOnAsync(runId!, entry, status, reason, ct);
     }
+
+    /// <summary>2026-11-17-3435b: records a status on ANOTHER run's per-repo record — a merge-green run tells the attempt
+    /// whose pull request waited for CI how it ended.</summary>
+    public Task PublishOnAsync(string runId, OpenedPullRequest entry, string status, string? reason, CancellationToken ct) =>
+        events.PublishAsync(new PullRequestOutcomeEvent(runId, entry.RepoName, status, DateTimeOffset.UtcNow, entry.Url, reason), ct);
 }

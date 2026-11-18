@@ -3,7 +3,7 @@ spec: 2026-10-14-dbcea
 
 decisions:
   - category: Architecture
-    chose: "Fix the numbered slicer so a trailing newline closes the last line and an empty file has no lines, matching EvidenceLineCount (default, pending operator ratification)"
+    chose: "Fix the numbered slicer so a trailing newline closes the last line and an empty file has no lines, matching EvidenceLineCount (default, ratified by the operator 2026-11-17: all as shipped)"
     over: "Telling the design partner or coding master in skill text to subtract the phantom last line"
     reason: |
       The partner cited exactly what read_file showed; a numbered line N+1 that does not exist is the tool's

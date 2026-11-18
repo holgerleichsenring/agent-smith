@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-3435a
+
+decisions:
+  - category: Architecture
+    chose: "CI is read inside the existing pull-request record refresh (a PrRecordCiRead collaborator) and stored as four columns on PrReviewRecord"
+    over: "A dedicated pipeline step or a second record type for CI"
+    reason: "The refresh is already the records' single writer under the ticket's lock and reads the host for the same pull request; a read writes nothing to a tracker or repository, so the 'everything is a pipeline' rule does not apply, and a second store would be a second path."
+  - category: Architecture
+    chose: "One verdict rule for every provider (CiVerdict): required checks alone decide where the host marks any; any failed check is red even while others run; else pending; else green; nothing reporting is none"
+    over: "Each provider's own roll-up (GitHub statusCheckRollup.state, GitLab pipeline status alone)"
+    reason: "Review round 1: the fix loop (3435c) must act the same way whatever the host. Red on the first failure starts a fix sooner; required-only keeps a failing optional check from driving fixes. GitLab still reports per pipeline, so there a running pipeline with a failed job stays pending until GitLab calls it failed."
+  - category: Implementation
+    chose: "GitHub reads the rollup of the commit at the head the state read saw (object(oid)), with isRequired(pullRequestNumber); a failed GitHub Actions check run adds its job log via Actions.Workflows.Jobs.GetLogs(databaseId)"
+    over: "commits(last:1) and the check-runs REST list"
+    reason: "Review round 1: commits(last:1) can race the head the record stores. The check run's databaseId is the Actions job id only when its suite's app is github-actions."
+  - category: Implementation
+    chose: "Azure DevOps reads build-validation policy evaluations (artifactId with the project GUID from the pull request), counting one only when its build's pr.sourceSha (else source version) is the head and it has not expired, plus the pull request's statuses of the latest iteration; a failed build's evidence is its failed Task records' error issues and the end of the last failed task's log"
+    over: "Builds by source branch, or every status ever posted"
+    reason: "Review round 1: an evaluation keeps its old verdict after a push until a new build runs, so a head would read green with no build of it; statuses of earlier iterations describe earlier pushes."
+  - category: Implementation
+    chose: "Evidence bounds live in the merge block: ci_excerpt_chars (4000) and ci_failed_checks_read (5); the excerpt keeps the END of a log; a head already stored red is read without logs and keeps its stored evidence and first-seen time"
+    over: "Hard-coded bounds, or re-reading logs on every refresh"
+    reason: "Operator 2026-11-17 23:20: the reason must be retrievable with a bounded excerpt whose bounds come from config (rule 4, the limit ratchet). A failure is said in a log's last lines. Downloading the same logs every poll would cost calls for nothing."
+  - category: Scope
+    chose: "The ticket page shows CI in the section bar's pull-request fact ('CI red: build, lint'); the view carries the failures with their excerpts and links"
+    over: "A new CI panel"
+    reason: "Operator: no new UI patterns. The evidence reaches the operator in full through the fix run's prompt and the hand-back (3435c)."
+  - category: Review
+    chose: "Adversarial review round 1: BUILD WITH CUTS (Azure head tie and iterations, one rule across providers, GitHub head commit and required checks, token wording, CI read in its own collaborator); every cut applied before code"
+    over: "Building the first draft"
+    reason: "Each cut named a case where the first draft would have called a head green without evidence."

@@ -3,7 +3,7 @@ spec: 2026-10-14-dbcef
 
 decisions:
   - category: Architecture
-    chose: "Requirements live in a TicketRequirements table written only by the filer, never in labels (contract §5 default 6, pending operator ratification)"
+    chose: "Requirements live in a TicketRequirements table written only by the filer, never in labels (contract §5 default 6, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d))"
     over: "A predecessor label read from the poll envelope, as the deleted a72a gate did"
     reason: |
       A label is editable by anyone with tracker access; the requirement is the approver's decision. A tracker
@@ -48,7 +48,7 @@ decisions:
       projected columns are never read back (ApprovedSeries.cs:12-17). The index is added in this migration so
       dbcen's per-project listing needs no second migration of the table.
   - category: Persistence
-    chose: "Series approved before this spec keep an empty Project (contract §5 default 7, pending operator ratification)"
+    chose: "Series approved before this spec keep an empty Project (contract §5 default 7, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d))"
     over: "Backfilling it from the ticket's project match"
     reason: |
       An older row's ContentJson names no project, and a ticket matching two projects of one tracker has no

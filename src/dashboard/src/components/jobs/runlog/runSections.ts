@@ -46,6 +46,11 @@ const SECTION_OF: Record<string, StepSectionId> = {
   PostPrComments: "deliver", WriteTickets: "deliver", DeliverFindings: "deliver", FileTickets: "deliver",
 };
 
+/** 2026-11-17-6d9eb: the step section a command belongs to, or undefined for a command the table does not name. */
+export function commandSection(row: RunStepRow): StepSectionId | undefined {
+  return SECTION_OF[commandKey(row)];
+}
+
 /** "AgenticMasterCommand:portal-api" and "AgenticMaster" both name AgenticMaster. */
 export function commandKey(row: RunStepRow): string {
   const name = row.commandName ?? row.stepName;
@@ -121,7 +126,7 @@ function line(row: RunStepRow, startedAt: string | null, verify: VerifyPassRecor
   };
 }
 
-function stepState(row: RunStepRow): SectionState {
+export function stepState(row: RunStepRow): SectionState {
   if (row.status === "failed" || row.status === "error") return "bad";
   if (row.status === "running") return "running";
   if (row.hasFinding) return "warn";

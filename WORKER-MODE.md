@@ -74,8 +74,9 @@ Two things the reported figure is not:
   on twenty-six thousand cache-creation tokens: the CLI's own system prompt and tool
   schemas, charged per call, not this run's context.
 
-Token VOLUME is real on any transport, so the token arm of the per-pipeline budget cap
-counts worker calls. The USD arm does not.
+Both arms of the per-pipeline budget cap count worker calls: the token arm their volume, and
+since 2026-11-17-b34ea the USD arm the figure the CLI reported, summed over the run's recorded
+calls. A worker run over its `pipeline_cost_cap` stops like a provider run.
 
 The run's RECORDED cost — the figure on the run, the ticket and the delivery pages, and the
 one a series budget is read against — is the sum of its recorded calls, and a worker call

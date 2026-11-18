@@ -14,4 +14,6 @@ public enum ReworkChannel
     Retry,
     // 2026-10-13-8762p: a person overruled a default on the ticket page.
     Overrule,
+    // 2026-11-17-3435c: the host's CI went red on the head a gate-passed attempt pushed (merge: on_ci_green).
+    Ci,
 }

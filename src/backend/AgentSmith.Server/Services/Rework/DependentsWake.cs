@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
@@ -25,10 +26,6 @@ public sealed class DependentsWake(
     TimeProvider clock,
     ILogger<DependentsWake> logger)
 {
-    // Contract §5 default 28, pending operator ratification.
-    public static readonly TimeSpan Window = TimeSpan.FromHours(24);
-    public const int Cap = 50;
-
     /// <summary>Nudges every distinct dependent of the landed ticket; answers how many. A failure is logged — the recovery retries it.</summary>
     public async Task<int> WakeAsync(TicketLandingFact landed, CancellationToken ct)
     {
@@ -50,12 +47,17 @@ public sealed class DependentsWake(
     }
 
     /// <summary>
-    /// Nudges each dependent freed by a landing written within <see cref="Window"/> that is ready to start: every
+    /// Nudges each dependent freed by a landing written within tickets.dependents_wake_window_hours that is ready to start: every
     /// edge StartsWhenMet, every requirement landed, filed completely, not closed, never attempted, not queued, not leased.
     /// </summary>
-    public async Task<int> RecoverAsync(IReadOnlyCollection<string> projects, CancellationToken ct)
+    /// <param name="tickets">2026-11-17-f9b0d: the tickets: block the caller read this pass, for the window and cap.</param>
+    public async Task<int> RecoverAsync(IReadOnlyCollection<string> projects, TicketsConfig tickets, CancellationToken ct)
     {
-        var candidates = await landings.DependentsOfLandingsSinceAsync(clock.GetUtcNow() - Window, projects, Cap, ct);
+        var candidates = await landings.DependentsOfLandingsSinceAsync(
+            clock.GetUtcNow() - TimeSpan.FromHours(tickets.DependentsWakeWindowHours), projects, tickets.DependentsWakeCap, ct);
+        if (candidates.Count >= tickets.DependentsWakeCap)
+            logger.LogInformation("The wake recovery read tickets.dependents_wake_cap = {Cap} dependents, its bound per pass; "
+                + "the rest are read on the next pass", tickets.DependentsWakeCap);
         var woken = 0;
         foreach (var edge in candidates)
         {

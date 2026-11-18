@@ -27,6 +27,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecPremiseChecker(
     IChatClientFactory chatClientFactory,
     IRunContextAccessor runContext,
+    ISeriesSettingsReader series,
     ILogger<SpecPremiseChecker> logger) : ISpecPremiseChecker
 {
     private const string RoleName = "spec-premise-checker";
@@ -44,7 +45,7 @@ public sealed class SpecPremiseChecker(
         ArgumentNullException.ThrowIfNull(premises);
         ArgumentNullException.ThrowIfNull(look);
 
-        var prompt = PremiseCheckPrompt.For(draft, premises, look, alreadyRan, notes);
+        var prompt = PremiseCheckPrompt.For(draft, premises, look, alreadyRan, notes, series.Current().Series.BuildNoteMaxChars);
         var answer = await AskAsync(prompt, key, look, agent, costTracker, cancellationToken);
         // A call that failed or came back unreadable is NOT a skip: nothing was decided not to
         // ask, and an operator reading the run must be able to tell the two apart.

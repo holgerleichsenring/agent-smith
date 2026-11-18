@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-3435b
+goal: "With merge: on_ci_green a gate-passed code run's pull requests wait for CI; once every one is green a merge-green run approves where the host needs it and merges them."
+
+applies_to: "default (merge policy, CompletePullRequests, CI watch, merge-green run, provider approval)"
+
+requires: [2026-11-17-3435a]
+
+facts:
+  - claim: "CompletePullRequests merges only on on_gate_green and only the pull requests CommitAndPR published as gate-passed; MergeWhen has Manual=0 and OnGateGreen=1, stored as numbers."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:25-29, src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:28-36"
+  - claim: "The context builder takes the work branch from the checked-out repository and the repos from ContextKeys.Repos."
+    evidence: "src/backend/AgentSmith.Application/Services/Builders/CompletePullRequestsContextBuilder.cs:15-20"
+  - claim: "A pull-request outcome is recorded per repo on the publishing run's row, the last outcome per repo winning; the previous attempt reads only 'opened' entries as the pull requests a rework works on, while the named-PR reader takes every status HasPullRequest accepts."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:44-54, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:64, src/backend/AgentSmith.Contracts/Runs/PullRequestStatuses.cs:41-42"
+  - claim: "A ticket-carrying run that never moves the ticket is LeavesTicketAlone; a derivation is started under the ticket's lease with a queued row carrying the ticket."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:9-10, src/backend/AgentSmith.Server/Services/Derivation/SpecDerivationLauncher.cs:56-79"
+  - claim: "A ticket-carrying run's end enqueues a RunEnd nudge whose refresh reads the host and records the landing."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-48, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:50"
+  - claim: "The periodic re-read runs every five minutes over open records of webhook projects unchecked for fifteen; nothing re-reads a record at a project-chosen cadence."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:31-32"
+  - claim: "Azure Respect already approves with the token's own +10 vote before arming auto-complete."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:26, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:57-58"
+  - claim: "Every repo authenticates with the secret its auth names; the token that opened a pull request is its author, and GitHub refuses a review approving one's own pull request."
+    evidence: "docs/reference/configuration/agentsmith-yml.md:292, observed: 2026-11-17, GitHub REST 'Can not approve your own pull request' (422)"
+  - claim: "Operator 2026-11-17: watch CI, approve when green, merge per project policy; auto approval configured per project; every setting reachable in the studio."
+    evidence: "observed: 2026-11-17, operator brief for the CI loop and its 23:20 addendum"
+
+upgrade_impact: "None required: on_ci_green is opt-in. A pull request now may read awaiting_ci on a run row; every surface counts it as an open pull request. A project that sets it merges nothing at the code run's end; each gate-passed pull request reads 'awaiting CI' and a merge-green run (visible in the ticket's Runs) merges once all are green. Migration AddPrRecordCiActed adds one nullable column. The CI watch polls the hosts of open pull requests of on_ci_green projects every merge.ci_poll_seconds. With respect_branch_protection: true and a required review, GitHub always needs merge.approval_auth (a second identity's secret); Azure DevOps and GitLab need it when the host forbids the author approving."
+
+scope:
+  in: "merge.when on_ci_green (MergeWhen.OnCiGreen = 2); merge.ci_poll_seconds (default 60), ci_settle_seconds (default 180: how long 'no CI' must last before it counts), ci_pending_seconds (default 3600: after it a head still pending is no longer polled at the CI cadence), approval_auth (secret name, optional); PullRequestStatuses.AwaitingCi published by CompletePullRequests for each gate-passed pull request on on_ci_green, counted as having a pull request everywhere 'opened' is tested; the CI watch inside PrRecordReReadHostedService; CiGreenMerge after each refresh, keyed on the newest attempt's own awaiting-CI pull requests; a merge-green run (LeavesTicketAlone, under the ticket's lease, ticket-carrying row) whose CompletePullRequests approves where needed and merges, recording the outcome on its own row and the attempt's; IPullRequestApprover on GitHub, GitLab and Azure DevOps (the latter sharing AzureReposAutoComplete's vote) acting as the approval_auth identity when set; merge-green lines in the ticket's Runs."
+  out: "Fixing a red CI (2026-11-17-3435c). Studio fields (2026-11-17-3435d). Approval in Bypass mode (bypass needs none). Retrying a refused merge on an unchanged head and verdict (the run says why; a new head or verdict retries)."
+
+steps:
+  - id: config
+    action: "MergeWhen.OnCiGreen = 2, CiPollSeconds, CiSettleSeconds, CiPendingSeconds, ApprovalAuth on MergePolicyConfig; YAML, schema (enum adds on_ci_green, each key with its reason), agentsmith-yml.md."
+  - id: awaiting
+    action: "PullRequestStatuses.AwaitingCi = awaiting_ci, in HasPullRequest; every 'opened' literal test made a has-a-pull-request test (DbPreviousAttemptReader, RunSnapshotFold, PullRequestQueryEndpoints, dashboard attemptStory, filedWorkStatus, PrOutcomeList); PreviousAttempt.AwaitingCiUrls (repo -> url of the attempt's own row entries awaiting CI); dashboard prStatus label 'waiting for CI' and the hub-events union."
+  - id: step
+    action: "CompletePullRequestsHandler: on_ci_green without ContextKeys.CiGreenPullRequests publishes awaiting_ci per gate-passed entry (a rung target left open as before) and says the run waits for CI; with it, approves (Respect only) then merges as on_gate_green does, publishing each outcome on its own run and on ContextKeys.CiMergeAttemptRunId. Seeds are strings: CiGreenPullRequests as repo<TAB>url lines, CheckoutBranch, CiMergeAttemptRunId; the builder falls back to the project's repos and CheckoutBranch when the run checked nothing out."
+  - id: approve
+    action: "IPullRequestApprover (Contracts.Providers).ApproveIfRequiredAsync(prUrl) -> PullRequestApproval(NotRequired|Approved|Refused, reason). GitHub: GraphQL reviewDecision REVIEW_REQUIRED -> REST APPROVE review. GitLab: GET approvals, approvals_left > 0 -> POST approve. Azure: the +10 reviewer vote extracted from AzureReposAutoComplete (AzureReposApprovalVote), used by both. PullRequestApprovalStep creates the approver from the repo with Auth = approval_auth when set, else the repo's own provider; GitHub without approval_auth refuses: 'GitHub needs an approving review from someone other than the pull request's author (the token's own account); set merge.approval_auth to a second identity's secret or respect_branch_protection: false'. A host refusal names the host's reason and merge.approval_auth."
+  - id: watch
+    action: "PrReviewRecord.CiActed (string 'sha:verdict') + migration; PrReviewRecordRepository.CiDueAsync: open records of on_ci_green projects whose CI is unread, pending (younger than ci_pending_seconds), none or not acted on head and verdict, checked before now - ci_poll_seconds; PrRecordReReadHostedService ticks at the smallest ci_poll_seconds of on_ci_green projects (5 minutes when none), runs its existing re-read when that is due, and enqueues one Refresh nudge per ticket for CI-due records (CiWatchSelection)."
+  - id: merge
+    action: "CiGreenMerge, called after the records are written (from the CI collaborator, not growing the refresh): project on_ci_green; newest attempt finished success with AwaitingCiUrls; each of those records open, green on its head (or none for ci_settle_seconds) and not acted green on it; no live lease -> MergeGreenLauncher (lease, admission, queued merge-green row carrying the ticket, dispatch with the seeds); only an admitted launch marks CiActed sha:green. merge-green registered as refresh-base is (PipelinePresets list and All, Routing NotRoutableBecause, CommandBeats/DisplayNames/ModelUse/StepClasses/ProgressLabels, data flow + PipelineDataFlowsCoverageTests, RoutingPipelineChoiceTests, runSections.ts, LeavesTicketAlone)."
+  - id: show
+    action: "TicketDetailView.Merges (the ticket's merge-green runs) drawn by runLines as 'Merge' lines, the existing line shape."
+
+tests:
+  - "CompletePullRequestsHandler: on_ci_green without seeds publishes awaiting_ci and merges nothing; with seeds merges each in order; Respect asks the approver first and a refused approval leaves the pull request open naming the reason."
+  - "Approvers: GitHub REVIEW_REQUIRED submits an APPROVE review, reviewDecision null is NotRequired; GitLab approvals_left 1 posts approve, 0 is NotRequired, 401 is Refused; Azure casts +10 through the shared vote, AzureReposMergeModeTests unchanged."
+  - "PullRequestApprovalStep: GitHub without approval_auth refuses naming the key; with it the approver provider carries that auth."
+  - "CiGreenMerge: all of the attempt's awaiting pull requests green launches once and marks acted; one pending or red, a live run, an attempt not awaiting CI, an older closed pull request of the ticket ignored, already acted green launch nothing; red then green on the same head launches; no CI launches only after ci_settle_seconds; a refused admission marks nothing."
+  - "CiWatchSelection: enqueues due records of on_ci_green projects only, one nudge per ticket; a head pending past ci_pending_seconds is not due."
+  - "DbPreviousAttemptReader: awaiting_ci counts as opened and fills AwaitingCiUrls from the attempt's own row."
+  - "Harness: merge-green seeded with a pull request on a project with on_ci_green merges it through the harness provider."
+  - "MergePolicy YAML: on_ci_green and the new keys load; schema coverage passes."
+
+done:
+  - "On a project with merge: on_ci_green a green code run leaves its pull requests awaiting CI; once CI is green on every one, a merge-green run approves where required and merges them, and the ticket lands."

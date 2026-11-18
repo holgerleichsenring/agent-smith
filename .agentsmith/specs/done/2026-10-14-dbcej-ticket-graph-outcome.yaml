@@ -60,7 +60,7 @@ assumptions:
 
 scope:
   in: >
-    SHAPE (main-thread decision D1, default pending operator ratification): a design reply can no longer carry a graph of
+    SHAPE (main-thread decision D1, default ratified by the operator 2026-11-17: moot, specs are the truth and TicketGraphLimits is gone (cd4cc/cd4cd)): a design reply can no longer carry a graph of
     full specs (8192-token output cap), so a ticket graph carries TICKET TEXTS and no spec. The block is `kind: tickets`
     with `tickets:` a list of mappings {key, title, requirement, done, requires, repos?}: key [a-z][a-z0-9-]{1,40};
     title one line; requirement the scope in prose; done a list of one-line "done when" items; requires sibling keys or
@@ -72,7 +72,7 @@ scope:
     ExistingPrefix = "ticket:" and ExistingId(requirement) -> the id after the prefix with one leading '#' stripped
     (ticket:#41 -> 41, the form the "waits for" text shows), or null; TicketGraphLimits:
     MinTickets 2, MaxTickets 20, MaxTitle 120, MaxRequirement 1200, MaxDoneItems 8, MaxDoneItem 240 (code constants,
-    contract section 5 defaults 12 and 29, pending operator ratification). PARSER: TicketGraphOutcomeParser.Parse(map,
+    contract section 5 defaults 12 and 29, ratified by the operator 2026-11-17: moot, specs are the truth and TicketGraphLimits is gone (cd4cc/cd4cd)). PARSER: TicketGraphOutcomeParser.Parse(map,
     scope) -> OutcomeResolution reads the list through OutcomeYamlReader, trims every string, and refuses a ticket that is
     not a mapping or carries a key outside the six, naming it by key or by position. key, title and requirement must be
     strings and every done, requires and repos item a string: a mapping or list in their place (an unquoted ': ' in a
@@ -119,7 +119,7 @@ scope:
     checker reads the shape, and 2026-10-14-dbcek and 2026-10-14-dbcel read the id from the project's tracker.
 
 decisions:
-  - key: "TICKET TEXTS, NOT SPECS (main-thread decision D1, pending operator ratification). The design reply is capped at 8192 output tokens; a graph of twenty tickets each holding full spec mappings cannot fit, and a truncated reply resolved silently as an answer. A ticket text — key, title, requirement, done list, requires, repos — is the unit the field case worked with (sub-phase tickets of 15 to 28 minutes); each run derives its specs against the code merged by then, which is also the original reason child tickets carried no spec (2026-09-13-a72a, retired)."
+  - key: "TICKET TEXTS, NOT SPECS (main-thread decision D1, ratified by the operator 2026-11-17: moot, specs are the truth and TicketGraphLimits is gone (cd4cc/cd4cd)). The design reply is capped at 8192 output tokens; a graph of twenty tickets each holding full spec mappings cannot fit, and a truncated reply resolved silently as an answer. A ticket text — key, title, requirement, done list, requires, repos — is the unit the field case worked with (sub-phase tickets of 15 to 28 minutes); each run derives its specs against the code merged by then, which is also the original reason child tickets carried no spec (2026-09-13-a72a, retired)."
   - key: "MaxTickets STAYS 20, MEASURED. Twenty realistic ticket texts are about 5,100 to 6,800 tokens, inside the 8192 cap with room for the reply's prose; twenty tickets at the field maxima are not (6 to 8 fit). The unclosed-fence rule is what makes the difference visible: a list cut at the output limit is re-prompted with 'propose fewer tickets now', never kept as an answer."
   - key: "THE UNCLOSED FENCE IS INVALID, NOT ABSENT. SpecDialogDraftBlocks needs the closing fence for every block; without the new rule a cut-off ```outcome block falls to the bare-draft path and becomes an AnswerOutcome. Only an opened ```outcome fence counts, outside a ````document block, so a document that quotes the fence (aeb6b) is untouched."
   - key: "SCALARS ONLY, NEVER A THROWN TURN. The untyped YAML read turns an unquoted 'GET /orders returns: 200' into a mapping, and the resolver runs outside any try in the design turn (SpecDialogOutcomeGate.cs:31). A non-string field or item is therefore refused as an OutcomeInvalid naming the ticket, the field and 'quote the item', so the existing one re-prompt fixes it; 2026-10-14-dbcep's skill text quotes every string in its example. A field of the wrong SHAPE is refused the same way (round-3 cut): read as empty, `requires: order-api` would file the ticket as a root that starts at once, before what it needs has merged. An unquoted ': ' in a title or requirement is a YAML parse error, not a mapping, so it takes the resolver's YAML-error path, whose text now asks to quote every string that contains ': '."
@@ -130,7 +130,7 @@ decisions:
   - key: "DONE ITEMS ARE ONE LINE EACH. 2026-10-14-dbcel renders them under the acceptance-criteria heading, where only a list item is read back as a criterion; a multi-line item would be split or merged by that reader."
   - key: "TicketGraphOrderer ORDERS TICKETS, EpicChildOrderer STAYS FOR DRAFTS. Both are Kahn with ties in the proposal's order; a generic orderer over two record types would be a wrapper for one loop. ticket:<id> requirements name tickets already filed, so they never constrain the order."
   - key: "ROLLING DEPLOY. An older replica reads a stored kind 'tickets' as an unknown kind (OutcomeProposalJson throws, the ticket page shows the proposal as absent) and the turn kind 8 as null; nothing writes the block before 2026-10-14-dbcep ships, so the window is empty in practice."
-  - key: "Defaults pending operator ratification: contract section 5 defaults 12 (2..20, measured above), 13 (D1: a ticket text with no spec; a run's derivation is bounded by series.specs_per_attempt as today), 14 (requires by sibling key or ticket:<id>, same tracker only), 25 (a list only where the pieces must merge between them), 29 (the field bounds of TicketGraphLimits and the unclosed-fence rule)."
+  - key: "Defaults ratified by the operator 2026-11-17: moot, specs are the truth and TicketGraphLimits is gone (cd4cc/cd4cd); contract section 5 defaults 12 (2..20, measured above), 13 (D1: a ticket text with no spec; a run's derivation is bounded by series.specs_per_attempt as today), 14 (requires by sibling key or ticket:<id>, same tracker only), 25 (a list only where the pieces must merge between them), 29 (the field bounds of TicketGraphLimits and the unclosed-fence rule)."
 
 steps:
   - id: records

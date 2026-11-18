@@ -71,7 +71,7 @@ assumptions:
 
 scope:
   in: >
-    PLAN REVIEW (main-thread decision D1, default pending operator ratification): the list is reviewed as a PLAN, never
+    PLAN REVIEW (main-thread decision D1, default ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79): the list is reviewed as a PLAN, never
     spec by spec. SpecDialogProposalReview (119 -> at most 120): the private DraftsOf is inlined to free its lines, and a
     TicketGraphOutcome goes to TicketPlanReview.ReviewAsync(turn, graph, loopResult, ct) before the no-drafts return;
     the class takes TicketPlanReview on an existing constructor line. TicketPlanReview (Application/Services/SpecDialog,
@@ -105,7 +105,7 @@ scope:
     failed) — and wants a JSON array of {ticket, problem (merge | order | missing | size | other), why, quote, replacement}.
     The operator's requirements are the user turns of ContextKeys.SpecDialogTranscript, oldest first, within 40,000
     characters: over that, the first turn and the newest that fit, with a line naming how many were left out (code
-    constant, pending operator ratification). The prompt says that a requirement met by a ticket:<id> requirement, or
+    constant, ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79). The prompt says that a requirement met by a ticket:<id> requirement, or
     one the conversation says is left for a later list, is not missing. Admission: a "missing" finding — a requirement no
     ticket covers — carries the list-level key and is a finding only; any other finding naming no ticket of the list is
     dropped and logged; one whose quote is not verbatim in that ticket's title, requirement or done items keeps its
@@ -166,7 +166,7 @@ scope:
     skill text says no fence inside a ticket text.
 
 decisions:
-  - key: "ONE PLAN REVIEW, NOT PER-SPEC ROUNDS (main-thread decision D1, pending operator ratification). A list carries ticket texts, so the 8762i loop has nothing to attack; the questions that matter at this stage are about the plan — independently mergeable, ordered, complete against what the operator asked, small enough for one run. A fresh reasoning instance answers them once, its cuts are applied by the design partner once, and the revised list is checked once more."
+  - key: "ONE PLAN REVIEW, NOT PER-SPEC ROUNDS (main-thread decision D1, ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79). A list carries ticket texts, so the 8762i loop has nothing to attack; the questions that matter at this stage are about the plan — independently mergeable, ordered, complete against what the operator asked, small enough for one run. A fresh reasoning instance answers them once, its cuts are applied by the design partner once, and the revised list is checked once more."
   - key: "CUTS ARE QUOTED, OR THEY ARE FINDINGS. A cut is applied only when its quote is verbatim in that ticket's text, the admission rule SpecCutReviewer applies to criteria; a finding that names no ticket is dropped, one that names a missing requirement is shown and not applied, because nothing in the list can be quoted for what is absent."
   - key: "THE KEYS ARE THE IDENTITY. A re-proposal must keep the set of keys; requires, texts and order may change. A list that dropped or renamed a ticket is not the list that was reviewed, so the last valid one stands, as 8762i's guard keeps the last valid proposal."
   - key: "THE REVIEWER READS THE UPLOADS (round-2 cut K-r2-1, main-thread decision R2). The operator brings requirements as uploaded files and as messages; a coverage question answered from the messages alone gives false 'missing' findings and misses gaps. DerivationLookFactory is at 120 lines, so TicketPlanReviewer takes DerivationLookFactory.ForReview (public since 2026-10-14-da5e, the proposal review's terms over the sandboxes the caller hands it) over the repository and reference sandboxes; the factory is not touched and the per-spec reviews keep theirs."
@@ -187,7 +187,7 @@ decisions:
   - key: "REJECTED CUT (round 1, K3: tell a dependent ticket's spec attacks what it waits for) — no spec of a list is attacked at design time (D1); the plan reviewer sees every ticket's requires in one prompt instead."
   - key: "REJECTED CUT (round 1, K4: ParentNamed as a set) — a list has no epic parents; ProposalReProposalGuard (ProposalReviewLoop.cs:32) is not on the list's path."
   - key: "REJECTED CUT (round 1, K6.5: the pane passes the ratify strip per spec) — a list carries no spec to ratify (RatifiedMockStamp.cs:21-44 passes other kinds through); out-item above."
-  - key: "Defaults pending operator ratification: D1 (contract section 5 default 13), the plan review with its four questions, one re-prompt, at most two calls and the 40,000-character requirement window (default 30, decision 21), the bound-conversation finding (default 19), the approval copy, contract section 5 default 27 (the UI follows the mock shipped here)."
+  - key: "Defaults ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79; D1 (contract section 5 default 13), the plan review with its four questions, one re-prompt, at most two calls and the 40,000-character requirement window (default 30, decision 21), the bound-conversation finding (default 19), the approval copy, contract section 5 default 27 (the UI follows the mock shipped here)."
 
 steps:
   - id: mock

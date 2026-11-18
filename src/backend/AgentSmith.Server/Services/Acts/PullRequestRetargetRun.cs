@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Server.Services.Acts;
 
@@ -18,7 +19,7 @@ public sealed class PullRequestRetargetRun(IActRun runs)
         {
             [ContextKeys.RetargetPullRequestsRequest] = new RetargetPullRequestsRequest(ticketId, moves),
             [ContextKeys.ActOutcome] = slot,
-        });
+        }, new TicketId(ticketId)); // 2026-11-17-b34ed: listed on the dependent's page
         return slot.IsSet ? (slot.Value, null) : (null, result.Message ?? "the retarget run ended before its step");
     }
 }

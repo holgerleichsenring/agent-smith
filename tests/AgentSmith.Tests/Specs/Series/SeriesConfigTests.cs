@@ -98,4 +98,12 @@ public sealed class SeriesConfigTests
             .Should().Contain(reason => reason.Contains("spec_review.rounds is -1"), "the startup check refuses it (2026-11-10-8e59)");
         SpecReviewConfigValidator.Findings(new AgentSmithConfig()).Should().BeEmpty();
     }
+
+    [Fact]
+    public void SeriesConfig_BuildNoteMaxChars_DefaultsTo8000AndBelowOneIsNamed()
+    {
+        new SeriesConfig().BuildNoteMaxChars.Should().Be(8000, "2026-11-17-f9b0c: the ratified value, moved to config");
+        new SeriesConfig { BuildNoteMaxChars = 0 }.Problems().Should().ContainSingle()
+            .Which.Should().Be("series.build_note_max_chars is 0; it must be 1 or more");
+    }
 }

@@ -771,6 +771,24 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CiActed")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("CiAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CiFailuresJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CiHeadSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CiState")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 

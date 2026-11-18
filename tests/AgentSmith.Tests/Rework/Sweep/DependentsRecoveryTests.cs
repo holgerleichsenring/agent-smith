@@ -58,6 +58,26 @@ public sealed class DependentsRecoveryTests : IDisposable
     }
 
     [Fact]
+    public async Task Recover_ConfiguredCap_ReadsAtMostThatManyDependents()
+    {
+        foreach (var dependent in new[] { "8", "9", "10" }) await DependentAsync(dependent, "7");
+        await LandAsync("7", TimeSpan.FromHours(1));
+
+        (await _h.Wake().RecoverAsync(["p"], new TicketsConfig { DependentsWakeCap = 2 }, CancellationToken.None))
+            .Should().Be(2, "2026-11-17-f9b0d: tickets.dependents_wake_cap bounds one recovery pass");
+    }
+
+    [Fact]
+    public async Task Recover_LandingOutsideTheConfiguredWindow_WakesNothing()
+    {
+        await DependentAsync("8", "7");
+        await LandAsync("7", TimeSpan.FromHours(3));
+
+        (await _h.Wake().RecoverAsync(["p"], new TicketsConfig { DependentsWakeWindowHours = 2 }, CancellationToken.None))
+            .Should().Be(0, "tickets.dependents_wake_window_hours = 2 leaves a landing three hours old out");
+    }
+
+    [Fact]
     public async Task ReRead_DependentAlreadyAttemptedQueuedOrLeased_IsNotNudged()
     {
         foreach (var dependent in new[] { "8", "9", "10", "11" }) await DependentAsync(dependent, "7");
@@ -130,7 +150,7 @@ public sealed class DependentsRecoveryTests : IDisposable
         await new ClosedTicketRepository(_h.Store.ScopeFactory).SetAsync(
             new TicketClosedMark("gh-tracker", "github-8", "8", "p", Now, "Ada", null, [], false), default);
 
-        (await _h.Wake().RecoverAsync(["p"], CancellationToken.None)).Should().Be(1);
+        (await _h.Wake().RecoverAsync(["p"], new TicketsConfig(), CancellationToken.None)).Should().Be(1);
 
         Woken.Should().Equal("9");
     }

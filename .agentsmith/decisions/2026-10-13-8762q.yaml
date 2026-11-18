@@ -13,11 +13,11 @@ decisions:
   - category: Implementation
     chose: "Counter = pending count, hot only while pendingHoldingSeries > 0, absent when the ticket has no defaults at all (a ticket whose defaults are all decided shows 0)"
     over: "Hot on any pending default, or hiding a zero counter"
-    reason: "A pending default never stops the run (contract decision 14); only a held series waits on a person. Default, pending operator ratification."
+    reason: "A pending default never stops the run (contract decision 14); only a held series waits on a person. Default, ratified by the operator 2026-11-17: as built."
   - category: Implementation
     chose: "One note field per act, sent (trimmed) with every overrule of that act and with no ratify; the pane keeps the server's order and does not re-sort"
     over: "A per-row note editor; a client-side sort"
-    reason: "Overruling one default with its own note is selecting one row. Default, pending operator ratification."
+    reason: "Overruling one default with its own note is selecting one row. Default, ratified by the operator 2026-11-17: as built."
   - category: Implementation
     chose: "A conversation row (conversation set) is ratify-only: Overrule is disabled while the selection holds one and the bar says 'answer it in the design conversation'; the origin wording keys on conversation, a row with neither conversation nor attempt shows 'run <id>'"
     over: "Sending a mixed batch and showing the server's 400, or keying on a missing attempt"

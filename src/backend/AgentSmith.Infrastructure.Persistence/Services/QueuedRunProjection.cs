@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -27,6 +28,7 @@ public sealed class QueuedRunProjection
         run.Summary = null; // the waiting reason is obsolete once the run starts
         if (!string.IsNullOrEmpty(e.Project)) run.Project = e.Project;
         if (!string.IsNullOrEmpty(e.Platform)) run.Platform = e.Platform;
+        if (string.IsNullOrEmpty(run.TicketId) && !string.IsNullOrEmpty(e.TicketId)) run.TicketId = e.TicketId; // b34ed
         if (!string.IsNullOrEmpty(e.JobId)) run.JobId = e.JobId; // p0330: kill handle
         // 2026-10-02-5ab2b: the request has started — a row parked and resumed later is judged
         // by its new request, under the same claim rule.
@@ -55,7 +57,8 @@ public sealed class QueuedRunProjection
         // Without a project the entry cannot satisfy UNIQUE(Project, TicketId) —
         // pre-p0320c producers don't stamp it; the poller funnel remains the
         // primary enqueue for those tickets.
-        if (string.IsNullOrEmpty(run.Project) || string.IsNullOrEmpty(run.TicketId)) return;
+        // 2026-11-17-b34ed: a run that leaves the ticket alone owes it no attempt, so it never queues the ticket.
+        if (string.IsNullOrEmpty(run.Project) || string.IsNullOrEmpty(run.TicketId) || PipelinePresets.LeavesTicketAlone(run.Pipeline)) return;
 
         var entry = await uow.Set<QueuedTicket>()
             .FirstOrDefaultAsync(q => q.Project == run.Project && q.TicketId == run.TicketId, ct);

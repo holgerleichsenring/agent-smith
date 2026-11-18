@@ -94,6 +94,31 @@ export function AgentTuningTab({
               testId="form-field-compaction-keepRecentIterations"
               onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, keepRecentIterations: v ?? 0 } })}
             />
+            {/* 2026-11-17-b34eb: the ratios; an empty field sends nothing and the stored value stays. */}
+            <NumberField
+              label="trigger ratio"
+              value={draft.compaction.maxContextTokensTriggerRatio ?? undefined}
+              step={0.05}
+              help="fold once the context reaches this share of max context tokens (default 0.7)"
+              testId="form-field-compaction-maxContextTokensTriggerRatio"
+              onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, maxContextTokensTriggerRatio: v ?? null } })}
+            />
+            <NumberField
+              label="fold target ratio"
+              value={draft.compaction.foldTargetRatio ?? undefined}
+              step={0.05}
+              help="a fold shrinks the view to this share of max context tokens (default 0.35)"
+              testId="form-field-compaction-foldTargetRatio"
+              onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, foldTargetRatio: v ?? null } })}
+            />
+            <NumberField
+              label="summary budget ratio"
+              value={draft.compaction.summaryBudgetRatio ?? undefined}
+              step={0.05}
+              help="past this share the summary segments are merged (default 0.1)"
+              testId="form-field-compaction-summaryBudgetRatio"
+              onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, summaryBudgetRatio: v ?? null } })}
+            />
             <ClearSection testId="agent-clear-compaction" onClear={() => onChange({ ...draft, compaction: undefined })} />
           </>
         )}

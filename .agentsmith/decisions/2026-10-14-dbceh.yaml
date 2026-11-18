@@ -10,7 +10,7 @@ decisions:
       capacity queue's head; checked before the reservation, a held ticket on a triggering status costs one indexed
       read per poll instead of a footprint, a capacity row, a quota probe and possibly an eviction.
   - category: Architecture
-    chose: "STRICT: no start-by-name or series auto-start bypass (contract §5 default 10, pending operator ratification)"
+    chose: "STRICT: no start-by-name or series auto-start bypass (contract §5 default 10, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d))"
     over: "Admitting a person's start like BoundaryStopGate does"
     reason: |
       The rule is 'that one must be merged first'; marking the required ticket done by hand (dbcei) is the deliberate
@@ -28,7 +28,7 @@ decisions:
       Once the row exists no later insert wins, so a wake skipped by a Redis throw would be lost for good. A failed
       enqueue is recovered by the re-read within five minutes, so it need not fail the pull-request refresh.
   - category: Architecture
-    chose: "Recovery: PrRecordReReadHostedService resolves DependentsWake at call time and calls RecoverAsync after its two lists; the window is the landing row's CreatedAt (24 h), newest landing first, 50 dependents (contract §5 default 28, pending operator ratification)"
+    chose: "Recovery: PrRecordReReadHostedService resolves DependentsWake at call time and calls RecoverAsync after its two lists; the window is the landing row's CreatedAt (24 h), newest landing first, 50 dependents (contract §5 default 28, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d))"
     over: "A window on LandedAt, or oldest landing first"
     reason: |
       LandedAt is the host's merge time and a late or backfilled landing carries an old one exactly when its wake is
@@ -47,7 +47,7 @@ decisions:
       lines, well inside the 120-line limit, and the edge mapping is reused from TicketRequirementRepository.Edge
       (now internal) rather than copied.
   - category: Architecture
-    chose: "RequirementsMetStart: requirements, own landing, unmet, filing complete, StartsWhenMet, the ticket's closed state; then StartExistingAsync in a scope and ReworkFallbackSpawn on Started (contract §5 default 11, pending operator ratification)"
+    chose: "RequirementsMetStart: requirements, own landing, unmet, filing complete, StartsWhenMet, the ticket's closed state; then StartExistingAsync in a scope and ReworkFallbackSpawn on Started (contract §5 default 11, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d))"
     over: "Starting through the move alone"
     reason: |
       A ticket already in a trigger status gets Started without a move, and in webhook mode nothing then delivers it;

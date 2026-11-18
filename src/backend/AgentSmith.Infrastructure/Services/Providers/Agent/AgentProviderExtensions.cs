@@ -59,6 +59,9 @@ public static class AgentProviderExtensions
         // 2026-11-17-274ca: the limits: block of the loaded configuration, not a fresh default —
         // composition roots replace the AgentSmithConfig placeholder, and the server follows its store.
         services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Limits);
+        // 2026-11-17-f9b0c: the dialogue: block (mock caps) is bound the same way.
+        services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Dialogue);
+        services.AddTransient(sp => sp.GetRequiredService<AgentSmithConfig>().Tickets); // 2026-11-17-f9b0d
         return services;
     }
 }

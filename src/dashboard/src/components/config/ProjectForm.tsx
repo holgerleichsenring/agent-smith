@@ -14,6 +14,7 @@ import { RepoPicker } from "./RepoPicker";
 import { TemplateBindings } from "./TemplateBindings";
 import { TrackerRouting } from "./TrackerRouting";
 import { ProjectSandboxSection } from "./ProjectSandboxSection";
+import { ProjectMergeSection } from "./ProjectMergeSection";
 import { camelCase } from "./capabilityFields";
 import { projectIntegrity, unfinishedTemplates } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
@@ -30,7 +31,9 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // 2026-09-22-6968: the sixth tab. Six sandbox controls appended to an existing section
 // would rebuild the one-scroll shape 2026-09-16-74a2 removed, and they belong to none of
 // identity, repos, pipeline, templates or routing.
-const TABS = ["identity", "repos", "pipeline", "templates", "routing", "sandbox"] as const;
+// 2026-11-17-b34eb: the seventh, "merge" — when a ticket starts behind another and what happens to a green run's
+// pull requests. Both are about delivery, which none of the six sections is.
+const TABS = ["identity", "repos", "pipeline", "templates", "routing", "sandbox", "merge"] as const;
 export type ProjectTab = (typeof TABS)[number];
 
 // Per-strategy value hints for the routing section. The STRATEGY LIST itself comes from
@@ -184,6 +187,8 @@ export function ProjectForm({
             inheritedSandbox={inheritedSandbox}
           />
         )}
+
+        {tab === "merge" && <ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} secrets={catalog.secrets} />}
       </div>
 
       <DraftFindings findings={findings} />

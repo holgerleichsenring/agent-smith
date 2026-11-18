@@ -3,12 +3,12 @@ spec: 2026-10-14-dbceo
 
 decisions:
   - category: Architecture
-    chose: "Thresholds are code constants on TranscriptWindow: VerbatimChars 60,000, KeepRecentChars 30,000, MinRecentTurns 2, MaxFoldChars 200,000; the writer asks the summarization model for at most 4,000 output tokens (default, pending operator ratification)"
+    chose: "Thresholds are code constants on TranscriptWindow: VerbatimChars 60,000, KeepRecentChars 30,000, MinRecentTurns 2, MaxFoldChars 200,000; the writer asks the summarization model for at most 4,000 output tokens (default, ratified by the operator 2026-11-17: all as shipped)"
     over: "Configuration keys for the thresholds"
     reason: |
       Contract section 2.7 and section 5 default 23. The fold-down-to-30,000 low-watermark is the spec's own deviation
       from 'keep 12 turns' (hysteresis: a fold follows at least 30,000 characters of new conversation), and
-      MaxFoldChars is the spec's fifth constant; both are built as written, pending operator ratification.
+      MaxFoldChars is the spec's fifth constant; both are built as written, ratified by the operator 2026-11-17: all as shipped.
   - category: Architecture
     chose: "The window sits behind DialogTranscriptSection.Render, whose per-turn line moved to TranscriptWindow.Line; SpecDialogPromptFactory and TicketStewardPromptFactory are untouched"
     over: "A window in the design partner's factory alone"

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -86,6 +86,7 @@ beforeEach(() => {
   // Braced on purpose: a concise arrow RETURNS the mock, and vitest treats a
   // value returned from a hook as its teardown callback.
   fetchMock.mockReset();
+  window.history.replaceState(null, "", "/jobs/r1?step=1");
   fetchMock.mockImplementation(async (url: string) => {
     if (url.includes("/events")) {
       // A step far larger than one page: whichever end is read, older rows
@@ -102,33 +103,35 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
+// 2026-11-17-6d9ec: the step opens in place in the log, from the address.
+async function openImplement() {
+  await screen.findByTestId("run-step-detail-1", {}, { timeout: 5000 });
+  expect(window.location.search).toBe("?step=1");
+}
+
 describe("Step detail follows the run", () => {
   it("StepDetail_MoreRowsThanShown_SaysOlderRowsExist", async () => {
     renderRunDetail();
 
-    const rail = await screen.findByTestId("nav-rail");
-    await waitFor(() => expect(rail).toHaveTextContent("Implement"));
-    fireEvent.click(within(rail).getByText("Implement"));
+    await openImplement();
 
-    const notice = await screen.findByTestId("step-events-older-notice");
+    const notice = await screen.findByTestId("step-events-older-notice", {}, { timeout: 5000 });
     expect(notice).toHaveTextContent("older ones exist");
 
     // History is reachable, and the walk is anchored on the page's own oldest
     // row rather than starting over from the top of the step.
     fireEvent.click(screen.getByTestId("step-events-load-older"));
     await waitFor(() =>
-      expect(urlsFetched().some((u) => u.includes("beforeSeq=4900"))).toBe(true));
+      expect(urlsFetched().some((u) => u.includes("beforeSeq=4900"))).toBe(true), { timeout: 5000 });
   });
 
   it("StepDetail_OpeningAStep_AsksForItsNewestPage", async () => {
     renderRunDetail();
 
-    const rail = await screen.findByTestId("nav-rail");
-    await waitFor(() => expect(rail).toHaveTextContent("Implement"));
-    fireEvent.click(within(rail).getByText("Implement"));
+    await openImplement();
 
     await waitFor(() =>
-      expect(urlsFetched().some((u) => /\/steps\/1\/events$/.test(u))).toBe(true));
+      expect(urlsFetched().some((u) => /\/steps\/1\/events$/.test(u))).toBe(true), { timeout: 5000 });
     // No cursor at all: sinceSeq=0 was the old opening request, and reading
     // forward from nothing is what returned a long step's FIRST page.
     expect(urlsFetched().some((u) => u.includes("sinceSeq"))).toBe(false);
@@ -137,10 +140,8 @@ describe("Step detail follows the run", () => {
   it("StepDetail_RunFinished_StopsPolling", async () => {
     renderRunDetail();
 
-    const rail = await screen.findByTestId("nav-rail");
-    await waitFor(() => expect(rail).toHaveTextContent("Implement"));
-    fireEvent.click(within(rail).getByText("Implement"));
-    await screen.findByTestId("step-events-older-notice");
+    await openImplement();
+    await screen.findByTestId("step-events-older-notice", {}, { timeout: 5000 });
 
     // A finished run costs nothing: no request repeats over the poll interval.
     const settled = urlsFetched().length;

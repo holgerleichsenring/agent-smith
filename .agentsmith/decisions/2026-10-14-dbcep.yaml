@@ -3,7 +3,7 @@ spec: 2026-10-14-dbcep
 
 decisions:
   - category: Tooling
-    chose: "One skills release (v5.18.0) and one pin move for the whole series, after the outcome, the review and the filing exist (default, pending operator ratification)"
+    chose: "One skills release (v5.18.0) and one pin move for the whole series, after the outcome, the review and the filing exist (default, ratified by the operator 2026-11-17: moot, shipped long ago and the pins have moved since)"
     over: "A release per series member"
     reason: |
       Contract section 5 default 26: no live master asks for a kind the server would refuse. Skills PR #234

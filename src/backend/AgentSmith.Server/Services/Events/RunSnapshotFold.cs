@@ -93,7 +93,7 @@ public static class RunSnapshotFold
         // repo and seed the primary PrUrl. Draft-ness is only known at run end, so
         // the live view marks non-draft; the REST refetch (RunSnapshotMapper)
         // carries the authoritative flag.
-        PullRequestOutcomeEvent e when e.Status == "opened" && !string.IsNullOrEmpty(e.Url) => snapshot with
+        PullRequestOutcomeEvent e when PullRequestStatuses.IsOpen(e.Status) && !string.IsNullOrEmpty(e.Url) => snapshot with
         {
             PrUrl = snapshot.PrUrl ?? e.Url,
             PullRequests = AppendPr(

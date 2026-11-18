@@ -153,13 +153,13 @@ public sealed class TicketListReaderTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketList_FinishedAttempt_IsIdleWithLastOutcome()
+    public async Task TicketList_FinishedAttemptWithoutAPullRequest_IsDoneWithLastOutcome()
     {
         await _store.AddAsync(Run(R1, status: "success"), Step(R1));
 
         var row = (await ListAsync()).Tickets.Single();
 
-        row.Bucket.Should().Be(TicketBucket.Idle);
+        row.Bucket.Should().Be(TicketBucket.Done, "2026-11-17-f9b0a: a delivered attempt without a pull request is done");
         row.LastOutcome.Should().Be("success");
         row.Since.Should().Be(T.AddMinutes(30));
     }

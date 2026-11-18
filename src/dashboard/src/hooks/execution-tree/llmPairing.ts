@@ -14,7 +14,7 @@ export interface PairedLlmCall {
    *  surfaces this AS-IS with a marker — producer fix is p0203a. */
   roleIsUnknown: boolean;
   model: string;
-  /** p0222: phase from the CallScope (e.g. "Execute"/"Triage") — the activity
+  /** p0222: the CallScope's stage name (e.g. "Execute"/"Triage") — the activity
    *  label fallback when the producer-side role is still "unknown". */
   phase: string | null;
   startedAt: string;
@@ -153,4 +153,11 @@ function toOrphanFinish(
     cacheCreationTokensIn: finish.cacheCreationTokensIn ?? 0,
     cacheHit: finish.tokensIn > 0 && finish.costUsd === 0,
   };
+}
+
+/** 2026-11-17-6d9ec: what a call was for — its role, else the stage its scope names, else "llm call". */
+export function callActivity(call: PairedLlmCall): string {
+  if (!call.roleIsUnknown) return call.role;
+  const stage = call.phase;
+  return stage && stage.length > 0 ? stage : "llm call";
 }

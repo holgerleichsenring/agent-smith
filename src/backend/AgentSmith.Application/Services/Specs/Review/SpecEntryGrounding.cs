@@ -18,8 +18,8 @@ public sealed record SpecEntryGround(DerivedSpec Spec, string StepNote);
 /// <summary>
 /// 2026-10-13-8762n: the moved citations of the entered spec become ONE visible set revision, published
 /// through the series' one mid-run publisher with the approval kept; nothing moved publishes nothing. A
-/// revision the branch did not take does NOT fail the spec (contract default, pending operator
-/// ratification): the handed-in set is put back, the spec runs on its original text — the text the branch
+/// revision the branch did not take does NOT fail the spec (contract default, ratified by the operator 2026-11-17
+/// as built): the handed-in set is put back, the spec runs on its original text — the text the branch
 /// states — and each moved citation is listed stale with where its text was found.
 /// </summary>
 public sealed class SpecEntryGrounding(

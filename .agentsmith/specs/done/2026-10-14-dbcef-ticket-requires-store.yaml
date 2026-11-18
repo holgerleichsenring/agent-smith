@@ -96,7 +96,7 @@ scope:
     the server always wires the relational store.
 
 decisions:
-  - key: "A TABLE, NEVER LABELS (contract §5 default 6, pending operator ratification). A label is editable by anyone with tracker access and travels in the poll envelope, which is how the deleted a72a gate read it; the requirement is the approver's decision and lives where only the filer writes it. A tracker link (2026-10-14-dbcem) is a view of it for people, never read back."
+  - key: "A TABLE, NEVER LABELS (contract §5 default 6, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d)). A label is editable by anyone with tracker access and travels in the poll envelope, which is how the deleted a72a gate read it; the requirement is the approver's decision and lives where only the filer writes it. A tracker link (2026-10-14-dbcem) is a view of it for people, never read back."
   - key: "KEYED BY TRACKER CONNECTION AND TICKET KEY, THE ApprovedSeries IDENTITY. The ticket key carries only the tracker type, so two Jira instances numbering alike would collide on it alone; the project is a column because one ticket matching two projects of one tracker is the same work (ApprovedSeries.cs:23-29)."
   - key: "REGISTERED IN TicketRecordConfigurations, NOT RunChildConfiguration, AND WITHOUT A DbSet. The rows must outlive every run of both tickets; AgentSmithDbContext is at 120 lines, and PrReviewRecords already shows a table read through IUnitOfWork.Set alone."
   - key: "THE REPOSITORY IS THE SINGLETON PORT. The claim service and the wake are singletons, so a scoped repository cannot be injected; instead of a third Db…Store facade class, TicketRequirementRepository opens a scope per operation itself (the shape DbUnmovedTicketStore uses inside its facade). No name beyond the contract's is minted."
@@ -107,7 +107,7 @@ decisions:
   - key: "NO FiledAt COLUMN (reported for contract §2.3). EntityBase.CreatedAt is the insert time (EntityBase.cs:4-10); a second column with the same instant is a datum stored twice. The edge record still carries FiledAt, read from CreatedAt."
   - key: "THE FILING PROJECT IS CONTENT, PROJECTED. SpecApprovalRecord.Project rides in ContentJson like every other approval field and ApprovedSeries.Project is projected at save, never read back, the existing rule (ApprovedSeries.cs:12-17). It is an init property because the record's positional constructor has one production call site whose string arguments would silently shift."
   - key: "ApprovedSeries.Project IS INDEXED. 2026-10-14-dbcen lists a project's never-run filings from it on every ticket-list read; the index is added in this member's migration so no second migration touches the table."
-  - key: "OLDER ROWS STAY WITHOUT A PROJECT (contract §5 default 7, pending operator ratification). Nothing in an older row names the filing project."
+  - key: "OLDER ROWS STAY WITHOUT A PROJECT (contract §5 default 7, ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d)). Nothing in an older row names the filing project."
 
 steps:
   - id: entity-config

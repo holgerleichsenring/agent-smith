@@ -40,4 +40,14 @@ public sealed class DialogueGlobalConfig
     /// <summary>2026-11-17-f3a8b: the most characters one admin assistant tool result carries; a longer one is cut and
     /// says so, and a prompt is read page by page in this size. Default 40000.</summary>
     public int AdminResultMaxChars { get; set; } = 40_000;
+
+    /// <summary>2026-11-17-f9b0c: the longest HTML mock a design conversation keeps, below the tool-result bound
+    /// so it reads back whole.</summary>
+    public int MockMaxChars { get; set; } = 90_000;
+
+    /// <summary>2026-11-17-f9b0c: the most mock versions one spec keeps in a conversation.</summary>
+    public int MockVersionsPerSpec { get; set; } = 20;
+
+    /// <summary>2026-11-17-f9b0c: the most mock versions a conversation keeps over all its specs.</summary>
+    public int MockVersionsPerConversation { get; set; } = 100;
 }

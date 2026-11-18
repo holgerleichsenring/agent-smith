@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-6d9ec
+
+decisions:
+  - category: Behaviour
+    chose: "An open step draws one chronological list of lines (time, kind, text, meta) from its event page: llm calls, sandbox commands with their outcome, tool calls, writes, decisions and gates, findings, observations, sub-agents, pull request outcomes, the ticket and the catalog"
+    over: "Reusing the graph's composed body (event drawer, command timeline, sandbox boxes, PR list, catalog and ticket bodies)"
+    reason: "The mock asks for terminal lines with text-link filters; one list replaces five boxed bodies and keeps every fact they drew."
+  - category: Behaviour
+    chose: "Filters are single-choice text links (All, Findings, Obs, Tools, LLM, Files, Decisions), plus newest/oldest, a find field and 'show all n' past 12"
+    over: "The drawer's multi-select chips"
+    reason: "The mock draws one active filter as an underlined word; the find field covers a combination."
+  - category: Behaviour
+    chose: "A successful ToolResult draws no line; a failed one does"
+    over: "A line per result as the event drawer had"
+    reason: "Every ToolCall already has its line; an ok result doubled the list without saying anything."
+  - category: Behaviour
+    chose: "A write shows its path and bytes, not +/- lines"
+    over: "Line counts as in the mock's sample"
+    reason: "Neither SubAgentFileWritten nor SandboxCommand records line counts; inventing them would be a heuristic around missing data."
+  - category: Behaviour
+    chose: "A repository's output is offered only while the run is live"
+    over: "An output link on every step"
+    reason: "SandboxOutput is streamed, never stored; on a finished run the link could only ever show nothing."
+  - category: Architecture
+    chose: "The open step is ?step=<index>; the graph view's #n=step-<index> (and its x=) is read once and rewritten to it"
+    over: "Keeping the hash format"
+    reason: "The query matches ?view= and the runs filter; old links still land on their step."
+  - category: Architecture
+    chose: "callActivity joins llmPairing.ts, with that file's comment reworded so its listed word count stays as it was"
+    over: "Raising the file's allowance in spec-word-files.tsv"
+    reason: "The ratchet allows fewer, not more; the helper names the fallback once, where the field lives."

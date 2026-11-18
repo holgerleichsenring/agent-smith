@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -23,6 +24,9 @@ namespace AgentSmith.Tests.References;
 public sealed class ConversationMockStoreTests : IDisposable
 {
     private const string Session = "s-8762r";
+
+    /// <summary>2026-11-17-f9b0c: the caps come from the dialogue: block; small ones prove the store reads them.</summary>
+    private static readonly DialogueGlobalConfig Caps = new() { MockMaxChars = 500, MockVersionsPerSpec = 3, MockVersionsPerConversation = 5 };
     private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
     private readonly ServiceProvider _provider;
 
@@ -33,6 +37,7 @@ public sealed class ConversationMockStoreTests : IDisposable
         services.AddScoped(_ => Db());
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AgentSmithDbContext>());
         services.AddReferenceFiles();
+        services.AddSingleton(Caps);
         _provider = services.BuildServiceProvider();
     }
 
@@ -68,26 +73,26 @@ public sealed class ConversationMockStoreTests : IDisposable
     [Fact]
     public async Task ConversationMocks_OverCaps_Refused()
     {
-        var (tooLong, refusal) = await Writer.AddAsync(Session, "spec-a", new string('x', IConversationMocks.MaxChars + 1), default);
+        var (tooLong, refusal) = await Writer.AddAsync(Session, "spec-a", new string('x', Caps.MockMaxChars + 1), default);
         tooLong.Should().BeNull();
-        refusal.Should().Contain("90000 characters per mock");
+        refusal.Should().Contain("over dialogue.mock_max_chars = 500");
 
-        for (var i = 0; i < IConversationMocks.MaxVersionsPerSpec; i++) await AddAsync("spec-a");
+        for (var i = 0; i < Caps.MockVersionsPerSpec; i++) await AddAsync("spec-a");
         var (over, perSpec) = await Writer.AddAsync(Session, "spec-a", "<p/>", default);
 
         over.Should().BeNull();
-        perSpec.Should().Contain("20 versions, the cap per spec");
+        perSpec.Should().Contain("already has 3 versions, dialogue.mock_versions_per_spec");
     }
 
     [Fact]
     public async Task ConversationMocks_OverConversationCap_Refused()
     {
-        for (var i = 0; i < IConversationMocks.MaxVersionsPerConversation; i++) await AddAsync($"spec-{i}");
+        for (var i = 0; i < Caps.MockVersionsPerConversation; i++) await AddAsync($"spec-{i}");
 
         var (over, refusal) = await Writer.AddAsync(Session, "spec-new", "<p/>", default);
 
         over.Should().BeNull();
-        refusal.Should().Contain("100 mock versions, the cap per conversation");
+        refusal.Should().Contain("5 mock versions, dialogue.mock_versions_per_conversation");
     }
 
     [Fact]

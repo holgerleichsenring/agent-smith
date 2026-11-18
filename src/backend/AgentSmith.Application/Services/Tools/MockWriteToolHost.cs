@@ -27,7 +27,7 @@ public sealed partial class MockWriteToolHost(
     [Description("Stores a whole HTML page as the next version of a spec's mock, renders it in the browser and shows desktop (1440x900) and mobile (390x844) screenshots; the operator sees the desktop one in the conversation. Write the whole page every time — CSS and script inline — never a fragment or a diff. Use it when the question is how a page should look; say which version you showed and ask what to change.")]
     public async Task<string> WriteMock(
         [Description("The spec the mock belongs to — the id the proposal names for it.")] string spec_id,
-        [Description("The whole page, at most 90000 characters.")] string html,
+        [Description("The whole page, at most dialogue.mock_max_chars characters.")] string html,
         CancellationToken ct = default)
     {
         if (Refusal(spec_id, html) is { } refused) return $"Error: write_mock refused, nothing was stored: {refused}.";
@@ -65,10 +65,8 @@ public sealed partial class MockWriteToolHost(
     {
         if (!SpecIdShape().IsMatch(specId ?? string.Empty))
             return $"'{specId}' is not a spec id (a letter or digit, then letters, digits or '-', at most 64)";
-        if (string.IsNullOrWhiteSpace(html)) return "the page is empty";
-        return html.Length > IConversationMocks.MaxChars
-            ? $"the mock is {html.Length} characters, over the cap of {IConversationMocks.MaxChars} characters per mock"
-            : null;
+        // 2026-11-17-f9b0c: the size cap is the store's (dialogue.mock_max_chars); it refuses with value and key.
+        return string.IsNullOrWhiteSpace(html) ? "the page is empty" : null;
     }
 
     private async Task<(BrowserRenderOutput? Output, string? Failure)> RenderAsync(MockVersion version, string html, CancellationToken ct)

@@ -96,7 +96,7 @@ scope:
     (SkillCallRuntime) — nobody: the contract names four classes on the master's loop.
 
 decisions:
-  - key: "ANNOTATE, NEVER BLOCK. Contract decision 11 (default, pending operator ratification): a flagged result passes with a framework line appended. The wrapper returns the inner exception unchanged, so the consecutive-error count 2026-09-19-c511c declares counts exactly what it counted before."
+  - key: "ANNOTATE, NEVER BLOCK. Contract decision 11 (default, ratified by the operator 2026-11-17: as built): a flagged result passes with a framework line appended. The wrapper returns the inner exception unchanged, so the consecutive-error count 2026-09-19-c511c declares counts exactly what it counted before."
   - key: "AT CALL TIME, NOT AT COMPOSITION. The scope is read from the pipeline on every call: SelectSpec replaces CurrentSpec per spec, and ensure_repo_sandbox adds repositories mid-run, so a scope frozen at composition would judge spec 3's writes against spec 2."
   - key: "WRAPPED IN MasterToolComposition, NOT IN AgenticMasterHandler. The handler is at its 747 ratchet and the composition is where both the master's and the children's lists are made; one wrapper there reaches both. SkillCallRuntime.WrapTools is the skill-call path and never sees a master tool."
   - key: "EMPTY REPLACES SUCCEEDED IN PLACE. The status is chosen where Succeeded is written today, net zero lines in the 242-line runner (contract section 4); MasterToolComposition grows by two over 2026-10-13-8762c's 114. An empty child is not Failed: it ran and cost money; it simply proves nothing."

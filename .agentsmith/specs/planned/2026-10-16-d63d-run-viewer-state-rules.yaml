@@ -7,8 +7,8 @@ applies_to: "dashboard (app/jobs/[id]/page.tsx RunBanner, RunDetailHeader, the r
 requires: [2026-10-16-86e6a, 2026-10-16-86e6c]
 
 facts:
-  - claim: "The run page's banner shows a paused run's question with Answer & resume, a failed run's summary under 'Stopped — the run did not reach a green outcome', a cancelled run's summary, and nothing else; it offers no act for a failure."
-    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:318-387"
+  - claim: "Re-grounded 2026-11-17 (6d9ed removed the banner): the run page's How it ended block titles a stop with the ticket page's stuckTitle and the end detail's instruction, read from the run's ticket attempt rather than the snapshot, and offers Retry unchanged, the setting, the ticket and the Why page."
+    evidence: "src/dashboard/src/components/jobs/runlog/runNowLines.ts:175-217, src/dashboard/src/components/jobs/runlog/RunNow.tsx:62-65"
   - claim: "The ticket page's state words choose one act from endedOnInfrastructure, the end kind, the bucket and its kind (2026-10-16-86e6c), and the run row stores its end kind (2026-10-16-86e6a)."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:29"
 

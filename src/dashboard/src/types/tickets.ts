@@ -30,7 +30,7 @@ export const TICKET_BUCKETS = [
 ] as const;
 export type TicketBucket = (typeof TICKET_BUCKETS)[number];
 
-/** URL bucket -> the server's word. "ended" is the server's idle: cancelled, or finished without a pull request. */
+/** URL bucket -> the server's word. "ended" is the server's idle: an attempt that ended neither failed, cancelled nor delivered (2026-11-17-f9b0a). */
 export const SERVER_BUCKET: Readonly<Record<TicketBucket, TicketServerBucket>> = {
   "needs-you": "needs_you",
   working: "working",
@@ -66,6 +66,23 @@ export interface TicketPullRequest {
   lastActivityAt: string | null;
   stateAt: string | null;
   note: string | null;
+  /** 2026-11-17-3435a: the CI the newest read saw on the head; absent or null before a CI read. */
+  ci?: TicketPullRequestCi | null;
+}
+
+/** 2026-11-17-3435a: one failed CI check — its name, the link to its full log, a bounded excerpt. */
+export interface TicketCiFailure {
+  name: string;
+  url: string | null;
+  excerpt: string;
+}
+
+export interface TicketPullRequestCi {
+  /** none | pending | green | red */
+  state: string;
+  headSha: string | null;
+  at: string | null;
+  failures: TicketCiFailure[];
 }
 
 export interface AttemptSource {

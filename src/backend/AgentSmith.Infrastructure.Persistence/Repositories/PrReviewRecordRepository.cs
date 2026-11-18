@@ -40,6 +40,16 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
                 && o.State != PrReviewStates.Merged && o.State != PrReviewStates.Closed)
             && !unitOfWork.Set<LandedTicket>().Any(l => l.Tracker == tracker && l.TicketId == r.TicketId)), take, ct);
 
+    /// <summary>2026-11-17-3435b: a project's open records whose CI the loop still waits on — unread, on an older head,
+    /// none, pending since after <paramref name="pendingSinceTicks"/>, or a verdict not acted on — checked before the
+    /// bound; oldest check first, no entries.</summary>
+    public Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(
+        string project, long checkedBeforeTicks, long pendingSinceTicks, CancellationToken ct) =>
+        OldestAsync(Records().Where(r => r.Project == project && r.State == PrReviewStates.Open && r.CheckedAtTicks < checkedBeforeTicks
+            && (r.CiState == null || r.CiHeadSha != r.HeadSha
+                || (r.CiState == CiStates.Pending && r.CiAtTicks > pendingSinceTicks)
+                || (r.CiState != CiStates.Pending && (r.CiActed == null || r.CiActed != r.CiHeadSha + ":" + r.CiState)))), int.MaxValue, ct);
+
     private static async Task<IReadOnlyList<PrReviewRecordView>> OldestAsync(IQueryable<PrReviewRecord> query, int take, CancellationToken ct) =>
         [.. (await query.OrderBy(r => r.CheckedAtTicks).ThenBy(r => r.Id).Take(take).ToListAsync(ct)).Select(r => View(r, null, []))];
 
@@ -66,7 +76,7 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
     private static PrReviewRecordView View(PrReviewRecord r, long? newestEntry, IEnumerable<PrReviewEntry> entries) =>
         new(r.PrKey, r.Url, r.Repo, r.Number, r.Project, r.TicketId, r.RunId, r.State, Time(r.StateAtTicks),
             Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
-        { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks) };
+        { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks), Ci = PrRecordCiJson.View(r), CiActed = r.CiActed };
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,

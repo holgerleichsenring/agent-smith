@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-3435a
+goal: "Every pull-request record carries its CI state (none, pending, green, red) for its head, and a red one the failing checks with a bounded log excerpt and a link."
+
+applies_to: "default (source providers, pull-request records, PR record refresh, ticket view, project merge config)"
+
+facts:
+  - claim: "CI status is read nowhere: no provider reads check runs, commit statuses, build policies or pipelines."
+    evidence: "observed: 2026-11-17, gap analysis for the CI loop (0 hits for check runs, statuses, workflow runs or build status in src/backend)"
+  - claim: "The refresh reads each named pull request's state through IPrReviewStateReader and writes one record per pull request with its head sha; it is the records' only writer, run under the ticket's lock."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:63-75, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:41"
+  - claim: "The stored record is copied column by column and a read without a head keeps the stored one."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:13-32"
+  - claim: "GitHub reads the pull request in one GraphQL query with headRefOid; Azure reads the pull request through GitHttpClient; GitLab GETs the merge request."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:19-40, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:36-43, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:11-13"
+  - claim: "The ticket view's pull-request row is built from the record."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketReviewState.cs:32-35"
+  - claim: "The project's merge block is resolved into ResolvedProject.Merge and declared in the schema with additionalProperties false."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs:117, config/agentsmith.schema.json:823-832"
+  - claim: "Operator 2026-11-17 ~23:20: green/red is not enough; the reason must be retrievable for every provider: which check, job or stage failed, the failing step's tail with test names and assertion messages where exposed, a link to the full log, a bounded excerpt with bounds from config."
+    evidence: "observed: 2026-11-17, operator requirement relayed by the coordinator"
+
+upgrade_impact: "Migration AddPrRecordCi adds five nullable columns to PrReviewRecords on SQLite, SQL Server and Postgres. Every refresh of an open pull request now also reads its CI: one extra call on GitHub and GitLab, two on Azure DevOps, plus the failing jobs' logs once per red head. Tokens need read access to checks, commit statuses and Actions logs on GitHub, Build (read) on Azure DevOps and read_api on GitLab. A missing scope records the CI unread and logs it; the PR state read is unaffected."
+
+scope:
+  in: "IPullRequestCiReader (Contracts.Reviews) with PullRequestCi(State, HeadSha, At, Failures) and CiFailure(Name, Url, Excerpt); GitHub (statusCheckRollup contexts: check runs with output and annotations, Actions job log tail; commit statuses), Azure DevOps (build policy evaluations with the failed timeline records' issues and log tail; pull-request statuses), GitLab (head pipeline; failed jobs with stage and trace tail); merge.ci_excerpt_chars and merge.ci_failed_checks_read bound what is fetched and stored; PrReviewRecord CiState, CiHeadSha, CiAtTicks, CiFailuresJson; the refresh reads CI for open records and writes it; the ticket view's PR row and the dashboard's section-bar PR fact show CI state and the failing checks."
+  out: "Acting on CI (2026-11-17-3435b merges on green, 2026-11-17-3435c fixes red). Studio fields (2026-11-17-3435d). Reading CI of merged or closed pull requests."
+
+steps:
+  - id: contract
+    action: "Contracts.Reviews: CiStates (none, pending, green, red), CiFailure, PullRequestCi, CiReadRequest(HeadSha, ExcerptChars, FailuresRead) and IPullRequestCiReader.ReadCiAsync; CiExcerpt (Application-free helper in Contracts) composes a failure's text: summary lines, annotations, then the log tail, cut to ExcerptChars keeping the end."
+  - id: config
+    action: "MergePolicyConfig.CiExcerptChars (default 4000) and CiFailedChecksRead (default 5), YAML ci_excerpt_chars / ci_failed_checks_read, schema with reasons, agentsmith-yml.md."
+  - id: rule
+    action: "One rule for every provider (CiVerdict): any failed check -> red; else any pending -> pending; else any check -> green; none -> none. Where the host marks checks required, only the required ones decide."
+  - id: github
+    action: "GitHubCiReader: GraphQL statusCheckRollup contexts of the commit at the read head (object(oid)), isRequired(pullRequestNumber); a check run not COMPLETED or a status PENDING/EXPECTED is pending; FAILURE, TIMED_OUT, CANCELLED, ACTION_REQUIRED, STARTUP_FAILURE and status FAILURE/ERROR are failed. For up to FailuresRead failed check runs: title, summary, text, annotations (path:line message) and, for a check run whose checkSuite app slug is github-actions, the job log tail (job id = databaseId) via Actions.Workflows.Jobs.GetLogs; the link is detailsUrl or targetUrl."
+  - id: azure
+    action: "AzureReposCiReader: IAzDoClientFactory gains CreatePolicyClientAsync and CreateBuildClientAsync; build-validation policy evaluations (artifactId vstfs:///CodeReview/CodeReviewId/{project GUID from the pull request}/{id}); an evaluation counts for the head only when its build's pr.sourceSha (or source version) is the head, else it is pending, and isExpired is pending (Queued/Running pending, Rejected/Broken failed, Approved green, NotApplicable ignored); the pull request's statuses of the latest iteration (or none), newest per context (Pending/NotSet pending, Failed/Error failed); for a failed build the timeline's failed Task records with their error issues and the log's last lines, linked to _build/results?buildId=."
+  - id: gitlab
+    action: "GitLabCiReader: the merge request's head_pipeline (success/skipped green, failed/canceled red, null none, else pending; GitLab decides per pipeline, so a running pipeline with a failed job is pending); for a red one the failed jobs (stage: name, failure_reason) and each job's trace tail, linked to the job's web_url."
+  - id: record
+    action: "PrReviewRecord CiState, CiHeadSha, CiAtTicks (when this state on this head was first read), CiFailuresJson; migration on all three providers; PrReviewRecordCopy keeps CiAtTicks and the stored failures while state and head are unchanged; PrReviewRecordView carries Ci (state, head, at, failures)."
+  - id: refresh
+    action: "PrRecordCiRead (own collaborator; PrReviewRecordRefresh only calls it) reads CI for an open record whose provider implements IPullRequestCiReader, asking for logs only when the stored record is not already red on this head; a CI read failure is logged and leaves the CI columns as stored."
+  - id: show
+    action: "TicketPullRequestView gains Ci (state, failing check names, at); dashboard TicketPullRequest.ci and sectionBarWords' PR fact add 'CI red: build, lint', 'CI pending' or 'CI green' for open pull requests."
+
+tests:
+  - "GitHubCiReader (GitHubGraphQlHost + mocked Actions client): all checks success is green; one in progress is pending; a failed Actions check is red with annotations and the log tail cut to the bound; no contexts is none; a failed commit status is red with its target url."
+  - "AzureReposCiReader (mocked clients): a rejected build policy is red with the failed task's issues and log tail and the build link; running is pending; approved is green; a failed PR status is red; no policy and no status is none."
+  - "GitLabCiReader (faked HTTP): success green, running pending, no pipeline none, failed red with the failed job's stage, name, trace tail and web url."
+  - "CiExcerpt keeps the end of a long log within the bound."
+  - "PrReviewRecordRefresh: an open record gets its CI written; a stored red on the same head is not re-fetched with logs and keeps its failures and time; a CI read failure keeps the stored columns."
+  - "MergePolicy YAML: ci_excerpt_chars and ci_failed_checks_read load; schema coverage passes."
+  - "Dashboard: sectionBarWords shows CI words for an open pull request."
+
+done:
+  - "A refreshed open pull request on GitHub, Azure DevOps or GitLab shows its CI state on the ticket page, and a red one stores which checks failed with a bounded excerpt and a link."

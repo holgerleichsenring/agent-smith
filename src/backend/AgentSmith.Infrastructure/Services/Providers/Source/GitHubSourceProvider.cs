@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly GitHubRepoAddress _address;
     private readonly string _owner;
@@ -316,6 +316,18 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitHubPrReviewStateReader(CreateGitHubClient(), _address).ReadAsync(prUrl, cancellationToken);
+
+    // 2026-11-17-3435b: an APPROVE review when the review decision requires one.
+    public Task<PullRequestApproval> ApproveIfRequiredAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitHubApprover(CreateGitHubClient(), _address).ApproveIfRequiredAsync(prUrl, cancellationToken);
+
+    // 2026-11-17-3435a: the CI of the pull request's head; an Actions job's log through the same client.
+    public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken cancellationToken)
+    {
+        var client = CreateGitHubClient();
+        return new GitHubCiReader(client, _address, (job, _) => client.Actions.Workflows.Jobs.GetLogs(_owner, _repo, job))
+            .ReadAsync(prUrl, request, cancellationToken);
+    }
 
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitHubPullRequestClose(_owner, _repo, CreateGitHubClient()).CloseAsync(prUrl, cancellationToken);
 

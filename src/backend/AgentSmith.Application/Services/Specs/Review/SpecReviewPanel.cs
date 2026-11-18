@@ -22,17 +22,17 @@ public sealed class SpecReviewPanel(ISpecAttackReviewer reviewer, DerivationLook
         ArgumentNullException.ThrowIfNull(config);
         using var throttle = new SemaphoreSlim(config.MaxConcurrent);
         var answers = Enumerable.Range(0, config.Reviewers).Select(index =>
-            OneAsync(pipeline, input with { Reviewer = index }, agent, throttle, cancellationToken));
+            OneAsync(pipeline, input with { Reviewer = index }, config.AttackLookFloor, agent, throttle, cancellationToken));
         return await Task.WhenAll(answers);
     }
 
     private async Task<SpecAttackResult?> OneAsync(
-        PipelineContext pipeline, SpecAttackInput input, AgentConfig agent, SemaphoreSlim throttle, CancellationToken ct)
+        PipelineContext pipeline, SpecAttackInput input, int floor, AgentConfig agent, SemaphoreSlim throttle, CancellationToken ct)
     {
         await throttle.WaitAsync(ct);
         try
         {
-            await using var look = looks.OnTerms(pipeline, DerivationLookTerms.AttackReviewFor(input.Draft));
+            await using var look = looks.OnTerms(pipeline, DerivationLookTerms.AttackReviewFor(input.Draft, floor));
             return await reviewer.ReviewAsync(input, look, agent, PipelineCostTracker.GetOrCreate(pipeline), ct);
         }
         finally

@@ -102,7 +102,7 @@ public sealed class TicketNeverRunListTests : IDisposable
         var second = await _h.ListAsync(cursor: first.NextCursor, limit: 1);
 
         first.Tickets.Select(t => (t.TicketId, t.Bucket)).Should().Equal(
-            ("59", TicketBucket.Filed), ("60", TicketBucket.Blocked), ("43", TicketBucket.Idle));
+            ("59", TicketBucket.Filed), ("60", TicketBucket.Blocked), ("43", TicketBucket.Done));
         first.NextCursor.Should().Be("r-2");
         second.Tickets.Select(t => t.TicketId).Should().Equal("42");
     }

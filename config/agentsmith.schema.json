@@ -260,7 +260,10 @@
           "maximum": 100,
           "description": "The share of the run's cost cap and wall clock the review may use; the specs it did not clear are left to the next attempt. The first reviewed spec always runs to its stop. Default 40."
         },
-        "design_turn": { "type": "boolean", "description": "Whether a Work it out proposal gets one advisory review pass after its turn; findings go on the approval card and nothing is re-prompted. Off, the run reviews each spec before it is built. Default true." }
+        "design_turn": { "type": "boolean", "description": "Whether a Work it out proposal gets one advisory review pass after its turn; findings go on the approval card and nothing is re-prompted. Off, the run reviews each spec before it is built. Default true." },
+        "attack_look_floor": { "type": "integer", "minimum": 1, "description": "The fewest file looks one attack reviewer gets; a spec citing many paths gets its distinct cited paths plus 12 instead. It keeps one review inside its share of the run. Default 24." },
+        "reground_read_budget": { "type": "integer", "minimum": 1, "description": "The distinct (repository, path) pairs, each candidate read counted as one more, the citations of the spec a run enters are re-grounded against; a citation past it is left unchecked. Default 24." },
+        "series_contract_max_chars": { "type": "integer", "minimum": 1, "description": "The characters of members the series-contract reviewer is shown whole; past it each member is shown in part (goal, scope, steps and the lines naming the contract). Default 60000." }
       }
     },
     "series": {
@@ -277,7 +280,8 @@
         },
         "budget_usd": { "type": "number", "minimum": 0, "description": "The USD one chain of attempts may spend (each attempt's run cost, its review of the unbuilt tail included) before agent-smith holds the next automatic attempt. 0 turns automatic continuation off. Default 150." },
         "wall_clock_hours": { "type": "number", "minimum": 0, "description": "The summed RUN hours of one chain of attempts (time held between attempts not counted) before the next automatic attempt is held. Default 12." },
-        "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." }
+        "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." },
+        "build_note_max_chars": { "type": "integer", "minimum": 1, "description": "The characters of the build notes of the specs that already ran, shown to the next spec's master and premise check; past it the oldest notes are dropped first and named. Default 8000." }
       }
     },
     "preconditions": {
@@ -295,6 +299,20 @@
       "properties": {
         "enabled": { "type": "boolean", "description": "Whether the server starts branch-cleanup runs. Default true." },
         "interval_seconds": { "type": "integer", "minimum": 1, "description": "Seconds between two branch-cleanup runs of a project. Each run lists every agent-smith/ branch and its pull requests over the host API, so a short interval spends that host's rate limit; how often is the operator's choice. Zero or less is refused. Default 86400." }
+      }
+    },
+    "tickets": {
+      "type": "object",
+      "description": "How the server keeps filed tickets' requirements and landings current: the bound on showing requires links on a tracker, the dependents-wake recovery and the pull-request re-read. Global; read live.",
+      "additionalProperties": false,
+      "properties": {
+        "requires_link_deadline_seconds": { "type": "integer", "minimum": 1, "description": "The seconds one filing waits for its tracker to show every requires link; the links not reached are named in one note, and the stored requirements hold the tickets anyway. Default 60." },
+        "dependents_wake_window_hours": { "type": "integer", "minimum": 1, "description": "The hours of landings whose waiting dependents the periodic recovery re-wakes, in case a wake was lost. Default 24." },
+        "dependents_wake_cap": { "type": "integer", "minimum": 1, "description": "The most dependents one recovery pass reads; the rest are read on the next pass. Default 50." },
+        "pr_reread_interval_seconds": { "type": "integer", "minimum": 1, "description": "The seconds between two pull-request re-read passes, which catch a lost delivery or a failed landing write. Default 300." },
+        "pr_reread_stale_seconds": { "type": "integer", "minimum": 1, "description": "The seconds a pull-request record goes unchecked before the re-read names it. Default 900." },
+        "pr_reread_open_cap": { "type": "integer", "minimum": 1, "description": "The most open or unread records one re-read pass names. Default 50." },
+        "pr_reread_merged_cap": { "type": "integer", "minimum": 1, "description": "The most merged records without a landing one re-read pass names, over all trackers. Default 50." }
       }
     },
     "dialogue": {
@@ -325,7 +343,10 @@
         "admin_result_max_chars": {
           "type": "integer",
           "description": "The most characters one admin assistant tool result carries; prompts are read page by page in this size. Default 40000."
-        }
+        },
+        "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
+        "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
+        "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." }
       }
     },
     "persistence": {
@@ -837,8 +858,15 @@
           "description": "2026-11-17-023fa: whether a green code run merges its own pull requests. Absent means manual.",
           "additionalProperties": false,
           "properties": {
-            "when": { "type": "string", "enum": ["manual", "on_gate_green"], "description": "manual (default): pull requests stay open for a person. on_gate_green: a run whose every spec verified green merges its pull requests at its end." },
+            "when": { "type": "string", "enum": ["manual", "on_gate_green", "on_ci_green"], "description": "manual (default): pull requests stay open for a person. on_gate_green: a run whose every spec verified green merges its pull requests at its end. on_ci_green (2026-11-17-3435b): a gate-passed run's pull requests wait for the host's CI; once it is green on every one a merge-green run approves where needed and merges them." },
+            "ci_poll_seconds": { "type": "integer", "minimum": 1, "description": "2026-11-17-3435b: with on_ci_green, how often the open pull requests' CI is read. Default 60: a green head merges within a minute at a few host calls per pull request per minute." },
+            "ci_settle_seconds": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435b: how long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push." },
+            "ci_pending_seconds": { "type": "integer", "minimum": 1, "description": "2026-11-17-3435b: after how long a head still pending is no longer read every ci_poll_seconds (the five-minute re-read still sees it). Default 3600: outlasts a slow suite, stops a manual job polling forever." },
+            "ci_fix_attempts": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435c: with on_ci_green, how many rework runs in a row a red CI may start before the ticket is handed back with the evidence. Default 3: room for a flaky suite and a follow-up fix, while a fix that cannot converge stops spending. A person's answer resets the count." },
+            "approval_auth": { "type": "string", "description": "2026-11-17-3435b: the secret of the identity that approves a pull request whose host requires a review (with respect_branch_protection: true). Needed on GitHub, which refuses the author's own approval; on Azure DevOps and GitLab when the host forbids the author approving. Absent: approve as the repo's token where allowed." },
             "refresh_open_pull_requests": { "type": "boolean", "description": "2026-11-17-023fb: when a ticket lands, merge its base into every other open agent-smith pull request on that repository and base, as a run per pull request. Default false." },
+            "ci_excerpt_chars": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435a: characters kept of each failed CI check's evidence (the host's summary and annotations, then the end of its log). Default 4000: a test failure's assertion and stack fit, a record row and a prompt section stay small." },
+            "ci_failed_checks_read": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435a: how many failed checks of one red head have their logs read; the rest are named with their links. Default 5: each costs a host call and a log download." },
             "respect_branch_protection": { "type": "boolean", "description": "false (default): merge past branch policies, protection rules and approval rules, which needs the token's bypass permission (Azure: Bypass policies when completing pull requests; GitHub: admin or ruleset bypass). true: arm auto-complete / auto-merge and let the host's rules decide." }
           }
         },

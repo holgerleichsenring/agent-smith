@@ -46,7 +46,7 @@ decisions:
     chose: "TicketClosure.ClosedForWorkAsync(project, provider, ticket, ct): false unless IsClosed; false for any own park status; true when a done_status is configured; else the history decides — the newest move into the current status by an actor that is neither the token identity nor an app is a person's close. Registered transient on PipelineHandlersExtensions' TrackerIdentity line (218 lines, none added)"
     over: "Copying the providers' default close status ('Done' / 'Closed') into Application"
     reason: |
-      Main-thread decision 1 (2026-10-13, pending operator ratification): only a person's close earns a
+      Main-thread decision 1 (2026-10-13, ratified by the operator 2026-11-17: as built, only a person's close is closed for work): only a person's close earns a
       follow-up; a Request changes on a run's own PR still reworks a ticket the run moved to Done. With no
       done_status the run closes into an Infrastructure default the status cannot tell from a person's, so the
       history answers. An unknown close — no move, unknown token identity, failed read, no history port — reads

@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import { sectionDuration, type RunSection, type SectionId } from "./runSections";
 import { VerifyPassLines } from "./VerifyPassLines";
 
-// 2026-11-16-6877b: the run as text. A thin strip with one node per section (green done, amber a finding or running,
-// red a stop, hollow not reached) above seven sections that all start closed; a node opens its section. An open
-// section shows its steps as timestamped lines; "Checked against the spec" shows the criteria with their overrule.
+// 2026-11-16-6877b: the run as text — seven sections that start closed. An open section shows its steps as timestamped
+// lines; "Checked against the spec" shows what it is given. 2026-11-17-6d9eb: the ticket page's inline log draws this;
+// the run page draws RunLog, sectioned by spec.
 
 interface Props {
   sections: RunSection[];
@@ -15,20 +15,6 @@ interface Props {
   /** What a section draws instead of step lines: the criteria with their overrule control in the check section;
    *  2026-11-17-d6fbb: the ticket, the spec and plan, and the outcome in their own sections. */
   slots: Partial<Record<SectionId, ReactNode>>;
-}
-
-export function RunProgressStrip({ sections, open, onToggle }: Omit<Props, "slots">) {
-  return (
-    <div className="rl-strip" role="group" aria-label="Where the run is" data-testid="run-strip">
-      {sections.map((s) => (
-        <button key={s.id} type="button" className={`rl-node ${s.state}`} aria-pressed={open.has(s.id)}
-          title={`${s.title}: ${s.summary}`} onClick={() => onToggle(s.id)} data-testid={`run-node-${s.id}`}>
-          <span className="rl-node-mark" aria-hidden="true" />
-          <span className="rl-node-label">{s.short}</span>
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function RunSectionLog({ sections, open, onToggle, slots }: Props) {

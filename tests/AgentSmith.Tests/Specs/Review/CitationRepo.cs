@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using System.Globalization;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Specs;
@@ -113,8 +114,13 @@ internal sealed class CitationRepo : IAsyncDisposable
 
     internal static SpecCitationHistory History() => new(NullLogger<SpecCitationHistory>.Instance);
 
+    /// <summary>2026-11-17-f9b0b: the re-ground budget the rig's settings carry.</summary>
+    internal const int Budget = 24;
+
     internal static SpecCitationRegrounder Regrounder() =>
-        new(History(), new EvidenceReferences(), NullLogger<SpecCitationRegrounder>.Instance);
+        new(History(), new EvidenceReferences(),
+            new LoaderSpecReviewSettingsReader(config: new AgentSmithConfig { SpecReview = new SpecReviewConfig { RegroundReadBudget = Budget } }),
+            NullLogger<SpecCitationRegrounder>.Instance);
 
     private async Task<string> GitIn(string dir, DateTimeOffset? at, params string[] args)
     {

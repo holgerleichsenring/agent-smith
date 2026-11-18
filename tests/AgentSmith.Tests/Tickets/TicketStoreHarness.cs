@@ -74,7 +74,12 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<ITicketLandingStore, LandedTicketRepository>(); // 2026-10-14-dbcei: the rows read landings
         services.AddSingleton<ITicketClosedMarkStore, ClosedTicketRepository>(); // 2026-10-15-114fa: the close marks
         services.AddSingleton<ITicketRequirementStore, TicketRequirementRepository>() // 2026-10-14-dbcen: never-run rows and the graph
-            .AddSingleton<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>();
+            .AddSingleton<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>()
+            // 2026-11-17-b34ec: the stacked-start rule the list reads, over the run rows the harness holds.
+            .AddSingleton<AgentSmith.Application.Services.Claim.GreenPrerequisites>()
+            .AddSingleton<AgentSmith.Contracts.Services.IDecidedDefaults, AgentSmith.Infrastructure.Persistence.Services.DecidedDefaults>()
+            .AddSingleton<AgentSmith.Contracts.Services.IPreviousAttemptReader,
+                AgentSmith.Infrastructure.Persistence.Services.DbPreviousAttemptReader>();
         services.AddTicketReaders();
         // 2026-11-17-e061a: the close act's 'close' and 'reopen' runs, their real steps in process.
         AgentSmith.Application.Services.TicketActs.TicketActPipelineExtensions.AddTicketActPipelines(services);

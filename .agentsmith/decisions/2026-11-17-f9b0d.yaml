@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f9b0d
+
+decisions:
+  - category: Architecture
+    chose: "A new top-level tickets: block (TicketsConfig) holds the requires-link deadline, the dependents-wake window and cap and the four pull-request re-read values, each refused below 1"
+    over: "Spreading them over queue: or orchestrator:"
+    reason: "The operator ratified decisions 4 and 5 on 2026-11-17: as built, with these constants moved to config. No existing block is about filed tickets' requirements and landings; queue: is consumer backpressure and orchestrator: the run wall clock. A block of its own reads as one subject in the Studio and the schema."
+  - category: Implementation
+    chose: "TicketGraphLinks takes TicketsConfig (transient: from AgentSmithConfig in the CLI, from CurrentConfigSnapshot in the server); the singleton DependentsWake takes the block as a RecoverAsync argument from the re-read's per-pass configuration"
+    over: "Injecting TicketsConfig into the singleton DependentsWake"
+    reason: "A singleton would capture the block once and miss a Studio change; the re-read already loads the configuration every pass, so it hands the live block down."
+  - category: Implementation
+    chose: "The link note, the wake-cap log and the re-read cap log name value, key and reason; the interval and staleness are cadences and stop nothing, so they are named only in their descriptions"
+    over: "A log line per pass for every value"
+    reason: "Rule 4 asks for the message a bound stops with; a cadence does not stop anything."
+  - category: Scope
+    chose: "Requirements, landings and the start gate keep their semantics"
+    reason: "Both decisions were ratified as built; only the numbers moved."

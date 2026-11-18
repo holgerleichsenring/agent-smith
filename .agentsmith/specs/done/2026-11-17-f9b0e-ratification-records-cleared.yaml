@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f9b0e
+goal: "Every pending-ratification marker in the decision and spec records carries the operator's 2026-11-17 answer instead, and the ratchet baseline is empty."
+
+applies_to: "default (methodology records, architecture ratchet, limits inventory)"
+
+requires: [2026-11-17-f9b0d]
+
+facts:
+  - claim: "239 markers in 87 files map to 15 live questions and 5 moot ones; the operator accepted every recommendation on 2026-11-17."
+    evidence: "observed: 2026-11-17, the pending-decisions write-up checked line by line against the marker grep"
+  - claim: "The ratchet lists 87 files and fails a listed file whose markers are gone."
+    evidence: "tests/AgentSmith.Tests/Architecture/PendingRatificationRatchetTests.cs:42-49; observed: 2026-11-17, the baseline listed 87 files before this spec"
+  - claim: "The limits inventory marks the items tied to these questions 'ask'."
+    evidence: "observed: 2026-11-17, the inventory marked them ask at lines 22, 47, 69, 139, 140, 216 and 296 before this spec"
+
+scope:
+  in: "In each marker line only the marker phrase is replaced by 'ratified by the operator 2026-11-17: <choice>', the choice per question from the write-up (as built; as built with the named values moved to config by f9b0b/c/d; cancelled to failed and success without a PR to done by f9b0a; moot with its reason; 14 overtaken by the ticket page; 15 the label kept, an act that re-opens the gate being its own spec). The baseline keeps only its header. Source comments that repeat a marker are reworded. The inventory's ask items become config or debt."
+  out: "Any other text in the historical records; the act that would make an overruled criterion count (named, not built)."
+
+steps:
+  - id: markers
+    action: "A one-off script maps each marker line (file:line from the write-up) to its question and rewrites the phrase; every edited file still parses as YAML."
+  - id: baseline
+    action: "pending-ratification-baseline.tsv down to its header; the ratchet's three tests pass."
+  - id: inventory
+    action: "Inventory dispositions updated for the converted and the as-built items."
+
+tests:
+  - "PendingRatificationRatchetTests pass with an empty baseline"
+
+done:
+  - "No decision or spec file outside 2026-11-16-3596 carries a pending-ratification marker."
+  - "Build and full suite green at the spec gate."

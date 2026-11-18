@@ -27,7 +27,7 @@ namespace AgentSmith.Application.Services;
 /// <para>2026-11-17-c47ea: an approved spec's corrected premises follow the stale citations.</para>
 /// <para>2026-11-17-ec48a: a message that changes the spec is a revision through revise_spec, not a pause.</para>
 /// </summary>
-public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
+public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader series) : ISpecExecutionPromptFactory
 {
     public string Build(
         PipelineContext pipeline, Ticket ticket, Repository repository, IEnumerable<string> sandboxKeys,
@@ -67,7 +67,7 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
             {SpecExecutionPromptBlocks.StaleCitations(pipeline)}
             {Specs.PremiseCorrection.PromptBlock(pipeline)}
-            {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
+            {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), series.Current().Series.BuildNoteMaxChars, set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
             {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}{Specs.ApprovalOwnerWordsSection.For(pipeline)}
 
             ## Spec contract

@@ -44,7 +44,7 @@ public sealed class SpecExecutionPromptFactoryTests
         return pipeline;
     }
 
-    private static string Build(PipelineContext pipeline) => new SpecExecutionPromptFactory().Build(pipeline,
+    private static string Build(PipelineContext pipeline) => new SpecExecutionPromptFactory(new LoaderSeriesSettingsReader()).Build(pipeline,
         new Ticket(new TicketId("7"), "t", "d", null, "open", "test"),
         new Repository(new BranchName("main"), "https://example.test/shop.git"), ["shop"], string.Empty, string.Empty);
 }

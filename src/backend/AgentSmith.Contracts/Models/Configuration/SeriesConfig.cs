@@ -32,6 +32,10 @@ public sealed class SeriesConfig
     /// <summary>2026-10-13-8762v: whether an attempt the wall clock cancelled after a done spec continues.</summary>
     public bool ContinueAfterWallTime { get; set; } = true;
 
+    /// <summary>2026-11-17-f9b0c: the characters of the build notes of the specs that already ran, shown to the next
+    /// spec's master and premise check; past it the oldest notes are dropped first and named.</summary>
+    public int BuildNoteMaxChars { get; set; } = 8000;
+
     /// <summary>The most specs one attempt can run under the step guard's ceiling.</summary>
     public static int StepCeilingSpecs => (StepBudget.AbsoluteCeiling - StepBudget.BaseAllowance) / StepBudget.PerSpecAllowance;
 
@@ -49,6 +53,7 @@ public sealed class SeriesConfig
         if (SecondsPerSpec < 0) problems.Add($"series.seconds_per_spec is {SecondsPerSpec}; it must be 0 or more");
         if (BudgetUsd < 0) problems.Add($"series.budget_usd is {BudgetUsd}; it must be 0 (off) or more");
         if (WallClockHours < 0) problems.Add($"series.wall_clock_hours is {WallClockHours}; it must be 0 or more");
+        if (BuildNoteMaxChars < 1) problems.Add($"series.build_note_max_chars is {BuildNoteMaxChars}; it must be 1 or more");
         return problems;
     }
 
