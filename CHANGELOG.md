@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.189.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.188.0...v0.189.0) (2026-11-18)
+
+
+### Features
+
+* **dashboard:** Retry leads to the new attempt, never to a dead end (2026-11-18-d6d2d) ([b9a83e1](https://github.com/holgerleichsenring/agent-smith/commit/b9a83e1a9e494f046da43ce8576ce2870a2ee3cf))
+* **dashboard:** the ticket page shows a run the way the run page does (2026-11-18-d6d2e) ([dba4bd7](https://github.com/holgerleichsenring/agent-smith/commit/dba4bd7e39fd458f549d092a39b5da109c92cb17))
+* **skills:** pin skills v5.35.0 — one ticket per theme, the steward reads what its answer needs, the done list is the verdict (2026-11-18-550ac) ([d44e554](https://github.com/holgerleichsenring/agent-smith/commit/d44e5547f65620d334ce1bd146317eb51e3d458c))
+* **verify:** a retry's verification keeps its word on the failed attempt's findings (2026-11-18-550ab) ([3a829d1](https://github.com/holgerleichsenring/agent-smith/commit/3a829d1bf070e04b22d33dff51b78de3803169b8))
+* **verify:** the verifier lists every gap and keeps its word after a repair (2026-11-18-d6d2c) ([713807f](https://github.com/holgerleichsenring/agent-smith/commit/713807f12d96e22a105ea4a7ccc2e6b784d2cd60))
+
+
+### Bug Fixes
+
+* a run that fails moves its ticket, the steward reads its ticket, the verifier keeps its word; ticket page shows runs like the run page (2026-11-18-d6d2, 550a, 9fae) ([8012cf0](https://github.com/holgerleichsenring/agent-smith/commit/8012cf03d0c8d22bfd594f0948126fbbab203dcd))
+* **claim:** a failed run moves its ticket to the project's failed_status (2026-11-18-d6d2a) ([715a539](https://github.com/holgerleichsenring/agent-smith/commit/715a5394c2e748c6ee558f46cbc92252a2b4fe73))
+* **dashboard:** a step clicked in an opened log section keeps the section open (2026-11-18-9fae) ([7da182f](https://github.com/holgerleichsenring/agent-smith/commit/7da182f3a4658ef3db6e8e7748487166844ed372))
+* **dashboard:** the profile menu floats above the ticket section bar ([35babf5](https://github.com/holgerleichsenring/agent-smith/commit/35babf5cdf64c314fe6e13056c3def31abda98b8))
+* **dashboard:** the profile menu floats above the ticket section bar ([b9c8952](https://github.com/holgerleichsenring/agent-smith/commit/b9c89526a39081c914ae9eff9d8c82fa4a78312c))
+* **series:** a ticket without a landing reads as not landed (2026-11-18-353d) ([807c0d9](https://github.com/holgerleichsenring/agent-smith/commit/807c0d967438cecd13e0969d9592e2f795322b09))
+* **series:** a ticket without a landing reads as not landed (2026-11-18-353d) ([a19c0bc](https://github.com/holgerleichsenring/agent-smith/commit/a19c0bc3958836d98a2db6d79b4c215c2132558b))
+* **steward:** a filed series reads from an Azure DevOps branch and the steward reads its ticket's record (2026-11-18-d6d2b) ([28be395](https://github.com/holgerleichsenring/agent-smith/commit/28be395257bb314766c56d8e4e2f8f40f08f944b))
+* **tickets:** a finished run moves to the project's done_status and the job queue hands back what it was sent (2026-11-18-550aa) ([2d21aed](https://github.com/holgerleichsenring/agent-smith/commit/2d21aed19dfbd1992d01dc2c73582b39a0fa11fb))
+* **website:** agent-smith.org redirects root and every path to www.codeably.ai ([0bb6c5b](https://github.com/holgerleichsenring/agent-smith/commit/0bb6c5b1b33411f7bfbb3cdc57b874d3fbc753c6))
+* **website:** agent-smith.org redirects root and every path to www.codeably.ai in one hop ([78e489d](https://github.com/holgerleichsenring/agent-smith/commit/78e489dc2f4d78647f4d71d16108418dc908a356))
+* **website:** docs.agent-smith.org redirects to docs.codeably.ai ([7e87098](https://github.com/holgerleichsenring/agent-smith/commit/7e870988c37e05042ca2aaf469b3bb7a6facf6a6))
+* **website:** docs.agent-smith.org redirects to docs.codeably.ai ([34fe973](https://github.com/holgerleichsenring/agent-smith/commit/34fe973edab63b4665b7dae4d3d64e5c30151085))
+
 ## [0.188.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.187.0...v0.188.0) (2026-11-18)
 
 
