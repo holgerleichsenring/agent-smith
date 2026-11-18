@@ -139,9 +139,10 @@ export function runLogSections(
   };
 
   const sections: LogSection[] = [];
-  const ticketNamed = [snapshot?.ticketId, snapshot?.ticketTitle].filter(Boolean).join(" · ");
-  sections.push({ id: "ticket", kind: "ticket", title: "Ticket", specId: null, state: ticketNamed ? "done" : "pending",
-    meta: ticketNamed || "the ticket as the run read it", steps: [] });
+  // 2026-11-18-e06ba: the head names the ticket by id; its title opens the section's body, where it has the room.
+  const ticketId = snapshot?.ticketId ?? null;
+  sections.push({ id: "ticket", kind: "ticket", title: "Ticket", specId: null, state: ticketId || snapshot?.ticketTitle ? "done" : "pending",
+    meta: ticketId ?? "the ticket as the run read it", steps: [] });
   sections.push(stepSection("ready", "ready", "Got ready"));
   const plan = ledgerMeta(ledger);
   sections.push({ id: "plan", kind: "plan", title: "The plan", specId: null, state: plan.state, meta: plan.meta, steps: [] });

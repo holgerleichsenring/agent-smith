@@ -33,6 +33,8 @@ export interface PairedLlmCall {
    *  is non-zero but costUsd is suspiciously low — actual cache flag
    *  requires the producer-side breadcrumb (deferred to p0203a). */
   cacheHit: boolean;
+  /** 2026-11-18-e06be: the stored prompt of this call, from the finish event; null while in flight or on older events. */
+  promptId: string | null;
 }
 
 export interface PairingResult {
@@ -110,6 +112,7 @@ function toFullPair(
     cachedTokensIn: finish.cachedTokensIn ?? 0,
     cacheCreationTokensIn: finish.cacheCreationTokensIn ?? 0,
     cacheHit: finish.tokensIn > 0 && finish.costUsd === 0,
+    promptId: finish.promptId ?? null,
   };
 }
 
@@ -131,6 +134,7 @@ function toUnfinishedPair(
     cachedTokensIn: null,
     cacheCreationTokensIn: null,
     cacheHit: false,
+    promptId: null,
   };
 }
 
@@ -152,6 +156,7 @@ function toOrphanFinish(
     cachedTokensIn: finish.cachedTokensIn ?? 0,
     cacheCreationTokensIn: finish.cacheCreationTokensIn ?? 0,
     cacheHit: finish.tokensIn > 0 && finish.costUsd === 0,
+    promptId: finish.promptId ?? null,
   };
 }
 

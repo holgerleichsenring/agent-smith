@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-e06bc
+
+decisions:
+  - category: Architecture
+    chose: "Parse the record in the browser with the yaml package (2.8.1, no dependencies), added to package.json in e06ba's commit"
+    over: "A structured spec record from the backend, or SpecDocument from the ticket page"
+    reason: "SpecDocument draws TicketSeriesSpec, a server projection of a ticket's series that a run's record does not have; the record is already served as text, and parsing it where it is drawn needs no API change."
+  - category: Behaviour
+    chose: "Goal, scope, steps, tests and done get their own labelled rows; every other key renders generically as label/value lines; a record that does not parse as a mapping with goal or spec falls back to the document view"
+    over: "A fixed schema that drops unknown keys"
+    reason: "Spec files carry facts, requires, assumptions and more; none of it is hidden, and an older record that is markdown still reads."
+  - category: Behaviour
+    chose: "The delivered account is read back from SpecAccountRenderer's markdown: '**repo**' headings, '- [x|~| ]' rows with a backticked citation, 'verified by command', 'not applicable: …' or a note"
+    over: "Rendering the delivered text as markdown"
+    reason: "As markdown each criterion carried its whole citation inline, 10-20 paths wrapping the screen."
+  - category: Behaviour
+    chose: "Up to two cited items read inline; more collapse to 'n files ›' (or 'n items' when one is not a path); expanded, one shortened path per line with the full path as title"
+    over: "Always collapsing"
+    reason: "One or two files read faster than a toggle; the problem was the long lists."
+  - category: Architecture
+    chose: "VerifySummary takes an optional renderCitation slot; the run log passes CitedList, the Why page passes nothing"
+    over: "Changing VerifySummary's citation for every caller"
+    reason: "The operator asked to keep that section's layout and change only the cited lists; the Why page is not part of this request."

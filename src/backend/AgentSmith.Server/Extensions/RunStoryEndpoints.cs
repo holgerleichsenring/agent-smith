@@ -21,6 +21,8 @@ internal static class RunStoryEndpoints
         app.MapGet("/api/runs/{runId}/trace", GetTraceAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/trace/{sequence:int}/{label}", GetTraceEntryAsync)
            .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/prompts/digest", GetPromptDigestAsync)
+           .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/prompts/{promptId}", GetPromptAsync)
            .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
@@ -47,6 +49,15 @@ internal static class RunStoryEndpoints
     {
         var view = await prompts.ReadAsync(runId, promptId, cancellationToken);
         return view is null ? Results.NotFound() : Results.Ok(view);
+    }
+
+    // 2026-11-18-e06bd: what each listed call was fed and decided, one line each; ids are comma-separated.
+    private static async Task<IResult> GetPromptDigestAsync(
+        string runId, string? ids, PromptDigestReader digest, CancellationToken cancellationToken)
+    {
+        var promptIds = (ids ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var calls = await digest.ReadAsync(runId, promptIds, cancellationToken);
+        return Results.Ok(new { calls });
     }
 
     private static async Task<IResult> GetTraceEntryAsync(

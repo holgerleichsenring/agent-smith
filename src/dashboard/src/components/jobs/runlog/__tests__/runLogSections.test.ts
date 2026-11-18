@@ -48,6 +48,7 @@ describe("runLogSections", () => {
     const specs = [{ specId: SPEC, ordinal: 1, title: "upgrade dependencies", status: "in_progress", startedAt: null, endedAt: null, verdict: null, decisions: [], steps: [] }] as RunSpecRow[];
     const sections = runLogSections(steps, specs, snap(), null);
     expect(sections.map((s) => s.id)).toEqual(["ticket", "ready", "plan", `spec:${SPEC}`, "check", "deliver"]);
+    expect(sections[0].meta).toBe("13");
     expect(sections[1].meta).toBe("3 steps · 88 llm · $0.08 · 4m 36s");
     const spec = sections[3];
     expect(spec.title).toBe(`Spec ${SPEC} · upgrade dependencies`);

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-e06bb
+goal: "Log text renders its markdown (bold, code, links, paragraphs, lists), and a spec's decisions are one line each: bold title, dimmed reason, full on click."
+
+applies_to: "dashboard (components/jobs/runlog: LogText, decisionParts, RunLogSectionBodies, RunStepDetail)"
+
+requires: [2026-11-18-e06ba]
+
+facts:
+  - claim: "Spec decisions print name and reason as raw text, so '**Title**: reason' shows its asterisks as one paragraph."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogSectionBodies.tsx:143-145"
+  - claim: "The dashboard's markdown renderer is react-markdown with remark-gfm and rehype-sanitize."
+    evidence: "src/dashboard/src/components/ui/Markdown.tsx:1-60"
+
+scope:
+  in: "LogText.tsx: InlineText (one line: strong, em, code, links, paragraphs unwrapped, sanitized) and BlockText (paragraphs, lists, code) styled by run-log.css, both on react-markdown. Used for the ticket acceptance, plan activities, the run's and a spec's decisions, and the step detail line text. decisionParts splits '**Title**: reason' (or name + reason) into title and reason. A decision line: bold title, dimmed reason truncated with an ellipsis; a click opens the full reason as BlockText."
+  out: "The Why page and the ticket page renderers."
+
+steps:
+  - id: text
+    action: "LogText.tsx with InlineText and BlockText."
+  - id: decisions
+    action: "decisionParts.ts; DecisionLine in RunLogSectionBodies for spec and run decisions."
+  - id: apply
+    action: "InlineText in ticket acceptance, ledger activities and step detail lines."
+
+tests:
+  - "InlineText renders **bold** and `code` without asterisks or backticks, and no paragraph block."
+  - "decisionParts: '**A**: b' -> A / b; name with reason; plain name."
+  - "SpecBody: a decision line shows the bold title and opens the full reason on click."
+
+done:
+  - "No literal ** or backticks remain in decisions, plan activities, acceptance or step lines."
+  - "pnpm test and build are green."

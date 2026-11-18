@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-e06bb
+
+decisions:
+  - category: Architecture
+    chose: "LogText.tsx: InlineText and BlockText on react-markdown with remark-gfm and rehype-sanitize, styled by run-log.css"
+    over: "The shared Markdown component"
+    reason: "Markdown maps elements to the light stone palette and heading scale; a log line needs inline output inside its own row and the log's tokens. The parser and sanitizer are the same."
+  - category: Behaviour
+    chose: "InlineText allows strong, em, code, a and del and unwraps everything else; paragraphs become spans joined by a space"
+    over: "Rendering block elements inside a line"
+    reason: "A line stays one line; a heading or list marker in an agent's one-liner reads as its text."
+  - category: Behaviour
+    chose: "decisionParts takes a leading '**Title**' (with ':' or a dash after it) as the title and the rest, plus any structured reason, as the reason"
+    over: "Showing name and reason as stored"
+    reason: "Agents log decisions as one markdown string; the screenshot showed fifteen of them as one paragraph with literal asterisks."
+  - category: Behaviour
+    chose: "A decision line is a button: closed it shows the title and the reason cut with an ellipsis, open the whole reason as BlockText below"
+    over: "A disclosure per decision"
+    reason: "One line per thing, as in Got ready; the reason stays one click away."
