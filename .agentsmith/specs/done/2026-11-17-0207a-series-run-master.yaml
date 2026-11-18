@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-0207a
+goal: "A filing of two or more tickets opens a series run whose master, one beat run at a time, reads the series' facts and starts, retries, messages, asks or stops."
+
+applies_to: "default (file preset, series-run preset, series record store, housekeeping sweep, embedded series master)"
+
+requires: [2026-11-17-023fa]
+
+facts:
+  - claim: "A filing is a 'file' run of PlanFiling then FileTickets launched in-process through IActRun; FilingRequest.Conversation is the Work it out session id and MayStartRuns the approver's runs.control; each requires edge and approved set records the conversation it was filed in, and a filing's tickets have no group record."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.File.cs:13-17, src/backend/AgentSmith.Server/Services/SpecDialog/FilingRun.cs:29-38, src/backend/AgentSmith.Application/Services/Filing/FilingRequest.cs:18-20, src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketRequirement.cs:38-39, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:19"
+  - claim: "Dependency-ordered starts and merges already happen per ticket: TicketGraphStarts starts unblocked tickets, DependentsWake and StackedDependentsWake start held ones, CompletePullRequests merges per merge.when."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/TicketGraphStarts.cs:28, src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:30, src/backend/AgentSmith.Server/Services/Rework/StackedDependentsWake.cs:30, src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:22"
+  - claim: "Every non-design-turn run is cancelled past orchestrator.max_run_wall_time_seconds (1800); only a ticket run can checkpoint and park."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:43-56, src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:33-73"
+  - claim: "The housekeeping leader runs the leader-only sweeps, DialogueResumeSweeper every 15 s among them."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/HousekeepingLeaderHostedService.cs:41-72, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:28"
+  - claim: "AgenticMasterHandler requires sandboxes; IAgenticLoopRunner runs one loop over a request's tools and prior messages; PromptOwner.Embedded serves a master body from Application/Prompts/Resources."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:68-69, src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:28-70, src/backend/AgentSmith.Application/Prompts/PromptOwner.cs:13-15"
+  - claim: "A ticketless run is started on the queued path as a queued run row plus a dispatch with string seeds, so any worker takes it and a lost push is re-pushed from the row."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:21-35"
+  - claim: "Retry of a code run is RunRetry (Operator nudge through the rework queue); a never-worked ticket starts through TicketStartRun after UnmetTicketRequirements.ForStartAsync."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:25-56, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:25-35"
+
+scope:
+  in: "A SeriesRun table (three providers' migrations) holding only the series' own state: conversation, project, approver and their runs.control as sampled at filing, state, member tickets, question, verdict, the master's thread, cursors, the current beat's run id and the master's spend. Requires edges and done criteria are read from TicketRequirement and ApprovedSeries, never copied. A third 'file' step OpenSeriesRun; the series-run preset ReadSeries -> SeriesMaster -> PostSeriesStatus; SeriesRunSweeper on the housekeeping leader launches a due beat on the queued path, and a series runs one beat at a time because the sweep starts none while the last beat's run row is unfinished (no new lease). The series master is a durable record whose every step of work is a short run with a run id: no run outlives the wall-time watchdog and any worker takes a beat. Embedded series-master (PromptOwner.Embedded: its tools are this server's records and acts) with series_status, read_ticket, start_ticket, retry_ticket, tell_ticket, propose_recut (posts a re-cut proposal to the operator; changes nothing), ask_human, stop_series."
+  out: "Merging and CI watching (the ticket runs, CompletePullRequests and the CI loop own them). Re-reading a stale runs.control: the approver's permission is sampled at filing like every filed start. A second filing while the series runs: every message of the conversation goes to the master until it stops."
+
+steps:
+  - id: record
+    action: "Contracts SeriesRunRecord, SeriesTicket, SeriesQuestion, SeriesVerdict, SeriesRunStates, ISeriesRunStore (open, get, active by conversation, running list, optimistic update); Persistence entity, configuration, repository, migrations."
+  - id: open
+    action: "OpenSeriesRun after FileTickets: a report that filed two or more tickets opens a series for the conversation; a filing seeded with a series id (the verify's follow-up) joins that series."
+  - id: facts
+    action: "ISeriesTicketFacts (Server over runs, landings, requires edges, approved sets) per member: state, cost, first start, landing, latest attempt, end detail, PR urls, a pending checkpoint question; SeriesTable folds them into the plain rows (ticket, what, state, cost, time)."
+  - id: beat
+    action: "series-run preset with its maps; SeriesRunSweeper (leader, the resume sweep's interval) and SeriesBeatLaunch (queued row + dispatch, seed the series id); due on a changed table, a waiting operator message, the cadence, a question deadline, or all landed without a verdict."
+  - id: master
+    action: "SeriesMaster runs its loop only when something needs judgement: an operator message, a ticket newly red, a question answered or defaulted, a verdict with failures, or a table unchanged for a whole status period while tickets run; else it says nothing. Its thread is kept on the record and continued under the agent's compaction; its spend accrues on the record and past dialogue.series_master_budget_usd it stops judging and says so once. Acts through ISeriesTicketActs (start: TicketStartRun after UnmetTicketRequirements; retry: RunRetry; tell: the ticket conversation route)."
+
+tests:
+  - "OpenSeriesRun: a two-ticket report opens a record with its tickets; a one-ticket report opens none; a report seeded with a series id joins it."
+  - "SeriesRunStore over migrated sqlite: open, active by conversation, update with a stale version retries."
+  - "SeriesBeatDue: changed table, operator message, cadence and deadline each make a beat due; an unfinished beat run makes none due."
+  - "Master tools: start_ticket refuses unmet requirements naming them; retry_ticket and tell_ticket reach the port; stop_series ends the record; past the budget the loop does not run."
+
+done:
+  - "Filing three tickets in a Work it out conversation opens one series run whose beats, each a queued run, read its facts and act through the master's tools; no beat starts while the last one runs."

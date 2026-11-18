@@ -16,7 +16,10 @@ public sealed class PlanFilingHandler(FilingPlanner planner, ILogger<PlanFilingH
 {
     public async Task<CommandResult> ExecuteAsync(PlanFilingContext context, CancellationToken cancellationToken)
     {
-        if (!context.Pipeline.TryGet<FilingRequest>(ContextKeys.FilingRequest, out var request) || request is null)
+        if ((!context.Pipeline.TryGet<FilingRequest>(ContextKeys.FilingRequest, out var request) || request is null)
+            && context.Pipeline.Has(ContextKeys.SeriesRunId)) // 2026-11-17-0207d: a series check with nothing failing files nothing
+            return CommandResult.Ok("Nothing to file: the series check found no new failure.");
+        if (request is null)
             return CommandResult.Fail("A 'file' run files an approval, and this run carries none: the server seeds "
                 + $"ContextKeys.{nameof(ContextKeys.FilingRequest)} when a person approves. Nothing was filed.");
         try

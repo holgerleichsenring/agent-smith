@@ -471,6 +471,15 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label="Mock versions per conversation" value={value.mockVersionsPerConversation}
         onChange={(v) => set({ mockVersionsPerConversation: keep(v, value.mockVersionsPerConversation) })}
         testId="setting-dialogue-mockconversation" />
+      <NumberField label="Series master budget (USD)" value={value.seriesMasterBudgetUsd}
+        onChange={(v) => set({ seriesMasterBudgetUsd: keep(v, value.seriesMasterBudgetUsd) })} testId="setting-dialogue-seriesbudget"
+        help="what a series master's own judging may spend over one series; the tickets' runs have their own caps" />
+      <NumberField label="Series status every (minutes)" value={value.seriesStatusMinutes}
+        onChange={(v) => set({ seriesStatusMinutes: keep(v, value.seriesStatusMinutes) })} testId="setting-dialogue-seriesstatus"
+        help="how often a running series reports its table when nothing changed; a change is reported at once" />
+      <NumberField label="Question default after (minutes)" value={value.questionDefaultMinutes}
+        onChange={(v) => set({ questionDefaultMinutes: keep(v, value.questionDefaultMinutes) })} testId="setting-dialogue-questiondefault"
+        help="a series question that names a recommendation takes it after this; one without waits for you" />
     </>
   );
 }

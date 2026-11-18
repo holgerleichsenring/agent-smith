@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-0207d
+goal: "When every ticket of a series landed, a verify run checks its done criteria on the default branch, files one follow-up into the series for failures, and the series closes with a summary."
+
+applies_to: "default (series-verify preset, file steps reused, series record, summary text)"
+
+requires: [2026-11-17-0207c]
+
+facts:
+  - claim: "A 'file' run plans a FilingFollowUp as one work ticket without specs, marks it complete, and starts it like any filed ticket only when the project's routing resolves it; else it is reported not started with the reason."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FilingPlanner.cs:19,32-34, src/backend/AgentSmith.Application/Services/Filing/PlannedTicketFiler.cs:37, src/backend/AgentSmith.Application/Services/Filing/FiledWorkStarter.cs:9-15"
+  - claim: "With no ticket and no CheckoutBranch the run branch is null and the cloner checks out what the provider's CheckoutAsync(null) gives, the default branch; refresh-base is a queued ticketless preset of LoadCatalog, CheckoutSource and its own step; FilesystemToolHost's Plan phase gives the read and run tools."
+    evidence: "src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:30-33, src/backend/AgentSmith.Application/Services/Handlers/SandboxRepoCloner.cs:33-38, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.RefreshBase.cs:10-15, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:214-222"
+  - claim: "SpecDraft.Done is a spec's done criteria, the acceptance contract its run is scored against."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:15-21"
+
+scope:
+  in: "series-verify preset LoadCatalog, RunConfigPreflight, CheckoutSource, LoadCodingPrinciples, LoadContext, VerifySeries, PlanFiling, FileTickets, OpenSeriesRun; VerifySeries runs the embedded series-verify-master over the read and run tools with a record_criterion tool, stores the verdict, and seeds one follow-up naming the failed criteria not followed up before; the beat launches it on the queued path (any worker, its own sandbox) once all tickets landed; it is the cross-ticket re-check on the merged default branch, which no single ticket's keystone can make; a follow-up that was not started is said with its reason, and closes the series with a summary (cost, duration, landed, open, 'Nothing waits on you.' when nothing does) once a verdict has no new failure."
+  out: "Re-filing a criterion a follow-up already carried (it is reported as open instead)."
+
+steps:
+  - id: preset
+    action: "series-verify preset with its maps, data flow, builders; the beat's launch port starts it as a queued run seeded with the series id."
+  - id: verify
+    action: "VerifySeriesHandler: criteria prompt, tools, verdict on the record; follow-up FilingRequest from the record's approver."
+  - id: close
+    action: "SeriesSummaryText and the beat's closing: state done, summary posted."
+
+tests:
+  - "VerifySeriesHandler with a scripted loop: two criteria, one failing -> verdict stored, one follow-up request naming it; a criterion followed up before is not re-filed."
+  - "SeriesSummaryText: totals, open items, 'Nothing waits on you.' only when nothing waits."
+  - "Harness: three tickets filed with requires -> series opens -> beats post status -> a recommended question defaults -> all landed -> verify on the default branch with one failing criterion -> follow-up filed into the series and started -> summary."
+
+done:
+  - "A series whose tickets all landed is checked on the default branch against its specs' done criteria; failures become a started follow-up in the same series; the conversation ends with the summary."

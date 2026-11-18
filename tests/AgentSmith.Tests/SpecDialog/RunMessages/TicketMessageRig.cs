@@ -48,7 +48,7 @@ internal sealed class TicketMessageRig : IDisposable
             Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(), Harness.Proposals);
         var divert = new SpecDialogRunDivert(new SpecDialogTicketTextRepository(_context),
             new TicketRunningAttempt(new FiledWorkTrackerProjects(projects), Leases.Object, Attempts.Object), admission,
-            repository, BoundSessionNudges.Quiet(repository), Harness.Notices, NullLogger<SpecDialogRunDivert>.Instance);
+            repository, BoundSessionNudges.Quiet(repository), Harness.Notices, NullLogger<SpecDialogRunDivert>.Instance, Series);
         var commands = new SpecDialogCommandHandler(Harness.Sessions,
             new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()), new SpecDialogReplyComposer(), Harness.Messenger);
         Runner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
@@ -65,6 +65,7 @@ internal sealed class TicketMessageRig : IDisposable
     public Mock<ISpecDialogTurnRunner> Runner { get; } = new();
     public Mock<IActiveRunLease> Leases { get; } = new();
     public Mock<IPreviousAttemptReader> Attempts { get; } = new();
+    public AgentSmith.Tests.Series.InMemorySeriesRunStore Series { get; } = new(); // 2026-11-17-0207b
     public SpecDialogRouter Router { get; }
     public ITicketConversationMessages Port { get; }
 

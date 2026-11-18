@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-0207b
+goal: "A series run reports a status table into its Work it out conversation on every change and on a configured cadence, and an operator message there reaches its master."
+
+applies_to: "default (series-run preset PostSeriesStatus, SpecDialogRouter divert, dialogue config)"
+
+requires: [2026-11-17-0207a]
+
+facts:
+  - claim: "SpecDialogNotices.SayAsync keeps a Notice turn and pushes SpecDialogMessage to the page, which appends it and refetches; message bodies render as Markdown."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogNotices.cs:14-27, src/dashboard/src/hooks/useSpecDialog.ts:478-539"
+  - claim: "SpecDialogRouter stores every operator message first, then 4860b's SpecDialogRunDivert stamps a running attempt's run id on the stored turn of a ticket-bound conversation, read back by the run through ITicketConversationMessages and MidTurnMessageTools."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:68-83, src/backend/AgentSmith.Server/Services/SpecDialog/RunMessages/SpecDialogRunDivert.cs:20-50, src/backend/AgentSmith.Application/Services/Turns/MidTurnMessageTools.cs:18-39"
+  - claim: "series: already names one ticket's spec series; the dialogue: block holds how a conversation waits on a person (hot wait, approval timeout) with its form DialogueForm."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SeriesConfig.cs:5-9, src/backend/AgentSmith.Contracts/Models/Configuration/DialogueGlobalConfig.cs:10-20, src/dashboard/src/components/config/SettingsForm.tsx:439"
+
+scope:
+  in: "dialogue.series_status_minutes (default 15: the operator's cadence from the reference session) and dialogue.series_master_budget_usd (default 20: the master's own spend, ticket runs have their own caps) in config, schema, docs and DialogueForm; PostSeriesStatus posts the opening line, then on a changed table or the cadence the Markdown table (ticket, what, state, cost, time) and one line (the master's, or counts and spend) with no model call; SeriesRunDivert, after the ticket divert and with its rules (runs.control only, a cardless approve or reject word taken back), stamps the stored turn's new SeriesRunId field; the beat reads stamped turns at its start and its master after each tool call (MidTurnMessageTools)."
+  out: "A typed table message kind on the wire (Markdown renders it)."
+
+steps:
+  - id: config
+    action: "DialogueGlobalConfig.SeriesStatusMinutes and SeriesMasterBudgetUsd, schema, docs, DialogueForm fields (landed with 0207a, which needed the budget, together with 0207c's question default)."
+  - id: post
+    action: "ISeriesConversation (Server over SpecDialogSessionRepository + SpecDialogNotices) and PostSeriesStatus with SeriesStatusText."
+  - id: route
+    action: "SpecDialogRunDivert extended (no second divert): a conversation with no ticket and a running series stamps TranscriptTurn.SeriesRunId; SeriesMidTurnMessages (IMidTurnMessages) over stamped turns past the beat's cursor."
+
+tests:
+  - "SeriesStatusText: rows, the line, the opening sentence with the policy."
+  - "PostSeriesStatus: posts on a changed table and on the cadence, not otherwise."
+  - "SeriesRunDivert: a runs.control poster's message in a conversation with a running series is stamped and starts no design turn; a poster without runs.control, a card decision and a conversation without a running series route as before."
+
+done:
+  - "The conversation shows the series' table on every change and every dialogue.series_status_minutes; what the operator writes there reaches the master of the running or next beat."

@@ -26,6 +26,8 @@ public static partial class PipelinePresets
     public static bool NeedsHostContext(string pipelineName) =>
         string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
         || string.Equals(pipelineName, FileName, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(pipelineName, SeriesRunName, StringComparison.OrdinalIgnoreCase) // 2026-11-17-0207a
+        || string.Equals(pipelineName, SeriesVerifyName, StringComparison.OrdinalIgnoreCase) // 2026-11-17-0207d
         || HostActSteps.ContainsKey(pipelineName) || InstallationSteps.ContainsKey(pipelineName);
 
     // 2026-11-17-e061a: the runs that act on a filed ticket, launched by the server with a request and an outcome slot.
@@ -47,6 +49,8 @@ public static partial class PipelinePresets
         [FileName] = "its run needs an approved proposal and a report slot, which only a design conversation's approval "
             + "supplies, so a ticket routed to it fails when it starts",
         [RefreshBaseName] = "it refreshes one open pull request after a landing, and the server starts it", // 2026-11-17-023fb
+        [SeriesRunName] = "it beats a series run a filing opened, and the server starts it with the series' id", // 0207a
+        [SeriesVerifyName] = "it checks a series whose tickets all landed, and the series' beat starts it", // 0207d
         [DeployName] = "it delivers a version to an environment a person chose, and the server starts it", // 2026-11-18-3863c
         [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
             + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
