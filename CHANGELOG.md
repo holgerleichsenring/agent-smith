@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.190.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.190.0...v0.190.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **dashboard:** + New work and the brand lead home; Work it out is its own sidebar item (2026-11-18-73ca) ([10bd009](https://github.com/holgerleichsenring/agent-smith/commit/10bd0098b0ec2860ea97935bd6a67517d8dd86fb))
+* **dashboard:** + New work and the brand lead home; Work it out is its own sidebar item (2026-11-18-73ca) ([5ef2156](https://github.com/holgerleichsenring/agent-smith/commit/5ef21569c7c340c07a25415bbd09d7a80447a063))
+
 ## [0.190.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.189.0...v0.190.0) (2026-11-18)
 
 
