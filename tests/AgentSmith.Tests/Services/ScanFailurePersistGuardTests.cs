@@ -78,6 +78,7 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.BranchCleanupName, false)] // 2026-11-17-713ec
     [InlineData(PipelinePresets.RefreshBaseName, false)] // 2026-11-17-023fb: a refresh run never force-pushes WIP
     [InlineData(PipelinePresets.SeriesRunName, false)] // 2026-11-17-0207a: a series beat changes no code
+    [InlineData(PipelinePresets.SeriesVerifyName, false)] // 2026-11-17-0207d: the series check reads the default branch
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -87,7 +88,7 @@ public sealed class ScanFailurePersistGuardTests
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
             PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.SeriesRunName]);
+            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName]);
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

@@ -30,7 +30,7 @@ public static partial class CommandStepClasses
         [CommandNames.VerifySpec] = Milestone,
         [CommandNames.ReviewSpecDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
-        [CommandNames.FileTickets] = Milestone, [CommandNames.SeriesMaster] = Milestone, // 5701b: it creates the tickets; 0207a: the series master acts
+        [CommandNames.FileTickets] = Milestone, [CommandNames.SeriesMaster] = Milestone, [CommandNames.VerifySeries] = Milestone, // 5701b: it creates the tickets; 0207a: the series master acts
         [CommandNames.CloseTicket] = Milestone, [CommandNames.ReopenTicket] = Milestone, [CommandNames.StartTicket] = Milestone, // e061a-b
         [CommandNames.AmendTicket] = Milestone, [CommandNames.PostTicketComments] = Milestone, // 2026-11-17-e061c: the acts themselves
         [CommandNames.RenderTicketBody] = Milestone, [CommandNames.RetargetPullRequests] = Milestone, // 2026-11-17-dd05b, 9a39c

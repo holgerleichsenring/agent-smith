@@ -44,7 +44,7 @@ public static partial class CommandDisplayNames
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
         [CommandNames.GroundSpecDialog] = "Ground the design conversation",
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",
-        [CommandNames.PlanFiling] = "Plan the filing", [CommandNames.FileTickets] = "File the tickets", [CommandNames.OpenSeriesRun] = "Open the series run", [CommandNames.ReadSeries] = "Read the series", [CommandNames.SeriesMaster] = "Judge the series", [CommandNames.PostSeriesStatus] = "Report the series", // 0207a
+        [CommandNames.PlanFiling] = "Plan the filing", [CommandNames.FileTickets] = "File the tickets", [CommandNames.OpenSeriesRun] = "Open the series run", [CommandNames.ReadSeries] = "Read the series", [CommandNames.SeriesMaster] = "Judge the series", [CommandNames.PostSeriesStatus] = "Report the series", [CommandNames.VerifySeries] = "Check the series", // 0207a, 0207d
         [CommandNames.CloseTicket] = "Close the ticket", // 2026-11-17-e061a
         [CommandNames.ReopenTicket] = "Reopen the ticket", [CommandNames.StartTicket] = "Start the ticket",
         [CommandNames.AmendTicket] = "Record the approved series", [CommandNames.PostTicketComments] = "Post the comments", // e061c

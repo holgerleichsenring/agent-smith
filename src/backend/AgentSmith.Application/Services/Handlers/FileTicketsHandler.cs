@@ -15,6 +15,8 @@ public sealed class FileTicketsHandler(FilingPlanFiler filer) : ICommandHandler<
     public async Task<CommandResult> ExecuteAsync(FileTicketsContext context, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
+        if (!pipeline.Has(ContextKeys.FilingRequest) && pipeline.Has(ContextKeys.SeriesRunId)) // 2026-11-17-0207d
+            return CommandResult.Ok("Nothing to file: the series check found no new failure.");
         if (!pipeline.TryGet<FilingRequest>(ContextKeys.FilingRequest, out var request) || request is null
             || !pipeline.TryGet<FilingPlan>(ContextKeys.FilingPlan, out var plan) || plan is null)
             return CommandResult.Fail("FileTickets has no filing request or plan — PlanFiling runs first. Nothing was filed.");

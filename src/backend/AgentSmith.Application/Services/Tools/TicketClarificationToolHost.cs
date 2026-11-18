@@ -52,7 +52,10 @@ public sealed class TicketClarificationToolHost : IToolHost
         if (recommended_index is { } at && choices is not null && at >= 0 && at < choices.Count)
             text += $"\n\nRecommended: {choices[at].label}";
         Captured = new PlanOpenQuestion(
-            TicketQuestionLabel, text, choices?.Select(c => c.label).ToList() ?? []);
+            TicketQuestionLabel, text, choices?.Select(c => c.label).ToList() ?? [])
+        {
+            RecommendedIndex = recommended_index is { } i && choices is not null && i >= 0 && i < choices.Count ? i : null,
+        };
         return "This run cannot receive a live answer. Your question will be posted to the "
             + "ticket and the run pauses until the operator answers; it then continues with "
             + "the answer in your input. STOP now: make no further changes, emit no verdict, "

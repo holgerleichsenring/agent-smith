@@ -12,7 +12,8 @@ namespace AgentSmith.Application.Services.Series;
 /// launched ends the beat quietly: nothing is said and nothing acts.
 /// </summary>
 public sealed class ReadSeriesHandler(
-    ISeriesRunStore store, ISeriesTicketFacts facts, ISeriesConversation conversation, AgentSmithConfig config, TimeProvider clock)
+    ISeriesRunStore store, ISeriesTicketFacts facts, ISeriesConversation conversation, AgentSmithConfig config, TimeProvider clock,
+    SeriesQuestions questions, SeriesProgress progress)
     : ICommandHandler<ReadSeriesContext>
 {
     public async Task<CommandResult> ExecuteAsync(ReadSeriesContext context, CancellationToken cancellationToken)
@@ -25,6 +26,8 @@ public sealed class ReadSeriesHandler(
         var beat = new SeriesBeat(record, await facts.ReadAsync(record.Project, record.Tickets, cancellationToken), clock.GetUtcNow());
         beat.Messages.AddRange(await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, cancellationToken));
         if (beat.Messages.Count > 0) beat.MessagesThrough = beat.Messages[^1].Index;
+        await questions.SettleAsync(beat, config.Dialogue.QuestionDefaultMinutes, cancellationToken); // 0207c
+        await progress.MoveAsync(beat, cancellationToken); // 0207d: the series check, its report, the series' end
         beat.Reasons.AddRange(SeriesJudgement.NewlyRed(record, beat.Rows));
         beat.Reasons.AddRange(SeriesJudgement.Operator(beat.Messages));
         beat.Reasons.AddRange(SeriesJudgement.Stalled(beat, config.Dialogue.SeriesStatusMinutes));

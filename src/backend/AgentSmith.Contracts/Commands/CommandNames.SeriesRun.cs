@@ -16,4 +16,8 @@ public static partial class CommandNames
     /// <summary>The beat's report into the conversation: the opening, the master's line, the table when it changed or
     /// the cadence is due.</summary>
     public const string PostSeriesStatus = "PostSeriesStatusCommand";
+
+    /// <summary>2026-11-17-0207d: the series-verify run's check of the series' done criteria on the default branch;
+    /// failures not followed up before become one follow-up the run's filing steps file into the series.</summary>
+    public const string VerifySeries = "VerifySeriesCommand";
 }

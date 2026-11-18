@@ -9,5 +9,11 @@ public sealed record SeriesVerdict(string RunId, DateTimeOffset At, IReadOnlyLis
     /// <summary>What became of the follow-up's start, said when it did not start.</summary>
     public string? FollowUpStart { get; init; }
 
+    /// <summary>The tickets whose specs could not be read off their branch, with why.</summary>
+    public IReadOnlyList<string> Unread { get; init; } = [];
+
+    /// <summary>True once a beat reported it into the conversation.</summary>
+    public bool Reported { get; init; }
+
     public IReadOnlyList<SeriesCriterionResult> Failed => [.. Results.Where(r => !r.Passed)];
 }

@@ -15,6 +15,8 @@ public static class SeriesBeatDue
         if (!record.IsActive) return null;
         var table = SeriesTable.Snapshot(SeriesTable.Rows(facts, now));
         if (table != record.LastTable) return "the table changed";
+        if (record.Question is { Answer: null, DeadlineAt: { } deadline } && deadline <= now) return "a question's deadline passed"; // 0207c
+        if (record.Verdicts.LastOrDefault() is { Reported: false }) return "the series check reported"; // 0207d
         return Cadence(record, now, statusMinutes) ? "the status is due" : null;
     }
 

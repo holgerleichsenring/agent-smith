@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Series;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Application.Services.Series;
@@ -10,7 +11,8 @@ public static class SeriesRunPipelineExtensions
 {
     public static IServiceCollection AddSeriesRunPipeline(this IServiceCollection services)
     {
-        services.AddScoped<SeriesBeatDemand>();
+        services.AddScoped<SeriesBeatDemand>().AddScoped<SeriesQuestions>().AddScoped<ISeriesCriteria, SeriesCriteria>().AddScoped<SeriesProgress>();
+        services.AddTransient<ICommandHandler<VerifySeriesContext>, VerifySeriesHandler>(); // 0207d
         services.AddTransient<ICommandHandler<OpenSeriesRunContext>, OpenSeriesRunHandler>();
         services.AddTransient<ICommandHandler<ReadSeriesContext>, ReadSeriesHandler>();
         services.AddTransient<ICommandHandler<SeriesMasterContext>, SeriesMasterHandler>();

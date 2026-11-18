@@ -51,7 +51,7 @@ public static partial class CommandNames
         [AgenticExecute] = "Executing plan",
         [AgenticMaster] = "Running master skill",
         [LoadCachedCodeMap] = "Loading cached code map", [GroundSpecDialog] = "Grounding the design conversation",
-        [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets", [OpenSeriesRun] = "Opening the series run", [ReadSeries] = "Reading the series", [SeriesMaster] = "Judging the series", [PostSeriesStatus] = "Reporting the series", // 2026-11-17-0207a
+        [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets", [OpenSeriesRun] = "Opening the series run", [ReadSeries] = "Reading the series", [SeriesMaster] = "Judging the series", [PostSeriesStatus] = "Reporting the series", [VerifySeries] = "Checking the series", // 2026-11-17-0207a
         [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [StartTicket] = "Starting the ticket",
         [AmendTicket] = "Recording the approved series", [PostTicketComments] = "Posting the comments", [SpecGate] = "Validating the spec",
         [RenderTicketBody] = "Rendering the ticket body from its specs", [RetargetPullRequests] = "Moving the pull requests off a landed branch", // dd05b, 9a39c

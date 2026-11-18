@@ -5,4 +5,7 @@ namespace AgentSmith.Contracts.Series;
 public interface ISeriesRunLaunch
 {
     Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-17-0207d: whether a run the series launched has ended (or is gone).</summary>
+    Task<bool> FinishedAsync(string runId, CancellationToken cancellationToken);
 }

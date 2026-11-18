@@ -13,4 +13,19 @@ public static partial class PipelinePresets
         CommandNames.SeriesMaster,
         CommandNames.PostSeriesStatus,
     ];
+
+    /// <summary>2026-11-17-0207d: the series check once every ticket landed — the default branch checked out, the done
+    /// criteria of the series' specs checked by the embedded series-verify-master, and the failures filed as one follow-up
+    /// into the series through the filing run's own steps.</summary>
+    public const string SeriesVerifyName = "series-verify";
+
+    public static readonly IReadOnlyList<string> SeriesVerify =
+    [
+        CommandNames.LoadCatalog,
+        CommandNames.CheckoutSource,
+        CommandNames.VerifySeries,
+        CommandNames.PlanFiling,
+        CommandNames.FileTickets,
+        CommandNames.OpenSeriesRun,
+    ];
 }

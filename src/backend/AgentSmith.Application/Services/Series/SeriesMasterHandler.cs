@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Series;
 /// </summary>
 public sealed class SeriesMasterHandler(
     IAgenticLoopRunner loop, IPromptCatalog prompts, ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config,
-    ISeriesConversation conversation)
+    ISeriesConversation conversation, SeriesProgress progress)
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -43,8 +43,12 @@ public sealed class SeriesMasterHandler(
     private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt)
     {
         var messages = new SeriesMidTurnMessages(beat, conversation); // 0207b: what the operator writes meanwhile
+        var ask = new SeriesAskTool(beat, store, config.Dialogue.QuestionDefaultMinutes).GetTool(); // 0207c
+        var check = AIFunctionFactory.Create(
+            (CancellationToken ct) => progress.CheckAsync(beat, ct), "check_series", // 0207d
+            "Starts the series check on the default branch again — for a check that ended without a verdict.");
         IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(new SeriesActTools(beat, acts, store).GetTools())
-            .Select(f => new MidTurnMessageAIFunction(f, messages))];
+            .Append(ask).Append(check).Select(f => new MidTurnMessageAIFunction(f, messages))];
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,
             Name: MasterName, PriorMessages: SeriesThread.Read(beat.Record.ThreadJson), Compaction: agent.Compaction);

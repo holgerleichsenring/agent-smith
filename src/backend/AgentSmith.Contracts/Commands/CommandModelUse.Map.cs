@@ -54,6 +54,8 @@ public static partial class CommandModelUse
         // 2026-11-17-0207a: the series master's loop over the series' facts and acts, when something needs judgement.
         [CommandNames.SeriesMaster] = new(
             ModelUse.Loop, "series-master", "acts on member tickets and a line for the conversation"),
+        [CommandNames.VerifySeries] = new( // 2026-11-17-0207d
+            ModelUse.Loop, "series-verify-master", "per done criterion: holds or not, with what showed it"),
         [CommandNames.SubstantiateFindings] = new(
             ModelUse.Call, "finding refutation prompt", "per-finding: substantiated, with a quote"),
         // 2026-08-30-c6ec: the client call sites are read by a model, not by a parser —

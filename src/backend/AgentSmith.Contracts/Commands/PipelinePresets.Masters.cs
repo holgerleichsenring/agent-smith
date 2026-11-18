@@ -29,7 +29,7 @@ public static partial class PipelinePresets
             [ReopenName] = string.Empty, [StartName] = string.Empty, [AmendName] = string.Empty, [CommentName] = string.Empty,
             [TicketBodyName] = string.Empty, // 2026-11-17-dd05b
             [RetargetName] = string.Empty, // 2026-11-17-9a39c
-            [SeriesRunName] = "series-master", // 2026-11-17-0207a: its SeriesMaster step loads the embedded body
+            [SeriesRunName] = "series-master", [SeriesVerifyName] = "series-verify-master", // 0207a, 0207d: embedded bodies
         };
 
     /// <summary>

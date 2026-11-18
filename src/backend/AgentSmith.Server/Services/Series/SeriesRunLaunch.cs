@@ -13,7 +13,8 @@ namespace AgentSmith.Server.Services.Series;
 /// takes it.
 /// </summary>
 public sealed class SeriesRunLaunch(
-    InitRunRepository runs, QueuedRunDispatch dispatch, TimeProvider clock, ILogger<SeriesRunLaunch> logger) : ISeriesRunLaunch
+    InitRunRepository runs, QueuedRunDispatch dispatch, RunRepository rows, TimeProvider clock, ILogger<SeriesRunLaunch> logger)
+    : ISeriesRunLaunch
 {
     public async Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken)
     {
@@ -24,4 +25,7 @@ public sealed class SeriesRunLaunch(
         logger.LogInformation("Series {Series}: {Pipeline} run {RunId} launched", seriesRunId, pipeline, runId);
         return runId;
     }
+
+    public async Task<bool> FinishedAsync(string runId, CancellationToken cancellationToken) =>
+        await rows.GetRunDetailAsync(runId, cancellationToken) is not { FinishedAt: null };
 }
