@@ -35,7 +35,7 @@ What a sandbox asks for is not one global number:
 - **The code-changing pipeline** (`code`) uses the repo's declared `stack.resources` from its `.agentsmith/contexts/<name>/context.yaml` — the LLM proposes them during init, you can edit them, and the framework clamps them to a hard ceiling either way.
 - **Non-build pipelines** (init-project, scans, legal analysis, mad-discussion) get a light fixed profile. A security scan reads code; it doesn't need a build box.
 
-And before sizing even matters, the `ScopeRepos` step narrows the run to the repos the ticket actually touches, so a five-repo project doesn't provision five sandboxes for a one-repo fix. If the master discovers mid-run it needs another repo after all, it has an `ensure_repo_sandbox` tool to escalate — the widening is recorded as a scope decision on the run.
+And before sizing even matters, `ScopeRepos` does not narrow the run: every repository in scope (an approved spec's, otherwise the project's) is provisioned, so size the cluster for all of them. The master scopes itself and opens a repository's sandbox with `ensure_repo_sandbox` as needed.
 
 ## What a run costs, honestly
 

@@ -43,19 +43,14 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
-    public void ReviewExhaustionAndPark_ResolveWithTheReviewStepFromTheRealServiceProvider()
+    public void ReviewSpecsStep_IsNotRegistered()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ReviewExhaustion>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ReviewObjectionPark>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<
-            AgentSmith.Contracts.Commands.ICommandHandler<AgentSmith.Application.Models.ReviewSpecsContext>>()
-            .Should().BeOfType<AgentSmith.Application.Services.Handlers.ReviewSpecsHandler>();
+        services.Should().NotContain(d => d.ServiceType.Name.Contains("ReviewSpecsContext"),
+            "2026-11-18-9c1cb: nothing reviews a spec before its master");
     }
 
     [Fact]
@@ -93,7 +88,7 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
-    public void AddSpecReview_ResolvesSeriesContractRound()
+    public void AddSpecReview_ResolvesTheSeriesContractReviewer()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -101,7 +96,6 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<SeriesContractRound>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<ISeriesContractReviewer>().Should().BeOfType<SeriesContractReviewer>();
         scope.ServiceProvider.GetRequiredService<SeriesContractAdmission>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<ProposalSeriesRound>().Should().NotBeNull();

@@ -21,11 +21,6 @@ public static partial class ContextKeys
     /// nowhere (IReadOnlyList&lt;string&gt;, one line each) — replaced at every spec entry, read by the master prompt.</summary>
     public const string StaleCitations = "StaleCitations";
 
-    /// <summary>2026-11-17-c47ea: the entered approved spec's premises a look proved false and that break no done criterion
-    /// (IReadOnlyList&lt;string&gt;, one line each: what the spec claimed, what the look showed, the evidence) — replaced
-    /// at every premise check, read by the master prompt.</summary>
-    public const string PremiseCorrections = "PremiseCorrections";
-
     /// <summary>2026-10-17-a196a: the file-tool writes one master step was refused because they would land in a
     /// repository the current spec does not name (RefusedWriteLog) — opened per step, read by its step result.</summary>
     public const string RefusedWrites = "RefusedWrites";

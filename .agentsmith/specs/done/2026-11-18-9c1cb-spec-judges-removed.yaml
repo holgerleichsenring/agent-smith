@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-9c1cb
+goal: "Nothing judges a spec or narrows a run before its master: the spec review step, the premise check, the derivation's cut review and contradiction checker and ScopeRepos' model narrowing are deleted."
+
+applies_to: "default (Handlers/ReviewSpecsHandler, CheckSpecPremisesHandler, ScopeReposHandler; Application/Services/Specs and Specs/Review; Scope; Contracts/Commands presets; harness and tests)"
+
+requires: [2026-11-18-c8e2c]
+
+facts:
+  - claim: "The code and spec-derive presets run ReviewSpecs after SpecHandback; ReviewSpecsHandler walks every unbuilt spec through SpecReviewLoop, a SeriesContractRound, ReviewExhaustion and ReviewObjectionPark, and can stop the sequence or park the ticket."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:60, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:57, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecsHandler.cs:23-41"
+  - claim: "The spec block runs CheckSpecPremises between SelectSpec and AgenticMaster; a fresh model judges the spec's premises and corrects them (PremiseCorrection) or hands the spec back."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:48, src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:39-68"
+  - claim: "SpecSetDeriver puts a contradiction hand-back to ContradictionHandbackGate (a second model may refute it) and every parsed cut to CutReviewStep (a fresh model judges deliverability) before it accepts the cut."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:96-103, src/backend/AgentSmith.Application/Services/Specs/ContradictionHandbackGate.cs:24-60"
+  - claim: "ScopeReposHandler narrows ContextKeys.Repos and ContextKeys.ScopedContexts from the classifier's reply through RepoScopeEvaluator and ContextScopeEvaluator; an approved scope is already published by ApprovedRepoScope.OpenAsync."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:86-103, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:49-82"
+
+scope:
+  in: "Delete from the presets ReviewSpecs (code, spec-derive) and CheckSpecPremises (spec block). Delete their handlers, contexts, builders, DI and every class only they use (SpecReviewLoop, SeriesContractRound, ReviewExhaustion, ReviewObjectionPark, ReviewStepOutcomes, SpecRederiver, SpecPremiseChecker, PremiseCorrection and its prompt block, the premise look) and SpecSequenceStop, whose only writers they were, with its branch in SpecSequenceHandler and PipelineCompletedLine. In SpecSetDeriver delete CutReviewStep and the model refutation: a contradiction hand-back that cites nothing usable is asked again (mechanical) and parks on the last attempt; a cited one parks. Delete ContradictionChecker, LeastObjectedCut, the refuted branch of DerivationAttempts and the cut-review and contradiction look terms (CutReview stays: the proposal review's term is built from it). ScopeRepos keeps the approval's repositories, else the project's (ApprovedRepoScope.OpenAsync), the inventory, the estimate, the refusal and the named contexts; it no longer narrows repositories or contexts (RepoScopeEvaluator, ContextScopeEvaluator, Narrow/Kept/Settled, RepoScopeRationale and ExpectedChangeRepos, which nothing reads, go; ScopedContexts loses its writer and its readers with it). Kept: classes the design turn and master-requested paths still use (SpecCutReviewer via SeriesVerification and ProposalWholeSetReview, the attack reviewer, SpecCutReviser, SpecReviewRun, SpecReviewPanel and SpecReviewRevision via revise_spec and the entry re-ground); ReviewObjectionComment (parked tickets and their comments still render); the command names, labels, beats and dashboard section entries of ReviewSpecs and CheckSpecPremises so stored runs render; SpecCutReviewedEvent for stored runs."
+  out: "The design turn's post-turn review (row 1, another spec). The scope call itself (estimate, refusal, named contexts) and its prompt. DeriveSpec as a second master (named follow-up: the coding master owns derivation). Trimming the scope prompt's per-repository verdicts and expected changes, which nothing reads after this (named follow-up: the scope call returns only estimate, refusal and named contexts)."
+
+upgrade_impact: "No setting. A code run on a filed ticket goes from spec selection to its master; no spec is attacked, rewritten or parked by a reviewer before it is built, and a multi-repository run keeps every repository the approval or project names. spec_review settings drive only the design turn's review, revise_spec and the entry re-ground."
+
+steps:
+  - id: presets
+    action: "Drop ReviewSpecs from PipelinePresets.Code and SpecDerive, CheckSpecPremises from CodeSpecBlock; keep their CommandNames and display rows."
+  - id: delete-review
+    action: "Delete ReviewSpecsHandler, ReviewSpecsContext and its builder, and the review-only classes; remove their registrations; delete CheckSpecPremisesHandler with its context, builder, SpecPremiseChecker, PremiseCorrection and their DI and prompt block."
+  - id: derivation
+    action: "SpecSetDeriver: no cut review, no contradiction checker; ContradictionHandbackGate becomes mechanical (uncited re-ask, else park); delete CutReviewStep, ContradictionChecker and what only they used."
+  - id: scope
+    action: "ScopeReposHandler: no narrowing; delete RepoScopeEvaluator, ContextScopeEvaluator, ApprovedRepoScope.Narrow/Kept/Settled and the unread keys."
+  - id: ratchets-docs
+    action: "Remove the deleted files' rows from hard-coded-limits-baseline.tsv and file-length-baseline.tsv; docs (fix-and-feature, lifecycle, methodology, work-it-out, pipeline-cost-cap) and code comments that say the run reviews every spec before it is built say the master reads the spec and its code itself."
+  - id: tests
+    action: "Delete the tests of deleted classes; migrate harness presets; add tests below."
+
+tests:
+  - "Preset test: the code preset's effective steps go from SelectSpec straight to AgenticMaster, and neither code nor spec-derive contains ReviewSpecs."
+  - "Derivation test: a cited contradiction hand-back parks with no checker call; an uncited one is asked again; a cut is accepted without a review call."
+  - "ScopeRepos test: a multi-repository run whose classifier names one repository keeps all of them."
+
+done:
+  - "No preset runs ReviewSpecs or CheckSpecPremises; DeriveSpec makes no review or contradiction-check model call; ScopeRepos never changes ContextKeys.Repos except to publish an approval's repositories."
+  - "Build and the full suite are green; stored runs with the old steps still render their labels."

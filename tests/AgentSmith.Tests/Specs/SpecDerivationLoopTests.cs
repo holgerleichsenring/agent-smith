@@ -72,7 +72,6 @@ public sealed class SpecDerivationLoopTests
         LookingChatClient provider, CountingSandbox sandbox, CappingFactory? factory = null)
     {
         var deriver = new SpecSetDeriver(
-            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(
                 factory ?? new CappingFactory(provider), new AsyncLocalRunContextAccessor(),
                 DerivationTestLooks.Proof()),

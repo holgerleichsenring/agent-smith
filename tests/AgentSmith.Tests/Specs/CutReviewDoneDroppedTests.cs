@@ -65,12 +65,11 @@ public sealed class CutReviewDoneDroppedTests
     }
 
     [Fact]
-    public async Task Derivation_AFirstCutDroppingADoneWhenOutcome_IsRejectedAndRederived()
+    public async Task Derivation_AParsedCut_IsTakenWithoutAReviewCall()
     {
+        // 2026-11-18-9c1cb: no fresh model reviews the derived cut; the deriver's first parsed cut is the set.
         var deriverChat = new Scripted(Cut(Kept), Cut(Kept, Dropped));
-        var reviewerChat = new Scripted(DoneDropped("export-guard", Dropped), "[]");
         var deriver = new SpecSetDeriver(
-            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(Reviewer(new FixedFactory(reviewerChat))),
             new SpecDerivationCall(new FixedFactory(deriverChat), new AsyncLocalRunContextAccessor(),
                 DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(), new FixedPrompt(), DerivationTestParsers.Real(),
@@ -83,9 +82,8 @@ public sealed class CutReviewDoneDroppedTests
             repositories: [], new AgentConfig(), new PipelineContext(), CancellationToken.None);
 
         error.Should().BeNull();
-        reviewerChat.Prompts.Should().HaveCount(2, "the first cut was reviewed, rejected and the second reviewed");
-        deriverChat.Prompts[1].Should().Contain($"\"{Dropped}\" — done-dropped");
-        derivation!.Set.Specs.Should().ContainSingle().Which.Draft.Done.Should().Contain(Dropped);
+        deriverChat.Prompts.Should().ContainSingle("nothing rejected the first cut");
+        derivation!.Set.Specs.Should().ContainSingle().Which.Draft.Done.Should().NotContain(Dropped);
     }
 
     private static async Task<SpecCutReview> Review(IReadOnlyList<SpecDraft> drafts, string answer) =>

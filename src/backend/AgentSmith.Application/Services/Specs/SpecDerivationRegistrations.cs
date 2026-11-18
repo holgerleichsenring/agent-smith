@@ -16,16 +16,9 @@ public static class SpecDerivationRegistrations
 {
     public static IServiceCollection AddSpecDerivation(this IServiceCollection services)
     {
-    services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the cut is reviewed before it is built
-    services.AddTransient<CutReviewStep>(); // 2026-10-13-9a59g: and every review is published
+    services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the design turn's whole-set review and verify_series
     Review.SpecReviewRegistrations.AddSpecReview(services); // 2026-10-13-8762e: the spec review rounds
-        // 2026-09-17-0e79c: and each spec's stated premises are checked before it is worked
-        services.AddTransient<ISpecPremiseChecker, SpecPremiseChecker>();
-        services.AddTransient<PremiseHandbackNotice>().AddTransient<PremiseCorrection>(); // 2026-11-17-c47ea
-        services.AddTransient<SeriesBase>().AddTransient<PremiseLookFlip>().AddTransient<PremiseBaseReplay>().AddTransient<PremiseSupersessionFilter>(); // 2026-11-04-6768a
-        // 2026-10-12-3a36b: a contradiction hand-back is read a second time before it parks
-        services.AddTransient<IContradictionChecker, ContradictionChecker>();
-        services.AddTransient<ContradictionHandbackGate>();
+        services.AddTransient<ContradictionHandbackGate>(); // 2026-10-12-3a36b; 9c1cb: mechanical
         services.AddTransient<ForeignCommitProbe>();
         services.AddTransient<HandbackHeadsReader>();
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();

@@ -68,7 +68,7 @@ The server creates one pod per repo and toolchain image per run. Contexts of one
 
 A repository is cloned inside its own sandbox, so the image has to carry git. One that doesn't fails the checkout with an error that says so, instead of a bare exit code.
 
-You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines use the repo's declared `stack.resources` (clamped to a hard ceiling), scans and other non-build pipelines get a light fixed profile. When a run finishes (success, failure, cancel) the pods are deleted; a force-killed cancel releases them immediately. A run doesn't provision every repo in the project either: the `ScopeRepos` step reads the ticket first and spawns sandboxes only for the affected repos.
+You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines use the repo's declared `stack.resources` (clamped to a hard ceiling), scans and other non-build pipelines get a light fixed profile. When a run finishes (success, failure, cancel) the pods are deleted; a force-killed cancel releases them immediately. Every repository in the run's scope is provisioned: the repositories an approved spec names, otherwise the project's.
 
 Pods are labelled with the deployment that owns them. The owner identity is derived from the Redis endpoint; `SANDBOX_OWNER_ID` names it explicitly. A corpse reaper deletes this deployment's pods whose run is no longer live, on a timer and again at admission, so a crashed server doesn't leave pods holding quota. Two deployments in one namespace never touch each other's pods.
 

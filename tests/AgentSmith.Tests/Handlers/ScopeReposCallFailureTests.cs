@@ -52,7 +52,7 @@ public sealed class ScopeReposCallFailureTests
 
     [Fact]
     public void ScopeRepos_HealthySingleRepoSummary_StaysANoOp() =>
-        GateSilence.IsNoOpSummary(CommandNames.ScopeRepos, "Repo scoping skipped: single-repo run (one repo or --repo)")
+        GateSilence.IsNoOpSummary(CommandNames.ScopeRepos, "Repo scoping skipped: the run keeps its 1 repository/repositories; the ticket is estimated")
             .Should().BeTrue();
 
     private static IServiceProvider Provider(ScopeReposHandler handler)
@@ -80,8 +80,7 @@ public sealed class ScopeReposCallFailureTests
             new ScopeEstimateRecorder(AgentSmithConfig.Empty(), Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(),
                 NullLogger<ScopeEstimateRecorder>.Instance),
             new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance),
-            NullLogger<ScopeReposHandler>.Instance);
+            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
     }
 
     private static ScopeReposContext Context(params string[] repoNames)

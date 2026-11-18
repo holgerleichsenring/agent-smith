@@ -50,7 +50,7 @@ From here on the branch is the truth. The ticket page reads the specs from the b
 
 ## 4. The coding run builds what was approved
 
-A filed ticket's run does not derive the specs again and does not review them a second time: the review in the design turn already passed them. It checks each spec's premises against the code as it is now, builds the spec, runs the repository's own build and tests, records the master's report on every **Done when** line, and moves on to the next spec.
+A filed ticket's run does not derive the specs again: the review in the design turn already passed them. The master reads the code each spec touches as it is now, builds the spec, runs the repository's own build and tests, records the master's report on every **Done when** line, and moves on to the next spec.
 
 Things it handles without stopping:
 

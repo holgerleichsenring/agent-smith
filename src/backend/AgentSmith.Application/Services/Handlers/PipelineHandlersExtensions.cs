@@ -92,7 +92,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<DeriveSpecContext>, DeriveSpecHandler>();
         services.AddTransient<ICommandHandler<SpecSequenceContext>, SpecSequenceHandler>();
         services.AddTransient<ICommandHandler<SelectSpecContext>, SelectSpecHandler>();
-        services.AddTransient<ICommandHandler<CheckSpecPremisesContext>, CheckSpecPremisesHandler>(); // 0e79c
         services.AddTransient<ICommandHandler<SpecHandbackContext>, SpecHandbackHandler>();
         services.AddSpecDerivation();
         services.AddTransient<DiscoveryOutputParser>();

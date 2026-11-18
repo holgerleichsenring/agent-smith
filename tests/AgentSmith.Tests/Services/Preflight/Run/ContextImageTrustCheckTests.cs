@@ -97,21 +97,6 @@ public sealed class ContextImageTrustCheckTests
     }
 
     [Fact]
-    public async Task ContextImageTrustCheck_ScopedContexts_JudgesOnlyTheKeptOnes()
-    {
-        var pipeline = new PipelineContext();
-        PreflightInventories.Seed(pipeline, Repo,
-            new RemoteContextDiscovery("backend", ".", "scala", ToolchainImage: Refused),
-            new RemoteContextDiscovery("web", "web", "node"));
-        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<string>>>(ContextKeys.ScopedContexts,
-            new Dictionary<string, IReadOnlyList<string>> { [Repo] = ["web"] });
-
-        var finding = await Check().RunAsync(pipeline, CancellationToken.None);
-
-        finding.Verdict.Should().Be(RunPreflightVerdict.Pass, "the scoped-out context gets no sandbox");
-    }
-
-    [Fact]
     public async Task ContextImageTrustCheck_RepoScopedOut_IsNotJudged()
     {
         var pipeline = new PipelineContext();

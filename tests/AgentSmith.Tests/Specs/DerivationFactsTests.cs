@@ -119,8 +119,6 @@ public sealed class DerivationFactsTests
         draft.Facts.Should().BeEmpty();
         draft.Assumptions.Should().BeEmpty();
         draft.Yaml.Should().Contain("unsettled:").And.Contain(CouldNotRun).And.NotContain("facts:");
-        SpecPremises.For(draft).Claims.Should().NotContain(c => c.Contains("could not run"),
-            "a tool that runs later is not the code contradicting the spec");
     }
 
     [Theory]

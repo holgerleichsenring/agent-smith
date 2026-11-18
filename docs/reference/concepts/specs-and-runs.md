@@ -246,7 +246,7 @@ Real numbers from actual pipeline runs. Costs depend on model choice, codebase s
 When codeably processes a ticket:
 
 1. **Specify** — cuts the ticket into specs on the ticket branch and posts the cut to the ticket
-2. **Execute** — works one spec at a time, after checking the spec's premises
+2. **Execute** — works one spec at a time; the master reads the code the spec touches and finds out whether its premises hold
 3. **Verify** — runs the repository's declared verify stages and takes the [delivery account](../../how-it-works/delivery-account.md) per spec
 4. **Record** — writes the spec record, then `result.md` with the account, cost and decision data
 5. **PR** — commits everything and finalizes one PR per repository
@@ -255,7 +255,7 @@ The PR reviewer sees not just the code changes but also:
 
 - The specification the run worked from, spec by spec
 - Which criteria the branch meets, with the evidence for each
-- What the spec review still finds, and what the run declined
+- What the run declined
 - How much it cost, and what decisions it made and why
 
 This transparency is the point. When the agent's code breaks later, you'll know what it was thinking.

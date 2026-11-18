@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-9c1cb
+
+decisions:
+  - category: Architecture
+    chose: "Delete ReviewSpecs, CheckSpecPremises, the derivation's cut review and the contradiction checker outright, with every class only they used (found by reference count, iterated to a fixpoint)"
+    over: "Turning them off by setting (spec_review.rounds 0, a premise-check flag)"
+    reason: "The operator's rule: one master owns the outcome; only mechanical checks and the human stop or redirect it. A switched-off judge is a second path that waits to be switched on again."
+  - category: Behaviour
+    chose: "ContradictionHandbackGate stays and is mechanical: an uncited contradiction is asked again and parks on the last attempt; a cited one parks"
+    over: "Deleting the gate with the checker"
+    reason: "Whether a hand-back cites a look the derivation took is a citation that must resolve — mechanical. Whether the claim holds is the person's to answer on the parked ticket."
+  - category: Behaviour
+    chose: "ScopeRepos keeps the call (estimate, refusal, named contexts) and drops the narrowing of repositories and contexts; RepoScopeEvaluator, ContextScopeEvaluator, ScopedContextFilter, ApprovedRepoScope.Narrow/Kept/Settled and the keys RepoScopeRationale, ExpectedChangeRepos and ScopedContexts go"
+    over: "Keeping the narrowing for unapproved tickets"
+    reason: "A cheap model deciding which repositories the master may see redirects the master's work. The run keeps the approval's repositories, else the project's; the master opens what it needs (ensure_repo_sandbox). ExpectedChangeRepos and RepoScopeRationale had no reader. Its healthy summary stays a no-op line ('Repo scoping skipped: ...') because the step scopes nothing."
+  - category: Scope
+    chose: "SpecSequenceStop with its branch in SpecSequenceHandler and PipelineCompletedLine is deleted; its only writers were the review's park and budget stop"
+    over: "Leaving the reader branches dead"
+    reason: "Adversarial review: no writer is left, so the stop and the park splice can never fire."
+  - category: Scope
+    chose: "Kept for stored runs and other callers: the ReviewSpecs and CheckSpecPremises command names, labels, beats, step classes, model-use rows and dashboard section entries; SpecCutReviewedEvent and its projection; ReviewObjectionComment and the readers of a parked review-objection question; SpecCutReviewer (verify_series, the design turn's whole-set review), the attack reviewer, SpecCutReviser, SpecReviewPanel, SpecReviewRevision and SpecReviewRun (revise_spec, entry re-ground)"
+    over: "Deleting every class under Specs/Review"
+    reason: "Old runs render their steps, parked tickets still read and answer, and master-requested paths keep working. The tests build a stored review-objection question themselves (ReviewObjectionFixtures)."
+  - category: Scope
+    chose: "The look's stage-run capability (DerivationLookStages, VerifyStageRunTool, MayRunAStage) stays, without a product holder; the factory's premise-check look and its stage resolver go"
+    over: "Deleting the capability in this spec"
+    reason: "It is a capability, not a judge, and its removal reaches the look's constructor and many tests. Named follow-up: 'look stage run removed' deletes it or gives it a holder. VerifyStageRunLookTests now build the holder themselves."
+  - category: Scope
+    chose: "The scope prompt still asks for per-repository verdicts and expected changes, which nothing reads now"
+    over: "Trimming the prompt here"
+    reason: "Out of this spec's goal; named follow-up 'scope call returns estimate, refusal and named contexts only' trims the prompt and the parser."
+  - category: Testing
+    chose: "Tests whose subject was a deleted judge are deleted (review loop, exhaustion, park, series round, premise check family, contradiction checker, cut-review-per-attempt, demo review-objection runs); tests that exercised kept code through them are migrated; new: MasterFirstPresetTests, ScopeRepos keeps every repository (unit and harness), a cited contradiction parks with no second reading, a parsed cut is taken without a review call"
+    over: "Keeping the deleted classes' tests as dead fixtures"
+    reason: "A test of code that no longer exists proves nothing; the migrated ones pin what stays."

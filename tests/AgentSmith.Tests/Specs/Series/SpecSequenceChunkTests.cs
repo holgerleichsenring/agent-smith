@@ -103,50 +103,10 @@ public sealed class SpecSequenceChunkTests
         result.Message.Should().StartWith("The series settings are invalid: series.specs_per_attempt is 30");
     }
 
-    [Fact]
-    public async Task SpecSequence_StopAfterTheChunkEnd_DefersWithTheChunkReasonThenTheStopReason()
-    {
-        var pipeline = Pipeline(6, stop: new SpecSequenceStop(Ids(6)[4], "review share spent", Park: false));
-
-        var result = await Sequence(pipeline, new SeriesConfig { SpecsPerAttempt = 2 });
-
-        result.InsertNext!.Select(c => c.SpecId).Distinct().Should().Equal(Ids(6).Take(2));
-        Progress(pipeline).Specs.Select(p => (p.NextAttempt, p.Note)).Should().Equal(
-            (false, null), (false, null),
-            (true, $"{Chunk} 2 spec(s) (series.specs_per_attempt and the wall clock left)"),
-            (true, $"{Chunk} 2 spec(s) (series.specs_per_attempt and the wall clock left)"),
-            (true, "review share spent"), (true, "review share spent"));
-    }
-
-    [Fact]
-    public async Task SpecSequence_ParkStopBeyondTheChunkEnd_DeferredNotParked()
-    {
-        var pipeline = Pipeline(4, stop: new SpecSequenceStop(Ids(4)[3], "the review's objection stands", Park: true));
-
-        var result = await Sequence(pipeline, new SeriesConfig { SpecsPerAttempt = 2 });
-
-        result.InsertNext!.Select(c => c.Name).Should().NotContain(CommandNames.SpecHandback);
-        Progress(pipeline).Specs.Should().NotContain(p => p.State == SpecRunState.HandedBack);
-        Progress(pipeline).Specs.Skip(2).Should().OnlyContain(p => p.NextAttempt && p.Note!.StartsWith(Chunk));
-    }
-
-    [Fact]
-    public async Task SpecSequence_ReviewStopBeforeTheChunkEnd_SplicesOnlyTheSpecsBeforeTheStop()
-    {
-        var pipeline = Pipeline(24, stop: new SpecSequenceStop(Ids(24)[3], "review share spent", Park: false));
-
-        var result = await Sequence(pipeline);
-
-        result.InsertNext!.Select(c => c.SpecId).Distinct().Should().Equal(Ids(24).Take(3));
-        Progress(pipeline).Specs.Skip(3).Should().OnlyContain(p => p.NextAttempt && p.Note == "review share spent");
-        Progress(pipeline).StoppedAtChunk.Should().BeFalse("nothing is built yet");
-        result.Message.Should().Contain($"stopping before {Ids(24)[3]}: review share spent");
-    }
-
     private static IReadOnlyList<string> Ids(int count) =>
         [.. Enumerable.Range(0, count).Select(i => $"2026-10-14-5678{(char)('a' + i)}")];
 
-    private static PipelineContext Pipeline(int count, int executed = 0, SpecSequenceStop? stop = null)
+    private static PipelineContext Pipeline(int count, int executed = 0)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SpecSet, new SpecSet(
@@ -154,7 +114,6 @@ public sealed class SpecSequenceChunkTests
             [.. Ids(count).Select(id => new DerivedSpec(new SpecDraft(id, $"Goal of {id}", $"spec: {id}", []), id, string.Empty, []))],
             SpecAccounting.Empty, [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)], SpecSource.BranchArtifact,
             ExecutedSpecIds: [.. Ids(count).Take(executed)]));
-        if (stop is not null) pipeline.Set(ContextKeys.SpecSequenceStop, stop);
         return pipeline;
     }
 

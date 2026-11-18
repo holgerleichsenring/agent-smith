@@ -19,7 +19,7 @@ public sealed class SpecReviewConfig
     public int BudgetSharePercent { get; set; } = 40;
 
     /// <summary>2026-11-12-cd4ch: whether a design turn's proposal gets one advisory review pass after the turn.
-    /// Off, only the mechanical evidence check runs there; the run reviews every spec before it is built.
+    /// Off, only the mechanical evidence check runs there (2026-11-18-9c1cb: no run reviews a spec before its master).
     /// 2026-11-12-7c1c: on by default.</summary>
     public bool DesignTurn { get; set; } = true;
 

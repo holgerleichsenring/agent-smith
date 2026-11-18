@@ -15,7 +15,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets.Conversation;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using static AgentSmith.Tests.Specs.Review.ReviewExhaustionTests;
+using static AgentSmith.Tests.Specs.Review.ReviewObjectionFixtures;
 using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 
 namespace AgentSmith.Tests.Specs.Review;
@@ -28,7 +28,7 @@ namespace AgentSmith.Tests.Specs.Review;
 public sealed class ReviewObjectionThreadTests
 {
     private static readonly DateTimeOffset Later = new(2026, 10, 14, 11, 0, 0, TimeSpan.Zero);
-    private static readonly SpecHandback Question = ReviewObjectionQuestion.For([Objection(First), Objection(Second)]);
+    private static readonly SpecHandback Question = ReviewObjectionFixtures.For(First, Second);
 
     [Fact]
     public void Comment_ReviewObjection_HeadsWithItsOwnMarkerAndNamesEachSpec()
@@ -101,22 +101,6 @@ public sealed class ReviewObjectionThreadTests
         var old = manifest.Serialize(set with { Handback = reading });
         old.Should().NotContain("handback_question_kind", "a reading question writes what it wrote before");
         manifest.HandbackOf(manifest.Parse(old)!)!.QuestionKind.Should().Be(SpecQuestionKind.Reading);
-    }
-
-    [Fact]
-    public void Question_ReviewObjection_SaysWhatSilenceDoes() =>
-        Question.Reason.Should().Contain("If nobody answers, it is not built: the next run reviews it again from fresh rounds");
-
-    [Fact]
-    public async Task Reviewer_GivenThePin_ItsPromptCarriesIt()
-    {
-        var rig = new ReviewLoopRig();
-        rig.Pipeline.Set(ContextKeys.SpecQuestionPin, "## A reviewer's objection the author did not answer");
-
-        await rig.ExecuteAsync(Settings());
-
-        rig.Inputs.Should().NotBeEmpty().And.OnlyContain(i => i.QuestionPin == rig.Pipeline.Get<string>(ContextKeys.SpecQuestionPin));
-        SpecAttackPrompt.For(rig.Inputs[0], null).Should().Contain("## A reviewer's objection the author did not answer");
     }
 
     [Fact]

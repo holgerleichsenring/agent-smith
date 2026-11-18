@@ -32,7 +32,7 @@ public sealed class VerifyStageRunLookTests
 
         var forbidden = Factory().OnTerms(
             pipeline, DerivationLookTerms.Derivation, Declared(Stage("build", Build)));
-        var allowed = Factory().ForPremiseCheck(pipeline);
+        var allowed = MayRun(pipeline);
 
         forbidden!.Tools.Select(tool => tool.Name).Should().NotContain(VerifyStageRunTool.Name,
             "the collaborator was supplied, and the TERM still withholds the tool");
@@ -56,7 +56,7 @@ public sealed class VerifyStageRunLookTests
     [Fact]
     public void Look_TheCutReview_HasNoStageRunTool()
     {
-        var look = Factory().ForCutReview(Run(new CountingSandbox(0), Stage("build", Build)));
+        var look = Factory().OnTerms(Run(new CountingSandbox(0), Stage("build", Build)), DerivationLookTerms.CutReview);
 
         DerivationLookTerms.CutReview.MayRunAStage.Should().BeFalse();
         look!.Tools.Select(tool => tool.Name).Should().NotContain(VerifyStageRunTool.Name,
@@ -64,10 +64,10 @@ public sealed class VerifyStageRunLookTests
     }
 
     [Fact]
-    public async Task Look_ThePremiseCheck_ResolvesStagesFromTheSandboxsOwnContexts()
+    public async Task Look_AHolderThatMayRun_ResolvesStagesFromTheSandboxsOwnContexts()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(sandbox, Stage("build", Build)))!;
+        var look = MayRun(Run(sandbox, Stage("build", Build)))!;
 
         var answer = await RunStage(look, Repo, "build");
 
@@ -80,7 +80,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_AStageThatCannotFail_TakesItsWholeRepositoryOutOfTheList()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(
+        var look = MayRun(Run(
             sandbox, Stage("build", "echo Build command placeholder"), Stage("test", Test)))!;
 
         var answer = await RunStage(look, Repo, "test");
@@ -95,7 +95,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_ALabelTheFilteringRemoved_IsRefusedWithoutChargingTheOneRun()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(
+        var look = MayRun(Run(
             sandbox, Stage("lint", "npm run lint", whenPresent: "package.json"),
             Stage("build", Build)))!;
 
@@ -116,7 +116,7 @@ public sealed class VerifyStageRunLookTests
         var pipeline = Run(sandbox);
         pipeline.Set(ContextKeys.RepoProjectMaps, (IReadOnlyDictionary<string, ProjectMap>)
             new Dictionary<string, ProjectMap> { [Repo] = MapInferring("make all", "make check") });
-        var look = Factory().ForPremiseCheck(pipeline)!;
+        var look = MayRun(pipeline)!;
 
         var answer = await RunStage(look, Repo, "build");
 
@@ -134,9 +134,9 @@ public sealed class VerifyStageRunLookTests
         var files = new InMemorySandboxFileReader();
         files.Files["/work/AgentSmith.sln"] = "solution";
         var sandbox = new CountingSandbox(0);
-        var look = Factory(new FixedReaderFactory(files)).ForPremiseCheck(Run(
+        var look = MayRun(Run(
             sandbox, Stage("lint", "npm run lint", whenPresent: "package.json"),
-            Stage("build", Build, whenPresent: "AgentSmith.sln")))!;
+            Stage("build", Build, whenPresent: "AgentSmith.sln")), new FixedReaderFactory(files))!;
 
         var refused = await RunStage(look, Repo, "lint");
         var ran = await RunStage(look, Repo, "build");
@@ -149,7 +149,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_AStageLabelTheRepositoryDidNotDeclare_IsRefusedWithoutRunning()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(sandbox, Stage("build", Build)))!;
+        var look = MayRun(Run(sandbox, Stage("build", Build)))!;
 
         var answer = await RunStage(look, Repo, "deploy");
 
@@ -162,7 +162,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_AStageRun_UsesTheCommandTheRepositoryDeclared()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(
+        var look = MayRun(Run(
             sandbox, Stage("build", Build), Stage("test", Test)))!;
 
         await RunStage(look, Repo, "test");
@@ -176,7 +176,7 @@ public sealed class VerifyStageRunLookTests
     [Fact]
     public async Task Look_AStageThatFailed_IsAdmissibleEvidence()
     {
-        var look = Factory().ForPremiseCheck(
+        var look = MayRun(
             Run(new CountingSandbox(exitCode: 1, output: "error CS0103"), Stage("build", Build)))!;
 
         var answer = await RunStage(look, Repo, "build");
@@ -190,7 +190,7 @@ public sealed class VerifyStageRunLookTests
     [Fact]
     public async Task Look_AStageThatTimedOut_IsNotAdmissible()
     {
-        var look = Factory().ForPremiseCheck(
+        var look = MayRun(
             Run(new TimingOutSandbox("partial output"), Stage("build", Build)))!;
 
         var answer = await RunStage(look, Repo, "build");
@@ -203,7 +203,7 @@ public sealed class VerifyStageRunLookTests
     [Fact]
     public async Task Look_AStageWhoseSandboxThrew_IsNotAdmissibleAndDoesNotPropagate()
     {
-        var look = Factory().ForPremiseCheck(
+        var look = MayRun(
             Run(new ThrowingSandbox(new TimeoutException("no result")), Stage("build", Build)))!;
 
         var answer = await RunStage(look, Repo, "build");
@@ -218,7 +218,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_ASecondStageRunInOneCheck_IsRefused()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(
+        var look = MayRun(Run(
             sandbox, Stage("build", Build), Stage("test", Test)))!;
 
         var first = await RunStage(look, Repo, "build");
@@ -234,7 +234,7 @@ public sealed class VerifyStageRunLookTests
     {
         var output = "HEAD-MARKER" + new string('x', VerifyCommandRunner.OutputTailChars)
             + "TAIL-MARKER";
-        var look = Factory().ForPremiseCheck(
+        var look = MayRun(
             Run(new CountingSandbox(exitCode: 1, output: output), Stage("build", Build)))!;
 
         var answer = await RunStage(look, Repo, "build");
@@ -246,7 +246,7 @@ public sealed class VerifyStageRunLookTests
     [Fact]
     public async Task Look_AStageRunsMintedLine_CarriesTheCommandAndTheExitAndNotTheOutput()
     {
-        var look = Factory().ForPremiseCheck(
+        var look = MayRun(
             Run(new CountingSandbox(exitCode: 1, output: "SECRET-OUTPUT"), Stage("build", Build)))!;
 
         await RunStage(look, Repo, "build");
@@ -264,7 +264,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_AStageRunAndARead_DrawOnOneAllowance()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(sandbox, Stage("build", Build)))!;
+        var look = MayRun(Run(sandbox, Stage("build", Build)))!;
         var read = new RepositoryFileReadTool(
             look, new FixedReaderFactory(new InMemorySandboxFileReader()), NullLogger.Instance);
 
@@ -283,7 +283,7 @@ public sealed class VerifyStageRunLookTests
     public async Task Look_AStageRun_RunsAtTheVerifyCeilingNotAStepDefault()
     {
         var sandbox = new CountingSandbox(0);
-        var look = Factory().ForPremiseCheck(Run(sandbox, Stage("build", Build)))!;
+        var look = MayRun(Run(sandbox, Stage("build", Build)))!;
 
         await RunStage(look, Repo, "build");
 
@@ -299,12 +299,26 @@ public sealed class VerifyStageRunLookTests
     {
         var pipeline = Run(new CountingSandbox(0), Stage("build", Build), Stage("test", Test));
 
-        var mayRun = DerivationLookPromptSection.Render(Factory().ForPremiseCheck(pipeline));
-        var mayNot = DerivationLookPromptSection.Render(Factory().ForCutReview(pipeline));
+        var mayRun = DerivationLookPromptSection.Render(MayRun(pipeline));
+        var mayNot = DerivationLookPromptSection.Render(Factory().OnTerms(pipeline, DerivationLookTerms.CutReview));
 
         mayRun.Should().Contain("a run of ONE verify stage a repository declared")
             .And.Contain($"- {Repo} (declared verify stages you may run by label: build, test)");
         mayNot.Should().NotContain("verify stage").And.Contain($"- {Repo}");
+    }
+
+    /// <summary>2026-11-18-9c1cb: a holder that may run a stage, its declaration read off the run the way the premise
+    /// check's was — the premise check, its only product holder, is gone; the capability is kept for the next one.</summary>
+    private static DerivationLook? MayRun(PipelineContext pipeline, ISandboxFileReaderFactory? files = null)
+    {
+        pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map);
+        var resolver = new ContextVerifyStagesResolver();
+        var declared = ((IEnumerable<string>?)map?.Keys ?? []).ToDictionary(
+            key => key, key => resolver.For(pipeline, key), StringComparer.Ordinal);
+        var stages = new DerivationLookStages(new VerifyStageResolver(
+                new DeclaredStagePresence(files ?? new StubSandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
+                NullLogger<VerifyStageResolver>.Instance), declared);
+        return Factory(files).OnTerms(pipeline, DerivationLookTerms.CutReview with { Actor = "stage check", MayRunAStage = true }, stages);
     }
 
     private static async Task<string> RunStage(DerivationLook look, string repository, string label)

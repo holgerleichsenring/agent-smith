@@ -34,11 +34,9 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
-    public async Task ScopeRepos_TicketNamesOneRepo_NarrowsCheckoutAndSandboxes()
+    public async Task ScopeRepos_TicketNamesOneRepo_KeepsEveryRepository()
     {
-        // A confident classification narrows ContextKeys.Repos — the single seam
-        // CheckoutSource and PipelineSandboxCoordinator (and CommitAndPR) all
-        // re-read, so this IS the checkout+sandbox narrowing.
+        // 2026-11-18-9c1cb: the scope call names one repository; the run keeps all three and the master scopes itself.
         var pipeline = NewPipeline("server", "client", "encrypter");
         var handler = Handler(
             """
@@ -51,73 +49,14 @@ public sealed class ScopeReposHandlerTests
         var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        repos.Should().ContainSingle().Which.Name.Should().Be("server");
-        // The pre-checkout inventory is cached for the coordinator (all repos,
-        // pre-narrowing — a later escalation to 'client' must hit the cache too).
+        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Select(r => r.Name)
+            .Should().Equal(["server", "client", "encrypter"]);
         pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
                 ContextKeys.RemoteContextInventory, out var inventory)
             .Should().BeTrue();
         inventory!.Keys.Should().BeEquivalentTo("server", "client", "encrypter");
-    }
-
-    [Fact]
-    public async Task ScopeRepos_LowConfidenceExclusion_KeepsTheDoubtedRepo()
-    {
-        // p0386: a below-floor exclusion is fail-open PER REPO — the doubted
-        // repo stays, and the kept doubt is visible on the record.
-        var pipeline = NewPipeline("server", "client");
-        var handler = Handler(
-            """
-            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
-                       {"name": "client", "affected": false, "confidence": 0.4}],
-             "rationale": "Might be server-only."}
-            """);
-
-        var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
-            .Should().HaveCount(2, "a doubted exclusion must keep the repo");
-        pipeline.Get<string>(ContextKeys.RepoScopeRationale)
-            .Should().Contain("kept client").And.Contain("below floor");
-    }
-
-    [Theory]
-    [InlineData("not json at all", "no parseable")]
-    [InlineData("""{"repos": [{"name": "ghost-repo", "affected": true, "confidence": 0.99}]}""", "ignored unknown repo")]
-    [InlineData("""{"repos": []}""", "empty repo list")]
-    public async Task ScopeRepos_UnusableClassification_KeepsAllRepos(
-        string reply, string expectedReason)
-    {
-        var pipeline = NewPipeline("server", "client");
-        var handler = Handler(reply);
-
-        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
-
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(2);
-        pipeline.Get<string>(ContextKeys.RepoScopeRationale).Should().Contain(expectedReason);
-    }
-
-    [Fact]
-    public async Task ScopeRepos_RationaleRecordedAsRunArtifact()
-    {
-        var pipeline = NewPipeline("server", "client");
-        var handler = Handler(
-            """
-            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
-                       {"name": "client", "affected": false, "confidence": 0.9}],
-             "rationale": "Only the server exposes this endpoint."}
-            """);
-
-        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
-
-        // Named context key for programmatic consumers…
-        var rationale = pipeline.Get<string>(ContextKeys.RepoScopeRationale);
-        rationale.Should().Contain("server").And.Contain("Only the server exposes this endpoint.");
-        // …and a decision entry so result.md + the dashboard render the scope call.
-        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions).Should().BeTrue();
-        decisions!.Should().ContainSingle(d => d.Category == "scope" && d.Decision == rationale);
+        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions);
+        (decisions ?? []).Should().NotContain(d => d.Category == "scope", "nothing was narrowed, so there is no scope decision");
     }
 
     [Fact]
@@ -255,9 +194,6 @@ public sealed class ScopeReposHandlerTests
         // …and SCOPING stayed out of it: nothing narrowed, nothing dropped, nothing
         // demanded — while the inventory the coordinator reads is still built.
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(1);
-        pipeline.Has(ContextKeys.RepoScopeRationale).Should().BeFalse();
-        pipeline.Has(ContextKeys.ExpectedChangeRepos).Should().BeFalse();
-        pipeline.Has(ContextKeys.ScopedContexts).Should().BeFalse();
         pipeline.Has(ContextKeys.RemoteContextInventory).Should().BeTrue();
         _chatClient!.InvocationCount.Should().Be(1, "estimating costs the one call, not a second");
     }
@@ -289,7 +225,6 @@ public sealed class ScopeReposHandlerTests
         var named = pipeline.Get<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts);
         named.Contexts.Should().Equal("frontend", "backend");
         named.Rationale.Should().Contain("dependency auditing");
-        pipeline.Has(ContextKeys.ScopedContexts).Should().BeFalse("naming is not narrowing");
     }
 
     [Fact]
@@ -309,7 +244,7 @@ public sealed class ScopeReposHandlerTests
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
         _chatClient!.InvocationCount.Should().Be(1);
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().ContainSingle();
+        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(2, "2026-11-18-9c1cb: nothing narrows");
         pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
         shape!.Shape.Should().Be(WorkShape.Judgement);
     }
@@ -356,8 +291,7 @@ public sealed class ScopeReposHandlerTests
                 AgentSmithConfig.Empty(), events.Object,
                 NullLogger<ScopeEstimateRecorder>.Instance),
             new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance),
-            NullLogger<ScopeReposHandler>.Instance);
+            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)

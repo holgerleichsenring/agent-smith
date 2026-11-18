@@ -21,8 +21,7 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// 2026-10-12-3a36b: a contradiction hand-back through the real deriver, the real call and the
 /// real function-invoking client. An uncited one is asked for again and, on the last attempt,
-/// parks unchecked rather than falling through; a cited one is put to the checker with the looks
-/// it cites; a refutation buys one more attempt, and a second contradiction is not checked again.
+/// parks rather than falling through. 2026-11-18-9c1cb: a cited one parks — no second model reads it.
 /// </summary>
 public sealed class ContradictionHandbackDerivationTests
 {
@@ -32,15 +31,13 @@ public sealed class ContradictionHandbackDerivationTests
     public async Task SpecSetDeriver_ContradictionWithoutCites_IsReAsked()
     {
         var provider = new StepProvider(Contradiction(cites: null), Cut());
-        var checker = new HandbackTestDoubles.StandingChecker();
 
-        var (derivation, error) = await Derive(provider, checker);
+        var (derivation, error) = await Derive(provider);
 
         error.Should().BeNull();
         derivation!.Set.IsHandedBack.Should().BeFalse("the second answer cut specs");
         provider.Prompts.Should().HaveCount(2);
         provider.Prompts[1].Should().Contain("cites no evidence");
-        checker.Asked.Should().BeEmpty("an uncited contradiction is asked for again, never checked");
     }
 
     [Fact]
@@ -48,15 +45,13 @@ public sealed class ContradictionHandbackDerivationTests
     {
         var provider = new StepProvider(
             Contradiction(cites: null), Contradiction(cites: "\"L9\""), Contradiction(cites: null));
-        var checker = new HandbackTestDoubles.StandingChecker();
 
-        var (derivation, error) = await Derive(provider, checker);
+        var (derivation, error) = await Derive(provider);
 
         error.Should().BeNull();
-        derivation.Should().NotBeNull("an uncited contradiction parks unchecked, never the one-spec fallback");
+        derivation.Should().NotBeNull("an uncited contradiction parks, never the one-spec fallback");
         derivation!.Set.Handback!.Case.Should().Be(SpecHandbackCase.RequirementsContradictRepository);
         provider.Prompts[2].Should().Contain("L9").And.Contain("names no look");
-        checker.Asked.Should().BeEmpty();
     }
 
     [Fact]
@@ -64,63 +59,31 @@ public sealed class ContradictionHandbackDerivationTests
     {
         var provider = new StepProvider(Contradiction(cites: null), "not json", "not json");
 
-        var (derivation, error) = await Derive(provider, new HandbackTestDoubles.StandingChecker());
+        var (derivation, error) = await Derive(provider);
 
         error.Should().BeNull("the hand-back is what the run gets, not a rejection to report");
         derivation!.Set.IsHandedBack.Should().BeTrue("the attempts ran out behind it, and it still parks");
     }
 
     [Fact]
-    public async Task SpecSetDeriver_CitedContradiction_IsCheckedWithItsLooksAndParks()
+    public async Task SpecSetDeriver_CitedContradiction_ParksWithNoSecondReading()
     {
-        var provider = new StepProvider(Search("ShipmentId"), Contradiction(cites: "[\"L1\"]"));
-        var checker = new HandbackTestDoubles.StandingChecker();
+        var provider = new StepProvider(Search("ShipmentId"), Contradiction(cites: "[\"L1\"]"), Cut());
 
-        var (derivation, _) = await Derive(provider, checker);
-
-        derivation!.Set.Handback!.Cites.Should().ContainSingle().Which.Should().StartWith("[L1] ");
-        checker.Asked.Should().ContainSingle().Which.Cited.Should().ContainSingle()
-            .Which.Id.Should().Be("L1");
-    }
-
-    [Fact]
-    public async Task SpecSetDeriver_RefutedContradiction_IsAskedAgainWithTheRefutation()
-    {
-        var provider = new StepProvider(
-            Search("ShipmentId"), Contradiction(cites: "L1"), Search("ShipmentId"),
-            Contradiction(cites: "L2"), Search("x"), Contradiction(cites: "L3"), Cut());
-        var checker = new HandbackTestDoubles.StandingChecker(
-            new ContradictionCheck(true, "the request declares ShipmentId", "[C1] Sample.Server: read"));
-
-        var (derivation, _) = await Derive(provider, checker);
-
-        checker.Asked.Should().ContainSingle("a second contradiction after a refutation is not checked again");
-        provider.Prompts[1].Should().Contain("refutes it").And.Contain("[C1] Sample.Server: read");
-        derivation!.Set.IsHandedBack.Should().BeTrue("the second contradiction parks unchecked");
-    }
-
-    [Fact]
-    public async Task SpecSetDeriver_RefutedOnTheLastAttempt_GetsOneMoreAttempt()
-    {
-        var provider = new StepProvider(
-            "not json", "not json", Search("ShipmentId"), Contradiction(cites: "L1"), Cut());
-        var checker = new HandbackTestDoubles.StandingChecker(
-            new ContradictionCheck(true, "the request declares ShipmentId", "[C1] Sample.Server: read"));
-
-        var (derivation, error) = await Derive(provider, checker);
+        var (derivation, error) = await Derive(provider);
 
         error.Should().BeNull();
-        derivation!.Set.IsHandedBack.Should().BeFalse("the refutation bought a fourth attempt, which cut specs");
+        derivation!.Set.Handback!.Cites.Should().ContainSingle().Which.Should().StartWith("[L1] ");
+        provider.Prompts.Should().ContainSingle("a cited contradiction parks on the first answer; nothing refutes it");
     }
 
     private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(
-        StepProvider provider, IContradictionChecker checker)
+        StepProvider provider)
     {
         var deriver = new SpecSetDeriver(
-            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            HandbackTestDoubles.Gate(checker), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), AgentSmith.Tests.TestSupport.ReferenceCarryDoubles.Materializer(), NullLogger<SpecSetDeriver>.Instance);
+            HandbackTestDoubles.Gate(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), AgentSmith.Tests.TestSupport.ReferenceCarryDoubles.Materializer(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)
             new Dictionary<string, ISandbox> { [Repo] = new CountingSandbox(0, "Server/SubmitAssetsRequest.cs:3") });
@@ -181,14 +144,6 @@ public sealed class ContradictionHandbackDerivationTests
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
         public void Dispose() { }
-    }
-
-    private sealed class CleanReviewer : ISpecCutReviewer
-    {
-        public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
-            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
-            => Task.FromResult(SpecCutReview.Clean);
     }
 
     private sealed class FixedPrompt : IPromptCatalog

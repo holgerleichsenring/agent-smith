@@ -17,13 +17,9 @@ Speculation surfaces; it doesn't get to pass as fact. And the framework enforces
 
 There is one coding pipeline, `code`. Its shape is simple to say: the ticket becomes a specification, and the specification is worked spec by spec, each spec checked before the next one starts.
 
-**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of specs on the ticket branch — goal, steps, "done when" per spec. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). A fresh reviewer objects to the cut before it is kept. When several specs share names, data or files, the series carries a contract that says who owns what, and a cut that collides is sent back. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
-
-**Attack each spec before building it.** Before the master starts, fresh reviewers open the code and answer BUILD, BUILD WITH CUTS or REFUSE for every spec no review has ended clean on in its exact text. Cuts are applied and the next round attacks the revised text, for up to four rounds, inside a share of the run's budget. A spec that still has no clean review is asked on the ticket, and only an explicit answer builds it as it stands. See [the code pipeline](../reference/pipelines/fix-and-feature.md#the-spec-review-before-building).
+**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of specs on the ticket branch — goal, steps, "done when" per spec. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). When several specs share names, data or files, the series carries a contract that says who owns what, and a cut that collides is sent back. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
 
 **Hand it back instead of guessing.** A ticket that reads two ways, contradicts the repository, or can't be built as written is handed back at derivation, before any code. A ticket that asks for something that must not be done is refused even earlier, by the scope call, before a sandbox exists.
-
-**Check the premises before each spec.** A spec states what it rests on. Before its work starts, a fresh instance checks those premises against the repositories as they are now — it can run one of the verify stages the repository declares, by its label. A premise that no longer holds hands the spec back with what was looked at. The check reports; it never rewrites the specification.
 
 **One master, real commands.** The `coding-agent-master` skill leads the spec's work: the code is edited and the repo's own build and tests are run via real commands, visible in the run timeline.
 
@@ -55,13 +51,11 @@ The specification itself lives next to the code: one YAML spec and one Markdown 
 
 The evidence contract is the first mitigation. A finding without a file:line citation is a `Potential` observation by definition, and a claimed citation of a file nobody read is downgraded. The agent can still be wrong about the file:line it points at — but you can check, which is a much weaker class of failure than "the agent invented a function name".
 
-The second is role separation. The instance that judges the work is never the one that did it: the cut reviewer and the premise check start fresh, and the master that checks a spec did not write its code — it looks at what its sub-agent built instead of asking it. Asking the author whether it is done is persuasion; looking at the branch is not.
+The second is role separation. The instance that judges the work is never the one that did it: the master that checks a spec did not write its code — it looks at what its sub-agent built instead of asking it. Asking the author whether it is done is persuasion; looking at the branch is not.
 
 ## Why this order
 
 Spec before code: agree on the WHAT while it's still cheap to disagree. Every correction you make to the cut is an argument you don't have on the PR.
-
-Premises before work: a spec can go stale between the day it was cut and the day its spec runs. Checking costs one look; building on a false premise costs the spec.
 
 Verification after every spec, not once at the end: each spec ends at its own done-list, so stopping is structural rather than a judgement the model has to reach, and a run that stops half way knows exactly which specs are through.
 

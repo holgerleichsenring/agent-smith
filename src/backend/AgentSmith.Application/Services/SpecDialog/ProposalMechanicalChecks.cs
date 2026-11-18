@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// <summary>
 /// 2026-11-12-cd4ci: what a design turn's proposal is checked for when no review pass runs — read, no model call: a
 /// spec's or an epic's cited files, a ticket list's ticket:&lt;id&gt; requirements and (2026-11-17-5701a) its specs'
-/// cited files. The run reviews every spec before it is built either way.
+/// cited files. 2026-11-18-9c1cb: no run reviews a spec before its master builds it.
 /// </summary>
 public sealed class ProposalMechanicalChecks(
     ProposalEvidenceReview evidence, TicketPlanReview plans, ILogger<ProposalMechanicalChecks> logger)

@@ -10,7 +10,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using static AgentSmith.Tests.Specs.Review.ReviewExhaustionTests;
+using static AgentSmith.Tests.Specs.Review.ReviewObjectionFixtures;
 using static AgentSmith.Tests.Specs.Review.ReviewLoopRig;
 
 namespace AgentSmith.Tests.Specs.Review;
@@ -92,7 +92,7 @@ public sealed class ReviewObjectionSourceTests
 
     private static SpecSet Asked() => TwoSpecs() with
     {
-        Handback = ReviewObjectionQuestion.For([Objection(First)]),
+        Handback = ReviewObjectionFixtures.For(First),
         TicketFingerprint = TicketTextFingerprint.Of(Ticket()),
     };
 

@@ -256,9 +256,7 @@ public sealed class SpecHandbackTests
     public async Task InlineRun_NoParkStatus_AsksInsteadOfFailing()
     {
         var tickets = new Mock<ITicketProvider>();
-        var objection = Application.Services.Specs.Review.ReviewObjectionQuestion.For(
-            [new Application.Services.Specs.Review.StandingObjection("2026-11-02-1234a",
-                [new AgentSmith.Contracts.Events.SpecReviewFinding("The handler does not exist.", "src/H.cs:1")])]);
+        var objection = Review.ReviewObjectionFixtures.For("2026-11-02-1234a");
         var pipeline = PipelineWith(objection);
         pipeline.Set(ContextKeys.InlineTicket, new AgentSmith.Contracts.Models.InlineTicket("t", "d"));
         var gate = InlineHandbackAskTests.Answering(string.Empty, by: "system");

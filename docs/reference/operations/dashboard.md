@@ -134,7 +134,6 @@ Every refusal is a `409` with one body, `{reason, text, project, ticketId}`. `re
 <figcaption>The ticket list, grouped by who acts next. <strong>List | Graph</strong> switches to the dependency graph.</figcaption>
 </figure>
 
-
 - **Needs you**: the newest attempt is parked. A question is answered in place, and **Send & resume attempt n** resumes that attempt. A hand-back shows the words it posted and leads into the ticket's conversation in Work it out, because there is no paused run to resume.
 - **Working**: an attempt is running or waits for capacity.
 - **Waiting on review**: a pull request is open and a person owns the next move. The row names the review decision and who made it, and says when a request for changes came from someone who is not a trusted reviewer.
@@ -171,7 +170,7 @@ Beside the section's heading stand **Cancel run n** while an attempt runs, and *
 
 When the tracker's text no longer states what the approved specs say, a notice names the goals it lost and offers **Discuss in the conversation** or **Overwrite the tracker from the specs** (a `ticket-body` run).
 
-**Specs** shows the ticket's specs as they are on its branch: per spec its goal, the steps as worked, **Done when** with each criterion's state, the review rounds before it was built, its build note and its revisions. It's read-only. A spec changes through the conversation, never by hand, and a filed ticket that never ran shows the set on its branch. The section ends with the derivations, their duration, and **Derive again**.
+**Specs** shows the ticket's specs as they are on its branch: per spec its goal, the steps as worked, **Done when** with each criterion's state, its build note and its revisions. It's read-only. A spec changes through the conversation, never by hand, and a filed ticket that never ran shows the set on its branch. The section ends with the derivations, their duration, and **Derive again**.
 
 <figure class="cb-shot" markdown>
 ![The Specs section: specs read from the branch agent-smith/41 with steps, Done when and revisions](../../assets/screenshots/ticket-specs.png)

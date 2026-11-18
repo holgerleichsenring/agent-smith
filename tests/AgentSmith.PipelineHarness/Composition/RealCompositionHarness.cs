@@ -185,15 +185,6 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.RemoveAll<ISpecCutReviewer>();
         services.AddSingleton<HarnessSpecCutReviewer>();
         services.AddSingleton<ISpecCutReviewer>(sp => sp.GetRequiredService<HarnessSpecCutReviewer>());
-        // 2026-09-17-0e79c: the premise check is a framework call too, and stands down the same way.
-        services.RemoveAll<ISpecPremiseChecker>();
-        services.AddSingleton<HarnessSpecPremiseChecker>();
-        services.AddSingleton<ISpecPremiseChecker>(
-            sp => sp.GetRequiredService<HarnessSpecPremiseChecker>());
-        // 2026-10-12-3a36b: and so is the contradiction check.
-        services.RemoveAll<IContradictionChecker>();
-        services.AddSingleton<HarnessContradictionChecker>();
-        services.AddSingleton<IContradictionChecker>(sp => sp.GetRequiredService<HarnessContradictionChecker>());
         services.RemoveAll<Application.Services.Scans.IFindingRefuter>(); // p0429
         services.AddSingleton<Application.Services.Scans.IFindingRefuter, HarnessFindingRefuter>();
 

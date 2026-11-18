@@ -66,7 +66,6 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
             {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
             {SpecExecutionPromptBlocks.StaleCitations(pipeline)}
-            {Specs.PremiseCorrection.PromptBlock(pipeline)}
             {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), series.Current().Series.BuildNoteMaxChars, set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
             {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}{Specs.ApprovalOwnerWordsSection.For(pipeline)}
 

@@ -9,7 +9,7 @@ entry-point via an init container. Server and agent communicate via Redis — no
 ## Pieces
 
 - **Server-Pod** — `AgentSmith.Server` orchestrates the pipeline. Creates the
-  sandboxes after `ScopeRepos` has decided which repos the run touches, pushes Steps
+  sandboxes for the repos in the run's scope, pushes Steps
   to Redis, reads Results.
 - **Sandbox-Pod** — runs the user-selected toolchain image with the agent binary
   mounted via shared `emptyDir`. The agent polls Redis, executes Steps, streams
@@ -89,7 +89,7 @@ unusual UIDs override via `SandboxSpec.SecurityContext`.
 
 ## Lifecycle
 
-1. `ScopeRepos` narrows the project to the repos the ticket touches.
+1. The run's scope is the repos an approved spec names, otherwise the project's; `ScopeRepos` does not narrow it.
 2. For each repo the coordinator reads its contexts and resolves a toolchain image per
    context, in this order: `projects.<name>.sandbox.toolchain_image`,
    `projects.<name>.sandbox.images.<language>`, the context's `stack.image` (only if it
