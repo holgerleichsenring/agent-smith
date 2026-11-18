@@ -20,6 +20,7 @@ import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { NewWorkComposer } from "@/components/home/HomeComposer";
+import { pickable } from "@/lib/installation";
 import { NewWorkHead } from "@/components/home/HomeView";
 import "@/styles/spec-dialog.css";
 import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
@@ -246,7 +247,7 @@ export function SpecDialogSurface() {
   const ticketProjects = resolved?.projects.length ? resolved.projects : pickedTicket?.projects ?? [];
   const fromTicket = ticketProjects.length === 1 ? ticketProjects[0] : "";
   const project =
-    picked || pendingTicket?.project || fromTicket || (projects.length === 1 ? projects[0].name : "");
+    picked || pendingTicket?.project || fromTicket || (pickable(projects).length === 1 ? pickable(projects)[0].name : "");
   // Several routed projects: the choice is narrowed to them, because the others are on trackers
   // that do not hold this ticket and would bind a different board's ticket of the same number.
   const offered =

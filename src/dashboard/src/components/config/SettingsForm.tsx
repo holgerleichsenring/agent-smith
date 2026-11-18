@@ -453,6 +453,16 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label="Approval timeout (seconds)" value={value.approvalTimeoutSeconds}
         onChange={(v) => set({ approvalTimeoutSeconds: keep(v, value.approvalTimeoutSeconds) })} testId="setting-dialogue-approval"
         help="when it elapses on a parked run, the persisted default answer applies" />
+      <TextField label="Dashboard address" value={value.dashboardUrl ?? ""} onChange={(v) => set({ dashboardUrl: v || null })}
+        mono testId="setting-dialogue-dashboard-url" help="a ticket comment that asks a question links to the run here" />
+      <TextField label="Admin assistant agent" value={value.adminAgent ?? ""} onChange={(v) => set({ adminAgent: v || null })}
+        mono testId="setting-dialogue-admin-agent" help="the configured agent the Agent Smith conversation runs on" />
+      <NumberField label="Admin read limit (rows)" value={value.adminReadLimit ?? 50}
+        onChange={(v) => set({ adminReadLimit: keep(v, value.adminReadLimit ?? 50) })} testId="setting-dialogue-admin-read-limit"
+        help="the most runs, events or calls one admin assistant read returns" />
+      <NumberField label="Admin result size (characters)" value={value.adminResultMaxChars ?? 40000}
+        onChange={(v) => set({ adminResultMaxChars: keep(v, value.adminResultMaxChars ?? 40000) })} testId="setting-dialogue-admin-result-chars"
+        help="the most characters one admin assistant tool result carries" />
       <NumberField label="Mock size (characters)" value={value.mockMaxChars}
         onChange={(v) => set({ mockMaxChars: keep(v, value.mockMaxChars) })} testId="setting-dialogue-mockchars"
         help="the longest HTML mock a design conversation keeps" />

@@ -17,7 +17,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(),
             new PrReviewDataFlow(),
-            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new MergeGreenDataFlow(), new RefreshBaseDataFlow(), new SeriesRunDataFlow(), new SeriesVerifyDataFlow()
+            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new AdminTurnDataFlow(), new ConfigDataFlow(), new SecretDataFlow(), new MergeGreenDataFlow(), new RefreshBaseDataFlow(), new DeployDataFlow(), new SeriesRunDataFlow(), new SeriesVerifyDataFlow()
         };
         var declaredNames = declared
             .Select(d => d.PresetName)
@@ -39,7 +39,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(),
             new PrReviewDataFlow(),
-            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new MergeGreenDataFlow(), new RefreshBaseDataFlow(), new SeriesRunDataFlow(), new SeriesVerifyDataFlow()
+            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new AdminTurnDataFlow(), new ConfigDataFlow(), new SecretDataFlow(), new MergeGreenDataFlow(), new RefreshBaseDataFlow(), new DeployDataFlow(), new SeriesRunDataFlow(), new SeriesVerifyDataFlow()
         };
 
         foreach (var flow in declared)

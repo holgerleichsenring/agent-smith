@@ -21,7 +21,7 @@ public static partial class CommandBeats
         [CommandNames.InitCommit] = RunBeat.Outcome,
         [CommandNames.PrCrossLink] = RunBeat.Outcome,
         [CommandNames.InitComplete] = RunBeat.Outcome,
-        [CommandNames.CompletePullRequests] = RunBeat.Outcome, [CommandNames.RefreshBranchBase] = RunBeat.Outcome, // 023fa, 023fb
+        [CommandNames.CompletePullRequests] = RunBeat.Outcome, [CommandNames.RefreshBranchBase] = RunBeat.Outcome, [CommandNames.DeployToEnvironment] = RunBeat.Outcome, // 023fa, 023fb, 3863c
         [CommandNames.CleanupWorkBranches] = RunBeat.Outcome, // 2026-11-17-713ec
         [CommandNames.PersistWorkBranch] = RunBeat.Outcome,
         [CommandNames.CollectSpecDialogReply] = RunBeat.Outcome,
@@ -35,6 +35,7 @@ public static partial class CommandBeats
         [CommandNames.OpenSeriesRun] = RunBeat.Outcome, [CommandNames.ReadSeries] = RunBeat.Ticket, // 2026-11-17-0207a
         [CommandNames.SeriesMaster] = RunBeat.Building, [CommandNames.PostSeriesStatus] = RunBeat.Outcome, [CommandNames.VerifySeries] = RunBeat.Verify, // 0207d
         [CommandNames.CloseTicket] = RunBeat.Outcome, // 2026-11-17-e061a
+        [CommandNames.ApplyConfigChanges] = RunBeat.Outcome, [CommandNames.WriteSecret] = RunBeat.Outcome, // f3a8c, f3a8d
         [CommandNames.ReopenTicket] = RunBeat.Outcome, [CommandNames.StartTicket] = RunBeat.Outcome,
         [CommandNames.AmendTicket] = RunBeat.Outcome, [CommandNames.PostTicketComments] = RunBeat.Outcome, // e061c
         [CommandNames.RenderTicketBody] = RunBeat.Outcome, // 2026-11-17-dd05b

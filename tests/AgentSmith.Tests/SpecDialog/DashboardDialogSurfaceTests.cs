@@ -194,7 +194,8 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         var result = await SpecDialogViewEndpoints.ReadAsync(
             Dialog, Caller("admins"), _ownership, Reader(), EnforcingScope(mapping), CancellationToken.None);
 
-        result.Should().BeOfType<Ok<SpecDialogView>>().Which.Value!.Projects.Select(p => p.Name).Should().Equal("sample");
+        result.Should().BeOfType<Ok<SpecDialogView>>().Which.Value!.Projects.Select(p => p.Name).Should().Equal(
+            "sample", AgentSmith.Contracts.Models.Configuration.InstallationScope.Name); // 2026-11-17-f3a8a: an admin is offered Agent Smith last
     }
 
     [Fact]

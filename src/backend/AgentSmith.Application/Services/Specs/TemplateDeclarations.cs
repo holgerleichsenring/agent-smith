@@ -37,6 +37,7 @@ public static class TemplateDeclarations
         for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
         {
             var template = project.Templates[ordinal];
+            // 2026-11-18-3863b: a deployment binding is selected like a code one, under its own template:deploy: address.
             if (!Admits(template, discovered, wanted)) continue;
             // 2026-09-15-6f8d: one address is opened once, by the declaration that OWNS it —
             // the statement the proof report reads too, over this same full list. Deciding it

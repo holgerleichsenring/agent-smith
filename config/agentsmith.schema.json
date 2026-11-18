@@ -332,6 +332,18 @@
           "type": "string",
           "description": "This deployment's dashboard address. A ticket comment that asks a question links to the run's page here; unset, it carries no link."
         },
+        "admin_agent": {
+          "type": "string",
+          "description": "The agent the admin assistant (Work it out > Agent Smith, admins only) runs on. Unset, the conversation says it names none."
+        },
+        "admin_read_limit": {
+          "type": "integer",
+          "description": "The most rows one admin assistant read returns (runs, events, calls). Default 50."
+        },
+        "admin_result_max_chars": {
+          "type": "integer",
+          "description": "The most characters one admin assistant tool result carries; prompts are read page by page in this size. Default 40000."
+        },
         "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
         "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
         "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." },
@@ -1144,7 +1156,32 @@
           "type": "string",
           "description": "The context inside the template this one is built after."
         },
-        "revision": { "type": "string", "description": "A branch, tag or sha." }
+        "revision": { "type": "string", "description": "A branch, tag or sha." },
+        "kind": {
+          "type": "string",
+          "enum": ["code", "deployment"],
+          "description": "2026-11-18-3863a: code (default) says how the context is built; deployment says how it is delivered."
+        },
+        "environments": {
+          "type": "array",
+          "description": "2026-11-18-3863a: a deployment binding's environments, by the names its template declares.",
+          "items": { "$ref": "#/$defs/deploymentEnvironment" }
+        }
+      }
+    },
+    "deploymentEnvironment": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "An environment the deployment template declares, e.g. test or prod." },
+        "repo": { "type": "string", "description": "A repo ref from the repos catalog holding the environment's manifest. Absent: the bound context's own repository." },
+        "approval": { "type": "boolean", "description": "true (default): agent-smith opens the delivery's pull request and a person merges it. false: agent-smith merges it in the project's merge mode." },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Values of the parameters the template declares. Secrets are never values here; the template names them."
+        }
       }
     },
     "triggerFields": {

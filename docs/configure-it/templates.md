@@ -32,6 +32,28 @@ projects:
 | `template_context` | the context inside that repo this one is built after |
 | `revision` | a tag, a branch or a commit sha. Empty means the template repo's default branch |
 
+A binding can also say how a context is *delivered* rather than built: `kind: deployment`, with the environments it delivers to.
+
+```yaml
+    templates:
+      - context: api
+        kind: deployment              # code (the default) or deployment
+        project: platform-templates
+        repo: delivery
+        template_context: k8s-gitops  # a context whose deployment.yaml says how an app of this kind is pushed
+        revision: v1.0.0
+        environments:
+          - name: test                # an environment the template declares
+            repo: gitops-test         # optional: a repo ref from the repos catalog holding the manifest
+            approval: false           # default true: a person merges the delivery's pull request
+            parameters: { image: registry.example.com/todolist-api, replicas: "1" }
+          - name: prod
+            repo: gitops-prod
+            parameters: { replicas: "3" }
+```
+
+An environment's `repo` comes from the repos catalog, not from this project's repos, so a GitOps repository is never checked out by the project's coding runs. Left out, it is the context's own repository. A context can have a code template and a deployment template at the same time; they are addressed `template:api` and `template:deploy:api`. Secrets are never values here: the template names them, and the delivery files reference them by name. [Deployment templates](deployment-templates.md) has the rest.
+
 A project can declare several templates, one per context it wants built after something. Two declarations that address the same template are listed and read once.
 
 ## In the studio
@@ -53,6 +75,8 @@ These are checked when you save in the studio, on import, and when a configurati
 - a `repo` with a wildcard in it (a template is one repository, a wildcard names a set nobody enumerated)
 - a `context_repo` that this project doesn't carry
 - a cycle, a project built after a project that is (directly or not) built after it
+- a `kind` other than `code` or `deployment`, and `environments` on a code binding
+- an environment without a name, two environments of one name, an environment `repo` with a wildcard, and one that doesn't resolve
 
 And a project that another project names as its template can't be deleted while that declaration exists.
 

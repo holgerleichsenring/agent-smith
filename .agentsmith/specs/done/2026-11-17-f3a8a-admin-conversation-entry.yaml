@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f3a8a
+goal: "An admin opens an 'Agent Smith' conversation in Work it out that runs an admin-turn pipeline on the installation, not a project; any other caller is refused."
+
+applies_to: "default (Server spec-dialog admission, turn routing, installation scope, admin-turn preset), dashboard (Work it out project picker)"
+
+facts:
+  - claim: "A dashboard message is admitted by DialogMessageScope.AdmitAsync on dialog.write in the named projects; the conversation is opened through SpecDialogScopeResolver, which answers ScopeUnknownProject for a name the catalog lacks."
+    evidence: "src/backend/AgentSmith.Server/Security/DialogMessageScope.cs, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogScopeResolver.cs"
+  - claim: "A design turn is SpecDialogTurnRunner running the spec-dialog preset through ExecutePipelineUseCase; it resolves the session's project from the catalog and throws for an unknown one."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnScope.cs"
+  - claim: "ExecutePipelineUseCase resolves a project from the catalog, or builds an ephemeral one when PipelineRequest.AgentName is set; ResolveRepos refuses a project with no repos."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+  - claim: "The master's message list is continued through DialogThreadSeed/ForwardedThreadCapture and the spec-dialog reply slot; CollectSpecDialogReply needs ContextKeys.MasterAnswer and ContextKeys.SpecDialogOutcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DialogSurfaceLimits.cs, src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs"
+  - claim: "Permissions are the unit and the admin role holds Permissions.All; operator and reader hold fixed bundles."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs, src/backend/AgentSmith.Server/Security/BuiltInRoles.cs"
+  - claim: "The dialog view's project list feeds both the Work it out picker and the home composer."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs, src/dashboard/src/components/home/useComposerProjects.ts"
+  - claim: "Operator decision 2026-11-17: admin-only; lives in Work it out as an 'Agent Smith' entry in the project picker and conversation list, same surface; non-admins get a clear refusal from the API; every config setting has its UI field."
+    evidence: "observed: 2026-11-17, operator brief for the admin assistant series"
+
+scope:
+  in: "Reserved conversation label '@agent-smith' (InstallationScope), refused as a project name; permission admin.assistant held by admin only; ProjectAccess holds the label only with admin.assistant, so every ProjectFrom route (runs, prompts, uploads, resume, view) and hub check answers 404 for anyone else, and a global holder's run list drops installation runs (ProjectScope excluding it); DialogMessageScope refuses the label before its global short-circuit with 403 and a reason; only the dashboard platform opens it; the view lists it after the projects for a holder (a default pick stays a project); an AdminTurnRunner beside the design runner, chosen by the label; installation project in ExecutePipelineUseCase (no catalog entry, the admin agent from dialogue.admin_agent, refused naming the key when unset or unknown); preset admin-turn [AdminAssistantTurn, CollectSpecDialogReply]; embedded admin-assistant-master prompt owned by the server; dialogue.admin_agent with its Dialogue settings field; dashboard label 'Agent Smith' wherever the label shows."
+  out: "Tools (f3a8b read, f3a8c config change, f3a8d secrets). Slack/Teams admin conversations. Moving the master into the skills catalog: its tools are the server's own and change with it."
+
+steps:
+  - id: scope
+    action: "Contracts InstallationScope (Name '@agent-smith', Is(name)); Permissions.AdminAssistant 'admin.assistant' in All; DialogMessageScope refuses a message naming or continuing an installation conversation without it (Refused with reason) and IngestAsync answers 403 {error}; SpecDialogScopeResolver resolves the label only when the caller says the platform is the dashboard."
+  - id: project
+    action: "InstallationProject.Build(config, pipeline) in Application: Name '@agent-smith', one synthetic local repo at EphemeralSource.NoSourcePath, Agent = config.Agents[dialogue.admin_agent] for admin-turn and a default AgentConfig for the master-less installation presets f3a8c/d add; ExecutePipelineUseCase.ResolveProject uses it for the label. DialogueGlobalConfig.AdminAgent (admin_agent), schema and docs."
+  - id: preset
+    action: "PipelinePresets.AdminTurn ('admin-turn'), CommandNames.AdminAssistantTurn, MasterFor '' , RunKindOf DesignTurn, not routable from triggers; display/progress/beat/step-class/model-use maps; data flow; context + builder; AdminAssistantTurnHandler: embedded system prompt, transcript user prompt, tools from IAdminToolSurface (Server, empty in this spec), activity + mid-turn wrappers, the dialog limits/thread; publishes MasterAnswer and an AnswerOutcome (drafts arrive in f3a8c). MasterFor maps admin-turn to admin-assistant-master; PromptOwnership declares it Embedded; Prompts/Resources recreated. ExecutePipelineUseCase grows by one line."
+  - id: runner
+    action: "AdminTurnRunner: seeds transcript, reply slot, thread, operator inbox, poster; runs admin-turn on the installation; checks the admin agent first and answers a notice naming dialogue.admin_agent when it is unset or unknown; ends through SpecDialogTurnEnding's run-id endings. ConversationAgent answers the admin agent for the label (digest writer, thread store). ConversationTurnRunner implements ISpecDialogTurnRunner and picks the admin or design runner by the label."
+  - id: dashboard
+    action: "View endpoint lists {name:'@agent-smith'} last for an admin.assistant holder; dashboard projectLabel() shows 'Agent Smith' in the picker, composer and conversation list, and the single-project auto-pick ignores the label; the Dialogue settings form gets an admin agent select over the configured agents."
+
+tests:
+  - "DialogMessageScope / endpoint: a reader or operator naming '@agent-smith' is refused with a reason; an admin is admitted; a Slack open of the label is unknown-project."
+  - "ExecutePipelineUseCase: '@agent-smith' with admin_agent unset or unknown is refused naming dialogue.admin_agent; set, the run's project is the installation with that agent."
+  - "Harness: an admin conversation turn runs admin-turn through the real composition with a scripted LLM, its reply is kept and the master saw the embedded admin prompt; a second turn continues the stored thread."
+  - "View: the label is listed first for an admin and absent for an operator."
+  - "ProjectAccess / scope: a reader holding runs.read globally gets 404 on an installation run and its prompt, and the run is absent from the run list; an admin sees both."
+  - "A project named '@agent-smith' is refused."
+  - "Dashboard: projectLabel and the admin agent select."
+
+done:
+  - "An admin picks 'Agent Smith' in Work it out and gets an answer from the admin-turn pipeline run on the installation; an operator or reader cannot open or post to one and is told why; dialogue.admin_agent is editable in the Dialogue settings."

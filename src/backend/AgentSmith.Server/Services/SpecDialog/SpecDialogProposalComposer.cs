@@ -18,6 +18,7 @@ public sealed class SpecDialogProposalComposer(
     public const string EpicKind = "epic";
     public const string TicketsKind = "tickets"; // 2026-10-14-dbcek
     public const string CommentKind = "comment"; // 2026-10-28-7a69c
+    public const string ConfigKind = "config"; // 2026-11-17-f3a8c
 
     /// <summary>The kind a proposal files as, or null for an answer, which files nothing.</summary>
     public static string? KindOf(OutcomeProposal? proposal) => proposal switch
@@ -27,6 +28,7 @@ public sealed class SpecDialogProposalComposer(
         EpicOutcome => EpicKind,
         TicketGraphOutcome => TicketsKind,
         TicketCommentOutcome => CommentKind,
+        ConfigChangeOutcome => ConfigKind,
         _ => null,
     };
 
@@ -78,6 +80,10 @@ public sealed class SpecDialogProposalComposer(
         TicketCommentOutcome comment => new(dialogId, CommentKind, Bug: null, Spec: null, Parent: null, Children: [], at)
         {
             Comment = comment.Comment,
+        },
+        ConfigChangeOutcome config => new(dialogId, ConfigKind, Bug: null, Spec: null, Parent: null, Children: [], at)
+        {
+            ConfigChanges = config.Changes, // 2026-11-17-f3a8c
         },
         _ => null,
     };

@@ -36,6 +36,9 @@ public sealed record SpecDialogProposalPush(
     /// </summary>
     public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
 
+    /// <summary>2026-11-17-f3a8c: the admin assistant's drafted configuration changes, in the order Apply applies them.</summary>
+    public IReadOnlyList<ConfigChangeItem>? ConfigChanges { get; init; }
+
     /// <summary>2026-10-13-8762i: every review round of the proposal's drafts.</summary>
     public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
 

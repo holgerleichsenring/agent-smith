@@ -1,5 +1,6 @@
 "use client";
 
+import { projectLabel } from "@/lib/installation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
@@ -153,7 +154,7 @@ function Conversation({
         <span className="dl-conv-title" title={title}>{title}</span>
         {/* The facts as one muted line of text, the outcome in its colour — no chips. */}
         <span className="dl-conv-meta">
-          <span data-testid={`dialog-conversation-project-${conversation.sessionId}`}>{conversation.project}</span>
+          <span data-testid={`dialog-conversation-project-${conversation.sessionId}`}>{projectLabel(conversation.project)}</span>
           {/* 2026-09-27-5c1eb: a conversation bound to a ticket says which one, the way the
               tracker spells it. */}
           {conversation.ticket && (

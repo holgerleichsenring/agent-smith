@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f3a8d
+
+decisions:
+  - category: Security
+    chose: "A plain AES-256-GCM envelope: a fresh 32-byte data key and 12-byte nonces per write, the value under the data key with 'as-secret/v1\\0name' as associated data, the data key wrapped under the master key with 'as-dek/v1\\0name\\0keyId', key buffers zeroed"
+    over: "ASP.NET Core Data Protection's key ring"
+    reason: "Review round 1: the key ring needs shared storage across replicas and its own protection at rest, its keys expire so a long-lived value would depend on old keys staying in the ring, it defaults to AES-CBC+HMAC, and it cannot hand data-key wrapping to Key Vault the way 2026-11-17-f3a8e needs. A fresh data key per write makes nonce reuse under one key impossible; the master key wraps one data key per write with a random nonce, far below the GCM bound. Swapping in an older copy of a row needs database write access and is accepted."
+  - category: Security
+    chose: "The master key comes from AGENTSMITH_SECRET_MASTER_KEY (base64 of 32 bytes) or AGENTSMITH_SECRET_MASTER_KEY_FILE (a mounted k8s Secret), with _PREVIOUS for reading after a rotation; its id is 'env:' + the first 16 hex of HMAC-SHA256(key, 'agentsmith/keyid')"
+    over: "A key in the database or in agentsmith.yml, or a plain hash prefix as the id"
+    reason: "Operator: the master key is never in the database. The key lives where the deployment is, so it has no settings field — it is deployment, not configuration. An HMAC id identifies the key without being a check value for a guessed one."
+  - category: Architecture
+    chose: "Precedence: the environment variable a secret reads wins when it holds a value; otherwise the value stored in the admin area. Stored values are opened once per configuration load inside ConfigSecretResolver, so a run and the masker read one generation"
+    over: "Stored values winning, or a separate lookup at use"
+    reason: "Operator: env vars are still read and win when present. Opening at load keeps the masker (CurrentSecretValues follows the load) in step with what runs resolve; review round 1 found that a separate lookup would let a new value reach a run unmasked."
+  - category: Security
+    chose: "Write-only, every write a 'secret' pipeline run through IActRun (set, delete, rewrap), the value in a SecretInput that renders as '[secret]', the request key excluded from checkpoints and removed from the run's context once read; values shorter than SecretMasker.MinimumMaskedLength are refused; the run reloads the store and signals other replicas"
+    over: "Writing the row from the endpoint"
+    reason: "Everything that writes is a pipeline run with a run id and audit. ActRun runs in process and is never queued, so the value only travels in memory; the run records who changed which secret and when. The masker skips values under six characters, so a shorter one would print unmasked."
+  - category: Implementation
+    chose: "Routes /api/config/secret-values (GET secrets.read; PUT/DELETE {name}, POST rewrap secrets.write); the studio's secret drawer shows the state and a password field; setting a value for a name the catalog lacks adds the catalog secret in the same run"
+    over: "Routes under /api/config/secrets/{id}"
+    reason: "A separate path keeps the entity routes and the value routes from colliding; the permission split is the existing secrets.read/secrets.write."
+  - category: Scope
+    chose: "Out: application secrets and sealed secrets (operator); Azure Key Vault as master key source (2026-11-17-f3a8e); agent API keys, which read their environment variable directly in the chat client builders (2026-11-18-9ae8); deleting a catalog secret leaves its stored value, listed as an orphan in the state with a Delete button"
+    over: "Folding them in"
+    reason: "Each is its own change; the orphan is visible and removable rather than silently kept."
+  - category: Scope
+    chose: "Adversarial review BUILD WITH CUTS applied: one generation for runs and masker, per-secret decrypt failure as a finding instead of a dead configuration, lower-cased names, versioned associated data, HMAC key id, zeroed buffers, rewrap semantics, seed excluded and removed, short values refused, route baseline"
+    over: "The first draft"
+    reason: "The first draft could let a new value reach a run unmasked and could empty the whole configuration on one bad row."

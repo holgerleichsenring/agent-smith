@@ -28,7 +28,7 @@ public static partial class PipelinePresets
         || string.Equals(pipelineName, FileName, StringComparison.OrdinalIgnoreCase)
         || string.Equals(pipelineName, SeriesRunName, StringComparison.OrdinalIgnoreCase) // 2026-11-17-0207a
         || string.Equals(pipelineName, SeriesVerifyName, StringComparison.OrdinalIgnoreCase) // 2026-11-17-0207d
-        || HostActSteps.ContainsKey(pipelineName);
+        || HostActSteps.ContainsKey(pipelineName) || InstallationSteps.ContainsKey(pipelineName);
 
     // 2026-11-17-e061a: the runs that act on a filed ticket, launched by the server with a request and an outcome slot.
     private const string HostActReason = "its run acts on a filed ticket with a request only the server's act supplies "
@@ -37,7 +37,8 @@ public static partial class PipelinePresets
     /// <summary>Why a label cannot start this preset, in the words a configuration finding uses;
     /// null for a preset a ticket can be routed to.</summary>
     public static string? NotRoutableBecause(string pipelineName) =>
-        NotRoutable.GetValueOrDefault(pipelineName) ?? (HostActSteps.ContainsKey(pipelineName) ? HostActReason : null);
+        NotRoutable.GetValueOrDefault(pipelineName) ?? (HostActSteps.ContainsKey(pipelineName) ? HostActReason : null)
+        ?? (InstallationSteps.ContainsKey(pipelineName) ? InstallationReason : null); // 2026-11-17-f3a8a
 
     private static readonly Dictionary<string, string> NotRoutable = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -50,6 +51,7 @@ public static partial class PipelinePresets
         [RefreshBaseName] = "it refreshes one open pull request after a landing, and the server starts it", // 2026-11-17-023fb
         [SeriesRunName] = "it beats a series run a filing opened, and the server starts it with the series' id", // 0207a
         [SeriesVerifyName] = "it checks a series whose tickets all landed, and the series' beat starts it", // 0207d
+        [DeployName] = "it delivers a version to an environment a person chose, and the server starts it", // 2026-11-18-3863c
         [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
             + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };

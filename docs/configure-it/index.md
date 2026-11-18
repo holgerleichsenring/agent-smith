@@ -71,6 +71,7 @@ The last two rows are the exceptions. `pipeline_triggers:` is stored and served 
 
 - [The Config studio](config-studio.md), the catalogs, the project drawer, and what the studio refuses to let you save.
 - [Project templates](templates.md), building one project's contexts after another project's.
+- [Deployment templates](deployment-templates.md), how a context is delivered: its files, environments and promotion.
 - [Settings](settings.md), the fourteen global groups and what each one actually changes.
 - [Design sources](design-sources.md), giving a project read access to its Figma designs.
 - [agentsmith.yml](yaml.md), the file itself: bootstrap, CLI, import/export, schema.

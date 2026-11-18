@@ -5,10 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Application.Services.Builders;
 
 /// <summary>
-/// Keyed context-builder registrations — one per pipeline command name. The
-/// KeyedContextBuilder wrapper lets CommandContextFactory resolve a builder by
-/// CommandNames.X without an open-generic factory. p0144: skill-manager
-/// context-builders retired alongside the handlers.
+/// Keyed context-builder registrations — one per pipeline command name. The KeyedContextBuilder wrapper lets
+/// CommandContextFactory resolve a builder by CommandNames.X without an open-generic factory (p0144).
 /// </summary>
 public static class ContextBuildersExtensions
 {
@@ -48,9 +46,11 @@ public static class ContextBuildersExtensions
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
         AddBuilder<PlanFilingContextBuilder>(services, CommandNames.PlanFiling); // 2026-11-17-5701b
         AddBuilder<FileTicketsContextBuilder>(services, CommandNames.FileTickets);
-        AddBuilder<OpenSeriesRunContextBuilder>(services, CommandNames.OpenSeriesRun); AddBuilder<ReadSeriesContextBuilder>(services, CommandNames.ReadSeries); // 0207a
-        AddBuilder<SeriesMasterContextBuilder>(services, CommandNames.SeriesMaster); AddBuilder<PostSeriesStatusContextBuilder>(services, CommandNames.PostSeriesStatus); AddBuilder<VerifySeriesContextBuilder>(services, CommandNames.VerifySeries);
+        SeriesRunContextBuilders.Add(services); // 2026-11-17-0207a, 0207d
         AddBuilder<CloseTicketContextBuilder>(services, CommandNames.CloseTicket); // 2026-11-17-e061a
+        AddBuilder<AdminAssistantTurnContextBuilder>(services, CommandNames.AdminAssistantTurn); // 2026-11-17-f3a8a
+        AddBuilder<ApplyConfigChangesContextBuilder>(services, CommandNames.ApplyConfigChanges); // 2026-11-17-f3a8c
+        AddBuilder<WriteSecretContextBuilder>(services, CommandNames.WriteSecret); // 2026-11-17-f3a8d
         AddBuilder<ReopenTicketContextBuilder>(services, CommandNames.ReopenTicket);
         AddBuilder<StartTicketContextBuilder>(services, CommandNames.StartTicket); // 2026-11-17-e061b
         AddBuilder<AmendTicketContextBuilder>(services, CommandNames.AmendTicket); // 2026-11-17-e061c
@@ -65,6 +65,7 @@ public static class ContextBuildersExtensions
         AddBuilder<CompletePullRequestsContextBuilder>(services, CommandNames.CompletePullRequests); // 2026-11-17-023fa
         AddBuilder<CleanupWorkBranchesContextBuilder>(services, CommandNames.CleanupWorkBranches); // 2026-11-17-713ec
         AddBuilder<RefreshBranchBaseContextBuilder>(services, CommandNames.RefreshBranchBase); // 2026-11-17-023fb
+        AddBuilder<DeployToEnvironmentContextBuilder>(services, CommandNames.DeployToEnvironment); // 2026-11-18-3863c
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);

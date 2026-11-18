@@ -1,0 +1,65 @@
+# 2026-11-18-3863c harness fixture: a project whose 'api' context is delivered after a GitOps deployment template.
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  app:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/app
+    auth: ""
+  delivery:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/delivery
+    auth: ""
+  gitops:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/gitops
+    auth: ""
+
+projects:
+  fixture-deploy:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [app]
+    templates:
+      - context: api
+        kind: deployment
+        project: fixture-platform
+        repo: delivery
+        template_context: k8s-gitops
+        revision: v1.0.0
+        environments:
+          - name: test
+            approval: false
+          - name: prod
+            repo: gitops
+  fixture-platform:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [delivery]
+
+secrets:
+  gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.0.0-harness"

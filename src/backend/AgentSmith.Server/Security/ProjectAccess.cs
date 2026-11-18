@@ -32,6 +32,7 @@ internal sealed class ProjectAccess(
     public bool HoldsIn(ClaimsPrincipal user, IReadOnlyList<string> permissions, string project)
     {
         var identity = identities.Resolve(user);
+        if (InstallationScope.Is(project)) return SeesInstallation(user) && AllIn(identity.Permissions, permissions); // f3a8a
         return AllIn(identity.Permissions, permissions)
                || (IsConfigured(project) && AllIn(identity.PermissionsIn(project), permissions));
     }
@@ -47,6 +48,13 @@ internal sealed class ProjectAccess(
         return [.. (configured ?? projects.All().Keys)
             .Where(project => identity.PermissionsIn(project).Contains(permission, StringComparer.Ordinal))];
     }
+
+    /// <summary>
+    /// 2026-11-17-f3a8a: whether the installation's own conversations and runs exist for this caller — the admin
+    /// assistant's grant, held globally; everyone when nothing is enforced.
+    /// </summary>
+    public bool SeesInstallation(ClaimsPrincipal user) =>
+        !Enforcing || identities.Resolve(user).Permissions.Contains(Permissions.AdminAssistant, StringComparer.Ordinal);
 
     private bool IsConfigured(string project) => projects.All().Keys.Contains(project, ConfigNames.Comparer);
 

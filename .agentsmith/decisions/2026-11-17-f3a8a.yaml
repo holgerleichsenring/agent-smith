@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f3a8a
+
+decisions:
+  - category: Architecture
+    chose: "The admin assistant is a Work it out conversation on a reserved label '@agent-smith', run by an AdminTurnRunner beside the design runner (ConversationTurnRunner picks by label), reusing the session, thread, gate, activity, mid-turn inbox and run-id endings"
+    over: "A separate admin chat surface and store, or the design partner with extra tools"
+    reason: "Operator decision 2026-11-17: same conversation surface, same design-partner style, admin tools. Reusing the spec-dialog machinery is the 'no second path' answer; AgenticMasterHandler (681 lines, sandbox-bound) was not reused — the admin turn has its own small handler over the same IAgenticLoopRunner, thread seed and mid-turn wrapper."
+  - category: Architecture
+    chose: "A synthetic installation project in ExecutePipelineUseCase for the label: one synthetic repo at EphemeralSource.NoSourcePath, the agent dialogue.admin_agent names for admin-turn, a default agent for master-less installation runs"
+    over: "PipelineRequest.AgentName's ephemeral CLI project, or a configured project"
+    reason: "The installation is not a project; the ephemeral CLI path names itself 'cli-scan' and needs an agent for every run. ExecutePipelineUseCase sits one line under its file-length baseline, so the branch is one line."
+  - category: Security
+    chose: "A new permission admin.assistant (admin role only, never project-scopable); ProjectAccess holds the label only with it, so every ProjectFrom route, the hub and the run lists (ProjectScope.EverythingBut) hide installation runs and conversations from everyone else; DialogMessageScope refuses the label with 403 and a reason before its global short-circuit; only the dashboard platform opens it"
+    over: "Gating only the message route, or reusing config.write"
+    reason: "Review round 1: an admin turn's run, prompts and uploads were reachable through runs.read/ProjectFrom routes, which a reader holds globally; enforcement belongs in the one place every site asks. The permission is the unit (p0503a), so an org chart re-bundles it in config."
+  - category: Implementation
+    chose: "The master prompt admin-assistant-master is embedded in the server (Prompts/Resources, PromptOwnership Embedded)"
+    over: "A master skill in the skills catalog"
+    reason: "Its tools are the server's own and change with the server; a catalog master would need a skills release and pin for every tool change. PromptResourceOwnershipTests keep the name out of the catalog."
+  - category: Implementation
+    chose: "dialogue.admin_agent names the agent; unset or unknown answers a notice naming the key; the Dialogue settings form gets the field (and dashboard_url, which had none)"
+    over: "Picking the first or only configured agent"
+    reason: "No heuristic for missing data; operator requirement 2026-11-17 23:20: every config setting has its dashboard field."
+  - category: Implementation
+    chose: "The label is listed after the projects in the view, and a default pick (single-project auto-pick, the home composer) never lands on it"
+    over: "Listing it first"
+    reason: "Review round 1: an admin with one project would otherwise lose the auto-pick and new work would default into the admin conversation."
+  - category: Implementation
+    chose: "A project name starting with '@' is a blocking configuration finding"
+    over: "Allowing a project named '@agent-smith'"
+    reason: "The label would name two things and gate a project behind the admin grant."
+  - category: Scope
+    chose: "Adversarial review BUILD WITH CUTS applied before code: ProjectAccess-level gating (runs, prompts, uploads, resume), refusal before the global short-circuit, digest writer agent for the label, answer-only outcome until f3a8c, MasterFor maps the embedded master, one-line ExecutePipelineUseCase change, auto-pick, '@' project names"
+    over: "Building the first draft"
+    reason: "Every cut closes a leak or a crash the first draft had."

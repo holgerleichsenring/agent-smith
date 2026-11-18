@@ -20,8 +20,12 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// broken config was already stored.
 /// </para>
 /// </summary>
-public sealed class ProjectTemplateResolver(ProjectRepoResolver repoResolver)
+public sealed class ProjectTemplateResolver(ProjectRepoResolver repoResolver, DeploymentEnvironmentResolver environments)
 {
+    /// <summary>2026-11-18-3863a: the composition the loader builds by hand, without a container.</summary>
+    public ProjectTemplateResolver(ProjectRepoResolver repoResolver)
+        : this(repoResolver, new DeploymentEnvironmentResolver(repoResolver)) { }
+
     public IReadOnlyList<ProjectTemplate> Resolve(
         string project,
         IReadOnlyList<RawTemplateEntry> raws,
@@ -34,8 +38,7 @@ public sealed class ProjectTemplateResolver(ProjectRepoResolver repoResolver)
         if (raws.Count == 0) return [];
 
         var references = raws
-            .Select(r => new TemplateReference(
-                r.Context, r.Project, r.Repo, r.TemplateContext, r.Revision, r.ContextRepo))
+            .Select(TemplateReferenceOf)
             .ToList();
         var repoRefsByProject = rawProjects.ToDictionary(
             kv => kv.Key,
@@ -69,7 +72,20 @@ public sealed class ProjectTemplateResolver(ProjectRepoResolver repoResolver)
                 + $"'{raw.Repo}' of project '{raw.Project}', which does not resolve to a repository"));
             return null;
         }
-        return new ProjectTemplate(
-            raw.Context, raw.TemplateContext, raw.Revision, repos[0], raw.ContextRepo);
+        return WithEnvironments(project, raw, repos[0], catalogs, findings);
     }
+
+    // 2026-11-18-3863a: a deployment binding carries its environments; a code binding carries none.
+    private ProjectTemplate? WithEnvironments(
+        string project, RawTemplateEntry raw, RepoConnection repo, ConfigCatalogs catalogs, List<StartupFinding> findings)
+    {
+        var resolved = environments.Resolve(project, raw, catalogs, findings);
+        if (resolved is null) return null;
+        var kind = TemplateKinds.IsDeployment(raw.Kind) ? TemplateKinds.Deployment : TemplateKinds.Code;
+        return new ProjectTemplate(raw.Context, raw.TemplateContext, raw.Revision, repo, raw.ContextRepo, kind, resolved);
+    }
+
+    private static TemplateReference TemplateReferenceOf(RawTemplateEntry raw) =>
+        new(raw.Context, raw.Project, raw.Repo, raw.TemplateContext, raw.Revision, raw.ContextRepo, raw.Kind,
+            raw.Environments is null ? null : [.. raw.Environments.Select(e => new DeploymentEnvironmentReference(e.Name, e.Repo))]);
 }

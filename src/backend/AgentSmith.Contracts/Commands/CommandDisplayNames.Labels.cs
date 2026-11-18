@@ -40,7 +40,7 @@ public static partial class CommandDisplayNames
         ["PlanOpenQuestionsCommand"] = "Post Plan open questions",
         [CommandNames.Approval] = "Await approval",
         [CommandNames.AgenticExecute] = "Execute plan",
-        [CommandNames.AgenticMaster] = "Run master skill",
+        [CommandNames.AgenticMaster] = "Run master skill", [CommandNames.AdminAssistantTurn] = "Run the admin assistant", [CommandNames.ApplyConfigChanges] = "Apply configuration changes", [CommandNames.WriteSecret] = "Write a secret value", // f3a8a, c, d
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
         [CommandNames.GroundSpecDialog] = "Ground the design conversation",
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",
@@ -56,7 +56,7 @@ public static partial class CommandDisplayNames
         [CommandNames.CommitAndPR] = "Create pull request",
         [CommandNames.InitCommit] = "Commit init files",
         [CommandNames.PrCrossLink] = "Cross-link sibling pull requests",
-        [CommandNames.InitComplete] = "Complete the init pull requests", [CommandNames.CompletePullRequests] = "Merge the pull requests", [CommandNames.RefreshBranchBase] = "Merge the landed base", // 023fa, 023fb
+        [CommandNames.InitComplete] = "Complete the init pull requests", [CommandNames.CompletePullRequests] = "Merge the pull requests", [CommandNames.RefreshBranchBase] = "Merge the landed base", [CommandNames.DeployToEnvironment] = "Deliver the version to the environment", // 023fa, 023fb, 3863c
         [CommandNames.CleanupWorkBranches] = "Remove finished branches", // 2026-11-17-713ec
         [CommandNames.GenerateTests] = "Generate tests",
         [CommandNames.GenerateDocs] = "Generate docs",

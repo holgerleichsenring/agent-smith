@@ -28,7 +28,7 @@ export function DialogDecisionBar({
       </span>
       {decision.approvable && (
         <button type="button" data-testid="dialog-file" className="btn primary" onClick={() => onDecide("approve")}>
-          File
+          {decision.action ?? "File"}
         </button>
       )}
       <button type="button" data-testid="dialog-discard" className="btn" onClick={() => onDecide("reject")}>

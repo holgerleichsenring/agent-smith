@@ -19,4 +19,5 @@ public enum SpecDialogTurnKind
     TicketGraphProposal = 8,
     Digest = 9,
     CommentProposal = 10, // 2026-10-28-7a69c
+    ConfigChangeProposal = 11, // 2026-11-17-f3a8c: the admin assistant's drafted configuration changes
 }

@@ -9,7 +9,17 @@ namespace AgentSmith.Infrastructure.Persistence.Contracts;
 /// </summary>
 public sealed class ProjectScope
 {
-    private ProjectScope(IReadOnlyList<string>? only) => Only = only;
+    private ProjectScope(IReadOnlyList<string>? only, IReadOnlyList<string>? hidden = null)
+    {
+        Only = only;
+        Hidden = hidden ?? [];
+    }
+
+    /// <summary>2026-11-17-f3a8a: every project but these — a global holder who may not see the installation.</summary>
+    public static ProjectScope EverythingBut(params string[] hidden) => new(null, hidden);
+
+    /// <summary>The names left out of every project; empty for a scope that names its projects or hides none.</summary>
+    public IReadOnlyList<string> Hidden { get; }
 
     /// <summary>Every project — the query unchanged.</summary>
     public static ProjectScope Everything { get; } = new(null);
@@ -21,7 +31,8 @@ public sealed class ProjectScope
 
     public static ProjectScope Of(IEnumerable<string> names) => new([.. names]);
 
-    public bool Admits(string name) => Only is null || Only.Contains(name, ConfigNames.Comparer);
+    public bool Admits(string name) =>
+        !Hidden.Contains(name, StringComparer.Ordinal) && (Only is null || Only.Contains(name, ConfigNames.Comparer));
 
     /// <summary>
     /// A request naming one project inside this scope: blank keeps the scope, every project narrows to the name as
@@ -30,6 +41,7 @@ public sealed class ProjectScope
     public ProjectScope Narrowed(string? requested)
     {
         if (string.IsNullOrEmpty(requested)) return this;
+        if (!Admits(requested) && Only is null) return Of([]);
         if (Only is null) return Single(requested);
         var own = Only.FirstOrDefault(name => ConfigNames.AreSame(name, requested));
         return own is null ? Of([]) : Single(own);

@@ -17,9 +17,17 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <paramref name="Context"/> belongs to, when two of them declare that name and each wants
 /// its own template. Null means "wherever that name is", which is every declaration written
 /// before the field existed.</param>
+/// <param name="Kind">2026-11-18-3863a: <see cref="TemplateKinds.Code"/> or <see cref="TemplateKinds.Deployment"/>.</param>
+/// <param name="Environments">2026-11-18-3863a: a deployment binding's environments; empty for a code binding.</param>
 public sealed record ProjectTemplate(
     string Context,
     string TemplateContext,
     string? Revision,
     RepoConnection Repo,
-    string? ContextRepo = null);
+    string? ContextRepo = null,
+    string Kind = TemplateKinds.Code,
+    IReadOnlyList<DeploymentEnvironment>? Environments = null)
+{
+    /// <summary>Whether this binding says how the context is delivered rather than how it is built.</summary>
+    public bool IsDeployment => TemplateKinds.IsDeployment(Kind);
+}

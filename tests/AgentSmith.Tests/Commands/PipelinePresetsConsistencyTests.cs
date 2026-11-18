@@ -28,6 +28,8 @@ public sealed class PipelinePresetsConsistencyTests
         if (presetName == PipelinePresets.SeriesRunName) return;
         // 2026-11-17-e061a: an act on a filed ticket reads no skill either.
         if (PipelinePresets.NotRoutableBecause(presetName)?.Contains("filed ticket") == true) return;
+        // 2026-11-17-f3a8a: a run on the installation reads no skill; its master is embedded in the server.
+        if (PipelinePresets.RunsOnInstallation(presetName)) return;
         preset[0].Should().Be(CommandNames.LoadCatalog,
             $"preset '{presetName}' must bind the skill catalog as its first visible step (p0205)");
     }

@@ -36,6 +36,7 @@ internal static class SpecDialogEndpoints
         // 2026-10-15-4a4db: a conversation of a project the caller holds no dialog.write in does not exist for them.
         var admission = await ctx.RequestServices.GetRequiredService<Security.DialogMessageScope>()
             .AdmitAsync(ctx.User, body.DialogId, body.Project, body.Text, ctx.RequestAborted);
+        if (admission.Refusal is { } refusal) return Results.Json(new { error = refusal }, statusCode: StatusCodes.Status403Forbidden);
         if (!admission.Admitted) return Results.NotFound();
         var ownership = ctx.RequestServices.GetRequiredService<SpecDialogOwnership>();
         var owner = ownership.OwnerOf(ctx.User);

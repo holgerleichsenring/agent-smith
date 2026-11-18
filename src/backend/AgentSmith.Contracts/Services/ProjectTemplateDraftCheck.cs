@@ -47,9 +47,11 @@ public static class ProjectTemplateDraftCheck
     }
 
     /// <summary>Whether this binding says enough to be judged at all.</summary>
+    // 2026-11-18-3863a: an environment row without a name is a row being typed, like an empty binding.
     private static bool IsAnswered(TemplateReference t) =>
         !string.IsNullOrWhiteSpace(t.Context) && !string.IsNullOrWhiteSpace(t.Project)
-        && !string.IsNullOrWhiteSpace(t.Repo) && !string.IsNullOrWhiteSpace(t.TemplateContext);
+        && !string.IsNullOrWhiteSpace(t.Repo) && !string.IsNullOrWhiteSpace(t.TemplateContext)
+        && (t.Environments ?? []).All(e => !string.IsNullOrWhiteSpace(e.Name));
 
     private static IReadOnlyList<string> Targets(IReadOnlyList<TemplateReference>? templates) =>
         templates is null ? [] : [.. templates.Select(t => t.Project).Distinct(ConfigNames.Comparer)];

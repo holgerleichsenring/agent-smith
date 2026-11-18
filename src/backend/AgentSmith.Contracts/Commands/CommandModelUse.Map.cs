@@ -51,6 +51,8 @@ public static partial class CommandModelUse
             ModelUse.Loop, "project-bootstrap", "context + principles files (schema: bootstrap)"),
         [CommandNames.AgenticMaster] = new(
             ModelUse.Loop, "", "the master's own declared output_schema"),
+        [CommandNames.AdminAssistantTurn] = new( // 2026-11-17-f3a8a
+            ModelUse.Loop, PipelinePresets.AdminAssistantMaster, "the reply to the admin, with what it drafted"),
         // 2026-11-17-0207a: the series master's loop over the series' facts and acts, when something needs judgement.
         [CommandNames.SeriesMaster] = new(
             ModelUse.Loop, "series-master", "acts on member tickets and a line for the conversation"),
@@ -90,11 +92,12 @@ public static partial class CommandModelUse
         CommandNames.PlanFiling, CommandNames.FileTickets, // 2026-11-17-5701b
         CommandNames.OpenSeriesRun, CommandNames.ReadSeries, CommandNames.PostSeriesStatus, // 2026-11-17-0207a
         CommandNames.CloseTicket, CommandNames.ReopenTicket, CommandNames.StartTicket, // 2026-11-17-e061a, e061b
+        CommandNames.ApplyConfigChanges, CommandNames.WriteSecret, // 2026-11-17-f3a8c, f3a8d
         CommandNames.AmendTicket, CommandNames.PostTicketComments, // 2026-11-17-e061c
         CommandNames.RenderTicketBody, CommandNames.RetargetPullRequests, // 2026-11-17-dd05b, 9a39c
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
-        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests, CommandNames.RefreshBranchBase,
+        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests, CommandNames.RefreshBranchBase, CommandNames.DeployToEnvironment,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

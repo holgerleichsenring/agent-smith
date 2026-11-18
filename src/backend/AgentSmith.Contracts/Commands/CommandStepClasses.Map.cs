@@ -24,7 +24,7 @@ public static partial class CommandStepClasses
         ["GeneratePlanCommand"] = Milestone,     // retired p0394a; old records still classify
         [CommandNames.Approval] = Milestone,
         [CommandNames.AgenticExecute] = Milestone,
-        [CommandNames.AgenticMaster] = Milestone,
+        [CommandNames.AgenticMaster] = Milestone, [CommandNames.AdminAssistantTurn] = Milestone, [CommandNames.ApplyConfigChanges] = Milestone, [CommandNames.WriteSecret] = Milestone, // f3a8a, c, d
         [CommandNames.CommitSpecWork] = Milestone, // p0437
         [CommandNames.CheckSpecPremises] = Milestone, // 2026-09-17-0e79c: it can stop a spec
         [CommandNames.VerifySpec] = Milestone,
@@ -33,7 +33,7 @@ public static partial class CommandStepClasses
         [CommandNames.FileTickets] = Milestone, [CommandNames.SeriesMaster] = Milestone, [CommandNames.VerifySeries] = Milestone, // 5701b: it creates the tickets; 0207a: the series master acts
         [CommandNames.CloseTicket] = Milestone, [CommandNames.ReopenTicket] = Milestone, [CommandNames.StartTicket] = Milestone, // e061a-b
         [CommandNames.AmendTicket] = Milestone, [CommandNames.PostTicketComments] = Milestone, // 2026-11-17-e061c: the acts themselves
-        [CommandNames.RenderTicketBody] = Milestone, [CommandNames.RetargetPullRequests] = Milestone, // 2026-11-17-dd05b, 9a39c
+        [CommandNames.RenderTicketBody] = Milestone, [CommandNames.RetargetPullRequests] = Milestone, [CommandNames.DeployToEnvironment] = Milestone, // dd05b, 9a39c, 3863c
         [CommandNames.InitCommit] = Milestone,
         [CommandNames.GenerateTests] = Milestone, [CommandNames.GenerateDocs] = Milestone,
         [CommandNames.Triage] = Milestone,

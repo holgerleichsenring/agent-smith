@@ -35,6 +35,7 @@ internal static class OutcomeProposalJson
         EpicOutcome epic => new Dto("epic", null, null, epic.Parent, epic.Children, Contract: epic.Contract),
         TicketGraphOutcome graph => new Dto("tickets", null, null, null, null, Tickets: graph.Tickets),
         TicketCommentOutcome comment => new Dto(SpecDialogProposalComposer.CommentKind, null, null, null, null, Comment: comment.Comment),
+        ConfigChangeOutcome config => new Dto(SpecDialogProposalComposer.ConfigKind, null, null, null, null, Changes: config.Changes),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' cannot be stored on a session."),
     }) with
@@ -55,6 +56,7 @@ internal static class OutcomeProposalJson
         "epic" => new EpicOutcome(dto.Parent!, dto.Children!, dto.Contract),
         "tickets" => new TicketGraphOutcome(dto.Tickets!),
         SpecDialogProposalComposer.CommentKind => new TicketCommentOutcome(dto.Comment!),
+        SpecDialogProposalComposer.ConfigKind => new ConfigChangeOutcome(dto.Changes!), // 2026-11-17-f3a8c
         _ => throw new InvalidOperationException(
             $"Stored outcome JSON carries unknown kind '{dto.Kind}'."),
     }) with
@@ -92,5 +94,6 @@ internal static class OutcomeProposalJson
         IReadOnlyList<UploadProvenance>? Uploads = null, // 2026-11-04-96a0c: absent on an older row
         IReadOnlyList<AgentSmith.Contracts.Specs.ReviewedText>? ReviewedClean = null, // 2026-11-10-8e59: absent on an older row
         IReadOnlyList<OpenQuestion>? Questions = null, ProposalSpend? Spend = null, // 2026-11-10-d854a: absent on an older row
-        bool? OfferLed = null, string? FilingOffer = null); // 2026-11-15-bf77: absent on an older row
+        bool? OfferLed = null, string? FilingOffer = null, // 2026-11-15-bf77: absent on an older row
+        IReadOnlyList<ConfigChangeItem>? Changes = null); // 2026-11-17-f3a8c: config only
 }

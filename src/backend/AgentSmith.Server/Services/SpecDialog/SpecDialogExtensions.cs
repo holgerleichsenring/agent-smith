@@ -39,7 +39,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogResumer>();
         services.AddScoped<SpecDialogAnswerAdmission>();
         services.AddScoped<SpecDialogCommandHandler>();
-        services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>().AddSingleton<DesignTurnResourcesFactory>(); // 4778
+        Admin.AdminAssistantExtensions.AddConversationTurnRunners(services).AddSingleton<DesignTurnResourcesFactory>(); // 2026-11-17-f3a8a; 4778
         // 2026-09-13-ed5a: the declared templates the epic analysis may read, and the
         // provenance it stamps on the outcome for a filer that runs after they are gone.
         services.AddTransient<SpecDialogReadOnlyScopes>();
@@ -59,7 +59,7 @@ internal static class SpecDialogExtensions
             .AddSingleton<AgentSmith.Contracts.Tickets.ITicketCloseFailureClassifier, Tickets.Closing.TicketCloseFailureClassifier>();
         services.AddScoped<SpecDialogLatestOutcomeStore>().AddScoped<SpecDialogProposalContinuity>(); // 2026-11-09-9a98
         services.AddScoped<TicketAmendment>().AddScoped<Tickets.Body.TicketBodyOverwrite>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek, dd05b
-        services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
+        services.AddScoped<TicketFilingOutcomeSink>().AddScoped<IOutcomeSink, Admin.Config.OutcomeSinkRouter>(); // f3a8c
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
         // 2026-11-04-96a0a: the subject the master named a conversation with, stored by the keeper in
         // the same act that persists the turn. Scoped for the session repository's unit of work,

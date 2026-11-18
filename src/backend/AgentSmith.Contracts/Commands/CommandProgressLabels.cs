@@ -49,7 +49,7 @@ public static partial class CommandNames
         ["PlanOpenQuestionsCommand"] = "Posting Plan open questions",
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
-        [AgenticMaster] = "Running master skill",
+        [AgenticMaster] = "Running master skill", [AdminAssistantTurn] = "Running the admin assistant", [ApplyConfigChanges] = "Applying configuration changes", [WriteSecret] = "Writing a secret value", // f3a8a, c, d
         [LoadCachedCodeMap] = "Loading cached code map", [GroundSpecDialog] = "Grounding the design conversation",
         [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets", [OpenSeriesRun] = "Opening the series run", [ReadSeries] = "Reading the series", [SeriesMaster] = "Judging the series", [PostSeriesStatus] = "Reporting the series", [VerifySeries] = "Checking the series", // 2026-11-17-0207a
         [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [StartTicket] = "Starting the ticket",
@@ -60,7 +60,7 @@ public static partial class CommandNames
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
-        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", // 713ec, 023fa, 023fb
+        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", [DeployToEnvironment] = "Delivering the version to the environment", // 713ec, 023fa, 023fb, 3863c
         [GenerateTests] = "Generating tests", [GenerateDocs] = "Generating docs",
         [Triage] = "Triaging ticket",
         [SwitchSkill] = "Switching skill",

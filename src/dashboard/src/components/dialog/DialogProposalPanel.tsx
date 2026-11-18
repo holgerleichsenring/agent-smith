@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogConfigChanges } from "./DialogConfigChanges";
 import type {
   SpecDraftProposal,
   SpecDialogMock,
@@ -59,6 +60,7 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
         </div>
       )}
       {proposal.kind === "tickets" && <DialogProposalGraph proposal={proposal} />}
+      {proposal.kind === "config" && <DialogConfigChanges changes={proposal.configChanges ?? []} />}
       {proposal.kind === "comment" && proposal.comment && (
         <div data-testid="dialog-proposal-comment">
           <Label>A comment on the ticket — nothing starts</Label>

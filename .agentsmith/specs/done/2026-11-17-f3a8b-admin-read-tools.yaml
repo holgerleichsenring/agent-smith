@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f3a8b
+goal: "The admin assistant answers why a run stopped or where its cost went from curated read tools over the server's own records, citing ids and never a secret value."
+
+applies_to: "default (Server admin tool surface over the persistence model, config snapshot, startup findings)"
+
+requires: [2026-11-17-f3a8a]
+
+facts:
+  - claim: "Runs, steps, events, LLM calls (tokens, CachedTokensIn, CacheCreationTokensIn, cost, role, model), prompt records, decisions, attempts, approved series, proposals, PR review records and landings are EF entities of one AgentSmithDbContext shared by sqlite, SQL Server and Postgres; the prompt id of a call lives only in the LlmCallFinished event payload."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs, src/backend/AgentSmith.Contracts/Events/L2LlmEvents.cs"
+  - claim: "A stored prompt is read by PromptRecordReader.ReadAsync(runId, promptId)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Prompts/PromptRecordReader.cs"
+  - claim: "The effective configuration per project is ConfigSnapshotMapper's secret-free snapshot; startup findings are in-memory IStartupFindings."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs, src/backend/AgentSmith.Contracts/Services/IStartupFindings.cs"
+  - claim: "Tools are AIFunctions built with AIFunctionFactory.Create and return a string; the server keeps no in-process log buffer."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/IToolHost.cs"
+
+scope:
+  in: "Admin read tools in the Server behind IAdminToolSurface, each over an existing reader: list_runs (RunRepository, id cursor), read_run (GetRunDetailAsync: steps, calls, decisions, end), read_llm_calls (calls with prompt ids from RunStatisticsReader, totals by role/model folded in memory, cache read/write), read_run_events (TrailReader, type/step filters, seq cursor, curated fields), read_prompt (PromptRecordReader, block/offset cursor), read_ticket_records (TicketDetailReader, PR review records), read_config (ConfigSnapshotMapper over CurrentConfigSnapshot), read_secrets (names, present or missing), read_health (startup findings, recent system events, the answering replica). Every result passes SecretMasker over ISecretValues and BoundedResultTool; lists cap at dialogue.admin_read_limit, results at dialogue.admin_result_max_chars."
+  out: "Free SQL. A server log tail: the server keeps no log buffer; read_health gives the system event ring instead. Where a secret is referenced and its source (f3a8d). Proposal reads (read by session only, low value for debugging). Writes (f3a8c, f3a8d)."
+
+steps:
+  - id: reader
+    action: "One small tool class per area calling the existing readers; no new SQL beyond the run-id cursor; ordering by Id/Seq, sums folded in memory (sqlite cannot order DateTimeOffset or sum decimals); AdminToolJson renders compact camelCase JSON."
+  - id: tools
+    action: "AdminToolSurface composes the tools and wraps each in a masking function (SecretMasker.Apply over ISecretValues.All) and BoundedResultTool, so a value in an event payload, end detail or recorded prompt is masked at the source."
+  - id: prompt
+    action: "The embedded admin-assistant-master describes the tools, the evidence rule (cite run ids, step indexes, call ids) and what the assistant can and cannot see."
+  - id: limit
+    action: "DialogueGlobalConfig.AdminReadLimit (default 50) and AdminResultMaxChars (default 40000) with their Dialogue settings fields; no new hard-coded limit."
+
+tests:
+  - "AdminRecordReader over a migrated sqlite store: runs, steps, events filter, calls with totals, prompt cursor, ticket records."
+  - "Masking: a configured secret value seeded into an event payload, an end detail and a prompt block is absent from every tool result."
+  - "Harness: an admin asks why run X stopped and where its cost went; scripted tool calls read_run and read_llm_calls; the answer kept cites the run id and the results the model saw carry the end detail and per-role cost."
+
+done:
+  - "In an Agent Smith conversation the assistant can list and read runs, events, calls, prompts, decisions, ticket records, proposals, effective config, secret presence and health, citing ids, with no secret value reachable."

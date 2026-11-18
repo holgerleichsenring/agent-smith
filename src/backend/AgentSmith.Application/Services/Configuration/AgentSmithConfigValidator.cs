@@ -28,7 +28,7 @@ public sealed class AgentSmithConfigValidator(SkillsConfigValidator skills)
         ValidateProjectResolutionPresence(config.Projects, errors);
         ValidateRepoStrategySingleRepo(config.Projects, errors);
         ValidatePipelineOverrides(config.Projects, errors);
-        errors.AddRange([.. skills.Findings(config.Skills), .. SeriesConfigValidator.Findings(config), .. SpecReviewConfigValidator.Findings(config), .. PreconditionsConfigValidator.Findings(config), .. BranchCleanupConfigValidator.Findings(config), .. RepositoryNameConfigValidator.Findings(config), .. TicketsConfigValidator.Findings(config)]);
+        errors.AddRange([.. skills.Findings(config.Skills), .. SeriesConfigValidator.Findings(config), .. SpecReviewConfigValidator.Findings(config), .. PreconditionsConfigValidator.Findings(config), .. BranchCleanupConfigValidator.Findings(config), .. RepositoryNameConfigValidator.Findings(config), .. TicketsConfigValidator.Findings(config), .. ProjectNameConfigValidator.Findings(config)]);
         return errors;
     }
 

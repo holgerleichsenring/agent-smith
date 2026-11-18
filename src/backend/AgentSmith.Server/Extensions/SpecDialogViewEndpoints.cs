@@ -44,7 +44,7 @@ internal static class SpecDialogViewEndpoints
         var owner = ownership.OwnerOf(user);
         if (!await ownership.MayWatchAsync(dialogId, owner, cancellationToken))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
-        var view = await reader.ReadAsync(dialogId, cancellationToken);
+        var view = Services.Admin.AdminConversationEntry.Offered(await reader.ReadAsync(dialogId, cancellationToken), scopes.SeesInstallation(user));
         // 2026-10-15-4a4dd: a new conversation is offered only the projects where the caller holds dialog.write.
         var scope = scopes.For(user, Security.Permissions.DialogWrite);
         return Results.Ok(scope.Only is null ? view : view with { Projects = [.. view.Projects.Where(p => scope.Admits(p.Name))] });

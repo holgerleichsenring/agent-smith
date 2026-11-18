@@ -11,6 +11,7 @@ public static class ProjectScopeQueries
 {
     public static IQueryable<Run> Within(this IQueryable<Run> runs, ProjectScope scope) => scope.Only switch
     {
+        null when scope.Hidden.Count > 0 => Hiding(runs, scope.Hidden), // 2026-11-17-f3a8a
         null => runs,
         { Count: 1 } one => Equal(runs, one[0]),
         var projects => runs.Where(r => projects.Contains(r.Project)),
@@ -33,6 +34,9 @@ public static class ProjectScopeQueries
     /// <summary>A conversation not yet grounded on a project carries nothing of one, so it stays its owner's.</summary>
     public static IQueryable<SpecDialogSession> Within(this IQueryable<SpecDialogSession> sessions, ProjectScope scope) =>
         scope.Only is { } projects ? sessions.Where(s => s.Project == "" || projects.Contains(s.Project)) : sessions;
+
+    private static IQueryable<Run> Hiding(IQueryable<Run> runs, IReadOnlyList<string> hidden) =>
+        runs.Where(r => !hidden.Contains(r.Project));
 
     private static IQueryable<Run> Equal(IQueryable<Run> runs, string project) => runs.Where(r => r.Project == project);
 

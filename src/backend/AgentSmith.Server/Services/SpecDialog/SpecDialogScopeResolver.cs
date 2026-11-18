@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Models;
 
@@ -10,8 +11,12 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogScopeResolver(IConfigurationLoader configLoader)
 {
-    public ScopeResolution Resolve(string? requestedProject)
+    /// <param name="installation">2026-11-17-f3a8a: the dashboard may open the installation's own conversation; the
+    /// admission decided who.</param>
+    public ScopeResolution Resolve(string? requestedProject, bool installation = false)
     {
+        if (installation && InstallationScope.Is(requestedProject))
+            return new ScopeResolved(ToScope(InstallationScope.Name, []));
         var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
         var projects = config.Projects;
 

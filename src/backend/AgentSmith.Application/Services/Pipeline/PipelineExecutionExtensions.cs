@@ -51,12 +51,12 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
         services.AddSingleton<IStepDataFlow, CodeDataFlow>(); // p0393
-        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>(); services.AddSingleton<IStepDataFlow, BranchCleanupDataFlow>(); services.AddSingleton<IStepDataFlow, RefreshBaseDataFlow>(); // 713ec, 023fb
+        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>(); services.AddSingleton<IStepDataFlow, BranchCleanupDataFlow>(); services.AddSingleton<IStepDataFlow, RefreshBaseDataFlow>(); services.AddSingleton<IStepDataFlow, DeployDataFlow>(); // 713ec, 023fb
         services.AddSingleton<IStepDataFlow, SecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, ApiSecurityScanDataFlow>();
         services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>().AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>().AddSingleton<IStepDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>().AddSingleton<IStepDataFlow, SpecDeriveDataFlow>().AddSingleton<IStepDataFlow, FileDataFlow>().AddSingleton<IStepDataFlow, SeriesRunDataFlow>().AddSingleton<IStepDataFlow, SeriesVerifyDataFlow>() // bdd0a, 5701b
-            .AddSingleton<IStepDataFlow, CloseDataFlow>().AddSingleton<IStepDataFlow, ReopenDataFlow>().AddSingleton<IStepDataFlow, StartDataFlow>() // e061a-b
+            .AddSingleton<IStepDataFlow, AdminTurnDataFlow>().AddSingleton<IStepDataFlow, ConfigDataFlow>().AddSingleton<IStepDataFlow, SecretDataFlow>().AddSingleton<IStepDataFlow, CloseDataFlow>().AddSingleton<IStepDataFlow, ReopenDataFlow>().AddSingleton<IStepDataFlow, StartDataFlow>() // e061a-b
             .AddSingleton<IStepDataFlow, AmendDataFlow>().AddSingleton<IStepDataFlow, CommentDataFlow>().AddSingleton<IStepDataFlow, TicketBodyDataFlow>().AddSingleton<IStepDataFlow, RetargetDataFlow>().AddSingleton<IStepDataFlow, MergeGreenDataFlow>(); // e061c, dd05b, 9a39c, 3435b
         services.AddSingleton<IStepDataFlowResolver, StepDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(

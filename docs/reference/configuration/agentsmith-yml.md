@@ -244,7 +244,9 @@ templates:
     revision: v2.4.0             # optional: tag, branch or commit; empty = default branch
 ```
 
-Refused: an unknown project, a repo that project doesn't carry, a wildcard repo, a `context_repo` this project doesn't carry, and a cycle. [Project templates](../../configure-it/templates.md) explains what reads them.
+A binding with `kind: deployment` (default `code`) says how the context is delivered, and lists `environments`, each with `name`, optional `repo` (a repos-catalog ref holding the manifest; default the context's own repo), `approval` (default `true`: a person merges the delivery's pull request) and `parameters` (string values of the template's parameters). See [Deployment templates](../../configure-it/deployment-templates.md).
+
+Refused: an unknown project, a repo that project doesn't carry, a wildcard repo, a `context_repo` this project doesn't carry, a cycle, an unknown `kind`, `environments` on a code binding, an unnamed or repeated environment, and an environment repo that is a wildcard or doesn't resolve. [Project templates](../../configure-it/templates.md) explains what reads them.
 
 ### projects.sandbox
 
@@ -336,7 +338,7 @@ These blocks apply to every project unless a project overrides them. On a server
 | `limits` | per-skill ceilings of the agentic loop |
 | `pipeline_cost_cap` | money and token caps per run, see [Pipeline cost cap](pipeline-cost-cap.md) |
 | `queue` | `max_parallel_jobs` (4), `consume_block_seconds` (5), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
-| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `series_master_budget_usd` (20), `series_status_minutes` (15), `question_default_minutes` (120) |
+| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `admin_agent` (the agent the admin assistant runs on), `admin_read_limit` (50), `admin_result_max_chars` (40000), `series_master_budget_usd` (20), `series_status_minutes` (15), `question_default_minutes` (120) |
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |

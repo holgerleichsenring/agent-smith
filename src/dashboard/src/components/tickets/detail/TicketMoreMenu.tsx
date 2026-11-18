@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
-import { useLiveAttempt, useTicketRequires } from "@/lib/tickets/TicketPageStore";
+import { useLiveAttempt, useTicketEdited, useTicketRequires } from "@/lib/tickets/TicketPageStore";
 import { EventType } from "@/types/hub-events";
 import type { TicketSummary } from "@/types/tickets";
 import { platformWords, ticketLabel } from "../ticketFormat";
@@ -10,6 +10,7 @@ import { DoneByHandAct } from "../landing/DoneByHandAct";
 import { TicketCloseAct } from "../closing/TicketCloseAct";
 import { TicketReopenAct } from "../closing/TicketReopenAct";
 import { DeriveSpecsAct } from "./DeriveSpecsAct";
+import { DeployAct } from "../deploying/DeployAct";
 
 // 2026-11-16-6877a: every act that is not the next step sits behind "···": open in the tracker, Done by hand, Close
 // or Reopen, Derive specs with where the specs go. The menu stays open until "···" or Escape closes it, so a dialog
@@ -18,6 +19,7 @@ import { DeriveSpecsAct } from "./DeriveSpecsAct";
 
 export function TicketMoreMenu({ summary }: { summary: TicketSummary }) {
   const requires = useTicketRequires();
+  const edited = useTicketEdited();
   return (
     <MoreMenu>
       {summary.webUrl && (
@@ -30,6 +32,8 @@ export function TicketMoreMenu({ summary }: { summary: TicketSummary }) {
       <TicketCloseAct ticket={summary} onClosed={requires.landed} />
       <TicketReopenAct ticket={summary} onReopened={requires.landed} />
       {summary.bucket !== "closed" && <DeriveSpecsAct project={summary.project} ticketId={summary.ticketId} />}
+      {/* 2026-11-18-3863d: the started deploy run is listed among the ticket's runs once the page re-reads. */}
+      <DeployAct project={summary.project} ticketId={summary.ticketId} onStarted={edited} />
     </MoreMenu>
   );
 }

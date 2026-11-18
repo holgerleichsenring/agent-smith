@@ -1,6 +1,7 @@
 "use client";
 
 import type { SpecDialogProject } from "@/types/spec-dialog";
+import { projectLabel } from "@/lib/installation";
 
 // 2026-09-23-6e3f: with nothing open, the exchange column IS the choice. The rule that a
 // conversation needs a project was already there — what was wrong is where the two halves sat:
@@ -79,7 +80,7 @@ export function DialogProjectChoice({
             <option value="">pick a project…</option>
             {projects.map((project) => (
               <option key={project.name} value={project.name}>
-                {project.name}
+                {projectLabel(project.name)}
               </option>
             ))}
           </select>
