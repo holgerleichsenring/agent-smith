@@ -49,6 +49,10 @@ public static class ProjectMetaPaths
     /// it holds — rules about the ENVIRONMENT belong in it as much as rules about code.</summary>
     public const string PrinciplesFile = "principles.md";
 
+    /// <summary>2026-11-18-3863b: a deployment template's declaration, beside its context.yaml under
+    /// <see cref="Contexts"/>/&lt;context&gt;/; the files it names are relative to its repository's root.</summary>
+    public const string DeploymentFile = "deployment.yaml";
+
     /// <summary>2026-09-01-eec0: the name this file carried before the rename. Nothing
     /// READS it as principles — it exists so a repository that still carries only the old
     /// name is refused with re-init named as the remedy, instead of "file missing".</summary>

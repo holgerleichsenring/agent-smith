@@ -97,6 +97,7 @@ nav:
     - Where configuration lives: configure-it/index.md
     - The Config studio:         configure-it/config-studio.md
     - Project templates:         configure-it/templates.md
+    - Deployment templates:      configure-it/deployment-templates.md
     - Settings:                  configure-it/settings.md
     - Design sources (Figma):    configure-it/design-sources.md
     - agentsmith.yml:            configure-it/yaml.md

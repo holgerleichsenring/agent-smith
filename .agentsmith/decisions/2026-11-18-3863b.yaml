@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863b
+
+decisions:
+  - category: Architecture
+    chose: "Make-deployable is ordinary spec work on the existing template look: the deployment template is opened read-only like a code template and the master is told what it is"
+    over: "A 'make-deployable' pipeline that copies the template's files mechanically"
+    reason: "Files need adapting (names, ports, the context's layout), which is the master's job; reusing the look keeps one way a run reads another repository. The review, gate and pull request come for free."
+  - category: Implementation
+    chose: "The parameter values and secrets rule go into the master's Detail line only; Work it out keeps the address-only form and reads deployment.yaml itself"
+    over: "Passing declarations on the spec-dialog path"
+    reason: "Review finding: the dialog path calls the section without declarations. Cutting specs needs the template, which the dialog can read; the values matter where files are written."
+  - category: Implementation
+    chose: "MasterTemplateAdvice gives no advice for a deployment template"
+    over: "Reading its principles as advice for new units"
+    reason: "Its principles and Limits fence would be applied to the application's code; a delivery template's rules live in its declaration and files."
+  - category: Implementation
+    chose: "A parameter with neither a value nor a default is asked through the master's question, with a recommendation"
+    over: "The master guessing a value"
+    reason: "Operator: parameters come from config or are asked with a recommendation. The question parks the ticket until answered, stated in the docs and the spec's upgrade impact."
+  - category: Implementation
+    chose: "Headings stay; only the Detail line changes for a deployment declaration"
+    over: "Rewording the template section's heading to cover delivery"
+    reason: "Existing prompt tests pin the heading; the line itself says DELIVERED, which is where the difference matters."

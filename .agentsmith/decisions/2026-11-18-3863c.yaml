@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863c
+
+decisions:
+  - category: Architecture
+    chose: "Deliver by a GitOps pull request to the environment's manifest"
+    over: "Triggering the provider's CI/CD pipeline"
+    reason: "Every source provider already writes a branch without a checkout, opens, finds and merges pull requests; none starts a pipeline. The pull request is also the natural approval gate and audit trail. Pipeline triggering is planned as 2026-11-18-3863e."
+  - category: Architecture
+    chose: "A 'deploy' preset started by DeployLauncher as a queued run with string seeds, registered like refresh-base and in ShownOnTicketOnly"
+    over: "A host act through IActRun, or a server service writing the manifest"
+    reason: "A repository write is a pipeline step with a run id; the dashboard needs the run id back at once while the template read takes a sandbox. Review finding: a run listed on a ticket must leave that ticket's lease, queue entry and rework alone."
+  - category: Implementation
+    chose: "The template's deployment.yaml is read through the read-only template scope at the bound revision"
+    over: "The checkout-free branch read"
+    reason: "Azure Repos' branch read asks for a branch only, so a tag (the operator's stated pinning) would not resolve there; the template scope is the one pinned-source mechanism and gives the landed sha for the pull request text."
+  - category: Implementation
+    chose: "Promotion takes the version from the source environment's manifest; a typed version for a promoted environment is refused"
+    over: "Accepting any typed version for any environment"
+    reason: "'Promotion per template rule': the template, not the request, decides what reaches a promoted environment, and the GitOps state is where the source environment's version is recorded."
+  - category: Implementation
+    chose: "approval off merges in the project's merge mode (merge.respect_branch_protection); Armed and Refused are said and the run succeeds"
+    over: "A deploy-only protection setting, or failing the run on a refused merge"
+    reason: "One merge setting per project rather than a second; approval defaults to on, so a merge past protection only happens where an operator turned approval off. A refused merge leaves a standing pull request, which is the approval-on outcome."
+  - category: Implementation
+    chose: "A fresh branch per run, agent-smith/deploy/<context>-<environment>/<run id>, cut from the default branch head"
+    over: "A branch per version"
+    reason: "A branch per version is stale on a re-deploy after other versions landed. Branch cleanup deletes the branch once its pull request ended."
+  - category: Implementation
+    chose: "The version written is a tag or sha shape; a plain scalar that would read as a number or boolean is double-quoted"
+    over: "Writing any string"
+    reason: "The version is a ref segment and a YAML scalar: ':' breaks the ref, and 1.10 written plain becomes the float 1.1."
+  - category: Implementation
+    chose: "The deploy pull request's CI is read once through the CI loop's IPullRequestCiReader when the run ends"
+    over: "A deploy-specific status reader"
+    reason: "Coordinator 2026-11-18: the CI loop landed on main (#860); reuse its per-provider reading with failure evidence instead of building another. Following the pull request after the run ends stays 3863f."

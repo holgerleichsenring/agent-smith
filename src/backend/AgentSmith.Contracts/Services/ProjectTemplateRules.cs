@@ -29,6 +29,7 @@ public static class ProjectTemplateRules
         repoRefsByProject.TryGetValue(project, out var ownRepoRefs);
         foreach (var template in templates)
         {
+            errors.AddRange(DeploymentEnvironmentRules.Check(project, template)); // 2026-11-18-3863a
             // 2026-09-16-4df5: the LOCAL repo, when the binding names one. A name this project
             // does not carry would address a scope no run can open — and it is the likeliest
             // typo now that the field exists, because it is the one repo ref an operator can

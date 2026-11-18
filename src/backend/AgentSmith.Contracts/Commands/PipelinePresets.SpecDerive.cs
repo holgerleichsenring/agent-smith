@@ -15,7 +15,8 @@ public static partial class PipelinePresets
     /// rework when it ends.</summary>
     public static bool ShownOnTicketOnly(string? pipelineName) =>
         string.Equals(pipelineName, RefreshBaseName, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(pipelineName, RetargetName, StringComparison.OrdinalIgnoreCase);
+        || string.Equals(pipelineName, RetargetName, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(pipelineName, DeployName, StringComparison.OrdinalIgnoreCase); // 2026-11-18-3863c
 
     /// <summary>2026-11-11-205ff review: true for a run that something relaunches when it did not fit — a ticket's run,
     /// which the reconciler re-enqueues. A derivation and a design turn are started by a person; nothing relaunches

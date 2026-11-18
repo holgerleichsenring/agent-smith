@@ -80,6 +80,7 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.AdminTurnName, false)] // 2026-11-17-f3a8a
     [InlineData(PipelinePresets.ConfigName, false)] // 2026-11-17-f3a8c
     [InlineData(PipelinePresets.SecretName, false)] // 2026-11-17-f3a8d
+    [InlineData(PipelinePresets.DeployName, false)] // 2026-11-18-3863c: a deploy writes a manifest branch, never WIP
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -89,7 +90,7 @@ public sealed class ScanFailurePersistGuardTests
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
             PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, .. InstallationPresets]);
+            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, .. InstallationPresets]);
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
     private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName];

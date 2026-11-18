@@ -28,6 +28,8 @@ public sealed class MasterTemplateAdvice(
     {
         ArgumentNullException.ThrowIfNull(declared);
         ArgumentNullException.ThrowIfNull(scope);
+        // 2026-11-18-3863b: a deployment template's principles and Limits fence advise code, not delivery files.
+        if (declared.IsDeployment) return string.Empty;
         var (path, principles) = await PrinciplesAsync(declared, scope, cancellationToken);
         var (proven, _, _) = await proof.OfAsync(declared, scope, cancellationToken);
         return $"\n\n### What template `{address}` advises\n"

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863b
+goal: "Making a service deployable is ordinary spec work: runs open a context's deployment template read-only, and the coding master is told its environments' parameter values and the secrets-by-name rule."
+
+upgrade_impact: "A coding run of a context with a deployment binding now clones that template too and, like a code template, fails before its first token when the template cannot be opened (a deleted tag). A template parameter with no configured value and no default makes the master ask, which parks the ticket in needs_clarification until answered."
+
+applies_to: "default (TemplatePromptSection, docs)"
+
+requires: [2026-11-18-3863a]
+
+facts:
+  - claim: "Every declared template is opened read-only for the derivation look, the coding master and the spec dialog from ResolvedProject.Templates."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ProjectTemplateScopes.cs:34-56, src/backend/AgentSmith.Application/Services/Specs/TemplateDeclarations.cs:31-48"
+  - claim: "The master is told what each opened template is in one Detail line, built for code templates only ('built after')."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/TemplatePromptSection.cs:31-60, src/backend/AgentSmith.Application/Services/Handlers/MasterTemplateAttachment.cs:66-70"
+  - claim: "The master asks a person mid-run through ask_human, posted as an open-questions comment."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs:134"
+
+scope:
+  in: "TemplateDeclarations admits deployment bindings (3863a held them back), so the derivation look, the coding master and Work it out reach template:deploy:<context> read-only; Work it out keeps the address-only form. The deployment.yaml lives at .agentsmith/contexts/<template_context>/deployment.yaml of the template repository (ProjectMetaPaths.DeploymentFile), its files relative to the template repository root. The format, documented once (docs/configure-it/deployment-templates.md): delivery, files, parameters (name, description, default), secrets (name, description), environments (name, manifest, version_key, promotes_from). TemplatePromptSection: a deployment template's Detail names its deployment.yaml, each bound environment with its repo, approval and parameter values, and states the rules: copy or adapt the declared files into this context; a parameter with no value and no default is an open question with a recommendation; a secret is referenced by name and never written as a value. Headings stay as they are. MasterTemplateAdvice skips a deployment template: its principles and Limits fence advise code, not delivery files."
+  out: "A deploy (3863c). Suggesting make-deployable for a new service (3863g). A parser for the master (it reads the file itself)."
+
+steps:
+  - id: admit
+    action: "TemplateDeclarations.Of admits deployment bindings again; ProjectMetaPaths.DeploymentFile."
+  - id: detail
+    action: "DeploymentTemplateDetail (own type; TemplatePromptSection calls it when the declaration is a deployment) composes the line and the rules; MasterTemplateAdvice returns nothing for a deployment declaration."
+  - id: docs
+    action: "docs/configure-it/deployment-templates.md: what a deployment template is, the file, the binding, make-deployable as a ticket; linked from templates.md and the docs index."
+
+tests:
+  - "TemplatePromptSection: a deployment declaration's line names deployment.yaml, each environment's repo, approval and parameters, and the secrets and open-question rules; a code declaration's line is unchanged"
+  - "TemplateDeclarations selects a deployment binding of a discovered context under template:deploy:<context>"
+  - "MasterTemplateAdvice gives no advice for a deployment declaration"
+  - "Existing template prompt tests (CodingMasterTemplateTests, SpecDialogTemplateTests) stay green unchanged"
+
+done:
+  - "A coding run on a context bound to a deployment template is shown that template read-only with its environments' parameters, and is told to reference secrets by name only."

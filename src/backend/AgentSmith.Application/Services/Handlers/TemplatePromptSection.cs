@@ -52,6 +52,7 @@ internal static class TemplatePromptSection
     /// revision, and where in it that context's own files live.</summary>
     internal static string Detail(ProjectTemplate declared, string? sha)
     {
+        if (declared.IsDeployment) return DeploymentTemplateDetail.Of(declared, sha); // 2026-11-18-3863b
         var project = string.IsNullOrWhiteSpace(declared.Repo.Project) ? "" : $" (project `{declared.Repo.Project}`)";
         var revision = sha ?? declared.Revision ?? "its default revision";
         return $"the `{declared.TemplateContext}` context of `{declared.Repo.Name}`{project} at `{revision}`, "
