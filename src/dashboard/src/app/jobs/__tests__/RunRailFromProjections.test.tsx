@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -116,7 +116,7 @@ describe("Run rail from projections", () => {
     const rail = await screen.findByTestId("nav-rail");
     await waitFor(() => expect(rail).toHaveTextContent("Analyze codebase"));
     const beforeClick = urlsFetched().length;
-    fireEvent.click(screen.getByText("Analyze codebase"));
+    fireEvent.click(within(rail).getByText("Analyze codebase"));
 
     await waitFor(() =>
       expect(urlsFetched().slice(beforeClick).some((u) => u.includes("/steps/1/events"))).toBe(true));

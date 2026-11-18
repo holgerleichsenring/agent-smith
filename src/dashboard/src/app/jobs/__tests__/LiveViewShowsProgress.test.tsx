@@ -97,14 +97,14 @@ describe("The live view", () => {
   it("LiveView_ShowsProgress_AndNoStatistics", async () => {
     renderLiveView();
 
-    // 2026-11-16-6877b: what is happening, in one sentence, and where in the seven sections the run is.
+    // 2026-11-17-6d9ea: what the agent is doing, under the Now label.
     expect(await screen.findByTestId("run-now-label")).toHaveTextContent("Now — follows the agent");
     expect(screen.getAllByTestId("run-now-line")[0]).toHaveTextContent("Implement");
-    await waitFor(() => expect(screen.getByTestId("run-section-build")).toHaveAttribute("data-state", "running"));
-    expect(screen.getByTestId("run-section-ready")).toHaveAttribute("data-state", "done");
+    // 2026-11-17-6d9eb: the spec's section is running and starts open, its step lines say llm · cost · time.
+    await waitFor(() => expect(screen.getByTestId("run-section-spec:p19106a")).toHaveAttribute("data-state", "running"));
     expect(screen.getByTestId("run-section-deliver")).toHaveAttribute("data-state", "pending");
+    expect(screen.getByTestId("run-step-1")).toHaveTextContent("Implement9 llm$1.50");
     expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();
-    expect(screen.getByTestId("run-open-trace")).toHaveTextContent("Show all 2 steps and the raw trace");
 
     // None of the story view's statistics are on this screen.
     expect(screen.queryByTestId("call-size-plot")).not.toBeInTheDocument();

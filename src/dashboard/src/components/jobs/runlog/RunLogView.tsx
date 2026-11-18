@@ -3,32 +3,25 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
-import { BuildNotes } from "@/components/jobs/story/BuildNotes";
-import { LedgerPanel } from "@/components/jobs/story/LedgerPanel";
-import { OutcomePanel } from "@/components/jobs/story/OutcomePanel";
 import { runLedger } from "@/components/jobs/story/runLedger";
-import { PlanPanel, SpecPanel } from "@/components/jobs/story/SpecPlanPanels";
-import { SpecsPanel } from "@/components/jobs/story/SpecsPanel";
-import { TicketPanel } from "@/components/jobs/story/TicketPanel";
-import { VerifySummary } from "@/components/jobs/story/VerifySummary";
 import type { RunJudgements } from "@/components/jobs/story/useRunJudgements";
-import { buildVerifyFallback } from "@/components/jobs/story/verifyFallback";
+import { useRunSpecs } from "@/hooks/useRunSpecs";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { runTracePath } from "@/lib/runPath";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import "@/styles/run-log.css";
+import { RunLog } from "./RunLog";
+import { CheckBody, DeliveredBody, PlanBody, SpecBody, TicketBody } from "./RunLogSectionBodies";
+import { initiallyOpen, runLogSections, type LogSection } from "./runLogSections";
 import { RunNow } from "./RunNow";
 import { RunPageHead } from "./RunPageHead";
-import { RunProgressStrip, RunSectionLog } from "./RunSectionLog";
-import { checkOf, runSections, type RunSection, type SectionId } from "./runSections";
-import { outcomeSection, planSection, ticketSection } from "./storySections";
+import { RunStepHead } from "./RunStepHead";
 import { useRunTicket } from "./useRunTicket";
 
-// 2026-11-16-6877b: the run page's default view — header, one status sentence, the progress strip and the sectioned
-// log, every section closed. The deep views stay one click away: every step and the raw trace in the drawer, the
-// Why page, and the story graph.
-// 2026-11-17-d6fbb: and it is complete without the graph — the side rail's facts sit under the meta line, and the
-// story's ticket, spec and plan, and outcome are sections of the log, closed like the others.
+// 2026-11-16-6877b: the run page's default view. 2026-11-17-6d9ea: the head and the Now block.
+// 2026-11-17-6d9eb: then ONE sectioned log, as the approved mock draws it — Ticket, Got ready, The plan, a section per
+// spec, Checked against the spec, Delivered — each section and step line with its llm calls, cost and time, and what the
+// story view's panels showed drawn plain inside the section it belongs to. A running or stopped section starts open.
 
 interface Props {
   runId: string;
@@ -41,51 +34,49 @@ interface Props {
   judged: RunJudgements;
   graph: boolean;
   onGraph: () => void;
-  onOpenTrace: () => void;
   onDeleted: () => void;
 }
 
-export function RunLogView({ runId, snapshot, events, steps, repoNames, connectionState, judged, graph, onGraph, onOpenTrace, onDeleted }: Props) {
+function flip(set: ReadonlySet<string>, id: string): Set<string> {
+  const next = new Set(set);
+  if (!next.delete(id)) next.add(id);
+  return next;
+}
+
+export function RunLogView({ runId, snapshot, events, steps, repoNames, connectionState, judged, graph, onGraph, onDeleted }: Props) {
   const ticket = useRunTicket(runId, snapshot);
-  const fallback = useMemo(() => buildVerifyFallback(events), [events]);
+  const specs = useRunSpecs(runId, events.length);
   const ledger = useMemo(() => runLedger(snapshot, events), [snapshot, events]);
-  const check = checkOf(snapshot?.acceptance);
-  const stepSections = useMemo(() => runSections(steps, events, check.state, check.summary), [steps, events, check.state, check.summary]);
-  const sections = useMemo(() => logSections(stepSections, snapshot, ledger), [stepSections, snapshot, ledger]);
-  const [open, setOpen] = useState<ReadonlySet<SectionId>>(new Set());
-  const toggle = (id: SectionId) => setOpen((now) => {
-    const next = new Set(now);
-    if (!next.delete(id)) next.add(id);
-    return next;
-  });
+  const sections = useMemo(() => runLogSections(steps, specs, snapshot, ledger), [steps, specs, snapshot, ledger]);
+  const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
+  const [mechanics, setMechanics] = useState<ReadonlySet<string>>(new Set());
+  const [openStep, setOpenStep] = useState<number | null>(null);
+  const initial = initiallyOpen(sections);
+  const open = new Set(sections.filter((s) => initial.has(s.id) !== toggled.has(s.id)).map((s) => s.id));
   const stepCount = steps.filter((s) => !s.planned).length;
+  const hasSpecs = sections.some((s) => s.kind === "spec");
+
+  const body = (s: LogSection) => {
+    switch (s.kind) {
+      case "ticket": return <TicketBody snapshot={snapshot} events={events} ticket={ticket} />;
+      case "plan": return <PlanBody runId={runId} ledger={ledger} hasSpecs={hasSpecs} events={events} />;
+      case "spec": return <SpecBody runId={runId} spec={specs.find((x) => x.specId === s.specId)} />;
+      case "check": return <CheckBody snapshot={snapshot} events={events} judged={judged} />;
+      case "deliver": return <DeliveredBody runId={runId} snapshot={snapshot} />;
+      default: return null;
+    }
+  };
+
   return (
     <div className="rl-page" data-testid="run-log">
       <RunPageHead runId={runId} snapshot={snapshot} ticket={ticket} repoNames={repoNames} stepCount={stepCount}
         connectionState={connectionState} onDeleted={onDeleted} />
       <RunNow runId={runId} snapshot={snapshot} events={events} steps={steps} ticket={ticket} />
-      <RunProgressStrip sections={stepSections} open={open} onToggle={toggle} />
-      <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{
-        ticket: <TicketPanel snapshot={snapshot} events={events} />,
-        plan: (
-          <>
-            <SpecPanel runId={runId} />
-            <PlanPanel runId={runId} />
-            {ledger && ledger.length > 0 && <LedgerPanel entries={ledger} />}
-            <SpecsPanel runId={runId} revision={events.length} />
-            <BuildNotes runId={runId} events={events} />
-          </>
-        ),
-        check: (
-          <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} judgements={judged.judgements}
-            judgementBusy={judged.busy} onRecordJudgement={judged.record} onWithdrawJudgement={judged.withdraw} />
-        ),
-        outcome: <OutcomePanel runId={runId} snapshot={snapshot} />,
-      }} />
+      <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((t) => flip(t, id))}
+        openStep={openStep} onToggleStep={(i) => setOpenStep((now) => (now === i ? null : i))}
+        mechanicsOpen={mechanics} onToggleMechanics={(id) => setMechanics((m) => flip(m, id))}
+        body={body} detail={(step) => <RunStepHead step={step} />} />
       <div className="rl-more">
-        <button type="button" className="rl-link" onClick={onOpenTrace} data-testid="run-open-trace">
-          Show all {stepCount === 1 ? "1 step" : `${stepCount} steps`} and the raw trace
-        </button>
         <Link className="rl-link" href={runTracePath(runId)} data-testid="run-open-why">Why it went this way</Link>
         <button type="button" className="rl-link" aria-pressed={graph} onClick={onGraph} data-testid="run-show-graph">
           {graph ? "Hide the graph" : "Show as graph"}
@@ -93,10 +84,4 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
       </div>
     </div>
   );
-}
-
-/** Ticket first, the spec and plan after the spec was derived, the outcome last; the step sections in between. */
-function logSections(steps: RunSection[], snapshot: RunSnapshot | null, ledger: ReturnType<typeof runLedger>): RunSection[] {
-  const afterSpec = steps.findIndex((s) => s.id === "spec") + 1;
-  return [ticketSection(snapshot), ...steps.slice(0, afterSpec), planSection(ledger), ...steps.slice(afterSpec), outcomeSection(snapshot)];
 }

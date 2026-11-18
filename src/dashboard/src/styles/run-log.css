@@ -14,16 +14,6 @@
 .mock-viewer .rl-meta { font-size: 13px; color: var(--ink-3); }
 
 
-.mock-viewer .rl-strip { display: flex; padding: 4px 0; }
-.mock-viewer .rl-node { --tone: var(--ok); position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; color: var(--ink-3); cursor: pointer; }
-.mock-viewer .rl-node + .rl-node::before { content: ""; position: absolute; top: 8px; right: 50%; width: 100%; height: 2px; background: var(--line); }
-.mock-viewer .rl-node-mark { position: relative; z-index: 1; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; background: var(--tone); border: 2px solid var(--tone); }
-.mock-viewer .rl-node.warn, .mock-viewer .rl-node.running { --tone: var(--run); }
-.mock-viewer .rl-node.bad { --tone: var(--bad); }
-.mock-viewer .rl-node.pending .rl-node-mark { background: var(--bg); border-color: var(--line); }
-.mock-viewer .rl-node[aria-pressed="true"] .rl-node-mark { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 18%, transparent); }
-.mock-viewer .rl-node[aria-pressed="true"] .rl-node-label { color: var(--ink); }
-.mock-viewer .rl-node-label { font-size: 12px; }
 
 .mock-viewer .rl-sections { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .mock-viewer .rl-sec + .rl-sec { border-top: 1px solid var(--line); }
@@ -94,3 +84,61 @@
 .mock-viewer .rl-now-acts button:disabled { color: var(--ink-3); cursor: default; }
 .mock-viewer .rl-question { padding-top: 6px; }
 @media (max-width: 640px) { .mock-viewer .rl-now-line { grid-template-columns: minmax(0, 1fr); gap: 0; } .mock-viewer .rl-now-line .rl-at:empty { display: none; } }
+
+/* 2026-11-17-6d9eb: the log sectioned by work, in the mock's columns — a section line, then step lines with llm, cost and
+   time right-aligned, the mechanics behind one line, and what a section holds as plain lines and one-line disclosures.
+   Story panels reused here (the criteria) lose their card, badge and box chrome under .rl-plain. */
+.mock-viewer .rl-log { display: flex; flex-direction: column; font-family: var(--mono); font-size: 12px; line-height: 22px; }
+.mock-viewer .rl-log .rl-sec { border-bottom: 1px solid var(--line); }
+.mock-viewer .rl-log .rl-sec + .rl-sec { border-top: 0; }
+.mock-viewer .rl-log .rl-sec-head { min-height: 0; padding: 6px 0; gap: 12px; align-items: baseline; background: none; font: inherit; flex-wrap: nowrap; }
+.mock-viewer .rl-log .rl-sec-mark { align-self: center; width: 7px; height: 7px; background: var(--ok); }
+.mock-viewer .rl-log .rl-sec.warn .rl-sec-mark, .mock-viewer .rl-log .rl-sec.running .rl-sec-mark { background: var(--run); }
+.mock-viewer .rl-log .rl-sec.bad .rl-sec-mark { background: var(--bad); }
+.mock-viewer .rl-log .rl-sec.pending .rl-sec-mark { background: transparent; border: 1.5px solid var(--line); }
+.mock-viewer .rl-log .rl-sec-title { flex: 1 1 auto; min-width: 0; font-family: var(--sans, inherit); font-size: 14px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-viewer .rl-log .rl-sec-sum { flex: 0 1 auto; text-align: right; }
+.mock-viewer .rl-log .rl-sec-body { padding: 0 0 8px 24px; background: none; gap: 0; }
+.mock-viewer .rl-step-line, .mock-viewer .rl-mech { width: 100%; display: flex; gap: 12px; align-items: baseline; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.mock-viewer .rl-mech { color: var(--ink-3); }
+.mock-viewer .rl-step-name { flex: 1; min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-viewer .rl-step-line[aria-expanded="true"] .rl-step-name { color: var(--ink); }
+.mock-viewer .rl-step.warn .rl-step-name, .mock-viewer .rl-step.running .rl-step-name { color: var(--run); }
+.mock-viewer .rl-step.bad .rl-step-name { color: var(--bad); }
+.mock-viewer .rl-step.pending .rl-step-name { color: var(--ink-3); }
+.mock-viewer .rl-step-llm { flex: none; width: 80px; text-align: right; color: var(--ink-3); }
+.mock-viewer .rl-step-cost { flex: none; width: 70px; text-align: right; color: var(--ink-2); }
+.mock-viewer .rl-step-time { flex: none; width: 70px; text-align: right; color: var(--ink-3); }
+.mock-viewer .rl-step-pass { padding-left: 24px; }
+.mock-viewer .rl-step-detail { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 10px 24px; }
+.mock-viewer .rl-detail-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
+.mock-viewer .rl-detail-status { color: var(--ink-3); }
+.mock-viewer .rl-detail-status.bad { color: var(--bad); }
+.mock-viewer .rl-detail-message { color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-viewer .rl-detail-message a, .mock-viewer .rl-links a, .mock-viewer .rl-body a { color: var(--ink-2); }
+.mock-viewer .rl-body { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+.mock-viewer .rl-body-line { color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-viewer .rl-bad { color: var(--bad); }
+.mock-viewer .rl-links { display: flex; gap: 6px 18px; flex-wrap: wrap; }
+.mock-viewer .rl-ledger { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+.mock-viewer .rl-ledger-tag { color: var(--ink-3); }
+.mock-viewer .rl-ledger.done .rl-ledger-tag { color: var(--ok); }
+.mock-viewer .rl-ledger.in_progress .rl-ledger-tag { color: var(--run); }
+.mock-viewer .rl-doc > summary { cursor: pointer; color: var(--ink-3); }
+.mock-viewer .rl-doc > summary:hover { color: var(--ink-2); }
+.mock-viewer .rl-doc-body { padding: 6px 0 8px 14px; font-family: var(--sans, inherit); font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+.mock-viewer .rl-doc-body pre { border: 0; background: none; padding: 0; }
+.mock-viewer .rl-plain .card { border: 0; background: none; box-shadow: none; border-radius: 0; }
+.mock-viewer .rl-plain .card-h { padding: 0 0 4px; border: 0; background: none; gap: 12px; }
+.mock-viewer .rl-plain .card-h h3 { font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.mock-viewer .rl-plain .card-b { padding: 0; }
+.mock-viewer .rl-plain .badge { background: none; border: 0; padding: 0; border-radius: 0; font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.mock-viewer .rl-plain .badge.ok { color: var(--ok); }
+.mock-viewer .rl-plain .badge.bad { color: var(--bad); }
+.mock-viewer .rl-plain .crit { padding: 4px 0; gap: 10px; grid-template-columns: 16px 1fr auto; border-top: 0; }
+.mock-viewer .rl-plain .crit .c-mark { width: auto; height: auto; border: 0; border-radius: 0; background: none; }
+.mock-viewer .rl-plain .crit .c-txt { font-size: 12.5px; font-weight: 400; }
+.mock-viewer .rl-plain .crit .c-stat { background: none; padding: 0; border-radius: 0; font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.mock-viewer .rl-plain .hint { font-size: 12px; }
+.mock-viewer .rl-plain .btn-link { text-decoration: underline; }
+@media (max-width: 640px) { .mock-viewer .rl-step-llm { display: none; } .mock-viewer .rl-log .rl-sec-body { padding-left: 12px; } .mock-viewer .rl-log .rl-sec-head { flex-wrap: wrap; } }

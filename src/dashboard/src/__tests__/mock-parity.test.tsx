@@ -290,7 +290,7 @@ describe("Mock parity", () => {
     // 2026-11-16-6877b: the default view is the sectioned log; the story view is behind "Show as graph".
     const logRoot = await screen.findByTestId("run-log");
     expect(logRoot.closest(".mock-viewer")).not.toBeNull();
-    for (const cls of [".rl-head", ".rl-crumb", ".rl-meta", ".rl-status", ".rl-strip", ".rl-node", ".rl-sections", ".rl-sec", ".rl-sec-head", ".rl-more"]) {
+    for (const cls of [".rl-head", ".rl-crumb", ".rl-meta", ".rl-now", ".rl-log", ".rl-sec", ".rl-sec-head", ".rl-more"]) {
       expect(logRoot.querySelector(cls), `run log missing ${cls}`).not.toBeNull();
     }
     fireEvent.click(screen.getByTestId("run-show-graph"));
@@ -585,10 +585,6 @@ describe("Mock parity", () => {
     expect(within(drawer).getByTestId("nav-rail")).toBeInTheDocument();
     expect(within(drawer).getByTestId("trace-master-detail")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("run-open-trace"));
-    expect(screen.getByTestId("trace-drawer").className).toContain("open");
-    fireEvent.click(screen.getByTestId("trace-drawer-close"));
-    expect(screen.getByTestId("trace-drawer").className).not.toContain("open");
     fireEvent.click(screen.getByTestId("run-show-graph"));
     fireEvent.click(await screen.findByTestId("side-rail-pipeline-jump"));
     expect(screen.getByTestId("trace-drawer").className).toContain("open");

@@ -123,12 +123,12 @@ describe("The run page of a parked run", () => {
 describe("The run page without the graph", () => {
   it("RunPage_DefaultLog_CarriesTheTicketPlanAndOutcomeSections_Closed", async () => {
     renderPage(parked());
-    for (const id of ["ticket", "plan", "outcome"]) {
+    for (const id of ["ticket", "plan", "deliver"]) {
       const section = await screen.findByTestId(`run-section-${id}`);
       expect(section.querySelector("button")).toHaveAttribute("aria-expanded", "false");
     }
     fireEvent.click(screen.getByTestId("run-section-ticket").querySelector("button")!);
-    expect(screen.getByTestId("ticket-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-body")).toBeInTheDocument();
     expect(screen.getByTestId("run-details")).toHaveTextContent("run r1");
     expect(screen.getByTestId("run-now")).toHaveTextContent("Reserved compute is held");
     expect(screen.queryByTestId("run-viewer-root")).not.toBeInTheDocument();

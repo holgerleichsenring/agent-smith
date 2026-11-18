@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-6d9eb: "RUN LOG BY SPEC (runLogSections, RunLog, RunLogSectionBodies, RunStepHead). The run log is Ticket, Got ready, The plan, a section per spec, Checked, Delivered; section and step lines say llm, cost and time, mechanics fold, story panels read plain. -> .agentsmith/specs/done/2026-11-17-6d9eb-runlog-spec-sections.yaml"
     2026-11-17-6d9ea: "RUN PAGE HEAD AND NOW (RunPageHead, runMetaWords, RunNow, runNowLines, useRunTicket attempt). The run page opens with the mock's crumb, one meta line and details, and a Now block that follows the agent from hub events and says how a run ended with its acts. -> .agentsmith/specs/done/2026-11-17-6d9ea-runlog-inventory-head-now.yaml"
     2026-11-17-f9b0e: "RATIFICATION RECORDS CLEARED (pending-ratification-baseline.tsv, 89 decision and spec files, limits inventory). Every marker carries the operator's 2026-11-17 answer (as built, moved to config, moot, or the label kept); the ratchet baseline holds no file. -> .agentsmith/specs/done/2026-11-17-f9b0e-ratification-records-cleared.yaml"
     2026-11-17-f9b0d: "TICKETS CONFIG BLOCK (TicketsConfig, TicketGraphLinks, DependentsWake.RecoverAsync, PrRecordReReadHostedService). tickets: holds the requires-link deadline, the dependents-wake window and cap and the four re-read values (60 s; 24 h/50; 300 s/900 s/50/50), each bound naming its key, as ratified 2026-11-17. -> .agentsmith/specs/done/2026-11-17-f9b0d-ticket-landing-sweep-config.yaml"

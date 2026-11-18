@@ -30,7 +30,7 @@ const decision = (chose: string, timestamp: string): RunEvent =>
 const wrote = (path: string, timestamp: string): RunEvent =>
   ({ ...base, type: EventType.SubAgentFileWritten, timestamp, subAgentId: "s", path, bytes: 120 });
 const tool = (intent: string | null, timestamp: string): RunEvent =>
-  ({ ...base, type: EventType.ToolCall, timestamp, tool: "run_command", argsLength: 3, summary: "dotnet build", intent, role: null, phase: null, repoName: null });
+  ({ ...base, type: EventType.ToolCall, timestamp, tool: "run_command", argsLength: 3, summary: "dotnet build", intent, role: null, repoName: null }) as unknown as RunEvent;
 
 describe("runNowLines", () => {
   it("nowMode_And_Label_FollowTheState", () => {

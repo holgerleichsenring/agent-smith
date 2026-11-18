@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { EventType, type RunEvent, type VerifyPassRecordedEvent } from "@/types/hub-events";
 import { staleWords, stageWords } from "../VerifyPassLines";
-import { RunProgressStrip, RunSectionLog } from "../RunSectionLog";
+import { RunSectionLog } from "../RunSectionLog";
 import { runSections, type SectionId } from "../runSections";
 
 // 2026-11-16-6877b: the sectioned log as a person meets it — every section closed, a strip node opens its section,
@@ -25,10 +25,7 @@ function Log() {
   });
   const sections = runSections(steps, [], "done", "2 of 2 done criteria met");
   return (
-    <>
-      <RunProgressStrip sections={sections} open={open} onToggle={toggle} />
-      <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{ check: <div data-testid="criteria-here">criteria</div> }} />
-    </>
+    <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{ check: <div data-testid="criteria-here">criteria</div> }} />
   );
 }
 
@@ -45,12 +42,10 @@ describe("RunSectionLog", () => {
     expect(screen.getByTestId("run-section-review")).toHaveTextContent("2 min 50 s");
   });
 
-  it("RunProgressStrip_ANodeOpensItsSection_AndTheHeaderClosesIt", () => {
+  it("RunSectionLog_TheHeaderOpensItsSection_AndClosesIt", () => {
     render(<Log />);
-    expect(screen.getByTestId("run-node-review")).toHaveClass("warn");
-    expect(screen.getByTestId("run-node-deliver")).toHaveClass("pending");
-    fireEvent.click(screen.getByTestId("run-node-review"));
-    expect(screen.getByTestId("run-node-review")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("run-section-deliver")).toHaveAttribute("data-state", "pending");
+    fireEvent.click(within(screen.getByTestId("run-section-review")).getByRole("button", { expanded: false }));
     const lines = within(screen.getByTestId("run-section-review")).getAllByTestId("run-log-line");
     expect(lines[0]).toHaveTextContent("Review the spec's diff: 1 finding left open");
     fireEvent.click(within(screen.getByTestId("run-section-review")).getByRole("button", { expanded: true }));
@@ -59,7 +54,7 @@ describe("RunSectionLog", () => {
 
   it("RunSectionLog_CheckSection_HostsTheCriteria", () => {
     render(<Log />);
-    fireEvent.click(screen.getByTestId("run-node-check"));
+    fireEvent.click(within(screen.getByTestId("run-section-check")).getByRole("button", { expanded: false }));
     expect(within(screen.getByTestId("run-section-check")).getByTestId("criteria-here")).toBeInTheDocument();
   });
 });

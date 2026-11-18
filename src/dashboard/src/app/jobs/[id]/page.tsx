@@ -180,7 +180,6 @@ function RunDetail({ runId }: { runId: string }) {
         judged={judged}
         graph={graph}
         onGraph={() => setGraph(!graph)}
-        onOpenTrace={() => setTraceOpen(true)}
         onDeleted={() => router.push(RUNS_PATH)}
       />
 
