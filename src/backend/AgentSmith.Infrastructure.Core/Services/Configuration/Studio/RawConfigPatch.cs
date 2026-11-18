@@ -44,6 +44,10 @@ public static class RawConfigPatch
             agent.Compaction.ThresholdIterations = compaction.ThresholdIterations;
             agent.Compaction.MaxContextTokens = compaction.MaxContextTokens;
             agent.Compaction.KeepRecentIterations = compaction.KeepRecentIterations;
+            // 2026-11-17-b34eb: a ratio is written only when sent.
+            if (compaction.MaxContextTokensTriggerRatio is { } trigger) agent.Compaction.MaxContextTokensTriggerRatio = trigger;
+            if (compaction.FoldTargetRatio is { } fold) agent.Compaction.FoldTargetRatio = fold;
+            if (compaction.SummaryBudgetRatio is { } summary) agent.Compaction.SummaryBudgetRatio = summary;
         }
         if (entity.Retry is { } retry)
         {

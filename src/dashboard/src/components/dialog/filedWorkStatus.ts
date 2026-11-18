@@ -46,6 +46,7 @@ export function isSpecTerminal(status: string): boolean {
 // (PullRequestContracts.cs). It reached the screen raw, underscore and all.
 const PULL_REQUEST_STATUS: Record<string, StatusWords> = {
   opened: { word: "opened", tone: "" },
+  awaiting_ci: { word: "waiting for CI", tone: "" }, // 2026-11-17-3435b
   no_changes: { word: "no changes", tone: "" },
   // A pull request that could not be opened is a thing that did not happen, and it read in the
   // same grey as one that did while a skipped review one panel over was amber.

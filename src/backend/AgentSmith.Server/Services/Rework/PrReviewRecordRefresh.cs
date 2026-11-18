@@ -27,6 +27,7 @@ public sealed class PrReviewRecordRefresh(
     ISourceProviderFactory sources,
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
+    PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
     TicketLandingRecorder landing,
     ITicketActivityNudge activity,
     TimeProvider clock,
@@ -46,7 +47,8 @@ public sealed class PrReviewRecordRefresh(
         var changed = orphans.Count > 0;
         var once = new PrReviewAuthorTrustOnce(trust);
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
-            changed |= await OneAsync(project, pr, writer, once, ct);
+            changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, ct);
+        if (!await ciMerge.AfterRefreshAsync(project, ticketId, ct)) await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c
         await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }
@@ -60,8 +62,8 @@ public sealed class PrReviewRecordRefresh(
         || string.Equals(nudgedUrl?.Trim(), pr.Url.Trim(), StringComparison.Ordinal)
         || record.StateAt is not { } ended || clock.GetUtcNow() - ended < RecentlyEnded;
 
-    private async Task<bool> OneAsync(
-        ResolvedProject project, NamedPullRequest pr, PrReviewRecordWriter writer, PrReviewAuthorTrustOnce once, CancellationToken ct)
+    private async Task<bool> OneAsync(ResolvedProject project, NamedPullRequest pr, PrReviewRecordView? stored,
+        PrReviewRecordWriter writer, PrReviewAuthorTrustOnce once, CancellationToken ct)
     {
         var start = clock.GetUtcNow().UtcTicks;
         var repo = project.Repos.FirstOrDefault(r => r.Name == pr.Repo);
@@ -72,7 +74,9 @@ public sealed class PrReviewRecordRefresh(
             var state = await states.ReadAsync(pr.Url, ct);
             var notes = await threads.ListAsync(pr.Url, ct);
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
-            return await writer.WriteAsync(Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha), entries, start, ct);
+            var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha);
+            await ci.ApplyAsync(project, states, record, stored, ct);
+            return await writer.WriteAsync(record, entries, start, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {

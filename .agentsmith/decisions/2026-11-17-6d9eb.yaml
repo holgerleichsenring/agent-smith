@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-6d9eb
+
+decisions:
+  - category: Behaviour
+    chose: "Sections by work: Ticket, Got ready, The plan, one section per spec, The work (only a run without specs), Checked against the spec, Delivered"
+    over: "The seven command sections (Derived the spec, Built it, Verified, Reviewed and fixed...)"
+    reason: "The approved mock groups by spec; a spec's build, verify and review are one unit of work and read best together."
+  - category: Behaviour
+    chose: "A step without a spec after the first spec joins Delivered when its command delivers, else the section before it; before the first spec it is Got ready"
+    over: "A fixed command table for every step"
+    reason: "A new command is never lost and never starts a section of its own; the command table still decides delivery."
+  - category: Behaviour
+    chose: "Mechanics stay behind one 'n mechanics steps' line per section, decided by isStoryRow"
+    over: "Every step always visible as in the mock's sample"
+    reason: "The graph's rail had this condensation and the inventory keeps it; isStoryRow keeps a gate with a finding and any failing step visible."
+  - category: Behaviour
+    chose: "Every step the run reached opens in place; this spec opens its head line (status, time split, sandbox commands, sub-agents, the result message with links)"
+    over: "Only steps with llm calls open, as the mock's sample data suggests"
+    reason: "Fetch, checkout and delivery steps carry results the operator needs; 6d9ec adds the rest of the detail under the head."
+  - category: Architecture
+    chose: "The criteria reuse VerifySummary and CriterionJudgementControl, flattened by .rl-plain CSS"
+    over: "A second plain criteria renderer"
+    reason: "The Why page keeps the card; one renderer of verdicts and the overrule, two looks."
+  - category: Behaviour
+    chose: "Long documents (ticket text, work spec, plan, run report, an executed spec, a spec's decisions) sit behind one-line disclosures"
+    over: "Rendering them open in the section"
+    reason: "The log stays a log; a document is one click away where it belongs."
+  - category: Behaviour
+    chose: "A running or stopped section starts open and follows the run; a click flips it"
+    over: "Every section closed"
+    reason: "The mock opens the spec in progress; the ticket page's inline log already reads open as initial XOR toggled."
+  - category: Architecture
+    chose: "RunProgressStrip and the storySections builders are deleted; RunSectionLog and runSections stay for the ticket page's inline log"
+    over: "Moving the ticket page to the new sections in this series"
+    reason: "Out of scope; the inline log is a summary of a run inside a ticket thread."

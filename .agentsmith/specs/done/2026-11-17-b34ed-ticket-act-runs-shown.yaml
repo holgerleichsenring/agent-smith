@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-b34ed
+goal: "A ticket's refresh-base and retarget runs are listed in its page's Runs section, linked by the run row's ticket id, without taking the ticket's lease or acting on the ticket."
+
+applies_to: "default (PipelineRequest, ExecutePipelineUseCase, PipelinePresets, run projections, BaseRefreshLauncher, PullRequestRetargetRun, IActRun)"
+
+requires: [2026-11-17-023fb, 2026-11-17-9a39c, 2026-11-17-e061a]
+
+facts:
+  - claim: "Both runs start with no ticket id; the run row's ticket id comes from RunStarted, which carries the request's ticket id."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:30-31, src/backend/AgentSmith.Server/Services/Acts/ActRun.cs:21-22, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:555-567, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:42-45"
+  - claim: "The ticket page lists every run row of the (project, ticket id) pair; a row that is no attempt is listed as another run."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketRunsQuery.cs:16-27, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:63"
+  - claim: "The lease, the heartbeat and the ticket context key follow request.TicketId; act runs carry none so they hold no lease (e061a), and tying them to the ticket page was left to later."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:379-391, .agentsmith/decisions/2026-11-17-e061a.yaml"
+  - claim: "A row's ticket id drives effects beyond display: the RunEnd nudge, the taken-ticket clear, the capacity queue entry, a cancel's ticket finalization and a delete's queue removal; LeavesTicketAlone exempts a pipeline from the last four."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-48, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:61, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:58, src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:42, src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:58"
+  - claim: "A queued run row is promoted on RunStarted without taking the event's ticket id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:18-37"
+
+upgrade_impact: "None: rows written before this carry no ticket id and stay off the ticket page."
+
+scope:
+  in: "PipelineRequest.ShownOnTicket: the ticket a run is shown on, display only. RunStarted carries TicketId ?? ShownOnTicket; lease, heartbeat and the ticket context key keep request.TicketId. PipelinePresets.ShownOnTicketOnly (refresh-base, retarget); LeavesTicketAlone includes them; WaitsForCapacity keeps its answer for them. RunFinalizationProjection sends no RunEnd nudge for them; QueuedRunProjection writes no capacity entry for a ticket-leaving pipeline and takes the event's ticket id onto a promoted row that has none. The run start announces the ticket's page for them. BaseRefreshLauncher and PullRequestRetargetRun (through IActRun's optional shownOnTicket) set it."
+  out: "The other act runs (close, reopen, start, amend, comment, ticket-body): unchanged, as e061a decided; the mechanism takes them by adding their names."
+
+steps:
+  - id: request
+    action: "PipelineRequest.ShownOnTicket; ExecutePipelineUseCase.PublishRunStartedAsync stamps it."
+  - id: presets
+    action: "PipelinePresets.ShownOnTicketOnly; LeavesTicketAlone and WaitsForCapacity."
+  - id: projections
+    action: "RunFinalizationProjection skips the nudge; QueuedRunProjection guards the entry and promotes the ticket id; RunStartProjection announces."
+  - id: launch
+    action: "BaseRefreshLauncher passes the pull request's ticket; IActRun.RunAsync(…, shownOnTicket); PullRequestRetargetRun passes it."
+
+tests:
+  - "PipelinePresets: refresh-base and retarget leave the ticket alone; refresh-base still waits for capacity"
+  - "RunFinalization: a finished refresh-base row with a ticket id enqueues no RunEnd nudge; a code row does"
+  - "QueuedRunProjection: a promoted refresh-base row takes the event's ticket id; a queued refresh-base row writes no capacity entry"
+  - "TicketDetailReader: a refresh-base row with the ticket's id is listed among the other runs, not as an attempt"
+  - "StackedPullRequestRetarget: the retarget run is launched shown on the dependent's ticket (BaseRefreshLauncher has no unit seam: a concrete queued-row repository and dispatch; its one-line change is read in review)"
+
+done:
+  - "After a landing refreshes a sibling or retargets a dependent, that ticket's page lists the run; the ticket's lease, queue entry and nudges are untouched."

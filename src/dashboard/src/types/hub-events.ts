@@ -1097,7 +1097,9 @@ export type PullRequestStatus =
   | "failed"
   | "completed"
   | "completion_armed"
-  | "completion_refused";
+  | "completion_refused"
+  /** 2026-11-17-3435b: the run's gate passed; the pull request waits for the host's CI (merge: on_ci_green). */
+  | "awaiting_ci";
 
 /** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
  *  across runs and joined with its run/ticket facts, newest-first. */

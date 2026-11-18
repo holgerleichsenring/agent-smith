@@ -33,13 +33,21 @@ public static class PullRequestStatuses
     /// nobody has to come back to an armed pull request.</summary>
     public const string CompletionArmed = "completion_armed";
 
+    /// <summary>2026-11-17-3435b: the run's own gate passed and the pull request waits for the host's CI under
+    /// merge: on_ci_green; a merge-green run merges it once CI is green. OPEN, and waiting for a build, not a person.</summary>
+    public const string AwaitingCi = "awaiting_ci";
+
+    /// <summary>2026-11-17-3435b: the pull request is open on the platform and agent-smith's work goes on there — opened,
+    /// or waiting for CI. A rework, a CI fix and the live view read both as the run's open pull request.</summary>
+    public static bool IsOpen(string? status) => status is Opened or AwaitingCi;
+
     /// <summary>p0490: the repo HAS a pull request on the platform — opened, completed,
     /// armed, or left open by a refused completion — as opposed to none at all. Before
     /// init learned to finish its own pull requests, <see cref="Opened"/> answered this
     /// question on its own; it no longer does, and a surface that still asks it that way
     /// loses every link the moment a run merges what it opened.</summary>
     public static bool HasPullRequest(string? status) =>
-        status is Opened or Completed or CompletionArmed or CompletionRefused;
+        status is Opened or Completed or CompletionArmed or CompletionRefused or AwaitingCi;
 
     /// <summary>p0501: the pull request is waiting for a PERSON. An armed one is waiting
     /// too, but for a build, so counting it here would send the operator to look at

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-b34ed
+
+decisions:
+  - category: Architecture
+    chose: "PipelineRequest.ShownOnTicket: the ticket the run's row carries for display; RunStarted stamps TicketId ?? ShownOnTicket while lease, heartbeat and the ticket context key keep reading TicketId"
+    over: "Giving the runs a ticket id (takes the lease, finalizes the ticket — what e061a and 023fb ruled out), or a new display column on the run row (a migration on both providers for one link)"
+    reason: "The ticket page already lists every row of the (project, ticket id) pair and shows a non-attempt as another run; the row's ticket id is the link. Act runs were deliberately left ticketless in block 4 (e061a: 'tying it to the ticket page is block 5's restructuring'), so there was no linking mechanism to copy; this is that mechanism, and the act runs can opt in by name."
+  - category: Implementation
+    chose: "PipelinePresets.ShownOnTicketOnly (refresh-base, retarget) joins LeavesTicketAlone; WaitsForCapacity names spec-derive itself so a refresh still waits for capacity"
+    over: "Guarding each reader of a row's ticket id separately"
+    reason: "LeavesTicketAlone already exempts a pipeline from the taken-ticket clear, a cancel's ticket finalization, the queue removal on cancel and delete, and the in-run ticket effects; one predicate keeps them together. WaitsForCapacity used to read LeavesTicketAlone and would otherwise have turned a capacity refusal of a refresh into a failure."
+  - category: Implementation
+    chose: "No RunEnd nudge for a shown-on-ticket run; no capacity entry for a ticket-leaving run; a promoted queued row takes the event's ticket id when it has none; the run start announces the ticket page"
+    over: "Letting the row's ticket id drive these as it does for an attempt"
+    reason: "The nudge would rework-check the ticket after every refresh, the capacity entry would make the poller launch the ticket, and the refresh launcher creates its queued row before the request's ticket is known to the projection."
+  - category: Review
+    chose: "Adversarial self-review: a force-delete of a live refresh releases only a lease under its own run id (none) and the finalizer skips it; the ticket list, attempts, derivations, delivery and previous-attempt reads filter by pipeline, so the row never becomes an attempt; the conversation's filed-work panel lists it as a run, like a derivation"
+    over: "Shipping without the review"
+    reason: "CLAUDE.md asks for a review per spec."

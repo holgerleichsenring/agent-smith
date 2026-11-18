@@ -23,8 +23,6 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposAutoComplete(
     string project, string repoName, ILogger logger)
 {
-    private const short ApproveVote = 10;
-
     /// <summary>
     /// Approves <paramref name="pr"/> and arms auto-complete on it. Returns merged when
     /// Azure completed it there and then (no policy stood in the way), armed when it
@@ -54,9 +52,7 @@ public sealed class AzureReposAutoComplete(
     {
         // A policy that requires approval is satisfied by the vote; one that requires a
         // build is not, and is precisely what auto-complete then waits for.
-        await client.CreatePullRequestReviewerAsync(
-            new IdentityRefWithVote { Vote = ApproveVote },
-            project, repoName, prId, identity.Id, cancellationToken: cancellationToken);
+        await AzureReposApprovalVote.CastAsync(client, project, repoName, prId, identity.Id, cancellationToken); // 3435b
         logger.LogInformation("PR !{PrId} approved by {Identity}", prId, identity.DisplayName ?? identity.Id);
     }
 

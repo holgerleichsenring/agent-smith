@@ -21,6 +21,51 @@ public sealed class MergePolicyConfig
     /// </summary>
     public bool RefreshOpenPullRequests { get; set; }
 
+    /// <summary>
+    /// 2026-11-17-3435a: how many characters of each failed check's evidence (the host's summary, then the end of its
+    /// log) are read, stored and handed to a fix. 4000 holds a test failure's assertion and stack with room to spare
+    /// and keeps a record row and a prompt section small.
+    /// </summary>
+    public int CiExcerptChars { get; set; } = 4000;
+
+    /// <summary>
+    /// 2026-11-17-3435a: how many failed checks of one red head have their logs read. Each costs a host call and a log
+    /// download; five covers a matrix failing the same way, the rest are named with their links.
+    /// </summary>
+    public int CiFailedChecksRead { get; set; } = 5;
+
+    /// <summary>
+    /// 2026-11-17-3435b: with on_ci_green, how often the open pull requests' CI is read. A minute keeps a green head
+    /// merged within a minute and costs a few host calls per pull request per minute.
+    /// </summary>
+    public int CiPollSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// 2026-11-17-3435b: how long a head with no CI reporting must stay so before it counts as having none — a host
+    /// registers its checks seconds to minutes after a push, so 'nothing yet' is not 'nothing configured'.
+    /// </summary>
+    public int CiSettleSeconds { get; set; } = 180;
+
+    /// <summary>
+    /// 2026-11-17-3435b: after how long a head still pending is no longer read every ci_poll_seconds (a manual job or
+    /// a stuck queue would poll forever); the five-minute re-read still sees it move. An hour outlasts a slow suite.
+    /// </summary>
+    public int CiPendingSeconds { get; set; } = 3600;
+
+    /// <summary>
+    /// 2026-11-17-3435b: the secret of the identity that approves a pull request the host requires a review for, with
+    /// respect_branch_protection: true. A host refuses the author's own approval (always on GitHub, by setting on Azure
+    /// DevOps and GitLab), and the author is the repo's own token. Null: approve as the repo's token where allowed.
+    /// </summary>
+    public string? ApprovalAuth { get; set; }
+
+    /// <summary>
+    /// 2026-11-17-3435c: with on_ci_green, how many rework runs in a row a red CI may start before the ticket is handed
+    /// back with the evidence. Three gives a flaky suite and a follow-up fix room while a fix that cannot converge stops
+    /// spending; a person's answer resets the count.
+    /// </summary>
+    public int CiFixAttempts { get; set; } = 3;
+
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;
 }
@@ -33,6 +78,9 @@ public enum MergeWhen
 
     /// <summary>A run whose every spec verified green merges its pull requests at its end.</summary>
     OnGateGreen = 1,
+
+    /// <summary>2026-11-17-3435b: a gate-passed run's pull requests wait for the host's CI; green on every one merges them.</summary>
+    OnCiGreen = 2,
 }
 
 /// <summary>2026-11-17-023fa: whether a merge goes past the host's branch protection or waits for it.</summary>

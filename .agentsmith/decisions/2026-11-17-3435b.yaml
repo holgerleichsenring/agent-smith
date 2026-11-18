@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-3435b
+
+decisions:
+  - category: Architecture
+    chose: "merge.when gains on_ci_green: the code run records each gate-passed pull request awaiting_ci and merges nothing; the server's CI loop starts a merge-green run once CI is green on every one of the newest attempt's awaiting pull requests"
+    over: "Waiting for CI inside the code run, or arming the host's auto-merge"
+    reason: "A run that waits holds a sandbox and a lease for as long as CI takes; auto-merge cannot fix a red CI (3435c) and is the respect_branch_protection path already. The merge writes to a repository, so it is a run (merge-green) with a run id, never a server service."
+  - category: Architecture
+    chose: "merge-green is a host-act preset [CompletePullRequests] seeded in process (CiGreenMergeRequest), run synchronously by the CI loop under the ticket's lease with a ticket-carrying row, LeavesTicketAlone"
+    over: "A queued detached run with string seeds, or a ticketless act run"
+    reason: "A ticket-carrying row lists the run in the ticket's Runs (operator: each loop iteration visible as a run) and its end enqueues the RunEnd nudge whose refresh records the landing; the lease keeps a rework off the ticket while it merges. LeavesTicketAlone keeps the run from moving the ticket's status or commenting."
+  - category: Implementation
+    chose: "The merge sequence (order, rung guard, first refusal stops) moved out of CompletePullRequestsHandler into PullRequestMergeSequence, shared by on_gate_green and on_ci_green; a merge-green run records each outcome on its own row and on the attempt's"
+    over: "A second merge loop for the CI path"
+    reason: "No second path. Recording on the attempt's row turns its 'waiting for CI' into merged, armed or still open where the operator reads it."
+  - category: Implementation
+    chose: "The CI loop's tick rides on PrRecordReReadHostedService: it ticks at the smallest merge.ci_poll_seconds of the on_ci_green projects, nudges their CI-due records every tick and runs the full re-read every five minutes"
+    over: "A second hosted service with its own leader lease"
+    reason: "Review round 1: the same lease, selection and per-ticket Refresh nudges already exist there."
+  - category: Implementation
+    chose: "PrReviewRecord.CiActed stores 'head:state'; only a merge-green run that ran marks it; a new head or a new verdict on the same head is acted on again; a head pending longer than merge.ci_pending_seconds leaves the fast poll"
+    over: "A boolean marked at launch"
+    reason: "Review round 1: a mark at launch loses a merge whose lease was held, and one bit cannot tell red-then-green on the same head (a re-run flaky check) from a head already merged; an unbounded pending head would poll the host forever."
+  - category: Implementation
+    chose: "Approval only with respect_branch_protection: true, through IPullRequestApprover as the identity merge.approval_auth names (else the repo's token): GitHub reads reviewDecision and submits an APPROVE review, GitLab approves while approvals_left > 0, Azure casts the +10 vote shared with auto-complete (AzureReposApprovalVote); a refusal names the host's reason and merge.approval_auth"
+    over: "Refusing on GitHub up front without approval_auth, or approving in Bypass mode"
+    reason: "GitHub never lets the author (the repo's token) approve its own pull request, Azure DevOps and GitLab may forbid it (review round 1), so a second identity is a config key on every host. Asking the host whether a review is required avoids refusing a pull request that needs none. Bypass merges past the review rule, so it needs no approval."
+  - category: Scope
+    chose: "'No CI' merges after merge.ci_settle_seconds of nothing reporting on the head, recorded as acted 'head:none'"
+    over: "Never merging without CI, or merging at once"
+    reason: "Operator brief: none under on_ci_green merges after the local gate, recorded. A host registers its checks seconds to minutes after a push, so 'nothing yet' is not 'nothing configured'."
+  - category: Review
+    chose: "Adversarial review round 1: BUILD WITH CUTS (key on the attempt's own pull requests, verdict-aware acted mark set only after a run, approval identity on every host, every 'opened' consumer, pending timeout, ride on the re-read service, registration list); every cut applied"
+    over: "Building the first draft"
+    reason: "Each cut named a way the first draft would have blocked a merge forever, merged twice, or polled without end."

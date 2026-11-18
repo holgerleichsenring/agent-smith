@@ -28,4 +28,8 @@ public sealed record PipelineRequest(
     // p0326: inline ticket payload (the demo's trackerless path). When set,
     // FetchTicket materializes it instead of a provider lookup; TicketId stays
     // null — an inline run holds no lease and finalizes no tracker state.
-    InlineTicket? InlineTicket = null);
+    InlineTicket? InlineTicket = null,
+    // 2026-11-17-b34ed: the ticket a run is SHOWN on — its row carries the id so the ticket page lists it — while it holds
+    // no lease, sets no ticket on its context and acts on no ticket. For the runs that act beside a ticket (refresh-base,
+    // retarget); TicketId stays null on them.
+    TicketId? ShownOnTicket = null);

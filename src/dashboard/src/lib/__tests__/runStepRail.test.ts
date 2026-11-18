@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeTimeBadge, splitSpecPrefix, toRailNodes } from "../runStepRail";
+import { composeTimeBadge, isStoryRow, splitSpecPrefix } from "../runStepRail";
 import type { RunStepRow } from "../runStepsApi";
 
 // p0395: spliced spec steps carry their spec as structured data, never as a
@@ -49,46 +49,6 @@ describe("splitSpecPrefix", () => {
   });
 });
 
-describe("toRailNodes spec handling", () => {
-  it("prefers the server's structured spec id and shows the clean label", () => {
-    const nodes = toRailNodes([
-      row({ stepIndex: 0, displayName: "Generate plan", specId: "p19106a" }),
-    ]);
-
-    expect(nodes[0].label).toBe("Generate plan");
-    expect(nodes[0].specId).toBe("p19106a");
-  });
-
-  it("splits a legacy prefixed label from an old server defensively", () => {
-    const nodes = toRailNodes([
-      row({ stepIndex: 0, displayName: "p19106a: Generate plan" }),
-    ]);
-
-    expect(nodes[0].label).toBe("Generate plan");
-    expect(nodes[0].specId).toBe("p19106a");
-  });
-
-  it("carries no spec on an unspliced step", () => {
-    const nodes = toRailNodes([row({ stepIndex: 0, displayName: "Fetch ticket" })]);
-
-    expect(nodes[0].label).toBe("Fetch ticket");
-    expect(nodes[0].specId).toBeNull();
-  });
-
-  // p0398: the server's classification rides along; an old server without it
-  // yields milestone-like rows (class null, no finding) — nothing hides.
-  it("carries the server's step class and finding flag through to the node", () => {
-    const nodes = toRailNodes([
-      row({ stepIndex: 0, stepClass: "gate", hasFinding: true }),
-      row({ stepIndex: 1 }),
-    ]);
-
-    expect(nodes[0].stepClass).toBe("gate");
-    expect(nodes[0].hasFinding).toBe(true);
-    expect(nodes[1].stepClass).toBeNull();
-    expect(nodes[1].hasFinding).toBe(false);
-  });
-});
 
 // p0404: the step's wall-clock split, composed for the detail pane's meta line.
 // The server owns the numbers; the rail only names them.
@@ -130,44 +90,19 @@ describe("composeTimeBadge", () => {
     ).toBeNull();
   });
 
-  it("rides through toRailNodes onto the node", () => {
-    const nodes = toRailNodes([
-      row({ time: { modelMs: 1000, throttleMs: 0, sandboxMs: 0, scaffoldingMs: 500 } }),
-    ]);
-
-    expect(nodes[0].timeBadge).toBe("1.0s model · 0.5s scaffolding");
-  });
 });
 
 // p0405: the server delivers ONE ordered sequence — executed steps followed by
 // planned ones. The rail renders it as delivered: it does not compute the spec
 // block, multiply it by a spec count, or decide what a missing field means.
-describe("toRailNodes planned steps", () => {
-  const plannedRow = (over: Partial<RunStepRow>): RunStepRow =>
-    row({
-      planned: true, status: null, durationSeconds: null, resultMessage: null,
-      llmCalls: null, costUsd: null, sandboxCommands: null, subAgents: null, ...over,
-    });
 
-  it("carries the planned marker through and reads the absent status as not-yet-run", () => {
-    const nodes = toRailNodes([
-      row({ stepIndex: 1, status: "success" }),
-      plannedRow({ stepIndex: 2, displayName: "Execute the spec", specId: "p19106a" }),
-    ]);
-
-    expect(nodes[0].planned).toBe(false);
-    expect(nodes[1].planned).toBe(true);
-    expect(nodes[1].status).toBe("wait");
-    expect(nodes[1].label).toBe("Execute the spec");
-    expect(nodes[1].specId).toBe("p19106a");
-  });
-
-  it("shows a planned step no cost, no duration and no time split", () => {
-    const nodes = toRailNodes([plannedRow({ stepIndex: 2 })]);
-
-    expect(nodes[0].costBadge).toBeNull();
-    expect(nodes[0].timeBadge).toBeNull();
-    expect(nodes[0].durationLabel).toBe("");
-    expect(nodes[0].durationSeconds).toBe(0);
+// 2026-11-17-6d9ed: the run log folds a section's mechanics by this rule.
+describe("isStoryRow", () => {
+  it("isStoryRow_InternalFolds_GateOnlyWithAFinding_FailingAlwaysShows", () => {
+    expect(isStoryRow({ status: "ok", stepClass: "internal" })).toBe(false);
+    expect(isStoryRow({ status: "ok", stepClass: "gate" })).toBe(false);
+    expect(isStoryRow({ status: "ok", stepClass: "gate", hasFinding: true })).toBe(true);
+    expect(isStoryRow({ status: "fail", stepClass: "internal" })).toBe(true);
+    expect(isStoryRow({ status: "ok", stepClass: null })).toBe(true);
   });
 });

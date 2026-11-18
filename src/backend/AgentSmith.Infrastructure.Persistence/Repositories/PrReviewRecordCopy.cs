@@ -23,6 +23,19 @@ internal static class PrReviewRecordCopy
         stored.State = read.State;
         stored.StateAtTicks = read.StateAtTicks;
         stored.HeadSha = read.HeadSha ?? stored.HeadSha;
+        Ci(read, stored);
+    }
+
+    // 2026-11-17-3435a: a read without CI keeps the stored CI; the same state on the same head keeps when it was first seen
+    // and the evidence read then (a later read of a red head skips the logs).
+    private static void Ci(PrReviewRecord read, PrReviewRecord stored)
+    {
+        if (read.CiState is null) return;
+        var same = read.CiState == stored.CiState && read.CiHeadSha == stored.CiHeadSha;
+        stored.CiAtTicks = same ? stored.CiAtTicks ?? read.CiAtTicks : read.CiAtTicks;
+        stored.CiFailuresJson = same ? stored.CiFailuresJson ?? read.CiFailuresJson : read.CiFailuresJson;
+        stored.CiState = read.CiState;
+        stored.CiHeadSha = read.CiHeadSha;
     }
 
     // 2026-10-15-114fc: taken before the columns are overwritten; a read without a sha neither moves nor erases the head.

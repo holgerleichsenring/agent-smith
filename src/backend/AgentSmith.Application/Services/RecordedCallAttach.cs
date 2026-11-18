@@ -19,6 +19,9 @@ public static class RecordedCallAttach
         pipeline.Set(ContextKeys.RecordedCalls, ledger);
         if (pipeline.TryGet<PriorSpendSnapshot>(ContextKeys.PriorSpend, out var prior) && prior is not null)
             ledger.Carry(CarryOf(prior));
+        // 2026-11-17-b34ea: a tracker the prologue already created counts the ledger toward the cap too.
+        if (pipeline.TryGet<PipelineCostTracker>("PipelineCostTracker", out var tracker) && tracker is not null)
+            tracker.CountRecordedCalls(ledger);
     }
 
     public static RecordedCallCarry CarryOf(PriorSpendSnapshot prior) => new(

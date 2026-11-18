@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-b34ec
+goal: "A filed ticket's blocked or ready marker reads the same requirement rule a start reads, so a dependent stacked on a green prerequisite is not shown blocked."
+
+applies_to: "default (Server/Services/Tickets/FiledTicketRows)"
+
+requires: [2026-11-17-9a39a]
+
+facts:
+  - claim: "A never-run ticket's row is blocked when OfAsync names an unlanded requirement; OfAsync answers landings only."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:75, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:90-92, src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:25-32"
+  - claim: "Every start decision asks ForStartAsync, which under on_green_push lifts a requirement whose prerequisite pushed a green branch to stack on."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:39-46, .agentsmith/decisions/2026-11-17-9a39a.yaml"
+  - claim: "9a39a left the ticket list on landings and named it as left over."
+    evidence: ".agentsmith/specs/done/2026-11-17-9a39a-requires-green-start.yaml:27"
+  - claim: "The graph node and requires entries take a never-run ticket's state from this row's bucket."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketNodeStates.cs:18-26"
+
+upgrade_impact: "None: a list read; a stacked dependent reads ready instead of blocked."
+
+scope:
+  in: "FiledTicketRows reads ForStartAsync(project, ticket key) when the filing's project resolves, OfAsync otherwise; the waits-for list and the bucket follow its Unmet."
+  out: "Run-bearing rows, which carry no waits-for."
+
+steps:
+  - id: rows
+    action: "FiledTicketRows.ReadAsync: unmet = project resolves ? ForStartAsync(...).Unmet : OfAsync(...).Unmet."
+
+tests:
+  - "FiledTicketRows: under on_green_push a never-run dependent of a green prerequisite is filed (ready) with no waits-for; under on_merge it stays blocked naming the prerequisite"
+
+done:
+  - "A dependent the gate would admit on a green prerequisite reads ready on the ticket list, its graph node and its requirement entries."

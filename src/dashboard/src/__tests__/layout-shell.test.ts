@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 // live on the ratified mocks' shell (.mock-shell + the mock .main/.wrap).
 // p0343d closes the split: the System/Rollups pages join the same shell
 // (SystemView carries .mock-shell/.mock-system for its routes, and 2026-08-27-7463's
-// Overview carries it for the three readings that left them); only
-// embedded panes (the trace drawer's DetailPane) remain on content-shell. No
+// Overview carries it for the three readings that left them). 2026-11-17-6d9ed: the
+// last content-shell pane, the trace drawer's DetailPane, left with the drawer. No
 // route may reintroduce a centered max-w outlier of its own.
 
 const srcDir = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -30,10 +30,6 @@ const MOCK_SURFACES = [
   "components/dialog/ConversationsView.tsx",
 ];
 
-const CONTENT_SHELL_AREAS = [
-  "components/execution/DetailPane.tsx",
-];
-
 const read = (rel: string) => readFileSync(join(srcDir, rel), "utf8");
 
 describe("Layout content shell", () => {
@@ -42,13 +38,8 @@ describe("Layout content shell", () => {
     expect(missing, `redesigned surfaces missing the mock-shell wrapper: ${missing.join(", ")}`).toEqual([]);
   });
 
-  it("Layout_SystemAreas_StayOnContentShell", () => {
-    const missing = CONTENT_SHELL_AREAS.filter((f) => !read(f).includes("content-shell"));
-    expect(missing, `content areas not on the shared content-shell: ${missing.join(", ")}`).toEqual([]);
-  });
-
   it("Layout_NoMaxW5xlOutlierRemains", () => {
-    const offenders = [...MOCK_SURFACES, ...CONTENT_SHELL_AREAS].filter((f) =>
+    const offenders = MOCK_SURFACES.filter((f) =>
       read(f).includes("max-w-5xl"),
     );
     expect(offenders, `max-w-5xl outlier still present in: ${offenders.join(", ")}`).toEqual([]);

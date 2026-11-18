@@ -293,6 +293,10 @@ export interface ConfigCapabilities {
   /** 2026-10-14-dbced: per ComplexityTier name, the cost ceiling a tier left out of perTier
    *  keeps. Absent from an older server: an unset tier shows the Default cap. */
   tierCostCapDefaults?: Record<string, CostCapValues>;
+  /** 2026-11-17-b34eb: a project's merge.when modes, from the server's enum. Absent from an older server. */
+  mergeWhen?: string[];
+  /** 2026-11-17-b34eb: a project's requires_start modes, from the server's enum. Absent from an older server. */
+  requiresStart?: string[];
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
@@ -492,6 +496,10 @@ export interface AgentCompactionConfig {
   thresholdIterations: number;
   maxContextTokens: number;
   keepRecentIterations: number;
+  /** 2026-11-17-b34eb: absent leaves the stored ratio alone. */
+  maxContextTokensTriggerRatio?: number | null;
+  foldTargetRatio?: number | null;
+  summaryBudgetRatio?: number | null;
 }
 
 export interface AgentRetryConfig {
@@ -699,6 +707,25 @@ export interface StudioProject {
   /** 2026-10-01-7f7aa: names from the design-sources catalog. ABSENT leaves the stored list
    *  alone, like templates and sandbox. */
   designSources?: string[] | null;
+  /** 2026-11-17-9a39a: on_green_push or on_merge. ABSENT leaves the stored value alone. */
+  requiresStart?: string | null;
+  /** 2026-11-17-b34eb: the merge block; null when the project declares none (manual). ABSENT leaves it alone. */
+  merge?: ProjectMerge | null;
+}
+
+/** 2026-11-17-b34eb: the project's merge: block (when is the YAML name, e.g. manual or on_gate_green). */
+export interface ProjectMerge {
+  when: string;
+  respectBranchProtection: boolean;
+  refreshOpenPullRequests: boolean;
+  /** 2026-11-17-3435d: the CI loop's keys; absent or null is the key's default. */
+  ciPollSeconds?: number | null;
+  ciSettleSeconds?: number | null;
+  ciPendingSeconds?: number | null;
+  ciFixAttempts?: number | null;
+  ciExcerptChars?: number | null;
+  ciFailedChecksRead?: number | null;
+  approvalAuth?: string | null;
 }
 
 export interface StudioMcpServer {
@@ -868,6 +895,8 @@ export type SettingKey =
   | "trace"
   | "spec_review"
   | "series"
+  | "preconditions"
+  | "branch_cleanup"
   | "tickets";
 
 export interface OrchestratorSetting {
@@ -1033,6 +1062,17 @@ export interface TicketsSetting {
   prRereadMergedCap: number;
 }
 
+/** 2026-11-16-f3fbc: how often stuck-on-precondition tickets are rechecked (agentsmith.yml preconditions:). */
+export interface PreconditionsSetting {
+  recheckIntervalSeconds: number;
+}
+
+/** 2026-11-17-713ec: the branch-cleanup sweep (agentsmith.yml branch_cleanup:). */
+export interface BranchCleanupSetting {
+  enabled: boolean;
+  intervalSeconds: number;
+}
+
 /** Maps each settings key to its wire shape. */
 export interface SettingShapes {
   orchestrator: OrchestratorSetting;
@@ -1049,6 +1089,8 @@ export interface SettingShapes {
   trace: TraceSetting;
   spec_review: SpecReviewSetting;
   series: SeriesSetting;
+  preconditions: PreconditionsSetting;
+  branch_cleanup: BranchCleanupSetting;
   tickets: TicketsSetting;
 }
 

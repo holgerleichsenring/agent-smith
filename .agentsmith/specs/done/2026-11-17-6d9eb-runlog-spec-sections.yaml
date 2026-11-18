@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-6d9eb
+goal: "The run log is sectioned by work: Ticket, Got ready, The plan, one section per spec, Checked against the spec, Delivered; each section and step line says its llm calls, cost and time, in plain text."
+
+applies_to: "dashboard (components/jobs/runlog: runLogSections, RunLog, RunLogSectionBodies; story panels re-drawn plain)"
+
+requires: [2026-11-17-6d9ea]
+
+facts:
+  - claim: "The log's sections today are seven by command name plus three story sections; spec steps carry specId on the step row."
+    evidence: "src/dashboard/src/components/jobs/runlog/runSections.ts:16-46, src/dashboard/src/lib/runStepsApi.ts:14-18"
+  - claim: "A step row carries llmCalls, costUsd, durationSeconds, status, planned, stepClass and hasFinding."
+    evidence: "src/dashboard/src/lib/runStepsApi.ts:10-41"
+  - claim: "The spec list with title, status, verdict and decisions is served per run."
+    evidence: "src/dashboard/src/components/jobs/story/SpecsPanel.tsx:28-31, src/dashboard/src/hooks/useRunSpecs.ts"
+  - claim: "The ticket page's inline log uses runSections and RunSectionLog."
+    evidence: "src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:4-5"
+  - claim: "Internal steps and silent gates were collapsed into a mechanics row per segment."
+    evidence: "src/dashboard/src/components/execution/NavRail.tsx:102-132, src/dashboard/src/lib/runStepRail.ts (isStoryRow)"
+
+scope:
+  in: "runLogSections groups step rows: steps before the first spec step in Got ready, a spec's steps in its section, a later step without a spec in Delivered when its command delivers, else in the section before it; a run without specs gets Got ready, The work, Delivered. Ticket, The plan and Checked against the spec are sections without steps. Section line: dot colour, name, 'n of m steps done · k llm · $x · time'; step line: name, llm count, cost, time; internal steps behind 'n mechanics steps', decided by isStoryRow so a gate with a finding stays visible; every step that ran opens (6d9ec), not only steps with llm calls; a verify step keeps its pass lines (VerifyPassLines) under it. Bodies drawn plain: ticket, work spec, plan, ledger lines, the run's decisions (useRunDecisions) for a run without specs, spec decisions and executed spec, criteria with the overrule, the run report and pull requests. The criteria reuse VerifySummary and CriterionJudgementControl with a plain variant (the Why page keeps its card), not a second renderer."
+  out: "Opening a step (6d9ec); the ticket page's inline log keeps runSections."
+
+steps:
+  - id: group
+    action: "runLogSections.ts builds the sections and their meta from the step rows, the spec rows and the acceptance."
+  - id: draw
+    action: "RunLog draws section and step lines in the mock's columns; a section opens on click, the open set starts with a running or stopped section."
+  - id: bodies
+    action: "RunLogSectionBodies: TicketBody, PlanBody (spec, plan, ledger, run decisions without specs), SpecBody (decisions, the executed spec), CheckBody (VerifySummary plain), DeliveredBody (pull requests, the run report)."
+  - id: wire
+    action: "RunLogView renders RunLog with these sections in place of RunProgressStrip and RunSectionLog."
+
+tests:
+  - "runLogSections: spec grouping, Delivered placement, run without specs, per-section counts, mechanics split."
+  - "RunLog: section and step lines show llm · cost · time; a section toggles; mechanics open in place."
+  - "CheckBody: record and withdraw an overrule in the plain variant; DeliveredBody: pull request links incl. the prUrl fallback."
+
+done:
+  - "Every story panel's content is reachable in a section, with no card, badge or pill."
+  - "pnpm test and build are green."

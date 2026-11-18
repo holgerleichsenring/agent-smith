@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -298,6 +298,14 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitLabMrStateReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ReadAsync(prUrl, cancellationToken);
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitLabMergeRequestClose(_baseUrl, _projectPath, _privateToken, _httpClient).CloseAsync(prUrl, cancellationToken);
+
+    // 2026-11-17-3435b: an approval while the approval rules want one.
+    public Task<PullRequestApproval> ApproveIfRequiredAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitLabApprover(_baseUrl, _projectPath, _privateToken, _httpClient).ApproveIfRequiredAsync(prUrl, cancellationToken);
+
+    // 2026-11-17-3435a: the head pipeline's CI.
+    public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken cancellationToken) =>
+        new GitLabCiReader(_baseUrl, _projectPath, _privateToken, _httpClient).ReadAsync(prUrl, request, cancellationToken);
 
     // 2026-11-17-713ec: the branch-cleanup run's reads and delete.
     private GitLabWorkBranches WorkBranchHost() => new(_baseUrl, _projectPath, _privateToken, _httpClient);

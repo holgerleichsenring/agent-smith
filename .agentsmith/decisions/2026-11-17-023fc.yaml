@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-023fc
+
+decisions:
+  - category: Review
+    chose: "Leave 2026-11-17-023fc planned, unbuilt; its design does not hold yet (reviewed 2026-11-17 in the small-follow-ups batch, 2026-11-17-b34e series)"
+    over: "Building it in that batch"
+    reason: "Three gaps, each a design question rather than code. (1) The ticket's coding run cannot reach its master: its own checkout merges the same base, hits the same conflict and stops the run before any step reads the tree (WorkBranchBaseMergeReport returns a stop for Conflicted, SandboxWorkBranchCheckout:70), so 'start the coding master' first needs a checkout that keeps the conflict open for the master and a finalizer that refuses markers or MERGE_HEAD — neither is specified. (2) The master has nothing to run on a full, executed set: a revision cause amends nothing there (SpecAmendmentRule.NeedsModel, fact 2 of the spec), so a base-merge pass needs a work item that is not a spec, which the spec does not define. (3) The start path: the refresh-base run reports its conflict only as a step result and a pull-request comment; the server learns nothing it can start from, and the spec forbids a new nudge origin (ranks unchanged). The spec's single step is 'design', its tests are 'defined with the design step' — there is no reviewed design to build."
+  - category: Scope
+    chose: "What a design must answer before 023fc is built: the conflict as a checkout outcome the coding master receives (merge left open, conflicting paths named); a master work item for a base merge independent of the spec set; the finalizer's refusal of an unresolved tree; how the server learns a refresh run's conflict (the run's end result read by the RunEnd path, or a recorded outcome) without a new nudge origin"
+    over: "Leaving the gaps implicit"
+    reason: "A later session starts from the questions instead of re-deriving them."

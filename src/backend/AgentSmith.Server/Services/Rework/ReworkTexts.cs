@@ -17,6 +17,7 @@ public static class ReworkTexts
         ReworkChannel.Status => "this status change", ReworkChannel.Retry => "this retry",
         ReworkChannel.Operator => "the request in this ticket's conversation",
         ReworkChannel.Overrule => "this overrule", ReworkChannel.PullRequest => "this review",
+        ReworkChannel.Ci => "the red CI on the pull request", // 2026-11-17-3435c
         _ => "this comment",
     };
 

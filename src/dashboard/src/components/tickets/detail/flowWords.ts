@@ -42,6 +42,7 @@ const CASE_WORDS: Record<string, string> = {
   SpecificationMissingFromBranch: "spec missing from the branch",
   ScopeUnassigned: "scope unassigned",
   SeriesOutOfStep: "series out of step",
+  CiFixBudgetSpent: "CI still red", // 2026-11-17-3435c
   ReviewObjection: "review objection", // 2026-10-13-8762l
 };
 

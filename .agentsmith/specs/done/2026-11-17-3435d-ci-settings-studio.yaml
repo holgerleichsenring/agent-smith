@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-3435d
+goal: "The config studio's merge tab edits every CI-loop key of a project's merge block, and a studio save keeps them instead of resetting them to defaults."
+
+applies_to: "dashboard (config studio merge tab), default (studio project merge mapping)"
+
+requires: [2026-11-17-3435c]
+
+facts:
+  - claim: "The studio's merge block crosses as ProjectMerge(When, RespectBranchProtection, RefreshOpenPullRequests); a sent block is stored as a NEW MergePolicyConfig, so every other key of the stored block returns to its default on a save."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ProjectEntity.cs:55-57, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectMergeMapping.cs:22-37, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawProjectPatch.cs:36"
+  - claim: "The merge tab (ProjectMergeSection) offers merge.when from the server's MergeWhen names, so on_ci_green is offered already, and has number and check fields to reuse."
+    evidence: "src/dashboard/src/components/config/ProjectMergeSection.tsx:36-43, src/dashboard/src/components/config/formFields.tsx:228-267"
+  - claim: "The CI loop added ci_excerpt_chars, ci_failed_checks_read, ci_poll_seconds, ci_settle_seconds, ci_pending_seconds, ci_fix_attempts and approval_auth to the merge block."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:23-75"
+  - claim: "Operator 2026-11-17 23:20: every new setting must be available in the dashboard's config studio project form, plain style; the small-fix series added the merge tab in parallel (b34eb), whose components are reused."
+    evidence: "observed: 2026-11-17, operator requirement relayed by the coordinator"
+
+upgrade_impact: "None required. A studio save of a project with a merge block now writes the CI-loop keys it shows instead of resetting them to defaults."
+
+scope:
+  in: "ProjectMerge gains the seven keys as optional trailing members (null: the key's default); ProjectMergeMapping maps them both ways, writing the block whole as sent; configApi ProjectMerge and ProjectMergeSection's CI fields (number fields, the approval identity a select over the catalog's secrets), shown when when is on_ci_green except the evidence bounds and approval_auth, which apply to every mode; values stay in the form's state while hidden."
+  out: "Any other setting; the merge tab's existing fields."
+
+steps:
+  - id: entity
+    action: "ProjectMerge(…, int? CiPollSeconds, int? CiSettleSeconds, int? CiPendingSeconds, int? CiFixAttempts, int? CiExcerptChars, int? CiFailedChecksRead, string? ApprovalAuth) with defaults null; ProjectMergeMapping.ToEntity fills them, ToRaw writes them (null -> the config default)."
+  - id: form
+    action: "configApi ProjectMerge optional fields; ProjectMergeSection adds NumberFields and an approval-identity select over the secrets catalog."
+
+tests:
+  - "ProjectMergeMapping round-trips every key; a sent block without the CI keys stores their defaults; on_ci_green maps."
+  - "ProjectMergeSection: on_ci_green shows the CI fields; editing ci_fix_attempts and approval_auth reaches onChange; manual hides the CI cadence fields."
+
+done:
+  - "An operator sets on_ci_green, the cadence, the fix budget, the evidence bounds and the approval identity in the studio, and a save keeps them."

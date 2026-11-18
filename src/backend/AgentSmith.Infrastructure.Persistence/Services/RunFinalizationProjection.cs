@@ -43,7 +43,8 @@ public sealed class RunFinalizationProjection(
         if (run.FinishedAt is not null) await ReleaseWhatTheRunHeldAsync(uow, run, e.RunId, ct);
         // 2026-10-08-0781: the second end of a run — the row is terminal now, whether the lease
         // went before or goes later, so the worker checks the ticket either way.
-        if (run.FinishedAt is not null && violations is not null && run.TicketId is { Length: > 0 } ticket)
+        if (run.FinishedAt is not null && violations is not null && run.TicketId is { Length: > 0 } ticket
+            && !PipelinePresets.ShownOnTicketOnly(run.Pipeline)) // 2026-11-17-b34ed: shown on the ticket, no rework of it
             await new ReworkNudgeWriter(uow, violations).UpsertAsync(
                 new ReworkNudgeRequest(run.Project, ticket, ReworkNudgeOrigin.RunEnd), DateTimeOffset.UtcNow, ct);
     }

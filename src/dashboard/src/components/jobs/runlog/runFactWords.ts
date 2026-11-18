@@ -15,15 +15,6 @@ export function shortMs(ms: number): string {
   return seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)}m`;
 }
 
-/** "$1.20 of $5.00 cap, tier medium" when a cap was resolved, else "$1.20"; null before anything was spent. */
-export function costWords(snapshot: RunSnapshot): string | null {
-  const cap = snapshot.budgetCapUsd;
-  if (cap != null && cap > 0) {
-    return `$${snapshot.costUsd.toFixed(2)} of $${cap.toFixed(2)} cap${snapshot.budgetTier ? `, tier ${snapshot.budgetTier}` : ""}`;
-  }
-  return snapshot.costUsd > 0 ? `$${snapshot.costUsd.toFixed(2)}` : null;
-}
-
 /** The share of the cap spent, 0..100, and whether it is near or over; null without a cap. */
 export function budgetShare(snapshot: RunSnapshot): { percent: number; tone: "ok" | "near" | "over" } | null {
   const cap = snapshot.budgetCapUsd;
@@ -69,9 +60,4 @@ export function timeSplitWords(snapshot: RunSnapshot): string | null {
   if (llm <= 0) return null;
   const throttle = snapshot.throttleWaitMs ?? 0;
   return throttle > 0 ? `${shortMs(llm)} model, ${shortMs(throttle)} throttled` : `${shortMs(llm)} model`;
-}
-
-/** "step 4 of 12" while a run reports its place; null otherwise. */
-export function progressWords(snapshot: RunSnapshot): string | null {
-  return snapshot.totalSteps > 0 ? `step ${snapshot.stepIndex} of ${snapshot.totalSteps}` : null;
 }

@@ -1,6 +1,6 @@
 import { summaryLine } from "@/lib/formatRunSummary";
 import { runPath } from "@/lib/runPath";
-import type { TicketAttempt, TicketDerivation } from "@/types/tickets";
+import type { TicketAttempt, TicketDerivation, TicketOtherRun } from "@/types/tickets";
 import { money } from "../ticketFormat";
 import { attemptWords, outcomeTone, type OutcomeTone } from "./attemptOutcome";
 import { clock, elapsed } from "./flowWords";
@@ -55,8 +55,27 @@ export function derivationListLine(derivation: TicketDerivation): RunListLine {
   };
 }
 
-/** Every attempt and derivation, newest start first. */
-export function runListLines(attempts: readonly TicketAttempt[], derivations: readonly TicketDerivation[]): RunListLine[] {
-  return [...attempts.map(attemptListLine), ...derivations.map(derivationListLine)]
+/** 2026-11-17-3435b: a merge-green run — the CI loop merging the attempt's pull requests once CI was green. */
+export function mergeListLine(run: TicketOtherRun): RunListLine {
+  const running = run.finishedAt === null;
+  const ok = run.status === "success";
+  return {
+    runId: run.runId,
+    who: "Merge",
+    outcome: running ? "running" : ok ? "done" : "not finished",
+    text: "CI was green; merge the pull requests.",
+    meta: [clock(run.startedAt), elapsed(run.startedAt, run.finishedAt), money(run.cost)].filter(Boolean).join(" · "),
+    tone: running ? "run" : ok ? "ok" : "bad",
+    href: runPath(run.runId),
+    attempt: null,
+    startedAt: run.startedAt,
+  };
+}
+
+/** Every attempt, derivation and merge-green run, newest start first. */
+export function runListLines(attempts: readonly TicketAttempt[], derivations: readonly TicketDerivation[],
+  otherRuns: readonly TicketOtherRun[] = []): RunListLine[] {
+  return [...attempts.map(attemptListLine), ...derivations.map(derivationListLine),
+    ...otherRuns.filter((r) => r.pipeline === "merge-green").map(mergeListLine)]
     .sort((l, r) => Date.parse(r.startedAt) - Date.parse(l.startedAt) || (l.runId < r.runId ? 1 : -1));
 }

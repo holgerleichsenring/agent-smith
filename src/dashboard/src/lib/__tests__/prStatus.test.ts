@@ -38,4 +38,11 @@ describe("prStatus", () => {
     expect(pullRequestStatusLabel("no_changes")).toBe("no changes");
     expect(pullRequestStatusLabel("failed")).toBe("failed");
   });
+
+  // 2026-11-17-3435b
+  it("awaitingCi_IsAPullRequestWaitingForABuild_NotAPerson", () => {
+    expect(hasPullRequest("awaiting_ci")).toBe(true);
+    expect(isOpenPullRequest("awaiting_ci")).toBe(false);
+    expect(pullRequestStatusLabel("awaiting_ci")).toBe("waiting for CI");
+  });
 });

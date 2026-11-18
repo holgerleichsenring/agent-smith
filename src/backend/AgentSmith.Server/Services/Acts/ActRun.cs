@@ -15,11 +15,13 @@ namespace AgentSmith.Server.Services.Acts;
 /// </summary>
 public sealed class ActRun(IServiceProvider services, ServerContext server, ILogger<ActRun> logger) : IActRun
 {
-    public async Task<CommandResult> RunAsync(string project, string pipeline, IReadOnlyDictionary<string, object> seeds)
+    public async Task<CommandResult> RunAsync(
+        string project, string pipeline, IReadOnlyDictionary<string, object> seeds, TicketId? shownOnTicket = null)
     {
         ArgumentNullException.ThrowIfNull(seeds);
         var request = new PipelineRequest(
-            ProjectName: project, PipelineName: pipeline, Headless: true, Context: new Dictionary<string, object>(seeds));
+            ProjectName: project, PipelineName: pipeline, Headless: true, Context: new Dictionary<string, object>(seeds),
+            ShownOnTicket: shownOnTicket);
         try
         {
             // Resolved when an act runs: the run lifecycle reads the configuration file, which a composition that

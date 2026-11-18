@@ -54,7 +54,7 @@ The dashboard shows a run's cost against its cap and tier, with a budget bar tha
 
 ## Behaviour at the cap
 
-Both arms are checked, and either one tripping exhausts the budget. The token arm counts cache reads at a tenth, since they cost about that; the raw token total would trip on cheap cache traffic while the dollar arm still had room.
+Both arms are checked, and either one tripping exhausts the budget. The dollar arm counts the run's recorded calls, worker mode included: a call answered by an agent CLI counts at the cost the CLI reported. The token arm counts cache reads at a tenth, since they cost about that; the raw token total would trip on cheap cache traffic while the dollar arm still had room.
 
 Once the budget is exhausted:
 
@@ -65,7 +65,7 @@ Once the budget is exhausted:
 Every one of these says the same sentence, naming the cap and what was spent in the units the cap compared:
 
 ```text
-the run's cost cap ($8.00 / 1,500,000 tokens) is exhausted — $8.0412 / 1,502,310 cache-weighted tokens spent, any segment before a park included
+the run's cost cap ($8.00 / 1,500,000 tokens) is exhausted — $8.0412 / 1,502,310 cache-weighted tokens spent over its recorded calls, worker-reported cost and any segment before a park included; pipeline_cost_cap sets the cap
 ```
 
 ## A parked run keeps its cap and its spend
