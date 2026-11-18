@@ -1,0 +1,92 @@
+# Demo configuration for the docs screenshot rig (tools/screenshots).
+# Every name here is invented: acme, shop, Sam Sample. No value is a real credential.
+# ${DEMO_ROOT} is replaced by tools/screenshots/run.sh before import.
+
+persistence:
+  provider: sqlite
+  connection_string: "Data Source=${DEMO_ROOT}/agentsmith.db"
+
+agents:
+  claude-default:
+    type: claude
+    api_key_secret: anthropic_api_key
+    catalog:
+      sonnet:
+        model: claude-sonnet-4-5
+        max_tokens: 8192
+        tier: strong
+      haiku:
+        model: claude-haiku-4-5
+        max_tokens: 4096
+        tier: fast
+    models:
+      primary:
+        use: sonnet
+      planning:
+        use: sonnet
+      scout:
+        use: haiku
+      summarization:
+        use: haiku
+    pricing:
+      models:
+        claude-sonnet-4-5:
+          input_per_million: 3.0
+          output_per_million: 15.0
+          cache_read_per_million: 0.30
+        claude-haiku-4-5:
+          input_per_million: 1.0
+          output_per_million: 5.0
+          cache_read_per_million: 0.10
+
+repos:
+  shop-api:
+    type: local
+    path: ${DEMO_ROOT}/repos/shop-api
+    auth: none
+  shop-web:
+    type: local
+    path: ${DEMO_ROOT}/repos/shop-web
+    auth: none
+
+trackers:
+  acme-github:
+    type: github
+    url: ${TRACKER_URL}/acme/shop   # tools/screenshots/tracker-stub.mjs stands in for the GitHub API
+    auth: github_token
+    trigger_statuses: ["open"]
+    done_status: "closed"
+    comment_keyword: "@agent-smith"
+    needs_clarification_status: "question"
+
+projects:
+  shop:
+    agent: claude-default
+    tracker: acme-github
+    repos: [shop-api, shop-web]
+    pipeline: code
+    resolution:
+      tag: shop
+    merge:
+      when: on_ci_green
+      ci_fix_attempts: 3
+  billing:
+    agent: claude-default
+    tracker: acme-github
+    repos: [shop-api]
+    pipeline: code
+    resolution:
+      tag: billing
+
+pipeline_cost_cap:
+  default:
+    usd: 5
+    tokens: 500000
+
+dialogue:
+  admin_agent: claude-default
+
+secrets:
+  github_token: ${GITHUB_TOKEN}
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  jira_token: ${JIRA_TOKEN}
