@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-5fd3b
+
+decisions:
+  - category: Architecture
+    chose: "Feature pages explain behaviour and point at the agentsmith.yml reference for every key's default"
+    over: "Copying the reference tables into each page"
+    reason: "One place holds each default; the pages carry only the keys a reader changes for that feature."
+  - category: Architecture
+    chose: "Move the secret sections out of config-studio.md into configure-it/secrets.md and repoint every anchor"
+    over: "Leaving them in the studio page with a new admin-assistant page beside"
+    reason: "Stored secrets, the master key and Key Vault are a setup concern of their own; install and compose now link to one page."
+  - category: Scope
+    chose: "Branch cleanup documented on the CI loop page"
+    over: "A page of its own"
+    reason: "It is what happens to a branch after its pull request merges or closes; one section there is enough."

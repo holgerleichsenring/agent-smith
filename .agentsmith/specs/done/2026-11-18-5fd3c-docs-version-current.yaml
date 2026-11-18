@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-5fd3c
+goal: "Install and host pages name the current release, and release-please keeps every pinned version in the docs and the compose template current."
+
+applies_to: "default (docs/, deploy/docker-compose.example.yml, release-please-config.json)"
+
+requires: ["2026-11-18-5fd3a"]
+
+facts:
+  - claim: "The release is 0.188.0; the docs pin 0.108.0 and the compose template 0.129.0."
+    evidence: "version.txt:1, docs/get-it-running/install.md:20, deploy/docker-compose.example.yml:60"
+  - claim: "release-please bumps only version.txt."
+    evidence: "release-please-config.json:7-9"
+
+scope:
+  in: "0.188.0 in every docs example that pins the release, each line marked x-release-please-version; the compose template's default tags likewise; the files listed as extra-files; the master key in install and compose."
+  out: "Skills catalog versions (their own release line). Example tags of user repos (v1.0.0, v2.4.0)."
+
+steps:
+  - id: pins
+    action: "Replace 0.108.0 and 0.129.0 with 0.188.0 and add the marker comment on each line."
+  - id: release
+    action: "List the marked files as generic extra-files in release-please-config.json."
+
+tests:
+  - "mkdocs build --strict -f docs/mkdocs.yml green"
+  - "grep finds no 0.108.0 or 0.129.0 under docs/ and deploy/"
+
+done:
+  - "Every pinned release in the docs reads 0.188.0 and moves with the next release."

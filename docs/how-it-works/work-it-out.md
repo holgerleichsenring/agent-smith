@@ -2,9 +2,14 @@
 
 Work it out is the dashboard page where you design a piece of work with codeably before any ticket exists, or talk through a ticket that already does. You describe what you want to be true, hand over whatever material you have (screenshots, a folder of the old site, a link), the design partner reads the project's code and answers, and when the two of you agree it proposes something to file: a bug ticket, a spec, a cut of several specs for one ticket, or a list of tickets that wait for each other. You approve it and it files. A ticket that has already run is a different conversation: there the ticket steward leads, and it changes the ticket's series and starts its next attempt on your word. The rules of the conversation itself, the same in Slack, Teams and here, are on [Spec dialogue](spec-dialogue.md). This page covers what the dashboard shows you.
 
+<figure class="cb-shot" markdown>
+![Work it out: the conversation bar on the left, the exchange in the middle, the proposal with three tickets and their specs on the right, and File / Discard at the composer](../assets/screenshots/work-it-out.png)
+<figcaption>A conversation that drafted three tickets. Each carries its own reviewed specs; File sits at the composer.</figcaption>
+</figure>
+
 ## Finding the page
 
-**Work it out** sits in the dashboard's left rail and opens `/spec-dialog`. The page has three columns: your recent conversations, the exchange in the middle, and a pane on the right that shows what the conversation reads, proposes, filed and holds. On a narrow screen the columns stack.
+Every conversation starts from the home page's question, *What should we work on?*, or from **New work** in the sidebar: your first message, with the project picked beside the **+**, opens the conversation at `/spec-dialog`. The page then has three parts: a plain bar on the left listing your conversations (with **+ New conversation** and **All conversations**), the exchange in a single column in the middle with the composer under it, and a pane on the right that shows what the conversation reads, proposes, filed and holds. The app sidebar shrinks to icons on this page. On a narrow screen the parts stack.
 
 The page needs the `dialog.write` permission. A caller without it is told which permission is missing instead of being shown an empty page. See [Access control](../reference/security/access-control.md).
 
@@ -20,9 +25,9 @@ Each parameter is used once and then removed from the address, so reloading the 
 
 ## Starting a conversation
 
-**+ New conversation** starts an empty one. A conversation reads one project's repositories, so the first thing it needs is a project. With several projects configured, the middle column asks "Which project is this about?" and offers a list. With exactly one project it doesn't ask.
+**+ New conversation** shows the same question and composer as the home page: the project picker beside the **+**, files held until you send, and no pane yet. A conversation reads one project's repositories, so it needs a project; with exactly one configured, it is picked for you.
 
-Above that sits a search field, "Find a ticket by name or number". Type at least three characters and every configured tracker is searched. Each hit shows its key, its title, the tracker it came from and the tracker's own word for its kind (Bug, Task, User Story, whatever the board calls it; GitHub has no kinds, so it shows none). A hit whose number is exactly what you typed is marked "this number". A ticket that already has a conversation is marked "has a conversation", and picking it takes you to that one rather than starting a second. If a tracker couldn't be searched, or more tickets matched than are shown, the field says so.
+Beneath the composer sits a search field, "Find a ticket by name or number". Type at least three characters and every configured tracker is searched. Each hit shows its key, its title, the tracker it came from and the tracker's own word for its kind (Bug, Task, User Story, whatever the board calls it; GitHub has no kinds, so it shows none). A hit whose number is exactly what you typed is marked "this number". A ticket that already has a conversation is marked "has a conversation", and picking it takes you to that one rather than starting a second. If a tracker couldn't be searched, or more tickets matched than are shown, the field says so.
 
 Picking a ticket also picks the project, from the ticket's own labels on the tracker that holds it. If the labels name several projects, or none, the page tells you why and lets you choose. A ticket on a tracker that has no configured project can't be bound here, and the page says that instead of offering a project on another board. Picking a project by hand with no ticket in play clears the ticket search.
 
@@ -91,9 +96,9 @@ A turn takes anywhere from seconds to a few minutes, so the exchange shows what 
 
 If you leave and come back to a conversation mid-turn, the working line is still there.
 
-## Recents and the conversations page
+## Your conversations
 
-The left column, **Recents**, lists your twenty most recent conversations, newest first. Each row shows the conversation's subject, the project, the bound ticket if any, the turn count, when it was last active, and what it filed ("spec filed · 1 ticket"). The subject is condensed from the design partner's first answer, so it's in the language that answer was written in; until then the row shows your first line. Click a row to open it; a closed conversation is resumed where it left off.
+The bar on the left lists your twenty most recent conversations, newest first, each in one line with a muted facts line under it: the project, the turn count, when it was last active, and the outcome in colour (what it filed, or that a series is running). The subject is condensed from the design partner's first answer, so it's in the language that answer was written in; until then the row shows your first line. Click a row to open it; a closed conversation is resumed where it left off.
 
 **All conversations** opens `/spec-dialog/conversations`, a full-width list of up to 200 conversations with a count ("12 in all", or "the 200 most recent of 340"). A conversation that is open somewhere is marked "open". Every row links to its own address.
 
@@ -107,9 +112,9 @@ A conversation you start with no ticket is yours: only you can read it, write in
 
 The **×** on a row deletes the conversation, after a confirmation that spells out what it doesn't undo. The conversation, every answer you gave in it and the uploads no approval cites are gone, and there is no undo. The tickets it filed stay in the tracker with their approved specification, and so do the uploads an approval cites, because the filed ticket's run builds against them; only the link from this conversation to them stops resolving. An empty conversation with no turns is deleted without asking.
 
-## The pane: Scope, Proposal, Filed, Approved spec, Uploads
+## The pane: Scope, Proposal, Filed, Series, Approved spec, Uploads
 
-The right-hand pane has up to five tabs. It picks the most useful one on its own: the filing once there is one, the proposal once there is one, the scope before that. You can switch at any time.
+The right-hand pane has up to six tabs, written as plain words with the chosen one bright. It picks the most useful one on its own: the filing once there is one, the proposal once there is one, the scope before that. You can switch at any time.
 
 **Scope** shows what the conversation may read. For a ticket conversation it starts with **Ticket**: the key, the title, when it was read, and the exact text the conversation was given (marked when the ticket was longer than the conversation carries). Then the project with its **Repositories** and **Templates**, each template with the repository and revision it comes from. Before a conversation is open, it lists what a new one could be grounded in.
 
@@ -117,17 +122,19 @@ The right-hand pane has up to five tabs. It picks the most useful one on its own
 
 **Filed** follows what the conversation filed. For each ticket: its key and title (linked to the tracker), whether it was started and why or why not, and then its runs, live. Each run shows its status, its id (linked to the run page), project and cost, a pending question if the run is waiting on one, its pull requests with their state, and its specs one by one with their status, the verification verdict and what the review found. A spec handed back because the specification itself was wrong says so and tells you to approve the set again in this conversation. For a ticket conversation, this tab shows every run on the ticket, including ones this conversation didn't start. The tab needs `runs.read` as well as `dialog.write`.
 
+**Series** appears once a filing of two or more tickets opened a [series run](series-run.md), and opens by default while it runs: landed of total, elapsed time, cost, an estimate, what runs now, the critical path and the policy.
+
 **Approved spec** appears on a ticket that has one. It shows the specs a person approved, who approved them and when, and says plainly that this is what was ratified, which may differ from what a run is working on right now.
 
 **Uploads** lists the conversation's sets and images, described [above](#the-uploads-tab).
 
 ### Review
 
-The design partner writes its proposal and the turn ends; nothing sends it back to rewrite. With `spec_review.design_turn` on (the default), the proposal then gets one review pass: fresh reviewers read each draft against the code, beside its sibling slices and your open questions, and answer build, build with cuts, or refuse, each with file and line. An epic with a contract also gets one read of the contract. What they say is advice: the cuts and findings show under each spec and on the approval card, and the proposal stays exactly as the design partner wrote it. With the switch off, only the cited facts are checked. The settings live in Settings → Spec review ([Global settings](../configure-it/settings.md)).
+The review happens inside the turn, before you are asked anything. When the design partner has written its draft, fresh reviewers read each spec against the code, beside its sibling specs and your open questions, and answer build, build with cuts, or refuse, each with file and line. For a list of tickets the plan is reviewed too, and every ticket's own specs beside it. The design partner sees the findings, applies the cuts, and only then offers the draft for filing. `spec_review.design_turn` (on by default) switches this review off.
 
-The Proposal tab shows the pass per draft: what each reviewer answered, the cuts it suggests and the findings. Only the run's cost cap or your cancel stops it. A draft no reviewer attacked reads "not yet reviewed, will be reviewed before it is built", with the reason: the cost cap, the turn ended while it was under review, no reviewer answered (every call failed), or its reviewers couldn't read the repositories it names. You can approve at any time; review state never holds the button.
+The Proposal tab shows the outcome per spec: what each reviewer answered, the cuts and the findings. A draft no reviewer could attack reads "not yet reviewed, will be reviewed before it is built", with the reason: the cost cap, the turn ended while it was under review, no reviewer answered, or its reviewers couldn't read the repositories it names.
 
-The guarantee sits in one place, before building. A spec is reviewed in its exact text or it is not: when a review ends with build on a draft's current text, that text is recorded by its hash. A run builds an approved spec without reviewing it again only when its text is exactly the one recorded. Any other spec, approved but not reviewed, changed after its review, or interrupted, is attacked by the run's own review before the agent builds it, and so is a series contract no review ended clean on. If that review cannot end clean on the final text, the author is asked once whether to build it as it stands. Before any review, the framework checks every fact the proposal cites, and a citation that doesn't resolve is listed with the findings ([Spec dialogue](spec-dialogue.md#from-discussion-to-proposal) has the rules).
+The guarantee sits in one place, before building. A spec is reviewed in its exact text or it is not: when a review ends with build on a draft's current text, that text is recorded by its hash. A run builds an approved spec without reviewing it again only when its text is exactly the one recorded. Any other spec, approved but not reviewed, changed after its review, or interrupted, is attacked by the run's own review before the agent builds it, and so is a series contract no review ended clean on.
 
 ### Mock versions
 
@@ -141,23 +148,26 @@ Ask for a text to take elsewhere (a prompt for another tool, a summary for your 
 
 ## Approving
 
-When a proposal is ready, a card in the exchange says "waiting on you" and summarises what would be filed ("File this spec? One ticket.", "File this epic? One work ticket carrying 3 slices.", "File these 4 tickets? 1 has nothing to wait for; the rest wait until what they require is merged."). If the review found problems, they're listed on the card with their evidence. The buttons:
+When the design partner offers a draft for filing, a line above the composer summarises it ("Three tickets with five reviewed specs. File them?") with two buttons:
 
-- **Approve & file** files it.
-- **Reject** files nothing.
-- One or more other shapes. A bug offers **Make it a spec**; a spec offers **Cut into several specs** and **Make it a bug ticket**; a cut offers **Make it one spec** and, in a conversation with no ticket, **Cut into several tickets**; a list of tickets offers **Make it one ticket's series**. Picking one files nothing; it starts a new turn in that shape, and you approve the result.
+- **File** files it.
+- **Discard** clears the proposal from the page and files nothing.
 
-Anything you type instead is taken as a note, and the proposal is revised with it. Your decision is recorded in the exchange ("Approved — file the proposal", "Rejected — nothing is filed"). The card waits fifteen minutes. After that it says "no longer waiting — nothing was filed", and your next message starts a fresh turn.
+These are the only controls on the page besides send; nothing in the exchange is a button. **File** shows only for a draft the design partner offered, and any change to the draft withdraws the offer until it is offered again. Anything you type instead is an ordinary message: say what's off and the draft is revised. A proposal doesn't expire: it waits, across restarts, until someone files or discards it or a newer proposal replaces it, and only one **File** can win.
 
-Approving files the ticket and tries to start its run. Moving a ticket into a trigger status starts a run, so that part needs the `runs.control` permission; without it the ticket is filed and the Filed tab says which move in the tracker would start it. What filing writes, and every reason a ticket may not start, is on [Spec dialogue](spec-dialogue.md#what-approval-files).
+**File** starts a `file` run with a run id. For each ticket it creates the tracker item, writes the ticket's approved specs to its branch `agent-smith/<ticket>`, records your words from the conversation with the approval, and links what the ticket waits for. From then on the branch is where the specs live: the ticket page reads them from there, and the coding run builds them without deriving them again. Starting a ticket's run means moving it into a trigger status, which needs `runs.control`; without it the ticket is filed and the Filed tab says which move in the tracker would start it. What filing writes, and every reason a ticket may not start, is on [Spec dialogue](spec-dialogue.md#what-approval-files).
 
 ### A list of tickets
 
-Some work is several pieces that should each merge on their own: a schema change first, then the API on top of it, then the screens. A cut of specs puts all of them on one ticket and one branch. A list of tickets files each piece as its own ticket and records which one waits for which, so the next piece starts from code that is already merged.
+Some work is several pieces that should each merge on their own: a schema change first, then the API on top of it, then the screens. A list of tickets files each piece as its own ticket and records which one waits for which.
 
-A conversation with no ticket may propose 2 to 20 tickets joined by `requires`. Each ticket is a text, without specs inside: a title, what it must achieve, its done items, its repositories and what it requires, either another ticket of the list or a ticket already in the tracker. The run that starts a ticket derives its specs from that text against the code merged by then. With `spec_review.design_turn` on (the default), the list is reviewed once as a plan rather than spec by spec (can each ticket merge on its own, is it ordered, is a requirement missing, is it small enough, does it rest on a decision nobody asked you about); the findings show on the card and the list stays as written. Every `ticket:<id>` a ticket requires is checked for existence either way. Approving files the tickets in merge order, starts the ones with nothing to wait for, and holds the rest until what they require has landed. How that works, what the tracker shows and what holds a ticket is on [Ticket dependencies](ticket-dependencies.md).
+A conversation with no ticket may propose 2 to 20 tickets joined by `requires`. Each ticket carries its title, what it must achieve, its done items, its repositories, what it requires (another ticket of the list or one already in the tracker), and **its own specs**, written by the design partner and reviewed in the turn. The partner can offer the list for filing only once every ticket has at least one spec. The pane lists the tickets in the order they must merge, each with its specs and what it waits for.
+
+A dependent ticket starts when its prerequisite's run is green, stacked on its branch, unless the project waits for the merge ([Stacked start](stacked-start.md)). A filing of two or more tickets also opens a [series run](series-run.md), which reports in this conversation.
 
 ## Talking about an existing ticket
+
+A ticket's conversation is the same conversation whether you open it here or on the ticket's page, where it is the **What happened** section with the composer under it. A message written there while a code run is working the ticket, by someone with `runs.control`, goes to that run: its agent reads it with its next tool result, and no new run starts.
 
 Bind a conversation to a ticket (search for it, or open `?ticket=`) and the ticket becomes the conversation's subject. Every turn is given the ticket's text as the requirement being discussed, never as instructions to the agent. Long tickets are cut at comment boundaries with the description kept whole, and the rest can be read in slices when the answer depends on it. If the ticket changes on the tracker after the conversation read it, the next turn says so before relying on the old text. If the ticket already has an approved specification that says things the ticket text doesn't, the conversation raises that and asks which is right.
 
@@ -201,9 +211,9 @@ Approving in a ticket's conversation also starts the work, if you hold `runs.con
 - **No code run has worked the ticket yet.** Its first attempt starts the way a filed ticket's does. The project's routing tag is put on the ticket and the ticket is moved into a trigger status, so the next poll picks it up.
 - **You don't hold `runs.control`.** The change is recorded and nothing starts, not even at the next run end. Someone who may start runs, or a move on the tracker, starts the next attempt.
 
-With the steward, the start is your sentence in the conversation instead of an approval, and the same rules decide what happens. Either way, a ticket that waits for another ticket to land isn't started: the conversation names what it waits for and queues nothing ([Ticket dependencies](ticket-dependencies.md)).
+With the steward, the start is your sentence in the conversation instead of an approval, and the same rules decide what happens. Either way, a ticket whose prerequisites don't allow it to start yet (not green, or not landed on a project that waits for the merge) isn't started: the conversation names what it waits for and queues nothing ([Stacked start](stacked-start.md)).
 
-A series too long for one attempt doesn't need you for every step. One attempt runs at most `series.specs_per_attempt` specs (8 by default) and whatever fits its wall clock. When an attempt ends with specs left and nobody's act is pending, agent-smith starts the next attempt itself, inside a budget for the whole chain, and when it holds instead it says why once on the ticket. The ticket page's [series strip](../reference/operations/dashboard.md#the-series-strip) shows that runway.
+A series too long for one attempt doesn't need you for every step. One attempt runs at most `series.specs_per_attempt` specs (8 by default) and whatever fits its wall clock. When an attempt ends with specs left and nobody's act is pending, codeably starts the next attempt itself, inside a budget for the whole chain, and when it holds instead it says why once on the ticket. The ticket page's [series strip](../reference/operations/dashboard.md#a-tickets-series-over-several-attempts) shows that runway.
 
 An operator's stop (a cancel or a delete) withholds an approval given before it, as it does any other act.
 

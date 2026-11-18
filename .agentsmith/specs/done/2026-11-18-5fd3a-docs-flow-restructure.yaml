@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-5fd3a
+goal: "The docs describe the product on main: an end-to-end How it works with current screenshots, and every stale page from the audit corrected."
+
+applies_to: "default (docs/, README.md)"
+
+requires: ["2026-10-15-5e9dc"]
+
+facts:
+  - claim: "The audit lists 13 stale pages, 7 missing topics and 13 pre-redesign screenshots."
+    evidence: ".agentsmith/notes/2026-11-18-5fd3-docs-audit.md"
+  - claim: "The docs build runs mkdocs build --strict after build-tokens."
+    evidence: ".github/workflows/docs.yml:29-37"
+
+inventory:
+  - "stale: index, install, docker-compose, tracker-azure-devops, repos-multi, sandbox-agent, config-studio, settings, dashboard, delivery-account, work-it-out, ticket-dependencies, lifecycle"
+  - "missing: end-to-end walkthrough, series run, CI loop and merge policy, stacked start, admin assistant, secrets, branch cleanup"
+  - "screenshots: 7 referenced and stale, 6 unreferenced, 9 surfaces without one"
+
+scope:
+  in: "how-it-works/end-to-end.md as the first How it works page; home rewritten around it; dashboard, Work it out, config studio, delivery account, lifecycle and ticket dependencies corrected; every embed pointed at the new screenshots; README screenshot links; page intros and admonitions where they help."
+  out: "Reference pages beyond the audit's items. The website. Product code."
+
+steps:
+  - id: walkthrough
+    action: "Write how-it-works/end-to-end.md from Work it out to deploy, one screenshot per stage."
+  - id: home
+    action: "Rewrite index.md: what it is, the flow in five lines, three pictures, fast path."
+  - id: fix
+    action: "Correct each stale page from the audit; replace every old screenshot embed."
+  - id: look
+    action: "overrides.css: framed screenshots with captions, a quiet page lead; nothing busier."
+
+tests:
+  - "mkdocs build --strict -f docs/mkdocs.yml green"
+
+done:
+  - "No page names the beats, the attempt flow graph, the old rail or a removed screenshot."
+  - "How it works opens with the end-to-end page, every stage pictured."

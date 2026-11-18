@@ -79,6 +79,7 @@ python payload is glibc-only, so `python3` is not provided on a musl image.
 A sample of the pod spec the server produces (trimmed: labels, resources and pull
 secrets left out):
 
+<!-- x-release-please-start-version -->
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -93,7 +94,7 @@ spec:
       emptyDir: {}
   initContainers:
     - name: inject-agent
-      image: holgerleichsenring/agent-smith-sandbox-agent:0.108.0   # derived from the server's release
+      image: holgerleichsenring/agent-smith-sandbox-agent:0.188.0   # derived from the server's release
       volumeMounts:
         - name: shared
           mountPath: /shared
@@ -120,6 +121,7 @@ spec:
           mountPath: /work
       workingDir: /work
 ```
+<!-- x-release-please-end -->
 
 ## Why init-container, not pre-baked images
 

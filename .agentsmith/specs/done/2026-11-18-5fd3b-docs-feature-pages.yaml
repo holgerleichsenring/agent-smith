@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-5fd3b
+goal: "Series run, CI loop and merge policy, stacked start, admin assistant and secrets each have a page saying what happens and which keys change it."
+
+applies_to: "default (docs/how-it-works, docs/configure-it, docs/mkdocs.yml)"
+
+requires: ["2026-11-18-5fd3a"]
+
+facts:
+  - claim: "The merge and CI keys are documented only as reference rows."
+    evidence: "docs/reference/configuration/agentsmith-yml.md:267-298"
+  - claim: "The secret store is documented inside the Config studio page."
+    evidence: "docs/configure-it/config-studio.md:20-50"
+
+scope:
+  in: "how-it-works/series-run.md, how-it-works/ci-loop.md (merge policy, CI fix loop, branch cleanup), how-it-works/stacked-start.md, how-it-works/admin-assistant.md, configure-it/secrets.md (the studio's secret sections moved there); nav entries; links from the pages that mention them."
+  out: "New reference keys; the reference tables stay the source for defaults."
+
+steps:
+  - id: pages
+    action: "Write the five pages from the done specs 0207a-e, 023fa/b, 3435a-d, 9a39a-c, 713eb/c, f3a8a-e, 00eaa, 9ae8, 78efa/b."
+  - id: move
+    action: "Move the secret sections from config-studio.md to secrets.md and link back."
+  - id: nav
+    action: "Add the pages to mkdocs.yml; link them from lifecycle, ticket dependencies, settings and the end-to-end page."
+
+tests:
+  - "mkdocs build --strict -f docs/mkdocs.yml green"
+
+done:
+  - "Each of the five topics has its own page in the nav, linked from the walkthrough."

@@ -40,21 +40,23 @@ The reasoning lands on disk: the specification under `.agentsmith/specs/`, every
 
 Green tests aren't the verdict. After a spec's verification passes, a separate reader goes through its done-list one criterion at a time — met, unmet or not applicable — and has to cite what on the branch proves each one. That account is the only thing the run's verdict listens to. A run that comes back short still opens its pull request, as a draft, with a section naming what was not delivered, and you can overrule a single verdict with a reason that stays on the record. The [delivery account page](https://docs.codeably.ai/how-it-works/delivery-account/) has the details, and the [lifecycle page](https://docs.codeably.ai/how-it-works/lifecycle/) walks through a run step by step.
 
-If you'd rather think the change through first, the dashboard's [Work it out](https://docs.codeably.ai/how-it-works/work-it-out/) page is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
+If you'd rather think the change through first, the dashboard's [Work it out](https://docs.codeably.ai/how-it-works/work-it-out/) page is a conversation with an agent that reads your code while it answers. What you approve there is filed as tickets with their reviewed specs, and each run builds exactly those specs.
 
 ## The dashboard
 
-A live mission-control view of every run — what's waiting on you, what's in flight, and what finished today, each with its dollar cost and the story of how it got there.
+Work starts from one question, "What should we work on?". The first message opens a conversation that reads your code, drafts tickets with reviewed specs and files them when you say so.
 
-![codeably dashboard — runs overview](docs/assets/screenshots/dashboard-runs.png)
+![Work it out: a conversation that drafted three tickets, each with its reviewed specs, and the File button](docs/assets/screenshots/work-it-out.png)
 
-When a run hits a decision it shouldn't make alone, it pauses and asks. Your answer resumes it — no tokens burning while it waits. Every run keeps a five-beat story (ticket → plan → build → verify → outcome) you can open:
+A ticket has one page: what happened, the specs as they stand on its branch, the acceptance verdicts, every run and what it cost. When a run hits a decision it shouldn't make alone, it asks there, and no tokens burn while it waits.
 
-![Run detail — the story of a run](docs/assets/screenshots/run-detail.png)
+![A ticket page: what happened, with tracker comments and two runs](docs/assets/screenshots/ticket-page.png)
 
-Configuration is a picked-not-typed catalog: agents, trackers, repos and connections wired into projects, so a project can never reference something that doesn't exist.
+A run reads as one log. Open a step and you see every LLM call in order, what it was fed, what it decided and what it cost.
 
-![Configuration studio, the project wiring](docs/assets/screenshots/config-projects.png)
+![A run step opened in place, listing its LLM calls](docs/assets/screenshots/run-step-llm-calls.png)
+
+The walkthrough with every stage pictured is at [docs.codeably.ai/how-it-works/end-to-end](https://docs.codeably.ai/how-it-works/end-to-end/).
 
 ## What it works with
 

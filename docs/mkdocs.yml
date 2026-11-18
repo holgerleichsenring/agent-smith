@@ -93,9 +93,28 @@ nav:
     - Install: get-it-running/install.md
     - First run: get-it-running/first-run.md
 
+  - How it works:
+    - End to end:     how-it-works/end-to-end.md
+    - Work it out:    how-it-works/work-it-out.md
+    - Spec dialogue:  how-it-works/spec-dialogue.md
+    - Lifecycle of a run: how-it-works/lifecycle.md
+    - The delivery account: how-it-works/delivery-account.md
+    - CI loop and merge policy: how-it-works/ci-loop.md
+    - Ticket dependencies: how-it-works/ticket-dependencies.md
+    - Stacked start:  how-it-works/stacked-start.md
+    - Series run:     how-it-works/series-run.md
+    - Admin assistant: how-it-works/admin-assistant.md
+    - Expectations & durable dialogue: how-it-works/expectations.md
+    - Multi-repo:     how-it-works/multi-repo.md
+    - Structure limits: how-it-works/structure-limits.md
+    - Skills catalog: how-it-works/skills-catalog.md
+    - Methodology:    how-it-works/methodology.md
+    - Built by the method it teaches: how-it-works/built-by-the-method.md
+
   - Configure it:
     - Where configuration lives: configure-it/index.md
     - The Config studio:         configure-it/config-studio.md
+    - Secrets:                   configure-it/secrets.md
     - Project templates:         configure-it/templates.md
     - Deployment templates:      configure-it/deployment-templates.md
     - Settings:                  configure-it/settings.md
@@ -122,19 +141,6 @@ nav:
     - CLI single-binary: host-it/cli.md
     - Docker Compose:    host-it/docker-compose.md
     - Kubernetes:        host-it/kubernetes.md
-
-  - How it works:
-    - Methodology:    how-it-works/methodology.md
-    - Built by the method it teaches: how-it-works/built-by-the-method.md
-    - Lifecycle:      how-it-works/lifecycle.md
-    - The delivery account: how-it-works/delivery-account.md
-    - Spec dialogue:  how-it-works/spec-dialogue.md
-    - Work it out:    how-it-works/work-it-out.md
-    - Ticket dependencies: how-it-works/ticket-dependencies.md
-    - Expectations & durable dialogue: how-it-works/expectations.md
-    - Multi-repo:     how-it-works/multi-repo.md
-    - Structure limits: how-it-works/structure-limits.md
-    - Skills catalog: how-it-works/skills-catalog.md
 
   - Reference:
     - Concepts:

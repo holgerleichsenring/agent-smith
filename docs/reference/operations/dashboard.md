@@ -2,7 +2,10 @@
 
 The web UI for watching what codeably is doing, and, just as important, what it did last Tuesday and what that cost. It reads from the server's database and live event stream. It also writes: it cancels, answers, deletes and initializes runs, and it's where the configuration is edited, because on a server the configuration lives in the database and nowhere else.
 
-![The runs overview: what needs you, what's running, what's queued, and what finished, each with its dollar cost and story](../../assets/screenshots/dashboard-runs.png)
+<figure class="cb-shot" markdown>
+![The home page: "What should we work on?", the project picker and the recent tickets; the sidebar on the left](../../assets/screenshots/home.png)
+<figcaption>The home page and the sidebar. Every page sits under the same shell.</figcaption>
+</figure>
 
 ## Running it
 
@@ -42,26 +45,30 @@ A `401` renders as a sign-in state, a `403` names the permission that was missin
 
 ## The shell
 
-Every route sits under one header and one rail. The header names the place you are on and carries the two things that belong to no single page: a gear that opens configuration in one click, and the account. Where no authority is configured there's no account to show, so nothing is shown.
+Every page sits beside one sidebar and under one top bar. The top bar has **Go to a page** (⌘K), which jumps to any page by name, and a bell that opens what needs you.
 
-The rail shows the running system and nothing that is a setting:
+The sidebar holds the work and nothing that is a setting:
 
-- **Work**: **Tickets**, then Needs you, Working, Waiting on review, Stuck, Waits for another ticket, Filed (no run on record), Ended and Done, each with the count the server computed over every ticket. Clicking one filters the ticket list (`/tickets?bucket=`). See [Tickets](#tickets).
-- **Monitor**: All runs, Waiting for input, Running, Queued and Finished, each with a live count. Clicking one filters the runs page, and the filter lives in the URL (`?bucket=`), so a filtered view is linkable. Below them, **Pull requests**.
-- **Design**: **Work it out**, the design conversation with the agent. It has its own page: [Work it out](../../how-it-works/work-it-out.md).
-- **System**: the tracker (named after the tracker it has actually seen polling), webhooks, chat dispatchers, config file reads, and the skill catalog.
-- **Insight**: the Overview.
+- **New work** opens the home page's question, *What should we work on?*, whose first message starts a [Work it out](../../how-it-works/work-it-out.md) conversation.
+- **Your move**: the tickets that wait for you, with their count.
+- **Tickets**: every ticket, by state. See [Tickets](#tickets).
+- **Runs**: every run, at `/runs`. See [Runs](#runs).
+- **Pull requests**: what the agent shipped.
+- **Insight**: **Overview** and **Delivery**.
+- **Recent**: the last few pages you opened.
 
-Under `/config` the same rail lists the catalog, the settings, **Permissions**, and a **This installation** group (Installation, Connection check, Changes), plus the way back to runs.
+The sidebar collapses to icons, and does so by itself on the ticket and Work it out pages, which bring a section bar of their own. At its bottom sits the profile menu with **Settings** (the [Config studio](../../configure-it/config-studio.md) at `/config`), **Access**, **Installation**, **System**, and your identity and sign-out when sign-in is on.
+
+The home page (`/`) asks what to work on: a composer with the project picker beside the **+**, files held until you send, and beneath it **Your move** (at most three tickets that need you) and the recent tickets.
 
 Three banners can appear above every page. A blocking startup finding shows "Running degraded", naming each finding (see [server resilience](server-resilience.md#startup-findings)). A build mismatch between the page and the server shows an advisory banner with a **Reload** button; the server withholds it for the first ten minutes after it starts, because two builds side by side is what a rolling upgrade looks like. And the sign-in banners above.
 
 ## Runs
 
-The home page is split into the same buckets as the rail, under a strip of counts (waiting for input, running, queued, finished today, cost today):
+`/runs` is split into buckets, with filter pills above the list, under a strip of counts (waiting for input, running, queued, finished today, cost today):
 
 - **Waiting for input** lists runs parked on a question. A row opens the run, where the question is answered; a ticket's question is also answered on the ticket list. More on parking in [durable dialogue](../../how-it-works/expectations.md).
-- **Running** shows each run's step progress, cost so far and age, and its story beat when the server sends one.
+- **Running** shows each run's step progress, cost so far and age.
 - **Queued** shows each run's place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch is waiting for a slot moves here too and reads `resuming · pos 2`, instead of still claiming to need you.
 - **Finished** pages back through history with **Load more**. Its header carries **clear finished**, which deletes every finished, failed and cancelled run at once (see [Deleting runs](#deleting-runs)); it shows only while there is a finished run, and not to a signed-in caller without `runs.delete`.
 
@@ -71,11 +78,21 @@ Finished runs say how they ended: done, done with a shortfall (the verified spec
 
 One run reads as one log, top to bottom, in plain text.
 
+<figure class="cb-shot" markdown>
+![A finished run: the meta line, How it ended, and the sections Ticket, Got ready, The plan, one per spec, Checked against the spec and Delivered](../../assets/screenshots/run-log.png)
+<figcaption>A finished run. The sections start closed; a running or stopped one starts open.</figcaption>
+</figure>
+
 The header names the run: **Runs / run id · ticket · Run n of m**, the title, and one line with the state, the steps, the time so far (or in total), the cost against the run's cap, the pods and their memory, and the work shape. The cost turns amber past 80% of the cap and red over it. **details** opens everything else the run recorded: when it started and finished, the model and its call count, the repositories, the pipeline, the run id, where the time went (model, sandbox, scaffolding, throttled), the share of the budget spent and its tier, the reserved Gi·min, why the run got its shape, the live sandbox command count, and the pods with image and memory (or the reservation while none has landed).
 
 Under the header, **Now — follows the agent** shows the last few things the agent did, as they arrive: the step it is in with what it says it is doing, the last command it ran, its newest decisions, tool calls, files written and findings. A run that waits on you shows its question with the answer form here, and that its compute is held. A queued or resuming run says its place in line. Once the run ends the block becomes **How it ended**: the outcome with its pull requests, criteria and cost, the run's own end text, the step it stopped at and what to set to lift the stop, the review's result and the last verify pass per repository. Its links open the pull requests, **Retry unchanged** (on the ticket's newest attempt, when it did not succeed), the setting, the ticket and the Why page.
 
 The log itself has a section per piece of work: **Ticket** (the ticket as the run read it, with its tracker link), **Got ready**, **The plan** (the work spec, the agreed plan and the progress ledger), one section per spec, **Checked against the spec** and **Delivered** (the pull requests and the run report, `result.md`). A run without specs reads Got ready, The work, Delivered. Every section and step line says its LLM calls, cost and time; internal steps and silent gates fold into one "mechanics" line per section. A running or stopped section starts open.
+
+<figure class="cb-shot" markdown>
+![A step opened in place with the LLM filter: numbered calls with role, model, tokens with cache, cost and time, and the fed and decided lines](../../assets/screenshots/run-step-llm-calls.png)
+<figcaption>A step opened in place, filtered to its LLM calls. <code>⟵</code> is what the call was fed, <code>⟶</code> what it decided.</figcaption>
+</figure>
 
 Click a step and its detail opens in place: its status, where its time went and its result message, each repository's outcome, then every LLM call (role, model, tokens in and out, cached tokens, cost, duration), command (exit code, duration, a timeout and its limit), write, decision, finding and observation, newest first. Filter with **All · Findings · Obs · Tools · LLM · Files · Decisions**, flip the order, search the step, **show all**, and page back into older events. The open step is in the address (`?step=24`), so a link lands on it; older `#n=step-24` links still work. A run whose cached share is 0% has a dead prompt cache, which is an alarm, not a detail (see [cost tracking](../concepts/cost-tracking.md)).
 
@@ -108,7 +125,13 @@ Every refusal is a `409` with one body, `{reason, text, project, ticketId}`. `re
 
 ## Tickets
 
-`/tickets` lists every ticket agent-smith knows about. That is a ticket with at least one code run, where each run is one attempt at it, and a ticket filed from Work it out that has not run yet. It needs `runs.read`. Tickets are grouped by who acts next, under six tiles (needs you with the oldest wait, working, waiting on review with the open pull requests, stuck, done this month with attempts per ticket, and this month's spend). Every ticket sits in exactly one section:
+`/tickets` lists every ticket codeably knows about. That is a ticket with at least one code run, where each run is one attempt at it, and a ticket filed from Work it out that has not run yet. It needs `runs.read`. Tickets are grouped by who acts next, under a row of figures (what needs you with the oldest wait, what's working, what's in review, what's stuck, done this month and this month's spend). Filter pills above the list pick one group; the rarer ones show only while they hold tickets. Every ticket sits in exactly one section:
+
+<figure class="cb-shot" markdown>
+![The ticket list: filter pills, the figures row, a Working group and a Done group](../../assets/screenshots/tickets-list.png)
+<figcaption>The ticket list, grouped by who acts next. <strong>List | Graph</strong> switches to the dependency graph.</figcaption>
+</figure>
+
 
 - **Needs you**: the newest attempt is parked. A question is answered in place, and **Send & resume attempt n** resumes that attempt. A hand-back shows the words it posted and leads into the ticket's conversation in Work it out, because there is no paused run to resume.
 - **Working**: an attempt is running or waits for capacity.
@@ -119,7 +142,7 @@ Every refusal is a `409` with one body, `{reason, text, project, ticketId}`. `re
 - **Ended**: no next step is running or waiting, such as a cancelled attempt, a success without a pull request, or pull requests that were all closed unmerged. The dot follows how the last attempt ended, except that pull requests all closed unmerged draw it red.
 - **Done**: a pull request merged and every other one ended (merged or closed), or a person marked the ticket done by hand. Collapsed to this month's count until **Show done**. Pull requests that were all closed unmerged are not done.
 
-Each row shows the series strip (one cell per spec of the current series, then one per pull request), a mark per attempt, the summed cost and the age, and opens the ticket's page. A section holding more tickets than the page loaded ends with **Show all**, which opens its bucket view. On the runs home, a code run of a ticket opens the same page; any other run opens its run viewer.
+Each row shows the ticket's progress through its specs and pull requests, a mark per attempt, the summed cost and the age, and opens the ticket's page. A section holding more tickets than the page loaded ends with **Show all**, which opens its bucket view. On the runs list, a code run of a ticket opens the same page; any other run opens its run viewer.
 
 ### The graph view
 
@@ -133,33 +156,42 @@ Over HTTP it is `POST /api/tickets/{project}/{ticketId}/landed-by-hand` with `{"
 
 ### A ticket's page
 
-`/tickets/{project}/{ticketId}` opens on **Summary**. The header names the ticket, links its tracker, says which tracker status the newest attempt read, which attempt is running (or how the newest ended), how its pull requests ended (such as "1 PR merged, 1 open" or "3 PRs closed unmerged") and the work branch; its dot is the list row's dot. **Cancel attempt n** ends a running attempt, and **Mark done by hand** (see [above](#marking-a-ticket-done-by-hand)) sits beside it until the ticket has landed.
+`/tickets/{project}/{ticketId}` is the ticket. A section bar on the left names the ticket (its key, title and state) and splits the page into six sections, one shown at a time and addressed by `?section=`: **What happened**, **Specs**, **Acceptance**, **Runs**, **Cost** and **Defaults**, each with its count. Under them sit the ticket's facts: project, tracker and its state, the work branch, and its pull requests with their CI (`CI green`, `CI pending`, `CI red: build, lint`).
 
-Between the header and the tabs, two things can show up. The series strip appears when the ticket's series holds more specs than one attempt runs, or attempts have already chained (described [below](#the-series-strip)). **Waits for** lists the tickets this one requires, each by its tracker key with "(not merged)", "(merged)" or "(done by hand)" and, for a landing by hand, who marked it, when and their note. Each one still open carries its own **Mark done by hand**. **Required by** lists the tickets waiting for this one, with their state. An entry that has a page here links to it.
+<figure class="cb-shot" markdown>
+![A ticket page on What happened: the section bar on the left, the outcome, a divergence notice, tracker comments and two runs](../../assets/screenshots/ticket-page.png)
+<figcaption>What happened. One line per event, a run opening its log in place, the composer at the bottom.</figcaption>
+</figure>
 
-A ticket that was filed but never ran has no attempts, so nothing to show in tabs. Its page is the header, Waits for and Required by, and one line, "Filed, no run on record", with a link to settle its specs first in Work it out.
+Beside the section's heading stand **Cancel run n** while an attempt runs, and **···** for everything that is not the next step: open the ticket in its tracker, **Mark done by hand** (see [above](#marking-a-ticket-done-by-hand)), close or reopen, derive the specs again, and **Deploy** where the project has a [deployment template](../../configure-it/deployment-templates.md). Each act runs as a pipeline with a run id and shows under Runs.
 
-The Summary tab starts with the ticket itself, as its tracker has it now: the work item type, the state ("now: Active"), labels, the assignee, the description (twelve lines, then **Show all**) and the tracker's own acceptance criteria, labelled "Acceptance criteria (from the ticket)" so you don't confuse them with the specs' done criteria on the Acceptance tab. When the tracker can't be read, the panel shows the copy the last attempt read, with which attempt and when, or says why the tracker refused (not found, credentials refused, no answer, project no longer configured). The same read is `GET /api/tickets/{project}/{ticketId}/text`.
+**What happened** is the ticket's conversation, one line per event: tracker comments and text edits, run questions and answers, pull-request reviews, the spec cut, each run with its outcome and how it ended. Equal stops fold into one line ("Runs 3–5 · 3× same cause"). A run opens its sectioned log in place. When something waits for you, a **Your move** line sits on top and names it. At the bottom, the composer: a reply asks for a change and starts the next run; while a run is working, a message from someone with `runs.control` reaches that run instead. A ticket waiting for others lists them first under **Waits for**.
 
-Four cells then describe the chosen attempt: what started it, its series revision with how many specs it carried and how many it cut new, the ticket's pull requests with their review state, and its wall time, cost and repositories. A banner names the specs an attempt carried from earlier attempts at no cost.
+When the tracker's text no longer states what the approved specs say, a notice names the goals it lost and offers **Discuss in the conversation** or **Overwrite the tracker from the specs** (a `ticket-body` run).
 
-Below is the attempt's flow graph, one tab per attempt: ticket, derive (with a count of the cuts the reviewer refused), then either the hand-back or the spec gate, one row per spec of that attempt's cut, and the ship or end node. A carried spec is one small dashed node. A spec that ran gets build and verify, one lane per master pass, numbered within the spec, with the reason the master went back on the return edge; **folded** shows only the last pass. A question hangs off the build of the pass that parked. Choosing a node, by click or Enter, explains it from that attempt's own records below the graph; a node with nothing recorded says so. An attempt from before attempts recorded their cut has no graph and links to its run viewer. The page follows a running attempt without a reload.
+**Specs** shows the ticket's specs as they are on its branch: per spec its goal, the steps as worked, **Done when** with each criterion's state, the review rounds before it was built, its build note and its revisions. It's read-only. A spec changes through the conversation, never by hand, and a filed ticket that never ran shows the set on its branch. The section ends with the derivations, their duration, and **Derive again**.
 
-**Conversation** holds every exchange about the ticket in order: its comments and text edits, the run questions and their answers, pull-request reviews, the spec cut's reviews and hand-backs, and the ticket's own Work it out conversation, grouped under the attempt they belong to. Chips filter by source, an entry a person wrote carries their name, and an entry that started an attempt says so. A waiting run question heads the tab. Below the thread, **Continue on this ticket** is that Work it out conversation. While the agent works on a reply there, the composer shows what it is doing: the files and searches it reads, the steps so far and the time elapsed. The waiting line ends once the reply is recorded, even when the live push of that reply was lost; the next read of the conversation shows it. Opening the tab changes nothing; the first thing you do there (focus the field, send, approve, discard) reopens the ticket's conversation, on its own dialog, so your Work it out conversation stays where you left it. With a proposal open, the line above the buttons says what approving does: continue the series, file a follow-up for a closed ticket, and when the next attempt starts. **Retry unchanged** appears after an attempt ended on infrastructure. Without `dialog.write` on an installation that enforces it, the ticket's own conversation is not shown. The header's **Continue in conversation** opens this tab.
+<figure class="cb-shot" markdown>
+![The Specs section: specs read from the branch agent-smith/41 with steps, Done when and revisions](../../assets/screenshots/ticket-specs.png)
+<figcaption>Specs, read from the ticket branch.</figcaption>
+</figure>
 
-**Specs** shows the series as read-only documents: per spec a cell for every attempt (not run, done in n passes, carried, failed, working, not started), and for the selected spec its goal, steps as worked with the attempt and pass that completed each, and its done criteria. A spec that ran also shows its build note, what its master renamed, moved, persisted or deviated from, which is what the next spec starts with ("no note" when it left none). Below that come the spec's review rounds from before it was built: per attempt, and the rounds the approved set went through in the design conversation, each with its merged verdict (build, build with cuts, refuse), its reviewers, every cut as the quoted text and its replacement with the evidence, the wording still standing, and the revision it produced. When the set itself was reviewed, a **Series contract review** section sits between the spec grid and the revisions, with the findings and the cuts naming the member they touch; clicking a member opens that spec. Then the revisions. The reviews are one read, `GET /api/tickets/{project}/{ticketId}/reviews`. A spec changes only through the conversation. **Acceptance** lists each spec's done criteria with the attempt that verified them; an operator's overrule shows beside the verdict.
+**Acceptance** lists every done criterion with its verdict, its reason and the evidence, with a link to overrule a verdict in the run that judged it ([the delivery account](../../how-it-works/delivery-account.md)).
 
-**Attempts** lists every attempt, newest first: what started it (the channel, such as a ticket comment, a pull request, a retry, an overruled default, or "series, started automatically" for one the series started itself; who, where, how many specs it carried, the questions it asked and how long they waited), its wall time, cost and specs done — or, for the running attempt, the spec and step it is on, or *deriving* until its own cut exists. Opening a card shows what the attempt did (each cut with the reviewer's verdict, the pull requests it opened, each spec's outcome with its passes, questions and resumes) and why it ended (finished, failed with the failing spec's last pass reason, handed back with its case, cancelled), with links to the run viewer and to its trace. Between two cards stands the change that started the newer one; **read** opens the Conversation tab at that entry. Apart from the starts the series makes by itself ([the series strip](#the-series-strip)), the next attempt starts from the conversation.
+**Runs** lists every attempt and derivation, act runs included (`merge-green`, `retarget`, `refresh-base`, `deploy`), one line each: outcome, how it ended, start, duration, cost, a link to the run and what caused it. A deploy also shows its pull request or pipeline run with any failed checks.
 
-**Cost & compute** draws one bar per attempt on one scale — the largest run cap, or the largest cost where no attempt has a cap — split into derive, each spec with its passes, pull requests, other and not attributed; a run whose own cap is smaller has it marked on its row, and carried specs are written at $0. Below, pod time, memory reserved (the run detail's reservation, finished attempts only), model call time (summed call durations, which overlap when sub-agents run in parallel) and time waiting on you (question and hand-back parks only; a wait for capacity is shown apart). A pod no close event reached is counted to the end of its launch; the tile names the run detail's figure, which counts it to the run's end. When waiting on you took longer than all model work, a banner names each wait. Per attempt a wall-clock bar shows each launch, the parks and capacity waits between them, and the pods with how each ended. The pods behind one run, with their times and how each sandbox ended, are `GET /api/runs/{runId}/compute`.
+<figure class="cb-shot" markdown>
+![The Runs section listing two attempts](../../assets/screenshots/ticket-runs-cost.png)
+<figcaption>Runs, one line per attempt.</figcaption>
+</figure>
 
-**Defaults** holds the choices a master took on its own while it worked, the ones no person had to make before work could go on, and the feedback memories it proposed. Each row says where it was taken (an attempt, or the design conversation), the spec, what was asked, what was chosen, instead of what, and why; a memory proposal shows the path of its file. Pending ones come first. A default marked as holding the series is drawn in the waits-for-a-person colour, because the series doesn't start its next attempt by itself while it waits (the other pending ones never hold anything). Tick one or **Select all**, then **Ratify selected** or **Overrule selected**, with one note for every overrule of that act. An overrule starts the next attempt, whose cause reads "overruled default" and which derives again with your note. A default from the design conversation can only be ratified here; you overrule it in that conversation. Deciding needs `runs.control`, reading `runs.read`. Decided defaults follow below with who decided, when, and the note. The tab's counter shows the pending ones, in the hot colour when one of them holds the series.
+**Cost** is the total against the series budget with a thin bar, a line per run, and the compute behind it: pod time, memory reserved, model call time and time spent waiting on you.
 
-### The series strip
+**Defaults** holds the choices the agent made on its own, the ones no person had to make before work could go on, and the memories it proposed. Each says where it was taken, the spec, what was asked, what was chosen instead of what, and why. Pending ones come first; one that holds the series is marked, because the series doesn't start its next attempt while it waits.
 
-A series holds at most `series.max_specs` specs (24 by default), and one attempt runs at most `series.specs_per_attempt` of them (8 by default, and only as many as fit the run's wall clock). A series that doesn't fit in one attempt goes on attempt by attempt; the specs left over wait, not started, for the next one. When an attempt ends with specs left and nobody's act is pending, agent-smith starts the next attempt itself, inside a budget for the whole chain of attempts: `series.budget_usd` (default $150) and `series.wall_clock_hours` of summed run time (default 12). Time spent waiting between attempts doesn't count. An attempt the run's wall clock cancelled after it finished a spec counts as having ended at a spec boundary and continues too, unless `series.continue_after_wall_time` is off. The chain starts at the newest attempt a person or a trigger started. A `series.budget_usd` of 0 turns automatic continuation off. The values live in Settings → Series ([Global settings](../../configure-it/settings.md)).
+### A ticket's series over several attempts
 
-The strip between the header and the tabs shows that runway: the chain's spend against the budget and its run time against the cap, each with a bar that turns hot at the cap; the chained attempts (`A2 → auto A3`, an automatic start marked "auto"); and what happens next: "the next attempt starts by itself", "the series is complete", or "held" with the reason. A series holds when the last attempt handed back, was cancelled, ended without finishing or finished no spec, when the budget or the run time is used up, when a default that holds the series waits for a person, when the last automatic start was refused, when a person closed the ticket, or when the series settings are invalid. The way on is named with the reason: a comment on the ticket or an approval in its conversation starts the next attempt; a holding default links to the Defaults tab; invalid settings link to Settings → Series. A hold that agent-smith causes itself (no progress, budget, run time, a holding default, invalid settings) is also said once on the ticket, with spend, run hours and the specs left. A series that fits in one attempt, or one with continuation turned off, has no strip.
+A ticket holds at most `series.max_specs` specs (24 by default), and one attempt runs at most `series.specs_per_attempt` (8 by default, and only as many as fit the run's wall clock). When an attempt ends with specs left and nothing waits for a person, codeably starts the next attempt itself, inside a budget for the whole chain: `series.budget_usd` (default $150) and `series.wall_clock_hours` (default 12). The Cost section shows the spend against that budget. This is the series *of one ticket*; the [series run](../../how-it-works/series-run.md) that follows the tickets of one filing is something else.
 
 ## Pull requests
 
@@ -192,9 +224,7 @@ Each subsystem has its own address under `/system/…`, so a selected one surviv
 
 ## Configuration studio
 
-![The configuration studio, with projects wired to their agent, tracker and repos, and every reference picked from the catalog](../../assets/screenshots/config-projects.png)
-
-On a server, the database is the store of record for configuration, and this is where you edit it. Reached from the header's gear, **Configuration** is a relational catalog (projects, agents, trackers, repositories, connections, MCP servers, [design sources](../../configure-it/design-sources.md), secrets) that you create and edit in place. Refs are picked, never typed: a project points at its agent, tracker and repos by choosing them from the catalog, so it can't reference an agent that doesn't exist, and a connection-scoped repo ref either resolves or is flagged. Changes apply while the server runs.
+On a server, the database is the store of record for configuration, and this is where you edit it. Reached from **Settings** in the profile menu, **Configuration** is a relational catalog (projects, agents, trackers, repositories, connections, MCP servers, [design sources](../../configure-it/design-sources.md), secrets) that you create and edit in place. Refs are picked, never typed: a project points at its agent, tracker and repos by choosing them from the catalog, so it can't reference an agent that doesn't exist, and a connection-scoped repo ref either resolves or is flagged. Changes apply while the server runs.
 
 **Import agentsmith.yml** and **Export agentsmith.yml** move the catalog in and out of the file format the CLI reads. Secrets are referenced by name, never shown. The whole picture, including what a server still reads from the file, is on [Where configuration lives](../../configure-it/index.md) and [the Config studio](../../configure-it/config-studio.md).
 

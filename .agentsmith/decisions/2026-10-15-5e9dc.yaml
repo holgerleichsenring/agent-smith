@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-5e9dc
+
+decisions:
+  - category: Scope
+    chose: "Drop the Azure DevOps organisation part; a read-only GitHub-shaped tracker stub on localhost answers the ticket page's tracker reads"
+    over: "Shooting the work item and pull request in the operator's organisation"
+    reason: "The brief ruled out external access. The stub keeps the ticket page's tracker sections populated without a token or network."
+  - category: Architecture
+    chose: "Seed through the server's own composition (ServerHostFactory built, not started) and its services: runs as event streams into RunDbProjector, sessions, proposals, filing, series and secret stores"
+    over: "Inserting rows by SQL, or mocking the API with Playwright route fixtures"
+    reason: "Rows written by the product's own code stay valid as the schema moves, and the dashboard renders real server answers, so the pictures show what an installation shows."
+  - category: Implementation
+    chose: "Run the server without Redis and hide the degraded banner in the shots"
+    over: "Starting a Redis"
+    reason: "No Redis binary is installed and Docker is off limits; every docs surface reads persisted data, and the banner is an artefact of the rig, said in the README."
+  - category: TradeOff
+    chose: "One route override for the series panel's counts, named in the README"
+    over: "Leaving the panel at '3 of 3 landed'"
+    reason: "SeriesTicketFacts reads a missing landing as default(DateTimeOffset), so every ticket counts as landed; the override shows the seeded story's real state until that bug is fixed."
+  - category: Implementation
+    chose: "tools/demo-seed is a standalone project outside AgentSmith.sln; tools/screenshots has its own package.json with playwright pinned"
+    over: "Adding the seeder to the solution"
+    reason: "The solution build and the spec gate stay unaffected; the rig is a docs tool run by hand."

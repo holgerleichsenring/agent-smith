@@ -28,7 +28,7 @@ A fourth status, `unproven`, shows up only on runs that had no account and fell 
 
 ## When nothing could be measured
 
-Sometimes the account can't be taken at all. The build is red, the delivery diff wouldn't run, the accounting call failed. Such an account judged no criterion, so it isn't drawn as one. The Verify card shows it under "Acceptance could not be measured", naming the repository and the reason verbatim, marked "not measured", and it is counted in neither the proven nor the failed side of "N of M". The run's verify beat then reads "not measured", or "N of M proven · not measured" when other repositories were measured.
+Sometimes the account can't be taken at all. The build is red, the delivery diff wouldn't run, the accounting call failed. Such an account judged no criterion, so it isn't drawn as one. The run log's **Checked against the spec** section shows it under "Acceptance could not be measured", naming the repository and the reason verbatim, marked "not measured", and it is counted in neither the proven nor the failed side of "N of M". The run's outcome then reads "not measured", or "N of M proven · not measured" when other repositories were measured.
 
 We keep this apart from `unmet` on purpose. A criterion nobody could measure and a criterion that failed are different facts, and you act on them differently: the first usually wants the build fixed, the second wants the work redone. (A run from before this distinction stored the red build as an `unproven` row named after the repository; such stored rows are read the new way too.)
 
@@ -53,13 +53,13 @@ Something outstanding: the list goes back to the master for one repair pass — 
 
 ## Declined criteria
 
-Sometimes a ticket asks for something no change inside this repository can make true. The master can decline such a criterion, with what not doing it means. Declined criteria are listed beside the account, never among its rows — the account still judges the branch on its own. You find them in the ticket comment, in the PR body under "Declined by the run", in `result.md`, and in the run's Verify card under "Declined by the agent".
+Sometimes a ticket asks for something no change inside this repository can make true. The master can decline such a criterion, with what not doing it means. Declined criteria are listed beside the account, never among its rows — the account still judges the branch on its own. You find them in the ticket comment, in the PR body under "Declined by the run", in `result.md`, and in the run log under "Declined by the agent".
 
 ## Where you read it
 
 - The pull request body, under "What this run accounted for", itemised per repository.
 - `result.md` in the run record, and the spec record committed to the branch.
-- The run detail in the [dashboard](../reference/operations/dashboard.md): the **Verify against acceptance** beat shows the card "Verify against the ratified acceptance", one row per criterion with its disposition, its citation and the reason. The badge reads "N of M proven" or "N of M · K failed". A hint above the rows says whose read you are looking at — the independent account the gate decided on, or, on runs that had none, the agent's report on its own work.
+- The run detail in the [dashboard](../reference/operations/dashboard.md): the **Checked against the spec** section of the run log lists one row per criterion with its disposition, its citation and the reason. The badge reads "N of M proven" or "N of M · K failed". A hint above the rows says whose read you are looking at — the independent account the gate decided on, or, on runs that had none, the agent's report on its own work. The ticket page's **Acceptance** section shows the same verdicts across every run of the ticket.
 
 ## When the verdict is wrong
 

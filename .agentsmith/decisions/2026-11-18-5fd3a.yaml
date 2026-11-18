@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-5fd3a
+
+decisions:
+  - category: Architecture
+    chose: "A new how-it-works/end-to-end.md as the first How it works page, and How it works moved above Configure it in the nav"
+    over: "Rewriting lifecycle.md into the walkthrough"
+    reason: "Lifecycle describes the inside of one coding run; the flow now spans conversation, filing, CI, stacking, series and deploy. A reader new to the product needs the whole path first."
+  - category: Scope
+    chose: "Correct the audit's stale pages in place and leave the reference pages outside the audit as they are"
+    over: "A line-by-line re-derivation of every reference page"
+    reason: "The reference pages were swept on 2026-11-17 with their features; the audit found staleness concentrated in the user-facing pages the redesign changed."
+  - category: Implementation
+    chose: "Screenshots as figure.cb-shot with a caption, a cb-lead intro paragraph and a numbered cb-stages list, all in overrides.css"
+    over: "A grid, cards or a theme plugin"
+    reason: "The brief asked for plain, not busy: a hairline frame and a caption make a 2x dark screenshot read as an exhibit without new chrome."
+  - category: Scope
+    chose: "Keep the unreferenced logo PNGs at docs/ root"
+    over: "Deleting them with the stale screenshots"
+    reason: "2026-11-16-658cb kept them on purpose for external links; only docs/assets/screenshots was in scope."

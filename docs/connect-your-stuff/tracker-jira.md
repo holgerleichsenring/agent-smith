@@ -107,7 +107,7 @@ Jira's REST API authenticates with an email plus an API token. Create the token 
 export JIRA_TOKEN=...
 ```
 
-In the YAML above that's `jira_token: ${JIRA_TOKEN}`. In the studio, name the secret `JIRA_TOKEN` (and the repositories' one `GITHUB_TOKEN`): a secret created there reads the environment variable of exactly its name, so one named `jira_token` would read a variable called `jira_token`. See [which variable a secret reads](../configure-it/config-studio.md#which-variable-a-secret-reads).
+In the YAML above that's `jira_token: ${JIRA_TOKEN}`. In the studio, name the secret `JIRA_TOKEN` (and the repositories' one `GITHUB_TOKEN`): a secret created there reads the environment variable of exactly its name, so one named `jira_token` would read a variable called `jira_token`. See [which variable a secret reads](../configure-it/secrets.md#which-variable-a-secret-reads).
 
 The email is the account the agent acts as, and you'll see it in the issue history. The token is scoped to that account, so make sure it has permission to comment, transition, and label-edit issues in the project, and to read an issue's history: a run that follows a person moving a finished issue back reads that move from the issue's changelog (`changelog` endpoint), and tells the person's moves from its own through `myself`. Both are plain reads under the Browse projects permission. When the changelog can't be read the run still starts; it just doesn't know the move was a rework. A tracker without `email` is a blocking finding. An older configuration that relied on `JIRA_EMAIL` and `JIRA_URL` still loads, because the empty fields are filled from those variables (or from a `jira_email` secret) and each fill is reported as an advisory finding.
 

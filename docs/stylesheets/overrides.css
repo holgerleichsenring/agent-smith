@@ -214,3 +214,49 @@
 @media screen and (min-width: 76.25em) {
   .md-sidebar--primary { border-right: 1px solid var(--cb-line); }
 }
+
+/* ── 5fd3a: page lead, framed screenshots with captions, quiet tables, a stage list ── */
+.md-typeset .cb-lead {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--cb-text);
+  margin: -0.4em 0 1.6em;
+}
+.md-typeset figure.cb-shot {
+  margin: 1.4em 0 2em;
+  max-width: 100%;
+}
+.md-typeset figure.cb-shot img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--rounded-md);
+}
+.md-typeset figure.cb-shot figcaption {
+  max-width: none;
+  margin: 0.6em 0 0;
+  font-size: 0.7rem;
+  font-style: normal;
+  text-align: left;
+  color: var(--cb-mute);
+}
+.md-typeset table:not([class]) {
+  border: 1px solid var(--cb-line);
+  border-radius: var(--rounded-md);
+  font-size: 0.75rem;
+  box-shadow: none;
+}
+.md-typeset table:not([class]) th {
+  background: var(--cb-panel);
+  color: var(--cb-text);
+  font-weight: 600;
+}
+.md-typeset ol.cb-stages { counter-reset: stage; list-style: none; padding-left: 0; margin-left: 0; }
+.md-typeset ol.cb-stages > li { counter-increment: stage; position: relative; padding-left: 2.2em; margin-left: 0; }
+.md-typeset ol.cb-stages > li::before {
+  content: counter(stage, decimal-leading-zero);
+  position: absolute; left: 0; top: 0.05em;
+  font: 600 0.7rem/1.6 var(--cb-mono);
+  color: var(--cb-accent);
+}
+[data-md-color-scheme="default"] .md-typeset ol.cb-stages > li::before { color: var(--cb-link); }

@@ -31,14 +31,24 @@ It defines seven services:
 
 The env vars that matter on the server:
 
+<!-- x-release-please-start-version -->
 ```bash
 REDIS_PASSWORD=…              # required; the server's REDIS_URL is redis:6379,password=${REDIS_PASSWORD}
 SANDBOX_TYPE=docker           # create each run's sandboxes as Docker containers on this host
 SERVER_PORT=8081              # published webhook/API port
-AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images
+AGENTSMITH_VERSION=0.188.0    # image tag pin for all agent-smith images
 ```
+<!-- x-release-please-end -->
 
 Plus your secrets (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, tracker tokens, `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_TOKEN` / `AZDO_WEBHOOK_SECRET`) in an `.env` file next to the compose file.
+
+Tokens can also be stored in the dashboard instead, encrypted under a master key you add to the same `.env`:
+
+```bash
+echo "AGENTSMITH_SECRET_MASTER_KEY=$(openssl rand -base64 32)" >> .env   # keep a copy: stored values need it
+```
+
+An environment variable still wins over a stored value. See [Secrets](../configure-it/secrets.md).
 
 Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`, and for a server that file is the bootstrap slice. `persistence:` and `secrets:`, nothing more:
 
@@ -139,10 +149,12 @@ For per-run visibility, the [dashboard](../reference/operations/dashboard.md) be
 
 ## Updating
 
+<!-- x-release-please-start-version -->
 ```bash
 # .env
-AGENTSMITH_VERSION=0.108.0
+AGENTSMITH_VERSION=0.188.0
 ```
+<!-- x-release-please-end -->
 
 ```bash
 docker compose -f deploy/docker-compose.yml pull
@@ -151,12 +163,14 @@ docker compose -f deploy/docker-compose.yml up -d
 
 That one number is the upgrade. The sandbox-agent tag is derived from the release the running server is, so the server and the agent it injects into sandboxes cannot drift apart by being forgotten. You only name a tag in `agentsmith.yml` when you want a different one on purpose, for example an air-gapped mirror that carries a single release:
 
+<!-- x-release-please-start-version -->
 ```yaml
 # agentsmith.yml, optional
 deployment:
   registry: my-mirror.example/agent-smith
-  version: 0.108.0       # fills sandbox.agent_version where it is unset
+  version: 0.188.0       # fills sandbox.agent_version where it is unset
 ```
+<!-- x-release-please-end -->
 
 A pinned tag is reported as an advisory finding and never refused. The installation page in the dashboard shows, per project, which agent tag is in use and whether it was derived or pinned.
 

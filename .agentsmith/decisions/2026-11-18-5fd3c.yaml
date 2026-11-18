@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-5fd3c
+
+decisions:
+  - category: Architecture
+    chose: "Mark every pinned release with x-release-please markers (HTML block comments in Markdown, line comments in YAML) and list those files as generic extra-files"
+    over: "Bumping the numbers by hand once more"
+    reason: "0.108.0 in the docs and 0.129.0 in the compose template show how fast hand-pinned versions go stale; release-please already bumps version.txt on every release."
+  - category: Scope
+    chose: "Include the k8s manifests and examples with the compose template"
+    over: "Docs only"
+    reason: "They pinned the same stale 0.129.0 and the install page sends readers to them."
