@@ -19,17 +19,17 @@ public sealed class ProposalAttackPanel(
         ArgumentNullException.ThrowIfNull(inputs);
         using var throttle = new SemaphoreSlim(config.MaxConcurrent);
         var drafts = inputs.Select(async input => (IReadOnlyList<SpecAttackResult?>)await Task.WhenAll(
-            Enumerable.Range(0, config.Reviewers).Select(index => OneAsync(turn, input with { Reviewer = index }, throttle, ct))));
+            Enumerable.Range(0, config.Reviewers).Select(index => OneAsync(turn, input with { Reviewer = index }, config.AttackLookFloor, throttle, ct))));
         return await Task.WhenAll(drafts);
     }
 
     private async Task<SpecAttackResult?> OneAsync(
-        ProposalTurn turn, SpecAttackInput input, SemaphoreSlim throttle, CancellationToken ct)
+        ProposalTurn turn, SpecAttackInput input, int floor, SemaphoreSlim throttle, CancellationToken ct)
     {
         await throttle.WaitAsync(ct);
         try
         {
-            await using var look = looks.ForProposalAttack(turn.Pipeline, input.Draft);
+            await using var look = looks.ForProposalAttack(turn.Pipeline, input.Draft, floor);
             return await reviewer.ReviewAsync(input, look, turn.Agent, turn.CostTracker, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

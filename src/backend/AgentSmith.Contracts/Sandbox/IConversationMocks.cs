@@ -7,16 +7,8 @@ namespace AgentSmith.Contracts.Sandbox;
 /// </summary>
 public interface IConversationMocks
 {
-    /// <summary>The longest mock kept, below the tool-result bound so it reads back whole.</summary>
-    public const int MaxChars = 90_000;
-
-    /// <summary>The most versions one spec keeps in a conversation.</summary>
-    public const int MaxVersionsPerSpec = 20;
-
-    /// <summary>The most versions a conversation keeps over all its specs.</summary>
-    public const int MaxVersionsPerConversation = 100;
-
-    /// <summary>The stored version, or the refusal naming the cap it would break.</summary>
+    /// <summary>The stored version, or the refusal naming the cap it would break (the dialogue: mock caps,
+    /// 2026-11-17-f9b0c).</summary>
     Task<(MockVersion? Version, string? Refusal)> AddAsync(
         string sessionId, string specId, string html, CancellationToken cancellationToken);
 

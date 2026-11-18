@@ -31,7 +31,7 @@ decisions:
     over: "A second copy of the counter hook, or the read inside TicketPageReads"
     reason: "Decision 'DASHBOARD BUDGETS': the read lives in its own class and the two over-limit files grow within the stated bounds."
   - category: Implementation
-    chose: "ReviewRounds.tsx exports roundGroups/roundLists/VerdictPill/CutLine/FindingLine, which SeriesContractReview.tsx reuses; group labels are 'Attempt n' and 'Reviewed in the conversation before approval'; the round mark .m is ok/bad/q (the mock has no amber mark) and the verdict pill ok/amber/bad. Default, pending operator ratification: no mock iteration before build (decision 'NO NEW MOCK, RATIFIED CLASSES')"
+    chose: "ReviewRounds.tsx exports roundGroups/roundLists/VerdictPill/CutLine/FindingLine, which SeriesContractReview.tsx reuses; group labels are 'Attempt n' and 'Reviewed in the conversation before approval'; the round mark .m is ok/bad/q (the mock has no amber mark) and the verdict pill ok/amber/bad. Default, ratified by the operator 2026-11-17: moot, overtaken by the ticket-page restructuring that owns these looks (6877a and after); no mock iteration before build (decision 'NO NEW MOCK, RATIFIED CLASSES')"
     over: "Drawing a mock version first"
     reason: "The surface composes .section-head, .cnt, .blk h4, .crit, .ci and .pill; mock-parity.css names it as a deviation and adds no rule."
   - category: Implementation

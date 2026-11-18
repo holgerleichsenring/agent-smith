@@ -44,7 +44,7 @@ decisions:
       Exit 1. First error line: "hub-events.ts (records) drift detected:" followed by "missing in TS:
       NegativeControlProbeEvent" and "event-types drift detected — fail."
   - category: Architecture
-    chose: "series.seconds_per_spec = 1294, a LOWER bound (default, pending operator ratification)"
+    chose: "series.seconds_per_spec = 1294, a LOWER bound (default, ratified by the operator 2026-11-17: as shipped in SeriesConfig)"
     over: "A number taken from this repository's own runs in the operator's server store"
     reason: |
       slowest warm verify 882.7 (.NET 539.6 + node 343.1; one sandbox after the other) x median VerifySpec steps per

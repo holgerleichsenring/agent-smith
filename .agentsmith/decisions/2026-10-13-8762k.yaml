@@ -25,11 +25,11 @@ decisions:
   - category: Behaviour
     chose: "In a design turn a FAILED series call is treated like a spent share: a 'series-contract' finding under the parent and the series token in NotReviewed"
     over: "Letting a turn whose series call failed be approved"
-    reason: "Done line 4: a design-turn epic whose contract was not reviewed cannot be approved until it is. Default, pending operator ratification."
+    reason: "Done line 4: a design-turn epic whose contract was not reviewed cannot be approved until it is. Default, ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79."
   - category: Behaviour
     chose: "Members are first rendered in part (goal, scope, steps, and fact and done lines naming a contract term); then shown whole, in order, while the prompt stays within SeriesContractPrompt.MaxMembersChars = 60 000; still in part is named, and a text past the budget even in part is cut off and says so"
     over: "Whole members until the cap, then nothing"
-    reason: "Every member stays visible, so a clash with a later member is seen; the cap holds for 24 members (spec decision SIZE BY CHARACTERS). Default, pending operator ratification."
+    reason: "Every member stays visible, so a clash with a later member is seen; the cap holds for 24 members (spec decision SIZE BY CHARACTERS). Default, ratified by the operator 2026-11-17: optional and dropped on the last attempt, the 60 000 moved to spec_review.series_contract_max_chars (2026-11-17-f9b0b)."
   - category: Architecture
     chose: "SeriesContractPromptSection gained Lines(contract) — each entry's text with the members it names; Render uses it, the turn's admission matches a quoted entry against it, and SpecReviewContractSection orders the diff prompt's entries by it (own entries first, MaxContractChars = 20 000)"
     over: "A second renderer of the contract for the diff prompt"

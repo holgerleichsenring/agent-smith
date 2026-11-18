@@ -103,9 +103,9 @@ public sealed class BuildNoteContractCheckTests
     {
         PrecedingNote[] notes = [new(B, "done/b.yaml", Note(persisted: ["table RunDefaults"]))];
 
-        SpecBuildNoteSection.Render(notes, set: Set(Owned)).Should().Contain(
+        SpecBuildNoteSection.Render(notes, 8000, set: Set(Owned)).Should().Contain(
             $"- {SpecBuildNoteSection.Undeclared}: \"table RunDefaults\" persists 'RunDefaults', which the contract gives to {A}");
-        SpecBuildNoteSection.Render(notes).Should().NotContain(SpecBuildNoteSection.Undeclared);
+        SpecBuildNoteSection.Render(notes, 8000).Should().NotContain(SpecBuildNoteSection.Undeclared);
     }
 
     [Fact]

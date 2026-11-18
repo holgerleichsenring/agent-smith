@@ -14,7 +14,7 @@ decisions:
     reason: |
       A Studio edit applies to the next run without a restart; a store that never loaded fails the step by name.
       SpecReviewConfig.Problems() is the one rule and a bad value fails the step, never a silent clamp. Defaults
-      (rounds 4, reviewers 2, max_concurrent 2, budget_share_percent 40) pending operator ratification.
+      (rounds 4, reviewers 2, max_concurrent 2, budget_share_percent 40) ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b).
   - category: Architecture
     chose: "DEVIATION: ISpecRoundEvidence, an interface over 8762e's SpecRoundEvidence, is what the loop depends on"
     over: "Injecting the sealed SpecRoundEvidence"
@@ -39,7 +39,7 @@ decisions:
     over: "An exemption inside Spent"
     reason: |
       8762i calls Spent where no spec is first. Every attempt clears its first reviewed spec unless the run cap or
-      ceiling stops it, then it is cut mid-review and deferred. 40% share pending operator ratification.
+      ceiling stops it, then it is cut mid-review and deferred. 40% share ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b).
   - category: Architecture
     chose: "A spent share sets ContextKeys.SpecSequenceStop at the first spec not cleared; SpecSequence splices only the specs before it and defers the rest through SpecSequenceProgress.Deferring with SpecProgress.NextAttempt (minted here, appended last)"
     over: "Building uncleared specs unreviewed"
@@ -51,26 +51,26 @@ decisions:
     over: "Skipping on the set's Approval field"
     reason: |
       Rework, StatusBack, an expired hand-back and a RecutDemand carry the approval onto text no design turn reviewed.
-      Pending operator ratification.
+      Ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b).
   - category: Architecture
     chose: "Merge: most severe verdict, cuts deduplicated by register and quote (lower reviewer kept), a done cut without replacement kept as a finding"
     over: "Deduplicating by quote only, or applying done deletions"
-    reason: "The same quote in two registers is two places to change; a criterion is never dropped silently. Pending operator ratification."
+    reason: "The same quote in two registers is two places to change; a criterion is never dropped silently. Ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b)."
   - category: Architecture
     chose: "A REFUSE without cuts is rewritten once by ISpecRederiver on the derivation look terms; SpecIdentityRule.Holds (id, requires, repos, applies_to compared parsed) admits the rewrite; a second REFUSE stands"
     over: "Ending the loop at the first REFUSE"
-    reason: "What the supervised session did. Pending operator ratification."
+    reason: "What the supervised session did. Ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b)."
   - category: Architecture
     chose: "RunAttemptProjection sets the revision fields once, on the first revision-carrying publish (one guard line); RunAttemptProjectionTests' publish test now asserts the first revision and cause kept"
     over: "A mid-run flag on SpecSetPublishedEvent"
-    reason: "A mid-run revision must not rewrite why the attempt began; the row decides alone. Pending operator ratification."
+    reason: "A mid-run revision must not rewrite why the attempt began; the row decides alone. Ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b)."
   - category: Architecture
     chose: "BoundaryStopGate in ClaimRefusal after UnmovedTicketGate, reading PreviousAttempt.StoppedAtBoundary (SeriesBoundaryEnd.Ends + a not_started RunSpec row, read only when Ends holds); admitted when IsRequestedByName; applied to the code pipeline only"
     over: "A gate per caller, or IsDelivered as the end rule"
     reason: |
       ClaimRefusal is the one door of poller, webhook and pump. A shortfall is no boundary. The refusal names a start
       by name in chat or a comment on the ticket, never Retry, and reaches a log line only. Restricting it to the code
-      pipeline (the only one LatestAsync reads) keeps a scan of the same ticket claimable. Pending operator ratification.
+      pipeline (the only one LatestAsync reads) keeps a scan of the same ticket claimable. Ratified by the operator 2026-11-17: as shipped in SeriesConfig.
   - category: Architecture
     chose: "RETIRE 2026-09-05-c4e1: its decidability question is SpecAttackPrompt.DecidabilityLens, one paragraph after the verbatim brief"
     over: "Building c4e1's single-round reviewer"

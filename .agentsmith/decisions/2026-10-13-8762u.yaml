@@ -3,15 +3,15 @@ spec: 2026-10-13-8762u
 
 decisions:
   - category: Architecture
-    chose: "SpecSet.MaxSpecs (8) split into series.max_specs (24, the series cap) and series.specs_per_attempt (8, one attempt), plus series.seconds_per_spec (0 = unmeasured), on SeriesConfig with the rule on the type (Problems, Problems(runWallSeconds), AttemptSize, DerivationLimit/DerivationRefusal, AppendRoom). Defaults 24 and 8 pending operator ratification (contract decision 17)"
+    chose: "SpecSet.MaxSpecs (8) split into series.max_specs (24, the series cap) and series.specs_per_attempt (8, one attempt), plus series.seconds_per_spec (0 = unmeasured), on SeriesConfig with the rule on the type (Problems, Problems(runWallSeconds), AttemptSize, DerivationLimit/DerivationRefusal, AppendRoom). Defaults 24 and 8 ratified by the operator 2026-11-17: as shipped in SeriesConfig (contract decision 17)"
     over: "Raising the one constant to 24, which makes one run splice 24 blocks (clamped at the 400-step ceiling) inside one 30-minute wall clock"
     reason: "The constant meant both how many specs a ticket may hold and how much one run may be asked to do; split, the series grows while one attempt keeps its size."
   - category: Configuration
-    chose: "seconds_per_spec defaults to 0 (unmeasured, advisory) in code; the measured 1294 s from decisions/2026-10-13-8762c.yaml (a LOWER bound, pending operator ratification) is documented in the schema description and the SeriesConfig summary, not written into config/agentsmith.yml"
+    chose: "seconds_per_spec defaults to 0 (unmeasured, advisory) in code; the measured 1294 s from decisions/2026-10-13-8762c.yaml (a LOWER bound, ratified by the operator 2026-11-17: as shipped in SeriesConfig) is documented in the schema description and the SeriesConfig summary, not written into config/agentsmith.yml"
     over: "Defaulting the property or this repo's agentsmith.yml to 1294"
     reason: "Problems(runWallSeconds) requires two blocks to fit the wall clock: 2 x 1294 = 2588 s is over the default 1800 s, so a 1294 default would refuse every run until the operator also raises orchestrator.max_run_wall_time_seconds (8762c records 11646 s for eight blocks). The spec's test pins the unmeasured default."
   - category: Architecture
-    chose: "One block reserved for the commit-and-PR tail: AttemptSize = min(specs_per_attempt, secondsLeft / seconds_per_spec - 1); secondsLeft = orchestrator.max_run_wall_time_seconds minus the time since ContextKeys.RunStartedAt (injected TimeProvider; a run without a recorded start has the whole wall clock; a wall clock of 0 or less is no ceiling and the attempt is specs_per_attempt). An AttemptSize of 0 or less fails SpecSequence naming the three numbers, never floored. Pending operator ratification"
+    chose: "One block reserved for the commit-and-PR tail: AttemptSize = min(specs_per_attempt, secondsLeft / seconds_per_spec - 1); secondsLeft = orchestrator.max_run_wall_time_seconds minus the time since ContextKeys.RunStartedAt (injected TimeProvider; a run without a recorded start has the whole wall clock; a wall clock of 0 or less is no ceiling and the attempt is specs_per_attempt). An AttemptSize of 0 or less fails SpecSequence naming the three numbers, never floored. Ratified by the operator 2026-11-17: as shipped in SeriesConfig"
     over: "Filling the time left exactly, or flooring at one spec"
     reason: "The watchdog cancels by StartedAt; a chunk sized to the last second is cancelled in CommitAndPR, and a floored block is one the watchdog cancels."
   - category: Architecture

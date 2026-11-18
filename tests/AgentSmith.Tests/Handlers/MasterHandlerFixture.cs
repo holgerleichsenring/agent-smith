@@ -47,7 +47,7 @@ internal static class MasterHandlerFixture
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             BuildScanPasses(loop),
-            new AgentSmith.Application.Services.SpecExecutionPromptFactory(),
+            new AgentSmith.Application.Services.SpecExecutionPromptFactory(new AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader()),
             TurnFlow(loop),
             new NoOpTicketDocumentMaterializer(),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default

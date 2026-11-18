@@ -47,7 +47,7 @@ internal static class AttackReviewFixtures
     public static DerivationLook Look() =>
         new(new Dictionary<string, ISandbox> { [Key] = new CountingSandbox(0) },
             new FixedReaderFactory(new InMemorySandboxFileReader()), new PackageEcosystemDetector(),
-            NullLogger.Instance, terms: DerivationLookTerms.AttackReview);
+            NullLogger.Instance, terms: DerivationLookTerms.AttackReviewWith(24));
 
     public static string Read(DerivationLook look, string path, int lines, int exit = 0) =>
         look.Evidence.Remember(new EvidenceRecord(Key, EvidenceRecord.Read, $"read {path}", exit, Ran: true, path, lines));

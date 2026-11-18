@@ -102,7 +102,7 @@ decisions:
   - key: "THE REFRESH RESTS ON v's MARK NUDGE. The store re-reads the series on a RunsChanged of the attempt (TicketPageStore.tsx:18-23), which precedes the worker's decision; only v's TicketActivityChanged on every mark keeps 'starts by itself' from outliving a close."
   - key: "NO STRIP ON AN ORDINARY TICKET. budget is null for a one-chunk ticket and off renders nothing, so a 2-3 spec ticket or a turned-off budget shows no series line."
   - key: "NO RETRY IN THE SENTENCES. RunRetryGate refuses every end but an infrastructure one, and the spoken holds follow a success or a wall-time cancel."
-  - key: "LOOK IS A DEFAULT. No mock was ratified for the strip; it is built from the ticket page's existing classes and colours. Default, pending operator ratification."
+  - key: "LOOK IS A DEFAULT. No mock was ratified for the strip; it is built from the ticket page's existing classes and colours. Default, ratified by the operator 2026-11-17: moot, overtaken by the ticket-page restructuring that owns these looks (6877a and after)."
   - key: "RECORDED IN THE default CONTEXT. Contract decision 23 (amended): every member records in contexts/default, whose state.done the record rules read."
 
 steps:

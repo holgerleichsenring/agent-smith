@@ -34,9 +34,10 @@ public sealed class TicketGraphLinksTests
 
         var notes = await _rig.LinkPass().LinkAsync(_rig.Project, [Edge("102", "101"), Edge("103", "102"), Edge("104", "101")]);
 
-        deadline.DueTime.Should().Be(TimeSpan.FromSeconds(60)).And.Be(TicketGraphLinks.Deadline);
+        deadline.DueTime.Should().Be(TimeSpan.FromSeconds(60), "2026-11-17-f9b0d: tickets.requires_link_deadline_seconds");
         _rig.Links.Calls.Should().HaveCount(2, "the pass stops at the call the deadline cut");
-        notes.Should().Equal("Not linked on the tracker (the tracker did not answer): #103 requires #102, #104 requires #101; "
+        notes.Should().Equal("Not linked on the tracker (the tracker did not answer within tickets.requires_link_deadline_seconds = 60 s, "
+            + "the bound a filing waits on a tracker): #103 requires #102, #104 requires #101; "
             + "the requirements are stored and hold those tickets anyway.");
     }
 
@@ -48,7 +49,8 @@ public sealed class TicketGraphLinksTests
         var notes = await _rig.LinkPass().LinkAsync(_rig.Project, [Edge("102", "101"), Edge("103", "102"), Edge("104", "103")]);
 
         _rig.Links.Calls.Should().Equal([("102", "101"), ("103", "102")]);
-        notes.Should().ContainSingle().Which.Should().Be("Not linked on the tracker (the tracker did not answer): "
+        notes.Should().ContainSingle().Which.Should().Be("Not linked on the tracker (the tracker did not answer within "
+            + "tickets.requires_link_deadline_seconds = 60 s, the bound a filing waits on a tracker): "
             + "#103 requires #102, #104 requires #103; the requirements are stored and hold those tickets anyway.");
     }
 
@@ -82,7 +84,7 @@ public sealed class TicketGraphLinksTests
     [Fact]
     public async Task TicketGraphLinks_FactoryWithoutRequiresLink_FilingSucceedsWithOneNotePerEdge()
     {
-        var pass = new TicketGraphLinks(new StubTicketProviderFactory(), TimeProvider.System, NullLogger<TicketGraphLinks>.Instance);
+        var pass = new TicketGraphLinks(new StubTicketProviderFactory(), TimeProvider.System, new TicketsConfig(), NullLogger<TicketGraphLinks>.Instance);
 
         var notes = await pass.LinkAsync(_rig.Project, [Edge("102", "101"), Edge("103", "101")]);
 

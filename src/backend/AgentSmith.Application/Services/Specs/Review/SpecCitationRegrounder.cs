@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// ':'-continuation binds to stays in its file, so the continuation never silently re-points.
 /// </summary>
 public sealed class SpecCitationRegrounder(
-    SpecCitationHistory history, EvidenceReferences references, ILogger<SpecCitationRegrounder> logger)
+    SpecCitationHistory history, EvidenceReferences references, ISpecReviewSettingsReader settings,
+    ILogger<SpecCitationRegrounder> logger)
 {
     public async Task<SpecReground> RegroundAsync(PipelineContext pipeline, SpecSet set, DerivedSpec spec, CancellationToken ct)
     {
@@ -23,12 +24,13 @@ public sealed class SpecCitationRegrounder(
         var tokens = SpecCitationTokens.Of(spec.Draft.Yaml, references);
         if (tokens.Count == 0 || SpecReviewRepositories.OnePerRepository(pipeline) is not { Count: > 0 } repositories)
             return SpecReground.Unchanged(spec.Draft.Yaml);
+        var budget = settings.Current().Review.RegroundReadBudget;
         var session = new SpecRegroundSession(
-            repositories, PrecedingSpecs.NotesOf(pipeline, spec.SpecId), spec.SpecId, set.Approval?.At);
+            repositories, PrecedingSpecs.NotesOf(pipeline, spec.SpecId), spec.SpecId, set.Approval?.At, budget);
         foreach (var token in tokens) await GroundAsync(session, token, ct);
         if (session.Unchecked > 0)
-            logger.LogInformation("{SpecId}: {Count} citation(s) past the budget of {Max} file(s) were not checked",
-                spec.SpecId, session.Unchecked, SpecRegroundSession.MaxPairs);
+            logger.LogInformation("{SpecId}: {Count} citation(s) past spec_review.reground_read_budget = {Max} file read(s) "
+                + "were not checked; the budget keeps one spec's entry from reading the whole tree", spec.SpecId, session.Unchecked, budget);
         return Splice(spec.Draft.Yaml, session);
     }
 

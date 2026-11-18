@@ -9,7 +9,7 @@ decisions:
       The primary is already the sandbox every commit path treats as the repository (CommitAndPR,
       RepoWorkPusher, the master's alias), so nothing new decides who carries the branch.
   - category: Architecture
-    chose: "Conflict = one path with two DIFFERENT post-images (git diff --raw --no-abbrev), decided before anything is applied; red, never resolved (contract decision 10, default, pending operator ratification)"
+    chose: "Conflict = one path with two DIFFERENT post-images (git diff --raw --no-abbrev), decided before anything is applied; red, never resolved (contract decision 10, default, ratified by the operator 2026-11-17: as built)"
     over: "Letting git apply merge non-overlapping hunks; red on any path changed in two sandboxes"
     reason: |
       A gate that silently merges guesses; two clones holding the same bytes disagree about nothing, and a
@@ -70,7 +70,7 @@ decisions:
       Measured in SandboxTreeSyncVerifyTests: the node sandbox's declared stage ran after the sync.
       when_changed (2026-10-13-8762b) is how an estate narrows it.
   - category: Architecture
-    chose: "Two images stay, so the sync is needed (default, pending operator ratification)"
+    chose: "Two images stay, so the sync is needed (default, ratified by the operator 2026-11-17: as built)"
     over: "One combined .NET plus node image for this repository"
     reason: |
       The sync is a general mechanism every mixed-stack target repository needs; a combined image would

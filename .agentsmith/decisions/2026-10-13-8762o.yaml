@@ -5,7 +5,7 @@ decisions:
   - category: Architecture
     chose: "The master records a default in one place: decide_by_default publishes event 88, projected insert-only into RunDefaultDecisions; the prompt line and the skill texts stop telling it to also log the choice with log_decision or in decisions.md. A pending default is never written to git"
     over: "Logging a default with log_decision as well, or writing it into decisions/<specId>.yaml at once"
-    reason: "Main-thread decision 9, default, pending operator ratification. A pending default written to git disagrees the moment it is overruled; 2026-10-13-8762p copies the DECIDED default into git as '[default #<id>]'."
+    reason: "Main-thread decision 9, default, ratified by the operator 2026-11-17: as built. A pending default written to git disagrees the moment it is overruled; 2026-10-13-8762p copies the DECIDED default into git as '[default #<id>]'."
   - category: Architecture
     chose: "Unique<RunDefaultDecision> in RunRecordIdentityConfiguration with EventSeq long?, so SQL Server gets '[EventSeq] IS NOT NULL'; RunDefaultDecisionConfiguration (table, lengths, Conversation index, Verdict default 'pending') is applied from RunChildConfiguration beside the child-convention loop"
     over: "Declaring the unique index in the entity configuration"
@@ -21,11 +21,11 @@ decisions:
   - category: Implementation
     chose: "decide_by_default never blocks: it answers 'Taken by default, recorded for ratification' in the same call; holds_series only flags the row for 2026-10-13-8762v"
     over: "Waiting on a person, as a question with a default answer does"
-    reason: "Series contract section 5 default 50 (decision 14), pending operator ratification."
+    reason: "Series contract section 5 default 50 (decision 14), ratified by the operator 2026-11-17: as built."
   - category: Implementation
     chose: "A memory-proposal row carries the slug as Chosen, PointerPath '{repository}/.agentsmith/memory/{slug}.md', the fixed question 'Ratify this proposed feedback memory?', empty Why and no alternatives — never the body or the description"
     over: "Copying the memory body into the row"
-    reason: "Series contract section 5 default 52 (decision 16), pending operator ratification: the memory files are what a ratification is about."
+    reason: "Series contract section 5 default 52 (decision 16), ratified by the operator 2026-11-17: moot, 9324e removed memory ratification; the memory files are what a ratification is about."
   - category: Implementation
     chose: "The projection only inserts; the verdict columns (Verdict, VerdictBy, VerdictAt, VerdictNote) are declared here and written only by 2026-10-13-8762p"
     over: "Updating a row on a replayed event"
@@ -33,7 +33,7 @@ decisions:
   - category: Implementation
     chose: "Bounds: question and chosen at most 500 characters, why at most 1000, one to eight alternatives of at most 300; each refusal names its field and nothing is recorded"
     over: "Unbounded text"
-    reason: "Default, pending operator ratification: a row is read in a batch list."
+    reason: "Default, ratified by the operator 2026-11-17: as built; a row is read in a batch list."
   - category: Implementation
     chose: "A failed publish answers 'NOT recorded' with the choice repeated and points at ask_human"
     over: "Answering success regardless"
@@ -41,7 +41,7 @@ decisions:
   - category: Architecture
     chose: "A design turn's row is keyed by the turn's own run id and carries ContextKeys.DialogueJobId as Conversation (indexed); a coding run's Conversation is null"
     over: "A nullable RunId or a sibling store"
-    reason: "Series contract decision 24, default, pending operator ratification: the binding to a ticket is resolved when 2026-10-13-8762p reads."
+    reason: "Series contract decision 24, default, ratified by the operator 2026-11-17: as built; the binding to a ticket is resolved when 2026-10-13-8762p reads."
   - category: Implementation
     chose: "DEVIATION: DefaultDecisionRecorder takes a fifth ctor parameter, ILogger, after (publisher, runId, specId, conversation)"
     over: "The spec's four-parameter signature"

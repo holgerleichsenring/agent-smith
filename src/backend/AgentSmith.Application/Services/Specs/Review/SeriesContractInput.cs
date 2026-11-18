@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// turn whose drafts exist only in the proposal, the contract entry it breaks, quoted verbatim.
 /// </summary>
 public sealed record SeriesContractInput(
-    SeriesContract Contract, IReadOnlyList<SeriesContractMember> Members, bool InRun, string? QuestionPin = null)
+    SeriesContract Contract, IReadOnlyList<SeriesContractMember> Members, bool InRun, int MaxChars, string? QuestionPin = null)
 {
     /// <summary>Sandbox key to repository name, as <see cref="SpecAttackInput.RepositoryNames"/>.</summary>
     public IReadOnlyDictionary<string, string> RepositoryNames { get; init; } =

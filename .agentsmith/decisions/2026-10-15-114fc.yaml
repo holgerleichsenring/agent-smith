@@ -29,7 +29,7 @@ decisions:
     chose: "TicketTrackerObserver asks TicketClosure.ClosedForWorkAsync on the ticket it already read; the check row stores ClosedForWork and TicketCheckStore compares it"
     over: "A tracker read per listed row, or widening the check to PR-closed rows"
     reason: |
-      Contract default 13 (pending operator ratification): a person's tracker close is read only where the
+      Contract default 13 (ratified by the operator 2026-11-17: as built, only a person's close is closed for work): a person's tracker close is read only where the
       tracker is already read — failed last attempts. TicketParkStatuses.Own holds 114fe's closed_status, so a
       ticket agent-smith closed into it never reads as a person's close. Widening is open question Q3.
   - category: Architecture

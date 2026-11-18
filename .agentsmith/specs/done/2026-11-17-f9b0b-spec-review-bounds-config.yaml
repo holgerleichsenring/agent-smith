@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f9b0b
+goal: "The attack look floor, the re-ground read budget and the series contract prompt size live in spec_review: and each says its key when it bounds, as the operator ratified on 2026-11-17."
+
+applies_to: "default (spec review loop, series contract round, re-ground) with dashboard (spec review settings form)"
+
+requires: [2026-11-17-f9b0a]
+
+facts:
+  - claim: "The attack review's floor of 24 looks is a literal in DerivationLookTerms and SeriesContractRound."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:95-104, src/backend/AgentSmith.Application/Services/Specs/Review/SeriesContractRound.cs:20-22"
+  - claim: "The re-ground budget is SpecRegroundSession.MaxPairs = 24, logged without a key."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecRegroundSession.cs:14, src/backend/AgentSmith.Application/Services/Specs/Review/SpecCitationRegrounder.cs:29-31"
+  - claim: "The series contract members are shown whole up to SeriesContractPrompt.MaxMembersChars = 60 000."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SeriesContractPrompt.cs:14,51"
+  - claim: "spec_review: is read live per call through ISpecReviewSettingsReader, and its Problems() is the one rule the Studio and the run refuse by."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:9-37, src/backend/AgentSmith.Server/Services/Sandbox/StoredSpecReviewSettingsReader.cs:14-21"
+  - claim: "Decisions 7 and 8 were ratified 2026-11-17: keep the numbers, move the two remaining constants and the 60 000 to config."
+    evidence: ".agentsmith/decisions/2026-10-13-8762g.yaml:17, .agentsmith/decisions/2026-10-13-8762k.yaml:32"
+
+scope:
+  in: "SpecReviewConfig gains attack_look_floor (24), reground_read_budget (24) and series_contract_max_chars (60000), each refused below 1 by Problems(); AttackReviewFor and SeriesContractRound.Terms take the floor; SpecRegroundSession takes the budget from the regrounder, which reads ISpecReviewSettingsReader; SeriesContractInput carries MaxChars set from the config by both callers. The look's settle sentence, the re-ground log line and the 'shown in part' line name value and key. Schema, example and the Studio form gain the three fields. Baseline rows of SpecRegroundSession and SeriesContractPrompt leave."
+  out: "The other look allowances and loop ceilings stay listed debt."
+
+steps:
+  - id: config
+    action: "Three properties and Problems() lines on SpecReviewConfig; agentsmith.schema.json spec_review properties; SpecReviewForm fields and SpecReviewSetting type."
+  - id: floor
+    action: "DerivationLookTerms.AttackReviewFor(draft, floor) and SeriesContractRound.Terms(cleared, floor); SpecReviewPanel, ProposalAttackPanel, ProposalSeriesRound (via DerivationLookFactory.ForProposalAttack) and SeriesContractRound pass the config's floor; the settle sentence names spec_review.attack_look_floor."
+  - id: reground
+    action: "SpecRegroundSession(…, maxPairs); SpecCitationRegrounder reads the budget from ISpecReviewSettingsReader and logs it with its key."
+  - id: contract-size
+    action: "SeriesContractInput.MaxChars; SeriesContractPrompt renders against it; the 'shown in part' line names spec_review.series_contract_max_chars and its value."
+
+tests:
+  - "SpecReviewConfigTests: the three defaults, a value below 1 named by key"
+  - "SpecRegistersTodayTests: AttackReviewFor honours a given floor; the settle sentence names the key"
+  - "SpecCitationRegrounderTests: a budget of N reads past N unchecked"
+  - "SeriesContractPromptTests: a smaller MaxChars shows members in part and names the key"
+
+done:
+  - "The three values come from spec_review: in yaml and the Studio, and each bound names its key."
+  - "Build and full suite green at the spec gate."

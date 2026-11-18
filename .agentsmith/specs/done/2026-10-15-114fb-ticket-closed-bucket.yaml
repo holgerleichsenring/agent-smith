@@ -75,7 +75,7 @@ scope:
     reopen is a stored time set by a successful read, because a check time cannot show it). Sections, dot, dialog and
     Reopen — 2026-10-15-114fd. The requires gate's refusal sentence naming a closed ticket — nobody (contract default
     15): the dependents say so on the graph, the requires list and the waits-for chips. Where cancelled attempts and a
-    success without a pull request go — they stay idle until the operator answers contract question Q2.
+    success without a pull request go — they stay idle until the operator answers contract question Q2 (ratified by the operator 2026-11-17: a cancelled newest attempt goes to failed, success without a pull request to done (2026-11-17-f9b0a)).
 
 decisions:
   - key: "CLOSED RANKS BELOW LIVE WORK AND ABOVE REVIEW. A running or parked attempt is the newest truth and started after the mark (114fa refuses a close while live), so it shows as it is; above waiting-on-review because a hide-only close leaves the pull request open, and hiding it is the point."

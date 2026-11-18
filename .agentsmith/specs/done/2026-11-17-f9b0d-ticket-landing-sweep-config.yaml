@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f9b0d
+goal: "The tracker-link deadline, the dependents-wake window and cap and the four pull-request re-read values live in a tickets: block, as the operator ratified on 2026-11-17."
+
+applies_to: "default (filing links, dependents wake, pull-request re-read sweep, configuration) with dashboard (tickets settings form)"
+
+requires: [2026-11-17-f9b0c]
+
+facts:
+  - claim: "TicketGraphLinks.Deadline is 60 s in code."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/TicketGraphLinks.cs:17-18"
+  - claim: "DependentsWake.Window (24 h) and Cap (50) are code constants."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:28-30"
+  - claim: "PrRecordReReadHostedService hard-codes interval 5 min, staleness 15 min and both caps 50, and loads the configuration every cycle."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:30-34,57"
+  - claim: "A new singleton block takes a class on AgentSmithConfig and RawAgentSmithConfig, the composer line, a ConfigDocTypes name and a taxonomy descriptor, as branch_cleanup did."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:48-51, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:37"
+  - claim: "Decisions 4 and 5 were ratified 2026-11-17: as built, with these constants moved to config."
+    evidence: ".agentsmith/decisions/2026-10-14-dbcem.yaml:45, .agentsmith/decisions/2026-10-14-dbceg.yaml:35"
+
+scope:
+  in: "TicketsConfig (tickets:) with requires_link_deadline_seconds 60, dependents_wake_window_hours 24, dependents_wake_cap 50, pr_reread_interval_seconds 300, pr_reread_stale_seconds 900, pr_reread_open_cap 50, pr_reread_merged_cap 50, each refused below 1 by Problems(); wired through raw, composer, Studio taxonomy, validator and settings rule; registered transient from AgentSmithConfig (CLI) and CurrentConfigSnapshot (server). TicketGraphLinks, DependentsWake and the re-read sweep read it; the link note, the wake-cap log and the re-read cap log name value and key. Schema, Studio form. Baseline rows of the three files leave."
+  out: "The semantics of requirements, landings and the gate (decisions 4 and 5 as built)."
+
+steps:
+  - id: block
+    action: "TicketsConfig with Problems(); AgentSmithConfig, RawAgentSmithConfig, ResolvedConfigComposer, ConfigDocTypes.Tickets, taxonomy descriptor, SettingsBlockRule, TicketsConfigValidator in AgentSmithConfigValidator; schema block."
+  - id: consumers
+    action: "TicketGraphLinks(TicketsConfig); DependentsWake(TicketsConfig); PrRecordReReadHostedService reads tickets: from the configuration it loads each cycle, including the wait before the next."
+  - id: dashboard
+    action: "SettingKey tickets with label, subtitle and icon; TicketsSetting type; TicketsForm in SettingsForm."
+
+tests:
+  - "TicketsConfigTests: defaults, a value below 1 named by key"
+  - "TicketGraphLinks tests: a hung tracker's note names tickets.requires_link_deadline_seconds"
+  - "DependentsWake recovery honours a configured cap; the re-read honours configured caps"
+  - "SettingsRoundTripTests lists tickets"
+
+done:
+  - "The seven values come from tickets: in yaml and the Studio, and each bound names its key."
+  - "Build and full suite green at the spec gate."

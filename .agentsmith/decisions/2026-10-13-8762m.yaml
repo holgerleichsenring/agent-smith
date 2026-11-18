@@ -13,7 +13,7 @@ decisions:
   - category: Implementation
     chose: "A master that made no hand_forward call is recorded as 'missing' and the next spec is told 'no note'; the run goes on"
     over: "Blocking the record step on a missing note"
-    reason: "Contract section 5 default 45 (decision 12), pending operator ratification."
+    reason: "Contract section 5 default 45 (decision 12), ratified by the operator 2026-11-17: the same cap moved to series.build_note_max_chars (2026-11-17-f9b0c), a missing note never blocks."
   - category: Implementation
     chose: "A spec whose sequence row carries SelectSpecHandler.AlreadySatisfiedNote gets no hand_forward key in its record"
     over: "Recording 'missing' for it"
@@ -29,7 +29,7 @@ decisions:
   - category: Implementation
     chose: "SpecBuildNoteSection bounded at 8000 characters, oldest notes dropped first, one line naming each dropped spec and its done/ file; the bound may drop every note"
     over: "An unbounded section, or always keeping the newest note"
-    reason: "Default, pending operator ratification. A single note can reach 80 entries of 300 characters, so 'at most 8000' holds only if the newest note can be dropped too; it stays one read away."
+    reason: "Default, ratified by the operator 2026-11-17: the same cap moved to series.build_note_max_chars (2026-11-17-f9b0c), a missing note never blocks. A single note can reach 80 entries of 300 characters, so 'at most 8000' holds only if the newest note can be dropped too; it stays one read away."
   - category: Architecture
     chose: "DEVIATION: MasterRecordTools carries a fifth member, IDecisionLogger Decisions, after HandForward"
     over: "The record exactly as {Log, Recall, Remember, HandForward?}"
@@ -46,4 +46,4 @@ decisions:
   - category: Implementation
     chose: "Backend context"
     over: "A context of its own"
-    reason: "Contract section 5 default 72 (decision 23), pending operator ratification."
+    reason: "Contract section 5 default 72 (decision 23), ratified by the operator 2026-11-17: moot, already done."

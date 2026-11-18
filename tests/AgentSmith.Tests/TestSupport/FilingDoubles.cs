@@ -44,7 +44,7 @@ internal static class FilingDoubles
         var tickets = new PlannedTicketFiler(ApprovedSetDoubles.Kinds(), p.Requirements ?? facts,
             ApprovedSetDoubles.SetFiler(store, p.Sources, p.Pointers, p.Mocks, p.References), p.Time ?? TimeProvider.System);
         var starts = new TicketGraphStarts(new UnmetTicketRequirements(p.Requirements ?? facts, facts, store),
-            p.Starter ?? FiledWorkDoubles.Starter(), new TicketGraphLinks(factory, p.Time ?? TimeProvider.System,
+            p.Starter ?? FiledWorkDoubles.Starter(), new TicketGraphLinks(factory, p.Time ?? TimeProvider.System, new TicketsConfig(),
                 NullLogger<TicketGraphLinks>.Instance), NullLogger<TicketGraphStarts>.Instance);
         return new FilingSteps(config,
             new PlanFilingHandler(planner, NullLogger<PlanFilingHandler>.Instance),

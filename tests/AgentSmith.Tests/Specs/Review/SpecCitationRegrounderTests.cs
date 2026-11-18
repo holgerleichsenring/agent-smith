@@ -124,7 +124,7 @@ public sealed class SpecCitationRegrounderTests
     {
         await using var repo = await CitationRepo.CreateAsync();
         if (repo is null) return;
-        var cited = Enumerable.Range(1, SpecRegroundSession.MaxPairs + 1).Select(i => $"src/F{i}.cs:1").ToArray();
+        var cited = Enumerable.Range(1, CitationRepo.Budget + 1).Select(i => $"src/F{i}.cs:1").ToArray();
         foreach (var token in cited) await repo.WriteAsync(token[..^2], "class F {}\n");
         await repo.CommitAsync("files", CitationRepo.At(1));
         var yaml = CitationRepo.SpecYaml(CitationRepo.SpecId, cited);
@@ -133,7 +133,7 @@ public sealed class SpecCitationRegrounderTests
 
         var found = await RegroundAsync(yaml, repo);
 
-        found.Unchecked.Should().Be(1, "the 25th distinct file is past the budget of 24");
+        found.Unchecked.Should().Be(1, "the file past spec_review.reground_read_budget is unchecked");
         found.Moves.Should().BeEmpty();
         found.Stale.Should().BeEmpty();
     }

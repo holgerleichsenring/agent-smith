@@ -3,7 +3,7 @@ spec: 2026-10-13-8762b
 
 decisions:
   - category: Architecture
-    chose: "A guarded stage is matched against the REPOSITORY's changed paths, the union over every sandbox serving it (default, pending operator ratification)"
+    chose: "A guarded stage is matched against the REPOSITORY's changed paths, the union over every sandbox serving it (default, ratified by the operator 2026-11-17: as built)"
     over: "Matching only the sandbox that runs the stage"
     reason: |
       A stage guards what its command reads; the generated-mirror check reads C# contracts another toolchain's
@@ -25,7 +25,7 @@ decisions:
     over: "One empty repository for unmapped sandboxes"
     reason: "Older pipelines and VerifySpec's own two-repository fixture carry no map; an empty repository there would skip every guarded stage."
   - category: TradeOff
-    chose: "A repository whose every declared stage was skipped, at least one by when_changed, is GREEN with a 'no stage applies to this change' note naming the globs (main-thread decision 8, default, pending operator ratification)"
+    chose: "A repository whose every declared stage was skipped, at least one by when_changed, is GREEN with a 'no stage applies to this change' note naming the globs (main-thread decision 8, default, ratified by the operator 2026-11-17: as built)"
     over: "Failing it as UNVERIFIED"
     reason: |
       A declaration whose guards say nothing here needs proving has answered the question; UNVERIFIED would punish

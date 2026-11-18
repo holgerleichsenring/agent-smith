@@ -62,8 +62,25 @@ public sealed class TicketBucketRuleSplitTests
         Bucket("failed", [Pr(PrReviewStates.Open)], stuck: true).Should().Be(TicketBucket.Stuck);
 
     [Fact]
-    public void TicketBucketRule_CancelledAttempt_IsIdle() =>
-        Bucket("cancelled", []).Should().Be(TicketBucket.Idle);
+    public void TicketBucketRule_CancelledAttempt_IsFailed() =>
+        Bucket("cancelled", []).Should().Be(TicketBucket.Failed);
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("shortfall")]
+    public void TicketBucketRule_DeliveredWithoutAPullRequest_IsDoneAtItsEnd(string status)
+    {
+        var run = Run("r-1", status: status);
+        run.FinishedAt = T.AddHours(3);
+
+        var state = new TicketBucketRule().Of(run, Live, []);
+
+        (state.Bucket, state.Since).Should().Be((TicketBucket.Done, T.AddHours(3)));
+    }
+
+    [Fact]
+    public void TicketBucketRule_UnknownEndedStatus_StaysIdle() =>
+        Bucket("rejected", []).Should().Be(TicketBucket.Idle);
 
     [Fact]
     public void TicketBucketRule_StuckFailedAttempt_StaysStuck() =>

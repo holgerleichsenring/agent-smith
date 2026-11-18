@@ -5,7 +5,7 @@ decisions:
   - category: Architecture
     chose: "SeriesContract (Contracts/Specs) of Names, Data, Areas, Budgets with a CLOSED kind list (SeriesContractKinds), Rekeyed(map) and Within(members); SpecSet.Contract, FiledSeries.Contract and the manifest's contract: block carry it, series-wide like the goal"
     over: "A second store for the contract, or a free-text kind"
-    reason: "Contract §2.2: the set manifest's contract: on the branch, the approval record's set carrying it as it carries Goal. A free-text kind let 'event' and 'events' hold one number twice. The block is optional — default, pending operator ratification — because making it required would refuse every proposal of the pinned skill until 2026-10-13-8762x releases."
+    reason: "Contract §2.2: the set manifest's contract: on the branch, the approval record's set carrying it as it carries Goal. A free-text kind let 'event' and 'events' hold one number twice. The block is optional — default, ratified by the operator 2026-11-17: optional and dropped on the last attempt, the 60 000 moved to spec_review.series_contract_max_chars (2026-11-17-f9b0b) — because making it required would refuse every proposal of the pinned skill until 2026-10-13-8762x releases."
   - category: Architecture
     chose: "SeriesContractReader takes SeriesContractCheck and returns SeriesContractRead(Contract, Problem): read defects and collisions in ONE message, the contract null when either is found"
     over: "The parser and the epic parser calling the reader and the check separately"
@@ -17,7 +17,7 @@ decisions:
   - category: Behaviour
     chose: "A contract defect, or a re-cut reply that dropped the previous contract, is sent back on every attempt but the last; on the last the block is dropped, the drop logged and the cut kept; a hand-back is never asked for a contract"
     over: "Refusing the cut on every attempt"
-    reason: "Three parse rejections leave no kept cut (DerivationAttempts.cs:58-59); an optional block must not cost a valid derived cut. Default, pending operator ratification. A hand-back has no specs and so no contract (SpecDerivationParser.cs:70-79)."
+    reason: "Three parse rejections leave no kept cut (DerivationAttempts.cs:58-59); an optional block must not cost a valid derived cut. Default, ratified by the operator 2026-11-17: optional and dropped on the last attempt, the 60 000 moved to spec_review.series_contract_max_chars (2026-11-17-f9b0b). A hand-back has no specs and so no contract (SpecDerivationParser.cs:70-79)."
   - category: Behaviour
     chose: "Overlap is allowed; refused are: a non-member owner/writer/spec, an unknown kind, two owner entries for one datum (trimmed, case-insensitive) or one (kind, name), one (kind, number) given to two names, one (path, spec) with two budgets, a budget below 1, and a FILE claimed by members whose repositories intersect without every such claimant's budget"
     over: "The requires-path area rule, or refusing a later member's lower budget"
@@ -45,11 +45,11 @@ decisions:
   - category: Behaviour
     chose: "A twice-invalid epic contract costs the turn's proposal like any other OutcomeInvalid check"
     over: "Dropping the block on the second invalid outcome"
-    reason: "AgenticMasterHandler re-prompts an invalid outcome once and fails the second; the same holds for every other check. Default, pending operator ratification."
+    reason: "AgenticMasterHandler re-prompts an invalid outcome once and fails the second; the same holds for every other check. Default, ratified by the operator 2026-11-17: moot, replaced by cd4ch/cd4ci, cd4cb, 8e59 and 7c1c/92e9b/3f79."
   - category: Process
     chose: "DEVIATION: the skill text (spec-derivation-master's reply shape, design-partner-master's epic block) is NOT edited here; the exact sentences are handed to 2026-10-13-8762x in the build notes"
     over: "Editing the skills branch in this spec, as step 'skills' says"
-    reason: "The series build brief reserves every skills edit for 8762x, which bumps each master once and releases; the backend reads an absent block as no contract, so nothing breaks before x. Contract defaults relied on: one skills release at the end (decision 22) and the block's location on the manifest (§2.2) — default, pending operator ratification."
+    reason: "The series build brief reserves every skills edit for 8762x, which bumps each master once and releases; the backend reads an absent block as no contract, so nothing breaks before x. Contract defaults relied on: one skills release at the end (decision 22) and the block's location on the manifest (§2.2) — default, ratified by the operator 2026-11-17: moot, shipped long ago and the pins have moved since."
   - category: Architecture
     chose: "contract: is not added to .agentsmith/schemas/work-spec.schema.json; the series manifest has no JSON schema"
     over: "Extending work-spec.schema.json (contract §2.7 before its amendment)"
