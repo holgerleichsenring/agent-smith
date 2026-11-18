@@ -20,11 +20,11 @@ scope:
 
 steps:
   - id: config
-    action: "DialogueGlobalConfig.SeriesStatusMinutes and SeriesMasterBudgetUsd, schema, docs, DialogueForm fields."
+    action: "DialogueGlobalConfig.SeriesStatusMinutes and SeriesMasterBudgetUsd, schema, docs, DialogueForm fields (landed with 0207a, which needed the budget, together with 0207c's question default)."
   - id: post
     action: "ISeriesConversation (Server over SpecDialogSessionRepository + SpecDialogNotices) and PostSeriesStatus with SeriesStatusText."
   - id: route
-    action: "SeriesRunDivert after the ticket divert in SpecDialogRouter; SeriesConversationMessages (IMidTurnMessages) over stamped turns with the record's cursor."
+    action: "SpecDialogRunDivert extended (no second divert): a conversation with no ticket and a running series stamps TranscriptTurn.SeriesRunId; SeriesMidTurnMessages (IMidTurnMessages) over stamped turns past the beat's cursor."
 
 tests:
   - "SeriesStatusText: rows, the line, the opening sentence with the policy."

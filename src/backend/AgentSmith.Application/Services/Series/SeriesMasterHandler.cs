@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -17,7 +18,8 @@ namespace AgentSmith.Application.Services.Series;
 /// spent it judges no more and the conversation is told once.
 /// </summary>
 public sealed class SeriesMasterHandler(
-    IAgenticLoopRunner loop, IPromptCatalog prompts, ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config)
+    IAgenticLoopRunner loop, IPromptCatalog prompts, ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config,
+    ISeriesConversation conversation)
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -40,7 +42,9 @@ public sealed class SeriesMasterHandler(
 
     private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt)
     {
-        IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools(), .. new SeriesActTools(beat, acts, store).GetTools()];
+        var messages = new SeriesMidTurnMessages(beat, conversation); // 0207b: what the operator writes meanwhile
+        IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(new SeriesActTools(beat, acts, store).GetTools())
+            .Select(f => new MidTurnMessageAIFunction(f, messages))];
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,
             Name: MasterName, PriorMessages: SeriesThread.Read(beat.Record.ThreadJson), Compaction: agent.Compaction);

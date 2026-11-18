@@ -10,7 +10,7 @@ public static class SeriesRunPipelineExtensions
 {
     public static IServiceCollection AddSeriesRunPipeline(this IServiceCollection services)
     {
-        services.AddTransient<SeriesBeatDemand>();
+        services.AddScoped<SeriesBeatDemand>();
         services.AddTransient<ICommandHandler<OpenSeriesRunContext>, OpenSeriesRunHandler>();
         services.AddTransient<ICommandHandler<ReadSeriesContext>, ReadSeriesHandler>();
         services.AddTransient<ICommandHandler<SeriesMasterContext>, SeriesMasterHandler>();

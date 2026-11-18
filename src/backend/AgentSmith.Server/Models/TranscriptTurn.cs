@@ -12,8 +12,10 @@ namespace AgentSmith.Server.Models;
 /// turn whose pipeline never started. 2026-11-11-205fe: a decided operator turn names the proposal it decided as
 /// <see cref="DecisionProposalId"/>; review fix: <see cref="DecisionApplied"/> is set once the decision path applied it, so
 /// a decision that names a proposal and carries no mark was never applied — whatever later happens to that proposal.
+/// 2026-11-17-0207b: an operator turn written while a series runs names the series it went to as <see cref="SeriesRunId"/>.
 /// </summary>
 public sealed record TranscriptTurn(
     TranscriptRole Role, string Text, DateTimeOffset At, SpecDialogTurnKind? Kind = null,
     SpecDialogDecision? Decision = null, MockRatificationTurn? Mock = null, string? Author = null,
-    int? DigestThrough = null, string? RunId = null, string? DecisionProposalId = null, bool? DecisionApplied = null);
+    int? DigestThrough = null, string? RunId = null, string? DecisionProposalId = null, bool? DecisionApplied = null,
+    string? SeriesRunId = null);

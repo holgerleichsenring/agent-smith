@@ -44,8 +44,9 @@ public sealed class SeriesTableTests
         var facts = new[] { SeriesRecords.Fact("43", RunStatuses.Running, finished: false) };
         var record = SeriesRecords.Running();
 
-        SeriesBeatDue.Why(record, facts, SeriesRecords.T).Should().NotBeNull("the first beat has seen nothing");
-        var seen = record with { LastTable = SeriesTable.Snapshot(SeriesTable.Rows(facts, SeriesRecords.T)) };
-        SeriesBeatDue.Why(seen, facts, SeriesRecords.T).Should().BeNull();
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T, 15).Should().NotBeNull("the first beat has seen nothing");
+        var seen = record with { LastTable = SeriesTable.Snapshot(SeriesTable.Rows(facts, SeriesRecords.T)), LastStatusAt = SeriesRecords.T };
+        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(14), 15).Should().BeNull();
+        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(15), 15).Should().Be("the status is due");
     }
 }

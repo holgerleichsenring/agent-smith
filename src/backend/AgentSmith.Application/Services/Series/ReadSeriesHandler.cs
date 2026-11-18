@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Domain.Models;
 
@@ -10,7 +11,8 @@ namespace AgentSmith.Application.Services.Series;
 /// needs the master's judgement, handed on as one <see cref="SeriesBeat"/>. A series that ended since the beat was
 /// launched ends the beat quietly: nothing is said and nothing acts.
 /// </summary>
-public sealed class ReadSeriesHandler(ISeriesRunStore store, ISeriesTicketFacts facts, TimeProvider clock)
+public sealed class ReadSeriesHandler(
+    ISeriesRunStore store, ISeriesTicketFacts facts, ISeriesConversation conversation, AgentSmithConfig config, TimeProvider clock)
     : ICommandHandler<ReadSeriesContext>
 {
     public async Task<CommandResult> ExecuteAsync(ReadSeriesContext context, CancellationToken cancellationToken)
@@ -21,7 +23,11 @@ public sealed class ReadSeriesHandler(ISeriesRunStore store, ISeriesTicketFacts 
         if (record is null) return CommandResult.Fail($"Series run {id} does not exist.");
         if (!record.IsActive) return CommandResult.Ok($"Series run {id} is {record.State}; this beat has nothing to do.");
         var beat = new SeriesBeat(record, await facts.ReadAsync(record.Project, record.Tickets, cancellationToken), clock.GetUtcNow());
+        beat.Messages.AddRange(await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, cancellationToken));
+        if (beat.Messages.Count > 0) beat.MessagesThrough = beat.Messages[^1].Index;
         beat.Reasons.AddRange(SeriesJudgement.NewlyRed(record, beat.Rows));
+        beat.Reasons.AddRange(SeriesJudgement.Operator(beat.Messages));
+        beat.Reasons.AddRange(SeriesJudgement.Stalled(beat, config.Dialogue.SeriesStatusMinutes));
         context.Pipeline.Set(ContextKeys.SeriesBeat, beat);
         return CommandResult.Ok($"Series run {id}: {beat.Facts.Count(f => f.Landed)} of {beat.Facts.Count} landed"
             + (beat.Reasons.Count == 0 ? string.Empty : $"; to judge: {string.Join("; ", beat.Reasons)}"));

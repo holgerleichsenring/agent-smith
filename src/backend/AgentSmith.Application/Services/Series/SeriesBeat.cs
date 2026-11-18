@@ -20,6 +20,12 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     /// <summary>Messages the beat posts into the conversation, in order.</summary>
     public List<string> Said { get; } = [];
 
+    /// <summary>2026-11-17-0207b: the operator's messages to the series this beat read, and the transcript index read
+    /// through — the record keeps it once the beat reported.</summary>
+    public List<SeriesOperatorMessage> Messages { get; } = [];
+
+    public int MessagesThrough { get; set; } = record.MessagesThrough;
+
     /// <summary>The master's closing line, posted as its own message.</summary>
     public string? MasterLine { get; set; }
 
