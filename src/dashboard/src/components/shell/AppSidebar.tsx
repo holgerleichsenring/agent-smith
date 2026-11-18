@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, ChartColumn, CirclePlay, Clock, GitPullRequest, Inbox, PanelLeft, Plus, Ticket, Terminal,
+  CalendarDays, ChartColumn, CirclePlay, Clock, GitPullRequest, Inbox, MessagesSquare, PanelLeft, Plus, Ticket, Terminal,
 } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useOpenPrCount } from "@/hooks/useOpenPrCount";
@@ -74,8 +74,11 @@ export function AppSidebar() {
   return (
     <nav aria-label="Main" data-testid="app-sidebar" data-collapsed={collapsed ? "true" : "false"} className={cn("app-sidebar", collapsed && "collapsed")}>
       <div className="sb-brand">
-        <Terminal size={20} strokeWidth={2} aria-hidden="true" />
-        {!collapsed && <span className="sb-brand-name">Agent Smith</span>}
+        {/* 2026-11-18-73ca: the brand is the way back to home. */}
+        <Link href="/" className="sb-brand-link" aria-label="Home" data-testid="sidebar-home">
+          <Terminal size={20} strokeWidth={2} aria-hidden="true" />
+          {!collapsed && <span className="sb-brand-name">Agent Smith</span>}
+        </Link>
         {!ownBar && <button
           type="button"
           className="sb-toggle"
@@ -88,17 +91,27 @@ export function AppSidebar() {
         </button>}
       </div>
 
+      {/* 2026-11-18-73ca: + starts new work on home's composer; the conversations are Work it out, below. */}
       <Link
-        href="/spec-dialog"
-        className={cn("sb-new", under("/spec-dialog") && "on")}
+        href="/"
+        className={cn("sb-new", pathname === "/" && "on")}
         title="New work"
         aria-label={collapsed ? "New work" : undefined}
-        aria-current={under("/spec-dialog") ? "page" : undefined}
+        aria-current={pathname === "/" ? "page" : undefined}
         data-testid="sidebar-new-work"
       >
         <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
         {!collapsed && <span>New work</span>}
       </Link>
+
+      <SidebarItem
+        label="Work it out"
+        href="/spec-dialog"
+        icon={MessagesSquare}
+        active={under("/spec-dialog")}
+        collapsed={collapsed}
+        testId="sidebar-work-it-out"
+      />
 
       <SidebarItem
         label="Your move"

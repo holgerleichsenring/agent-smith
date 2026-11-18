@@ -76,7 +76,7 @@ describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
   });
@@ -131,9 +131,16 @@ describe("AppSidebar", () => {
     const view = renderAt("/jobs/2026-08-17T21-30-46-a98c");
     expect(screen.getByTestId("sidebar-runs")).toHaveAttribute("aria-current", "page");
     view.unmount();
-    renderAt("/spec-dialog/conversations");
-    expect(screen.getByTestId("sidebar-new-work")).toHaveAttribute("aria-current", "page");
+    const dialog = renderAt("/spec-dialog/conversations");
+    expect(screen.getByTestId("sidebar-work-it-out")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("sidebar-new-work")).not.toHaveAttribute("aria-current");
     expect(screen.getByTestId("sidebar-runs")).not.toHaveAttribute("aria-current");
+    dialog.unmount();
+    // 2026-11-18-73ca: + is new work on home's composer, and the brand leads home too.
+    renderAt("/");
+    expect(screen.getByTestId("sidebar-new-work")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("sidebar-new-work")).toHaveAttribute("href", "/");
+    expect(screen.getByTestId("sidebar-home")).toHaveAttribute("href", "/");
   });
 
   it("Sidebar_YourMoveFromAnotherPage_NavigatesToTheNeedsYouBucket", () => {

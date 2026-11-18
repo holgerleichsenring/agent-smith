@@ -1,0 +1,9 @@
+spec: 2026-11-18-73ca
+decisions:
+  - category: Implementation
+    chose: "+ New work goes to home (/), whose composer starts new work; the conversations list gets its own Work it out item; the brand links home."
+    over: "Keeping + on /spec-dialog and adding a separate Home item."
+    reason: "Operator, 2026-11-18: the plus should mean new, home must be reachable, and Work it out is its own entry."
+  - category: Process
+    chose: "No adversarial reviewer round for this two-link change; the operator specified it directly."
+    reason: "The change is the operator's stated layout; the sidebar tests pin it."
