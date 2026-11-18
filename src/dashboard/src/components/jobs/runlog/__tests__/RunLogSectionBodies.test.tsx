@@ -82,6 +82,16 @@ describe("RunLogSectionBodies", () => {
     expect(withdraw).toHaveBeenCalledWith("Every dependency is upgraded");
   });
 
+  // 2026-11-18-e06bc: a long citation collapses to "n files ›"; the section's layout stays.
+  it("CheckBody_ALongCitation_Collapses", () => {
+    const acceptance = { criteria: [{ text: "Every project is current", status: "met" as const, reason: "bumped",
+      citation: "shop/src/A/A.csproj; shop/src/B/B.csproj; shop/src/C/C.csproj" }], outcome: null, ratifiedBy: null };
+    render(<CheckBody snapshot={snap({ acceptance })} events={[]} judged={{ judgements: [], busy: false, error: null, record: vi.fn(), withdraw: vi.fn() } as never} />);
+    expect(screen.getByTestId("verify-criterion-citation")).toHaveTextContent("cited: 3 files ›");
+    fireEvent.click(screen.getByTestId("cited-toggle"));
+    expect(screen.getAllByTestId("cited-item")).toHaveLength(3);
+  });
+
   it("DeliveredBody_PullRequestsWithTheirStatus_AndTheRunReport", () => {
     render(<DeliveredBody runId="r1" snapshot={snap({ pullRequests: [{ repo: "server", url: "https://example.test/server/pull/1", status: "completed", isDraft: false }] })} />);
     expect(screen.getByTestId("delivered-pr")).toHaveTextContent("server · merged · pull request ↗");

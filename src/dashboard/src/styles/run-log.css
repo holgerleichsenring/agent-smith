@@ -194,3 +194,22 @@
 .mock-viewer .rl-decision-title { flex: 0 1 auto; max-width: 60%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .mock-viewer .rl-decision-reason { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-3); }
 .mock-viewer .rl-decision-full { padding: 2px 0 6px 14px; font-family: var(--sans, inherit); font-size: 13px; line-height: 1.55; }
+
+/* 2026-11-18-e06bc: the executed spec as labelled lines — a quiet label column, one line per item; a delivered criterion
+   on one row with its state and its citation behind "n files ›", expanded one shortened path per line. */
+.mock-viewer .rl-spec { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 8px; font-family: var(--mono); font-size: 12px; line-height: 20px; color: var(--ink-2); }
+.mock-viewer .rl-spec-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; }
+.mock-viewer .rl-spec-label { color: var(--ink-3); }
+.mock-viewer .rl-spec-val { min-width: 0; overflow-wrap: anywhere; }
+.mock-viewer .rl-spec-step { display: grid; grid-template-columns: minmax(6ch, max-content) minmax(0, 1fr); gap: 10px; }
+.mock-viewer .rl-delivered { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; column-gap: 10px; }
+.mock-viewer .rl-delivered-mark { color: var(--ink-3); }
+.mock-viewer .rl-delivered.done .rl-delivered-mark, .mock-viewer .rl-delivered.done .rl-delivered-state { color: var(--ok); }
+.mock-viewer .rl-delivered.bad .rl-delivered-mark, .mock-viewer .rl-delivered.bad .rl-delivered-state { color: var(--bad); }
+.mock-viewer .rl-delivered-state { color: var(--ink-3); white-space: nowrap; }
+.mock-viewer .rl-delivered-cited { grid-column: 2 / 4; color: var(--ink-3); }
+.mock-viewer .rl-cited { color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-viewer .rl-cited .rl-filter { font-family: var(--mono); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+.mock-viewer .rl-cited-items { display: flex; flex-direction: column; padding-left: 14px; }
+.mock-viewer .rl-cited-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) { .mock-viewer .rl-spec-row { grid-template-columns: minmax(0, 1fr); gap: 0; } }

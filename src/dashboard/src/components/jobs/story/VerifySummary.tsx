@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
@@ -57,6 +58,8 @@ interface VerifySummaryProps {
   judgementBusy?: boolean;
   /** Event-derived legacy view — used ONLY when acceptance is absent. */
   fallback: VerifyFallbackView;
+  /** 2026-11-18-e06bc: how a criterion's citation is drawn after "cited:"; the text itself when absent. */
+  renderCitation?: (citation: string) => ReactNode;
 }
 
 export function VerifySummary({
@@ -66,10 +69,12 @@ export function VerifySummary({
   onRecordJudgement,
   onWithdrawJudgement,
   judgementBusy,
+  renderCitation,
 }: VerifySummaryProps) {
   return acceptance ? (
     <AcceptanceVerify
       acceptance={acceptance}
+      renderCitation={renderCitation}
       judgements={judgements}
       onRecordJudgement={onRecordJudgement}
       onWithdrawJudgement={onWithdrawJudgement}
@@ -123,8 +128,10 @@ function AcceptanceVerify({
   onRecordJudgement,
   onWithdrawJudgement,
   judgementBusy,
+  renderCitation,
 }: {
   acceptance: RunAcceptance;
+  renderCitation?: (citation: string) => ReactNode;
   judgements?: CriterionJudgement[];
   onRecordJudgement?: VerifySummaryProps["onRecordJudgement"];
   onWithdrawJudgement?: VerifySummaryProps["onWithdrawJudgement"];
@@ -184,7 +191,7 @@ function AcceptanceVerify({
                     )}
                     {criterion.citation && (
                       <div className="c-proof" data-testid="verify-criterion-citation">
-                        cited: {criterion.citation}
+                        cited: {renderCitation ? renderCitation(criterion.citation) : criterion.citation}
                       </div>
                     )}
                     {onRecordJudgement && onWithdrawJudgement && (

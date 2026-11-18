@@ -22,9 +22,12 @@ import {
   type RunSnapshot,
   type TicketFetchedEvent,
 } from "@/types/hub-events";
+import { CitedList } from "./CitedList";
 import { decisionParts } from "./decisionParts";
 import { shortTargets } from "./logPaths";
 import { BlockText, InlineText } from "./LogText";
+import { parseSpecRecord } from "./specRecord";
+import { SpecRecordView } from "./SpecRecordView";
 import { clockOf, pullRequestLinks } from "./runNowLines";
 import type { RunTicket } from "./useRunTicket";
 
@@ -184,7 +187,7 @@ function SpecRecord({ runId, specId }: { runId: string; specId: string }) {
   const { record, loading } = useRunSpecRecord(runId, specId);
   return (
     <div className="rl-doc-body">
-      {record ? <ResultDocument content={record} /> : (
+      {record ? <SpecRecordBody record={record} /> : (
         <div className="rl-body-line rl-dim">
           {loading ? "Reading…" : `No executed spec recorded for ${specId}; this run wrote none, or it predates the server-held spec record.`}
         </div>
@@ -193,12 +196,19 @@ function SpecRecord({ runId, specId }: { runId: string; specId: string }) {
   );
 }
 
+/** 2026-11-18-e06bc: the record as labelled lines when it parses as a spec, else as the document it is. */
+function SpecRecordBody({ record }: { record: string }) {
+  const spec = useMemo(() => parseSpecRecord(record), [record]);
+  return spec ? <SpecRecordView spec={spec} /> : <ResultDocument content={record} />;
+}
+
 export function CheckBody({ snapshot, events, judged }: { snapshot: RunSnapshot | null; events: RunEvent[]; judged: RunJudgements }) {
   const fallback = useMemo(() => buildVerifyFallback(events), [events]);
   return (
     <div className="rl-body rl-plain" data-testid="check-body">
       <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} judgements={judged.judgements}
-        judgementBusy={judged.busy} onRecordJudgement={judged.record} onWithdrawJudgement={judged.withdraw} />
+        judgementBusy={judged.busy} onRecordJudgement={judged.record} onWithdrawJudgement={judged.withdraw}
+        renderCitation={(citation) => <CitedList text={citation} />} />
       {judged.error && <div className="rl-body-line rl-bad" data-testid="check-body-error">The judgement was not recorded: {judged.error}</div>}
     </div>
   );
