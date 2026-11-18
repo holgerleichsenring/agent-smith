@@ -22,7 +22,9 @@ import {
   type RunSnapshot,
   type TicketFetchedEvent,
 } from "@/types/hub-events";
+import { decisionParts } from "./decisionParts";
 import { shortTargets } from "./logPaths";
+import { BlockText, InlineText } from "./LogText";
 import { clockOf, pullRequestLinks } from "./runNowLines";
 import type { RunTicket } from "./useRunTicket";
 
@@ -71,7 +73,7 @@ export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot
         <div data-testid="ticket-body-ratified">
           <div className="rl-body-line rl-dim">acceptance, ratified before any code</div>
           <ol className="rl-num">
-            {ratified.map((c, i) => <li key={`${i}-${c.text}`} className="rl-body-line" data-testid="ticket-body-criterion"><span className="rl-num-n">{i + 1}.</span><span>{c.text}</span></li>)}
+            {ratified.map((c, i) => <li key={`${i}-${c.text}`} className="rl-body-line" data-testid="ticket-body-criterion"><span className="rl-num-n">{i + 1}.</span><span><InlineText text={c.text} /></span></li>)}
           </ol>
         </div>
       )}
@@ -110,7 +112,7 @@ export function PlanBody({ runId, ledger, hasSpecs, events }: { runId: string; l
           {ledger.map((e) => (
             <div key={e.id} className={`rl-body-line rl-ledger ${e.status}`} data-testid={`ledger-line-${e.id}`} data-status={e.status}>
               <span className="rl-ledger-tag">{LEDGER_TAG[e.status]}</span>
-              <span className="rl-ledger-act" title={e.activity}>{e.activity}</span>
+              <span className="rl-ledger-act" title={e.activity}><InlineText text={e.activity} /></span>
               {e.target ? <span className="rl-ledger-target" title={e.target} data-testid={`ledger-target-${e.id}`}>{shortTargets(e.target)}</span> : <span />}
             </div>
           ))}
@@ -135,10 +137,25 @@ function RunDecisions({ runId, events }: { runId: string; events: RunEvent[] }) 
     <div data-testid="plan-body-decisions">
       <div className="rl-body-line rl-dim">decisions</div>
       {decisions.map((d, i) => (
-        <div key={`${d.name}-${i}`} className="rl-body-line">
-          <span className="rl-dim">{clockOf(d.recordedAt) ?? ""}{d.category ? ` ${d.category}` : ""} </span>{d.name}{d.reason ? <span className="rl-dim"> — {d.reason}</span> : null}
-        </div>
+        <DecisionLine key={`${d.name}-${i}`} name={d.name} reason={d.reason} prefix={`${clockOf(d.recordedAt) ?? ""}${d.category ? ` ${d.category}` : ""}`} />
       ))}
+    </div>
+  );
+}
+
+/** 2026-11-18-e06bb: one decision on one line — the title bold, the reason dim and cut at the line's end; a click
+ *  opens the whole reason under it. */
+export function DecisionLine({ name, reason, prefix }: { name: string; reason: string | null; prefix?: string }) {
+  const [open, setOpen] = useState(false);
+  const parts = decisionParts(name, reason);
+  return (
+    <div className="rl-decision" data-testid="decision-line">
+      <button type="button" className="rl-decision-line" aria-expanded={open} disabled={!parts.reason} onClick={() => setOpen((o) => !o)}>
+        {prefix?.trim() && <span className="rl-dim rl-decision-pre">{prefix.trim()}</span>}
+        <strong className="rl-decision-title"><InlineText text={parts.title} /></strong>
+        {parts.reason && !open && <span className="rl-decision-reason" data-testid="decision-reason"> — <InlineText text={parts.reason} /></span>}
+      </button>
+      {open && parts.reason && <div className="rl-decision-full" data-testid="decision-full"><BlockText text={parts.reason} /></div>}
     </div>
   );
 }
@@ -150,9 +167,7 @@ export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | un
     <div className="rl-body" data-testid={`spec-body-${spec.specId}`}>
       {spec.decisions.length > 0 ? (
         <Doc label={spec.decisions.length === 1 ? "1 decision" : `${spec.decisions.length} decisions`} testId={`spec-decisions-${spec.specId}`}>
-          {spec.decisions.map((d, i) => (
-            <div key={`${d.name}-${i}`} className="rl-body-line">{d.name}{d.reason ? <span className="rl-dim"> — {d.reason}</span> : null}</div>
-          ))}
+          {spec.decisions.map((d, i) => <DecisionLine key={`${d.name}-${i}`} name={d.name} reason={d.reason} />)}
         </Doc>
       ) : (
         <div className="rl-body-line rl-dim">No decision was logged in this spec.</div>

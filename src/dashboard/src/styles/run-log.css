@@ -175,3 +175,22 @@
 .mock-viewer .rl-more-lines { font-family: var(--sans); font-size: 12px; padding-top: 4px; text-align: left; }
 .mock-viewer .rl-output { max-height: 320px; overflow: auto; padding: 4px 0 4px 14px; white-space: pre-wrap; color: var(--ink-2); }
 @media (max-width: 640px) { .mock-viewer .rl-detail-line { grid-template-columns: 62px minmax(0, 1fr); } .mock-viewer .rl-detail-line .rl-kind, .mock-viewer .rl-detail-line .rl-meta-col { display: none; } }
+
+/* 2026-11-18-e06bb: markdown in log text — inline code as a quiet mono token, a block in the log's own type; a decision
+   on one line, its title bold and its reason dim and cut at the line's end. */
+.mock-viewer .rl-p + .rl-p::before { content: " "; }
+.mock-viewer .rl-code { font-family: var(--mono); font-size: 0.95em; color: var(--ink); }
+.mock-viewer .rl-log strong { font-weight: 600; color: var(--ink); }
+.mock-viewer .rl-md { color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-viewer .rl-md p { margin: 0 0 6px; }
+.mock-viewer .rl-md ul, .mock-viewer .rl-md ol { margin: 0 0 6px; padding-left: 20px; }
+.mock-viewer .rl-md ul { list-style: disc; }
+.mock-viewer .rl-md ol { list-style: decimal; }
+.mock-viewer .rl-md pre { margin: 0 0 6px; white-space: pre-wrap; }
+.mock-viewer .rl-decision { font-family: var(--mono); font-size: 12px; line-height: 22px; }
+.mock-viewer .rl-decision-line { width: 100%; display: flex; gap: 8px; align-items: baseline; padding: 0; border: 0; background: none; font: inherit; color: var(--ink-2); text-align: left; cursor: pointer; white-space: nowrap; }
+.mock-viewer .rl-decision-line:disabled { cursor: default; }
+.mock-viewer .rl-decision-pre { flex: none; }
+.mock-viewer .rl-decision-title { flex: 0 1 auto; max-width: 60%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mock-viewer .rl-decision-reason { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-3); }
+.mock-viewer .rl-decision-full { padding: 2px 0 6px 14px; font-family: var(--sans, inherit); font-size: 13px; line-height: 1.55; }

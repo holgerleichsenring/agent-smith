@@ -8,6 +8,7 @@ import { useRunStepEvents } from "@/hooks/useRunStepEvents";
 import { useSandboxEvents } from "@/hooks/useSandboxEvents";
 import type { LogStep } from "./runLogSections";
 import { commandKey } from "./runSections";
+import { InlineText } from "./LogText";
 import { RunStepHead } from "./RunStepHead";
 import { repoOutcomeWords, repoSummary, stepDetailLines, type DetailFilter, type DetailLine } from "./stepDetailLines";
 
@@ -100,7 +101,7 @@ function Line({ line }: { line: DetailLine }) {
       <span className="rl-at">{line.at}</span>
       <span className="rl-kind">{line.kind}</span>
       <span className="rl-text">
-        {line.href ? (line.href.startsWith("/") ? <Link href={line.href}>{line.text}</Link> : <a href={line.href} target="_blank" rel="noreferrer">{line.text} ↗</a>) : line.text}
+        {line.href ? (line.href.startsWith("/") ? <Link href={line.href}>{line.text}</Link> : <a href={line.href} target="_blank" rel="noreferrer">{line.text} ↗</a>) : <InlineText text={line.text} />}
       </span>
       <span className="rl-meta-col">{line.meta}</span>
     </div>
