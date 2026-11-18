@@ -800,6 +800,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("CiActed")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<long?>("CiAtTicks")
                         .HasColumnType("bigint");
 

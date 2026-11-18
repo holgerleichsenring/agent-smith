@@ -13,7 +13,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public static class AzureReposCiPolicies
 {
     /// <summary>Azure DevOps' built-in "Build" policy type.</summary>
-    public static readonly Guid BuildPolicyType = new("0609b952-1397-4640-95ec-e00a01b2c241");
+    public const string BuildPolicyType = "0609b952-1397-4640-95ec-e00a01b2c241";
 
     /// <summary>The artifact a pull request's policy evaluations are filed under.</summary>
     public static string ArtifactId(Guid projectId, int prId) => $"vstfs:///CodeReview/CodeReviewId/{projectId}/{prId}";
@@ -28,7 +28,7 @@ public static class AzureReposCiPolicies
     }
 
     private static bool IsBuildPolicy(PolicyEvaluationRecord e) =>
-        e.Configuration?.Type?.Id == BuildPolicyType && e.Status != PolicyEvaluationStatus.NotApplicable;
+        e.Configuration?.Type?.Id == Guid.Parse(BuildPolicyType) && e.Status != PolicyEvaluationStatus.NotApplicable;
 
     private static async Task<AzureReposCiItem> ItemAsync(PolicyEvaluationRecord evaluation, BuildHttpClient builds,
         Guid projectId, string head, string orgUrl, CancellationToken ct)

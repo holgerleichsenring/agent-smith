@@ -265,11 +265,15 @@ Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md)
 
 ```yaml
 merge:
-  when: on_gate_green               # manual (default) | on_gate_green
+  when: on_gate_green               # manual (default) | on_gate_green | on_ci_green
   respect_branch_protection: false  # default false
   refresh_open_pull_requests: false # default false
   ci_excerpt_chars: 4000            # default 4000
   ci_failed_checks_read: 5          # default 5
+  ci_poll_seconds: 60               # on_ci_green: default 60
+  ci_settle_seconds: 180            # on_ci_green: default 180
+  ci_pending_seconds: 3600          # on_ci_green: default 3600
+  approval_auth: github_approver    # optional: a secret name
 ```
 
 | Key | Description |
@@ -279,6 +283,11 @@ merge:
 
 | `refresh_open_pull_requests` | `true`: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch unchanged and is said on the pull request. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |
 
+| `on_ci_green` (a `when` value) | A run whose every spec passed merges nothing at its end: each of its pull requests reads *waiting for CI*. agent-smith reads their CI every `ci_poll_seconds`; once it is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, approves where the host requires a review and merges them, and the ticket lands. A head is acted on once per verdict; a new head or a new verdict is acted on again. |
+| `ci_poll_seconds` | With `on_ci_green`, how often the open pull requests' CI is read. Default 60. |
+| `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push. |
+| `ci_pending_seconds` | After how long a head still pending is no longer read every `ci_poll_seconds`; the five-minute re-read still sees it move. Default 3600. |
+| `approval_auth` | With `respect_branch_protection: true`, the secret of the identity that approves a pull request whose host requires a review. GitHub never lets the author approve its own pull request, and the author is the repo's own token, so a required review there needs a second identity (a machine user or app token); Azure DevOps and GitLab need it when the host forbids the author approving. Without it the repo's token approves where the host allows; a refusal leaves the pull request open and names this key. With the default `respect_branch_protection: false` no approval is needed: the merge goes past the review rule. |
 | `ci_excerpt_chars` | How many characters of each failed CI check's evidence are read, stored and shown: the host's summary and annotations, then the end of its log. Default 4000. |
 | `ci_failed_checks_read` | How many failed checks of one red head have their logs read; the rest are named with their links. Default 5. |
 

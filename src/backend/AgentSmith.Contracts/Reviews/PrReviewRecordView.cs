@@ -36,4 +36,7 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-17-3435a: the CI the newest read saw; null before a CI read.</summary>
     public PrRecordCiView? Ci { get; init; }
+
+    /// <summary>2026-11-17-3435b: '&lt;head&gt;:&lt;state&gt;' the CI loop last acted on; null before it acted.</summary>
+    public string? CiActed { get; init; }
 }

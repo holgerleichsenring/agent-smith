@@ -771,6 +771,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CiActed")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("CiAtTicks")
                         .HasColumnType("INTEGER");
 

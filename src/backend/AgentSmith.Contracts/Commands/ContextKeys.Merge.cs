@@ -16,4 +16,8 @@ public static partial class ContextKeys
     public const string BaseRefreshPrNumber = "BaseRefreshPrNumber";
 
     public const string BaseRefreshBaseBranch = "BaseRefreshBaseBranch";
+
+    /// <summary>2026-11-17-3435b: a merge-green run's <see cref="Runs.CiGreenMergeRequest"/> — the pull requests whose CI
+    /// went green, seeded in process by the server's CI watch.</summary>
+    public const string CiGreenMerge = "CiGreenMerge";
 }

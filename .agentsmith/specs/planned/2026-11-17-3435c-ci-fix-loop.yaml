@@ -12,7 +12,7 @@ facts:
   - claim: "A Refresh-origin nudge only refreshes; any other origin reaches the rework handler, whose finished-attempt tail serves the newest act through the rework entry, which launches a code run."
     evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:81-84, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:50-53"
   - claim: "Nudge origins merge by maximum; PreconditionsMet (7) and RequirementsMet (6) rank above everything and are served by their own paths."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:64, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:21-29"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:64, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:21-28"
   - claim: "FetchTicket reads the previous attempt's pull-request review into ContextKeys.PrReviewFeedback and the attempt cause after it; the cause maps an act's channel to a stored channel word."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:92-96, src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:85-94"
   - claim: "The review is rendered into the master prompt beside the ticket conversation."

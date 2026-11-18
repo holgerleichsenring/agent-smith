@@ -19,6 +19,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// write. A named record is re-read, so its check time advances and it goes to the back of the list.
 /// 2026-10-14-dbceh: then it recovers a lost wake of the tickets the day's landings freed.
 /// Collaborators resolve at run time, as <see cref="ChangeSweepHostedService"/>'s do.
+/// <para>2026-11-17-3435b: the CI loop rides on it — it ticks at the smallest merge.ci_poll_seconds of the on_ci_green
+/// projects (<see cref="CiWatchSelection"/>), nudges their CI-due records every tick and the rest every five minutes.</para>
 /// </summary>
 public sealed class PrRecordReReadHostedService(
     IServiceProvider services,
@@ -45,11 +47,15 @@ public sealed class PrRecordReReadHostedService(
 
     private async Task LoopAsync(CancellationToken ct)
     {
+        var lastFull = DateTimeOffset.MinValue;
         while (!ct.IsCancellationRequested)
         {
-            try { await ReReadOnceAsync(ct); }
+            var full = clock.GetUtcNow() - lastFull >= Interval;
+            try { await (full ? ReReadOnceAsync(ct) : CiOnceAsync(ct)); }
             catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "Pull-request re-read failed; retried next cycle"); }
-            await Task.Delay(Interval, clock, ct);
+            if (full) lastFull = clock.GetUtcNow();
+            var cadence = CiWatchSelection.Cadence(CiWatchSelection.Watched(configLoader.LoadConfig(serverContext.ConfigPath).Projects.Values));
+            await Task.Delay(cadence is { } ci && ci < Interval ? ci : Interval, clock, ct);
         }
     }
 
@@ -72,11 +78,29 @@ public sealed class PrRecordReReadHostedService(
                 selected.AddRange(found);
             }
         }
+        selected.AddRange(await CiDueAsync(projects, ct)); // 2026-11-17-3435b
+        var count = await NudgeAsync(selected, ct);
+        await services.GetRequiredService<Rework.DependentsWake>().RecoverAsync([.. projects.Select(p => p.Name)], ct); // 2026-10-14-dbceh
+        return count;
+    }
+
+    /// <summary>2026-11-17-3435b: a CI tick between full re-reads — only the on_ci_green projects' CI-due records.</summary>
+    public async Task<int> CiOnceAsync(CancellationToken ct) =>
+        await NudgeAsync(await CiDueAsync([.. configLoader.LoadConfig(serverContext.ConfigPath).Projects.Values], ct), ct);
+
+    private async Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(IReadOnlyList<ResolvedProject> projects, CancellationToken ct)
+    {
+        using var scope = services.CreateScope();
+        return await CiWatchSelection.DueAsync(CiWatchSelection.Watched(projects),
+            scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>(), clock.GetUtcNow(), ct);
+    }
+
+    private async Task<int> NudgeAsync(IReadOnlyList<PrReviewRecordView> selected, CancellationToken ct)
+    {
         var nudges = services.GetRequiredService<IReworkNudges>();
         var perTicket = selected.DistinctBy(r => (r.Project, r.TicketId)).ToList();
         foreach (var record in perTicket)
             await nudges.EnqueueAsync(new ReworkNudgeRequest(record.Project, record.TicketId, ReworkNudgeOrigin.Refresh, record.Url), ct);
-        await services.GetRequiredService<Rework.DependentsWake>().RecoverAsync([.. projects.Select(p => p.Name)], ct); // 2026-10-14-dbceh
         return perTicket.Count;
     }
 }

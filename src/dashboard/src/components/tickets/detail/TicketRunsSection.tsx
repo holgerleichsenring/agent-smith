@@ -15,7 +15,7 @@ import { addressQuery, CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 export function TicketRunsSection() {
   const detail = useTicketDetail();
-  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? []);
+  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? []);
   if (lines.length === 0) return <div className="msub">No run is recorded.</div>;
   return (
     <div className="tk-runs" data-testid="runs-list">

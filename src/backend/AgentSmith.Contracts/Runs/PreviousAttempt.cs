@@ -15,6 +15,10 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// runs — the pull requests a rework reads its review from.</summary>
     public IReadOnlyDictionary<string, string> PullRequestUrls { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>2026-11-17-3435b: repo -> url of THIS attempt's own pull requests that wait for CI (merge: on_ci_green) —
+    /// the gate passed on them; empty when the attempt published none.</summary>
+    public IReadOnlyDictionary<string, string> AwaitingCiUrls { get; init; } = new Dictionary<string, string>();
+
     /// <summary>2026-11-17-9a39a: whether THIS attempt opened a pull request — its own row, not an earlier run's.</summary>
     public bool OpenedPullRequest { get; init; }
 

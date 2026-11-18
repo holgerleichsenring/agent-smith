@@ -108,7 +108,7 @@ public sealed class AzureReposCiReaderTests
         Status = status,
         Configuration = new PolicyConfiguration
         {
-            IsBlocking = true, Type = new PolicyTypeRef { Id = AzureReposCiPolicies.BuildPolicyType },
+            IsBlocking = true, Type = new PolicyTypeRef { Id = Guid.Parse(AzureReposCiPolicies.BuildPolicyType) },
             Settings = new JObject { ["displayName"] = "PR build" },
         },
         Context = new JObject { ["buildId"] = 55, ["isExpired"] = false },

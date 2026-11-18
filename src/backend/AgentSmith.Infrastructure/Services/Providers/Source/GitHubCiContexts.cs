@@ -11,8 +11,6 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </summary>
 public static class GitHubCiContexts
 {
-    private static readonly string[] FailedConclusions = ["FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"];
-
     public static CiCheck Check(JsonElement node) => IsCheckRun(node)
         ? new CiCheck(Str(node, "name") ?? "check", RunOutcome(node), Bool(node, "isRequired"), Time(node, "completedAt"))
         : new CiCheck(Str(node, "context") ?? "status", StatusOutcome(Str(node, "state")), Bool(node, "isRequired"), Time(node, "createdAt"));
@@ -34,7 +32,8 @@ public static class GitHubCiContexts
 
     private static CiCheckOutcome RunOutcome(JsonElement node) =>
         Str(node, "status") != "COMPLETED" ? CiCheckOutcome.Pending
-        : FailedConclusions.Contains(Str(node, "conclusion")) ? CiCheckOutcome.Failed : CiCheckOutcome.Passed;
+        : Str(node, "conclusion") is "FAILURE" or "TIMED_OUT" or "CANCELLED" or "ACTION_REQUIRED" or "STARTUP_FAILURE"
+            ? CiCheckOutcome.Failed : CiCheckOutcome.Passed;
 
     private static CiCheckOutcome StatusOutcome(string? state) => state switch
     {

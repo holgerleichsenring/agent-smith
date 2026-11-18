@@ -39,6 +39,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             RetryRequestedAt = retry?.RequestedAt,
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
             OpenedPullRequest = OpenedAny(run.PullRequestsJson), // 2026-11-17-9a39a: this attempt's own
+            AwaitingCiUrls = AwaitingCi(run.PullRequestsJson), // 2026-11-17-3435b
             ActsReadAt = run.ActsReadAt,
             // 2026-11-16-f3fbb: a failed end a precondition decided holds the ticket until it holds or a person starts it.
             StoppedOnPrecondition = run.FinishedAt is not null && run.Status == RunStatuses.Failed
@@ -58,10 +59,15 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         };
     }
 
+    private static IReadOnlyDictionary<string, string> AwaitingCi(string? json) =>
+        (json is null ? [] : RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? [])
+            .Where(p => p.Status == PullRequestStatuses.AwaitingCi && !string.IsNullOrEmpty(p.Url))
+            .GroupBy(p => p.Repo).ToDictionary(g => g.Key, g => g.Last().Url!);
+
     private static bool OpenedAny(string? json) =>
         json is not null && (RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? []).Any(Opened);
 
-    private static bool Opened(RunPullRequestView pr) => pr.Status == "opened" && !string.IsNullOrEmpty(pr.Url);
+    private static bool Opened(RunPullRequestView pr) => PullRequestStatuses.IsOpen(pr.Status) && !string.IsNullOrEmpty(pr.Url); // 3435b
 
     // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
     public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken)

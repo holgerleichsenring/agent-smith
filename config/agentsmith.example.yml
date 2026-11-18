@@ -546,7 +546,11 @@ projects:
     # 2026-11-17-023fa / 3435: whether a green run merges its own pull requests. Every open
     # pull request's CI is read with its record; the ci_* bounds limit what a red one stores.
     # merge:
-    #   when: manual                  # manual | on_gate_green
+    #   when: manual                  # manual | on_gate_green | on_ci_green
+    #   ci_poll_seconds: 60           # on_ci_green: how often CI is read
+    #   ci_settle_seconds: 180        # on_ci_green: "no CI" must last this long
+    #   ci_pending_seconds: 3600      # on_ci_green: stop fast polling a stuck head
+    #   approval_auth: github_approver # a second identity's secret for required reviews
     #   ci_excerpt_chars: 4000        # evidence kept per failed check
     #   ci_failed_checks_read: 5      # failed checks whose logs are read
 

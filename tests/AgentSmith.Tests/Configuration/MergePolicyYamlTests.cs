@@ -51,6 +51,18 @@ public sealed class MergePolicyYamlTests
         Load(Head).Merge.CiExcerptChars.Should().Be(4000, "the default when the block says nothing");
     }
 
+    // 2026-11-17-3435b
+    [Fact]
+    public void MergeBlock_Loads_OnCiGreen_AndItsKeys()
+    {
+        var project = Load(Head + "    merge:\n      when: on_ci_green\n      ci_poll_seconds: 30\n      ci_settle_seconds: 90\n"
+            + "      ci_pending_seconds: 600\n      approval_auth: approver\n");
+
+        project.Merge.When.Should().Be(MergeWhen.OnCiGreen);
+        (project.Merge.CiPollSeconds, project.Merge.CiSettleSeconds, project.Merge.CiPendingSeconds).Should().Be((30, 90, 600));
+        project.Merge.ApprovalAuth.Should().Be("approver");
+    }
+
     [Fact]
     public void NoMergeBlock_IsManual_AndWouldBypass()
     {
