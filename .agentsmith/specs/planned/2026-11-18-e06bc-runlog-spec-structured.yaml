@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-e06bc
+goal: "The executed spec renders as labelled lines parsed from its YAML, and long cited path lists collapse to 'n files ›' in the outcome and in Checked against the spec."
+
+applies_to: "dashboard (components/jobs/runlog: SpecRecordView, specRecord, CitedList; story/VerifySummary citation slot)"
+
+requires: [2026-11-18-e06bb]
+
+facts:
+  - claim: "The spec record is the spec YAML as text, rendered through ResultDocument as markdown, so it flattens to prose."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogSectionBodies.tsx:159-168"
+  - claim: "The outcome's delivered text lists '- [x] criterion — `a; b; c`' rows under '**repo**'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountRenderer.cs:28-34, 61-81"
+  - claim: "VerifySummary prints 'cited: <citation>' in one block; it is shared with the Why page."
+    evidence: "src/dashboard/src/components/jobs/story/VerifySummary.tsx:185-189"
+  - claim: "The dashboard has no YAML parser; the yaml package (2.8.1, no dependencies) is added."
+    evidence: "src/dashboard/package.json:17-35"
+
+scope:
+  in: "specRecord.ts parses the record (yaml) into goal, scope in/out, steps (id, action), tests, done, outcome (run, delivered accounts) and the other keys as generic label/value lines; a record that does not parse falls back to the document view. SpecRecordView draws them as labelled blocks: label column, one line per item. The delivered accounts draw 'criterion  proven  18 files ›', expanded to one shortened path per line. CitedList does the same for VerifySummary's citation via an optional render slot the run log passes."
+  out: "The Why page keeps its citation text; the ticket page's spec document."
+
+steps:
+  - id: parse
+    action: "yaml dependency; specRecord.ts (parseSpecRecord, deliveredAccounts)."
+  - id: draw
+    action: "SpecRecordView and CitedList; SpecRecord uses SpecRecordView."
+  - id: cited
+    action: "VerifySummary renderCitation prop; CheckBody passes CitedList."
+
+tests:
+  - "parseSpecRecord: goal, scope, steps, tests, done, outcome; non-YAML returns null."
+  - "deliveredAccounts: repo heading, marks, citation split, verified by command, measured lines."
+  - "SpecRecordView: labelled lines, '3 files ›' expands to shortened paths."
+  - "CheckBody: a long citation collapses; VerifySummary without the slot is unchanged."
+
+done:
+  - "The spec it executed shows Goal, Scope, Steps, Tests, Done and Outcome as labelled lines."
+  - "No criterion lists more than two paths inline; the rest sit behind 'n files ›'."
+  - "pnpm test and build are green."

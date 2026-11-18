@@ -22,6 +22,7 @@ import {
   type RunSnapshot,
   type TicketFetchedEvent,
 } from "@/types/hub-events";
+import { shortTargets } from "./logPaths";
 import { clockOf, pullRequestLinks } from "./runNowLines";
 import type { RunTicket } from "./useRunTicket";
 
@@ -46,12 +47,15 @@ export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot
     return latest;
   }, [events]);
   const ratified = snapshot?.acceptance?.criteria ?? [];
+  const id = fetched?.ticketId ?? snapshot?.ticketId ?? null;
+  const title = fetched?.title ?? snapshot?.ticketTitle ?? null;
   return (
     <div className="rl-body" data-testid="ticket-body">
-      {fetched ? (
+      {(id || title) && <div className="rl-body-line rl-strong" data-testid="ticket-body-title">{[id, title].filter(Boolean).join(" · ")}</div>}
+      {fetched && (
         <>
-          <div className="rl-body-line" data-testid="ticket-body-facts">
-            ticket {fetched.ticketId} · {fetched.state} · {fetched.source}
+          <div className="rl-body-line rl-dim" data-testid="ticket-body-facts">
+            {fetched.state} · {fetched.source}
             {fetched.labels.length > 0 ? ` · labels ${fetched.labels.join(", ")}` : ""}
             {` · ${fetched.attachmentCount === 0 ? "no attachments" : fetched.attachmentCount === 1 ? "1 attachment, open the ticket in its tracker to view it" : `${fetched.attachmentCount} attachments, open the ticket in its tracker to view them`}`}
           </div>
@@ -62,21 +66,26 @@ export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot
             <Doc label="the ticket's acceptance criteria" testId="ticket-body-criteria"><Markdown>{fetched.acceptanceCriteria}</Markdown></Doc>
           )}
         </>
-      ) : (
-        <div className="rl-body-line rl-dim" data-testid="ticket-body-empty">
-          The ticket body is not on this run&rsquo;s event stream{snapshot?.ticketId ? `; only its reference ${snapshot.ticketId}${snapshot.ticketTitle ? ` · ${snapshot.ticketTitle}` : ""} is known` : ""}.
-        </div>
       )}
       {ratified.length > 0 && (
         <div data-testid="ticket-body-ratified">
           <div className="rl-body-line rl-dim">acceptance, ratified before any code</div>
-          {ratified.map((c) => <div key={c.text} className="rl-body-line">· {c.text}</div>)}
+          <ol className="rl-num">
+            {ratified.map((c, i) => <li key={`${i}-${c.text}`} className="rl-body-line" data-testid="ticket-body-criterion"><span className="rl-num-n">{i + 1}.</span><span>{c.text}</span></li>)}
+          </ol>
         </div>
       )}
-      <div className="rl-links">
-        {fetched?.webUrl && <a href={fetched.webUrl} target="_blank" rel="noreferrer" data-testid="ticket-body-tracker">open in the tracker ↗</a>}
-        {ticket && <Link href={ticket.href} data-testid="ticket-body-page">the ticket page</Link>}
-      </div>
+      {!fetched && (
+        <div className="rl-body-line rl-dim" data-testid="ticket-body-empty">
+          body not recorded on this run{ticket ? <> — <Link href={ticket.href} data-testid="ticket-body-page">open the ticket</Link></> : ""}
+        </div>
+      )}
+      {fetched && (
+        <div className="rl-links">
+          {fetched.webUrl && <a href={fetched.webUrl} target="_blank" rel="noreferrer" data-testid="ticket-body-tracker">open in the tracker ↗</a>}
+          {ticket && <Link href={ticket.href} data-testid="ticket-body-page">the ticket page</Link>}
+        </div>
+      )}
     </div>
   );
 }
@@ -101,7 +110,8 @@ export function PlanBody({ runId, ledger, hasSpecs, events }: { runId: string; l
           {ledger.map((e) => (
             <div key={e.id} className={`rl-body-line rl-ledger ${e.status}`} data-testid={`ledger-line-${e.id}`} data-status={e.status}>
               <span className="rl-ledger-tag">{LEDGER_TAG[e.status]}</span>
-              <span>{e.activity}{e.target ? <span className="rl-dim"> — {e.target}</span> : null}</span>
+              <span className="rl-ledger-act" title={e.activity}>{e.activity}</span>
+              {e.target ? <span className="rl-ledger-target" title={e.target} data-testid={`ledger-target-${e.id}`}>{shortTargets(e.target)}</span> : <span />}
             </div>
           ))}
           <div className="rl-body-line rl-dim" data-testid="plan-body-ledger-count">{ledgerCount(ledger)}</div>

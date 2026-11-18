@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-e06ba
+goal: "The run log's Ticket and The plan sections read as plain lines: a full title line, a numbered acceptance list, one line per plan step with a shortened target."
+
+applies_to: "dashboard (components/jobs/runlog: RunLogSectionBodies, runLogSections, logPaths, run-log.css)"
+
+requires: [2026-11-17-6d9eb]
+
+facts:
+  - claim: "The ticket section's meta carries id and title, and the title column truncates first, so the header reads 'T…'."
+    evidence: "src/dashboard/src/components/jobs/runlog/runLogSections.ts:144-146; src/dashboard/src/styles/run-log.css:126-127"
+  - claim: "A run without a TicketFetched event prints a fallback sentence and '·' bullets for the ratified acceptance."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogSectionBodies.tsx:66-74"
+  - claim: "A plan step draws its full target after an em dash, wrapping long repository paths mid-word."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogSectionBodies.tsx:101-106"
+
+scope:
+  in: "Section head: the title never truncates below its own short name, the meta yields. Ticket section: meta is the ticket id; the body opens with 'id · title', the acceptance is a numbered list, a missing body is one quiet line 'body not recorded on this run — open the ticket' with the link. Plan: 'done  <action>  <target>' on one line, the target shortened to first segment/…/last segment per '; '-separated path, dimmed, full path as title; a long action truncates and opens on hover. logPaths.ts holds the shortening."
+  out: "Markdown rendering (e06bb), the spec record (e06bc), backend changes."
+
+steps:
+  - id: paths
+    action: "logPaths.ts: shortPath, shortTargets, isPathLike."
+  - id: ticket
+    action: "TicketBody title line, numbered acceptance, quiet missing-body line; ticket section meta = id."
+  - id: plan
+    action: "Ledger line on one row with the shortened, dimmed target; CSS for the head and the row."
+
+tests:
+  - "logPaths: a deep path keeps repo and file, a short one stays, '; ' lists split, commands are left alone."
+  - "TicketBody: title line, numbered acceptance, the missing-body line links the ticket page."
+  - "PlanBody: a ledger line shows the shortened target with the full path as its title."
+  - "runLogSections: the ticket section's meta is its id."
+
+done:
+  - "The Ticket head shows 'Ticket' in full; its body is title, numbered acceptance and at most one quiet missing-body line."
+  - "Each plan step is one line with a shortened target."
+  - "pnpm test and build are green."

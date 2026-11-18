@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-e06ba
+
+decisions:
+  - category: Behaviour
+    chose: "The Ticket head's meta is the ticket id alone; 'id · title' opens the section body"
+    over: "Keeping id and title in the head and only fixing the truncation"
+    reason: "A long title in the head always competes with the section name; in the body it has a full line."
+  - category: Behaviour
+    chose: "A missing ticket body is one dim line 'body not recorded on this run — open the ticket'"
+    over: "The sentence naming the event stream and repeating the reference"
+    reason: "The operator read the sentence as noise; the title line already names the ticket."
+  - category: Behaviour
+    chose: "A path is shortened to first segment/…/last segment, the full path as the element's title; a token with whitespace (a command) is left alone"
+    over: "Middle truncation by character count"
+    reason: "The first segment says the repository, the last the file; a character cut lands mid-word as before."
+  - category: Behaviour
+    chose: "Section title flex-basis 0 and the meta capped at 70% of the row"
+    over: "A fixed minimum width for the title"
+    reason: "The title keeps at least 30% of the row and the numbers keep theirs, at any title length."

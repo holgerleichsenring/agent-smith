@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-e06bd
+goal: "A read endpoint returns, per stored model call, one line of what it was fed and one line of what it decided, from the prompt store."
+
+applies_to: "default (AgentSmith.Contracts.Prompts, Infrastructure.Persistence Services/Prompts, Server RunStoryEndpoints)"
+
+requires: []
+
+facts:
+  - claim: "A call's prompt is a chain of records, each inheriting ParentLength blocks of its parent; PromptRecordReader rebuilds it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Prompts/PromptRecordReader.cs:17-41"
+  - claim: "A message block renders tool calls as '[tool call NAME #id]' plus JSON args and results as '[tool result #id]' plus text."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/PromptBlocks.cs:46-70"
+  - claim: "The next call of a tool loop extends its predecessor, so the predecessor's answer is the child's block at ParentLength."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Prompts/PromptRecorder.cs:37-45"
+  - claim: "/api/runs/{runId}/prompts/{promptId} is the existing prompt read, gated by runs.read in the run's project."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunStoryEndpoints.cs:26-27"
+
+scope:
+  in: "PromptDigestView(PromptId, Fed, Decided). PromptDigestLines (pure): fed = the call's last message as one line ('<tool> result: <first line>' resolving the tool name from the call's earlier tool calls, else '<role>: <first line>'); decided = the child's answer block ('<tool> <args>' per tool call, else the first text line); 160 chars, ellipsis. PromptDigestReader resolves a list of ids in one read of the run's records. GET /api/runs/{runId}/prompts/digest?ids=a,b (at most 50) answers { calls }. An unknown id is left out; a call with no stored child has Decided null."
+  out: "Storing answers of a chain's last call (it has no child); pipeline-specific wording."
+
+steps:
+  - id: contract
+    action: "PromptDigestView in AgentSmith.Contracts/Prompts."
+  - id: lines
+    action: "PromptDigestLines and PromptDigestReader; chain positions shared with PromptRecordReader."
+  - id: endpoint
+    action: "Map the digest route and register the reader."
+
+tests:
+  - "PromptDigestLines: tool result with its tool name, user text, tool call with args, plain answer, truncation."
+  - "PromptDigestReader: fed from the last block, decided from the child; no child -> null; unknown id left out."
+
+done:
+  - "GET /api/runs/{runId}/prompts/digest?ids= answers fed and decided per stored call."
+  - "dotnet build and the prompt tests are green."
