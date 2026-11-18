@@ -22,21 +22,22 @@ public sealed class TicketGraphSkillRulesTests
 
     private static string DesignPartner() => PackagedMaster.Folded("design-partner-master");
 
+    // 2026-11-18-550ac: design-partner 3.5.0 cuts one ticket per theme; the merge test and the branch-state test are gone.
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_OffersTicketsAtMergeBoundaries() =>
-        DesignPartner().Should().Contain("`draft:tickets/<key>.yaml`, one per piece that must merge before another can be built",
-            Because("the tickets outcome"));
+    public void EmbeddedSkills_DesignPartnerMaster_OffersOneTicketPerTheme() =>
+        DesignPartner().Should().Contain("`draft:tickets/<key>.yaml`, one per theme;", Because("the tickets outcome"))
+            .And.NotContain("one per piece that must merge");
 
     [Fact]
-    public void EmbeddedSkills_DesignPartnerMaster_AsksTheMergeTestThenTheBranchStateTest()
+    public void EmbeddedSkills_DesignPartnerMaster_CutsByThemeInsteadOfTheMergeTest()
     {
         var master = DesignPartner();
-        const string mergeTest = "The merge test first: must one piece be MERGED before the next can be built or reviewed?";
-        const string branchTest = "Then the branch-state test: can ONE branch state satisfy every claim at once?";
 
-        master.Should().Contain(mergeTest, Because("the merge test")).And.Contain(branchTest, Because("the branch-state test"));
-        master.IndexOf(mergeTest, StringComparison.Ordinal).Should()
-            .BeLessThan(master.IndexOf(branchTest, StringComparison.Ordinal), "the merge test is asked first");
+        master.Should().Contain("Cut the work the way a lead hands it to a team: one ticket per theme",
+            "the cut is described as a lead hands work to a team")
+            .And.Contain("One theme with one deliverable is a spec; one theme in ordered parts is an epic; several themes are tickets.",
+                "the three shapes follow from the themes")
+            .And.NotContain("The merge test first").And.NotContain("the branch-state test");
     }
 
     [Fact]

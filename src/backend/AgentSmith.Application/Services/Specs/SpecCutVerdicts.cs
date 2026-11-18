@@ -93,7 +93,7 @@ public static class SpecCutVerdicts
         DoneDropped =>
             "DONE DROPPED — an outcome the ticket lists under its own \"Done when\",\n"
             + "   \"Definition of done\" or \"Acceptance\" that no done entry of any spec states (a\n"
-            + "   shape rule excepted). This way quotes the TICKET: quote the ticket's outcome\n"
+            + "   shape rule or an item about the process excepted). This way quotes the TICKET: quote the ticket's outcome\n"
             + "   verbatim, and give as spec_id the spec that does that work.",
         FalsePremise =>
             "FALSE PREMISE — the spec rests on something about the repositories that is not\n"

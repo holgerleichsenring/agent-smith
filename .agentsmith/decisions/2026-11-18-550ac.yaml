@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-550ac
+
+decisions:
+  - category: Implementation
+    chose: "Pin the embedded catalog to the released v5.35.0 tarball (sha256 6dd2d66e… checked against the release's published .sha256) and update the csproj version and SkillsCatalogSha256, the example config and the docs that name the pinned version"
+    over: "Building a tarball from the skills branch"
+    reason: "As 2026-11-17-d0e0: the pin is the released artifact operators can verify. The release diff against v5.34.0 is three masters: design-partner 3.5.0, ticket-steward 1.2.3, spec-derivation 1.10.1."
+  - category: Testing
+    chose: "Eight assertions of deliberately removed rules are rewritten to the rule that replaced them: TicketGraphSkillRulesTests (merge test + branch-state test, 'one per piece that must merge' -> one ticket per theme, the cut as a lead hands work to a team), SeriesSkillRulesTests (the child unit -> 'Within a theme, a spec is what one coding pass builds in one repository'; 'a programme' -> work beyond MaxSpecs is a question, the {MaxSpecs} placeholder kept), DesignTurnTextContractTests ('one repository per spec' -> the new one-repository sentence), DesignReferenceRulesTests (done line -> one claim, a rule with several cases names them), ShapeRuleMasterRulesTests ('IS THE DONE LIST' -> 'IS THE VERDICT', a process item is not a done line, no ONE FOR ONE), TicketStewardSkillTests (waiting-start sentence -> a refusal is passed on as the tool gave it; plus read what the answer depends on, no 'Read narrowly' or 're-analyse')"
+    over: "Deleting the assertions"
+    reason: "Each pinned a sentence the release removed on purpose; a test of the replacing rule keeps the pin from silently losing it. The waiting-start behaviour stays guarded without the dropped sentence: RequiresUnmetGate's refusal names the tickets and OperatorChannelTests reads it in the conversation."
+  - category: Architecture
+    chose: "The cut review's DONE DROPPED excepts an item about the process beside a shape rule"
+    over: "Leave the backend rule as it was"
+    reason: "Adversarial review, verdict BUILD WITH CUTS: spec-derivation 1.10.1 keeps a 'Done when' item about the process out of the done lines (its segment carried), so the unchanged rule flagged a correct cut as DONE DROPPED — and writing the item as a done line would be flagged UNCHECKABLE. The review now holds what the derivation was told."
+  - category: Scope
+    chose: "TicketPlanReviewPrompt's size question stays as it is"
+    over: "Reword it to 'can one run build this theme' and drop the field data"
+    reason: "Review finding 4: the question pulls toward smaller tickets than 'one per theme'. It already asks whether one run can build the ticket, its numbers are the operator's field measurements, and since 2026-11-12-cd4ci the plan review is advice; replacing measured evidence is the operator's call, not a pin's. Named follow-up if the operator wants it: 'ticket-plan review asks the theme question'."
+  - category: Scope
+    chose: "No skill text change; the remaining disagreement between the released masters is a follow-up for the skills repo"
+    over: "Patch the embedded text"
+    reason: "design-partner 3.5.0 still says a ticket's own done list becomes the done lines one for one, while spec-derivation 1.10.1 made it the verdict without that rule. The pin carries the released text unchanged; the fix belongs in agent-smith-skills."
+  - category: Testing
+    chose: "SpecDialogPromptSizeTests re-measured: 38588 (system 17083, tools 20583, 22 tools) under the 40000 ceiling; no ceiling changed"
+    over: "Raising the ceiling"
+    reason: "The design partner's text shrank (the cut by theme replaced two tests); the steward and derivation prompts carry no size ceiling. The steward prompt (TicketStewardPromptFactory, StewardRestartSection) agrees with steward 1.2.3, so nothing there changed."

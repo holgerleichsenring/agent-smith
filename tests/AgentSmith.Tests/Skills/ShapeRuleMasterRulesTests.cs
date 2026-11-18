@@ -24,6 +24,10 @@ public sealed class ShapeRuleMasterRulesTests
         var master = PackagedMaster.Read("spec-derivation-master");
 
         master.Should().Contain("A SHAPE RULE IS NEVER A DONE CRITERION.");
-        master.Should().Contain("THE TICKET'S OWN \"DONE WHEN\" IS THE DONE LIST.");
+        // 2026-11-18-550ac: spec-derivation 1.10.1 — the ticket's done list is the verdict, not a one-for-one copy;
+        // a process item stays a carried segment.
+        master.Should().Contain("THE TICKET'S OWN \"DONE WHEN\" IS THE VERDICT.");
+        master.Should().Contain("An item about the process (how to work, where a branch lives) is not a done line")
+            .And.NotContain("ONE FOR ONE");
     }
 }

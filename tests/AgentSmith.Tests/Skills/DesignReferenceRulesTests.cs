@@ -67,8 +67,10 @@ public sealed class DesignReferenceRulesTests
     {
         var master = Folded();
 
-        master.Should().Contain("Each `done` line is something a reviewer answers yes or no against the code",
-            Because("a done line is verifiable"));
+        // 2026-11-18-550ac: design-partner 3.5.0 — one claim per done line, and a rule with several cases names them.
+        master.Should().Contain("Each `done` line is one claim a reviewer answers yes or no against the code",
+            Because("a done line is one verifiable claim"));
+        master.Should().Contain("a rule with several cases names them", "a bundled rule is spelled out case by case");
         master.Should().Contain("a scenario `when`/`then` (`given` when the start matters)",
             "the master names the scenario shape the schema accepts");
     }
