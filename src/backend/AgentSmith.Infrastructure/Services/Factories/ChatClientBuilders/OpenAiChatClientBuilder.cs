@@ -1,6 +1,8 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -18,7 +20,8 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 /// pointed at an HttpClient wrapping the handler), so request shaping + response
 /// parsing are observable. Production passes null → the SDK's real transport.
 /// </summary>
-public sealed class OpenAiChatClientBuilder(HttpMessageHandler? testTransport = null) : IChatClientBuilder
+public sealed class OpenAiChatClientBuilder(ICredentialResolver credentials, HttpMessageHandler? testTransport = null)
+    : IChatClientBuilder
 {
     // p0235: the SDK defaults NetworkTimeout to 100s. A large completion exceeds
     // it, the SDK throws TaskCanceledException, and the run dies with a bare "A
@@ -87,25 +90,25 @@ public sealed class OpenAiChatClientBuilder(HttpMessageHandler? testTransport = 
     }
 
     /// <summary>
-    /// <c>api_key_secret</c> names the environment variable holding the key. With an endpoint
+    /// <c>api_key_secret</c> names the environment variable holding the key, or the catalog secret of that name whose
+    /// value may be stored in the admin area (2026-11-18-9ae8). With an endpoint
     /// of its own, an OpenAI agent talks to a third-party host, so the key never falls back to
     /// OPENAI_API_KEY there — an OpenAI key is never sent to someone else's server. A named but
     /// empty variable is refused by name; no name at all sends a placeholder, which is what a
     /// local server without authentication accepts.
     /// </summary>
-    private static string ResolveApiKey(AgentConfig agent, bool isAzure, string? endpoint)
+    private string ResolveApiKey(AgentConfig agent, bool isAzure, string? endpoint)
     {
-        var named = string.IsNullOrEmpty(agent.ApiKeySecret)
-            ? null : Environment.GetEnvironmentVariable(agent.ApiKeySecret);
+        var named = new AgentApiKey(credentials).Own(agent);
         if (!string.IsNullOrEmpty(named)) return named;
         if (!isAzure && endpoint is not null)
             return string.IsNullOrEmpty(agent.ApiKeySecret)
                 ? UnauthenticatedKey
                 : throw new InvalidOperationException(
-                    $"api_key_secret names the environment variable '{agent.ApiKeySecret}', which is empty; "
+                    $"api_key_secret names '{agent.ApiKeySecret}', which has no value in the environment or the secret store; "
                     + $"the OpenAI-compatible endpoint {endpoint} gets no other key.");
 
-        return Environment.GetEnvironmentVariable(isAzure ? "AZURE_OPENAI_API_KEY" : "OPENAI_API_KEY")
+        return credentials.Named(isAzure ? AgentEnvKeys.AzureOpenAiApiKey : AgentEnvKeys.OpenAiApiKey)
             ?? throw new InvalidOperationException(
                 "API key (OPENAI_API_KEY / AZURE_OPENAI_API_KEY or configured ApiKeySecret) is required.");
     }

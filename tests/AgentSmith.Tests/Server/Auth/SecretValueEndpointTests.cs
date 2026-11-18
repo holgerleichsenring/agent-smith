@@ -46,6 +46,22 @@ public sealed class SecretValueEndpointTests(SecretStoreAuthorityFixture fixture
         fixture.Server.Services.GetRequiredService<ISecretValues>().Resolve("f3a8d_one").Should().Be(Value);
     }
 
+    // 2026-11-18-9ae8: an agent key stored in the admin area reaches the provider builder when its variable is empty.
+    [Fact]
+    public async Task AStoredAgentKey_IsWhatTheClaudeBuilderSends()
+    {
+        const string name = "F3A8D_AGENT_KEY_9AE8";
+        (await SendAsync(Admin(), HttpMethod.Put, Route + name, new { value = Value })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var credentials = fixture.Server.Services.GetRequiredService<ICredentialResolver>();
+        credentials.Named(name).Should().Be(Value);
+        AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.ClaudeChatClientBuilder
+            .ResolveApiKey(credentials, new AgentSmith.Contracts.Models.Configuration.AgentConfig { ApiKeySecret = name })
+            .Should().Be(Value);
+        var state = await (await SendAsync(Admin(), HttpMethod.Get, Route.TrimEnd('/'))).Content.ReadAsStringAsync();
+        state.Should().Contain($"\"variable\":\"{name}\"").And.NotContain(Value);
+    }
+
     [Fact]
     public async Task ReaderOrOperator_IsRefused()
     {

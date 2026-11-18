@@ -35,7 +35,7 @@ internal static class LiveChatClient
                 Model = Environment.GetEnvironmentVariable("AZURE_OPENAI_MODEL") ?? "gpt-4.1",
                 Deployment = azureDeployment
             };
-            return new OpenAiChatClientBuilder().Build(agent, assignment);
+            return new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly).Build(agent, assignment);
         }
 
         var openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
@@ -43,7 +43,7 @@ internal static class LiveChatClient
         {
             var agent = new AgentConfig { Type = "openai" };
             var assignment = new ModelAssignment { Model = Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-4.1" };
-            return new OpenAiChatClientBuilder().Build(agent, assignment);
+            return new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly).Build(agent, assignment);
         }
 
         throw new InvalidOperationException(

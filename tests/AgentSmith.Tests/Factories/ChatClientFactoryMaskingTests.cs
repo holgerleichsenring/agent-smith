@@ -37,7 +37,7 @@ public sealed class ChatClientFactoryMaskingTests
         new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(), new NullRunTraceWriter(),
         TurnActivityRecorder.Silent(), new CompactionSummaryRequest(), new WindowDerivedCompaction(),
         new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
-        SecretValueMaskingChatClientTests.Masker(), NullLoggerFactory.Instance);
+        SecretValueMaskingChatClientTests.Masker(), NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly);
 
     private sealed class Builder(IChatClient provider) : IChatClientBuilder
     {

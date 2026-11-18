@@ -14,6 +14,8 @@ export interface StoredSecretState {
 
 export interface SecretValueState {
   name: string;
+  /** 2026-11-18-9ae8: the environment variable the secret reads (its reference), not always its name. */
+  variable: string;
   fromEnvironment: boolean;
   stored: StoredSecretState | null;
 }
@@ -23,6 +25,8 @@ export interface SecretValuesView {
   masterKeyProblem: string | null;
   secrets: SecretValueState[];
   orphans: StoredSecretState[];
+  /** 2026-11-17-f3a8e: where the master key came from — the deployment decides it, so it is shown, never edited. */
+  masterKeySource: string | null;
 }
 
 const PATH = "/api/config/secret-values";

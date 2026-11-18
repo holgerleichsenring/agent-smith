@@ -58,6 +58,7 @@ public sealed class ExternalWorkerSelectionTests
             AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor>();
         services.AddSingleton<IModelPricingResolver, ModelPricingResolver>();
         services.AddAgentProviders();
+        services.AddSingleton<AgentSmith.Contracts.Services.ICredentialResolver>(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly); // 2026-11-18-9ae8
 
         var builders = services.BuildServiceProvider().GetRequiredService<IEnumerable<IChatClientBuilder>>();
 
@@ -79,7 +80,7 @@ public sealed class ExternalWorkerSelectionTests
             new WindowDerivedCompaction(),
             new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             new AgentSmith.Contracts.Runs.SecretMasker(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly);
 
     private static ExternalWorkerChatClientBuilder NewWorkerBuilder()
     {

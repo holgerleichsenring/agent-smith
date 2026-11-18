@@ -34,6 +34,9 @@ export function SecretValueField({ name }: { name: string }) {
         </p>
       )}
       <p data-testid="secret-value-state" className="ec-sub">{describe(state)}</p>
+      {view?.masterKeySource && (
+        <p data-testid="secret-value-key-source" className="ec-sub">Master key: {view.masterKeySource}, set by the deployment.</p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="password" autoComplete="new-password" aria-label="Secret value" data-testid="secret-value-input"
@@ -64,5 +67,5 @@ function describe(state: SecretValuesView["secrets"][number] | null): string {
     ? `Stored value set by ${state.stored.setBy} at ${new Date(state.stored.setAt).toLocaleString()}`
       + (state.stored.readable ? "" : " — the running master key cannot open it")
     : "No value stored here";
-  return state.fromEnvironment ? `${stored}. The environment variable ${state.name} is set and wins.` : `${stored}.`;
+  return state.fromEnvironment ? `${stored}. The environment variable ${state.variable} is set and wins.` : `${stored}.`;
 }

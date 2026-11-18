@@ -49,6 +49,8 @@ Every provider reads its key from an environment variable. `api_key_secret` on t
 
 Two agents that name two different variables can use two different keys in one installation.
 
+A key does not have to live in the environment. When the variable is empty, the server looks for a secret of the same name in the [Config studio](../configure-it/config-studio.md#storing-a-value-in-the-studio) and uses the value stored there. The match ignores case, so `api_key_secret: ANTHROPIC_API_KEY` finds a secret named `anthropic_api_key`. A variable that holds a value always wins. The same lookup serves the fallback variables in the table, the webhook secrets (`GITHUB_WEBHOOK_SECRET`, `GITLAB_WEBHOOK_TOKEN`, `AZDO_WEBHOOK_SECRET`), and the Slack and Teams credentials (`SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `TEAMS_APP_PASSWORD`).
+
 ## Anthropic Claude
 
 Direct Anthropic API, with prompt caching on by default. Subscription OAuth tokens (`sk-ant-oat01-…`) work as the key too, which is handy if your Claude usage is subscription-funded rather than API-billed. Note the conservative default rate limits below.

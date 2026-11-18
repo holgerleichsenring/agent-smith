@@ -129,7 +129,7 @@ public sealed class CodeMapRoleBindingTests
             new WindowDerivedCompaction(),
             new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             new AgentSmith.Contracts.Runs.SecretMasker(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly);
 
     private sealed class RecordingBuilder : IChatClientBuilder
     {

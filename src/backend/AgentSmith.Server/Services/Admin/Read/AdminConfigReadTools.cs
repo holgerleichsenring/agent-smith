@@ -36,7 +36,7 @@ public sealed class AdminConfigReadTools(
         var view = await values.ReadAsync(cancellationToken);
         return AdminToolJson.Render(new
         {
-            view.MasterKeyPresent, view.MasterKeyProblem,
+            view.MasterKeyPresent, view.MasterKeyProblem, view.MasterKeySource,
             Secrets = view.Secrets.Select(s => new
             {
                 s.Name, Present = secrets.Resolve(s.Name) is not null,

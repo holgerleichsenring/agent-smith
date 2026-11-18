@@ -29,7 +29,7 @@ internal static class EvalChatClientEnv
         var model = Environment.GetEnvironmentVariable("AZURE_OPENAI_MODEL") ?? "gpt-4.1";
         var agent = new AgentConfig { Type = "azure_openai", Endpoint = endpoint, Deployment = deployment };
         var assignment = new ModelAssignment { Model = model, Deployment = deployment };
-        return (new OpenAiChatClientBuilder().Build(agent, assignment), model);
+        return (new OpenAiChatClientBuilder(new AgentSmith.Contracts.Services.CredentialResolver(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty()))).Build(agent, assignment), model);
     }
 
     private static (IChatClient, string)? TryBuildOpenAi()
@@ -39,7 +39,7 @@ internal static class EvalChatClientEnv
         var model = Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-4.1";
         var agent = new AgentConfig { Type = "openai" };
         var assignment = new ModelAssignment { Model = model };
-        return (new OpenAiChatClientBuilder().Build(agent, assignment), model);
+        return (new OpenAiChatClientBuilder(new AgentSmith.Contracts.Services.CredentialResolver(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty()))).Build(agent, assignment), model);
     }
 
     /// <summary>

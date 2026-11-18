@@ -628,6 +628,7 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<AgentSmith.Contracts.Events.IRunContextAccessor,
             AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor>();
         builder.Services.AddAgentProviders();
+        builder.Services.AddSingleton<AgentSmith.Contracts.Services.ICredentialResolver>(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly); // 2026-11-18-9ae8
         builder.Services.AddSingleton<IAgentSmithPaths>(
             new TempPaths(cacheRoot ?? Path.Combine(Path.GetTempPath(), $"agentsmith-cache-{Guid.NewGuid():N}")));
         builder.Services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
