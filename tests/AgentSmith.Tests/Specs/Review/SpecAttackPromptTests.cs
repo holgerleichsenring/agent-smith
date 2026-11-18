@@ -12,6 +12,16 @@ public sealed class SpecAttackPromptTests
     private const string PluginBrief =
         "Attack this spec before anyone builds it. Open every cited file around the cited lines — a valid citation is not a true claim. Follow every field, setting and value the spec touches to its sinks: who reads it, who writes it, what else breaks. Extract archives and generated files before reasoning about them. Check every step against the code as it is, not as the spec says it is. Answer with exactly one verdict — BUILD, BUILD WITH CUTS, or REFUSE — and back each finding with file:line evidence. For BUILD WITH CUTS name each cut precisely. REFUSE is a successful result when the spec is wrong.";
 
+    // 2026-11-18-c8e2e: a cut removes or narrows; what is missing is a finding.
+    [Fact]
+    public void Prompt_ACutOnlyRemovesOrNarrows_MissingScopeIsAFinding()
+    {
+        var prompt = SpecAttackPrompt.For(Input(), Look());
+
+        prompt.Should().NotContain("A cut that ADDS text").And.Contain("A cut removes or narrows the words it quotes")
+            .And.Contain("What you find missing is a finding");
+    }
+
     [Fact]
     public void SpecAttackPrompt_CarriesThePluginBriefVerbatim()
     {

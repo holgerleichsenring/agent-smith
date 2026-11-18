@@ -15,8 +15,9 @@ public static class SeriesContractPrompt
         "Check this series against its contract before any more of it is built. For every member ask: does it "
         + "mint a name, number or table the contract gives another member or does not list; persist a datum "
         + "anywhere but its declared home; touch an area another member claims; or contradict a line budget? "
-        + "Answer with exactly one verdict — BUILD, BUILD WITH CUTS or REFUSE. A cut changes the member that "
-        + "breaks the contract; REFUSE is a successful result when the members cannot all keep it.";
+        + "Answer with exactly one verdict — BUILD, BUILD WITH CUTS or REFUSE. A cut removes or narrows words of the "
+        + "member that breaks the contract and never adds to it; what a member lacks is a finding. REFUSE is a "
+        + "successful result when the members cannot all keep it.";
 
     public static string For(SeriesContractInput input, DerivationLook? look)
     {

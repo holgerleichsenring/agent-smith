@@ -10,8 +10,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 public static class SpecAttackJudgement
 {
     private const string Questions =
-        "This is a draft in a design conversation. Beyond its citations, answer three questions, each with a cut or a "
-        + "finding when the answer is no: can ONE coding run build this spec, and one reviewer check every claim of it "
+        "This is a draft in a design conversation. Beyond its citations, answer three questions, each with a finding — "
+        + "or a cut where removing or narrowing words answers it — when the answer is no: can ONE coding run build this spec, and one reviewer check every claim of it "
         + "against the code? Can each done line be answered yes or no by reading the code or running a test? ";
 
     /// <summary>A lone spec's judgement.</summary>

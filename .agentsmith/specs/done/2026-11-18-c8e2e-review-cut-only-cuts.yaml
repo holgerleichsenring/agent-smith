@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-c8e2e
+goal: "A spec review cut only removes or narrows; a reviewer who finds something missing says so as a finding or an open question, and no replacement adds scope."
+
+applies_to: "default (Application/Services/Specs/Review: SpecAttackPrompt, SpecAttackJudgement, SeriesContractPrompt, SpecReviewMerge, SpecRevisionLists, SeriesRoundScope, ProposalSeriesRound, SpecRederivePrompt, new SpecCutAddition; Specs/Revision/SpecRevisionReplies)"
+
+requires: [2026-11-18-c8e2d]
+
+facts:
+  - claim: "The attack prompt tells reviewers that 'A cut that ADDS text quotes an anchor run of its register and gives a replacement holding the anchor and the addition'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:59-71"
+  - claim: "The design-turn judgement asks reviewers to answer each question 'with a cut or a finding', including whether the scope keeps every capability the material lists, which invites an adding cut."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackJudgement.cs:10-26"
+  - claim: "SpecReviewMerge merges every reviewer's cuts and turns only a done-line deletion into a finding; nothing looks at what a replacement adds."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewMerge.cs:14-40"
+  - claim: "SpecRevisionGuard admits a new list item when its text stands in a cut's replacement on that register (SpecRevisionLists.Addable)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecRevisionLists.cs:30-34, src/backend/AgentSmith.Application/Services/Specs/Review/SpecRevisionLists.cs:64-66"
+  - claim: "The series contract round applies each member's cuts through the reviser without a merge; the design turn's series round hands every cut on as a 'replace X with Y' finding."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SeriesContractRound.cs:57-72, src/backend/AgentSmith.Application/Services/Specs/Review/ProposalSeriesRound.cs:71-76"
+
+scope:
+  in: "SpecCutAddition.Adds(cut): a cut adds when its replacement holds its whole quote and more — the anchor-and-addition form the prompt taught. The prompts (attack, judgement, series contract) describe a cut as removing or narrowing the words it quotes, and what a reviewer finds missing as a finding — with the owner's question in 'decision' when only the owner can answer. SpecReviewMerge turns an adding cut into a finding (the reviewer's words kept, not applied), as it does a done-line deletion; SeriesRoundScope.Split (counted as unapplied, so the author is asked) and the design turn's series round do the same. The revision guard admits no new list item from a replacement. The attack prompt says a finding the spec cannot be built without makes the verdict REFUSE (a BUILD round keeps no findings); the rederive prompt keeps the scope as written against a finding that names something missing; revise_spec's reply lists the review's findings for the coding master to weigh."
+  out: "Judging whether a rewritten replacement that does not contain its quote adds a deliverable: the prompt and the reviewing master weigh that; no semantic check. Cuts already applied on stored series."
+
+upgrade_impact: "None. A narrowing written as the quote plus a qualifier now reaches the author as a finding instead of being applied."
+
+steps:
+  - id: characterise
+    action: "Before changing the guard: SpecRevisionGuard_AddedStepInTheCutRegister_IsAdmitted pins today's admission of an added step; it flips with this spec, recorded in decisions. The residue skip for a replacement holding its quote stays as a harmless guard."
+  - id: addition
+    action: "SpecCutAddition (Specs/Review): Adds(SpecReviewCut) and the finding text."
+  - id: apply
+    action: "SpecReviewMerge, SeriesRoundScope.Split and ProposalSeriesRound route adding cuts to findings; SpecRevisionLists.Addable is removed; SpecRevisionReplies.Written lists the merged findings."
+  - id: prompts
+    action: "SpecAttackPrompt, SpecAttackJudgement, SeriesContractPrompt and SpecRederivePrompt describe cut versus finding."
+
+tests:
+  - "SpecCutAdditionTests: anchor-plus-addition adds; a removal, a narrowing rewrite without the quote, and a null replacement do not."
+  - "SpecReviewMergeTests: an adding cut becomes a finding naming the addition; other cuts stay."
+  - "SpecRevisionGuardTests: an added step that a replacement holds is refused."
+  - "SpecAttackPromptTests: the prompt has no adding-cut rule and names missing scope as a finding."
+  - "Series contract round: an adding member cut is not applied and is a finding of the objection."
+
+done:
+  - "No review prompt tells a reviewer that a cut may add text; missing scope is a finding or an owner question."
+  - "An anchor-and-addition cut is never applied in a run, a design turn or a series round; it reaches the author as a finding."
+  - "The revision guard refuses a new list item a replacement carries."

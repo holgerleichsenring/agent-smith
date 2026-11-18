@@ -12,8 +12,9 @@ public static class SpecRevisionReplies
     public static string Written(SpecDraft spec, int revision, SpecRevisionVerdict? verdict) =>
         $"Spec {spec.SpecId} is revised: revision {revision} is on the ticket branch"
         + (verdict is null ? " unreviewed (spec_review.rounds is 0)" : $" after one review ({Said(verdict)})")
-        + ". These are its done criteria now; the verification judges the branch against them:\n"
+        + ". These are its done criteria now; your report answers each of them:\n"
         + string.Join("\n", spec.Done.Select(d => "- " + d))
+        + Findings(verdict) // 2026-11-18-c8e2e: what the review found, applied nothing for, is yours to weigh
         + "\nRestructure your checklist with update_progress to the revised steps, and verify each criterion above "
         + "before your verdict.";
 
@@ -34,6 +35,11 @@ public static class SpecRevisionReplies
     public static string CutsNotApplied(SpecRevisionVerdict verdict) =>
         $"Not revised: the review asked for cuts the reviser could not apply ({verdict.CutRefusal}). Apply them yourself "
         + "and revise again:\n" + Lines([], verdict.Merged?.Cuts ?? []);
+
+    private static string Findings(SpecRevisionVerdict? verdict) =>
+        verdict?.Merged?.Findings is { Count: > 0 } findings
+            ? "\nThe review also found, without changing the text — weigh each:\n" + string.Join("\n", findings.Select(f => "- " + f.Text))
+            : string.Empty;
 
     private static string Said(SpecRevisionVerdict verdict) =>
         verdict.Merged?.Cuts.Count > 0 ? $"build with {verdict.Merged.Cuts.Count} cut(s) applied" : "build";

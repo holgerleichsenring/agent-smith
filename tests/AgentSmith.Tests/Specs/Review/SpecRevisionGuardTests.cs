@@ -39,14 +39,14 @@ public sealed class SpecRevisionGuardTests
     }
 
     [Fact]
-    public void SpecRevisionGuard_AddedStepInTheCutRegister_IsAdmitted()
+    public void SpecRevisionGuard_AddedStepInTheCutRegister_IsRefused() // 2026-11-18-c8e2e: was admitted
     {
         var cut = Cut(SpecRegisterNames.Steps, "Register the writer in the export installer",
             "Register the writer in the export installer, then a step verify: run the export suite.");
         var revised = With("    action: \"Register the writer in the export installer.\"\n",
             "    action: \"Register the writer in the export installer.\"\n  - id: verify\n    action: \"run the export suite\"\n");
 
-        Check(revised, cut).Should().BeNull();
+        Check(revised, cut).Should().Contain("a cut only removes or narrows");
     }
 
     [Fact]

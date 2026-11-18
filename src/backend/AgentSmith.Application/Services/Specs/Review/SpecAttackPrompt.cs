@@ -67,8 +67,10 @@ public static class SpecAttackPrompt
 
             - Every quote is a run of at least {{QuoteWords}} consecutive words of the register it names, copied
               exactly. A cut whose quote is not in that register is discarded.
-            - A cut that ADDS text quotes an anchor run of its register and gives a replacement holding the
-              anchor and the addition.
+            - A cut removes or narrows the words it quotes; its replacement adds no step, test, done line or
+              deliverable those words did not have. What you find missing is a finding — with the owner's
+              question in "decision" when only the owner can answer — and a finding the spec cannot be built
+              without makes the verdict REFUSE; under BUILD your findings are not kept.
             - A cut and a finding rest on a file you READ with the tool, at a line that read returned. A
               finding of absence ("no caller reads X", "the cited file does not exist") may instead cite a
               search of your own, or your own read of exactly that missing path.

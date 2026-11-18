@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-c8e2e
+
+decisions:
+  - category: Behaviour
+    chose: "A cut adds when its replacement holds its whole quote as a run and has more words — the anchor-and-addition form the prompt used to teach; such a cut becomes a finding and is never applied"
+    over: "A semantic check of whether a rewritten replacement adds a deliverable, or a length limit"
+    reason: "Simple and mechanical, the same word-run test SpecCutResidues already uses, and no new limit. A rewritten step that drops its quote is not caught here; the prompts and the author (or the design master) weigh that. Accepted cost: a narrowing written as the quote plus a qualifier ('runs nightly' -> 'runs nightly at 02:00 UTC') reaches the author as a finding instead of being applied."
+  - category: Behaviour
+    chose: "Characterised row that flips: SpecRevisionGuard_AddedStepInTheCutRegister_IsAdmitted -> IsRefused; the guard admits no new list item from a replacement (SpecRevisionLists.Addable removed)"
+    over: "Keeping the guard's admission for replacements"
+    reason: "Its only purpose was to let a cut add an item. The residue skip for a replacement holding its quote stays as a harmless guard (now reachable only by a replacement equal to its quote)."
+  - category: Behaviour
+    chose: "Missing scope is a finding; the attack prompt says a finding the spec cannot be built without makes the verdict REFUSE (a BUILD round keeps no findings), and the rederive prompt keeps the scope as written against such a finding"
+    over: "Letting a finding of missing scope ride on BUILD WITH CUTS"
+    reason: "Review cuts: SpecAttackAdmission turns a cut-less BUILD WITH CUTS into BUILD and the loop drops its findings; a REFUSE with no cuts goes to the rederiver, which would otherwise write the missing scope back in."
+  - category: Implementation
+    chose: "SeriesRoundScope.Split is the routing point for series contract cuts (an adding one counts as unapplied, so the objection asks the author); the design turn's series round words an adding cut as a finding, not 'replace X with Y'"
+    over: "Filtering in SeriesContractRound"
+    reason: "Review cut: the split is where a cut is chosen to land and where Unapplied is counted."
+  - category: Implementation
+    chose: "revise_spec's reply lists the review's findings for the coding master to weigh"
+    over: "Reporting only the verdict and done lines"
+    reason: "Review cut: an adding cut turned into a finding would otherwise vanish on that path. No separate unit test was added for the reply text."

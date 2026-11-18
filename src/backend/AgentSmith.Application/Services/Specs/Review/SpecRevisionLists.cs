@@ -29,7 +29,7 @@ internal sealed class SpecRevisionLists(
             for (var k = o + gap; k < i; k++)
                 if (!Removable(register, original[k])) return $"a {register} item no cut quotes was removed";
             for (var k = n + gap; k < j; k++)
-                if (!Addable(register, revised[k])) return $"a {register} item no cut's replacement holds was added";
+                return $"a {register} item was added; a cut only removes or narrows"; // 2026-11-18-c8e2e
             if (i < original.Count && !SpecRevisionEdit.IsItemEdit(original[i], revised[j], cuts))
                 return $"a {register} item was changed beyond its cuts";
             (o, n) = (i + 1, j + 1);
@@ -60,10 +60,6 @@ internal sealed class SpecRevisionLists(
         MovedClaims.Add(claim);
         return true;
     }
-
-    private bool Addable(string register, object? item) =>
-        cuts.Any(cut => cut.Register == register && cut.Replacement is not null
-            && SpecRevisionEdit.StandsIn(item, cut.Replacement));
 
     private static bool SameId(object? left, object? right) =>
         SpecRevisionEdit.Equal(left, right)
