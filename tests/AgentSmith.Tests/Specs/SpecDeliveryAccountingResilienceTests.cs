@@ -97,7 +97,7 @@ public sealed class SpecDeliveryAccountingResilienceTests
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars) =>
+            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record) =>
             asCancellation
                 ? throw new OperationCanceledException(message)
                 : throw new InvalidOperationException(message);

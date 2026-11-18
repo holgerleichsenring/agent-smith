@@ -55,7 +55,7 @@ public sealed class CitationResolver(
 
         return new CriterionAccount(
             row.Criterion, AccountDisposition.Satisfied, string.Join("; ", cited), row.Note,
-            Mechanical: cited.All(c => !files.Contains(c)));
+            Mechanical: cited.All(c => !files.Contains(c)), Advice: row.Advice); // 2026-11-18-d6d2c
     }
 
     /// <summary>A claim the admission rule refuses degrades to NOT SATISFIED and says why —

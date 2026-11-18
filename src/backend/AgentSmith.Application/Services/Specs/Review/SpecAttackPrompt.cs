@@ -32,7 +32,10 @@ public static class SpecAttackPrompt
         + "that it is true? A criterion no change can satisfy, or none can observe, is a cut or a refusal. "
         + "A criterion that no file contains X (or that X is gone from the repository) can never hold over the "
         + "whole tree, because the spec committed under " + ProjectMetaPaths.Root + "/ quotes X; cut it to 'no file "
-        + "outside " + ProjectMetaPaths.Root + "/ contains X', resting the cut on your read of a file that holds X today.";
+        + "outside " + ProjectMetaPaths.Root + "/ contains X', resting the cut on your read of a file that holds X today. "
+        // 2026-11-18-d6d2c: a bundled criterion gets a different single gap from every verification of it.
+        + "One done line is one checkable claim: a criterion that bundles several (a list of rules ending in one "
+        + "verdict) is a cut into one line per claim, so each is verified and repaired on its own.";
 
     /// <summary>The fewest words a quote should carry: a shorter run also occurs elsewhere in its register.</summary>
     public const int QuoteWords = 4;

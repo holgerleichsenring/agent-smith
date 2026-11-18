@@ -14,5 +14,6 @@ public interface ISpecAccountant
         IReadOnlyList<string> commandResults, AgentConfig agent,
         BranchSearch? branchSearch,
         PipelineCostTracker costTracker, CancellationToken cancellationToken,
-        int windowBudgetChars = DiffWindows.DefaultBudgetChars);
+        int windowBudgetChars = DiffWindows.DefaultBudgetChars,
+        AccountRecord? record = null); // 2026-11-18-d6d2c: the spec's record beside the diff
 }

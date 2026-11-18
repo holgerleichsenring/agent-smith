@@ -64,6 +64,26 @@ public sealed class VerifiedHeadsTests
         VerifiedHeads.For(pipeline, "server").Should().BeNull();
     }
 
+    // 2026-11-18-d6d2c: the repair base is its own record, and the files changed since it are read against it.
+    [Fact]
+    public async Task RepairBase_ThenChanged_NamesTheFilesTheRepairChanged_AndLeavesVerifiedHeadsAlone()
+    {
+        var pipeline = new PipelineContext();
+        var sandbox = new GitAnsweringSandbox(status: "", head: "abc123\n", diff: "src/A.cs\ntests/ATests.cs\n");
+
+        await _sut.RecordRepairBaseAsync(pipeline, Sandboxes(sandbox), CancellationToken.None);
+        var changed = await _sut.RepairChangedAsync(pipeline, Sandboxes(sandbox), CancellationToken.None);
+
+        changed.Should().Equal("server: src/A.cs", "server: tests/ATests.cs");
+        sandbox.Asked.Should().Contain("diff --name-only abc123");
+        VerifiedHeads.For(pipeline, "server").Should().BeNull("a repair base is not a verified state");
+    }
+
+    [Fact]
+    public async Task RepairChanged_NoRepairBase_IsEmpty() =>
+        (await _sut.RepairChangedAsync(new PipelineContext(), Sandboxes(new GitAnsweringSandbox("", "abc")), CancellationToken.None))
+            .Should().BeEmpty();
+
     [Fact]
     public void For_NothingRecorded_IsNull()
     {
@@ -73,7 +93,7 @@ public sealed class VerifiedHeadsTests
     private static IReadOnlyDictionary<string, ISandbox> Sandboxes(ISandbox sandbox) =>
         new Dictionary<string, ISandbox> { ["server"] = sandbox };
 
-    private sealed class GitAnsweringSandbox(string status, string head) : ISandbox
+    private sealed class GitAnsweringSandbox(string status, string head, string diff = "") : ISandbox
     {
         public List<string> Asked { get; } = [];
 
@@ -83,7 +103,7 @@ public sealed class VerifiedHeadsTests
         {
             var args = string.Join(' ', step.Args ?? []);
             Asked.Add(args);
-            var output = args.Contains("status") ? status : args.Contains("rev-parse") ? head : string.Empty;
+            var output = args.Contains("status") ? status : args.Contains("rev-parse") ? head : args.Contains("diff") ? diff : string.Empty;
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.01, null, output));
         }

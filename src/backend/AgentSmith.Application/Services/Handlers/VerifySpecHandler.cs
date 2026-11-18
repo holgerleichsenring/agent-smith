@@ -160,8 +160,9 @@ public sealed class VerifySpecHandler(
 
         var ranCommands = Specs.SpecEvidence.From(outcomes, context.Pipeline);
         // After a green sync a secondary's diff is its primary's: one diff per repository.
-        var accounts = await accounting.TakeAsync(context.Pipeline,
-            sandboxes.Where(s => !sandboxTargets.IsSecondary(context.Pipeline, s.Key)).ToDictionary(), ranCommands, cancellationToken);
+        var primaries = sandboxes.Where(s => !sandboxTargets.IsSecondary(context.Pipeline, s.Key)).ToDictionary();
+        var accounts = await accounting.TakeAsync(context.Pipeline, primaries, ranCommands, cancellationToken,
+            await verifiedHeads.RepairChangedAsync(context.Pipeline, primaries, cancellationToken)); // 2026-11-18-d6d2c
         context.Pipeline.Set(ContextKeys.SpecAccounts, accounts);
         RunAccountLedger.Record(context.Pipeline, accounts);
         // 2026-08-28-5f71: the unverified run fails HERE and not as a resolution failure.
@@ -178,7 +179,7 @@ public sealed class VerifySpecHandler(
         if (verdict.IsSuccess)
             await verifiedHeads.RecordAsync(context.Pipeline, all, cancellationToken);
         return await RecordAsync(
-            context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict),
+            context, verdict.IsSuccess ? verdict : await RepairableAsync(context, sandboxes, accounts, verdict, cancellationToken),
             cancellationToken);
     }
 
@@ -198,8 +199,9 @@ public sealed class VerifySpecHandler(
     /// that ordering guarantee instead of restating it.
     /// </para>
     /// </summary>
-    private CommandResult Repairable(
-        VerifySpecContext context, IReadOnlyList<SpecAccount> accounts, CommandResult verdict)
+    private async Task<CommandResult> RepairableAsync(VerifySpecContext context,
+        IReadOnlyDictionary<string, ISandbox> sandboxes, IReadOnlyList<SpecAccount> accounts, CommandResult verdict,
+        CancellationToken cancellationToken)
     {
         if (!SpecVerdict.IsRepairable(accounts)) return verdict;
         if (context.Pipeline.TryGet<bool>(ContextKeys.SpecRepairAttempted, out var tried) && tried)
@@ -208,6 +210,8 @@ public sealed class VerifySpecHandler(
         var outstanding = SpecVerdict.Outstanding(accounts);
         context.Pipeline.Set(ContextKeys.SpecRepairAttempted, true);
         context.Pipeline.Set(ContextKeys.OutstandingCriteria, outstanding.ToList());
+        // 2026-11-18-d6d2c: where the repair starts, so the verification after it is told what the repair changed.
+        await verifiedHeads.RecordRepairBaseAsync(context.Pipeline, sandboxes, cancellationToken);
         logger.LogInformation(
             "{Count} criterion(s) outstanding — handing the list back to the agent for one "
             + "repair pass before this becomes a verdict.", outstanding.Count);

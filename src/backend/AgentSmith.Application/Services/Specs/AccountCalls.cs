@@ -69,6 +69,6 @@ public sealed class AccountCalls(SpecAccountCall call)
         return call.AskAsync(
             chat, repoKey, criteria, window, evidence.Searchable, evidence.CommandResults,
             costTracker, ct, appended, evidence.Tools, evidence.DeliveryFiles,
-            evidence.BaseSearchable);
+            evidence.BaseSearchable, evidence.Record);
     }
 }

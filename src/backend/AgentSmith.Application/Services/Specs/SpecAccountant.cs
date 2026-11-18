@@ -39,7 +39,8 @@ public sealed class SpecAccountant(
         BranchSearch? branchSearch,
         PipelineCostTracker costTracker,
         CancellationToken cancellationToken,
-        int windowBudgetChars = DiffWindows.DefaultBudgetChars)
+        int windowBudgetChars = DiffWindows.DefaultBudgetChars,
+        AccountRecord? record = null)
     {
         ArgumentNullException.ThrowIfNull(criteria);
         if (criteria.Count == 0)
@@ -48,7 +49,7 @@ public sealed class SpecAccountant(
         // p0483: the account settles an absence by searching the branch itself, so the call
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited
         // evidence, which is what every account did before this.
-        var evidence = AccountEvidence.For(diff, commandResults, branchSearch);
+        var evidence = AccountEvidence.For(diff, commandResults, branchSearch) with { Record = record };
         var chat = chatClientFactory.Create(
             agent, TaskType.Reasoning, evidence.Tools is null ? null : AccountTools.MaxIterations);
 

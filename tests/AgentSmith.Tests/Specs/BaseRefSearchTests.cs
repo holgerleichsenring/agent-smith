@@ -206,7 +206,7 @@ public sealed class BaseRefSearchTests
             AgentSmith.Contracts.Models.Configuration.AgentConfig agent,
             BranchSearch? branchSearch,
             AgentSmith.Application.Services.PipelineCostTracker costTracker,
-            CancellationToken cancellationToken, int windowBudgetChars)
+            CancellationToken cancellationToken, int windowBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record)
         {
             Search = branchSearch;
             return Task.FromResult(new AgentSmith.Domain.Models.SpecAccount(repoKey, []));

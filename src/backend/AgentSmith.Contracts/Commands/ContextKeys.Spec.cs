@@ -46,6 +46,10 @@ public static partial class ContextKeys
     /// verdict is final rather than a carousel.</summary>
     public const string SpecRepairAttempted = "SpecRepairAttempted";
 
+    /// <summary>2026-11-18-d6d2c: repo -> the commit each sandbox stood at when a repair was handed back, so the
+    /// verification after it is told which files the repair changed.</summary>
+    public const string RepairBaseHeads = "RepairBaseHeads";
+
     /// <summary>p0421: every spec's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";
 

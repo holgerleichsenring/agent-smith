@@ -26,6 +26,9 @@ public sealed record AccountEvidence(
     IReadOnlyList<string>? BaseSearchable,
     IList<AITool>? Tools)
 {
+    /// <summary>2026-11-18-d6d2c: the spec's record, rendered into every call over this delivery.</summary>
+    public AccountRecord? Record { get; init; }
+
     /// <summary>What one delivery offers: the file list read off the whole diff, and the
     /// reach the standing sandboxes give.</summary>
     internal static AccountEvidence For(

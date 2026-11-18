@@ -26,7 +26,8 @@ public sealed class SpecDeliveryAccounting(
         PipelineContext pipeline,
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         IReadOnlyList<string> commandResults,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? repairChanged = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(sandboxes);
@@ -62,7 +63,8 @@ public sealed class SpecDeliveryAccounting(
             account = await accountant.AccountAsync(
                 string.Join(", ", sandboxes.Keys), criteria, evidence.Diff,
                 commandResults, agent, new BranchSearch(sandboxes, logger, evidence.BaseRefs),
-                costTracker, cancellationToken);
+                costTracker, cancellationToken,
+                record: AccountRecord.For(pipeline, repairChanged ?? [])); // 2026-11-18-d6d2c
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {

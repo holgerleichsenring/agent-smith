@@ -395,7 +395,7 @@ public sealed class VerifySpecHandlerTests
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch, PipelineCostTracker costTracker,
             CancellationToken cancellationToken,
-            int windowBudgetChars = DiffWindows.DefaultBudgetChars) =>
+            int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null) =>
             Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
                 new CriterionAccount(c, AccountDisposition.NotSatisfied, "src/Api/Program.cs"))]));
     }
@@ -407,7 +407,7 @@ public sealed class VerifySpecHandlerTests
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch, PipelineCostTracker costTracker,
             CancellationToken cancellationToken,
-            int windowBudgetChars = DiffWindows.DefaultBudgetChars) =>
+            int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null) =>
             Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
                 new CriterionAccount(c, AccountDisposition.Satisfied, "src/Api/Program.cs"))]));
     }

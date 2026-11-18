@@ -25,12 +25,13 @@ public sealed class SpecAccountCall(
         IReadOnlyList<string>? searchable,
         IReadOnlyList<string> commandResults, PipelineCostTracker costTracker, CancellationToken ct,
         string? correction = null, IList<AITool>? tools = null,
-        CitedFileIndex? deliveryFiles = null, IReadOnlyList<string>? baseSearchable = null)
+        CitedFileIndex? deliveryFiles = null, IReadOnlyList<string>? baseSearchable = null,
+        AccountRecord? record = null)
     {
         // p0474: a correction is appended, never substituted — the second answer is judged
         // against the same evidence as the first, so it needs the same prompt behind it.
         var prompt = SpecAccountPrompt.For(
-                criteria, diff, commandResults, searchable, deliveryFiles, baseSearchable)
+                criteria, diff, commandResults, searchable, deliveryFiles, baseSearchable, record)
             + (correction is null ? string.Empty : "\n\n" + correction);
         try
         {
