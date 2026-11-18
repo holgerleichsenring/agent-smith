@@ -546,13 +546,12 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.MasterSystemPromptChars, masterBody.Length);
         context.Pipeline.Set(ContextKeys.MasterTurnsUsed, MasterTurnCount.From(loopResult.Response));
 
-        // p0241: parse the master's structured verification verdict from its final
-        // answer and publish it for the keystone. The model owns running the
-        // build/tests and declaring the result; the framework only enforces that
-        // an unverified/red run is never reported as success (CommitAndPRHandler).
-        var verification = MasterVerificationParser.TryParse(loopResult.Response.Text);
+        // p0241: the master's verification verdict, published for the keystone. The model owns running the
+        // build/tests and declaring the result; the framework only enforces that an unverified/red run is never
+        // reported as success. 2026-11-18-98fa: it is what finish_spec recorded, with the master's report beside it.
+        var verification = MasterReport.Standing(records.FinishSpec, conversation.Thread());
 
-        // p0263: the master changed source but emitted no parseable verdict ("Your verdict") — a
+        // p0263: the master changed source but did not call finish_spec (2026-11-18-98fa; was: a verdict block) — a
         // model-fitness miss (gpt-4.1-class models do the work yet skip the closing
         // artifact, sinking the run at the keystone). Sibling to the p0255 apply-drive:
         // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
@@ -572,7 +571,7 @@ public sealed class AgenticMasterHandler(
                 await team.StopAsync();
                 conversation.Continued(verdictNudge, verdictResult.Response);
                 TrackMasterResponse(verdictResult.Response);
-                verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
+                verification = MasterReport.Standing(records.FinishSpec, conversation.Thread());
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
@@ -584,7 +583,8 @@ public sealed class AgenticMasterHandler(
         pass0?.Dispose();
         (loopResult, changes, verification) = await reengagement.RunAsync(
             new ReengageSession(context, request, userPrompt, pipelineName, progress, fs, records.Log, verdictOwed,
-                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions, team),
+                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions, team,
+                records.FinishSpec),
             new ReengageState(loopResult, changes, verification), pass0, verification, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
@@ -607,12 +607,10 @@ public sealed class AgenticMasterHandler(
         if (verification is not null)
         {
             context.Pipeline.Set(ContextKeys.MasterVerification, verification);
-            DeclinedCriteriaLedger.Record(context.Pipeline, verification);
             logger.LogInformation(
-                "Master '{Skill}' verdict: {Status} (build {BuildRan}/{BuildPassed}, tests {TestsRan}/{TestsPassed})",
-                context.MasterSkillName, verification.Status,
-                verification.BuildRan, verification.BuildPassed,
-                verification.TestsRan, verification.TestsPassed);
+                "Master '{Skill}' finished: {Status}, {FollowUps} follow-up(s), report {ReportChars} chars",
+                context.MasterSkillName, verification.Status, verification.FollowUps?.Count ?? 0,
+                verification.Report?.Length ?? 0);
         }
         else if (!isScanMaster && !isSpecDialog)
         {
@@ -620,7 +618,7 @@ public sealed class AgenticMasterHandler(
             // coding master is expected to, so don't warn about its absence on a scan.
             // p0315b: same for the design-partner conversation — it ships no code.
             logger.LogWarning(
-                "Master '{Skill}' emitted no parseable verification verdict", context.MasterSkillName);
+                "Master '{Skill}' ended without finish_spec", context.MasterSkillName);
         }
 
         if (decisions.Count > 0)

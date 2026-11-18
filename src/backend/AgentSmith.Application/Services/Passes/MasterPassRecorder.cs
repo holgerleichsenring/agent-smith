@@ -38,8 +38,7 @@ public sealed class MasterPassRecorder(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (pass is null) return;
         if (endedBecause == MasterPassReasons.Question) pipeline.Set(ContextKeys.MasterPassEndedOnQuestion, true);
-        var ended = MasterPassEnd.Event(pass, endedBecause, reengageReason, state,
-            MasterReengagementPolicy.RatifiedCriteria(pipeline), clock.GetUtcNow());
+        var ended = MasterPassEnd.Event(pass, endedBecause, reengageReason, state, clock.GetUtcNow());
         try
         {
             // Not the step's token: a pass that ends on a cancel still leaves its record.

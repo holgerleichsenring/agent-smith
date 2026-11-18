@@ -23,13 +23,15 @@ public sealed class AgenticMasterReengageTests
         new(status, true, status != VerificationStatus.Failed, true,
             status is VerificationStatus.Green, "summary");
 
-    // A Green verdict that ALSO reports every ratified criterion Met — an objectively
-    // satisfied acceptance contract.
-    private static MasterVerification GreenWithMet(int criteriaCount) =>
-        new(VerificationStatus.Green, true, true, true, true, "summary",
-            AcceptanceDispositions: Enumerable.Range(0, criteriaCount)
-                .Select(i => new AcceptanceDisposition($"criterion {i}", AcceptanceStatus.Met, "edit X"))
-                .ToList());
+    // 2026-11-18-98fa: the old predicate's shape over ReengageReasonPolicy; the criteria no longer decide anything.
+    private static bool ShouldReengage(
+        string pipeline, ProgressLedger ledger, MasterVerification? verification, bool budgetExhausted,
+        IReadOnlyList<string> criteria, IReadOnlyList<CodeChange> changes, int reengagePass, bool verdictDemandedInPass)
+    {
+        _ = criteria;
+        return ReengageReasonPolicy.Decide(pipeline, ledger, verification, budgetExhausted, changes, reengagePass,
+            verdictDemandedInPass).Reengage;
+    }
 
     private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
     private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
@@ -45,7 +47,7 @@ public sealed class AgenticMasterReengageTests
         // then reads back as a reason to keep working is a loop carrying its own engine —
         // a reminder to RECORD progress is not a reason to CONTINUE. What re-drives a green
         // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeFalse();
@@ -54,7 +56,7 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_BudgetExhausted_False()
     {
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeFalse();
@@ -70,7 +72,7 @@ public sealed class AgenticMasterReengageTests
         // pass, so persistence stays bounded.
         // p0393 kept this: on a RED verdict the ledger QUALIFIES an existing driver
         // (the failure) rather than originating one.
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeTrue();
@@ -81,7 +83,7 @@ public sealed class AgenticMasterReengageTests
     {
         // p0363: honest RED with nothing actionable left IS the verdict — justified
         // surrender stays respected.
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Done, ProgressStatus.Done),
             Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeFalse();
@@ -90,7 +92,7 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_LedgerDrained_NoContract_False()
     {
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Done, ProgressStatus.Done),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeFalse();
@@ -99,31 +101,10 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_NonCodePipeline_False()
     {
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "security-scan", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_ModelMarkedAllDoneButAcceptanceObjectivelyUnmet_StillReengages()
-    {
-        // The model drained the ledger (all steps done) and reported Green — but the ratified
-        // acceptance contract has an UNMET criterion. Objective incompleteness wins over the
-        // model's self-reported "all done": re-engage rather than let the loop quit early.
-        var criteria = new[] { "Server updated", "BackgroundWorker updated" };
-        var verdict = new MasterVerification(
-            VerificationStatus.Green, true, true, true, true, "summary",
-            AcceptanceDispositions: new[]
-            {
-                new AcceptanceDisposition("Server updated", AcceptanceStatus.Met, "edited Server.cs"),
-                new AcceptanceDisposition("BackgroundWorker updated", AcceptanceStatus.Unmet, ""),
-            });
-
-        MasterReengagementPolicy.ShouldReengage(
-            "code", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            verdict, budgetExhausted: false, criteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeTrue();
     }
 
     [Fact]
@@ -140,7 +121,7 @@ public sealed class AgenticMasterReengageTests
             new CodeChange(new FilePath("src/Unrelated.cs"), "x", "modified"),
         };
 
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", ledger, Verdict(VerificationStatus.Green),
             budgetExhausted: false, NoCriteria, changes, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeTrue();
@@ -149,8 +130,7 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_GenuinelyDone_ContractMetAndDiffBacks_Stops()
     {
-        // Drained ledger, every ratified criterion reported Met, the done step's target IS in
-        // the diff — genuinely complete. The loop stops.
+        // Drained ledger, finish_spec green, the done step's target IS in the diff — genuinely complete.
         var ledger = new ProgressLedger(new[]
         {
             new ProgressLedgerEntry("1", "update server", ProgressStatus.Done, Target: "src/Server.cs"),
@@ -160,39 +140,10 @@ public sealed class AgenticMasterReengageTests
             new CodeChange(new FilePath("src/Server.cs"), "x", "modified"),
         };
 
-        MasterReengagementPolicy.ShouldReengage(
-            "code", ledger, GreenWithMet(1),
+        ShouldReengage(
+            "code", ledger, Verdict(VerificationStatus.Green),
             budgetExhausted: false, new[] { "Server updated" }, changes, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_KnowledgeSpec_DispositionsMet_NoBuildStatus_Stops()
-    {
-        // p0406 (run fa8c): a ships_code:false spec — inventory, classification, a report —
-        // has no source change for a build to be green about. It reported every criterion
-        // disposed; before p0406 the gate still demanded Green/NoTests, so the loop re-drove
-        // the master until the budget died, twice running `dotnet build` to get there.
-        var criteria = new[] { "Inventory recorded", "Findings classified" };
-        var verdict = new MasterVerification(
-            VerificationStatus.Unknown, false, false, false, false, "inventory written",
-            AcceptanceDispositions: new[]
-            {
-                new AcceptanceDisposition(criteria[0], AcceptanceStatus.Met, "wrote inventory.md"),
-                new AcceptanceDisposition(criteria[1], AcceptanceStatus.Met, "wrote findings.md"),
-            });
-
-        MasterReengagementPolicy.ShouldReengage(
-            "code", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
-            budgetExhausted: false, criteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeFalse();
-
-        MasterReengagementPolicy.ShouldReengage(
-            "code", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
-            budgetExhausted: false, criteria, SourceChanged, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeTrue(
-                "a spec that CHANGED source still owes a green build — p0421 reads that "
-                + "from the run's changes instead of a ships_code declaration");
     }
 
     [Fact]
@@ -203,12 +154,12 @@ public sealed class AgenticMasterReengageTests
         // so the acceptance branch re-drove every pass. One salvage pass, then the loop ends.
         var criteria = new[] { "Inventory recorded" };
 
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Done), verification: null,
             budgetExhausted: false, criteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeTrue("the verdict nudge may still land on the first re-drive");
 
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Done), verification: null,
             budgetExhausted: false, criteria, NoChanges, reengagePass: 2, verdictDemandedInPass: false)
             .Should().BeFalse("a second re-drive is the same prompt against the same silence");
@@ -220,7 +171,7 @@ public sealed class AgenticMasterReengageTests
         // 2026-09-08-805f: the ledger-complete brake demanded the verdict inside the pass and
         // the master spent the allowance on tools instead. That demand was the salvage; the
         // run ends on the unknown verdict exactly as an idle stop does.
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", Ledger(ProgressStatus.Done), verification: null,
             budgetExhausted: false, new[] { "Inventory recorded" }, NoChanges, reengagePass: 1,
             verdictDemandedInPass: true)
@@ -237,7 +188,7 @@ public sealed class AgenticMasterReengageTests
             new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
         });
 
-        MasterReengagementPolicy.ShouldReengage(
+        ShouldReengage(
             "code", ledger, verification: null, budgetExhausted: false,
             new[] { "Worker added" }, NoChanges, reengagePass: 5, verdictDemandedInPass: false)
             .Should().BeTrue();

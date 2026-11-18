@@ -52,4 +52,11 @@ describe("runSections", () => {
     expect(checkOf({ criteria: [c("met"), c("unproven")], outcome: null, ratifiedBy: null }).state).toBe("warn");
     expect(checkOf({ criteria: [c("unproven"), c("unmet")], outcome: null, ratifiedBy: null })).toEqual({ state: "bad", summary: "0 of 2 done criteria met" });
   });
+
+  it("checkOf_MastersReported_SaysReportedWithItsFollowUps_NotZeroOfZero", () => {
+    const reported = { criteria: [], outcome: null, ratifiedBy: null, reports: [{ markdown: "## Done", specId: "s1" }] };
+    expect(checkOf(reported)).toEqual({ state: "done", summary: "reported" });
+    expect(checkOf({ ...reported, followUps: [{ goal: "g", why: "w" }, { goal: "h", why: "w" }] }))
+      .toEqual({ state: "done", summary: "reported · 2 follow-ups" });
+  });
 });

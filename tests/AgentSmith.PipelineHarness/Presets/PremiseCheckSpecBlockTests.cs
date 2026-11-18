@@ -21,8 +21,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class PremiseCheckSpecBlockTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     /// <summary>Two specs that each STATE something. A cite nothing minted is downgraded to an
     /// assumption, which is still a premise — so the check has something to be asked about.</summary>
@@ -54,10 +52,10 @@ public sealed class PremiseCheckSpecBlockTests
             .EnqueueText(TwoSpecsStatingPremises)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Planning: migrate the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// callers"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");
@@ -88,7 +86,7 @@ public sealed class PremiseCheckSpecBlockTests
             .EnqueueText(TwoSpecsStatingPremises)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");

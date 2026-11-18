@@ -42,25 +42,6 @@ public sealed class CompletedRunTicketSummaryTests
             .And.Contain("- [Created] `repo-0/src/Guard.cs`");
     }
 
-    /// <summary>2026-09-06-3d81: the ticket author reads which sentence of their ticket no
-    /// work could satisfy, and the master's evaluated reason for it.</summary>
-    [Fact]
-    public async Task Outcome_ADeclinedCriterion_IsRenderedInTheCompletionTicketComment()
-    {
-        var pipeline = new PipelineContext();
-        DeclinedCriteriaLedger.Record(pipeline, new MasterVerification(
-            VerificationStatus.Green, true, true, true, true, "done",
-            AcceptanceDispositions: [new AcceptanceDisposition(
-                "`npm run lint` exits 0", AcceptanceStatus.NotApplicable,
-                "the lint config is a shared package this repository cannot change")]));
-
-        var summary = await _sut.BuildAsync(pipeline, Repos(1), [new("api", "https://stub.test/pulls/1", OpenStatus.Opened)], [], null, default);
-
-        summary.Should().Contain(DeclinedCriteriaSection.Heading)
-            .And.Contain("**`npm run lint` exits 0** — the lint config is a shared package this repository cannot change")
-            .And.EndWith("This ticket was automatically processed by Agent Smith.");
-    }
-
     [Fact]
     public async Task Build_AShortfall_LeadsWithItAndNamesWhatIsMissing()
     {

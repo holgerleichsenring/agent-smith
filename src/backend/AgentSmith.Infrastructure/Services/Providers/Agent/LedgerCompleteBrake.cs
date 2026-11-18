@@ -19,8 +19,8 @@ public sealed class LedgerCompleteBrake(int allowance)
 {
     /// <summary>The assistant turn a stopped pass ends on — no provider call is made for it.</summary>
     public const string EndOfPassText =
-        "The run ended this pass: the progress checklist was complete, the verdict was demanded "
-        + "once, and tool calls continued instead of it. No verdict was emitted.";
+        "The run ended this pass: the progress checklist was complete, the report and finish_spec were "
+        + "demanded once, and tool calls continued instead. finish_spec was not called.";
 
     private bool _wasComplete;
     private bool _demanded;

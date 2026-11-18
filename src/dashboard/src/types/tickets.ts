@@ -362,6 +362,8 @@ export interface TicketSeriesSpec {
   judgedBy?: string | null;
   /** 2026-11-18-c8e2d: the follow-up specs that attempt's master proposed; absent on runs before the master's report. */
   followUps?: TicketSeriesFollowUp[] | null;
+  /** 2026-11-18-98fa: that attempt's master's markdown report, shown as written; absent before. */
+  report?: string | null;
 }
 
 /** 2026-11-18-c8e2d: a follow-up a spec's master proposed, filed by its run, spec and place. */

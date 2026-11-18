@@ -249,37 +249,6 @@ public sealed class WriteRunResultHandlerTests
         RunIdGenerator.FormatForDisplay("").Should().Be("");
     }
 
-    /// <summary>2026-09-06-3d81: the run record carries the declined criteria beside the
-    /// account, and nothing of the kind when nothing was declined.</summary>
-    [Fact]
-    public async Task Outcome_ADeclinedCriterion_IsRenderedInTheRunResult()
-    {
-        SetupContextYaml();
-        var pipeline = NewPipelineWithSandbox();
-        DeclinedCriteriaLedger.Record(pipeline, new MasterVerification(
-            VerificationStatus.Green, true, true, true, true, "done",
-            AcceptanceDispositions: [new AcceptanceDisposition(
-                "`npm run lint` exits 0", AcceptanceStatus.NotApplicable,
-                "the lint config is a shared package this repository cannot change")]));
-
-        await _sut.ExecuteAsync(CreateContext("Add login feature", pipeline), CancellationToken.None);
-
-        var resultMd = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
-        resultMd.Should().Contain(DeclinedCriteriaSection.Heading)
-            .And.Contain("**`npm run lint` exits 0** — the lint config is a shared package this repository cannot change");
-    }
-
-    [Fact]
-    public async Task Outcome_ARunWithNothingDeclined_WritesNoDeclinedSection()
-    {
-        SetupContextYaml();
-
-        await _sut.ExecuteAsync(CreateContext("Add login feature"), CancellationToken.None);
-
-        _written.First(kv => kv.Key.EndsWith("result.md")).Value
-            .Should().NotContain(DeclinedCriteriaSection.Heading);
-    }
-
     private void SetupContextYaml()
     {
         _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";

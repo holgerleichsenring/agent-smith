@@ -11,19 +11,18 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class ReengageStopLog(ILogger<ReengageStopLog> logger)
 {
     // 2026-09-22-7c41a: when MONEY ended the re-engagement, say which cap and what was spent.
-    // p0406: a contract still unsatisfied by a master that never emitted a verdict is a NAMED outcome —
+    // p0406: a master that never called finish_spec is a NAMED outcome —
     // an unknown verdict the keystone records honestly — not a silent break.
-    internal void NotReengaging(ReengageSession session, MasterVerification? verification, int reengagePass, int criteriaCount)
+    internal void NotReengaging(ReengageSession session, MasterVerification? verification, int reengagePass)
     {
         var skill = session.Context.MasterSkillName;
         if (session.CostTracker.IsBudgetExhausted)
             logger.LogWarning("Master '{Skill}' will not re-engage — {Stop}", skill, CostCapStop.Describe(session.CostTracker));
-        if (!MasterAcceptanceGate.VerdictlessAfterOneRedrive(
-                verification, reengagePass, criteriaCount, session.VerdictOwed.Demanded))
+        if (verification is not null || !ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass, session.VerdictOwed.Demanded))
             return;
         logger.LogWarning(
-            "Master '{Skill}' emitted no verification verdict across {Passes} pass(es) — ending the "
-            + "open loop on an unknown verdict rather than re-driving a null", skill, reengagePass);
+            "Master '{Skill}' did not call finish_spec across {Passes} pass(es) — ending the open loop without it "
+            + "rather than re-driving the same silence", skill, reengagePass);
     }
 
     // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation; an honest

@@ -14,8 +14,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class StructureToleranceHarnessTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     private const string Principles =
         "## Limits\n\n```yaml\nfunction_lines: 55\n```\n\n## Project Specifics\n\n"
@@ -52,7 +50,7 @@ public sealed class StructureToleranceHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(Handler(("Handle", 21))))
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");
@@ -73,10 +71,10 @@ public sealed class StructureToleranceHarnessTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(Handler(("Handle", 27))))
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Correcting: I split Handle by responsibility.")
             .EnqueueToolCall("write_file", Write(Handler(("Handle", 2), ("First", 14), ("Second", 13))))
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

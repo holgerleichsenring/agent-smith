@@ -37,9 +37,6 @@ public sealed class TicketEditRecutTests
     private static readonly string HeadId = SeriesIdFactory.Member(Series, 0);
     private static readonly string TailId = SeriesIdFactory.Member(Series, 1);
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"}]}""";
-
     [Fact]
     public async Task TicketEdit_ADoneSpecAndAnEditedDescription_RecutsTheTailAndSaysSo()
     {
@@ -50,7 +47,7 @@ public sealed class TicketEditRecutTests
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -76,7 +73,7 @@ public sealed class TicketEditRecutTests
         harness.ChatClient
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");

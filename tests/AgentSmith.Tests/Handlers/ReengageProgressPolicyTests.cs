@@ -128,7 +128,7 @@ public sealed class ReengageProgressPolicyTests
         result.passes.Should().Be(3);
     }
 
-    // ---- Lazy-done stays a ShouldReengage concern: a done step whose target is absent from the diff ----
+    // ---- Lazy-done: a done step whose target is absent from the diff re-drives ----
 
     [Fact]
     public void Reengage_LazyDoneWithoutDiff_KeepsDriving()
@@ -137,26 +137,20 @@ public sealed class ReengageProgressPolicyTests
         {
             new ProgressLedgerEntry("1", "update server", ProgressStatus.Done, Target: "src/Server.cs"),
         });
-        var noBackingDiff = System.Array.Empty<CodeChange>();
         var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "green");
-        MasterReengagementPolicy.ShouldReengage(
-            "code", ledger, green, budgetExhausted: false, new[] { "Server updated" }, noBackingDiff, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeTrue();
+        ReengageReasonPolicy.Decide("code", ledger, green, budgetExhausted: false, System.Array.Empty<CodeChange>(),
+            reengagePass: 1, verdictDemandedInPass: false).Reengage.Should().BeTrue();
     }
 
-    // ---- Blocked-claim parser: ready to consume a { blocked, blocker } block ----
+    // ---- 2026-11-18-98fa: finish_spec's blocker is the blocked claim ----
 
     [Fact]
-    public void TryParseBlockedClaim_ConcreteBlocker_Parsed()
+    public void BlockedClaim_FromFinishSpecsBlocker()
     {
-        var claim = MasterVerificationParser.TryParseBlockedClaim(
-            "Status:\n```json\n{\"blocked\": true, \"blocker\": \"missing NuGet feed credentials\"}\n```");
-        claim.Should().NotBeNull();
-        claim!.IsBlocked.Should().BeTrue();
-        claim.Blocker.Should().Be("missing NuGet feed credentials");
+        var blocked = new MasterVerification(VerificationStatus.Failed, false, false, false, false, "s",
+            Blocker: "missing NuGet feed credentials");
+        blocked.BlockedClaim.Should().Be(new MasterBlockedClaim(true, "missing NuGet feed credentials"));
+        ReengageProgressPolicy.ShouldRespectBlock(blocked.BlockedClaim).Should().BeTrue();
+        new MasterVerification(VerificationStatus.Green, true, true, true, true, "s").BlockedClaim.Should().BeNull();
     }
-
-    [Fact]
-    public void TryParseBlockedClaim_Absent_Null() =>
-        MasterVerificationParser.TryParseBlockedClaim("All good, no blockers here.").Should().BeNull();
 }

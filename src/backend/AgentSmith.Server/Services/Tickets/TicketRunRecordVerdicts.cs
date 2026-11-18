@@ -41,14 +41,17 @@ public sealed class TicketRunRecordVerdicts
             ? [.. draft.Done.Select(text => TicketSeriesCriterionJoin.Of(text, acceptance?.View, judgements))]
             : acceptance is { IsWhollyTheSpecs: true } ? TicketSeriesCriterionJoin.All(acceptance.View, judgements) : [];
         var unmeasured = acceptance is { IsWhollyTheSpecs: true } ? acceptance.View.Unmeasured : [];
+        var report = TicketSeriesFollowUpView.ReportOf(acceptance?.View, spec.SpecId);
         return new TicketSeriesSpecView(
             spec.SpecId, spec.Ordinal, null, spec.Record?.Goal ?? spec.Newest.Title, spec.Record?.Repos ?? [],
             spec.Record?.Steps ?? [], spec.RecordBody, spec.State,
             spec.Executed?.RunId, spec.Executed is null ? null : record.Numbers[spec.Executed.RunId],
             done, unmeasured, Worked: null,
             HasRecord: spec.Record is not null, RecordNote: spec.RecordNote,
-            VerdictRecorded: !(Terminal.Contains(spec.State) && done.All(c => c.Verdict is null)), JudgedBy: acceptance?.RunId,
-            FollowUps: TicketSeriesFollowUpView.Of(acceptance?.View, spec.SpecId, acceptance?.RunId)); // 2026-11-18-c8e2d
+            // 2026-11-18-98fa: a master's report is the spec's verdict — it judges no line, and that is not a missing one.
+            VerdictRecorded: report is not null || !(Terminal.Contains(spec.State) && done.All(c => c.Verdict is null)), JudgedBy: acceptance?.RunId,
+            FollowUps: TicketSeriesFollowUpView.Of(acceptance?.View, spec.SpecId, acceptance?.RunId), // 2026-11-18-c8e2d
+            Report: report);
     }
 
     private static IReadOnlyList<TicketSeriesUnattributedView> Unattributed(

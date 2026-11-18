@@ -1,6 +1,6 @@
 # How a spec is checked
 
-Every spec ends in a "done when" list. Two things decide what becomes of it: the repository's own build and test stages, which either pass or don't, and the coding master's report, which says line by line what was delivered.
+Every spec ends in a "done when" list. Two things decide what becomes of it: the repository's own build and test stages, which either pass or don't, and the coding master's report, which says in its own words what was delivered.
 
 This is how a Claude Code session works when one agent leads and another builds. The master never writes the spec's code itself. It briefs a sub-agent, looks at what that sub-agent did, sends work back until it holds, and then reports. The master knows the goal and didn't write the code, which is why it does the checking.
 
@@ -14,15 +14,12 @@ Anything missing goes back to the sub-agent with what the master saw and what a 
 
 ## The report
 
-The master ends with its report, one entry per done line:
+The master ends in two parts, the way a Claude Code session reports to a person and to the tools around it:
 
-| Line | Means |
-|---|---|
-| met | What the master looked at that shows it, citing a changed path or a command that ran |
-| not applicable | Why the line doesn't apply to this repository |
-| not met | Why it was left, and which follow-up spec it went to |
+- **Its report**, its last message, written in markdown for the person who accepts the work: what the spec delivered and how the master saw it (paths, commands and their outcome), what it fixed in passing, what is still open and why, what it did not check itself, and the follow-ups it proposes. Nothing parses it; it is shown as written.
+- **A `finish_spec` call** with what the pipeline acts on: the status (`green`, `no-tests`, `failed`, or `blocked` with its blocker), a one-line summary, the failing and already-failing test ids, the proposed follow-ups (a one-line goal and why each), and any ticket instructions it refused. The call is checked when it is made; a bad argument goes straight back to the master.
 
-Next to the lines the report lists what was **fixed in passing** (beyond the spec's lines) and the **proposed follow-up specs**, each a one-line goal and why it isn't this spec's. A line left as a follow-up is the master's call, weighed by what it costs the spec's and the ticket's goal: would the person accepting this hold it back for it? You decide whether a follow-up becomes work.
+A line left open is the master's call, weighed by what it costs the spec's and the ticket's goal: would the person accepting this hold it back for it? Nothing is judged per done line. You decide whether a follow-up becomes work. A master that ends without `finish_spec` gets one more pass to call it; still without it, the spec fails and says so.
 
 ## The build and test stages
 
@@ -38,9 +35,7 @@ A repository whose contexts need two toolchain images is worked in two sandboxes
 - The ticket page shows each spec's report and lists the proposed follow-ups across the run.
 - The pull request body and the spec record committed to the branch carry the report too.
 
-Next to each line on the run page there is a "this verdict is wrong" link. Recording your judgement there changes nothing about the run; it is a labelled record of where the report got it wrong.
-
-Runs from before this way of working show the old independent account, with its "N of M proven" rows. They still read as they were stored.
+Runs from before this way of working show what they stored: the independent account with its "N of M proven" rows, or the master's per-line report with its "this verdict is wrong" link. They still read as they were stored.
 
 ## Next
 

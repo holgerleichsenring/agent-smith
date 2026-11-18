@@ -10,4 +10,8 @@ public sealed record TicketSeriesFollowUpView(string Goal, string Why, string Ru
         view?.FollowUps is not { } all || runId is null ? null
             : [.. all.Where(f => f.SpecId is null || f.SpecId == specId)
                 .Select((f, i) => new TicketSeriesFollowUpView(f.Goal, f.Why, runId, i))];
+
+    /// <summary>2026-11-18-98fa: the spec's master's report in a stored view; null when the view carries none.</summary>
+    public static string? ReportOf(AcceptanceView? view, string specId) =>
+        view?.Reports?.FirstOrDefault(r => r.SpecId is null || r.SpecId == specId)?.Markdown;
 }

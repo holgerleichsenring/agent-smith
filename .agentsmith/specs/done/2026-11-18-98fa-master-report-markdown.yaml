@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-98fa
+goal: "The coding master's report is markdown for the person, never parsed; what the pipeline needs arrives through a typed finish_spec tool call, validated when it is made."
+
+applies_to: "default (Tools/FinishSpecToolHost, Domain/Models/MasterVerification, Handlers/AgenticMasterHandler + open loop, Specs/MasterReportAccount, AcceptanceView, dashboard VerifySummary + ticket follow-ups, skills pin)"
+
+requires: [2026-11-18-c8e2b, 2026-11-18-c8e2c, 2026-11-18-c8e2d, 2026-11-18-4f3e]
+
+facts:
+  - claim: "The coding master's end is a fenced verdict block that MasterVerificationParser reads into MasterVerification (status, flags, failing/baseline tests, ignored instructions, per-criterion acceptance, fixed_in_passing, follow_ups) plus a separate blocked claim; the handler and each re-engagement pass call it on the loop's text."
+    evidence: "src/backend/AgentSmith.Application/Services/MasterVerificationParser.cs:18-67, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:553,575, src/backend/AgentSmith.Application/Services/Handlers/ReengagePass.cs:55-57"
+  - claim: "Only coding-agent-master writes a verdict block in the pinned catalog; scan, design, steward and pr-review masters end otherwise and never reach the parser's consumers."
+    evidence: "observed: 2026-11-18, grep of the extracted v5.36.0 tarball's skills/_masters for a verdict fence"
+  - claim: "The open loop re-drives on the per-criterion acceptance gate (MasterAcceptanceGate), objects to unresolved met claims (AcceptanceClaimObjection) and challenges a declined stop once (MasterSurrenderChallenge) — all over the verdict's dispositions."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:26-46, src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementLoop.cs:31-90"
+  - claim: "A spec's account is its master's report: MasterReportAccount pairs the dispositions with the done lines into rows, and Missing fails a spec whose master ended without a verdict; AcceptanceSnapshot, the spec record, the PR body, VerifySummary and the ticket page read that account."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:18-43, src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:48-74, src/dashboard/src/components/jobs/story/VerifySummary.tsx:148-160"
+  - claim: "hand_forward is a typed tool on a spec's coding master only (MasterRecordTools.SpecTools); a second call replaces the first."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MasterRecordToolHosts.cs:38-45, src/backend/AgentSmith.Application/Services/Tools/HandForwardToolHost.cs:36-42"
+
+scope:
+  in: "finish_spec (status green|no-tests|failed|blocked, summary, failing_tests, baseline_failing_tests, follow_ups {goal, why}, blocker required when blocked, ignored_instructions) beside hand_forward on a spec's coding master; invalid arguments are refused with the reason and record nothing; a second call replaces the first. MasterVerification carries its arguments plus Report — the master's last message with text up to its finish_spec call. The handler and each re-engagement pass read finish_spec, never text. The open loop drives on red with open steps, unbacked done steps, and a missing finish_spec (once), nothing per done line. The account is the report and follow-ups with no rows; a spec ended without finish_spec fails with 'the master ended without finish_spec'. AcceptanceView carries Reports (spec id + markdown) rendered as markdown on the run page and the ticket page; the record and PR body carry the report. Old runs' stored rows render as before. The report is read over the whole master conversation (a re-drive that only calls finish_spec keeps the earlier report); after a stage repair the repair's report stands and both passes' follow-ups are kept. The context-pressure finaliser leaves finish_spec callable. Declined criteria (ledger, section, types) go with the per-line gate. The code preset is the only code-changing one and always carries a spec, so the verdict nudge and the tool coincide. Skills pin v5.37.1."
+  out: "Other masters' endings. Removing agent.max_fix_iterations. Removing the stored-view fields old runs read (FixedInPassing, Declined, criterion rows)."
+
+upgrade_impact: "A catalog pinned before v5.37.1 still ends in a verdict block, which is no longer read: its specs fail with 'the master ended without finish_spec'. Operators pinning an older catalog must move to v5.37.1 or later."
+
+steps:
+  - id: tool
+    action: "FinishSpecToolHost (Tools/) with the contract's parameters, validation and replace; built in MasterRecordToolHosts for a spec's coding master and offered in SpecTools."
+  - id: model
+    action: "MasterVerification: drop AcceptanceDispositions/FixedInPassing, add Blocker and Report; delete AcceptanceDisposition, AcceptanceStatus, MasterVerificationParser (3 files)."
+  - id: loop
+    action: "AgenticMasterHandler and ReengagePass read the host (verification + blocked claim of the drive that called it, report from the drive's messages); ReengageReasonPolicy drops the acceptance gate and claim objection; delete MasterAcceptanceGate, AcceptanceJudgement, AcceptancePairing, AcceptanceClaimCheck/Objection/Evidence, MasterSurrenderChallenge, MasterChallengeNudge, DeclinedCriteriaLedger.Record; MasterPassEnd reports no per-criterion counts; nudges and the verdict demand name finish_spec."
+  - id: account
+    action: "SpecAccount.Report; MasterReportAccount builds report + follow-ups, Missing names finish_spec; AcceptanceSnapshot carries Reports and does not list a reported account as unmeasured; SpecAccountRenderer renders the report; the ticket spec view carries it."
+  - id: dashboard
+    action: "VerifySummary renders each report through BlockText with the follow-ups; the ticket page renders the spec's report above its follow-ups."
+  - id: pin
+    action: "Pin agent-smith-skills v5.37.1 as 4f3e did (csproj version + sha256, tarball, example config, docs, SkillsConfigValidatorTests, coding-master text tests)."
+
+tests:
+  - "FinishSpecToolHostTests: schema names every parameter; a valid call records the verification; blocked without blocker, an unknown status, a follow-up without goal are refused and record nothing; a second call replaces the first."
+  - "AgenticMasterHandler: a scripted master that writes a markdown report and calls finish_spec publishes the verification with the report and follow-ups; one that ends without it publishes none and VerifySpec fails with the finish_spec reason."
+  - "SpecExecutionTests two-spec run ends each spec through finish_spec; its report and follow-up reach the account."
+  - "VerifySummary and TicketFollowUps render the report as markdown."
+
+done:
+  - "finish_spec is offered to a spec's coding master, validates its arguments at call time and its arguments become MasterVerification."
+  - "No production code parses a verdict block; the per-criterion acceptance gate, claim objection and surrender challenge are gone."
+  - "The master's report is stored as markdown on the account, the record, the PR body, the run page and the ticket page; a spec whose master ended without finish_spec fails with that reason."
+  - "The embedded catalog is v5.37.1."

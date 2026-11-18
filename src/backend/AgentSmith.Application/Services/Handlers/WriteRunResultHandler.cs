@@ -105,9 +105,7 @@ public sealed class WriteRunResultHandler(
         // 2026-08-25-7f5a: the account the gate decided on, where the run took one. A run
         // that failed at Verify still carries it — the accounts are recorded before the
         // failing verdict and the finalizer tail runs after a failed step.
-        var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            Specs.RunAccountLedger.Current(context.Pipeline),
-            DeclinedCriteriaLedger.Current(context.Pipeline).All);
+        var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(Specs.RunAccountLedger.Current(context.Pipeline));
         if (ledgerJson is null && acceptanceJson is null) return;
         try
         {
@@ -291,8 +289,7 @@ public sealed class WriteRunResultHandler(
             // p0429a: what the run — or the scan — accounted for, itemised beside the
             // findings instead of only inside the gate that read it.
             RunAccountSection.BuildForResult(context.Pipeline, failureReason), // 3890b: once
-            // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
-            DeclinedCriteriaSection.Build(context.Pipeline) + VisualComparisonSection.Build(context.Pipeline)); // + 283di
+            VisualComparisonSection.Build(context.Pipeline)); // + 283di
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
 

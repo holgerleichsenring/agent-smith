@@ -20,7 +20,6 @@
 2	AgentSmith.Application/Services/Events/SandboxStepFacts.cs
 1	AgentSmith.Application/Services/Events/ToolArgumentFacts.cs
 1	AgentSmith.Application/Services/GitBranchPusher.cs
-1	AgentSmith.Application/Services/Handlers/AcceptanceClaimNudge.cs
 1	AgentSmith.Application/Services/Handlers/ApprovalHandler.cs
 1	AgentSmith.Application/Services/Handlers/BootstrapContextRetirement.cs
 1	AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs

@@ -168,6 +168,6 @@ agent-smith code --ticket 54 --project todolist --dry-run
 ## Output
 
 - The work branch `agent-smith/<ticket-id>` in every repo in scope, carrying the series, the checkpoint commits, the change and the executed specs under `.agentsmith/specs/done/`.
-- One **pull request** per repository the series touches, opened as a draft at the spec commit, cross-linked with the others, and taken out of draft only by a complete, verified run. A repository whose specs gained no code keeps its spec PR as one of the run's PRs. The body carries the ticket, the per-spec table, the masters' reports with their proposed follow-ups, declined criteria, the structure divergences inside the tolerance band, and a formatter that failed. A red run's PR stays a draft with a banner.
+- One **pull request** per repository the series touches, opened as a draft at the spec commit, cross-linked with the others, and taken out of draft only by a complete, verified run. A repository whose specs gained no code keeps its spec PR as one of the run's PRs. The body carries the ticket, the per-spec table, the masters' reports with their proposed follow-ups, the structure divergences inside the tolerance band, and a formatter that failed. A red run's PR stays a draft with a banner.
 - A **run record** in `.agentsmith/runs/<run-id>/` with `result.md`, plus the master's `plan.md` where it wrote one.
 - The **ticket** gets a comment with the PR links, your done status and the `agent-smith:done` label — or `agent-smith:shortfall` / `agent-smith:failed` when the run fell short.

@@ -28,11 +28,17 @@ internal static class MasterPassFixtures
     internal const string RunId = "2026-10-13T0900-pass";
     internal const string Spec = "2026-10-13-1234a";
 
-    internal static string Verdict(string status, string? acceptance = null, string? extra = null) =>
-        "Done.\n```verdict\n{ \"status\": \"" + status + "\", \"build_ran\": true, \"build_passed\": true, "
-        + "\"tests_ran\": true, \"tests_passed\": true, \"summary\": \"s\""
-        + (acceptance is null ? "" : ", \"acceptance\": " + acceptance)
-        + (extra is null ? "" : ", " + extra) + " }\n```";
+    /// <summary>2026-11-18-98fa: a pass that ends with its report and a finish_spec call.</summary>
+    internal static Func<AgenticLoopResult> Finish(string status, string? blocker = null, int toolCalls = 1) => () =>
+    {
+        var args = new Dictionary<string, object?> { ["status"] = status, ["summary"] = "s" };
+        if (blocker is not null) args["blocker"] = blocker;
+        var messages = Enumerable.Range(0, toolCalls)
+            .Select(i => new ChatMessage(ChatRole.Assistant, [new FunctionCallContent($"c{i}", "read_file")]))
+            .Append(new ChatMessage(ChatRole.Assistant, [new TextContent("## Report\n" + status), new FunctionCallContent("f", FinishSpecToolHost.Name, args)]))
+            .ToList();
+        return new AgenticLoopResult(new ChatResponse(messages), TimeSpan.FromSeconds(1));
+    };
 
     internal static PipelineContext SpecPipeline(params string[] done)
     {
@@ -74,8 +80,17 @@ internal sealed class ScriptedPasses(params Func<AgenticLoopResult>[] script) : 
 
     public int Calls => _call;
 
-    public Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken) =>
-        Task.FromResult(script[Math.Min(_call++, script.Length - 1)]());
+    // 2026-11-18-98fa: a finish_spec call in the scripted answer is invoked on the request's tool, as the
+    // function-invoking client does.
+    public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
+    {
+        var result = script[Math.Min(_call++, script.Length - 1)]();
+        foreach (var call in result.Response.Messages.SelectMany(m => m.Contents.OfType<FunctionCallContent>())
+                     .Where(c => c.Name == FinishSpecToolHost.Name))
+            if (request.Tools?.OfType<AIFunction>().FirstOrDefault(t => t.Name == call.Name) is { } tool)
+                await tool.InvokeAsync(new AIFunctionArguments(call.Arguments), cancellationToken);
+        return result;
+    }
 
     internal static Func<AgenticLoopResult> Text(string text, int toolCalls = 1) => () =>
     {
@@ -103,10 +118,10 @@ internal sealed class LoopRig
         var context = MasterHandlerFixture.BuildContext("coding-agent-master") with { Pipeline = pipeline };
         var verdictOwed = new VerdictOwed("coding-agent-master", Progress.GetLedger, () => 0m, 1000, NullLogger.Instance);
         Session = new ReengageSession(context,
-            new AgenticLoopRequest(new AgentConfig(), TaskType.Primary, "system", "user", []),
+            new AgenticLoopRequest(new AgentConfig(), TaskType.Primary, "system", "user", [.. Finish.GetTools(null, null)]),
             "user", PipelinePresets.CodeName, Progress, new FilesystemToolHost(sandboxes, "default", "/work"),
             new LogDecisionToolHost(new MasterHandlerFixture.NoOpDecisionLogger(), null), verdictOwed,
-            PipelineCostTracker.GetOrCreate(pipeline), _ => { }, Clarifications, new MasterConversation(), _ => { });
+            PipelineCostTracker.GetOrCreate(pipeline), _ => { }, Clarifications, Conversation, _ => { }, Finish: Finish);
     }
 
     public PipelineContext Pipeline { get; }
@@ -116,6 +131,8 @@ internal sealed class LoopRig
     public MasterPassRecorder Recorder { get; }
     public TicketClarificationToolHost Clarifications { get; }
     public ReengageSession Session { get; }
+    public FinishSpecToolHost Finish { get; } = new();
+    public MasterConversation Conversation { get; } = new();
 
     /// <summary>Opens pass 0 as the handler does, then hands it to the loop with the verdict it emitted.</summary>
     public async Task RunAsync(AgentSmith.Domain.Models.MasterVerification? passZeroVerdict)

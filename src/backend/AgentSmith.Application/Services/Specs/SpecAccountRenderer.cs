@@ -59,6 +59,8 @@ public static class SpecAccountRenderer
     /// <summary>2026-11-18-c8e2d: the rest of the master's report — fixed in passing and the follow-ups it proposes.</summary>
     private static IEnumerable<string> Report(SpecAccount account) =>
     [
+        // 2026-11-18-98fa: the master's own markdown, as written — the record and the pull request show it whole.
+        .. string.IsNullOrWhiteSpace(account.Report) ? [] : new[] { string.Empty, account.Report.Trim(), string.Empty },
         .. (account.FixedInPassing ?? []).Select(f => $"Fixed in passing: {f}"),
         .. (account.FollowUps ?? []).Select(f => $"Proposed follow-up: {f.Goal}" + (string.IsNullOrWhiteSpace(f.Why) ? "" : $" — {f.Why}")),
     ];

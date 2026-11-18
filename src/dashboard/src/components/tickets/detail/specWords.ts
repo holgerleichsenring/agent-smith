@@ -44,9 +44,11 @@ export function isRunRecord(series: TicketSeries | null | undefined): boolean {
  *  is a label beside it — and how many specs recorded none. */
 export function acceptanceTally(series: TicketSeries | null): { verified: number; total: number; unrecorded: number } | null {
   if (!series?.recorded || series.specs.length === 0) return null;
-  const judged = series.specs.filter((s) => s.verdictRecorded !== false);
+  // 2026-11-18-98fa: a spec its master reported on judged no line, so its lines are neither verified nor missing.
+  const judged = series.specs.filter((s) => s.verdictRecorded !== false && !s.report);
   const done = judged.flatMap((s) => s.done);
-  return { verified: done.filter(isVerified).length, total: done.length, unrecorded: series.specs.length - judged.length };
+  const reported = series.specs.filter((s) => s.report).length;
+  return { verified: done.filter(isVerified).length, total: done.length, unrecorded: series.specs.length - judged.length - reported };
 }
 
 export interface AttemptCell {
@@ -85,7 +87,7 @@ export function defaultSpec(specs: TicketSeriesSpec[]): TicketSeriesSpec | null 
 
 /** A criterion's mark, words and the attempt that verified it. */
 export function criterionRow(criterion: TicketSeriesCriterion, spec: TicketSeriesSpec): { mark: string; glyph: string; who: string } {
-  const unjudged = spec.verdictRecorded === false ? "no verdict recorded"
+  const unjudged = spec.report ? "see the master's report" : spec.verdictRecorded === false ? "no verdict recorded"
     : spec.state === "not_started" ? "not started" : "verify pending";
   return verdictRow(criterion, spec.executedByAttempt != null ? `A${spec.executedByAttempt}` : "", unjudged);
 }

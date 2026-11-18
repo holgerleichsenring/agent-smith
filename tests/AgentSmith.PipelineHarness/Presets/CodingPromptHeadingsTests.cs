@@ -22,8 +22,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class CodingPromptHeadingsTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"guarded","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     [Fact]
     public async Task Harness_CodingPrompt_HasOneHeadingPerMeaning()
@@ -32,7 +30,7 @@ public sealed class CodingPromptHeadingsTests
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         await runner.RunAsync("code");
@@ -62,7 +60,7 @@ public sealed class CodingPromptHeadingsTests
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         await new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.RunAsync("code");
 

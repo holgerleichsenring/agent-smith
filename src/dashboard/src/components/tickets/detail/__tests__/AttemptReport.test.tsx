@@ -119,6 +119,25 @@ describe("AttemptReport", () => {
     expect(within(log).queryByTestId("run-step-3")).toBeNull();
   });
 
+  // 2026-11-18-98fa: the check of a run whose master ended with finish_spec is its report and its follow-ups.
+  it("AttemptReport_CheckSection_ShowsTheMastersReportAsMarkdown_AndItsFollowUpsToFile", async () => {
+    runSteps.rows = [row(1, "AgenticMaster", "Run master skill", { specId: "s1", status: "success" })];
+    api.series.mockImplementationOnce(() => Promise.resolve(series("r-1", [spec({
+      done: [{ text: "Builds", verdict: null, note: null, citation: null, overrule: null }],
+      report: "## Delivered\n\n- the **retry** policy",
+      followUps: [{ goal: "Exports stream CSV", why: "paging first", runId: "r-1", index: 0 }],
+    })])));
+    await report();
+    const log = screen.getByTestId("thread-runlog-1");
+    fireEvent.click(within(within(log).getByTestId("run-section-check")).getByRole("button", { name: /Checked against the spec/ }));
+    const check = within(log).getByTestId("thread-runlog-check-1");
+    expect(within(check).getByTestId("master-report-s1").querySelector("li")).toHaveTextContent("the retry policy");
+    expect(check).not.toHaveTextContent("overrule");
+    expect(within(check).getByTestId("acceptance-follow-up")).toHaveTextContent("Exports stream CSV");
+    expect(within(check).getByTestId("follow-up-file")).toHaveTextContent("File as a ticket");
+    expect(within(check).getByRole("link", { name: "Open the run" })).toHaveAttribute("href", "/jobs/r-1");
+  });
+
   it("AttemptReport_OpeningAStep_ShowsItsDetail_AndLeavesTheAddressAlone", async () => {
     runSteps.rows = [row(1, "VerifySpec", "Build and test", { specId: "s1", status: "failed" })];
     await report(attempt({ status: "failed" }));

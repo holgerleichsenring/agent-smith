@@ -12,8 +12,8 @@ internal static class MasterClosing
 {
     // 2026-11-09-0620k: no procedure — the skill carries the method. What the server adds is what it parses.
     internal const string Coding =
-        "The ticket above is the work. The framework parses your last message: your verdict block, or, when you "
-        + "asked with ask_human, the question.";
+        "The ticket above is the work. Your last message is your report, shown as you write it; the pipeline acts "
+        + "on finish_spec, or, when you asked with ask_human, on the question.";
 
     internal const string Report =
         "The topic is the ticket above. What you deliver is the report your methodology names, written where it says; "

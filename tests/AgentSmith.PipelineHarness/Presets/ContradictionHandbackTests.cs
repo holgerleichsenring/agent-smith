@@ -115,7 +115,7 @@ public sealed class ContradictionHandbackTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         await runner.RunAsync("code");
@@ -127,9 +127,6 @@ public sealed class ContradictionHandbackTests
         runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet).Specs.Should().ContainSingle();
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info", "nothing parks on a refuted claim");
     }
-
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     private static SpecHandback Handback() => new(
         SpecHandbackCase.RequirementsContradictRepository,

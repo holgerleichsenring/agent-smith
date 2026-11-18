@@ -16,8 +16,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class BuildNoteHarnessTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"}]}""";
 
     private const string TwoSpecs = """
         {"specs": [
@@ -53,10 +51,10 @@ public sealed class BuildNoteHarnessTests
             .EnqueueToolCall("remember",
                 """{"type":"project","name":"guard-home","description":"the empty-payload guard lives in src/Guard.cs","body":"One guard for every caller."}""")
             .EnqueueToolCall("hand_forward", """{"renamed":["PayloadCheck -> EmptyPayloadGuard"],"persisted":["file src/Guard.cs"]}""")
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Planning: migrate the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// callers"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");

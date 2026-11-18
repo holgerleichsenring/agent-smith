@@ -29,9 +29,6 @@ public sealed class QuestionHandbackTests
     private const string ReadingB = "the newest major everywhere, breaking changes included";
     private const string SpecSha = "spec-sha-1";
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
-
     [Fact]
     public async Task Question_ATicketWithTwoReadings_ParksWithBothAndTheOneTaken()
     {
@@ -64,7 +61,7 @@ public sealed class QuestionHandbackTests
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: bump the packages.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Packages.props","content":"// bumped"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         await runner.RunAsync("code");

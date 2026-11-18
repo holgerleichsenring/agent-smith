@@ -120,8 +120,7 @@ public sealed class SandboxTreeSyncVerifyTests
         clones.Pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(ContextKeys.SandboxContexts, contexts);
         var draft = new SpecDraft(SpecId, "goal", $"spec: {SpecId}", []) { Done = ["the app is changed"] };
         clones.Pipeline.Set(ContextKeys.CurrentSpec, draft);
-        clones.Pipeline.Set(ContextKeys.MasterVerification, new MasterVerification(VerificationStatus.Green, true, true, true, true, "s",
-            AcceptanceDispositions: [new AcceptanceDisposition("the app is changed", AcceptanceStatus.Met, "web/app.ts")]));
+        clones.Pipeline.Set(ContextKeys.MasterVerification, new MasterVerification(VerificationStatus.Green, true, true, true, true, "s", Report: "the app is changed in web/app.ts"));
         clones.Pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
         clones.Pipeline.Set(ContextKeys.SpecSet, new SpecSet("k", [new DerivedSpec(draft, SpecId, string.Empty, [])],
             SpecAccounting.Empty, [], SpecSource.Derived));

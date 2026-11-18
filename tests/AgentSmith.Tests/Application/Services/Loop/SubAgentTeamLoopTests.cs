@@ -79,16 +79,10 @@ public sealed class SubAgentTeamLoopTests
     }
 
     [Fact]
-    public async Task Lead_SendsWorkBack_ChildFixesIt_ReportCarriesFollowUp()
+    public async Task Lead_SendsWorkBack_ChildFixesIt_ReportsAndFinishesWithFollowUp()
     {
-        const string verdict = """
-            ```verdict
-            { "status": "green", "build_ran": true, "build_passed": true, "tests_ran": true, "tests_passed": true,
-              "acceptance": [ { "criterion": "The endpoint returns 404", "status": "met", "evidence": "built and tested" },
-                              { "criterion": "Exports stream CSV", "status": "not_met", "evidence": "needs paging; follow-up" } ],
-              "follow_ups": [ { "goal": "Exports stream CSV over paging", "why": "paging is its own design" } ] }
-            ```
-            """;
+        const string report = "## Delivered\n- the endpoint returns 404, tested\n\n## Open\n- exports stream CSV needs paging";
+        var finish = new AgentSmith.Application.Services.Tools.FinishSpecToolHost();
         var provider = new AgentScripts();
         string? childId = null;
         provider.Script("lead",
@@ -98,21 +92,27 @@ public sealed class SubAgentTeamLoopTests
                 ? Text("sent nothing back")
                 : Call("send_message", new() { ["agent_id"] = childId, ["text"] = "the done list wants the 404 tested" }),
             _ => Call("wait_for_agents", []),
-            messages => Text(LastToolResult(messages).Contains("404 test added") ? verdict : "the child never fixed it"));
+            messages => LastToolResult(messages).Contains("404 test added")
+                ? new ChatResponse(new ChatMessage(ChatRole.Assistant, [new TextContent(report), new FunctionCallContent("f1", "finish_spec",
+                    new Dictionary<string, object?>
+                    {
+                        ["status"] = "green", ["summary"] = "the 404 endpoint",
+                        ["follow_ups"] = System.Text.Json.JsonSerializer.SerializeToElement(new[] { new { goal = "Exports stream CSV over paging", why = "paging is its own design" } }),
+                    })]))
+                : Text("the child never fixed it"),
+            _ => Text(""));
         provider.Script(Child,
             _ => Text("built the endpoint"),
             messages => Text(messages[^1].Text.Contains("404 tested") ? "404 test added" : "no feedback"));
         var rig = new Rig(provider, ReadTool(() => Task.FromResult("file text")));
 
         var result = await rig.Loop.RunAsync(new AgenticLoopRequest(
-            ToolLoopErrorToleranceSupport.Agent(), TaskType.Primary, "You are lead.", "lead the spec", rig.MasterTools()),
+            ToolLoopErrorToleranceSupport.Agent(), TaskType.Primary, "You are lead.", "lead the spec",
+            [.. rig.MasterTools(), .. finish.GetTools(null, null)]),
             CancellationToken.None);
 
-        var report = MasterVerificationParser.TryParse(result.Response.Text)!;
-        report.FollowUps.Should().ContainSingle().Which.Goal.Should().Be("Exports stream CSV over paging");
-        AgentSmith.Application.Services.Handlers.MasterAcceptanceGate.ObjectivelySatisfied(
-            report, ["The endpoint returns 404", "Exports stream CSV"], producedSourceChanges: true)
-            .Should().BeTrue("a reasoned not-met is the lead's call");
+        finish.Verification!.FollowUps.Should().ContainSingle().Which.Goal.Should().Be("Exports stream CSV over paging");
+        AgentSmith.Application.Services.Handlers.MasterReport.Of([.. result.Response.Messages]).Should().Be(report);
     }
 
     [Fact]

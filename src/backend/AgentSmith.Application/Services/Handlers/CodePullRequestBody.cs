@@ -36,5 +36,5 @@ internal static class CodePullRequestBody
         + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
         + $"{RunAccountSection.Build(context.Pipeline)}"
         + $"{StructureDivergenceSection.Build(context.Pipeline, repository)}"
-        + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SpecPrBody.SiblingMarker}";
+        + $"\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SpecPrBody.SiblingMarker}";
 }

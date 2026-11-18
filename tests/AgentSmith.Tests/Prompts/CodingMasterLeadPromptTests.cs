@@ -1,14 +1,12 @@
-using System.Text.RegularExpressions;
-using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Prompts;
 
 /// <summary>
-/// 2026-11-18-4f3e: the pinned coding master (3.0.0, skills v5.36.0) leads a sub-agent that builds the spec, writes
-/// the plan into the run record directory and reports per done line — and the verdict block it shows parses, field
-/// for field, into the MasterVerification the backend of 2026-11-18-c8e2b reads.
+/// 2026-11-18-4f3e: the pinned coding master leads a sub-agent that builds the spec and writes the plan into the run
+/// record directory. 2026-11-18-98fa: 3.1.1 (skills v5.37.1) reports in markdown and ends with finish_spec.
 /// </summary>
 public sealed class CodingMasterLeadPromptTests
 {
@@ -40,28 +38,22 @@ public sealed class CodingMasterLeadPromptTests
         Folded().Should().Contain("when they stop making progress, report the red honestly with the failing output");
     }
 
+    /// <summary>2026-11-18-98fa: the master's report is markdown that nothing parses, and every argument the master is
+    /// told to pass to finish_spec is one the tool declares — the contract the skill and the backend share.</summary>
     [Fact]
-    public void PackagedCodingMaster_VerdictExample_ParsesFieldForField()
+    public void PackagedCodingMaster_ReportsInMarkdown_ThenCallsFinishSpecWithItsDeclaredArguments()
     {
-        var block = Regex.Match(PackagedMaster.Read("coding-agent-master"), "```verdict\\s*\\{[\\s\\S]*?\\}\\s*```").Value;
-        block.Should().NotBeEmpty("the master shows the verdict block it ends with");
+        var master = Folded();
+        master.Should().Contain("Your report is your last message, written in markdown").And.Contain("Nothing parses it");
+        master.Should().NotContain("```verdict", "the fenced verdict block is gone");
 
-        var verdict = MasterVerificationParser.TryParse(block)!;
-
-        verdict.Status.Should().Be(VerificationStatus.Green);
-        verdict.BuildRan.Should().BeTrue();
-        verdict.BuildPassed.Should().BeTrue();
-        verdict.TestsRan.Should().BeTrue();
-        verdict.TestsPassed.Should().BeTrue();
-        verdict.FailingTests.Should().BeEmpty();
-        verdict.BaselineFailingTests.Should().BeEmpty();
-        verdict.IgnoredInstructions.Should().BeEmpty();
-        verdict.AcceptanceDispositions!.Select(d => d.Status).Should().Equal(AcceptanceStatus.Met, AcceptanceStatus.NotMet);
-        verdict.AcceptanceDispositions![0].Citations.Should().HaveCount(2);
-        verdict.AcceptanceDispositions![1].Evidence.Should().NotBeEmpty("a not-met line carries its why");
-        verdict.FixedInPassing.Should().ContainSingle();
-        verdict.FollowUps.Should().ContainSingle().Which.Why.Should().NotBeEmpty();
-        verdict.Summary.Should().NotBeNullOrEmpty();
-        MasterVerificationParser.TryParseBlockedClaim(block).Should().Be(new MasterBlockedClaim(false, ""));
+        var schema = new FinishSpecToolHost().GetTools(null, null).Single().JsonSchema.ToString();
+        foreach (var argument in new[] { "status", "summary", "failing_tests", "baseline_failing_tests", "follow_ups", "blocker", "ignored_instructions" })
+        {
+            master.Should().Contain($"`{argument}`", "the skill names it");
+            schema.Should().Contain($"\"{argument}\"", "finish_spec declares it");
+        }
+        foreach (var status in new[] { "green", "no-tests", "failed", "blocked" })
+            master.Should().Contain($"`{status}`");
     }
 }

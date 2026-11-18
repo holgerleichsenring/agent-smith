@@ -14,15 +14,15 @@ public sealed class CodingRunTextTests
     {
         var nudge = MasterNudges.BuildApplyNudge("TASK", ProgressLedger.Empty);
 
-        nudge.Should().Contain("not made the changes it names").And.Contain("the verdict says what blocks it")
+        nudge.Should().Contain("not made the changes it names").And.Contain("finish_spec's blocker says what blocks it")
             .And.NotContain("at least one SOURCE file").And.EndWith("TASK");
     }
 
     [Fact]
-    public void MasterClosing_Coding_EndsOnTheVerdict()
+    public void MasterClosing_Coding_EndsOnTheReportAndFinishSpec()
     {
         MasterClosing.For("coding-agent-master", new PipelineContext()).Should()
-            .Contain("The framework parses your last message").And.NotContain("summarise what changed");
+            .Contain("Your last message is your report").And.Contain("finish_spec").And.NotContain("summarise what changed");
     }
 
     [Fact]

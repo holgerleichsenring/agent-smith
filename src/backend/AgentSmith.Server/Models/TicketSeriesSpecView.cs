@@ -20,6 +20,7 @@ namespace AgentSmith.Server.Models;
 /// null when none did.</param>
 /// <param name="FollowUps">2026-11-18-c8e2d: the follow-up specs that attempt's master proposed, each fileable by its
 /// run, spec and place; null on a run before the master's report was the account.</param>
+/// <param name="Report">2026-11-18-98fa: that attempt's master's markdown report, shown as written; null before.</param>
 public sealed record TicketSeriesSpecView(
     string SpecId,
     int Ordinal,
@@ -39,4 +40,5 @@ public sealed record TicketSeriesSpecView(
     string? RecordNote = null,
     bool VerdictRecorded = true,
     string? JudgedBy = null,
-    IReadOnlyList<TicketSeriesFollowUpView>? FollowUps = null);
+    IReadOnlyList<TicketSeriesFollowUpView>? FollowUps = null,
+    string? Report = null);

@@ -5,7 +5,7 @@ import { runPath } from "@/lib/runPath";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketSeriesCriterion, TicketSeriesUnattributed } from "@/types/tickets";
 import { CriterionRejection } from "./CriterionRejection";
-import { TicketFollowUps } from "./TicketFollowUps";
+import { MasterReportText, TicketFollowUps } from "./TicketFollowUps";
 import { acceptanceTally, criterionRow, isRunRecord, overruleWords, rejectionOf, RUN_RECORD_LINE, verdictRow } from "./specWords";
 
 // 2026-10-13-9a59r: acceptance PER SPEC — each spec's done list (a run's acceptance contract is the current
@@ -43,6 +43,7 @@ export function TicketAcceptanceTab() {
                   <CriterionLine key={criterion.text} criterion={criterion} row={criterionRow(criterion, spec)} judgedBy={spec.judgedBy} />
                 ))}
               </div>
+              <MasterReportText spec={spec} />
             </div>
           );
         })}

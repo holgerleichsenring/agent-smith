@@ -77,9 +77,9 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
             Take a choice a person might overrule with decide_by_default; log every other non-obvious choice via log_decision
             as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
             {SpecExecutionPromptBlocks.DoneCriteria(draft)}
-            Before you emit your verdict, verify EACH done criterion above out loud —
-            a criterion you leave is reported not_met with why and where it goes, never dropped silently.
-            Before the verdict, call hand_forward once with what you renamed and moved (each
+            Before you call finish_spec, look at EACH done criterion above — your report says what you
+            saw for each, and one you leave says why and where it goes, never dropped silently.
+            Before finish_spec, call hand_forward once with what you renamed and moved (each
             `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
             When you are genuinely blocked on missing input, call ask_human once: the
             question is posted to the ticket and this run pauses for the answer.

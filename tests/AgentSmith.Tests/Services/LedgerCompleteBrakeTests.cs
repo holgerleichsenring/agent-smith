@@ -71,6 +71,6 @@ public sealed class LedgerCompleteBrakeTests
 
         response.Messages.Should().ContainSingle()
             .Which.Role.Should().Be(Microsoft.Extensions.AI.ChatRole.Assistant);
-        response.Text.Should().Contain("No verdict was emitted");
+        response.Text.Should().Contain("finish_spec was not called");
     }
 }

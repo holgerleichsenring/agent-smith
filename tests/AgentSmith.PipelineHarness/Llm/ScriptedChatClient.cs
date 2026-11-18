@@ -66,6 +66,30 @@ public sealed class ScriptedChatClient : IChatClient
     }
 
     /// <summary>
+    /// 2026-11-18-98fa: scripts how a spec's coding master ends — its markdown report and the finish_spec call in one
+    /// answer, then the empty answer that closes the loop after the tool result.
+    /// </summary>
+    public ScriptedChatClient EnqueueFinish(
+        string status = "green", string summary = "done", string report = "## Delivered\n- the change, built and tested",
+        IReadOnlyList<(string Goal, string Why)>? followUps = null, string[]? failingTests = null, string? blocker = null,
+        string[]? ignoredInstructions = null)
+    {
+        var args = new Dictionary<string, object?> { ["status"] = status, ["summary"] = summary };
+        if (followUps is not null)
+            args["follow_ups"] = System.Text.Json.JsonSerializer.SerializeToElement(followUps.Select(f => new { goal = f.Goal, why = f.Why }));
+        if (failingTests is not null) args["failing_tests"] = System.Text.Json.JsonSerializer.SerializeToElement(failingTests);
+        if (blocker is not null) args["blocker"] = blocker;
+        if (ignoredInstructions is not null)
+            args["ignored_instructions"] = System.Text.Json.JsonSerializer.SerializeToElement(ignoredInstructions);
+        // Not on ToolCalls: those pin the order of the work tools a test drives; how a master ends is this helper's.
+        var callId = "call_" + (++_toolCallCounter);
+        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant,
+            [new TextContent(report), new FunctionCallContent(callId, "finish_spec", args)])));
+        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, string.Empty)));
+        return this;
+    }
+
+    /// <summary>
     /// p0413a: scripts the ScopeRepos classification call, which draws from its own
     /// slot (see <see cref="ScopeClassificationScript"/>) instead of the FIFO.
     /// </summary>

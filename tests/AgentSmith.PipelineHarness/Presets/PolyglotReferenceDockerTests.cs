@@ -35,8 +35,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Tier", "Docker")]
 public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"reference edit","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     /// <summary>A clean source addition per reference — enough for the branch to carry
     /// something a build can be green about, and green in every declared stage.</summary>
@@ -142,7 +140,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
         foreach (var (path, content) in files)
             harness.ChatClient.EnqueueToolCall("write_file", JsonSerializer.Serialize(
                 new { path = "primary/" + path, content }));
-        harness.ChatClient.EnqueueText(GreenVerdict);
+        harness.ChatClient.EnqueueFinish();
     }
 
     /// <summary>Every file of a defect variant, as repo-relative path + content.</summary>

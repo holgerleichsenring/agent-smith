@@ -60,7 +60,7 @@ public static class SpecExecutionPromptBlocks
             ? string.Empty
             : "\n**Declared gate stages (repository context/label):**\n"
               + string.Join("\n", declared.Select(d => $"- {d.Repository} {d.Context}/{d.Label}"))
-              + $"\nRun each of these with {GateStageToolHost.Name} before your verdict; verification runs exactly these.";
+              + $"\nRun each of these with {GateStageToolHost.Name} before finish_spec; verification runs exactly these.";
 
     /// <summary>2026-10-13-8762n: the entered spec's citations whose lines changed and whose text was found
     /// nowhere — no reviewer runs after entry, so the master is where they are told.</summary>

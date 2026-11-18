@@ -36,7 +36,7 @@ public sealed class CompletedRunTicketSummary(RunResultChanges branchChanges)
 
             ### Changes
             {changeLines}
-            {RunAccountSection.Build(pipeline)}{DeclinedCriteriaSection.Build(pipeline)}{ShortfallSection.Build(shortfall)}
+            {RunAccountSection.Build(pipeline)}{ShortfallSection.Build(shortfall)}
 
             This ticket was automatically processed by Agent Smith.
             """;

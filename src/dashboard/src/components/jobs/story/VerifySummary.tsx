@@ -6,6 +6,7 @@ import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
 import { CriterionJudgementControl } from "./CriterionJudgementControl";
 import { UnmeasuredAccounts } from "./UnmeasuredAccounts";
+import { BlockText } from "@/components/jobs/runlog/LogText";
 import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsApi";
 
 // p0344b: the Verify beat's surface. Preferred source is the run's PERSISTED
@@ -108,6 +109,11 @@ const CRIT_STAT: Record<AcceptanceCriterion["status"], string> = {
 // 2026-10-12-6bfad: an unmeasured account is never one of the N; it makes the badge bad
 // and says so after the count, or alone when there is nothing to count.
 function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
+  // 2026-11-18-98fa: a run whose masters ended with finish_spec judged no line — the badge says it reported.
+  if (acceptance.reports != null && acceptance.criteria.length === 0 && !acceptance.unmeasured?.length) {
+    const followUps = acceptance.followUps?.length ?? 0;
+    return { cls: "ok", label: followUps > 0 ? `reported · ${followUps} follow-up${followUps === 1 ? "" : "s"}` : "reported" };
+  }
   const counted = criteriaBadge(acceptance);
   if (!acceptance.unmeasured?.length) return counted;
   return {
@@ -146,7 +152,9 @@ function AcceptanceVerify({
   const badge = badgeFor(acceptance);
   const unmeasured = acceptance.unmeasured ?? [];
   // 2026-11-18-c8e2d: a run whose rows are its masters' reports carries the report's lists (maybe empty).
-  const report = acceptance.fixedInPassing != null || acceptance.followUps != null;
+  const report = acceptance.fixedInPassing != null || acceptance.followUps != null || acceptance.reports != null;
+  // 2026-11-18-98fa: the masters' own markdown reports, rendered as written — no row is judged on such a run.
+  const reports = acceptance.reports ?? [];
   return (
     <section className="card" data-testid="verify-summary" data-source="acceptance">
       <div className="card-h">
@@ -157,7 +165,11 @@ function AcceptanceVerify({
       </div>
       <div className="card-b">
         <div className="hint" style={{ marginBottom: 6 }} data-testid="verify-source">
-          {report ? (
+          {reports.length > 0 || (acceptance.reports != null && acceptance.criteria.length === 0) ? (
+            <>
+              What <b>each spec&apos;s master reported</b> after looking at what its sub-agent built, in its own words.
+            </>
+          ) : report ? (
             <>
               Each done line as <b>the spec&apos;s master reported it</b> after looking at what its sub-agent built —
               met, not applicable, or left with its why.
@@ -175,8 +187,14 @@ function AcceptanceVerify({
           )}
         </div>
         {unmeasured.length > 0 && <UnmeasuredAccounts accounts={unmeasured} />}
+        {reports.map((r, i) => (
+          <div key={i} data-testid="verify-report" style={{ marginTop: i > 0 ? 12 : 0 }}>
+            {reports.length > 1 && r.specId && <p className="hint"><b>Spec {r.specId}</b></p>}
+            <BlockText text={r.markdown} />
+          </div>
+        ))}
         {acceptance.criteria.length === 0 ? (
-          unmeasured.length === 0 && (
+          unmeasured.length === 0 && acceptance.reports == null && (
             <p className="hint" data-testid="verify-empty">
               No acceptance criteria were recorded on this run — nothing has been proven green.
             </p>

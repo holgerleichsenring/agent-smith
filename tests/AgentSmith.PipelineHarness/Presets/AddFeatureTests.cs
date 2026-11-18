@@ -31,7 +31,7 @@ public sealed class AddFeatureTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueText("""Feature added; tests green. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"feature implemented","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+            .EnqueueFinish(summary: "feature implemented");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -63,6 +63,6 @@ public sealed class AddFeatureTests
 
         result.IsSuccess.Should().BeFalse(
             "a feature run that changed no source must not be a success");
-        result.Message.Should().Contain("ended without its report");
+        result.Message.Should().Contain("ended without finish_spec");
     }
 }

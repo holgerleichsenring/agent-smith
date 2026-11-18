@@ -53,9 +53,6 @@ public sealed class SpecExecutionTests
           - "POST /widget stores the widget"
         """;
 
-    private const string GreenVerdict =
-        """All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"}]}""";
-
     [Fact]
     public async Task SpecExecution_RunsStepsThenVerifiesDoneCriteria()
     {
@@ -82,7 +79,7 @@ public sealed class SpecExecutionTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Widget.cs","content":"// widget endpoint"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"Add the widget endpoint + handler","status":"done"}]}""")
-            .EnqueueText("""All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"widget endpoint shipped","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
+            .EnqueueFinish(summary: "widget endpoint shipped");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -168,7 +165,7 @@ public sealed class SpecExecutionTests
         RedForTheSecondSpec(harness);
         ScriptSpec(harness, "primary/src/Widget.cs", "impl");
         ScriptSpec(harness, "primary/src/WidgetStore.cs", "store");
-        harness.ChatClient.EnqueueText(GreenVerdict);
+        harness.ChatClient.EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");
@@ -227,7 +224,7 @@ public sealed class SpecExecutionTests
             .EnqueueToolCall("send_message", """{"agent_id":"WidgetBuilder","text":"The done list asks for the 404 to be tested; add that test."}""")
             .EnqueueToolCall("wait_for_agents", "{}")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"the work","status":"done"}]}""")
-            .EnqueueText(Report(("GET /widget returns the widget", "met", "src/Widget.cs")));
+            .EnqueueFinish(summary: "the widget endpoint", report: "## Delivered\n- GET /widget returns the widget (`src/Widget.cs`), its 404 tested");
         chat.EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/src/Widget.cs","content":"// endpoint"}""")
             .EnqueueForText("WidgetBuilder", "Built the endpoint in src/Widget.cs. No test yet.")
             .EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/tests/WidgetTests.cs","content":"// 404 test"}""")
@@ -236,14 +233,12 @@ public sealed class SpecExecutionTests
         chat.EnqueueToolCall("spawn_agents", Spawn("StoreBuilder", "build the widget store"))
             .EnqueueToolCall("wait_for_agents", "{}")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"store","activity":"the work","status":"done"}]}""")
-            .EnqueueText(Report(("POST /widget stores the widget", "met", "src/WidgetStore.cs"),
-                ("Stored widgets are exported as CSV", "not_met", "the export needs a paging contract first; proposed as a follow-up")))
-            // The one challenge pass a declined line earns: the master restates its call.
-            .EnqueueText(Report(("POST /widget stores the widget", "met", "src/WidgetStore.cs"),
-                ("Stored widgets are exported as CSV", "not_met", "the export needs a paging contract first; proposed as a follow-up")))
+            .EnqueueFinish(summary: "the widget store",
+                report: "## Delivered\n- POST /widget stores the widget (`src/WidgetStore.cs`)\n\n## Open\n- CSV export needs a paging contract first",
+                followUps: [("Stored widgets are exported as CSV over paging", "the paging contract is its own design")])
             .EnqueueToolCall("send_message", """{"agent_id":"StoreBuilder","text":"The build is red: error CS1002. Fix it."}""")
             .EnqueueToolCall("wait_for_agents", "{}")
-            .EnqueueText(Report(("POST /widget stores the widget", "met", "src/WidgetStoreFix.cs")));
+            .EnqueueFinish(summary: "the widget store, build fixed", report: "## Fixed\n- the missing semicolon (`src/WidgetStoreFix.cs`); the build is green");
         chat.EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStore.cs","content":"// store"}""")
             .EnqueueForText("StoreBuilder", "Built the store in src/WidgetStore.cs.")
             .EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStoreFix.cs","content":"// fixed"}""")
@@ -260,8 +255,11 @@ public sealed class SpecExecutionTests
         chat.AgentCalls("StoreBuilder").Last().Should().Contain(m => m.Text.Contains("The build is red"));
         var accounts = AgentSmith.Application.Services.Specs.RunAccountLedger.Current(runner.LastContext!);
         accounts.All.SelectMany(a => a.FollowUps ?? []).Should().ContainSingle().Which.Goal.Should().Be("Stored widgets are exported as CSV over paging");
-        accounts.Specs.Single(s => s.SpecId == LeadSecond).Accounts.Single().Criteria
-            .Select(c => c.Disposition).Should().Equal(AccountDisposition.Satisfied, AccountDisposition.NotSatisfied);
+        // 2026-11-18-98fa: the account is the master's markdown — the repair's report stands, nothing is judged per line.
+        var second = accounts.Specs.Single(s => s.SpecId == LeadSecond).Accounts.Single();
+        second.Criteria.Should().BeEmpty();
+        second.Report.Should().StartWith("## Fixed");
+        accounts.Specs.Single(s => s.SpecId != LeadSecond).Accounts.Single().Report.Should().Contain("its 404 tested");
     }
 
     private const string LeadSecond = "2026-10-06-5e5ec";
@@ -270,18 +268,6 @@ public sealed class SpecExecutionTests
         {"background":true,"tasks":[{"name":"{{{name}}}","activity":"{{{task}}}","task_description":"{{{task}}}; report what you changed",
           "inherited_context":{"pipeline_goal":"the widget service","prior_context_slice":"the spec and the code read so far"}}]}
         """;
-
-    private static string Report(params (string Criterion, string Status, string Evidence)[] lines) =>
-        "Report.\n```verdict\n" + System.Text.Json.JsonSerializer.Serialize(new
-        {
-            status = "green", build_ran = true, build_passed = true, tests_ran = true, tests_passed = true, summary = "done",
-            acceptance = lines.Select(l => (object)(l.Status == "met"
-                ? new { criterion = l.Criterion, status = l.Status, evidence = "looked at it", citations = new[] { l.Evidence } }
-                : new { criterion = l.Criterion, status = l.Status, evidence = l.Evidence, citations = Array.Empty<string>() })),
-            follow_ups = lines.Any(l => l.Status == "not_met")
-                ? new[] { new { goal = "Stored widgets are exported as CSV over paging", why = "the paging contract is its own design" } }
-                : null,
-        }) + "\n```";
 
     private static SpecSet LeadSpecSet() => SeededSet() with
     {
@@ -309,7 +295,7 @@ public sealed class SpecExecutionTests
         harness.ChatClient
             .EnqueueToolCall("write_file", $$"""{"path":"{{path}}","content":"// work"}""")
             .EnqueueToolCall("update_progress", $$"""{"items":[{"id":"{{step}}","activity":"the work","status":"done"}]}""")
-            .EnqueueText($$"""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"the change","citations":["{{path["primary/".Length..]}}"]}]}""");
+            .EnqueueFinish(summary: "done");
 
     // 2026-11-18-c8e2c: b fails on a red stage — red at its verification and again after its one repair pass.
     private static void RedForTheSecondSpec(RealCompositionHarness harness) =>

@@ -27,7 +27,7 @@ There is one coding pipeline, `code`. Its shape is simple to say: the ticket bec
 
 **One master, real commands.** The `coding-agent-master` skill leads the spec's work: the code is edited and the repo's own build and tests are run via real commands, visible in the run timeline.
 
-**A master that checks, a sub-agent that builds.** The master briefs a sub-agent with everything it needs, looks at what it built — the diff, the build and tests, the app where the sandbox can run it — sends work back until it holds, and ends with [its report](delivery-account.md): each done line met or not met with why, what it fixed in passing, and the follow-up specs it proposes. `VerifySpec` then runs the verify stages each repository declares; a red stage goes back to the master once, and only a stage that stays red stops the spec.
+**A master that checks, a sub-agent that builds.** The master briefs a sub-agent with everything it needs, looks at what it built — the diff, the build and tests, the app where the sandbox can run it — sends work back until it holds, and ends with [its report](delivery-account.md) in markdown — what it delivered and how it saw it, what it fixed in passing, what is open and why, the follow-up specs it proposes — and a `finish_spec` call with the status and follow-ups the pipeline acts on. `VerifySpec` then runs the verify stages each repository declares; a red stage goes back to the master once, and only a stage that stays red stops the spec.
 
 A run that stops half way still delivers honestly: verified specs ship on a ready PR with a "Not delivered" section, unverified work is reset, and a run that verified nothing leaves a draft PR with a failure banner. See [Lifecycle](lifecycle.md#when-it-goes-wrong).
 
@@ -43,7 +43,7 @@ The methodology works on two levels. The runs follow it: every change starts as 
 
 Every run leaves a record in the repository, committed with the change. The run directory is `.agentsmith/runs/{run-id}/`:
 
-**`result.md`** — what got done. YAML frontmatter with the result, the duration, token counts and the cost block, then the changed files, the masters' reports, declined criteria, decisions and the execution trail. A failed run leads with why. If `pricing` is configured for the agent, dollar costs are accurate; otherwise you get token counts.
+**`result.md`** — what got done. YAML frontmatter with the result, the duration, token counts and the cost block, then the changed files, the masters' reports, decisions and the execution trail. A failed run leads with why. If `pricing` is configured for the agent, dollar costs are accurate; otherwise you get token counts.
 
 **`plan.md`** — the master's own working plan for the run, when it wrote one.
 

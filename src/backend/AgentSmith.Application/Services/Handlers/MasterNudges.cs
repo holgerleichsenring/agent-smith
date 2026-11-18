@@ -24,11 +24,10 @@ internal static class MasterNudges
     // p0263: the focused second-shot prompt when the master edited source but emitted
     // no verdict — verify only (no further edits) and emit ONLY the verdict block.
     internal static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "Your previous pass changed source and emitted no verdict, so the run cannot be reported. "
+        "Your previous pass changed source and did not call finish_spec, so the spec cannot be reported. "
         + "The change is made; what is missing is its check. Build the project and run the tests "
-        + "the way the repository defines them, then end with your fenced ```verdict block for "
-        + "the real outcome (status: green | no-tests | failed); the framework reads only that "
-        + "block.\n\n"
+        + "the way the repository defines them, write your report for the person, then call "
+        + "finish_spec with the real outcome (status: green | no-tests | failed | blocked).\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -36,8 +35,8 @@ internal static class MasterNudges
     // nothing — the plan is not the deliverable, the edited source is.
     internal static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
         "You wrote a plan and have not made the changes it names yet. The plan is not the "
-        + "deliverable; the change is. Make those edits, then build, run the tests and emit "
-        + "your verdict. If an edit cannot be made, the verdict says what blocks it.\n\n"
+        + "deliverable; the change is. Make those edits, then build, run the tests, write your "
+        + "report and call finish_spec. If an edit cannot be made, finish_spec's blocker says what blocks it.\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -100,10 +99,10 @@ internal static class MasterNudges
             // already recorded is not work, it is the run being finished.
             return "<system-reminder>\n"
                 + "Every step in the progress ledger is marked done. If the work is truly "
-                + "complete, verify (build + tests) and emit your verdict. Add a step only for "
+                + "complete, verify (build + tests), write your report and call finish_spec. Add a step only for "
                 + "work you have not done yet and that the checklist does not cover — a step "
                 + "that would only re-read or re-confirm evidence you already recorded is not "
-                + "remaining work, it means you are done: write the verdict.\n"
+                + "remaining work, it means you are done: write the report and call finish_spec.\n"
                 + "</system-reminder>";
         return "<system-reminder>\n"
             + "The update_progress tool has not been used recently. If you completed steps, mark "

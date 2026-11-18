@@ -59,9 +59,7 @@ public static class RunStorySnapshotBuilder
     /// 2026-08-25-7f5a: the acceptance half moved to <see cref="AcceptanceSnapshot"/> when it
     /// gained a second source. Kept as the one entry point the handler calls.
     /// </summary>
-    public static string? BuildAcceptanceJson(
-        RunAccounts? accounts, IReadOnlyList<DeclinedCriterion>? declined = null) =>
-        AcceptanceSnapshot.Build(accounts, declined);
+    public static string? BuildAcceptanceJson(RunAccounts? accounts) => AcceptanceSnapshot.Build(accounts);
 
     private static string StatusOf(ProgressStatus status) => status switch
     {

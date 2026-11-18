@@ -24,19 +24,13 @@ namespace AgentSmith.Application.Services.Expectations;
 public static class ExpectationPromptSection
 {
     /// <summary>
-    /// 2026-09-06-3d81: the third answer, stated. AcceptanceStatus has always had it and the
-    /// gate has always accepted it with a reason — a vocabulary nobody is told about is a
-    /// vocabulary nobody uses, and a criterion the repository makes impossible was fought pass
-    /// after pass or accepted in silence instead. Wording matches the master skill's own.
+    /// 2026-11-18-98fa: what is work rather than a reason to leave a line — moved here from the retired challenge
+    /// nudge. Nothing is judged per line any more; the master's report says what it saw for each.
     /// </summary>
-    private const string DeclineRule =
-        "A criterion this repository makes impossible — one no edit within this run's scope can make\n"
-        + "true — is neither fought pass after pass nor accepted in silence: dispose of it as\n"
-        + "`not_applicable`, and let its evidence carry the EVALUATED MEANING of not doing it — what is\n"
-        + "lost, and what would have to change elsewhere for it to hold. A bare \"N/A\" with no such\n"
-        + "reason does not count. Every declined criterion is reported to the ticket author.\n"
-        // 2026-10-13-3890a: what is work, not impossibility — one live master declined over a missing tool.
-        + Handlers.MasterChallengeNudge.WorkNotReasons;
+    internal const string WorkNotReasons =
+        "A command the repository's ecosystem ships as an installable tool (a dotnet tool, an npm dev "
+        + "dependency, a pip package in a venv) that is missing is work: install it with run_command and "
+        + "continue. A red test is work. A test the criteria ask for and nobody wrote is work.";
 
     public static string Build(PipelineContext pipeline)
     {
@@ -55,9 +49,10 @@ public static class ExpectationPromptSection
     private static string BuildFrom(IReadOnlyList<string> criteria) =>
         $"""
         ## Acceptance contract
-        The criteria below are the binding acceptance contract for this run — the same list the
-        framework judges it by. Implement exactly what they assert, no more and no less.
-        {DeclineRule}
+        The criteria below are this spec's done list. Implement exactly what they assert, no more and no
+        less. Your report says what you saw for each; a line you leave says why, and what would make it hold
+        goes into a follow-up.
+        {WorkNotReasons}
 
         ## Expected
         {string.Join("\n", criteria.Select(c => $"- {c}"))}

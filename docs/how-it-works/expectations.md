@@ -14,10 +14,6 @@ How you correct it depends on where the specification came from.
 
 **A specification a person approved.** A ticket filed from an approved design conversation — in the dashboard's [Work it out](work-it-out.md) page or in chat — carries the `spec:approved` label and its set is already on the ticket branch ([Spec dialogue](spec-dialogue.md) covers that side). The run works that set and never re-cuts it on its own: a comment or a ticket edit is reported once on the ticket as not acted on. To change a spec, say what should change in the ticket's conversation. Nobody edits the branch by hand. While a run is building a spec, a message from someone who may control runs reaches its agent, which can revise the spec it is building. One review of the changed spec decides, and an accepted revision is written to the ticket branch as the next revision of the series. A change to another spec is raised again once the run has ended. Otherwise the conversation proposes the change, and once you approve it, it is recorded for the next attempt, which continues the series by spec id. A spec that already ran is never edited, so a correction to one becomes a new spec. If you work from the tracker alone, write a comment whose first line says nothing but `cut this specification again`, and the next run cuts the unstarted specs again from the ticket. If the approved set is not on the branch when the run starts, the run parks the ticket and says which path it looked at.
 
-### Declined criteria
-
-Sometimes a criterion asks for something no work in this repository can make true. The master can decline it, with what not doing it means. Declined criteria are never silently dropped: they show in the completion comment on the ticket, in the PR body under "Declined by the run", in `result.md`, and in the run's Verify card.
-
 ## When the run hands the ticket back
 
 Some tickets shouldn't be built as written, and the run says so instead of guessing. These hand-backs happen at derivation, before a single line is written; each one comments on the ticket and parks it.
@@ -50,7 +46,7 @@ The practical consequence: asking the human stops being expensive. A run that wo
 
 - Runs list: `waiting_for_input` runs are visibly parked; a resumed run waiting for capacity shows like any queued run, with its position.
 - The ticket: the question or hand-back as a comment, the ticket parked in `needs_clarification_status` where that applies.
-- `result.md`: the masters' reports, declined criteria, and any ticket instructions the run chose to ignore.
+- `result.md`: the masters' reports and any ticket instructions the run chose to ignore.
 
 ## Next
 

@@ -23,8 +23,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class ShortfallDeliveryTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled","citations":["src/Guard.cs"]},{"criterion":"criterion 2","status":"met","evidence":"preserved","citations":["src/Guard.cs"]}]}""";
 
     private const string BudgetReason =
         "per-pipeline cost budget exhausted: 8.02 USD of 8.00 USD spent";
@@ -42,7 +40,7 @@ public sealed class ShortfallDeliveryTests
             // spec 1: green, verified, accounted, recorded
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             // spec 2: the master dies on the money fence before it does anything
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 

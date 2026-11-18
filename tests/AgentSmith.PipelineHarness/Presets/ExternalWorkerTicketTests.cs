@@ -30,9 +30,6 @@ public sealed class ExternalWorkerTicketTests
 
     private const string AttackBuild = """{"verdict": "BUILD", "cuts": [], "findings": []}""";
 
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""";
-
     private static ScriptedWorkerProcessRunner MechanicalTicketWorker() =>
         new ScriptedWorkerProcessRunner()
             // p0413a: ScopeRepos estimates every ticketed run — one repository has
@@ -46,7 +43,7 @@ public sealed class ExternalWorkerTicketTests
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress",
                 """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
     [Fact]
     public async Task Harness_MechanicalTicket_DrivenExternally_EndsGreen()

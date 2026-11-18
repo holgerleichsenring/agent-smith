@@ -6,49 +6,40 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Specs;
 
-/// <summary>2026-11-18-c8e2c: a spec's account is its master's report, its dispositions paired with the done lines.</summary>
+/// <summary>2026-11-18-98fa: a spec's account is its master's markdown report and the follow-ups finish_spec carried —
+/// no rows, nothing judged per done line.</summary>
 public sealed class MasterReportAccountTests
 {
-    private static readonly string[] Done = ["GET /orders/{id} returns 404", "Exports stream CSV", "Legacy DTO stays", "Logs once"];
+    private static readonly string[] Done = ["GET /orders/{id} returns 404", "Exports stream CSV"];
 
     [Fact]
-    public void For_AReport_MapsEachLineByNameWithItsWhyAndCarriesTheRest()
+    public void For_AFinishedSpec_CarriesTheReportAndFollowUpsAndNoRows()
     {
-        var pipeline = Pipeline(Report(
-            ("Exports stream CSV", AcceptanceStatus.NotMet, "needs paging; follow-up", null),
-            ("GET /orders/{id} returns 404", AcceptanceStatus.Met, "the controller", ["src/Orders.cs"]),
-            ("Legacy DTO stays", AcceptanceStatus.NotApplicable, "no DTO in this repository", null)));
-
-        var account = MasterReportAccount.For(pipeline, ["api"]);
+        var account = MasterReportAccount.For(Pipeline(Finished("## Delivered\n- the 404", "Exports stream CSV over paging")), ["api"]);
 
         account.RepoKey.Should().Be("api");
-        account.Criteria.Select(c => (c.Criterion, c.Disposition, c.Citation, c.Note)).Should().Equal(
-            ("GET /orders/{id} returns 404", AccountDisposition.Satisfied, "src/Orders.cs", "the controller"),
-            ("Exports stream CSV", AccountDisposition.NotSatisfied, null, "needs paging; follow-up"),
-            ("Legacy DTO stays", AccountDisposition.NotApplicable, null, "no DTO in this repository"),
-            ("Logs once", AccountDisposition.NotSatisfied, null, MasterReportAccount.NoDisposition));
-        account.FixedInPassing.Should().Equal("a null check");
+        account.Criteria.Should().BeEmpty();
+        account.Report.Should().Be("## Delivered\n- the 404");
         account.FollowUps.Should().ContainSingle().Which.Goal.Should().Be("Exports stream CSV over paging");
     }
 
     [Fact]
-    public void For_AfterAStageRepairThatRestatesOneLine_TheOthersKeepTheFirstPass()
+    public void For_AfterAStageRepair_TheRepairsReportStands_AndBothPassesFollowUpsAreKept()
     {
-        var pipeline = Pipeline(Report(("Logs once", AcceptanceStatus.Met, "fixed the build", ["src/Log.cs"])));
-        pipeline.Set(ContextKeys.MasterVerificationBeforeRepair,
-            Report(("GET /orders/{id} returns 404", AcceptanceStatus.Met, "the controller", ["src/Orders.cs"])));
+        var pipeline = Pipeline(Finished("repair report", "second"));
+        pipeline.Set(ContextKeys.MasterVerificationBeforeRepair, Finished("first report", "first"));
 
         var account = MasterReportAccount.For(pipeline, ["api"]);
 
-        account.Criteria[0].IsSatisfied.Should().BeTrue("the repair did not restate it, so the first pass's disposition stands");
-        account.Criteria[3].Citation.Should().Be("src/Log.cs");
+        account.Report.Should().Be("repair report");
+        account.FollowUps!.Select(f => f.Goal).Should().Equal("first", "second");
     }
 
     [Fact]
-    public void Missing_DoneLinesAndNoReport_SaysSo_AReportOrNoDoneList_IsNotMissing()
+    public void Missing_DoneLinesAndNoFinishSpec_SaysSo_AFinishOrNoDoneList_IsNotMissing()
     {
-        MasterReportAccount.Missing(Pipeline(null)).Should().Contain("without its report");
-        MasterReportAccount.Missing(Pipeline(Report())).Should().BeNull();
+        MasterReportAccount.Missing(Pipeline(null)).Should().Be(MasterReportAccount.NoFinish).And.Contain("without finish_spec");
+        MasterReportAccount.Missing(Pipeline(Finished("r", "f"))).Should().BeNull();
         MasterReportAccount.Missing(new PipelineContext()).Should().BeNull();
     }
 
@@ -60,9 +51,7 @@ public sealed class MasterReportAccountTests
         return pipeline;
     }
 
-    private static MasterVerification Report(params (string Criterion, AcceptanceStatus Status, string Why, string[]? Cites)[] lines) =>
+    private static MasterVerification Finished(string report, string followUp) =>
         new(VerificationStatus.Green, true, true, true, true, "s",
-            AcceptanceDispositions: [.. lines.Select(l => new AcceptanceDisposition(l.Criterion, l.Status, l.Why) { Citations = l.Cites })],
-            FixedInPassing: ["a null check"],
-            FollowUps: [new MasterFollowUp("Exports stream CSV over paging", "paging is its own design")]);
+            FollowUps: [new MasterFollowUp(followUp, "its own design")], Report: report);
 }

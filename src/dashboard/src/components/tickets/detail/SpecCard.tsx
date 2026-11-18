@@ -7,6 +7,7 @@ import { useTicketDefaults, useTicketDetail } from "@/lib/tickets/TicketPageStor
 import type { TicketDefault, TicketSeriesCriterion, TicketSeriesSpec } from "@/types/tickets";
 import { RUNS_CONTROL } from "./RetryUnchanged";
 import { criteriaTally } from "./reportWords";
+import { MasterReportText } from "./TicketFollowUps";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-11-16-6877a: the spec an attempt delivered, as a card inside its report. Closed it names the spec and how many
@@ -32,6 +33,7 @@ export function SpecCard({ spec, runId }: { spec: TicketSeriesSpec; runId: strin
         <div className="tk-spec-body" id={bodyId}>
           <div className="tk-spec-goal">{spec.goal}</div>
           {spec.done.map((c, i) => <Criterion key={i} criterion={c} />)}
+          <MasterReportText spec={spec} />
           {defaults.map((d) => <Decided key={d.id} entry={d} />)}
           <button type="button" className="tk-link" onClick={() => address.go("specs", { [SPEC_PARAM]: spec.specId })}
             data-testid="spec-card-open">Open the whole spec</button>

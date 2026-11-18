@@ -2,7 +2,6 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
-using DeclinedCriteriaLedger = AgentSmith.Application.Services.Handlers.DeclinedCriteriaLedger;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -55,7 +54,6 @@ public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpec
     private static string? AcceptanceOf(PipelineContext pipeline, string specId)
     {
         var accounts = RunAccountLedger.Current(pipeline).Specs.Where(s => s.SpecId == specId).ToList();
-        var declined = DeclinedCriteriaLedger.Current(pipeline).All.Where(d => d.SpecId == specId).ToList();
-        return AcceptanceSnapshot.Build(accounts.Count > 0 ? new RunAccounts(accounts) : null, declined);
+        return AcceptanceSnapshot.Build(accounts.Count > 0 ? new RunAccounts(accounts) : null);
     }
 }

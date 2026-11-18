@@ -295,11 +295,11 @@ public sealed class VerifySpecHandlerTests
     }
 
     /// <summary>
-    /// 2026-11-18-c8e2c: green, the spec's account is its master's report — a line the master left not met, with its
-    /// why, is recorded as unmet and the spec is done; nothing is spliced.
+    /// 2026-11-18-c8e2c / 98fa: green, the spec's account is its master's markdown report with the follow-ups finish_spec
+    /// carried — nothing is judged per done line, and the spec is done; nothing is spliced.
     /// </summary>
     [Fact]
-    public async Task VerifySpec_GreenWithANotMetLineInTheReport_IsDoneWithTheReportAsAccount()
+    public async Task VerifySpec_GreenWithAFinishedMaster_IsDoneWithTheReportAsAccount()
     {
         var draft = new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated", "exports stream"] };
         var (context, _) = Setup(Map("csharp", new CiConfig(true, "dotnet build", null, null)), draft);
@@ -307,23 +307,22 @@ public sealed class VerifySpecHandlerTests
         context.Pipeline.Set(ContextKeys.SpecSet, new AgentSmith.Contracts.Specs.SpecSet("k",
             [new AgentSmith.Contracts.Specs.DerivedSpec(draft, "p1", string.Empty, [])],
             AgentSmith.Contracts.Specs.SpecAccounting.Empty, [], AgentSmith.Contracts.Specs.SpecSource.Derived));
-        context.Pipeline.Set(ContextKeys.MasterVerification, Report(
-            ("the handler is migrated", AcceptanceStatus.Met, "Handler.cs"), ("exports stream", AcceptanceStatus.NotMet, "a follow-up")));
+        context.Pipeline.Set(ContextKeys.MasterVerification, Report("## Delivered\nthe handler; exports stream left for a follow-up"));
         var events = AgentSmith.Tests.TestHelpers.EventTestStubs.Recording();
 
         var result = await Handler(events).ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().BeNullOrEmpty("no repair follows a report");
-        result.Message.Should().Contain("1 of 2 done line(s) met");
+        result.Message.Should().Contain("1 follow-up(s) proposed");
         var recorded = events.Events.OfType<AgentSmith.Contracts.Events.SpecStateChangedEvent>().Single();
         recorded.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.Done);
-        recorded.AcceptanceJson.Should().Contain("exports stream").And.Contain("unmet").And.Contain("a follow-up");
+        recorded.AcceptanceJson.Should().Contain("## Delivered").And.Contain("Exports stream over paging");
     }
 
-    private static MasterVerification Report(params (string Criterion, AcceptanceStatus Status, string Evidence)[] lines) =>
+    private static MasterVerification Report(string markdown) =>
         new(VerificationStatus.Green, true, true, true, true, "s",
-            AcceptanceDispositions: [.. lines.Select(l => new AcceptanceDisposition(l.Criterion, l.Status, l.Evidence))]);
+            FollowUps: [new MasterFollowUp("Exports stream over paging", "paging is its own design")], Report: markdown);
 
     /// <summary>2026-10-17-a196a: a server spec in a two-repository run is built, accounted and handed
     /// back over the server alone — the worker belongs to the spec that names it.</summary>
@@ -339,7 +338,7 @@ public sealed class VerifySpecHandlerTests
             new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"], Repos = ["server"] });
         context.Pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
-        context.Pipeline.Set(ContextKeys.MasterVerification, Report(("the handler is migrated", AcceptanceStatus.NotMet, "left open")));
+        context.Pipeline.Set(ContextKeys.MasterVerification, Report("the handler left open"));
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 

@@ -18,8 +18,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class SeriesPremiseSupersessionTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
 
     private const string TwoSpecs = """
         {"specs": [
@@ -57,10 +55,10 @@ public sealed class SeriesPremiseSupersessionTests
             .EnqueueText(TwoSpecs)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict)
+            .EnqueueFinish()
             .EnqueueText("Planning: migrate the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// callers"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueFinish();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");

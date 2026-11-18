@@ -30,7 +30,11 @@ internal sealed class ContextPressureFinalizingChatClient(
         "The conversation has reached the input limit of the model running it. Stop "
         + "calling tools and reply now with your final answer, in the exact format your "
         + "instructions demand, based on the evidence you have already gathered. "
-        + "Omit anything you found no evidence for. No prose about the limit.";
+        + "Omit anything you found no evidence for. No prose about the limit. When your tools include "
+        + "finish_spec, write your report and call finish_spec, and no other tool.";
+
+    // 2026-11-18-98fa: the one call a spec's master ends with; the finalising turn leaves it callable.
+    private const string ClosingTool = "finish_spec";
 
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -78,11 +82,11 @@ internal sealed class ContextPressureFinalizingChatClient(
         + "window (models.<role>.context_window_tokens, if the deployment allows it) or a smaller prompt.";
 
     // Tools stay declared — a provider rejects a request whose history carries tool
-    // blocks without the tools parameter — but ToolMode=None forbids further calls.
+    // blocks without the tools parameter — but ToolMode=None forbids further calls; 98fa: Auto while finish_spec is declared.
     private static ChatOptions FinalizeOptions(ChatOptions options)
     {
         var clone = options.Clone();
-        clone.ToolMode = ChatToolMode.None;
+        clone.ToolMode = options.Tools!.Any(t => t.Name == ClosingTool) ? ChatToolMode.Auto : ChatToolMode.None;
         return clone;
     }
 }

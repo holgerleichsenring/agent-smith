@@ -98,7 +98,7 @@ Click a step and its detail opens in place: its status, where its time went and 
 
 A spec's master works through a sub-agent, and its step shows both: the sub-agent starting, its own tool calls under its name, what the master wrote to it ("to *builder*: …"), work sent back ("sent back to *builder*: …"), and how each pass of it ended.
 
-In **Checked against the spec**, each done line shows what the spec's master reported — met, not applicable or not met — with the evidence it cites and its why, followed by what it **fixed in passing** and the **proposed follow-ups**. When you think a line is wrong, **this verdict is wrong** records your own judgement with a reason. That's a label for later measurement; it doesn't re-open anything. How the report comes about is on [how a spec is checked](../../how-it-works/delivery-account.md).
+In **Checked against the spec**, each spec shows its master's report as it wrote it, in markdown, followed by the **proposed follow-ups**; the ticket page files one with **File as a ticket**. Runs from before keep their per-line rows and the **this verdict is wrong** judgement. How the report comes about is on [how a spec is checked](../../how-it-works/delivery-account.md).
 
 The header of the detail page carries **cancel** and **delete**, both with a confirming second click. Cancel enforces: graceful window, then force-kill, pods released ([cancel semantics](capacity.md#cancel-is-a-state-not-a-wish)). Failures lead with why: a cancelled run says who cancelled it, a timeout names the limit that fired.
 

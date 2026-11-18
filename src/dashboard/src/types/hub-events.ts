@@ -984,6 +984,15 @@ export interface RunAcceptance {
   fixedInPassing?: string[] | null;
   /** 2026-11-18-c8e2d: the follow-up specs the masters proposed, each with the spec it came from. */
   followUps?: FollowUp[] | null;
+  /** 2026-11-18-98fa: each spec master's markdown report, shown as written and never parsed. Present on runs whose
+   *  masters ended with finish_spec — they carry no criterion rows. */
+  reports?: MasterReport[] | null;
+}
+
+/** 2026-11-18-98fa: one spec master's report — markdown, rendered as written. */
+export interface MasterReport {
+  markdown: string;
+  specId?: string | null;
 }
 
 /** 2026-11-18-c8e2d: a follow-up spec a master proposed instead of holding its spec for it. */

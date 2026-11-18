@@ -28,8 +28,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class RecordedCallsCompositionTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""";
+    // 2026-11-18-98fa: the worker's closing answer; the ledger and the result's total are this test's subject.
+    private const string GreenVerdict = "Done.";
 
     [Fact]
     public async Task Harness_WorkerAnsweredRun_LedgerMatchesTheRecordedCalls()
