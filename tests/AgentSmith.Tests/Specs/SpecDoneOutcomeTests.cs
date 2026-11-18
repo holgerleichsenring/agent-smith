@@ -38,29 +38,13 @@ public sealed class SpecDoneOutcomeTests
     [Fact]
     public void SpecOutcomeBlock_MultiLineText_RendersAsParseableYaml()
     {
-        var yaml = SpecOutcomeBlock.Render("run-1", "## What this spec delivers\n\n- [x] it works\n", string.Empty);
+        var yaml = SpecOutcomeBlock.Render("run-1", "## What this spec delivers\n\n- [x] it works\n");
 
         var outcome = Outcome(yaml);
         outcome["run"].Should().Be("run-1");
         outcome["delivered"].Should().Be("## What this spec delivers\n\n- [x] it works");
         outcome.Should().NotContainKey("review", "an empty section is not written");
         yaml.Should().Contain("delivered: |-", "multi-line text is a literal block a person can read");
-    }
-
-    [Fact]
-    public void SpecRecordBody_SpecAndOutcome_AreOneYamlDocument()
-    {
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, "run-2");
-        SpecReviewLedger.Record(pipeline, SpecReviewReport.NotTaken("the review call failed"));
-
-        var body = SpecRecordBody.For(Set().Specs[0].Draft, pipeline);
-
-        var doc = new DeserializerBuilder().Build().Deserialize<Dictionary<string, object>>(body);
-        doc["spec"].Should().Be(A);
-        var outcome = (Dictionary<object, object>)doc[SpecOutcomeBlock.Key];
-        outcome["run"].Should().Be("run-2");
-        ((string)outcome["review"]).Should().Contain("not reviewed: the review call failed");
     }
 
     [Fact]

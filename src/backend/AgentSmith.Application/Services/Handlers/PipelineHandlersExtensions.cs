@@ -192,11 +192,7 @@ public static class PipelineHandlersExtensions
             .AddTransient<AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter>();
         // p0420: delivery is accounted for against the branch, not inferred from the run.
         services.AddTransient<DeliveryDiff>().AddTransient<BranchChangedFiles>().AddTransient<RunResultChanges>();
-        services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
-        services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
-        services.AddTransient<Specs.SpecDeliveryAccounting>().AddTransient<Specs.SpecEntryAccount>();
         services.AddTransient<ICommandHandler<VerifySpecContext>, VerifySpecHandler>().AddTransient<VerifyPassReporter>(); // p0393, d6fbc
-        services.AddTransient<ICommandHandler<ReviewSpecDiffContext>, ReviewSpecDiffHandler>(); // 042eh
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddSpecExecution(); // 2026-08-26-31e5

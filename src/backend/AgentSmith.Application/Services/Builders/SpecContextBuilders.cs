@@ -73,13 +73,3 @@ public sealed class CheckSpecPremisesContextBuilder : IContextBuilder
     }
 }
 
-/// <summary>
-/// 2026-09-17-042eh: the spec review needs the agent config its call is made under; the
-/// spec, its start heads, its diff and its principles are all already in the bag.
-/// </summary>
-public sealed class ReviewSpecDiffContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(
-        PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
-        new ReviewSpecDiffContext(pipeline.Resolved().Agent, pipeline);
-}

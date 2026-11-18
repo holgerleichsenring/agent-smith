@@ -96,7 +96,6 @@ What happens next:
 - No excess: the step passes and says how much it judged, "structure judged 12 file(s) in 2 context(s), within their Limits". Divergences go to the pull request.
 - The first excess in a spec: the master gets one correction pass, with every finding as `path unit: metric value > limit`. Master, open questions and commit run again, ahead of `VerifySpec`.
 - An excess after that pass: the spec fails, recorded with every finding. The sequence stops there like any other red spec.
-- Inside the fix pass that follows the diff review, any finding undoes the fix, as a red build does.
 - A grammar that won't load fails the spec too, with the reason.
 
 ## When it judged nothing

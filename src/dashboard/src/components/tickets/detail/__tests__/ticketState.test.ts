@@ -66,10 +66,9 @@ describe("ticketState", () => {
     expect(view.act).toMatchObject({ kind: "retry" });
   });
 
-  it("ticketState_CriteriaUnmet_LinksTheOverrule", () => {
+  it("ticketState_StoredCriteriaUnmet_OffersTheNextAttemptNotAnOverrule", () => {
     const view = state(failedTicket({ endKind: "criteria-unmet" }));
-    expect(view.act).toMatchObject({ kind: "link", label: "Overrule in the run", href: "/jobs/r-2" });
-    expect(view.act && "note" in view.act ? view.act.note : "").toContain("not re-run");
+    expect(view.act).toEqual(CONTINUE);
   });
 
   it("ticketState_UnclassifiedFailure_OffersContinueInConversation", () => {
@@ -129,7 +128,7 @@ describe("ticketState", () => {
     d.summary = { ...d.summary, pullRequests: [pr({ number: "810", state: "open" })] };
     const view = state(d);
     expect(view.pill).toBe("Failed");
-    expect(view.sentence).toBe("Attempt 2 failed: the acceptance gate did not accept a criterion.");
+    expect(view.sentence).toBe("Attempt 2 failed: the verifier of that time did not accept a criterion.");
     expect(view.pullRequests.map((p) => p.number)).toEqual(["810"]);
   });
 

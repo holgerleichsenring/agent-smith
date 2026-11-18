@@ -108,19 +108,20 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
     {
         await using var session = await DockerHarnessSession.CreateAsync(
             FixturePaths.ReferenceSource(reference));
+        var events = new PassEvents();
         await using var harness = RealCompositionHarness.Build(
-            FixturePaths.For(FixturePaths.DockerPolyglot), SandboxBackend.Docker, session);
+            FixturePaths.For(FixturePaths.DockerPolyglot), SandboxBackend.Docker, session,
+            services => services.AddSingleton<AgentSmith.Contracts.Events.IEventPublisher>(events));
         Script(harness, edit);
 
         var runner = new PipelineRunner(harness.Services) { RepoOverride = DockerHarnessRepo.For(session) };
         var result = await runner.RunAsync("code");
 
         output.WriteLine($"pipeline result: {result.IsSuccess} — {result.Message}");
-        var shown = harness.Services.GetRequiredService<HarnessSpecAccountant>().CommandResultsShown;
-        return new Run(result, StageLines(shown), FailingCommand(runner.LastContext!));
+        return new Run(result, events.StageLines, FailingCommand(runner.LastContext!));
     }
 
-    /// <param name="StageLines">The verify outcomes the run's delivery account was shown,
+    /// <param name="StageLines">The verify outcomes the run's verify passes recorded,
     /// one per stage that ran.</param>
     /// <param name="FailingCommand">The spec's failing command, empty when none failed.</param>
     private sealed record Run(
@@ -157,10 +158,24 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
 
     // SpecEvidence renders a verify outcome as "{repo}: {stage} '{command}' exited {code}".
     // The repository key is the harness session's, so the assertion is on what follows it.
-    private static IReadOnlyList<string> StageLines(IReadOnlyList<string> shown) =>
-        [.. shown
-            .Where(line => line.Contains(" exited ", StringComparison.Ordinal))
-            .Select(line => line[(line.IndexOf(": ", StringComparison.Ordinal) + 2)..])];
+    /// <summary>2026-11-18-c8e2c: the stages each verify pass ran, as the run log reads them.</summary>
+    private sealed class PassEvents : AgentSmith.Contracts.Events.IEventPublisher
+    {
+        private readonly List<string> _lines = [];
+
+        public IReadOnlyList<string> StageLines
+        {
+            get { lock (_lines) return [.. _lines]; }
+        }
+
+        public Task PublishAsync(AgentSmith.Contracts.Events.RunEvent runEvent, CancellationToken cancellationToken = default)
+        {
+            if (runEvent is AgentSmith.Contracts.Events.VerifyPassRecordedEvent pass)
+                lock (_lines) _lines.AddRange(pass.Repositories.SelectMany(r => r.Stages)
+                    .Where(s => !s.Skipped).Select(s => $"{s.Stage} '{s.Command}' exited {s.ExitCode}"));
+            return Task.CompletedTask;
+        }
+    }
 
     private string FailingCommand(PipelineContext context)
     {

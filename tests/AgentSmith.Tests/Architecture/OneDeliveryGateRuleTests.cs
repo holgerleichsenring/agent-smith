@@ -32,7 +32,9 @@ public sealed class OneDeliveryGateRuleTests
             .Distinct()
             .ToList();
 
-        deciders.Should().BeEquivalentTo([$"{nameof(RunDeliveryGate)}.{nameof(RunDeliveryGate.Evaluate)}"],
+        // 2026-11-18-c8e2c: one gate, two readings — a scan's contract (Evaluate) and a code run's mechanical problems.
+        deciders.Should().BeEquivalentTo([$"{nameof(RunDeliveryGate)}.{nameof(RunDeliveryGate.Evaluate)}",
+                $"{nameof(RunDeliveryGate)}.{nameof(RunDeliveryGate.Mechanical)}"],
             "a second method deciding delivery is a second author for a wrong verdict — "
             + "the run's outcome is read from the accounts, in one place");
     }

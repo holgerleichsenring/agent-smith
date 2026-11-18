@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-c8e2c
+goal: "VerifySpec only runs the build and test stages; the spec's account is the master's report; the fresh verifier, its repair pass, the entry account and the spec diff review are deleted."
+
+applies_to: "default (Handlers/VerifySpecHandler, SelectSpecHandler, ReviewSpecDiffHandler, CommitAndPRHandler, WriteRunResultHandler; Application/Services/Specs; SpecRepairScope, RunDeliveryGate, SpecExecutionPromptBlocks; Contracts/Commands spec block; dashboard run log and ticket state; docs)"
+
+requires: [2026-11-18-c8e2b]
+
+facts:
+  - claim: "After a green mechanical pass VerifySpec takes the spec's account through SpecDeliveryAccounting -> ISpecAccountant (a fresh model given the criteria, commands and diff), records it in ContextKeys.SpecAccounts and the RunAccountLedger, fails the spec with RunEndKinds.CriteriaUnmet on an outstanding criterion, and hands outstanding criteria back for one repair pass (master, questions, commit, verify)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:160-224, src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:45-77, src/backend/AgentSmith.Application/Services/Specs/SpecDeliveryAccounting.cs:26-80"
+  - claim: "A red declared stage gets one repair pass through StageRepair, sharing SpecRepairAttempted with the account repair; the master's next prompt quotes the red output from ContextKeys.OutstandingCriteria."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StageRepair.cs:17-40, src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:45-58"
+  - claim: "SelectSpec takes an entry account with the same accountant and skips a spec it finds satisfied; 2026-11-18-550ab added PreviousAttemptFindings there, 2026-11-18-d6d2c added AccountRecord, AccountRecordPrompt, CriterionAccount.Advice and VerifiedHeads' repair base."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:22-110, src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:24-40"
+  - claim: "ReviewSpecDiff runs after VerifySpec in the code spec block, reviews the spec's diff with a fresh instance and splices one fix pass that SpecReviewRevert undoes when its verification fails."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:42-62, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:27-116"
+  - claim: "The run's delivery gate fails a run whose accounts hold an outstanding criterion, an unaccounted problem, nothing proven, or ratified criteria and no account; CommitAndPR takes an account itself when no spec ran."
+    evidence: "src/backend/AgentSmith.Application/Services/RunDeliveryGate.cs:31-62, src/backend/AgentSmith.Application/Services/Specs/SpecDeliveryAccounting.cs:83-100"
+  - claim: "Every reader of a spec's acceptance — the spec record body, the pull request's account section, the run snapshot's acceptance view, SpecStateChangedEvent.AcceptanceJson and the ticket page — reads SpecAccount rows from ContextKeys.SpecAccounts and the RunAccountLedger; AcceptanceSnapshot labels them AcceptanceSources.DeliveryAccount."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecordBody.cs:22-38, src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:51-64, src/backend/AgentSmith.Application/Services/Specs/SpecProgressRecorder.cs:50-60"
+
+scope:
+  in: "VerifySpec runs the stages as today; red blocks the spec and goes back to the master once (StageRepair, now the only repair); a spec still red fails as today. Green: the spec's account is built from the master's verdict for this spec (MasterReportAccount: its dispositions paired with the spec's criteria — met is satisfied with its first citation, not applicable with its reason, not met or no disposition is not satisfied with the master's why or 'no disposition in the master's report'; the report's fixed in passing and follow-ups ride on the SpecAccount) and recorded where the accountant's was, so every reader shows the master's report; AcceptanceSnapshot names the source MasterVerification. An outstanding line ends nothing: no CriteriaUnmet verdict, and the spec run no longer passes its accounts through RunDeliveryGate, which stays the scan coverage gate it also is (outstanding, nothing proven) with NothingProven. The unverified-delivery rule (work delivered, no command ran over it, 2026-08-28-5f71) stays a mechanical failure in VerifySpec. After a stage repair the spec's report is the repair pass's verdict per criterion, falling back to the first pass's disposition for a line the repair did not restate (StageRepair keeps the first verdict under ContextKeys.MasterVerificationBeforeRepair). The master's verdict is cleared when a spec is entered so no spec inherits its predecessor's. Deleted: the accountant and everything only it uses, SpecDeliveryAccounting, SpecEntryAccount and the already-satisfied skip, PreviousAttemptFindings with IRunSpecAcceptanceReader, AccountRecord/AccountRecordPrompt, CriterionAccount.Advice, the repair base in VerifiedHeads, the criteria repair in VerifySpecHandler and SpecVerdict (RepairSteps moves to StageRepair), NothingProven where only the gate used it, ReviewSpecDiff with its handler, context, preset step, fix pass, revert, ledger, reviewer, prompt, publisher, SpecReviewSection in the record and the pull request, SpecDiffs, RatifiedMockReview, DiffReviewTemplates, the accountant eval suite in the harness, and their keys in SpecRepairScope. Kept for stored runs: the ReviewSpecDiff command name and its labels, SpecReviewedEvent with its projection and rename entry, SelectSpecHandler.AlreadySatisfiedNote (read by the record and memory outcome for old progress rows). The repair prompt block speaks of the red stage only. Dashboard: the criteria-unmet end kind's overrule act and wording, and ReviewSpecDiff's labels. Docs and website pages describing the verifier, its repair and the diff review (delivery-account, methodology, lifecycle, fix-and-feature, specs-and-runs, structure-limits, pipeline-system, expectations, end-to-end, skills-catalog, index, dashboard reference, website index and llms.txt) describe the master's report and the mechanical gate. CommandModelUse drops the spec-account rows of SelectSpec, VerifySpec and CommitAndPR. RunEndKinds.CriteriaUnmet stays readable for stored runs."
+  out: "Rendering the report's fixed in passing and follow-ups and the master/child view (2026-11-18-c8e2d). The per-criterion judgement control (it judges whatever report the run shows and feeds metrics and memory evidence, not the gate). Scan coverage accounting (ScanCoverageAccountant, its own path). Stored events and rows keep their shape."
+
+upgrade_impact: "No setting. Runs no longer stop on a not-met criterion and no longer skip a spec at entry; a spec whose work is already on the branch is worked by its master, who finds it done. Stored runs with criteria-unmet ends still render. Memory outcomes and the criteria-met metric now rest on the master's report instead of an independent account; scan runs keep their coverage gate unchanged."
+
+steps:
+  - id: characterise
+    action: "Before changing VerifySpec: a test pins today's outcome table — green+all met: ok; green+outstanding: fail criteria-unmet with one repair; red declared stage: one repair, then fail; delivered with nothing run: fail — the new rows keep red and unverified and change only the outstanding row, recorded in decisions."
+  - id: account
+    action: "MasterReportAccount.For(pipeline, repoKeys) builds the SpecAccount; SpecAccount gains FixedInPassing and FollowUps; VerifySpecHandler records it after a green pass; SelectSpecHandler removes ContextKeys.MasterVerification on entry; AcceptanceSnapshot source MasterVerification."
+  - id: delete
+    action: "Delete the accountant family, SpecDeliveryAccounting, SpecEntryAccount, PreviousAttemptFindings and IRunSpecAcceptanceReader with its readers, AccountRecord*, CriterionAccount.Advice, VerifiedHeads repair base, SpecVerdict, ReviewSpecDiff and its family, their DI, keys, command names, beats, labels and model-use rows; CommitAndPR's TakeOrReuse; RunDeliveryGate's non-mechanical refusals. Their tests go with them; tests that read them are migrated."
+  - id: readers
+    action: "Dashboard: drop the criteria-unmet overrule act and copy (ticketState, yourMove, attemptOutcome, deliveryFormat keep a word for stored runs), ReviewSpecDiff labels; docs pages: delivery-account, methodology, lifecycle, fix-and-feature, specs-and-runs, structure-limits, dashboard reference."
+
+tests:
+  - "VerifySpecOutcomeTests: red declared stage hands the output back once, still red fails; green records the master's report as the account; an outstanding line in the report passes the spec; no verdict records rows not satisfied with 'no disposition'."
+  - "MasterReportAccountTests: pairing by name, met with citation, not applicable, not met with why, missing disposition, fixed in passing and follow-ups carried."
+  - "AccountScanCoverage tests keep failing a scan on an outstanding or nothing-proven criterion; a spec run's outcome no longer consults RunDeliveryGate."
+  - "MasterReportAccountTests: after a stage repair whose verdict restates one line, the other line keeps the first pass's disposition."
+  - "Harness presets that scripted the accountant or the diff review run without them."
+
+done:
+  - "No code path asks a fresh model to account for a spec or review its diff; ReviewSpecDiff is not a step of any preset."
+  - "A green spec's record, pull request and acceptance view show the master's report rows; a not-met line in it does not fail the spec or the run."
+  - "A red declared stage goes back to the master once with its output; still red, the spec fails as today."

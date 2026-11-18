@@ -123,11 +123,6 @@ public sealed class SpecExecutionTests
 
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
 
-        // 2026-09-17-042eh: the verified spec's own diff reaches a fresh instance — the step
-        // is in the block, so a preset that ships code asks this question once per spec.
-        harness.ChatClient.PromptsSeen.Should().Contain(
-            p => p.Contains(AgentSmith.PipelineHarness.Llm.SpecReviewScript.Marker, StringComparison.Ordinal),
-            "the spec review runs after the verification and before the record");
     }
 
     [Fact]
@@ -170,12 +165,9 @@ public sealed class SpecExecutionTests
     public async Task SpecExecution_SecondSpecFailsVerification_RecordsOnlyTheFirst()
     {
         await using var harness = BuildHarness(new SpecTicketProvider(SpecTicketBody()), TwoSpecSet());
-        // Outstanding at b's entry (so it is worked), at its gate and after its one repair pass
-        // (so it fails).
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding(SecondCriterion).LeaveOutstanding(SecondCriterion).LeaveOutstanding(SecondCriterion);
-        ScriptSpec(harness, "primary/src/Widget.cs");
-        ScriptSpec(harness, "primary/src/WidgetStore.cs");
+        RedForTheSecondSpec(harness);
+        ScriptSpec(harness, "primary/src/Widget.cs", "impl");
+        ScriptSpec(harness, "primary/src/WidgetStore.cs", "store");
         harness.ChatClient.EnqueueText(GreenVerdict);
 
         var runner = new PipelineRunner(harness.Services);
@@ -201,7 +193,7 @@ public sealed class SpecExecutionTests
     {
         await using var harness = BuildHarness(
             new SpecTicketProvider(SpecTicketBody()), TwoSpecSet() with { Executed = [First] });
-        ScriptSpec(harness, "primary/src/WidgetStore.cs");
+        ScriptSpec(harness, "primary/src/WidgetStore.cs", "store");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -219,10 +211,15 @@ public sealed class SpecExecutionTests
     private const string Second = "2026-10-06-5e5eb";
     private const string SecondCriterion = "POST /widget stores the widget";
 
-    private static void ScriptSpec(RealCompositionHarness harness, string path) =>
+    private static void ScriptSpec(RealCompositionHarness harness, string path, string step) =>
         harness.ChatClient
             .EnqueueToolCall("write_file", $$"""{"path":"{{path}}","content":"// work"}""")
-            .EnqueueText(GreenVerdict);
+            .EnqueueToolCall("update_progress", $$"""{"items":[{"id":"{{step}}","activity":"the work","status":"done"}]}""")
+            .EnqueueText($$"""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"done","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"the change","citations":["{{path["primary/".Length..]}}"]}]}""");
+
+    // 2026-11-18-c8e2c: b fails on a red stage — red at its verification and again after its one repair pass.
+    private static void RedForTheSecondSpec(RealCompositionHarness harness) =>
+        harness.StubSandboxFactory!.RedAfterWriting("WidgetStore.cs", "dotnet build", "error CS1002: ; expected");
 
     private static List<AgentSmith.Sandbox.Wire.Step> Steps(RealCompositionHarness harness) =>
         [.. harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps)];

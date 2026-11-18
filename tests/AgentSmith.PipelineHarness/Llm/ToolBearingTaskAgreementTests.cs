@@ -66,7 +66,6 @@ public sealed class ToolBearingTaskAgreementTests
         ("production", Production()),
         ("replay", new ReplayChatClientFactory(new ScriptedChatClient())),
         ("harness/scripted", ScriptedChatClientFactoryAdapter.Untraced(new ScriptedChatClient())),
-        ("harness/eval", new AccountEvalChatFactory(new ScriptedChatClient(), "eval-model")),
     ];
 
     /// <summary>

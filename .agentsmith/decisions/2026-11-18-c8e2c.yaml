@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-c8e2c
+
+decisions:
+  - category: Architecture
+    chose: "The spec's account is built from its master's verdict (MasterReportAccount) and recorded where the accountant's was — ContextKeys.SpecAccounts and the RunAccountLedger — so the record, the pull request, the acceptance view, SpecStateChangedEvent.AcceptanceJson and the ticket page show the master's report without a second path"
+    over: "A new report record and new readers beside SpecAccount"
+    reason: "Every reader already reads SpecAccount rows; filling them from the report migrates all of them at once and keeps stored rows readable. AcceptanceSnapshot names the source MasterVerification; only a scan's coverage account keeps DeliveryAccount."
+  - category: Behaviour
+    chose: "Characterisation rows that changed: green with an outstanding line now passes (was: fail criteria-unmet after one repair); green with no report at all fails ('ended without its report', was: accountant decided); red declared stage, one repair then fail — unchanged; delivered with nothing run — unchanged (still fails, now without an account)"
+    over: "Letting a spec without any report pass on a green build"
+    reason: "Existing VerifySpecHandlerTests, VerifySpecStageRepairTests and the FixBug/AddFeature presets pinned the old rows; they were updated in place. A master that gave no report left nobody's word on the spec — that is missing data, not a judgement, so it stays a failure (it replaces RunDeliveryGate's 'ratified criteria, none accounted' rule)."
+  - category: Behaviour
+    chose: "RunDeliveryGate keeps Evaluate for the scan coverage path unchanged (outstanding, nothing proven) and gains Mechanical for code runs: no account for ratified criteria, or a recorded mechanical problem, fails; an outstanding line does not"
+    over: "Deleting NothingProven and the outstanding refusal everywhere"
+    reason: "Review cut: AccountScanCoverageHandler fails scans through the same gate; scans keep their contract gate. OneDeliveryGateRuleTests now names both readings of the one gate."
+  - category: Behaviour
+    chose: "The unverified-delivery rule (2026-08-28-5f71) stays as a mechanical failure in VerifySpec"
+    over: "Deleting it with SpecVerdict"
+    reason: "Review cut: it lived in SpecVerdict.From; work shipped with no command run over it is exactly what a mechanical gate refuses."
+  - category: Behaviour
+    chose: "StageRepair is the only repair; before it re-runs the master it keeps the spec's verdict under ContextKeys.MasterVerificationBeforeRepair, and the account takes the repair's disposition per line, falling back to the first pass's"
+    over: "The repair's verdict wholesale"
+    reason: "Review cut: a repair master that reports only the red stage would otherwise leave every other line 'no disposition'."
+  - category: Scope
+    chose: "No entry account: SelectSpec no longer asks a model whether the branch already satisfies a spec"
+    over: "Keeping the accountant only for entry"
+    reason: "Resume does not depend on it: SpecSet.UnexecutedTail splices only specs not executed on the branch. A spec whose work is already there is worked by its master, who finds it done. AlreadySatisfiedNote stays as a constant for stored progress rows."
+  - category: Scope
+    chose: "Kept for stored runs: the ReviewSpecDiff command name and its labels (backend and dashboard), SpecReviewedEvent with its projection, the SpecReviewReport type, RunEndKinds.CriteriaUnmet with its words; deleted: the handler, context, preset step, fix pass, revert, ledger, reviewer, prompt, publisher, SpecDiffs, RatifiedMockReview, DiffReviewTemplates, the accountant family, its harness stand-in, eval suite and fixtures"
+    over: "Deleting the names too"
+    reason: "Historical runs must read with their labels; nothing new writes them."
+  - category: Behaviour
+    chose: "The criteria-unmet end of a stored run offers the next attempt instead of 'Overrule in the run'; a not-met line on the ticket page reads 'Not met' with a link to the run"
+    over: "Keeping the gate overrule act"
+    reason: "There is no gate left to overrule. The per-line 'this verdict is wrong' judgement stays: it labels a report for metrics and memory evidence, not a gate."
+  - category: Implementation
+    chose: "The harness's StubSandboxFactory gains AnswerAfterWriting/RedAfterWriting so a preset can make a build red after one spec's work"
+    over: "A harness accountant that withholds criteria"
+    reason: "The red build is now the only thing that stops a spec, so the harness drives that instead."
+  - category: Scope
+    chose: "CitationResolver's base-search branch (BranchSearch on NotApplicableAdmission) stays although only the retired accountant passed a search"
+    over: "Unpicking it in this spec"
+    reason: "The scan coverage account still uses CitationResolver; the unused optional parameter is dormant, not a second path. Follow-up: drop the search parameter from CitationResolver/NotApplicableAdmission."

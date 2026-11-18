@@ -19,7 +19,6 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
-    private readonly SpecReviewScript _specReviewScript = new();
     private readonly SpecAttackScript _specAttackScript = new(); // 2026-10-13-8762g
     private int _toolCallCounter;
 
@@ -45,10 +44,10 @@ public sealed class ScriptedChatClient : IChatClient
     /// <summary>2026-10-13-8762i: the calls the script answered — every call but the framework's own spec-review
     /// and attack-review calls, which a design turn now makes after its proposal.</summary>
     public int ScriptedInvocationCount =>
-        _callMessages.Count(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m));
+        _callMessages.Count(m => !SpecAttackScript.Answers(m));
 
     public IReadOnlyList<ChatMessage> LastScriptedMessages =>
-        _callMessages.LastOrDefault(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m))
+        _callMessages.LastOrDefault(m => !SpecAttackScript.Answers(m))
         ?? Array.Empty<ChatMessage>();
 
     /// <summary>Each call's messages joined to one string, in order.</summary>
@@ -73,16 +72,6 @@ public sealed class ScriptedChatClient : IChatClient
     public ScriptedChatClient EnqueueScopeReply(string text)
     {
         _scopeScript.Enqueue(text);
-        return this;
-    }
-
-    /// <summary>
-    /// 2026-09-17-042eh: scripts the spec review, which draws from its own slot
-    /// (see <see cref="SpecReviewScript"/>) instead of the FIFO.
-    /// </summary>
-    public ScriptedChatClient EnqueueSpecReviewReply(string text)
-    {
-        _specReviewScript.Enqueue(text);
         return this;
     }
 
@@ -147,8 +136,6 @@ public sealed class ScriptedChatClient : IChatClient
         FirstOptions ??= options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
-        if (SpecReviewScript.Answers(LastMessages))
-            return Task.FromResult(_specReviewScript.Next());
         if (SpecAttackScript.Answers(LastMessages))
             return Task.FromResult(_specAttackScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());

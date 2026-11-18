@@ -23,7 +23,7 @@ public sealed class StructureGateOutcomeMessageTests
         [new StructureFinding("src/A.cs", "A.Long()", StructureMetric.FunctionLines, 70, 55)]);
 
     private static StructureGateOutcome Outcome() =>
-        new(TestSpecReview.Revert(), new Mock<ISpecProgressRecorder>().Object);
+        new(new Mock<ISpecProgressRecorder>().Object);
 
     private static PipelineContext Spec()
     {
@@ -42,24 +42,6 @@ public sealed class StructureGateOutcomeMessageTests
 
         result.Message.Split('\n')[0].Should().StartWith("structure gate: 1 unit(s) over their Limits");
         result.Message.Should().EndWith(FormatNote);
-    }
-
-    [Fact]
-    public async Task StructureGateOutcome_FormatterNoteInFixPass_RevertReasonIsTheFinding()
-    {
-        var pipeline = Spec();
-        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.VerifiedHeads,
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["repo"] = "verified-sha" });
-        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken([new SpecFinding("repo", "src/A.cs", 4, "rule", "why", "P1")]));
-        SpecReviewFixPass.Prepare(pipeline);
-        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
-            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["repo"] = new StubSandbox() });
-        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries,
-            new Dictionary<string, RemoteContextDiscovery>());
-
-        await Outcome().ResolveAsync(pipeline, Found, FormatNote, CancellationToken.None);
-
-        pipeline.Get<string>(ContextKeys.SpecReviewReverted).Should().Contain("structure gate").And.NotContain("format:");
     }
 
     [Fact]

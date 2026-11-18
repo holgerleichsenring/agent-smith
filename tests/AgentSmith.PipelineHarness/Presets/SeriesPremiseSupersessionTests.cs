@@ -51,8 +51,6 @@ public sealed class SeriesPremiseSupersessionTests
             services.AddSingleton<ITicketProviderFactory>(new RecordingTicketProviderFactory(tickets));
         });
         ScriptTheBranch(harness.StubSandboxFactory!.GitAnswers);
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.Services.GetRequiredService<HarnessSpecPremiseChecker>()
             .FindsBySearchOnCall(2, "no caller references EmptyPayload yet", "EmptyPayload", "src");
         harness.ChatClient

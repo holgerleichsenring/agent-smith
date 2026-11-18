@@ -28,6 +28,10 @@ public static partial class ContextKeys
     /// keystone in CommitAndPRHandler to refuse success on an unverified/red run.</summary>
     public const string MasterVerification = "MasterVerification";
 
+    /// <summary>2026-11-18-c8e2c: the spec's verdict before a stage repair re-ran its master, so a line the repair's
+    /// verdict does not restate keeps the first pass's disposition. Cleared when a spec is entered.</summary>
+    public const string MasterVerificationBeforeRepair = "MasterVerificationBeforeRepair";
+
     /// <summary>2026-09-06-3d81: every criterion the run's masters declined (a
     /// <c>DeclinedCriteria</c>), kept per spec because the verdict above is overwritten by
     /// each pass. Recorded by AgenticMasterHandler, rendered wherever the outcome is read.</summary>

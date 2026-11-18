@@ -52,7 +52,6 @@ internal static class JsonAnswerReaderMatrix
 
     private static readonly Dictionary<string, (string Payload, string Cite, Func<string, string?> Read)> Readers = new()
     {
-        ["SpecAccountReader"] = (Rows, "[c2]", t => SpecAccountReader.Read(t)?.Count.ToString()),
         ["FindingRefutationReader"] = (Refutations, "[c2]", t => Refuter().Read(t)?.Count.ToString()),
         ["SpecCutAnswerReader"] = (Cuts, "[c2]", t => SpecCutAnswerReader.Read(t)?.Count.ToString()),
         ["SpecAttackAnswerReader"] = (Verdict, "{x}", t => SpecAttackAnswerReader.Read(t)?.Verdict),

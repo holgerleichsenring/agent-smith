@@ -30,15 +30,6 @@ public sealed class SpecRevisionGateTests
     }
 
     [Fact]
-    public async Task Refusal_FixPass_IsRefused()
-    {
-        var rig = new SpecRevisionRig();
-        rig.Pipeline.Set(ContextKeys.SpecReviewFixPass, true);
-
-        (await Gate().RefusalAsync(rig.Pipeline, default)).Should().Contain("this pass closes findings");
-    }
-
-    [Fact]
     public async Task Refusal_StagedWork_NamesTheFiles()
     {
         var rig = new SpecRevisionRig();

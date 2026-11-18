@@ -37,8 +37,6 @@ public sealed class ShortfallDeliveryTests
         await using var harness = BuildHarness(tickets, pullRequests);
         // The harness accountant cites the first file it sees for every criterion; withhold
         // spec 2's so the spec is not found already satisfied on entry and its master runs.
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // spec 1: green, verified, accounted, recorded

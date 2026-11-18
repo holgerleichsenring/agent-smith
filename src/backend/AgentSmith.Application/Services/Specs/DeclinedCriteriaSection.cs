@@ -21,8 +21,7 @@ public static class DeclinedCriteriaSection
     private const string Preamble =
         "The agent judged that no work inside this repository could make these criteria true and "
         + "declined each with the evaluated meaning of not doing it. They are sentences of the ticket, "
-        + "not of the change: the delivery account, where one was taken, still judges the branch on "
-        + "its own.";
+        + "not of the change.";
 
     public static string Build(PipelineContext pipeline)
     {

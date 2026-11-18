@@ -68,14 +68,10 @@ public static class SpecAccountRenderer
         _ => " ",
     };
 
-    // 2026-11-18-d6d2c: a satisfied row's advice is said where the reviewer reads the citation; it stops nothing.
-    private static string AdviceOf(CriterionAccount criterion) =>
-        criterion.Advice is { } advice ? $" (advice: {advice})" : string.Empty;
-
     private static string Evidence(CriterionAccount criterion) => criterion switch
     {
-        { Disposition: AccountDisposition.Satisfied, Mechanical: true } => " — verified by command" + AdviceOf(criterion),
-        { Disposition: AccountDisposition.Satisfied, Citation: not null } => $" — `{criterion.Citation}`" + AdviceOf(criterion),
+        { Disposition: AccountDisposition.Satisfied, Mechanical: true } => " — verified by command",
+        { Disposition: AccountDisposition.Satisfied, Citation: not null } => $" — `{criterion.Citation}`",
         { Disposition: AccountDisposition.NotApplicable } =>
             $" — not applicable: the base carries no {criterion.Antecedent}"
             + (criterion.Citation is null ? string.Empty : $" (`{criterion.Citation}`)"),

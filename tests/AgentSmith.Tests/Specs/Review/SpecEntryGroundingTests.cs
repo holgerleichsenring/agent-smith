@@ -123,37 +123,4 @@ public sealed class SpecEntryGroundingTests
         pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec).Yaml.Should().Be(spec.Draft.Yaml);
     }
 
-    /// <summary>
-    /// The end-to-end the spec names a harness test: spec 1 moves the lines spec 2 cites, spec 2 enters
-    /// re-grounded and its own diff carries no spec path. The PipelineHarness's stub sandbox answers every git
-    /// step with exit 0 and no output, so the chain runs here over a real clone (decision DEVIATION in 8762n).
-    /// </summary>
-    [Fact]
-    public async Task Harness_TwoSpecSeries_SpecOneMovesLinesSpecTwoCites_SpecTwoEntersRegroundedAndItsDiffCarriesNoSpecsPath()
-    {
-        await using var repo = await CitationRepo.CreateAsync();
-        if (repo is null) return;
-        await repo.WriteAsync(Code, CitationRepo.Numbered("order", 8));
-        await repo.CommitAsync("code", CitationRepo.At(1));
-        var first = CitationRepo.Spec(CitationRepo.SpecYaml(CitationRepo.SpecId, "README.md"));
-        var second = CitationRepo.Spec(CitationRepo.SpecYaml(Second, Code + ":2-3"));
-        await repo.WriteAsync(CitationRepo.SpecPath(), first.Draft.Yaml + "\n");
-        await repo.WriteAsync(CitationRepo.SpecPath(Second), second.Draft.Yaml + "\n");
-        await repo.CommitAsync("the series is filed", CitationRepo.At(2));
-        var pipeline = CitationRepo.Pipeline(repo);
-        pipeline.Set(ContextKeys.SpecSet, CitationRepo.Set(null, first, second));
-        var select = new GitSpecSetPublisher(repo, CitationRepo.At(4)).Select();
-
-        (await select.ExecuteAsync(new SelectSpecContext(CitationRepo.SpecId, pipeline), CancellationToken.None)).IsSuccess.Should().BeTrue();
-        await repo.WriteAsync(Code, "// one\n// two\n" + CitationRepo.Numbered("order", 8));
-        await repo.CommitAsync("spec one moves the lines", CitationRepo.At(3));
-        (await select.ExecuteAsync(new SelectSpecContext(Second, pipeline), CancellationToken.None)).IsSuccess.Should().BeTrue();
-        await repo.WriteAsync("src/Api/Callers.cs", "// spec two's own work\n");
-        await repo.CommitAsync("spec two's work", CitationRepo.At(5));
-
-        pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec).Yaml.Should().Contain($"{Code}:4-5");
-        var diffs = await new SpecDiffs(TestHelpers.TestGit.Delivery, Microsoft.Extensions.Logging.Abstractions.NullLogger<SpecDiffs>.Instance)
-            .TakeAsync(pipeline, new Dictionary<string, Contracts.Sandbox.ISandbox> { [repo.Name] = repo.Sandbox }, CancellationToken.None);
-        diffs.Single().Text.Should().Contain("src/Api/Callers.cs").And.NotContain(".agentsmith/specs");
-    }
 }

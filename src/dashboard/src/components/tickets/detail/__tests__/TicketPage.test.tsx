@@ -130,9 +130,9 @@ describe("Ticket page", () => {
     await open();
     const block = screen.getByTestId("ticket-state");
     expect(block).toHaveAttribute("data-tone", "bad");
-    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Attempt 2 failed: the acceptance gate did not accept a criterion.");
+    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Attempt 2 failed: the verifier of that time did not accept a criterion.");
     expect(screen.getByTestId("ticket-state-run")).toHaveAttribute("href", "/jobs/r-2");
-    expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "/jobs/r-2");
+    expect(screen.getByTestId("ticket-state-act")).not.toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-state-why")).not.toHaveAttribute("open");
     expect(screen.queryByText("Other options")).toBeNull();
   });

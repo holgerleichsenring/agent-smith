@@ -33,7 +33,7 @@ public sealed class DeliveryAccountOnTheRunDetailTests
         view.Criteria.Should().ContainSingle()
             .Which.Text.Should().Be("the gate's criterion",
                 "the account is what refused the run, so it is what the page must show");
-        view.Source.Should().Be(AcceptanceSources.DeliveryAccount);
+        view.Source.Should().Be(AcceptanceSources.MasterVerification, "2026-11-18-c8e2c: a spec's account is its master's report");
     }
 
     /// <summary>
@@ -97,6 +97,6 @@ public sealed class DeliveryAccountOnTheRunDetailTests
 
         view.Criteria.Should().BeEmpty();
         view.Unmeasured.Should().ContainSingle().Which.Reason.Should().Be("sbt: not found");
-        view.Source.Should().Be(AcceptanceSources.DeliveryAccount);
+        view.Source.Should().Be(AcceptanceSources.MasterVerification, "2026-11-18-c8e2c: a spec's account is its master's report");
     }
 }

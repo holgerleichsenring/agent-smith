@@ -98,7 +98,7 @@ nav:
     - Work it out:    how-it-works/work-it-out.md
     - Spec dialogue:  how-it-works/spec-dialogue.md
     - Lifecycle of a run: how-it-works/lifecycle.md
-    - The delivery account: how-it-works/delivery-account.md
+    - How a spec is checked: how-it-works/delivery-account.md
     - CI loop and merge policy: how-it-works/ci-loop.md
     - Ticket dependencies: how-it-works/ticket-dependencies.md
     - Stacked start:  how-it-works/stacked-start.md

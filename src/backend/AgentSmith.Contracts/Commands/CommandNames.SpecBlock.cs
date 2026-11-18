@@ -27,10 +27,8 @@ public static partial class CommandNames
     /// hands the spec back; the check reports and never rewrites the spec.</summary>
     public const string CheckSpecPremises = "CheckSpecPremisesCommand";
 
-    /// <summary>2026-09-17-042eh: after the verification, a fresh instance reads the spec's
-    /// own diff against the spec and the loaded principles. VerifySpec asks whether the
-    /// done-list is satisfied; nothing asked whether what was written is sound. Findings that
-    /// rest on a read the reviewer took get ONE fix pass and are recorded either way.</summary>
+    /// <summary>2026-09-17-042eh: the spec diff review, retired by 2026-11-18-c8e2c — no preset runs it; the name
+    /// stays so stored runs that ran it still read with their labels.</summary>
     public const string ReviewSpecDiff = "ReviewSpecDiffCommand";
 
     /// <summary>2026-10-13-8762g: before the master builds, each unbuilt spec a person did not

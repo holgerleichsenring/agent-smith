@@ -512,9 +512,8 @@ public sealed class WriteRunResultHandler(
         // p0421: the same ONE gate CommitAndPR applies, reading the same accounts —
         // result.md and the pull request cannot disagree about whether a run delivered
         // because they no longer answer the question separately.
-        var verdict = RunDeliveryGate.Evaluate(
-            Specs.RunAccountLedger.Current(context.Pipeline),
-            Specs.AcceptanceCriteria.For(context.Pipeline).Count);
+        var verdict = RunDeliveryGate.Mechanical( // c8e2c
+            Specs.RunAccountLedger.Current(context.Pipeline), Specs.AcceptanceCriteria.For(context.Pipeline).Count);
         return verdict.Satisfied ? null : verdict.FailureReason;
     }
 

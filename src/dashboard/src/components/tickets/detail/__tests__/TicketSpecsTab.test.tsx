@@ -162,7 +162,7 @@ describe("Ticket specs and acceptance tabs", () => {
     nav.search = "tab=specs&spec=s9";
     await open();
     const doc = screen.getByTestId("spec-doc");
-    expect(within(doc).getByTestId("criterion-rejection")).toHaveTextContent("Not accepted: claimed satisfied by 'UseX'");
+    expect(within(doc).getByTestId("criterion-rejection")).toHaveTextContent("Not met: claimed satisfied by 'UseX'");
     expect(within(doc).getByTestId("criterion-overrule")).toHaveAttribute("href", "/jobs/r-2");
   });
 

@@ -52,16 +52,6 @@ public sealed class MasterPassRecorderTests
     }
 
     [Fact]
-    public void PassRecorder_ReviewFixPass_OpensBecauseReviewFix()
-    {
-        var pipeline = SpecPipeline();
-        pipeline.Set(ContextKeys.StructureFindings, new List<string> { "too long" });
-        SpecReviewFixPass.Prepare(pipeline);
-
-        MasterPassRecorder.Opener(pipeline).Should().Be(MasterPassReasons.ReviewFix);
-    }
-
-    [Fact]
     public void PassRecorder_StructureCorrection_OpensBecauseStructureCorrection()
     {
         var pipeline = SpecPipeline();

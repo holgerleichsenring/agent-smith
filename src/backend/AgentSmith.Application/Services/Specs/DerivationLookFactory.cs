@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-09-07-b7e2: builds the derivation's tool host over every sandbox of the run —
-/// the map <see cref="SpecDeliveryAccounting"/> already hands the account's search, read from
+/// the map SpecDeliveryAccounting (retired by 2026-11-18-c8e2c) already hands the account's search, read from
 /// the pipeline the same way. Null when the run has no sandbox: a derivation over an
 /// inline ticket with nothing checked out writes from the ticket alone, as it did.
 /// </summary>

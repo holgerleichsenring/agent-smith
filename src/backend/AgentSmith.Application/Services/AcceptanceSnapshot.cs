@@ -58,9 +58,11 @@ internal static class AcceptanceSnapshot
             .ToList();
         if (criteria.Count == 0 && unmeasured.Count == 0) return null;
 
+        // 2026-11-18-c8e2c: a spec's rows are its master's report; only a scan's coverage account is a delivery account.
+        var source = all.All(a => a.RepoKey == Scans.ScanCoverageAccountant.RepoKey)
+            ? AcceptanceSources.DeliveryAccount : AcceptanceSources.MasterVerification;
         return new AcceptanceView(
-            criteria, ExpectationOutcomes.Verbatim, RatifiedByTheSpec,
-            AcceptanceSources.DeliveryAccount, Unmeasured: unmeasured);
+            criteria, ExpectationOutcomes.Verbatim, RatifiedByTheSpec, source, Unmeasured: unmeasured);
     }
 
     /// <summary>A run that declined something and was judged by nothing else — it ended

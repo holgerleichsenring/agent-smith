@@ -53,7 +53,7 @@ public sealed class SpecSequenceTests
         pipeline.Set(ContextKeys.SpecSet, TwoSpecSet());
 
         var result = await new SelectSpecHandler(
-                NoEntryAccount(), StartHeads(), AgentSmith.Tests.TestHelpers.TestSpecReview.PreviousFindings(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
+                StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
@@ -78,7 +78,7 @@ public sealed class SpecSequenceTests
             .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
 
         await new SelectSpecHandler(
-                NoEntryAccount(), StartHeads(), AgentSmith.Tests.TestHelpers.TestSpecReview.PreviousFindings(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
+                StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
@@ -146,17 +146,6 @@ public sealed class SpecSequenceTests
 
     private static SpecSequenceHandler Sequence() =>
         new(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), TimeProvider.System, NullLogger<SpecSequenceHandler>.Instance);
-
-    // p0460: no sandboxes in this pipeline, so the entry account resolves nothing and the
-    // spec is entered the way it always was. SpecEntryAccountTests owns the account.
-    private static Application.Services.Specs.SpecEntryAccount NoEntryAccount() =>
-        new(AgentSmith.Tests.TestHelpers.TestGit.Delivery,
-            new Application.Services.Specs.SpecDeliveryAccounting(
-                AgentSmith.Tests.TestHelpers.TestGit.Delivery,
-                null!, new SandboxTargets(),
-                NullLogger<Application.Services.Specs.SpecDeliveryAccounting>.Instance),
-            new SandboxTargets(), new SpecSandboxes(new SandboxTargets()),
-            NullLogger<Application.Services.Specs.SpecEntryAccount>.Instance);
 
     private static SpecSet TwoSpecSet() => Set(["p0001a", "p0001b"]);
 

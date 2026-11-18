@@ -138,7 +138,7 @@ public sealed class FixBugTests
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("a bug fix that changed no source must not be a success");
-        result.Message.Should().Contain("not satisfied by the branch");
+        result.Message.Should().Contain("ended without its report");
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
 
@@ -222,12 +222,10 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        // p0421: the master's self-report stopped being a gate input. A change the branch
-        // carries, a build that ran, and criteria accounted for against the diff — that is
-        // the evidence. A verdict the master never emitted is not evidence either way, and
-        // failing on its absence made the gate depend on the author's own account.
-        result.IsSuccess.Should().BeTrue(
-            $"the branch and the build decide, not the master's self-report: {result.Message}");
+        // 2026-11-18-c8e2c: the master's report is the spec's account — a master that led the work and gave no report
+        // has left every done line unaccounted, so the spec is not delivered.
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("ended without its report");
     }
 
     [Fact]

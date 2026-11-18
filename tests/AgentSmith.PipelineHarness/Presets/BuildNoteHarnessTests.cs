@@ -46,8 +46,6 @@ public sealed class BuildNoteHarnessTests
             services.AddSingleton<ITicketProviderFactory>(new RecordingTicketProviderFactory(new RecordingTicketProvider()));
         });
         harness.StubSandboxFactory!.ReportsWorkingTree = true; // remember needs a change to land with
-        harness.Services.GetRequiredService<HarnessSpecAccountant>() // spec 2 is not satisfied on entry
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(TwoSpecs)
             .EnqueueText("Planning: introduce the guard.")

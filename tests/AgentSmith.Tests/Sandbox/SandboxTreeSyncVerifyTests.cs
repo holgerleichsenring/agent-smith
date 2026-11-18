@@ -39,7 +39,7 @@ public sealed class SandboxTreeSyncVerifyTests
         await clones.WriteAsync(clones.Secondary, "src/Api/Program.cs", "class Program { int b; }\n");
         var events = EventTestStubs.Recording();
 
-        var result = await Handler(new RecordingAccountant(), events).ExecuteAsync(Context(clones), CancellationToken.None);
+        var result = await Handler(events).ExecuteAsync(Context(clones), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("src/Api/Program.cs was changed in both");
@@ -54,45 +54,22 @@ public sealed class SandboxTreeSyncVerifyTests
         if (clones is null) return;
         await clones.WriteAsync(clones.Secondary, "web/app.ts", "export const app = 2;\n");
 
-        var result = await Handler(new RecordingAccountant()).ExecuteAsync(Context(clones), CancellationToken.None);
+        var result = await Handler().ExecuteAsync(Context(clones), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue(result.Message);
         VerifiedHeads.For(clones.Pipeline, clones.Secondary).Should().Be(await clones.HeadAsync(clones.Secondary));
     }
 
     [Fact]
-    public async Task VerifySpec_AfterGreenSync_AccountReadsOneDiffPerRepository()
+    public async Task VerifySpec_AfterGreenSync_AccountNamesThePrimaryOnly()
     {
         await using var clones = await Clones();
         if (clones is null) return;
         await clones.WriteAsync(clones.Primary, "src/Api/Program.cs", "class Program { int c; }\n");
-        var accountant = new RecordingAccountant();
 
-        await Handler(accountant).ExecuteAsync(Context(clones), CancellationToken.None);
+        await Handler().ExecuteAsync(Context(clones), CancellationToken.None);
 
-        accountant.Keys.Should().Equal(clones.Primary);
-    }
-
-    [Fact]
-    public async Task SpecReviewRevert_MixedStackFixPassRedAfterGreenSync_SpecStaysDone_NextSyncIsLevel()
-    {
-        await using var clones = await Clones();
-        if (clones is null) return;
-        await clones.WriteAsync(clones.Primary, "src/Api/Program.cs", "class Program { int d; }\n");
-        (await Sync(clones)).IsLevel.Should().BeTrue();
-        await new VerifiedHeads(NullLogger<VerifiedHeads>.Instance)
-            .RecordAsync(clones.Pipeline, clones.Sandboxes, CancellationToken.None);
-        SpecReviewFixPass.Prepare(clones.Pipeline);
-        await clones.WriteAsync(clones.Primary, "src/Api/Program.cs", "class Program { int broken }\n");
-        (await Sync(clones)).IsLevel.Should().BeTrue("the fix pass's own verification syncs first");
-
-        var reverted = await TestSpecReview.Revert().TryRevertAsync(
-            clones.Pipeline, CommandResult.Fail("Verification failed: build exited 1"), CancellationToken.None);
-
-        reverted!.IsSuccess.Should().BeTrue(reverted.Message);
-        (await clones.ReadAsync(clones.Secondary, "src/Api/Program.cs")).Should().Be("class Program { int d; }\n");
-        (await Sync(clones)).IsLevel.Should().BeTrue();
-        (await clones.HeadTreeAsync(clones.Secondary)).Should().Be(await clones.HeadTreeAsync(clones.Primary));
+        RunAccountLedger.Current(clones.Pipeline).All.Should().ContainSingle().Which.RepoKey.Should().Be(clones.Primary);
     }
 
     [Fact]
@@ -143,6 +120,8 @@ public sealed class SandboxTreeSyncVerifyTests
         clones.Pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(ContextKeys.SandboxContexts, contexts);
         var draft = new SpecDraft(SpecId, "goal", $"spec: {SpecId}", []) { Done = ["the app is changed"] };
         clones.Pipeline.Set(ContextKeys.CurrentSpec, draft);
+        clones.Pipeline.Set(ContextKeys.MasterVerification, new MasterVerification(VerificationStatus.Green, true, true, true, true, "s",
+            AcceptanceDispositions: [new AcceptanceDisposition("the app is changed", AcceptanceStatus.Met, "web/app.ts")]));
         clones.Pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
         clones.Pipeline.Set(ContextKeys.SpecSet, new SpecSet("k", [new DerivedSpec(draft, SpecId, string.Empty, [])],
             SpecAccounting.Empty, [], SpecSource.Derived));
@@ -154,7 +133,7 @@ public sealed class SandboxTreeSyncVerifyTests
 
     private static VerifySpecContext Context(SandboxClones clones) => new(new Dictionary<string, ProjectMap>(), clones.Pipeline);
 
-    private static VerifySpecHandler Handler(ISpecAccountant accountant, IEventPublisher? events = null) => new(
+    private static VerifySpecHandler Handler(IEventPublisher? events = null) => new(
         new VerifyStageResolver(
             new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance),
@@ -167,27 +146,8 @@ public sealed class SandboxTreeSyncVerifyTests
         TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         TestGit.Delivery,
-        new SpecDeliveryAccounting(TestGit.Delivery, accountant, new SandboxTargets(), NullLogger<SpecDeliveryAccounting>.Instance),
         new SpecProgressRecorder(events ?? new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
-        TestSpecReview.Revert(),
         new VerifyPassReporter(new NoOpEventPublisher(), TimeProvider.System, NullLogger<VerifyPassReporter>.Instance),
         NullLogger<VerifySpecHandler>.Instance);
-
-    private sealed class RecordingAccountant : ISpecAccountant
-    {
-        public List<string> Keys { get; } = [];
-
-        public Task<SpecAccount> AccountAsync(
-            string repoKey, IReadOnlyList<string> criteria, string diff,
-            IReadOnlyList<string> commandResults, AgentConfig agent,
-            BranchSearch? branchSearch, PipelineCostTracker costTracker,
-            CancellationToken cancellationToken,
-            int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null)
-        {
-            Keys.Add(repoKey);
-            return Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
-                new CriterionAccount(c, AccountDisposition.Satisfied, "web/app.ts"))]));
-        }
-    }
 }

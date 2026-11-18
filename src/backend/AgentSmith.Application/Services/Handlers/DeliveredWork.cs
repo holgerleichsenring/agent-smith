@@ -55,7 +55,7 @@ public sealed class DeliveredWork
         ArgumentNullException.ThrowIfNull(searched);
         if (anyCommandRan || !Anything) return null;
         return "UNVERIFIED: this run executed no verification command over what it delivered."
-            + $"\nNothing but the account has looked at what it shipped. {Describe()} "
+            + $"\nNo build or test stage has looked at what it shipped. {Describe()} "
             + (searched.Count > 0
                 ? string.Join(" ", searched)
                 : "No repository resolved a command.")

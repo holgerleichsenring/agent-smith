@@ -52,7 +52,7 @@ public sealed class TicketSeriesBuildNoteTests : IDisposable
     private static RunArtifact Record(string runId, string specId, SpecBuildNoteRead handForward) => new()
     {
         RunId = runId, Kind = RunSpecProjection.RecordKindPrefix + specId,
-        Content = $"spec: {specId}\n" + SpecOutcomeBlock.Render(runId, "delivered", string.Empty, handForward),
+        Content = $"spec: {specId}\n" + SpecOutcomeBlock.Render(runId, "delivered", handForward),
     };
 
     private async Task<TicketSeriesView> ReadAsync() =>

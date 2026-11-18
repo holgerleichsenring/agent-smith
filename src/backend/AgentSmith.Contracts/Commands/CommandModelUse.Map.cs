@@ -12,34 +12,17 @@ public static partial class CommandModelUse
             ModelUse.Call, "repo-scope classifier prompt", "the repos the ticket touches"),
         [CommandNames.AnalyzeCode] = new(
             ModelUse.Call, "project-analyzer-master", "a project map per repo"),
-        // p0433: the step that decides DELIVERY asks a model. Since p0420 the spec
-        // account is one call per spec, and p0421 made it the only thing that decides
-        // whether a run delivered — while this map still called the step deterministic and
-        // the published diagram drew it as machinery.
-        [CommandNames.VerifySpec] = new(
-            ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
-        // p0433: the PR step accounts too — TakeOrReuseAsync only reuses when the ledger
-        // already holds an account, so on a run that reaches it first, this asks.
-        [CommandNames.CommitAndPR] = new(
-            ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
+        // 2026-11-18-c8e2c: VerifySpec, CommitAndPR and SelectSpec ask no model — the spec's account is its master's
+        // report, and verification runs the build and test stages.
         // p0433: staging registry auth is ONE read-only Scout call — the model reads the
         // matched repo files and emits each package manager's global auth config with
         // token PLACEHOLDERS, never the token itself.
         [CommandNames.SetupRegistryAuth] = new(
             ModelUse.Call, "registry-auth staging prompt", "the auth files to write, with token placeholders"),
-        // p0460: entering a spec takes the delivery account FIRST, so a step that used to
-        // be pure bookkeeping asks a model on every branch that already carries work — and
-        // its answer decides whether the spec is worked at all.
-        [CommandNames.SelectSpec] = new(
-            ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
         // 2026-09-17-0e79c: one call per spec, on a look of its own, before the master runs.
         [CommandNames.CheckSpecPremises] = new(
             ModelUse.Call, "spec premise-check prompt",
             "per stated premise that no longer holds: the premise, the verdict and the evidence id"),
-        // 2026-09-17-042eh: a fresh instance reads the verified diff against the spec
-        // and the principles, with the read-only look of its own terms.
-        [CommandNames.ReviewSpecDiff] = new(
-            ModelUse.Call, "spec-review prompt", "findings on a file the reviewer read, cited"),
         [CommandNames.ReviewSpecs] = new(ModelUse.Call, "spec attack brief", "per reviewer: a verdict, cited cuts and findings"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of specs, as anchors"),
@@ -70,6 +53,7 @@ public static partial class CommandModelUse
     // step is unclassified until someone says which side of the line it is on.
     private static readonly HashSet<string> Deterministic = new(StringComparer.Ordinal)
     {
+        CommandNames.VerifySpec, CommandNames.SelectSpec, CommandNames.CommitAndPR, // 2026-11-18-c8e2c
         CommandNames.LoadCatalog, CommandNames.PipelineNameInitializer, CommandNames.FetchTicket,
         CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
         CommandNames.RunConfigPreflight, CommandNames.RunPreflight,

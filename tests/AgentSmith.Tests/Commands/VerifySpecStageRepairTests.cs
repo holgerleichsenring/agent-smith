@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Commands;
 
 /// <summary>
 /// A declared stage that ran red earns the spec's one repair pass with its output, over real
-/// clones: never twice, never in the review's fix pass, never beside a resolution finding.
+/// clones: never twice, never beside a resolution finding.
 /// </summary>
 [Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
@@ -38,7 +38,7 @@ public sealed class VerifySpecStageRepairTests
         var result = await Verify(clones);
 
         result.IsSuccess.Should().BeTrue(result.Message);
-        result.InsertNext.Should().HaveCount(SpecVerdict.RepairSteps(SpecId).Count).And.OnlyContain(c => c.SpecId == SpecId);
+        result.InsertNext.Should().HaveCount(StageRepair.RepairBlock.Count).And.OnlyContain(c => c.SpecId == SpecId);
         clones.Pipeline.Get<List<string>>(ContextKeys.OutstandingCriteria).Should().ContainSingle()
             .Which.Should().StartWith(StageRepair.ItemPrefix).And.Contain("exited 1").And.Contain("app is still 1");
         clones.Pipeline.Get<bool>(ContextKeys.SpecRepairAttempted).Should().BeTrue();
@@ -71,20 +71,17 @@ public sealed class VerifySpecStageRepairTests
     }
 
     [Fact]
-    public async Task VerifySpec_RedStageInReviewFixPass_IsRevertedNotRepaired()
+    public async Task VerifySpec_RedDeclaredStage_KeepsTheVerdictBeforeTheRepair()
     {
-        await using var clones = await Clones("grep -q 'app = 1' web/app.ts");
+        await using var clones = await Clones(RedStage);
         if (clones is null) return;
-        await clones.CommitAllAsync(clones.Primary, "the spec's work");
-        (await Verify(clones)).IsSuccess.Should().BeTrue();
-        SpecReviewFixPass.Prepare(clones.Pipeline);
-        await clones.WriteAsync(clones.Primary, "web/app.ts", "export const app = 3;\n");
+        var first = new MasterVerification(VerificationStatus.Green, true, true, true, true, "s",
+            AcceptanceDispositions: [new AcceptanceDisposition("the app is changed", AcceptanceStatus.Met, "web/app.ts")]);
+        clones.Pipeline.Set(ContextKeys.MasterVerification, first);
 
-        var result = await Verify(clones);
+        await Verify(clones);
 
-        result.InsertNext.Should().BeNullOrEmpty("the review's fix pass already spent the repair");
-        clones.Pipeline.TryGet<string>(ContextKeys.SpecReviewReverted, out var reverted).Should().BeTrue(result.Message);
-        reverted.Should().NotBeNullOrEmpty();
+        clones.Pipeline.Get<MasterVerification>(ContextKeys.MasterVerificationBeforeRepair).Should().BeSameAs(first);
     }
 
     [Fact]
@@ -163,23 +160,8 @@ public sealed class VerifySpecStageRepairTests
         TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         TestGit.Delivery,
-        new SpecDeliveryAccounting(TestGit.Delivery, new SatisfiedAccountant(), new SandboxTargets(),
-            NullLogger<SpecDeliveryAccounting>.Instance),
         new SpecProgressRecorder(new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
-        TestSpecReview.Revert(),
         new VerifyPassReporter(new NoOpEventPublisher(), TimeProvider.System, NullLogger<VerifyPassReporter>.Instance),
         NullLogger<VerifySpecHandler>.Instance);
-
-    private sealed class SatisfiedAccountant : ISpecAccountant
-    {
-        public Task<SpecAccount> AccountAsync(
-            string repoKey, IReadOnlyList<string> criteria, string diff,
-            IReadOnlyList<string> commandResults, AgentConfig agent,
-            BranchSearch? branchSearch, PipelineCostTracker costTracker,
-            CancellationToken cancellationToken,
-            int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null) =>
-            Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
-                new CriterionAccount(c, AccountDisposition.Satisfied, "src/Api/Program.cs"))]));
-    }
 }

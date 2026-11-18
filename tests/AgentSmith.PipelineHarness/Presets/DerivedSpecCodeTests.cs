@@ -50,8 +50,6 @@ public sealed class DerivedSpecCodeTests
         // p0460: spec 2 is ENTERED over a branch that already carries spec 1's work, and
         // the entry account is what decides whether it is worked at all. This case is about
         // one master pass per spec, so it says plainly that spec 2 is not yet delivered.
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // spec 1: plan, master, verdict

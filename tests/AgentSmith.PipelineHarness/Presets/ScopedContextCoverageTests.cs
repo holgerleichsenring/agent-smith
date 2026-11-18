@@ -66,8 +66,6 @@ public sealed class ScopedContextCoverageTests
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("backend/package.json carries versions the audit no longer flags.");
         harness.ChatClient
             .EnqueueScopeReply(ScopeReply)
             .EnqueueText(FrontendOnlyJson)

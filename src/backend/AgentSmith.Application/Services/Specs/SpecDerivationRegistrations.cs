@@ -60,7 +60,7 @@ public static class SpecDerivationRegistrations
     // 2026-09-13-9f84: what an opened template declares as its own proof, read and reported.
     services.AddTransient<TemplateProofReport>();
     services.AddTransient<TemplateProofRead>();
-    services.AddTransient<ProjectTemplateScopes>().AddTransient<RunTemplateScopes>().AddTransient<DiffReviewTemplates>(); // + 54beb
+    services.AddTransient<ProjectTemplateScopes>().AddTransient<RunTemplateScopes>();
     // 2026-09-13-6f35: the coding master opens the same declarations the derivation cites.
     services.AddTransient<Handlers.MasterTemplateScopes>().AddTransient<Handlers.MasterTemplateAdvice>(); // + 54bea
     services.AddTransient<DerivationLookFactory>();
@@ -105,13 +105,8 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecCoverageRefusal>();
     // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.
     services.AddTransient<ApprovedSetKeptNotice>();
-    // 2026-09-17-042eh: the spec review's own collaborators — where a spec began, its
-    // diff, the instance that reads it, and the undo of a fix pass that was not green.
+    // 2026-09-17-042eh: where a spec began, which its diff and the shortfall read.
     services.AddTransient<SpecStartHeads>();
-    services.AddTransient<PreviousAttemptFindings>(); // 2026-11-18-550ab
-    services.AddTransient<SpecDiffs>();
-    services.AddTransient<SpecDiffReviewer>().AddTransient<RatifiedMockReview>();
-    services.AddTransient<SpecReviewRevert>();
         return services;
     }
 }

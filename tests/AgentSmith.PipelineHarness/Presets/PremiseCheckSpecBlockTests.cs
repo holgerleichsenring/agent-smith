@@ -50,8 +50,6 @@ public sealed class PremiseCheckSpecBlockTests
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(TwoSpecsStatingPremises)
             .EnqueueText("Planning: introduce the guard.")
@@ -80,8 +78,6 @@ public sealed class PremiseCheckSpecBlockTests
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.Services.GetRequiredService<HarnessSpecPremiseChecker>()
             .FindsOnCall(2, new PremiseFinding(
                 "three callers build their own empty-payload check",

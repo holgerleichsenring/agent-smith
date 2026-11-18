@@ -11,8 +11,6 @@ namespace AgentSmith.Tests.Json;
 public sealed class JsonAnswerReaderMatrixTests
 {
     [Theory]
-    [InlineData("SpecAccountReader",
-        "2,2,2,null,null,null,null,null,null", "2,2,2,2,2,2,null,null,null")]
     [InlineData("FindingRefutationReader",
         "2,2,2,2,2,4,1,null,null", "2,2,2,2,2,2,1,null,null")]
     [InlineData("SpecCutAnswerReader",

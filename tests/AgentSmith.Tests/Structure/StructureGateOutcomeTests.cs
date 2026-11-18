@@ -27,7 +27,7 @@ public sealed class StructureGateOutcomeTests
 
     private readonly Mock<ISpecProgressRecorder> _progress = new();
 
-    private StructureGateOutcome Outcome() => new(TestSpecReview.Revert(), _progress.Object);
+    private StructureGateOutcome Outcome() => new(_progress.Object);
 
     private static PipelineContext Spec()
     {
@@ -79,57 +79,6 @@ public sealed class StructureGateOutcomeTests
         result.InsertNext.Should().BeNullOrEmpty("a grammar that will not load is not the master's to correct");
         _progress.Verify(p => p.RecordAsync(pipeline, SpecId, SpecRunState.Failed,
             It.Is<string>(s => s.Contains("tree-sitter-c-sharp")), null, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    private static PipelineContext FixPass()
-    {
-        var pipeline = Spec();
-        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.VerifiedHeads,
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["repo"] = "verified-sha" });
-        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken(
-            [new SpecFinding("repo", "src/A.cs", 4, "rule", "why", "P1")]));
-        SpecReviewFixPass.Prepare(pipeline);
-        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
-            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["repo"] = new StubSandbox() });
-        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries,
-            new Dictionary<string, RemoteContextDiscovery>());
-        return pipeline;
-    }
-
-    [Fact]
-    public async Task CommitSpecWork_FindingsInReviewFixPass_RevertsToVerifiedHead()
-    {
-        var pipeline = FixPass();
-
-        var result = await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().Contain("reverted to the verified state");
-        result.InsertNext.Should().BeNullOrEmpty("a fix pass gets no correction of its own");
-    }
-
-    [Fact]
-    public async Task CommitSpecWork_UnavailableGrammarInReviewFixPass_RevertsToVerifiedHead()
-    {
-        var pipeline = FixPass();
-
-        var result = await Outcome().ResolveAsync(pipeline, NoGrammar, null, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue(result.Message);
-        pipeline.Get<string>(ContextKeys.SpecReviewReverted).Should().Contain("tree-sitter-c-sharp");
-    }
-
-    [Fact]
-    public async Task CommitSpecWork_RevertFails_RecordsFailed()
-    {
-        var pipeline = Spec();
-        SpecReviewFixPass.Prepare(pipeline);
-
-        var result = await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
-        _progress.Verify(p => p.RecordAsync(pipeline, SpecId, SpecRunState.Failed,
-            It.IsAny<string>(), null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

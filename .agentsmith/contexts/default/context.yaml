@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-c8e2c: "VERIFY IS MECHANICAL (VerifySpecHandler, MasterReportAccount, StageRepair, RunDeliveryGate.Mechanical). Build and test stages gate a spec; a red one goes back to the master once; green, the account is the master's report. Deleted: the spec accountant, entry account, criteria repair, previous-attempt findings, spec diff review. -> .agentsmith/specs/done/2026-11-18-c8e2c-verify-mechanical.yaml"
     2026-11-18-c8e2b: "CODING MASTER REPORT (MasterVerification FixedInPassing/FollowUps, AcceptanceStatus.NotMet, CriterionPairing.Answered, notes skill text). The verdict carries a not_met line with why, what was fixed in passing and proposed follow-ups; a reasoned not-met stops the re-drive; the new skill text has the master lead a child. -> .agentsmith/specs/done/2026-11-18-c8e2b-coding-master-leads.yaml"
     2026-11-18-c8e2a: "SUB-AGENT TEAM AND MESSAGES (SubAgentTeam, SubAgentInbox, SubAgentTeamToolHost, spawn_agents background). A master starts children in the background, hears when one finishes with its next tool result, writes to a running one and continues a finished one over its conversation; children stop with the master's loop. -> .agentsmith/specs/done/2026-11-18-c8e2a-subagent-team-messages.yaml"
     2026-11-18-9fae: "RUNLOG STEP OPEN KEEPS SECTION (RunSectionedLog). Only the step named on arrival opens its section; a step clicked in a section the person opened no longer cancels their toggle and closes it. -> .agentsmith/specs/done/2026-11-18-9fae-runlog-step-open-section.yaml"

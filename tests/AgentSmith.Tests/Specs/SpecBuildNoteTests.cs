@@ -71,7 +71,7 @@ public sealed class SpecBuildNoteTests
     {
         var note = new SpecBuildNote(First, ["Bus -> MessageBus"], [], ["table RunDefaults"], ["kept the old route: a client pins it"]);
 
-        var yaml = SpecOutcomeBlock.Render("run-1", "delivered", string.Empty, new SpecBuildNoteRead(note, false));
+        var yaml = SpecOutcomeBlock.Render("run-1", "delivered", new SpecBuildNoteRead(note, false));
 
         var handForward = (Dictionary<object, object>)Outcome(yaml)[SpecBuildNoteReader.Key];
         ((List<object>)handForward["renamed"]).Should().Equal("Bus -> MessageBus");
@@ -184,7 +184,7 @@ public sealed class SpecBuildNoteTests
         new(id, $"goal of {id}", yaml ?? $"spec: {id}\ngoal: goal of {id}\n", []) { Repos = ["shop"] };
 
     private static string RecordWith(string id, IReadOnlyList<string> renamed) =>
-        $"spec: {id}\ngoal: goal of {id}\n" + SpecOutcomeBlock.Render("run-0", "delivered", string.Empty,
+        $"spec: {id}\ngoal: goal of {id}\n" + SpecOutcomeBlock.Render("run-0", "delivered",
             new SpecBuildNoteRead(new SpecBuildNote(id, renamed, [], [], []), false));
 
     private static PipelineContext Pipeline(IReadOnlyList<string> executed, string? firstYaml = null, bool withThird = false)

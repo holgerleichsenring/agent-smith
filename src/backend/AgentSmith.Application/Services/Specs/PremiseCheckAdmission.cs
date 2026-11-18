@@ -25,7 +25,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// One kind is DISCARDED: a VERBATIM restatement of what the spec claims — a done criterion, its
 /// goal, one of its steps. That is the accountant's question, asked before and after the work by
-/// <see cref="SpecEntryAccount"/> and VerifySpec. Only verbatim, and only for the contradiction
+/// the entry account (retired by 2026-11-18-c8e2c) and VerifySpec. Only verbatim, and only for the contradiction
 /// verdict: a premise that merely shares wording with the goal must still be reportable.
 /// </para>
 /// </summary>

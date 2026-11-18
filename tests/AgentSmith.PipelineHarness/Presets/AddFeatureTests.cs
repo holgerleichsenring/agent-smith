@@ -63,6 +63,6 @@ public sealed class AddFeatureTests
 
         result.IsSuccess.Should().BeFalse(
             "a feature run that changed no source must not be a success");
-        result.Message.Should().Contain("not satisfied by the branch");
+        result.Message.Should().Contain("ended without its report");
     }
 }

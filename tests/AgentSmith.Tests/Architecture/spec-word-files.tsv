@@ -203,11 +203,9 @@ tests/AgentSmith.Tests/SpecNaming/SpecNamedTrackerReadTests.cs	Phase	1
 tests/AgentSmith.Tests/SpecNaming/SpecNamedTrackerReadTests.cs	phase	5
 tests/AgentSmith.Tests/Specs/ApprovedSetDeriveSpecTests.cs	phase	5
 tests/AgentSmith.Tests/Specs/ApprovedSetPrecedenceTests.cs	phase	2
-tests/AgentSmith.Tests/Specs/DeliveryFileListTests.cs	phase	1
 tests/AgentSmith.Tests/Specs/DeriveSpecCommentRecutTests.cs	phase	2
 tests/AgentSmith.Tests/Specs/DeriveSpecTicketEditTests.cs	phase	2
 tests/AgentSmith.Tests/Specs/DerivedSpecYamlRendererTests.cs	phase	1
-tests/AgentSmith.Tests/Specs/FullReachPassTests.cs	phase	1
 tests/AgentSmith.Tests/Tools/FilesystemToolHostNoDeprecatedAliasesTests.cs	phase	4
 tests/AgentSmith.Tests/Tools/FilesystemToolHostTests.cs	phase	3
 tests/AgentSmith.Tests/Tools/HumanToolHostTests.cs	phase	4

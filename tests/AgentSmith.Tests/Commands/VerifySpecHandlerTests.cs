@@ -23,8 +23,7 @@ namespace AgentSmith.Tests.Commands;
 // read from the branch, never from a declaration.
 public sealed class VerifySpecHandlerTests
 {
-    private static VerifySpecHandler Handler(
-        ISpecAccountant? accountant = null, AgentSmith.Contracts.Events.IEventPublisher? events = null) => new(
+    private static VerifySpecHandler Handler(AgentSmith.Contracts.Events.IEventPublisher? events = null) => new(
         new VerifyStageResolver(
             new DeclaredStagePresence(
                 new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
@@ -39,17 +38,8 @@ public sealed class VerifySpecHandlerTests
         AgentSmith.Tests.TestHelpers.TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         AgentSmith.Tests.TestHelpers.TestGit.Delivery,
-        new SpecDeliveryAccounting(
-            AgentSmith.Tests.TestHelpers.TestGit.Delivery,
-            accountant ?? new SpecAccountant(
-                new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
-                new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
-                NullLogger<SpecAccountant>.Instance),
-            new SandboxTargets(),
-            NullLogger<SpecDeliveryAccounting>.Instance),
         new SpecProgressRecorder(events ?? new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
-        AgentSmith.Tests.TestHelpers.TestSpecReview.Revert(),
         new VerifyPassReporter(new NoOpEventPublisher(), TimeProvider.System, NullLogger<VerifyPassReporter>.Instance),
         NullLogger<VerifySpecHandler>.Instance);
 
@@ -143,20 +133,6 @@ public sealed class VerifySpecHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         sandbox.RanSteps.Should().Contain(s => IsDotnet(s));
-    }
-
-    [Fact]
-    public async Task VerifySpec_FixPassAlreadyReverted_ReturnsEarlyWithoutRunningAnything()
-    {
-        var (context, sandbox) = Setup(
-            Map("csharp", new CiConfig(true, "dotnet build", null, null)));
-        context.Pipeline.Set(ContextKeys.SpecReviewReverted, "fix pass reverted: structure gate");
-
-        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("fix pass was reverted");
-        sandbox.RanSteps.Should().BeEmpty("the commit step already brought the tree back to its verified head");
     }
 
     // 2026-09-03-7bac: every command runs at the REPOSITORY ROOT, the frame the analyzer
@@ -301,7 +277,7 @@ public sealed class VerifySpecHandlerTests
     /// — the wrong cause, and the loss of the most actionable thing a run produces.
     /// </summary>
     [Fact]
-    public async Task Verify_TheFailingRun_StillCarriesItsSpecAccount()
+    public async Task Verify_DeliveredAndNothingRan_FailsMechanically()
     {
         var (context, _) = Setup(
             Map("generic", new CiConfig(false, null, null, null)),
@@ -309,43 +285,45 @@ public sealed class VerifySpecHandlerTests
         context.Pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
 
-        var result = await Handler(new SatisfiedAccountant()).ExecuteAsync(
-            context, CancellationToken.None);
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
+        // 2026-11-18-c8e2c: the unverified delivery stays a mechanical failure, recorded as the run's problem.
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("UNVERIFIED").And.Contain("accounted for",
-            "the run fails CARRYING its account, not instead of it");
-        context.Pipeline.TryGet<IReadOnlyList<SpecAccount>>(
-            ContextKeys.SpecAccounts, out var carried).Should().BeTrue();
-        carried.Should().ContainSingle().Which.Criteria.Should().ContainSingle();
-        RunAccountLedger.Current(context.Pipeline).All.Should().ContainSingle(
-            "the record and the pull request read the account off the ledger");
+        result.Message.Should().Contain("UNVERIFIED");
+        RunAccountLedger.Current(context.Pipeline).All.Should().ContainSingle()
+            .Which.Problem.Should().Contain("UNVERIFIED");
     }
 
     /// <summary>
-    /// 2026-10-13-9a59e: a verification that splices its one repair pass has not decided the spec —
-    /// the spec stands in progress, carrying the account the repair is asked to close, never done.
+    /// 2026-11-18-c8e2c: green, the spec's account is its master's report — a line the master left not met, with its
+    /// why, is recorded as unmet and the spec is done; nothing is spliced.
     /// </summary>
     [Fact]
-    public async Task VerifySpec_RepairSpliced_RecordsInProgressWithItsAccount()
+    public async Task VerifySpec_GreenWithANotMetLineInTheReport_IsDoneWithTheReportAsAccount()
     {
-        var draft = new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] };
+        var draft = new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated", "exports stream"] };
         var (context, _) = Setup(Map("csharp", new CiConfig(true, "dotnet build", null, null)), draft);
-        context.Pipeline.Set(ContextKeys.ResolvedPipeline,
-            new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
         context.Pipeline.Set(ContextKeys.RunId, "run-1");
         context.Pipeline.Set(ContextKeys.SpecSet, new AgentSmith.Contracts.Specs.SpecSet("k",
             [new AgentSmith.Contracts.Specs.DerivedSpec(draft, "p1", string.Empty, [])],
             AgentSmith.Contracts.Specs.SpecAccounting.Empty, [], AgentSmith.Contracts.Specs.SpecSource.Derived));
+        context.Pipeline.Set(ContextKeys.MasterVerification, Report(
+            ("the handler is migrated", AcceptanceStatus.Met, "Handler.cs"), ("exports stream", AcceptanceStatus.NotMet, "a follow-up")));
         var events = AgentSmith.Tests.TestHelpers.EventTestStubs.Recording();
 
-        var result = await Handler(new OutstandingAccountant(), events).ExecuteAsync(context, CancellationToken.None);
+        var result = await Handler(events).ExecuteAsync(context, CancellationToken.None);
 
-        result.InsertNext.Should().NotBeNullOrEmpty("the repair pass is spliced");
+        result.IsSuccess.Should().BeTrue();
+        result.InsertNext.Should().BeNullOrEmpty("no repair follows a report");
+        result.Message.Should().Contain("1 of 2 done line(s) met");
         var recorded = events.Events.OfType<AgentSmith.Contracts.Events.SpecStateChangedEvent>().Single();
-        recorded.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.InProgress);
-        recorded.AcceptanceJson.Should().Contain("the handler is migrated").And.Contain("unmet");
+        recorded.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.Done);
+        recorded.AcceptanceJson.Should().Contain("exports stream").And.Contain("unmet").And.Contain("a follow-up");
     }
+
+    private static MasterVerification Report(params (string Criterion, AcceptanceStatus Status, string Evidence)[] lines) =>
+        new(VerificationStatus.Green, true, true, true, true, "s",
+            AcceptanceDispositions: [.. lines.Select(l => new AcceptanceDisposition(l.Criterion, l.Status, l.Evidence))]);
 
     /// <summary>2026-10-17-a196a: a server spec in a two-repository run is built, accounted and handed
     /// back over the server alone — the worker belongs to the spec that names it.</summary>
@@ -361,16 +339,15 @@ public sealed class VerifySpecHandlerTests
             new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"], Repos = ["server"] });
         context.Pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
+        context.Pipeline.Set(ContextKeys.MasterVerification, Report(("the handler is migrated", AcceptanceStatus.NotMet, "left open")));
 
-        var result = await Handler(new OutstandingAccountant()).ExecuteAsync(context, CancellationToken.None);
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         sandboxes["server"].RanSteps.Should().Contain(s => IsDotnet(s));
         sandboxes["worker"].RanSteps.Should().NotContain(s => IsDotnet(s), "the worker is not this spec's repository");
         context.Pipeline.Get<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts)
             .Should().ContainSingle().Which.RepoKey.Should().Be("server");
-        result.InsertNext.Should().NotBeNullOrEmpty("the repair pass is spliced");
-        context.Pipeline.Get<List<string>>(ContextKeys.OutstandingCriteria)
-            .Should().OnlyContain(line => line.StartsWith("server: ", StringComparison.Ordinal));
+        result.IsSuccess.Should().BeTrue("a line the report leaves open ends nothing");
     }
 
     [Fact]
@@ -381,35 +358,11 @@ public sealed class VerifySpecHandlerTests
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
             new Dictionary<string, string> { ["server"] = "server" });
 
-        var result = await Handler(new SatisfiedAccountant()).ExecuteAsync(context, CancellationToken.None);
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("Spec p1 names billing").And.Contain("no sandbox of this run serves it");
         sandbox.RanSteps.Should().NotContain(s => IsDotnet(s), "nothing is verified in place of the named repository");
-    }
-
-    private sealed class OutstandingAccountant : ISpecAccountant
-    {
-        public Task<SpecAccount> AccountAsync(
-            string repoKey, IReadOnlyList<string> criteria, string diff,
-            IReadOnlyList<string> commandResults, AgentConfig agent,
-            BranchSearch? branchSearch, PipelineCostTracker costTracker,
-            CancellationToken cancellationToken,
-            int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null) =>
-            Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
-                new CriterionAccount(c, AccountDisposition.NotSatisfied, "src/Api/Program.cs"))]));
-    }
-
-    private sealed class SatisfiedAccountant : ISpecAccountant
-    {
-        public Task<SpecAccount> AccountAsync(
-            string repoKey, IReadOnlyList<string> criteria, string diff,
-            IReadOnlyList<string> commandResults, AgentConfig agent,
-            BranchSearch? branchSearch, PipelineCostTracker costTracker,
-            CancellationToken cancellationToken,
-            int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null) =>
-            Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
-                new CriterionAccount(c, AccountDisposition.Satisfied, "src/Api/Program.cs"))]));
     }
 
     // ---- 2026-08-31-26d4: a repository declares how it is verified ----

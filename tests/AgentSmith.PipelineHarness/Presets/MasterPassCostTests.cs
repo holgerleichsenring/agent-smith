@@ -63,8 +63,6 @@ public sealed class MasterPassCostTests
         passes.Take(2).Select(p => (p.PassInSpec, p.OpenedBecause, p.EndedBecause, p.ReengageReason)).Should().Equal(
             (1, MasterPassReasons.First, MasterPassReasons.Reengaged, MasterPassReasons.RedWithOpenSteps),
             (2, MasterPassReasons.RedWithOpenSteps, MasterPassReasons.Budget, null));
-        passes.Skip(2).Select(p => p.OpenedBecause).Should().StartWith(MasterPassReasons.Repair,
-            "the spec's verification hands the outstanding criteria back to a repair master, numbered on");
         passes[0].Calls.Should().Be(2, "the first loop and its apply drive were the first pass");
         passes[0].CostUsd.Should().BeGreaterThan(0m).And.Be(calls.Where(c => c.MasterPass == passes[0].Ordinal).Sum(c => c.CostUsd));
         calls.Should().OnlyContain(c => c.SpecId == view.Specs[0].SpecId);

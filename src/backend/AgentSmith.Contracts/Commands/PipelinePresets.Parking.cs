@@ -53,9 +53,6 @@ public static partial class PipelinePresets
         // run-level CommitAndPR runs once after all specs.
         CommandNames.CommitSpecWork,
         CommandNames.VerifySpec,
-        // 2026-09-17-042eh: the review reads VERIFIED work, so it follows the gate that
-        // makes it verified and precedes the record that states what came of the spec.
-        CommandNames.ReviewSpecDiff,
         CommandNames.WriteSpecRecord,
     ];
 

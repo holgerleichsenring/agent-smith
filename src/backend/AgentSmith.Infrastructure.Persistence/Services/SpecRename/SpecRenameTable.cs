@@ -20,11 +20,6 @@ public static partial class SpecRenameTable
     [
         new("PhaseSpec", "CurrentSpec"),
         new("PhaseStartHeads", "SpecStartHeads"),
-        new("PhaseReviewFindings", "SpecReviewFindings"),
-        new("PhaseReviewFixPass", "SpecReviewFixPass"),
-        new("PhaseReviewReverted", "SpecReviewReverted"),
-        new("PhaseAccountsSnapshot", "SpecAccountsSnapshot"),
-        new("RunPhaseReviews", "RunSpecReviews"),
         new("PhaseCommands", "SpecRunCommands"),
         new("PhaseAccounts", "SpecAccounts"),
         new("PhaseRepairAttempted", "SpecRepairAttempted"),

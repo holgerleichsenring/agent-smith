@@ -55,7 +55,6 @@ public sealed class MasterPassRecorder(
     // After an answer first: a master resumed inside a repair would otherwise read "repair" and lose it.
     internal static string Opener(PipelineContext pipeline) =>
         pipeline.Flag(ContextKeys.MasterPassEndedOnQuestion) ? MasterPassReasons.AfterAnswer
-        : SpecReviewFixPass.InFlight(pipeline) ? MasterPassReasons.ReviewFix
         : pipeline.Has(ContextKeys.StructureFindings) ? MasterPassReasons.StructureCorrection
         : pipeline.Has(ContextKeys.OutstandingCriteria) ? MasterPassReasons.Repair
         : MasterPassReasons.First;

@@ -18,9 +18,9 @@ Then `ReviewSpecs` attacks every spec the attempt will build, and the series con
 
 **5. The master works one spec at a time.** For each spec in order: a fresh instance checks the premises the spec states against the code as it is now, then one agentic loop (`coding-agent-master`) does the work. One conversation, N sandboxes routed by path prefix — file tool calls dispatch by the first path segment (`todolist-api/src/Auth.cs` → the `todolist-api` sandbox). The master edits, builds and runs the repo's own tests itself; every command is visible in the run's timeline. Its work is committed to the branch as it goes. When it finishes, it leaves a build note for the next spec: what it renamed, moved, persisted, and where it deviated.
 
-**6. Each spec is verified before the next one starts.** `CommitSpecWork` first runs the repository's declared formatter over the changed files and judges them against the size limits in the context's principles ([structure limits](structure-limits.md)). Then `VerifySpec` runs the verify stages each repository declares in its context (build, test, lint, whatever you wrote down), then takes the [delivery account](delivery-account.md): every "done when" criterion, checked against the real branch by a reader that never saw the agent's reasoning. An outstanding criterion goes back to the master for one repair pass. After that, a fresh reviewer reads the spec's diff against it and the repository's principles; its findings get one fix pass, and a fix that doesn't verify is undone. Only then does the next spec start.
+**6. Each spec is verified before the next one starts.** `CommitSpecWork` first runs the repository's declared formatter over the changed files and judges them against the size limits in the context's principles ([structure limits](structure-limits.md)). Then `VerifySpec` runs the verify stages each repository declares in its context (build, test, lint, whatever you wrote down). A red stage goes back to the master once with its output; still red, the spec fails. Green, the spec's record is [the master's report](delivery-account.md): every "done when" line met or not met with why, fixed in passing, proposed follow-ups. Only then does the next spec start.
 
-**7. The PRs are finalized, the ticket gets resolved.** One PR per repository the series touches, cross-linked to each other; a repository whose specs gained no code keeps its spec PR. Before anything is pushed, the staged diff is scanned for known secret patterns — a leaked key refuses the commit. The PR body carries the per-spec table, the delivery account, the review findings and any criteria the agent declined. A complete, verified run takes the PR out of draft. The ticket transitions to `done_status`, gets a comment with the PR URLs and what the branch changed, and gets the `agent-smith:done` label. Whether the run also merges, or waits for your CI and sends a red check back to a fix run, is the project's merge policy ([CI loop and merge policy](ci-loop.md)).
+**7. The PRs are finalized, the ticket gets resolved.** One PR per repository the series touches, cross-linked to each other; a repository whose specs gained no code keeps its spec PR. Before anything is pushed, the staged diff is scanned for known secret patterns — a leaked key refuses the commit. The PR body carries the per-spec table, the masters' reports and any criteria the agent declined. A complete, verified run takes the PR out of draft. The ticket transitions to `done_status`, gets a comment with the PR URLs and what the branch changed, and gets the `agent-smith:done` label. Whether the run also merges, or waits for your CI and sends a red check back to a fix run, is the project's merge policy ([CI loop and merge policy](ci-loop.md)).
 
 ## The loop inside a spec
 
@@ -33,10 +33,9 @@ graph TD
     Questions -->|asked a human| Park["run parks, waiting"]
     Questions --> Commit["CommitSpecWork<br/>format · structure gate"]
     Commit -->|over the limits, first time| Master
-    Commit --> Verify["VerifySpec<br/>declared stages + delivery account"]
-    Verify -->|criterion outstanding, first time| Master
-    Verify -->|green| Review[ReviewSpecDiff]
-    Review --> Record[WriteSpecRecord]
+    Commit --> Verify["VerifySpec<br/>declared build and test stages"]
+    Verify -->|stage red, first time| Master
+    Verify -->|green| Record[WriteSpecRecord]
     Record --> Next[next spec]
 ```
 
@@ -86,7 +85,7 @@ Every run gets an id of the shape `{yyyy-MM-ddTHH-mm-ss}-{4hex}`: an ISO-8601 ti
 ## Next
 
 - [Methodology](methodology.md) — why derive / check / execute / verify are ordered the way they are.
-- [The delivery account](delivery-account.md) — how "done" is decided per criterion.
+- [How a spec is checked](delivery-account.md) — the master's report per done line.
 - [Expectations & durable dialogue](expectations.md) — the done-list, declined criteria, and waiting for your answer.
 - [Structure limits](structure-limits.md) — the size gate at the spec commit.
 - [Multi-repo](multi-repo.md) — one series across several repositories, and the path-prefix dispatch.

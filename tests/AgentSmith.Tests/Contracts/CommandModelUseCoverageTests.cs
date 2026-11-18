@@ -57,43 +57,18 @@ public sealed class CommandModelUseCoverageTests
     /// it. A synthetic chain of concrete types proves nothing here — the walk only earns
     /// its keep if it crosses the interface hop, so the case IS VerifySpec.
     /// </summary>
-    [Fact]
-    public void ModelUse_TheRuleWouldHaveCaughtVerifySpec()
+    /// <summary>2026-11-18-c8e2c: the spec's account is its master's report, so entering a spec, verifying it and
+    /// opening its pull request ask no model.</summary>
+    [Theory]
+    [InlineData(CommandNames.VerifySpec)]
+    [InlineData(CommandNames.SelectSpec)]
+    [InlineData(CommandNames.CommitAndPR)]
+    public void SpecBlockBookkeeping_IsDeterministic(string command)
     {
-        var handler = typeof(VerifySpecHandler);
-
-        handler.GetConstructors().SelectMany(c => c.GetParameters())
-            .Should().NotContain(p => p.ParameterType == typeof(IChatClientFactory),
-                "the point of this case is that the chat client is NOT on the handler");
-        ReachesAChatClient(handler).Should().BeTrue(
-            "VerifySpecHandler -> SpecDeliveryAccounting -> ISpecAccountant -> SpecAccountant, "
-            + "and the middle hop is an interface");
-    }
-
-    [Fact]
-    public void VerifySpec_IsDeclaredAsAModelStep()
-    {
-        var step = CommandModelUse.For(CommandNames.VerifySpec);
-
-        step.Use.Should().Be(ModelUse.Call,
-            "the step that decides whether a run delivered asks a model to account for "
-            + "every ratified criterion");
-        step.Answer.Should().NotBeNullOrWhiteSpace();
-    }
-
-    /// <summary>
-    /// p0460: entering a spec takes the delivery account FIRST — so the step that used to
-    /// be pure bookkeeping asks a model on any branch that already carries work, and the
-    /// diagram must stop drawing it as machinery.
-    /// </summary>
-    [Fact]
-    public void SelectSpec_IsDeclaredAsAModelStep()
-    {
-        var step = CommandModelUse.For(CommandNames.SelectSpec);
-
-        step.Use.Should().Be(ModelUse.Call,
-            "a spec is entered by asking whether the branch already satisfies it");
-        step.Answer.Should().NotBeNullOrWhiteSpace();
+        CommandModelUse.IsClassified(command).Should().BeTrue();
+        CommandModelUse.ModelSteps.Select(s => s.Key).Should().NotContain(command);
+        ReachesAChatClient(command == CommandNames.VerifySpec ? typeof(VerifySpecHandler) : typeof(SelectSpecHandler))
+            .Should().BeFalse("no model is reachable from the handler any more");
     }
 
     [Fact]

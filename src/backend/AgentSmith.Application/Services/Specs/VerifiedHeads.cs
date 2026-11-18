@@ -36,36 +36,6 @@ public sealed class VerifiedHeads(ILogger<VerifiedHeads> logger)
         pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.VerifiedHeads, heads);
     }
 
-    /// <summary>2026-11-18-d6d2c: where each sandbox stands as a repair is handed back — kept apart from the verified
-    /// heads, which name a state a shortfall may deliver.</summary>
-    public async Task RecordRepairBaseAsync(
-        PipelineContext pipeline, IReadOnlyDictionary<string, ISandbox> sandboxes, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        ArgumentNullException.ThrowIfNull(sandboxes);
-        var heads = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var (key, sandbox) in sandboxes)
-            if (await RunAsync(sandbox, ["rev-parse", "HEAD"], cancellationToken) is { } head && head.Trim().Length > 0)
-                heads[key] = head.Trim();
-        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.RepairBaseHeads, heads);
-    }
-
-    /// <summary>2026-11-18-d6d2c: "repo: path" for every file a sandbox changed since its repair base, committed or not;
-    /// empty when no repair base was recorded.</summary>
-    public async Task<IReadOnlyList<string>> RepairChangedAsync(
-        PipelineContext pipeline, IReadOnlyDictionary<string, ISandbox> sandboxes, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        ArgumentNullException.ThrowIfNull(sandboxes);
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepairBaseHeads, out var bases) || bases is null)
-            return [];
-        var changed = new List<string>();
-        foreach (var (key, sandbox) in sandboxes)
-            if (bases.TryGetValue(key, out var head) && await RunAsync(sandbox, ["diff", "--name-only", head], cancellationToken) is { } paths)
-                changed.AddRange(paths.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(p => $"{key}: {p.Trim()}"));
-        return changed;
-    }
-
     /// <summary>The verified commit of one sandbox, or null when none was recorded.</summary>
     public static string? For(PipelineContext pipeline, string sandboxKey)
     {
