@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-0207e
+
+decisions:
+  - category: Architecture
+    chose: "The series panel is a 'series' tab of the existing right column, shown first while the series runs; the head line sits in the exchange's sub line; both read GET /api/spec-dialog/{dialogId}/series again whenever the conversation gains a message"
+    over: "A second right column, or a hub event of its own"
+    reason: "No second path: the pane already offers a tab per thing the conversation has, and every status the series posts arrives as a message the page already refetches on."
+  - category: Implementation
+    chose: "The estimated finish is the critical path's length times the mean time a landed ticket took from its first start, shown only once two tickets landed"
+    over: "An estimate from the first landing or from configured durations"
+    reason: "Review: one landing is no measure; a configured duration would be a guessed number."
+  - category: Architecture
+    chose: "The series reads CI from the CI loop's pull-request records (red wins, then pending, then green; a red one carries its first failed check) and names merge on green CI in its policy and opening"
+    over: "Watching CI from the series"
+    reason: "Operator instruction: the CI loop (3435a-d) owns watching, merging on green CI and sending red back with evidence; the series only shows it and hears a red as news."

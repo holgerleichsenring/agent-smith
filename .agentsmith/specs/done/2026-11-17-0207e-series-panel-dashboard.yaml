@@ -11,7 +11,7 @@ facts:
     evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:489, src/dashboard/src/hooks/useSpecDialog.ts:478-539"
 
 scope:
-  in: "GET /api/spec-dialog/{dialogId}/series returning SeriesRunView (state, landed of total, elapsed, cost, ETA from the critical path and the mean landed duration once two tickets landed, now rows, critical path, policy line, open question); a 'series' pane tab, default while a series runs; the head line 'series running', '· 1 question for you', 'series done'; plain style."
+  in: "GET /api/spec-dialog/{dialogId}/series returning SeriesRunView (state, landed of total, elapsed, cost, ETA from the critical path and the mean landed duration once two tickets landed, now rows, critical path, policy line, open question); a 'series' pane tab, default while a series runs; the head line 'series running', '· 1 question for you', 'series done'; plain style. The CI loop landed (3435a-d) while this series was built: the series' table reads each green run's pull-request CI from the records the CI loop keeps (red with its failing check, running, green), and the policy and opening name merge on green CI. The series watches no CI itself."
   out: "An agent graph view."
 
 steps:

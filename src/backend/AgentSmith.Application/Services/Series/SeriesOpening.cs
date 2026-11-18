@@ -15,8 +15,12 @@ public static class SeriesOpening
         var text = $"Filed {rows.Count} tickets. "
             + (started.Count > 0 ? $"{string.Join(", ", started)} started; " : "None has started yet; ")
             + (held > 0 ? $"{held} wait on their prerequisites and {WaitRule(project)}. " : string.Empty);
-        var merge = project.Merge.When == MergeWhen.OnGateGreen
-            ? "I merge each one when its gate is green" : "Their pull requests stay open for you to merge";
+        var merge = project.Merge.When switch
+        {
+            MergeWhen.OnGateGreen => "I merge each one when its gate is green",
+            MergeWhen.OnCiGreen => "I merge each one when its CI is green; a red CI goes back to its run with the failing check",
+            _ => "Their pull requests stay open for you to merge",
+        };
         return text + $"{merge} and report here on every change and every {dialogue.SeriesStatusMinutes} minutes.";
     }
 

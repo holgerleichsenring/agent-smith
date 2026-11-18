@@ -11,10 +11,10 @@ public static class SeriesRunExtensions
     public static IServiceCollection AddSeriesRuns(this IServiceCollection services)
     {
         services.AddSeriesRunPipeline();
-        services.AddScoped<SeriesParkedQuestion>().AddScoped<ISeriesTicketFacts, SeriesTicketFacts>();
+        services.AddScoped<SeriesParkedQuestion>().AddScoped<SeriesTicketCi>().AddScoped<ISeriesTicketFacts, SeriesTicketFacts>();
         services.AddScoped<SeriesTicketMessage>().AddScoped<ISeriesTicketActs, SeriesTicketActs>();
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();
-        services.AddSingleton<SeriesRunSweeper>();
+        services.AddSingleton<SeriesRunSweeper>().AddScoped<SeriesRunViewReader>(); // 0207e: the panel's read
         return services;
     }
 }

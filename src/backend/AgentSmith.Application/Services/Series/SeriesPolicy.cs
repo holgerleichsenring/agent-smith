@@ -7,8 +7,12 @@ namespace AgentSmith.Application.Services.Series;
 /// defaults.</summary>
 public static class SeriesPolicy
 {
-    public static string Merge(ResolvedProject project) => project.Merge.When == MergeWhen.OnGateGreen
-        ? "merge on green gate" : "pull requests stay open for you to merge";
+    public static string Merge(ResolvedProject project) => project.Merge.When switch
+    {
+        MergeWhen.OnGateGreen => "merge on green gate",
+        MergeWhen.OnCiGreen => "merge on green CI", // 2026-11-17-0207d over 3435b
+        _ => "pull requests stay open for you to merge",
+    };
 
     public static string Start(ResolvedProject project) => project.RequiresStart == RequiresStart.OnMerge
         ? "start once the ticket they need is merged" : "start on green push";

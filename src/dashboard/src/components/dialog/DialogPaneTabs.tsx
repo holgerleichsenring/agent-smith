@@ -58,6 +58,7 @@ const TAB_LABEL: Record<DialogPaneTab, string> = {
   filed: "Filed",
   approved: "Approved spec",
   uploads: "Uploads",
+  series: "Series",
 };
 
 export function statusOf(
@@ -76,6 +77,8 @@ export function statusOf(
   if (tab === "approved") return "";
   // 2026-10-08-e8b9h: the uploads pane states its own usage in a line of its own.
   if (tab === "uploads") return "";
+  // 2026-11-17-0207e: the series panel heads itself with its progress.
+  if (tab === "series") return "";
   if (shown !== latest) return "superseded";
   return filed ? "filed" : "not filed yet";
 }

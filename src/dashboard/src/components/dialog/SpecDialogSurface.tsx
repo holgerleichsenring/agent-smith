@@ -28,6 +28,7 @@ import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
 import { DialogDecisionBar } from "./DialogDecisionBar";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
+import { useSeriesRun } from "@/hooks/useSeriesRun";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogGreeting } from "./DialogGreeting";
@@ -310,6 +311,8 @@ export function SpecDialogSurface() {
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
   const title = session?.subject ?? listed;
+  // 2026-11-17-0207e: the series its filing runs as, read again with every message the series posts.
+  const series = useSeriesRun(session ? dialog.dialogId : null, dialog.entries.length);
   // Which tickets already have a conversation, from the list this page already holds — so a result
   // row says so instead of offering to open a second one the unique index would refuse anyway.
   const boundTickets = new Set(
@@ -402,6 +405,9 @@ export function SpecDialogSurface() {
               {/* The dialog id IS the session key: a page that lost it would open a second
                   conversation beside one still running, and an operator comparing two tabs
                   needs to see which is which. */}
+              {series && (
+                <span data-testid="dialog-series-state" data-state={series.state}>{series.headState}</span>
+              )}
               <span data-testid="dialog-identity" className="mono">
                 {session
                   ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
@@ -499,6 +505,7 @@ export function SpecDialogSurface() {
         panelRef={panel}
         dialogId={dialog.dialogId}
         onRefresh={dialog.refresh}
+        series={series}
       />}
       {/* Inside this page's shell, because that is what the confirmation's rules are scoped
           to; showModal lifts it to the top layer without moving it in the DOM. */}

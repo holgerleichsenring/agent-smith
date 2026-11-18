@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Series;
 
@@ -23,13 +24,22 @@ public static class SeriesTicketState
         return unmet.Count > 0 ? ($"waits on {string.Join(", ", unmet)}", Held) : ("not started", NotStarted);
     }
 
+    // 2026-11-17-0207d: a green run's pull requests as the CI loop's records see them — the CI loop fixes a red one.
+    private static (string State, string Kind) OfCi(SeriesTicketFact fact) => fact.CiState switch
+    {
+        CiStates.Red => ($"CI red · {fact.CiFailure ?? "a check failed"}", Red),
+        CiStates.Pending => ("green · CI running", Green),
+        CiStates.Green => ("green · CI green", Green),
+        _ => (fact.OpenedPullRequest ? "green · PR open" : "green", Green),
+    };
+
     private static (string State, string Kind) OfAttempt(SeriesTicketFact fact, string status)
     {
         if (status == RunStatuses.Queued) return ("queued", Running);
         if (!fact.LatestFinished && status != RunStatuses.WaitingForInput) return ("coding", Running);
         if (status == RunStatuses.WaitingForInput)
             return (fact.PendingQuestion is null ? "waiting for input" : "question", Waiting);
-        if (status == RunStatuses.Success) return (fact.OpenedPullRequest ? "green · PR open" : "green", Green);
+        if (status == RunStatuses.Success) return OfCi(fact);
         return (fact.EndDetail is { Length: > 0 } why ? $"red · {why}" : $"red · {status}", Red);
     }
 }

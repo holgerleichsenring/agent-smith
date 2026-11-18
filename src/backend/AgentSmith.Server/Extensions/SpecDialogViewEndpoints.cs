@@ -27,6 +27,9 @@ internal static class SpecDialogViewEndpoints
         // dialog permission, and the owner check below still decides WHICH conversation.
         app.MapGet("/api/spec-dialog/{dialogId}/filed-work", (Delegate)ReadFiledWorkAsync)
            .Needs(Security.Permissions.DialogWrite, Security.Permissions.RunsRead).InProject(Security.ProjectFrom.Dialog);
+        // 2026-11-17-0207e: the conversation's series, as its panel shows it — run state, so runs.read as well.
+        app.MapGet("/api/spec-dialog/{dialogId}/series", (Delegate)ReadSeriesAsync)
+           .Needs(Security.Permissions.DialogWrite, Security.Permissions.RunsRead).InProject(Security.ProjectFrom.Dialog);
         return app;
     }
 
@@ -63,6 +66,16 @@ internal static class SpecDialogViewEndpoints
         if (!await ownership.MayWatchAsync(dialogId, owner, cancellationToken))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         return Results.Ok(await filedWork.ReadAsync(dialogId, scopes.For(user, Security.Permissions.RunsRead), cancellationToken));
+    }
+
+    /// <summary>2026-11-17-0207e: the series the conversation filed; null when it filed none.</summary>
+    internal static async Task<IResult> ReadSeriesAsync(
+        string dialogId, ClaimsPrincipal user, SpecDialogOwnership ownership, Services.Series.SeriesRunViewReader series,
+        CancellationToken cancellationToken)
+    {
+        if (!await ownership.MayWatchAsync(dialogId, ownership.OwnerOf(user), cancellationToken))
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        return Results.Ok(await series.ReadAsync(dialogId, cancellationToken));
     }
 
     /// <summary>

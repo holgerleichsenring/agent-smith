@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.Series;
 /// </summary>
 public sealed class SeriesTicketFacts(
     TicketProjects projects, ITicketLandingStore landings, ITicketRequirementStore requirements,
-    TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked) : ISeriesTicketFacts
+    TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked, SeriesTicketCi ci) : ISeriesTicketFacts
 {
     public async Task<IReadOnlyList<SeriesTicketFact>> ReadAsync(
         string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken cancellationToken)
@@ -40,7 +40,7 @@ public sealed class SeriesTicketFacts(
             FirstStartedAt = rows.Count == 0 ? null : rows.Min(r => r.Run.StartedAt),
             CostUsd = rows.Sum(r => r.Run.CostTotalUsd),
         };
-        return latest is null ? fact : await parked.WithAsync(Attempt(fact, latest), latest, ct);
+        return latest is null ? fact : await ci.WithAsync(await parked.WithAsync(Attempt(fact, latest), latest, ct), project.Name, ct);
     }
 
     private static SeriesTicketFact Attempt(SeriesTicketFact fact, PreviousAttempt latest) => fact with

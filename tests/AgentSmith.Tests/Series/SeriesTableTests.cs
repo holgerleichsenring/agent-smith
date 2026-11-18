@@ -29,6 +29,21 @@ public sealed class SeriesTableTests
     }
 
     [Fact]
+    public void SeriesTable_GreenRun_ReadsItsCiFromTheCiLoopsRecords()
+    {
+        var facts = new[]
+        {
+            SeriesRecords.Fact("43", RunStatuses.Success) with { CiState = "red", CiFailure = "build: CS0246" },
+            SeriesRecords.Fact("44", RunStatuses.Success) with { CiState = "pending" },
+        };
+
+        var rows = SeriesTable.Rows(facts, SeriesRecords.T);
+
+        rows.Select(r => r.State).Should().Equal("CI red · build: CS0246", "green · CI running");
+        rows[0].Kind.Should().Be(SeriesTicketState.Red, "a red CI is news the master hears");
+    }
+
+    [Fact]
     public void SeriesJudgement_NewlyRed_OnlyWhatTurnedRedSinceTheLastTable()
     {
         var record = SeriesRecords.Running() with { LastTable = "SCRUM-43=red · failed\nSCRUM-44=coding" };

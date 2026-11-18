@@ -30,6 +30,13 @@ public sealed record SeriesTicketFact(SeriesTicket Ticket)
 
     public IReadOnlyList<string> PullRequests { get; init; } = [];
 
+    /// <summary>2026-11-17-0207d: the open pull requests' CI on their heads (one of CiStates: red wins, then pending,
+    /// then green), as the CI loop's records hold it; null when none reports.</summary>
+    public string? CiState { get; init; }
+
+    /// <summary>The first failed check of a red CI, with its excerpt — the reason, not just the colour.</summary>
+    public string? CiFailure { get; init; }
+
     /// <summary>The master question the newest attempt is parked on, with the job id its answer is delivered to.</summary>
     public DialogQuestion? PendingQuestion { get; init; }
 

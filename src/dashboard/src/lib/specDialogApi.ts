@@ -6,6 +6,7 @@
 // no id at all: it answers for the signed-in principal.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
+import type { SeriesRunView } from "@/types/series";
 import type {
   FiledWork,
   SpecDialogActivityPage,
@@ -37,6 +38,11 @@ export async function fetchFiledWork(
     `/api/spec-dialog/${encodeURIComponent(dialogId)}/filed-work`,
     signal,
   );
+}
+
+/** 2026-11-17-0207e: the series the conversation filed, or null when it filed none. */
+export async function fetchSeriesRun(dialogId: string, signal?: AbortSignal): Promise<SeriesRunView | null> {
+  return getJson<SeriesRunView | null>(`/api/spec-dialog/${encodeURIComponent(dialogId)}/series`, signal);
 }
 
 /**
