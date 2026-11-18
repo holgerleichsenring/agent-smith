@@ -88,6 +88,7 @@ GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write	route:project
 GET	/api/spec-dialog/tickets/{ticketId}	dialog.write	across
 GET	/api/spec-dialog/{dialogId}	dialog.write	dialog
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read	dialog
+GET	/api/spec-dialog/{dialogId}/series	dialog.write,runs.read	dialog
 GET	/api/tickets	runs.read	across
 GET	/api/tickets/graph	runs.read	across
 GET	/api/tickets/{project}/{ticketId}	runs.read	route:project

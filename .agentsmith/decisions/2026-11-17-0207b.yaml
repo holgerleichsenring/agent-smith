@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-0207b
+
+decisions:
+  - category: Architecture
+    chose: "SpecDialogRunDivert is extended: in a conversation bound to no ticket, a runs.control poster's message goes to the conversation's running series, stamped on the stored turn's new SeriesRunId field; a card decision keeps its path and a cardless approve or reject word is taken back first"
+    over: "A second divert class in the router, or reusing TranscriptTurn.RunId"
+    reason: "No second path: the ticket divert already holds the rules (runs.control, decisions). Review: RunId names a run, and a series is not one — each beat has its own id."
+  - category: Architecture
+    chose: "While a series runs, every message of its conversation goes to the series master until the series stops (stop_series hands the conversation back to the design partner)"
+    over: "Sending only some messages to the master and letting design turns run beside it"
+    reason: "The operator's brief: the conversation stays the place the operator writes to and a message there reaches the series master; the mock's composer says so. A poster without runs.control routes as before."
+  - category: Implementation
+    chose: "No acknowledgement notice for a message sent to the series"
+    over: "The ticket divert's 'reaches its agent with its next tool result' notice"
+    reason: "The approved mock shows the master's own answer as the reply; a notice before it would be a second line saying the same."
+  - category: Implementation
+    chose: "The table is plain Markdown in a Notice turn, posted on the series' first beat after the opening, on every change and when dialogue.series_status_minutes passed since it last spoke; the one line under it counts the kinds and the spend and calls no model"
+    over: "A typed table message kind on the wire, or a master-written line on every status"
+    reason: "The page renders Markdown already; a typed kind would touch the transcript wire, the mapper and the page for the same picture. The master writes its own line only when it judged."
+  - category: Implementation
+    chose: "A table unchanged for a whole status period while tickets run asks the master whether one is slow or stuck"
+    over: "A per-ticket duration limit"
+    reason: "Re-cutting a slow ticket needs a moment to judge; the cadence the operator chose is that moment, and no new number is introduced."

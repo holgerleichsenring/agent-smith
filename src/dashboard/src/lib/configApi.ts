@@ -1008,6 +1008,10 @@ export interface DialogueSetting {
   mockMaxChars: number;
   mockVersionsPerSpec: number;
   mockVersionsPerConversation: number;
+  /** 2026-11-17-0207a/b/c: the series run's master budget, status cadence and question default. */
+  seriesMasterBudgetUsd: number;
+  seriesStatusMinutes: number;
+  questionDefaultMinutes: number;
 }
 
 export interface DeploymentSetting {

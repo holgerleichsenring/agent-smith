@@ -13,6 +13,8 @@ import { DialogFiledPanel } from "./DialogFiledPanel";
 import { DialogProposalPanel } from "./DialogProposalPanel";
 import { DialogApprovedPanel } from "./DialogApprovedPanel";
 import { DialogPaneTabs, statusOf } from "./DialogPaneTabs";
+import { DialogSeriesPanel } from "./DialogSeriesPanel";
+import type { SeriesRunView } from "@/types/series";
 import { DialogScopePanel } from "./DialogScopePanel";
 import { DialogUploadsPanel } from "./DialogUploadsPanel";
 import type { DialogPaneTab } from "./DialogPaneTab";
@@ -51,6 +53,7 @@ export function DialogPane({
   panelRef,
   dialogId = null,
   onRefresh,
+  series = null,
 }: {
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
@@ -70,6 +73,8 @@ export function DialogPane({
   /** 2026-10-08-e8b9h: the dialog an upload is removed from, and the read that shows it gone. */
   dialogId?: string | null;
   onRefresh?: () => Promise<void>;
+  /** 2026-11-17-0207e: the series the conversation's filing runs as; null when it filed none. */
+  series?: SeriesRunView | null;
 }) {
   const shownProposal = focus?.tab === "proposal" && focus.proposal ? focus.proposal : proposal;
   const offered: DialogPaneTab[] = [
@@ -83,8 +88,11 @@ export function DialogPane({
     ...(work?.approved ? (["approved"] as const) : []),
     // 2026-10-08-e8b9h: offered once the conversation holds anything the operator handed it.
     ...(hasUploads(session) ? (["uploads"] as const) : []),
+    ...(series ? (["series"] as const) : []),
   ];
-  const fallback: DialogPaneTab = filed ? "filed" : proposal ? "proposal" : "scope";
+  // 2026-11-17-0207e: while a series runs its panel is what the column shows first.
+  const running = series && (series.state === "running" || series.state === "verifying");
+  const fallback: DialogPaneTab = running ? "series" : filed ? "filed" : proposal ? "proposal" : "scope";
   const tab = focus && offered.includes(focus.tab) ? focus.tab : fallback;
   const ids = useId();
   const tabId = (offer: DialogPaneTab) => `${ids}-tab-${offer}`;
@@ -120,6 +128,7 @@ export function DialogPane({
         className="dl-panel d-panel"
       >
         {tab === "filed" && <DialogFiledPanel filed={filed} work={work} />}
+        {tab === "series" && series && <DialogSeriesPanel series={series} />}
         {tab === "proposal" && shownProposal && (
           <DialogProposalPanel proposal={shownProposal} mocks={session?.mocks} ratifiedMocks={session?.ratifiedMocks}
             sessionId={session?.sessionId} onRatified={onRefresh} filed={filed !== null} />

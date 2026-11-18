@@ -46,6 +46,7 @@ public static class ContextBuildersExtensions
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
         AddBuilder<PlanFilingContextBuilder>(services, CommandNames.PlanFiling); // 2026-11-17-5701b
         AddBuilder<FileTicketsContextBuilder>(services, CommandNames.FileTickets);
+        SeriesRunContextBuilders.Add(services); // 2026-11-17-0207a, 0207d
         AddBuilder<CloseTicketContextBuilder>(services, CommandNames.CloseTicket); // 2026-11-17-e061a
         AddBuilder<AdminAssistantTurnContextBuilder>(services, CommandNames.AdminAssistantTurn); // 2026-11-17-f3a8a
         AddBuilder<ApplyConfigChangesContextBuilder>(services, CommandNames.ApplyConfigChanges); // 2026-11-17-f3a8c

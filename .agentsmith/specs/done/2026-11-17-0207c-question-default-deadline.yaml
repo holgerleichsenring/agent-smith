@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-0207c
+goal: "In a series, a question with a recommendation is answered with it after dialogue.question_default_minutes and the conversation says so; one without waits as today."
+
+applies_to: "default (series questions, ticket question relay, dialogue config)"
+
+requires: [2026-11-17-0207b]
+
+facts:
+  - claim: "A ticket master's ask_human keeps recommended_index only as text; its checkpoint carries DefaultAnswer null and a 14-day patience, and DialogueResumeSweeper resumes a checkpoint once IDialogueAnswerInbox holds its answer; DialogQuestion already carries RecommendedIndex."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketClarificationToolHost.cs:40-60, src/backend/AgentSmith.Application/Services/Triage/MasterQuestionCheckpoint.cs:38,84-86, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:94-107, src/backend/AgentSmith.Contracts/Dialogue/DialogQuestion.cs:3-11, src/backend/AgentSmith.Contracts/Services/IDialogueAnswerInbox.cs:15"
+
+  - claim: "decide_by_default takes a choice someone may overrule later at once and records it; ask_human is for what blocks."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DefaultDecisionToolHost.cs:7-11"
+
+scope:
+  in: "dialogue.question_default_minutes (default 120, the operator's policy in the approved mock) in config, schema, docs, DialogueForm. The series master's ask_human records one question with a deadline when it names a recommendation. A ticket of the series whose run parked on a master question is relayed into the conversation as the series' question (its recommendation is the checkpoint's RecommendedIndex, now filled from recommended_index). An operator message while a question waits answers it; past the deadline the beat takes the recommendation, posts 'Taken by default at HH:mm: <choice>' and hands it on: to the master, or to the parked ticket run through IDialogueAnswerInbox, which the resume sweep picks up. The operator's brief decided this timed default; decide_by_default stays the master's way for a choice needing no person."
+  out: "Ticket questions outside a series: unchanged (14 days, no default). Design-turn questions (no ask_human there)."
+
+steps:
+  - id: config
+    action: "DialogueGlobalConfig.QuestionDefaultMinutes, schema, docs, field."
+  - id: series
+    action: "SeriesQuestions: ask, relay a parked ticket question, answer by operator message, default after the deadline, deliver to the master or the ticket run's inbox."
+  - id: ticket
+    action: "PlanOpenQuestion.RecommendedIndex filled by TicketClarificationToolHost; MasterQuestionCheckpoint.Compose carries it to DialogQuestion.RecommendedIndex (default answer and patience unchanged)."
+
+tests:
+  - "SeriesQuestions: a recommended question past its deadline is taken by default and says when; one without a recommendation stays open; an operator message answers it first; a relayed ticket question's answer is delivered to the ticket's inbox."
+  - "MasterQuestionCheckpoint: recommended_index reaches DialogQuestion.RecommendedIndex; DefaultAnswer stays null and patience 14 days."
+
+done:
+  - "Nobody answering a recommended question in a series no longer stops it: the recommendation is taken at the deadline and the conversation says so."

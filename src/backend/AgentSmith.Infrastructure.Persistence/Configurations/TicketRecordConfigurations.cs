@@ -23,5 +23,6 @@ public sealed class TicketRecordConfigurations
         modelBuilder.ApplyConfiguration(new TicketRequirementConfiguration()); // 2026-10-14-dbcef
         modelBuilder.ApplyConfiguration(new LandedTicketConfiguration()); // 2026-10-14-dbceg
         modelBuilder.ApplyConfiguration(new ClosedTicketConfiguration()); // 2026-10-15-114fa
+        modelBuilder.ApplyConfiguration(new SeriesRunConfiguration()); // 2026-11-17-0207a
     }
 }

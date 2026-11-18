@@ -338,7 +338,7 @@ These blocks apply to every project unless a project overrides them. On a server
 | `limits` | per-skill ceilings of the agentic loop |
 | `pipeline_cost_cap` | money and token caps per run, see [Pipeline cost cap](pipeline-cost-cap.md) |
 | `queue` | `max_parallel_jobs` (4), `consume_block_seconds` (5), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
-| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `admin_agent` (the agent the admin assistant runs on), `admin_read_limit` (50), `admin_result_max_chars` (40000) |
+| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `admin_agent` (the agent the admin assistant runs on), `admin_read_limit` (50), `admin_result_max_chars` (40000), `series_master_budget_usd` (20), `series_status_minutes` (15), `question_default_minutes` (120) |
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |

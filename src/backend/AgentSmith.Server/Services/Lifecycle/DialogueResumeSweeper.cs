@@ -25,7 +25,7 @@ public sealed class DialogueResumeSweeper(
     TimeProvider timeProvider,
     ILogger<DialogueResumeSweeper> logger)
 {
-    private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(15);
+    internal static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(15); // 2026-11-17-0207a: the series sweep scans with it
 
     public async Task RunAsync(CancellationToken ct)
     {

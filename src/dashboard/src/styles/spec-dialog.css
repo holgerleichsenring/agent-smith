@@ -93,3 +93,10 @@
   .mock-dialog.dl-shell > .dl-page { padding: 18px 16px 20px; min-height: 0; }
   .mock-dialog.dl-shell > .d-pane { grid-column: 1; margin: 0 16px 24px; position: static; max-height: none; }
 }
+/* 2026-11-17-0207e: the series panel — a hairline progress bar, and the Now rows' state coloured by kind. */
+.mock-dialog .d-series-bar { height: 4px; border-radius: 2px; background: var(--line-2); }
+.mock-dialog .d-series-fill { height: 4px; border-radius: 2px; background: var(--ink-2); }
+.mock-dialog [data-kind="running"] .text-mute, .mock-dialog [data-kind="green"] .text-mute { color: var(--run); }
+.mock-dialog [data-kind="red"] .text-mute { color: var(--bad); }
+.mock-dialog [data-testid="dialog-series-state"][data-state="done"] { color: var(--ok); }
+.mock-dialog [data-testid="dialog-series-state"]:not([data-state="done"]) { color: var(--run); }
