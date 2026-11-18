@@ -14,3 +14,7 @@ decisions:
     chose: "The series reads CI from the CI loop's pull-request records (red wins, then pending, then green; a red one carries its first failed check) and names merge on green CI in its policy and opening"
     over: "Watching CI from the series"
     reason: "Operator instruction: the CI loop (3435a-d) owns watching, merging on green CI and sending red back with evidence; the series only shows it and hears a red as news."
+  - category: Architecture
+    chose: "The series master reads runs through the admin assistant's curated reads (read_run, read_llm_calls, read_run_events), lent through ISeriesRecordReads with the same masking and result bound"
+    over: "Run readers of the series' own"
+    reason: "Operator instruction: reuse the admin series' curated read tools once they landed (#863); one reader, two masters."

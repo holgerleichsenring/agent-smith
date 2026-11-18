@@ -58,6 +58,8 @@ public sealed class SeriesRunCompositionTests
             .EnqueueText("I asked whether forwarding keeps the deadline.");
         await BeatAsync(sp, series.Id);
         (await TextsAsync(sp)).Should().Contain(t => t.Contains("Recommended: keep") && t.Contains("I take the recommendation at 14:00 UTC"));
+        harness.ChatClient.LastOptions!.Tools!.Select(t => t.Name).Should().Contain(["ask_human", "tell_ticket", "read_run", "read_run_events"],
+            "the master reads runs through the admin assistant's curated reads");
 
         rig.Clock.Advance(TimeSpan.FromMinutes(121));
         harness.ChatClient.EnqueueText("Going with keep: forwarding keeps the original deadline.");

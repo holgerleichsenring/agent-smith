@@ -10,7 +10,8 @@ failed, the series stood still for a whole status period — and you see the ser
 
 What you can do:
 - `series_status` and `read_ticket` show the series and one ticket: its newest run, why it ended, its pull requests,
-  its cost, a question its run is parked on.
+  its cost, a question its run is parked on. `read_run`, `read_llm_calls` and `read_run_events` show a run's steps,
+  its end, its model calls and its events — what a red run actually did.
 - `retry_ticket` runs a ticket's newest attempt again unchanged — right when the failure was not the work's fault
   (an outage, a flaky check).
 - `tell_ticket` writes into a ticket's conversation. A running attempt reads it with its next tool result; otherwise

@@ -14,6 +14,7 @@ public static class SeriesRunExtensions
         services.AddScoped<SeriesParkedQuestion>().AddScoped<SeriesTicketCi>().AddScoped<ISeriesTicketFacts, SeriesTicketFacts>();
         services.AddScoped<SeriesTicketMessage>().AddScoped<ISeriesTicketActs, SeriesTicketActs>();
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();
+        services.AddScoped<ISeriesRecordReads, SeriesRecordReads>(); // 0207e: the admin assistant's run reads, lent
         services.AddSingleton<SeriesRunSweeper>().AddScoped<SeriesRunViewReader>(); // 0207e: the panel's read
         return services;
     }
