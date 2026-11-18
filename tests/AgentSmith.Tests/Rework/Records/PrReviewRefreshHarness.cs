@@ -59,9 +59,15 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         Repos = [new RepoConnection { Name = "api", Type = RepoType.GitHub, Url = "https://github.com/o/api" }],
     };
 
-    public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(),
+    public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance), CiMerge(),
+        new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
+
+    /// <summary>2026-11-17-3435b: the merge-green runs the CI loop started.</summary>
+    public Mock<IMergeGreenRun> MergeRuns { get; } = new();
+
+    public CiGreenMerge CiMerge() => new(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock);
 
     // 2026-10-14-dbceg: the landing recorder over the harness store.
     public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, new LandedTicketRepository(Store.ScopeFactory), Wake(),

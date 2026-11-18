@@ -109,4 +109,11 @@ public enum SpecHandbackCase
     /// answer, and a re-cut demand with a re-trigger, or a new approval filed again, is the way out.
     /// </summary>
     SeriesOutOfStep = 7,
+
+    /// <summary>
+    /// 2026-11-17-3435c: the CI on the ticket's pull request is still red after merge.ci_fix_attempts fix runs in a row,
+    /// or the last fix pushed nothing. Raised by the framework only; parks where a person can answer, with the failing
+    /// checks' evidence; a person's comment or approval starts the next attempt and resets the count.
+    /// </summary>
+    CiFixBudgetSpent = 8,
 }

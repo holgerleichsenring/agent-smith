@@ -37,6 +37,11 @@ public sealed class PrReviewRecordWriter(IUnitOfWork unitOfWork, IUniqueViolatio
         return false;
     }
 
+    /// <summary>2026-11-17-3435b: what the CI loop acted on ('head:state'); written apart from a read, which never sets it.</summary>
+    public Task MarkCiActedAsync(string prKey, string acted, CancellationToken ct) =>
+        unitOfWork.Set<PrReviewRecord>().Where(r => r.PrKey == prKey)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.CiActed, acted), ct);
+
     /// <summary>Records no run of the ticket names any more, with their entries.</summary>
     public async Task DeleteAsync(IReadOnlyCollection<string> prKeys, CancellationToken ct)
     {

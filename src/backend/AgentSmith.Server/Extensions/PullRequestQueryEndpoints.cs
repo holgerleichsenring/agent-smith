@@ -68,7 +68,7 @@ internal static class PullRequestQueryEndpoints
             yield break;
         }
 
-        var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
+        var openedPr = run.Repos.FirstOrDefault(r => PullRequestStatuses.IsOpen(r.PrStatus)); // 3435b: awaiting_ci too
         if (openedPr?.PrUrl is { } url)
             yield return new PullRequestListItem(
                 run.Id, ticketId, run.TicketTitle, run.Pipeline,

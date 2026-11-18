@@ -46,14 +46,18 @@ public sealed record AgentModelPricing(
 public sealed record AgentCacheSettings(bool IsEnabled, string Strategy);
 
 /// <summary>
-/// Context-compaction settings (the studio-editable subset of <c>compaction:</c>;
-/// the token-ratio trigger is preserved untouched by upsert).
+/// Context-compaction settings (the studio-editable subset of <c>compaction:</c>; a ratio
+/// the entity does not carry is preserved untouched by upsert).
 /// </summary>
 public sealed record AgentCompactionSettings(
     bool IsEnabled,
     int ThresholdIterations,
     int MaxContextTokens,
-    int KeepRecentIterations);
+    int KeepRecentIterations,
+    // 2026-11-17-b34eb: nullable — a client that does not send them leaves the stored ratios alone.
+    double? MaxContextTokensTriggerRatio = null,
+    double? FoldTargetRatio = null,
+    double? SummaryBudgetRatio = null);
 
 /// <summary>Transient-failure retry settings (mirrors <c>retry:</c> on the raw agent).</summary>
 public sealed record AgentRetrySettings(

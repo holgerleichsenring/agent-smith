@@ -29,7 +29,8 @@ public sealed class BaseRefreshLauncher(
         await runs.CreateQueuedRunAsync(runId, project.Name, PipelinePresets.RefreshBaseName, [repo.Name],
             $"starting — merging {baseBranch} into {branch}", ct);
         await dispatch.DispatchAsync(new PipelineRequest(project.Name, PipelinePresets.RefreshBaseName,
-            TicketId: null, Headless: true, RunId: runId, Context: Seeds(repo, branch, pullRequest, baseBranch)), ct);
+            TicketId: null, Headless: true, RunId: runId, Context: Seeds(repo, branch, pullRequest, baseBranch),
+            ShownOnTicket: new TicketId(pullRequest.TicketId)), ct); // 2026-11-17-b34ed: listed on the ticket's page
         logger.LogInformation("Base refresh of {Url} launched (run {RunId})", pullRequest.Url, runId);
         return runId;
     }

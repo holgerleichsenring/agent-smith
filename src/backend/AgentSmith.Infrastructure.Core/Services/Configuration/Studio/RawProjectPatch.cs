@@ -33,6 +33,7 @@ public static class RawProjectPatch
         if (entity.DesignSources is { } designSources) project.DesignSources = [.. designSources]; // 2026-10-01-7f7aa
         if (entity.RequiresStart is { } requiresStart) // 2026-11-17-9a39a
             project.RequiresStart = string.IsNullOrWhiteSpace(requiresStart) ? null : requiresStart.Trim();
+        if (entity.Merge is { } merge) project.Merge = ProjectMergeMapping.ToRaw(entity.Id, merge); // 2026-11-17-b34eb
         ApplyPipelines(entity, project, existing);
         return project;
     }

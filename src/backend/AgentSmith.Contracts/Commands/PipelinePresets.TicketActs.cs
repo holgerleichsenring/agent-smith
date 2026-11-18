@@ -38,6 +38,12 @@ public static partial class PipelinePresets
 
     public static readonly IReadOnlyList<string> Retarget = [CommandNames.RetargetPullRequests];
 
+    /// <summary>2026-11-17-3435b: preset name of a CI-green merge — a gate-passed attempt's pull requests merged once the
+    /// host's CI is green on every one (merge: on_ci_green). The server's CI watch starts it with the ticket's lease.</summary>
+    public const string MergeGreenName = "merge-green";
+
+    public static readonly IReadOnlyList<string> MergeGreen = [CommandNames.CompletePullRequests];
+
     // 2026-11-17-e061: every act on a filed ticket, by preset — the static constructor adds them to the presets, and
     // routing reads it to keep them off a label (a launch with a server seed, never a ticket's route). Declared after
     // the step lists above, which a field initializer in this file reads in textual order.
@@ -46,5 +52,6 @@ public static partial class PipelinePresets
         [CloseName] = Close, [ReopenName] = Reopen, [StartName] = Start, [AmendName] = Amend, [CommentName] = Comment,
         [TicketBodyName] = TicketBody, // 2026-11-17-dd05b
         [RetargetName] = Retarget, // 2026-11-17-9a39c
+        [MergeGreenName] = MergeGreen, // 2026-11-17-3435b
     };
 }
