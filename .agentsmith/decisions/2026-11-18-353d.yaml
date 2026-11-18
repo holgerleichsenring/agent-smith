@@ -1,0 +1,5 @@
+spec: 2026-11-18-353d
+decisions:
+  - decision: "Fix with a small internal LandedAt helper and test it directly."
+    alternatives: "A composition test through the series panel."
+    why: "The defect is one lookup; the helper pins it without building the whole series composition. Found by the docs screenshot rig (series panel showed 3 of 3 landed)."
