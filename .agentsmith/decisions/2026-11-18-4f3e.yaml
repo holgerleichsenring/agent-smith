@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-4f3e
+
+decisions:
+  - category: Implementation
+    chose: "Pin the embedded catalog to the released v5.36.0 tarball (sha256 7e50555f25a80ec4a2f0937a1c9568a760d1e1a6d49373b367e85e12e5577af9, equal to the release's published .sha256 and to the file RestoreSkillsCatalog downloaded); diff -rq against v5.35.0 lists one file, skills/_masters/coding-agent-master/SKILL.md (2.1.0 -> 3.0.0)"
+    over: "Building a tarball from the skills branch"
+    reason: "As 2026-11-18-550ac: the pin is the released artifact operators can verify."
+  - category: Implementation
+    chose: "Assertions of sentences 3.0.0 removed, rewritten to the replacing text: CodingMasterToolFirstPromptTests (tool-first -> 'a script or the ecosystem's codemod does the bulk', 'Install what the project needs the ecosystem's own way', 'the residue is judgment'; verify-once dropped), SeriesSkillRulesTests (hand_forward and decide_by_default in 3.0.0's wording), DesignReferenceRulesTests (design_read vs web_fetch in one sentence; the upload path, {{ref:source-precedence}} and render_reference), CodingPromptHeadingsTests (## Working the spec once; ## Your role, ## Ticket instructions, ## Your report)"
+    over: "Deleting them"
+    reason: "Each rule still exists in 3.0.0 in other words; a test of the new wording keeps the pin from silently losing it."
+  - category: Implementation
+    chose: "Deleted, because 3.0.0 removed the rule on purpose and nothing replaces it in the master: CodingMasterArtifactCapturePromptTests (redirect captured output, count stands on its list, repo-relative target, artifact-spec paragraph), CodingMasterReviseSpecPromptTests (revise_spec described in the master), TicketGraphSkillRulesTests.EmbeddedSkills_CodingAgentMaster_JudgesAbsenceOverTheSourceTree, the expected_version / unreadable-frame / compare_reference assertions in DesignReferenceRulesTests, the verify-once assertion"
+    over: "Keeping them red or re-adding the text in this repo"
+    reason: "The removal is the released text's: agent-smith-skills v5.36.0, published by the operator as the c8e2b notes text with three named edits; the master that leads a sub-agent dropped the building rules. What stays guarded elsewhere: revise_spec in the spec user prompt (SpecExecutionPromptFactoryTests), the scoped absence criterion in the design partner (TicketGraphSkillRulesTests), design_read's moved-design answer in the tool itself."
+  - category: Implementation
+    chose: "CodingMasterLeadPromptTests: the master leads a sub-agent (spawn_agents background, send_message, decide by looking), writes <repo>/{RunRecordDir}/plan.md, declares no MaxFixIterations and carries '## Ticket instructions' (the heading validate-skills.sh requires), and its own verdict example parses field for field through MasterVerificationParser (status, four flags, failing and baseline lists, ignored_instructions, acceptance met/not_met with citations and why, fixed_in_passing, follow_ups goal+why, summary, blocked false)"
+    over: "Relying on MasterReportTests' hand-written verdict"
+    reason: "The skill's example is what the model copies; parsing it is the only check that the released block and the c8e2b parser agree."
+  - category: Architecture
+    chose: "Keep MaxFixIterations bound in AgenticMasterHandler and in MasterPromptTokens; note on AgentConfig and in the schema that only a coding master before 3.0.0 reads it"
+    over: "Removing agent.max_fix_iterations"
+    reason: "Render replaces only placeholders the body carries, so the unused binding is a no-op, and nothing compares declared inputs with supplied ones; an operator who pins skills.version below v5.36.0 still gets the value. Removing the setting is a config break for no gain."
+  - category: Implementation
+    chose: "SpecExecutionPromptFactory: 'a criterion you leave is reported not_met with why and where it goes, never dropped silently' replaces 'makes the run red, not silently smaller'"
+    over: "Leaving the user prompt as it was"
+    reason: "Adversarial review finding: since c8e2c an outstanding line ends nothing, and 3.0.0 reports not_met with a follow-up; the old sentence told the master the opposite of both."
+  - category: Scope
+    chose: "3.0.0 says 'correcting a spec is a new spec' while the backend still gives the master revise_spec and its user prompt and PremiseCorrection tell it to revise the spec it builds; left as is and named as a follow-up for the skills repo: 'coding master names revise_spec for a spec it is building'"
+    over: "Retiring revise_spec or patching the embedded text"
+    reason: "Adversarial review finding (REFUSE on it): choosing between the two rules is the operator's call, not a pin's; the more specific user prompt still reaches every spec run, so the tool stays in use. Flagged in the hand-back."
+  - category: Scope
+    chose: "Docs follow 3.0.0: lifecycle, methodology and fix-and-feature say the master briefs a sub-agent and checks its work; design-sources no longer promises the master reports a moved design; agentsmith-yml and the schema say max_fix_iterations is read only by older catalogs. The dashboard's 'max fix iterations' field stays"
+    over: "Hiding the setting in the UI"
+    reason: "The setting is still valid for an older pin; the schema description says so."
+  - category: Implementation
+    chose: "No prompt-size test re-measured: SpecDialogPromptSizeTests covers the design partner, which v5.36.0 does not change, and no coding-master size ceiling exists; the full AgentSmith.Tests and PipelineHarness runs were green after the rewrites"
+    over: "Adding a coding-master size ceiling"
+    reason: "3.0.0 is shorter than 2.1.0; a new limit needs its own reason."

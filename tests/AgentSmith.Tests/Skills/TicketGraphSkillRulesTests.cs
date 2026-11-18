@@ -69,13 +69,6 @@ public sealed class TicketGraphSkillRulesTests
             Because("the scoped absence criterion"));
 
     [Fact]
-    public void EmbeddedSkills_CodingAgentMaster_JudgesAbsenceOverTheSourceTree() =>
-        PackagedMaster.Read("coding-agent-master").Should().Contain(
-            "Judge an absence criterion (\"no file contains X\") over the source tree: a match under .agentsmith/ "
-            + "does not count against it, because the committed spec there quotes X.",
-            Because("the absence judgement"));
-
-    [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_SaysWhatATicketListFiles()
     {
         var master = DesignPartner();

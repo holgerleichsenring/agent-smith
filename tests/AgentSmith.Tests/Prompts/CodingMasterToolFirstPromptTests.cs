@@ -21,23 +21,23 @@ public sealed class CodingMasterToolFirstPromptTests
     /// <summary>First agent-smith-skills release carrying the p0412 rules.</summary>
     private static readonly Version ToolFirstRelease = new(4, 4, 0);
 
+    // 2026-11-18-4f3e: coding-agent-master 3.0.0 (v5.36.0) says it in one sentence; verify-once left with the
+    // master that edited by itself — the lead builds and tests once per round of a sub-agent's work.
     private const string ToolFirstRule =
-        "**Reach for the ecosystem's own tooling before you edit by hand.**";
+        "For a large uniform change, a script or the ecosystem's codemod does the bulk and the compiler's error list enumerates the sites";
 
-    private const string VerifyOnceRule =
-        "**Verify once per change set, not once per edit.**";
+    private const string InstallRule = "Install what the project needs the ecosystem's own way";
 
     [Fact]
-    public void PackagedCodingMaster_StatesToolFirstAndVerifyOnce()
+    public void PackagedCodingMaster_StatesToolFirst()
     {
         var catalog = new EmbeddedSkillsCatalog();
-        var master = PackagedMaster.Read(catalog, "coding-agent-master");
+        var master = PackagedMaster.Folded("coding-agent-master");
 
         master.Should().Contain(ToolFirstRule,
             $"a master told only to do the work hand-edits what a command already knows; "
             + $"the pin is {catalog.Version} and this wording ships from v{ToolFirstRelease}");
-        master.Should().Contain(VerifyOnceRule,
-            "a build between every edit buys nothing the build at the end of the set does not");
+        master.Should().Contain(InstallRule, "a missing tool is installed, not worked around by hand");
     }
 
     /// <summary>
@@ -49,9 +49,7 @@ public sealed class CodingMasterToolFirstPromptTests
     [Fact]
     public void PackagedCodingMaster_KeepsJudgmentWithTheMaster()
     {
-        var master = PackagedMaster.Read(new EmbeddedSkillsCatalog(), "coding-agent-master");
-
-        master.Should().Contain("you judge the exceptions and",
+        PackagedMaster.Folded("coding-agent-master").Should().Contain("the residue is judgment",
             "tool-first without the exception clause is 'tool instead of model'");
     }
 }

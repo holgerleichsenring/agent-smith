@@ -29,7 +29,7 @@ public sealed class DesignReferenceRulesTests
 
     private static string Folded() => PackagedMaster.Folded("design-partner-master");
 
-    private static string CodingAgent() => PackagedMaster.Read("coding-agent-master");
+    private static string CodingAgent() => PackagedMaster.Folded("coding-agent-master");
 
     private static string Because(string why) =>
         $"the pin is {PackagedMaster.Pin} and this rule ships from v{RulesRelease}; {why}";
@@ -93,16 +93,10 @@ public sealed class DesignReferenceRulesTests
         Folded().Should().Contain("citing the frame's link with its `node-id` and the `version` `design_read` reported",
             "a ticket derived from a design cites the version the run compares against");
 
-        coding.Should().Contain(
-            "A **Figma design** the ticket cites is requirement data too, and `design_read`",
-            Because("the coding master reads the cited frames itself"));
-        coding.Should().Contain(
-            "link, pass it as `expected_version`: the answer opens `design unchanged` or",
-            "the run reports whether the design moved since the ticket cited it");
-        coding.Should().Contain("cannot read is a blocker to name, not a design to guess.",
-            "a failed read must stop the guess, not license it");
-        coding.Should().Contain("a figma.com link is read with `design_read`, never `web_fetch`.",
-            "web_fetch on a Figma link returns the shell, which reads as an empty design");
+        // 2026-11-18-4f3e: coding-agent-master 3.0.0 keeps the tool split in one sentence; the expected_version
+        // and unreadable-frame rules left with the master that built by itself.
+        coding.Should().Contain("Figma links are read with `design_read`, other web pages with `web_fetch`",
+            Because("web_fetch on a Figma link returns the shell, which reads as an empty design"));
     }
 
     [Fact]
@@ -123,15 +117,12 @@ public sealed class DesignReferenceRulesTests
         precedence.Should().Contain("**look is part of the WHAT**",
             "the visual-reference paragraph keeps one home, the shared order");
 
-        coding.Should().Contain(
-            "A **visual reference** is requirement data the same way, and each form gives",
+        // 2026-11-18-4f3e: coding-agent-master 3.0.0 names where uploads sit, reads the order from the shared
+        // reference and looks at a page through render_reference; the compare_reference paragraph left with 2.1.0.
+        coding.Should().Contain("uploaded material sits under `<repo>/.agentsmith/reference/<setId>/`",
             Because("the coding master builds against the reference the approval carries"));
-        coding.Should().Contain(
-            "`compare_reference` is on your surface, compare what you built with the",
-            "the run compares its page with the reference once the build is green");
-        coding.Should().Contain(
-            "in result.md under \"Visual comparison\"; it reports and never decides the run —",
-            "the comparison is evidence, while the verdict stays with the acceptance contract");
+        coding.Should().Contain("{{ref:source-precedence}}", "the look-is-the-WHAT order reaches it from one home");
+        coding.Should().Contain("a page through `render_reference`", "the master looks at what was built");
 
         precedence.Should().Contain(
             "**look is part of the WHAT**: its colours, type, spacing, radii and shadows,",

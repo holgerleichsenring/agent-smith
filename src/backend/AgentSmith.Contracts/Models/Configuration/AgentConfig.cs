@@ -31,12 +31,10 @@ public sealed partial class AgentConfig
 
     /// <summary>
     /// p0258: how many times the coding master may RE-ATTEMPT after its own
-    /// build/tests come back red before it gives up — surfaced to the master
-    /// skill as the {MaxFixIterations} prompt variable. A run whose edit broke a
-    /// test (or whose test now asserts the old behaviour) must investigate and
-    /// fix, not stop at the first red — but bounded so a hopeless loop ends.
-    /// Default 3, so no config is needed when 3 fits; raise via
-    /// <c>agent.max_fix_iterations</c> for harder tickets.
+    /// build/tests come back red before it gives up — the {MaxFixIterations}
+    /// prompt variable; raise via <c>agent.max_fix_iterations</c>. Default 3.
+    /// 2026-11-18-4f3e: coding-agent-master 3.0.0 (catalog v5.36.0) no longer reads it — it keeps
+    /// rounds going while they make progress; a pinned older catalog still does, so it stays bound.
     /// </summary>
     public int MaxFixIterations { get; set; } = 3;
 

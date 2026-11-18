@@ -629,7 +629,7 @@
             "input_tokens_per_minute": { "type": "integer" }
           }
         },
-        "max_fix_iterations": { "type": "integer", "description": "Default 3." },
+        "max_fix_iterations": { "type": "integer", "description": "Fix rounds a coding master before 3.0.0 (skills catalog before v5.36.0) takes after a red build; 3.0.0 does not read it. Default 3." },
         "supports_vision": {
           "type": "boolean",
           "description": "Whether images are sent to the model. Default true."

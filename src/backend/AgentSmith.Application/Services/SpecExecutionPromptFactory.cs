@@ -78,7 +78,7 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
             as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
             {SpecExecutionPromptBlocks.DoneCriteria(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
-            a criterion you cannot satisfy makes the run red, not silently smaller.
+            a criterion you leave is reported not_met with why and where it goes, never dropped silently.
             Before the verdict, call hand_forward once with what you renamed and moved (each
             `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
             When you are genuinely blocked on missing input, call ask_human once: the

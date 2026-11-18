@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-4f3e
+goal: "The embedded skills catalog is pinned to v5.36.0: the coding master leads a sub-agent that builds the spec, checks the work itself and reports per done line with follow-ups."
+
+applies_to: "default (embedded skills catalog, skills config default, coding-master text tests, docs)"
+
+requires: [2026-11-18-550ac, 2026-11-18-c8e2a, 2026-11-18-c8e2b, 2026-11-18-c8e2c]
+
+facts:
+  - claim: "The v5.36.0 release asset's sha256 is 7e50555f25a80ec4a2f0937a1c9568a760d1e1a6d49373b367e85e12e5577af9, matching the release's published .sha256; against v5.35.0 only coding-agent-master differs, 2.1.0 -> 3.0.0."
+    evidence: "observed: 2026-11-18, gh release download v5.36.0 + shasum, diff -rq of both extracted tarballs"
+  - claim: "3.0.0 is the c8e2b notes text with three edits: the heading '## Ticket instructions', the master writes <repo>/{RunRecordDir}/plan.md in step 2, and no fix-round counter, so MaxFixIterations is no longer a declared input."
+    evidence: ".agentsmith/notes/2026-11-18-c8e2-coding-master-skill.md:7,32,97"
+  - claim: "The pin is the csproj's SkillsCatalogVersion and SkillsCatalogSha256 with the tarball under Resources, the example config, three docs pages and the version SkillsConfigValidatorTests reads."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55, config/agentsmith.example.yml:625, docs/how-it-works/skills-catalog.md:20-85, docs/reference/skills/airgap.md:18, docs/reference/skills/your-own-skills.md:15-71, tests/AgentSmith.Tests/Configuration/SkillsConfigValidatorTests.cs:44"
+  - claim: "The master prompt still binds MaxFixIterations; Render replaces only placeholders the body carries, so a body without it renders unchanged, and an operator pinning an older catalog still gets the value."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:193, src/backend/AgentSmith.Application/Prompts/MasterPromptTokens.cs:20, src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:32-41"
+  - claim: "MasterVerificationParser reads every field of the 3.0.0 verdict block: status, build/tests flags, failing_tests, baseline_failing_tests, ignored_instructions, acceptance (criterion, status met/not_met/not_applicable, evidence, citations), fixed_in_passing, follow_ups (goal, why), blocked/blocker, summary."
+    evidence: "src/backend/AgentSmith.Application/Services/MasterVerificationParser.cs:49-66, src/backend/AgentSmith.Application/Services/MasterVerificationParser.Acceptance.cs:26-82, src/backend/AgentSmith.Application/Services/MasterVerificationParser.BlockedClaim.cs:23-38"
+  - claim: "The spec user prompt still says a criterion that cannot be satisfied makes the run red, which neither c8e2c (an outstanding line ends nothing) nor 3.0.0 (not_met with why and follow-up) holds."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:80-81"
+  - claim: "Docs describe the master editing the code itself, reporting a moved design, and max_fix_iterations as a live setting."
+    evidence: "docs/how-it-works/lifecycle.md:19, docs/how-it-works/methodology.md:28, docs/reference/pipelines/fix-and-feature.md:142, docs/configure-it/design-sources.md:65, docs/reference/configuration/agentsmith-yml.md:84, config/agentsmith.schema.json:632"
+
+scope:
+  in: "The pin to agent-smith-skills v5.36.0; every test that reads the coding master's text, an assertion of a deliberately removed sentence rewritten to the rule that replaced it or deleted; a test that parses the packaged master's own verdict example; the spec user prompt's not-met sentence; the AgentConfig and schema notes on MaxFixIterations; the docs that described the master building by itself."
+  out: "Any skill text change (3.0.0 says a wrong spec is a new spec while the backend still hands revise_spec; a follow-up for the skills repo, see decisions). Removing agent.max_fix_iterations (an older pinned catalog still reads it). The PipelineHarness fixture catalog, which is its own snapshot."
+
+steps:
+  - id: pin
+    action: "Replace Resources/agentsmith-skills-v5.35.0.tar.gz with the released v5.36.0 (sha256 checked), update SkillsCatalogVersion and SkillsCatalogSha256, config/agentsmith.example.yml, the docs naming the pinned version and SkillsConfigValidatorTests."
+  - id: tests
+    action: "Run every test that reads the coding master's text; rewrite assertions of removed sentences to the replacing text, delete those with no replacement, record each in decisions; re-measure any prompt-size test that trips."
+  - id: verdict
+    action: "A test parses the verdict block of the packaged coding master with MasterVerificationParser and asserts each field lands."
+  - id: config
+    action: "AgentConfig.MaxFixIterations' comment and the schema description say coding masters before 3.0.0 read it; the binding stays."
+  - id: prompt
+    action: "SpecExecutionPromptFactory: a criterion left is reported not_met with why and where it goes, never dropped silently."
+  - id: docs
+    action: "lifecycle.md, methodology.md, fix-and-feature.md: the master briefs a sub-agent and checks its work; design-sources.md: no master rule for a moved design; agentsmith-yml.md: max_fix_iterations read only by older catalogs."
+
+tests:
+  - "SkillsConfigValidatorTests and every test reading coding-agent-master against the new pin"
+  - "The packaged verdict example parses field for field"
+
+done:
+  - "The embedded catalog is v5.36.0 with coding-agent-master 3.0.0."
+  - "Tests read the master leading a sub-agent, the report per done line with fixed in passing and follow-ups, and the plan written to the run record directory; no test pins a sentence 3.0.0 removed."
+  - "The packaged master's verdict example parses into a MasterVerification with every field it shows."
