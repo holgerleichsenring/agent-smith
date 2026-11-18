@@ -28,4 +28,10 @@ public sealed class RawTemplateEntry
 
     /// <summary>Opaque: a branch, a tag or a sha, verified where it is fetched.</summary>
     public string? Revision { get; set; }
+
+    /// <summary>2026-11-18-3863a: code (absent) or deployment.</summary>
+    public string? Kind { get; set; }
+
+    /// <summary>2026-11-18-3863a: a deployment binding's environments.</summary>
+    public List<RawDeploymentEnvironment>? Environments { get; set; }
 }

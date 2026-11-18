@@ -19,7 +19,10 @@ public sealed record TemplateReference(
     // Optional, and absent is what every stored declaration says today: "the context of that
     // name, wherever it is" — correct for any project whose repositories do not collide.
     // Named only when two of them declare one name and each wants its own template.
-    string? ContextRepo = null)
+    string? ContextRepo = null,
+    // 2026-11-18-3863a: code (null) or deployment, and a deployment binding's environments.
+    string? Kind = null,
+    IReadOnlyList<DeploymentEnvironmentReference>? Environments = null)
 {
     public TemplateReference() : this(string.Empty, string.Empty, string.Empty, string.Empty) { }
 }

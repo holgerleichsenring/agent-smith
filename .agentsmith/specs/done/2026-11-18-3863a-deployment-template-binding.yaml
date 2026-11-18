@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863a
+goal: "A project binds a context to a deployment template — the existing template binding with kind deployment — and gives each environment its repo, approval and parameters, in config and the studio."
+
+upgrade_impact: "None for stored config: kind absent reads as code and environments absent as none. The studio patch replaces the whole template list, so a dashboard older than this release that saves a project drops kind and environments of a deployment binding (it becomes a code binding); dashboard and server ship together."
+
+applies_to: "default (template binding: raw entry, studio reference, resolved template, rules, schema, docs) + dashboard (template rows)"
+
+facts:
+  - claim: "A template binding is a context of THIS project bound to (project, repo, context, revision) of another; it is the only template mechanism and it is per context."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawTemplateEntry.cs:8-31, src/backend/AgentSmith.Contracts/Models/Configuration/ProjectTemplate.cs:20-25"
+  - claim: "The rules are stated once and read from the loader and the studio write (draft check, referential validator)."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ProjectTemplateRules.cs:20-61, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectTemplateResolver.cs:45, src/backend/AgentSmith.Contracts/Services/ProjectTemplateDraftCheck.cs:40"
+  - claim: "A template's address is template:<context> (or template:<repo>/<context>) and the FIRST declaration composing an address owns it; a second binding of one context would lose its scope."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TemplateScopeName.cs:28-67, src/backend/AgentSmith.Application/Services/Specs/TemplateDeclarations.cs:42-47"
+  - claim: "The studio writes templates only when the entity carries the list; mapping both ways lives in ProjectEntityMapping, which is at 120 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawProjectPatch.cs:28-29, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectEntityMapping.cs:82-96"
+  - claim: "The schema closes templateEntry with additionalProperties false."
+    evidence: "config/agentsmith.schema.json:1121-1139"
+  - claim: "The dashboard edits one binding per row with a five-field editor."
+    evidence: "src/dashboard/src/components/config/TemplateEditor.tsx:17-84, src/dashboard/src/lib/configApi.ts:624-633"
+  - claim: "Operator 2026-11-17: a template for how an application is pushed; it lives where templates live; every setting has a UI field; secrets are deferred."
+    evidence: "observed: 2026-11-17, operator request relayed by the coordinator"
+
+scope:
+  in: "kind (code | deployment, absent = code) and environments on the template binding: raw entry, studio TemplateReference, resolved ProjectTemplate (DeploymentEnvironment: name, repo resolved from the repos catalog like a template's own repo, or null meaning the context's own repository; approval default true; parameters). The environment repo is a catalog repo ref and NOT one of this project's repos, so a GitOps repository is never checked out by this project's coding runs. Rules: unknown kind; environments on a code binding; an environment without a name or named twice; a glob environment repo; an environment repo that does not resolve (loader finding). A deployment binding is addressed template:deploy:<context> (template:deploy:<repo>/<context>), so it owns its own address beside a code binding of the same context. Until 3863b, TemplateDeclarations admits code bindings only, so no run opens a deployment template yet. Schema, agentsmith-yml.md, configure-it/templates.md. Studio: a kind select and, for deployment, environment rows (name, repo select, approval checkbox, parameters key/value)."
+  out: "Reading the template's own deployment.yaml (3863b, 3863c). Secrets: only names, in the template (3863c reads them). Validating environment names against the template (where it is fetched, like context names)."
+
+steps:
+  - id: model
+    action: "TemplateKinds (code, deployment) in Contracts; RawDeploymentEnvironment + RawTemplateEntry.Kind/Environments; DeploymentEnvironmentReference + TemplateReference.Kind/Environments; DeploymentEnvironment + ProjectTemplate.Kind/Environments and IsDeployment."
+  - id: mapping
+    action: "Template mapping both ways leaves ProjectEntityMapping for TemplateReferenceMapping; ProjectTemplateResolver passes kind and environments to the rules and resolves each environment repo through ProjectRepoResolver against the repos catalog in a helper of its own (Materialise is at 19 lines)."
+  - id: rules
+    action: "DeploymentEnvironmentRules, called from ProjectTemplateRules.Check per binding; both callers inherit it. ProjectTemplateDraftCheck.IsAnswered also treats a binding with an unnamed environment as unfinished, so a half-typed row reports nothing."
+  - id: address
+    action: "TemplateScopeName.For composes template:deploy:… for a deployment binding; ownership compares the composed address, so kinds never collide. TemplateDeclarations.Of admits code bindings only (3863b opens deployment ones)."
+  - id: schema-docs
+    action: "templateEntry gains kind and environments (deploymentEnvironment def, additionalProperties false); agentsmith-yml.md and configure-it/templates.md describe them."
+  - id: studio
+    action: "configApi TemplateReference.kind/environments; TemplateEditor kind select; DeploymentEnvironments rows; TemplateRow says 'delivered after' for a deployment binding; isTemplateUnfinished also refuses an unnamed environment."
+
+tests:
+  - "ProjectTemplateRules: environments on a code binding, a duplicate or empty environment name, an unknown kind and an environment repo this project lacks are refused; a sound deployment binding passes"
+  - "Loader: a YAML deployment binding resolves kind, environments, repo connection, approval default true and parameters; an absent kind is code"
+  - "Studio round trip: a deployment binding with environments survives ToRaw/ToTemplates and the patch"
+  - "TemplateScopeName: a code binding's address is unchanged (characterisation: template:api, template:repo/api); a code and a deployment binding of one context get two addresses and both own theirs"
+  - "TemplateDeclarations: a deployment binding is not selected"
+  - "ProjectTemplateDraftCheck: a binding with an unnamed environment reports nothing"
+  - "Schema coverage passes with the new keys"
+  - "Dashboard: the editor shows environment rows only for kind deployment; an unnamed environment marks the row unfinished"
+
+done:
+  - "An operator binds a context to a deployment template with test and prod environments in the studio, saves, and the loaded project carries both environments with prod's approval on."

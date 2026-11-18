@@ -5,6 +5,14 @@ import { SelectField, TextField } from "./formFields";
 import { useProjectContexts } from "./useProjectContexts";
 import { ContextField, LocalContextField, Unreadable } from "./templateContextField";
 import type { ConfigCatalog } from "./useConfigCatalog";
+import { DeploymentEnvironments } from "./DeploymentEnvironments";
+
+// 2026-11-18-3863a: a binding is a code template (how the context is built) or a deployment template (how it is
+// delivered, with its environments).
+export const TEMPLATE_KINDS = [
+  { value: "code", label: "code — how this context is built" },
+  { value: "deployment", label: "deployment — how this context is delivered" },
+];
 
 // 2026-09-14-620e: the five fields of one template binding. Four are PICKED — the target
 // project and its repo from the catalog the studio already holds, both context names from
@@ -37,6 +45,15 @@ export function TemplateEditor({
 
   return (
     <div className="tpl-editor" id={`${testId}-editor`} data-testid={`${testId}-editor`}>
+      <SelectField
+        label="kind"
+        value={template.kind ?? "code"}
+        options={TEMPLATE_KINDS}
+        testId={`${testId}-kind`}
+        // A code binding carries no environments; leaving deployment drops them.
+        onChange={(v) => onChange({ ...template, kind: v === "deployment" ? v : null,
+          environments: v === "deployment" ? template.environments ?? [] : null })}
+      />
       <LocalContextField
         value={template.context}
         contextRepo={template.contextRepo ?? null}
@@ -79,6 +96,10 @@ export function TemplateEditor({
         testId={`${testId}-revision`}
         onChange={(v) => onChange({ ...template, revision: v === "" ? null : v })}
       />
+      {template.kind === "deployment" && (
+        <DeploymentEnvironments environments={template.environments ?? []} catalog={catalog} testId={testId}
+          onChange={(environments) => onChange({ ...template, environments })} />
+      )}
       <Unreadable testId={testId} subject="the target repository" lines={targetContexts.unreadable} />
     </div>
   );

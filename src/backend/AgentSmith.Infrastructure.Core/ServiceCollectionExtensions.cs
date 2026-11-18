@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RepoCatalogBuilder>();
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ProjectRepoResolver>();
+        services.AddSingleton<DeploymentEnvironmentResolver>(); // 2026-11-18-3863a
         services.AddSingleton<ProjectTemplateResolver>();
         services.AddSingleton<ResolvedProjectBuilder>();
         services.AddSingleton<ConfigCatalogResolver>();

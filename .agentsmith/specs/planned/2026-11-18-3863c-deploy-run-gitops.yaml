@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863c
+goal: "A 'deploy' run delivers a version of a context to one environment by a pull request to the environment's manifest, per the deployment template, merging it itself only where no approval is required."
+
+applies_to: "default (Application/Services/Deployment, pipeline presets, Server/Services/Deployment, endpoints, docs) + dashboard (run log section map)"
+
+upgrade_impact: "Opt-in: nothing deploys until a deployment binding exists and a person starts a deploy. An environment with approval off merges its pull request in the project's merge mode (merge.respect_branch_protection; false, the default, merges past the GitOps repository's branch protection as far as the token may) — approval defaults to on, so that only happens where an operator turned it off. Tokens need write access to the environment repositories."
+
+requires: [2026-11-18-3863a]
+
+facts:
+  - claim: "Work that writes to a repository is a pipeline step with a run id; the server only starts runs."
+    evidence: ".agentsmith/contexts/default/principles.md:31, tests/AgentSmith.Tests/Architecture/ServerWritesRatchetTests.cs:5-11"
+  - claim: "A server-started run is a queued row plus a dispatch with string seeds, listed on a ticket's page through ShownOnTicket."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:22-46"
+  - claim: "refresh-base, a server-started run beside a ticket, is registered in All, PipelineTypes and NotRoutable, and ShownOnTicketOnly keeps such a run from releasing, queueing or nudging the ticket it is listed on."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:35, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:58, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Routing.cs:48, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:9-17"
+  - claim: "A merge answers Merged, Armed (the host merges once its policy is met) or Refused with the host's reason."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/PullRequestCompletion.cs:9-28"
+  - claim: "The provider reads a file on the default branch, writes files to a branch in one commit without a checkout, finds or opens a pull request from a branch, and merges one in the project's protection mode."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:35-64, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:36-38, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.Merge.cs:16-17, src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:25"
+  - claim: "A pull request is opened from a Repository built from a branch and a remote url; no checkout is needed."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Repository.cs:30-34"
+  - claim: "A template is read at its revision through a source-scope sandbox; the checkout-free branch read on Azure Repos asks for a branch only, so a tag would not resolve there."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ProjectTemplateScopes.cs:61-70, src/backend/AgentSmith.Application/Services/Specs/TemplateProofRead.cs:45-47, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchRead.cs:80-81"
+  - claim: "No provider triggers a CI/CD pipeline run; every provider opens and merges pull requests."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:9-119"
+  - claim: "The branch-cleanup run deletes an agent-smith/ branch only once its pull request ended and it was not pushed to since."
+    evidence: "src/backend/AgentSmith.Application/Services/Branches/WorkBranchVerdict.cs:19-28"
+
+scope:
+  in: "DeploymentDeclaration + DeploymentDeclarationParser (deployment.yaml: delivery gitops_pr, files, parameters, secrets, environments with manifest, version_key, promotes_from). ManifestVersionKey: reads and replaces ONE scalar at a dotted key path (mapping keys, sequence indexes) in the manifest text, keeping every other byte and the scalar's quoting. Preset 'deploy' [DeployToEnvironment], registered like refresh-base (All, PipelineTypes Structured, NotRoutable, no master) and in ShownOnTicketOnly. The step: the binding and environment from config; the template's deployment.yaml (.agentsmith/contexts/<template_context>/deployment.yaml) read through a template scope at the bound revision; the environment must be declared by the template; the version is the requested one for an entry environment, and for an environment that promotes_from another, the value at that environment's manifest key — refused when a version was typed there, when none was typed for an entry environment, or when the source environment is not bound; the environment repo is the bound one, else the context's own (context_repo, else the project's only repo, else refused naming the key); the manifest is read on its default branch; unchanged -> done, nothing written; otherwise the file goes to a fresh branch agent-smith/deploy/<context>-<environment>/<run id> (slashes in the context become dashes) in one commit, cut from the default branch head, and a pull request opens; approval off -> merged in the project's merge mode, and Merged, Armed or Refused is named (Refused leaves the run successful with the pull request open for a person and the host's reason); approval on -> left for a person. The outcome sentence names environment, version, pull request and merge state. A version is ^[A-Za-z0-9][A-Za-z0-9._-]*$ (a digest is refused: ':' is not a ref character). DeployLauncher (server): validates project, binding, environment and the version's shape, queues the run with string seeds, ShownOnTicket when a ticket is named; whether the environment promotes is the template's, so those refusals come back as the run's outcome. POST /api/projects/{project}/deployments (runs.control) answers the run id; GET /api/projects/{project}/deployments (runs.read) lists bindings and environments for the dashboard."
+  out: "A pipeline-trigger mechanism (3863e). Reading the deploy pull request's CI and merge state back (3863f, on the CI reader of 2026-11-17-3435a once it lands). Automatic promotion and the series run's call (3863h). Creating or storing secrets."
+
+steps:
+  - id: declaration
+    action: "DeploymentDeclaration records and DeploymentDeclarationParser (YamlDotNet, typed errors naming the key)."
+  - id: manifest
+    action: "ManifestVersionKey.Read / Replace over YamlDotNet node marks."
+  - id: preset
+    action: "PipelinePresets.Deploy.cs declares DeployName and Deploy (read only by the static constructor's dictionaries on PipelinePresets.cs's existing lines 35 and 58, which is at 120 lines); NotRoutable reason; ShownOnTicketOnly; CommandNames, ContextKeys, CommandModelUse, CommandStepClasses, CommandProgressLabels, CommandDisplayNames, CommandBeats, builder, handler registration, DeployDataFlow; control-flow.svg regenerated; the dashboard's runSections map."
+  - id: step
+    action: "DeployToEnvironmentHandler orchestrates DeploymentTarget (binding + environment + repo), DeploymentTemplateRead (scope + parser), DeployVersion (requested or promoted) and GitOpsDelivery (write, pull request, merge)."
+  - id: server
+    action: "DeployLauncher + DeploymentEndpoints + DeploymentBindingsView."
+  - id: docs
+    action: "deployment-templates.md gains 'Deploying'; agentsmith-yml.md links it."
+
+tests:
+  - "DeploymentDeclarationParser: a full file parses; a missing environment name or manifest is refused naming the key; an unknown delivery is refused"
+  - "ManifestVersionKey: replaces images.0.newTag in a kustomization keeping comments and other lines; keeps quotes; refuses a missing key and a non-scalar"
+  - "DeployToEnvironmentHandler: entry environment writes the branch and opens a PR; approval off merges; unchanged version writes nothing; a promoted environment takes the source environment's version; a typed version for a promoted environment is refused"
+  - "DeployLauncher: unknown binding, unknown environment and a bad version shape are refused; a sound request queues 'deploy' with ShownOnTicket"
+  - "DeployCompositionTests (RealCompositionHarness): POST-equivalent launch runs 'deploy' through the real composition and opens the PR on the fake host"
+  - "Coverage that knows every preset: PipelineDataFlowsCoverageTests, ScanFailurePersistGuardTests, RoutingPipelineChoiceTests, the control-flow diagram test, PipelinePresets ShownOnTicketOnly"
+  - "DeployToEnvironmentHandler: approval off with an Armed or Refused merge names it and stays successful; an unbound promotion source is refused"
+
+done:
+  - "With a bound deployment template, a person deploys version v1 to test and gets a merged manifest pull request; deploying to prod promotes test's version and leaves the pull request for a person to merge."

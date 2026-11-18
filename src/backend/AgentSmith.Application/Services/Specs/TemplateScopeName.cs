@@ -30,11 +30,17 @@ public static class TemplateScopeName
             ? $"{Prefix}{context}"
             : $"{Prefix}{contextRepo}/{context}";
 
+    /// <summary>2026-11-18-3863a: what follows <see cref="Prefix"/> in a deployment binding's address, so a context
+    /// bound to a code template and a deployment template owns two addresses. The router splits on '/', so
+    /// <c>template:deploy:api</c> never shadows <c>template:api</c>.</summary>
+    public const string DeploymentMark = "deploy:";
+
     /// <inheritdoc cref="For(string, string?)"/>
     public static string For(ProjectTemplate template)
     {
         ArgumentNullException.ThrowIfNull(template);
-        return For(template.Context, template.ContextRepo);
+        var address = For(template.Context, template.ContextRepo);
+        return template.IsDeployment ? Prefix + DeploymentMark + address[Prefix.Length..] : address;
     }
 
     /// <summary>

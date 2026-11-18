@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863h
+goal: "Promotion follows the template: once a deploy to an environment merged, the environments that promote from it and need no approval are deployed automatically, and the series run can call deploy."
+
+applies_to: "default (deploy launcher, series run)"
+
+requires: [2026-11-18-3863c, 2026-11-18-3863f]
+
+facts:
+  - claim: "DeployLauncher is the one entry that starts a deploy run."
+    evidence: "observed: 2026-11-18, spec 2026-11-18-3863c builds it"
+
+scope:
+  in: "On a deploy record turning merged, launch deploy for each environment whose promotes_from is it and whose approval is off; a series run's end may call DeployLauncher for bound contexts when the project opts in (config + UI)."
+  out: "Promoting into an approval environment (always a person)."
+
+done:
+  - "A merged test deploy starts the staging deploy when staging promotes from test without approval."

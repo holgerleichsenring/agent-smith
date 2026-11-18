@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863d
+goal: "A person starts a deploy from a ticket's page — context, environment and version picked from the project's bindings — and the deploy run is listed on that ticket like its other runs."
+
+applies_to: "dashboard (ticket page More menu, deployments API client)"
+
+requires: [2026-11-18-3863c]
+
+facts:
+  - claim: "Acts that are not the next step sit in the ticket page's More menu; each hides itself from a caller lacking runs.control and shows a refusal as the server wrote it."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketMoreMenu.tsx:19-36, src/dashboard/src/components/tickets/detail/DeriveSpecsAct.tsx:19-50"
+  - claim: "A run started with ShownOnTicket is listed on the ticket's page."
+    evidence: "src/backend/AgentSmith.Server/Services/Acts/IActRun.cs:11-15"
+
+scope:
+  in: "deploymentsApi (list bindings, start a deploy); DeployAct in the More menu when the project has a deployment binding: a dialog with context, environment (its approval shown), version (help: empty promotes from the environment the template names; whether this environment promotes is the template's, so a wrong choice comes back as the deploy run's outcome), Start; the run id or the server's sentence; on a start the ticket page's run list refreshes the way a started derivation refreshes it."
+  out: "A project-level deploy page. Status of the deploy pull request (3863f)."
+
+steps:
+  - id: api
+    action: "lib/deploymentsApi.ts with listDeployments and startDeploy."
+  - id: act
+    action: "DeployAct + DeployDialog under components/tickets/deploying; TicketMoreMenu renders it."
+
+tests:
+  - "DeployAct: hidden without runs.control or without a deployment binding; starts with the chosen context, environment and version; shows the server's refusal"
+
+done:
+  - "From a ticket's page a person deploys to test and sees the deploy run among the ticket's runs."
