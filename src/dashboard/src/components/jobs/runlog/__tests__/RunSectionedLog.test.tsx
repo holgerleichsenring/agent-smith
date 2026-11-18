@@ -39,6 +39,25 @@ describe("RunSectionedLog", () => {
     expect(screen.getByTestId("run-step-detail-1")).toBeInTheDocument();
   });
 
+  it("RunSectionedLog_AStepClickedInASectionThePersonOpened_KeepsTheSectionOpenAndShowsTheDetail", () => {
+    const done = [row(1, { status: "success" })];
+    const { rerender } = render(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={done} openStep={null}
+      onOpenStep={() => {}} checkBody={null} />);
+    expect(screen.queryByTestId("run-step-1")).toBeNull();
+    fireEvent.click(within(screen.getByTestId("run-section-spec:s1")).getByRole("button", { expanded: false }));
+    fireEvent.click(within(screen.getByTestId("run-step-1")).getByTestId("run-log-line"));
+    rerender(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={done} openStep={1}
+      onOpenStep={() => {}} checkBody={null} />);
+    expect(screen.getByTestId("run-step-1")).toBeInTheDocument();
+    expect(screen.getByTestId("run-step-detail-1")).toBeInTheDocument();
+  });
+
+  it("RunSectionedLog_AStepNamedOnArrival_OpensItsSection", () => {
+    render(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={[row(1, { status: "success" })]} openStep={1}
+      onOpenStep={() => {}} checkBody={null} />);
+    expect(screen.getByTestId("run-step-detail-1")).toBeInTheDocument();
+  });
+
   it("RunSectionedLog_TwoLogsWithTheirPrefixes_ShareNoElementId", () => {
     const { container } = render(
       <>

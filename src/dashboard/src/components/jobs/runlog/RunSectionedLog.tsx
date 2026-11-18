@@ -49,8 +49,13 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
   const [mechanics, setMechanics] = useState<ReadonlySet<string>>(new Set());
   const initial = initiallyOpen(sections);
-  const addressed = sections.find((s) => s.steps.some((st) => st.row.stepIndex === openStep))?.id;
-  if (addressed) initial.add(addressed);
+  // 2026-11-18-9fae: only the step named on arrival (the address, read after mount) opens its section; a step clicked
+  // later sits in a section the person already opened, and adding it to `initial` would cancel their toggle and close it.
+  const stepClicked = useRef(false);
+  const arrivalSection = useRef<string | null>(null);
+  if (!stepClicked.current && arrivalSection.current === null && openStep !== null)
+    arrivalSection.current = sections.find((s) => s.steps.some((st) => st.row.stepIndex === openStep))?.id ?? null;
+  if (arrivalSection.current) initial.add(arrivalSection.current);
   // 2026-11-17-6d9ec: a step named on arrival is scrolled to once; a click never scrolls.
   const scrolled = useRef(false);
   useEffect(() => {
@@ -76,7 +81,7 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
 
   return (
     <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((t) => flip(t, id))} idPrefix={idPrefix}
-      openStep={openStep} onToggleStep={(i) => { scrolled.current = true; onOpenStep(openStep === i ? null : i); }}
+      openStep={openStep} onToggleStep={(i) => { scrolled.current = true; stepClicked.current = true; onOpenStep(openStep === i ? null : i); }}
       mechanicsOpen={mechanics} onToggleMechanics={(id) => setMechanics((m) => flip(m, id))}
       body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} />} />
   );
