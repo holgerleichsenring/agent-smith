@@ -26,6 +26,17 @@ public static class DeployFollowVerdict
             : (false, null);
     }
 
+    /// <summary>2026-11-18-3863h: whether a settled record delivered green — a pipeline run that succeeded, or a pull
+    /// request merged with its CI green or with none reporting. GitOps promotion follows the merge, not a rollout.</summary>
+    public static bool Succeeded(DeployRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        if (record.SettledAtTicks is null) return false;
+        return record.PipelineRunId is not null
+            ? record.CiState == CiStates.Green
+            : record.PullRequestState == PrReviewStates.Merged && record.CiState is CiStates.Green or CiStates.None;
+    }
+
     /// <summary>Whether the record is due for a read at <paramref name="now"/>.</summary>
     public static bool IsDue(DeployRecord record, MergePolicyConfig merge, TicketsConfig tickets, DateTimeOffset now)
     {

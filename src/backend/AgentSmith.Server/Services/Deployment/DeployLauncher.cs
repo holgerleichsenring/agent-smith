@@ -21,7 +21,15 @@ public sealed class DeployLauncher(
     IConfigurationLoader configLoader, ServerContext serverContext, InitRunRepository runs, QueuedRunDispatch dispatch,
     TimeProvider timeProvider, ILogger<DeployLauncher> logger)
 {
-    public async Task<DeployLaunch> LaunchAsync(string projectName, DeployLaunchRequest request, CancellationToken ct)
+    public Task<DeployLaunch> LaunchAsync(string projectName, DeployLaunchRequest request, CancellationToken ct) =>
+        StartAsync(projectName, request, null, ct);
+
+    /// <summary>2026-11-18-3863h: the server's promotion — a deploy of an environment that promotes from one whose
+    /// deploy of <paramref name="settledVersion"/> settled green. Not reachable from a person's request.</summary>
+    public Task<DeployLaunch> PromoteAsync(string projectName, DeployLaunchRequest request, string settledVersion, CancellationToken ct) =>
+        StartAsync(projectName, request with { Version = null }, settledVersion, ct);
+
+    private async Task<DeployLaunch> StartAsync(string projectName, DeployLaunchRequest request, string? promoted, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
@@ -29,7 +37,7 @@ public sealed class DeployLauncher(
         var version = string.IsNullOrWhiteSpace(request.Version) ? null : request.Version.Trim();
         if (version is not null && !DeployVersionShape.IsValid(version))
             return DeployLaunch.Refused($"version '{version}' is not deliverable: a version is {DeployVersionShape.Description}");
-        var deploy = new DeployRequest(request.Context, Blank(request.ContextRepo), request.Environment, version);
+        var deploy = new DeployRequest(request.Context, Blank(request.ContextRepo), request.Environment, version, promoted);
         var (target, error) = DeploymentTarget.Of(project, deploy);
         if (target is null) return DeployLaunch.Refused(error!);
         return DeployLaunch.Started(await QueueAsync(project, deploy, target, Blank(request.TicketId), ct));
@@ -59,6 +67,7 @@ public sealed class DeployLauncher(
         };
         if (deploy.ContextRepo is not null) seeds[ContextKeys.DeployContextRepo] = deploy.ContextRepo;
         if (deploy.Version is not null) seeds[ContextKeys.DeployVersion] = deploy.Version;
+        if (deploy.PromotedVersion is not null) seeds[ContextKeys.DeployPromotedVersion] = deploy.PromotedVersion; // 3863h
         return seeds;
     }
 

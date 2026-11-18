@@ -4,7 +4,9 @@ namespace AgentSmith.Contracts.Events;
 /// 2026-11-18-3863f: a deploy run delivered — the pull request it opened on <paramref name="Repo"/> (the repository the
 /// delivery went to, by its configured name), or the pipeline run it started there. <paramref name="PipelineRunId"/> is
 /// null for a pull request and for a pipeline run the host did not name, which cannot be followed. The run row family
-/// inserts a deploy record from it; the server follows that record until it settles.
+/// inserts a deploy record from it; the server follows that record until it settles. 2026-11-18-3863h:
+/// <paramref name="PromotesTo"/> names the environments the template promotes from this one that the binding delivers
+/// without approval — what the server deploys once this one settles green.
 /// </summary>
 public sealed record DeployDeliveredEvent(
     string RunId,
@@ -18,5 +20,6 @@ public sealed record DeployDeliveredEvent(
     string Repo,
     string Url,
     string? PullRequestUrl,
-    string? PipelineRunId)
+    string? PipelineRunId,
+    IReadOnlyList<string>? PromotesTo = null)
     : RunEvent(RunId, EventType.DeployDelivered, Timestamp);

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863h
+
+decisions:
+  - category: Architecture
+    chose: "The deploy run names the environments it may promote into (PromotesTo) in its DeployDeliveredEvent; the server promotes from the record"
+    over: "The server reading the template's promotes_from, or launching every no-approval environment and letting the run refuse"
+    reason: "promotes_from lives in the template at a revision, which only a run can open (template scope); launching blindly would fill tickets with refused runs. The run already holds the declaration and the binding."
+  - category: Architecture
+    chose: "Promotion and the series master both start deploys through DeployLauncher, the ticket page's entry; promotion through PromoteAsync, which a request body cannot reach"
+    over: "A second launcher, or letting the endpoint accept a promoted version"
+    reason: "No second path (coordinator: the same entry the ticket page uses); a person's typed version for a promoted environment stays refused."
+  - category: Implementation
+    chose: "approval: false on the binding is the opt-in for both automatic promotion and the series master's deploys; no further setting"
+    over: "A project-level 'auto-promote' or 'series may deploy' setting with a studio field"
+    reason: "Approval defaults to on (prod stays a person's), and the operator already turns it off per environment in the studio; a second switch would say the same thing twice."
+  - category: Implementation
+    chose: "The promotion carries the version that settled; a source manifest carrying another version by then refuses it"
+    over: "Reading the source manifest's current version at promotion time"
+    reason: "A newer delivery merged in the meantime has not settled green, so it must not be promoted (review finding); a pipeline source without a manifest is promoted at the settled version."
+  - category: Implementation
+    chose: "Settle in the store with a conditional update before launching; launch only if it won"
+    over: "Relying on the leader lease alone"
+    reason: "A lease handover can overlap, and a crash between launch and save would launch again (review finding)."
+  - category: Implementation
+    chose: "A merged pull request with no CI reporting counts as green for promotion; the docs say promotion follows the merge, not a rollout"
+    over: "Requiring a CI reader, or a green check"
+    reason: "A GitOps repository without checks is common, and the merge is what the GitOps controller acts on; agent-smith cannot see the cluster, which the docs state."
+  - category: Implementation
+    chose: "The series master deploys only to no-approval environments; the binding is read in SeriesTicketActs, not left to the model"
+    over: "Letting the series master open approval-environment pull requests"
+    reason: "Pipeline delivery ignores approval, so the act itself is the guard (review finding); a person deploys approval environments from the ticket page."

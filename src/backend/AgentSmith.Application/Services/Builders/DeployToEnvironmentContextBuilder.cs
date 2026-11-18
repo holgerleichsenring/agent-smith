@@ -17,7 +17,7 @@ public sealed class DeployToEnvironmentContextBuilder : IContextBuilder
         var request = context is null || environment is null
             ? null
             : new DeployRequest(context, Text(pipeline, ContextKeys.DeployContextRepo), environment,
-                Text(pipeline, ContextKeys.DeployVersion));
+                Text(pipeline, ContextKeys.DeployVersion), Text(pipeline, ContextKeys.DeployPromotedVersion));
         return new DeployToEnvironmentContext(pipeline, project, request);
     }
 

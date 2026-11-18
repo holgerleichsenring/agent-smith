@@ -37,6 +37,7 @@ public sealed class DeploymentDeclarationParser
             if (declared is null) return (null, error);
             environments.Add(declared);
         }
+        if (PromotionChains.Cycle(environments) is { } cycle) return (null, cycle); // 2026-11-18-3863h
         return (new DeploymentDeclaration(delivery, environments, parameters), null);
     }
 }

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Deployment;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
@@ -16,7 +17,7 @@ namespace AgentSmith.Server.Services.Series;
 /// </summary>
 public sealed class SeriesTicketActs(
     TicketProjects projects, UnmetTicketRequirements requirements, TicketStartRun starts, IPreviousAttemptReader attempts,
-    RunRetry retry, SeriesTicketMessage messages) : ISeriesTicketActs
+    RunRetry retry, SeriesTicketMessage messages, Deployment.DeployLauncher deploys) : ISeriesTicketActs
 {
     public async Task<string> StartAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
@@ -44,4 +45,20 @@ public sealed class SeriesTicketActs(
     public Task<string> TellAsync(
         string project, string ticketId, string text, string principal, bool mayStartRuns, CancellationToken cancellationToken) =>
         messages.SendAsync(project, ticketId, text, principal, mayStartRuns, cancellationToken);
+
+    /// <summary>2026-11-18-3863h: the series deploys only where no person approves; the binding is read here, never left
+    /// to the model.</summary>
+    public async Task<string> DeployAsync(
+        string project, string context, string environment, string? version, string? ticketId, CancellationToken cancellationToken)
+    {
+        if (projects.Of(project) is not { } resolved) return $"Project '{project}' is not configured.";
+        var (target, error) = DeploymentTarget.Of(resolved, new DeployRequest(context, null, environment, null));
+        if (target is null) return $"Not deployed: {error}";
+        if (target.Environment.Approval)
+            return $"Not deployed: '{environment}' needs a person's approval, so a person deploys it from the ticket's page";
+        var launch = await deploys.LaunchAsync(project, new Deployment.DeployLaunchRequest(context, environment, version, TicketId: ticketId), cancellationToken);
+        return launch.Outcome == Deployment.DeployLaunchOutcome.Started
+            ? $"Deploy of {context} to {environment} started (run {launch.RunId}); its outcome comes with the run."
+            : $"Not deployed: {launch.Reason}";
+    }
 }

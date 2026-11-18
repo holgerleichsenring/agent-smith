@@ -491,6 +491,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("PromotesTo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PullRequestState")
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");

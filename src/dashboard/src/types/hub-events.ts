@@ -811,6 +811,8 @@ export interface DeployDeliveredEvent extends RunEventBase {
   url: string;
   pullRequestUrl?: string | null;
   pipelineRunId?: string | null;
+  /** 2026-11-18-3863h: environments deployed once this one settles green. */
+  promotesTo?: string[] | null;
 }
 
 /** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */

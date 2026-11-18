@@ -33,4 +33,7 @@ public sealed class DeployRecord : EntityBase
     public long? CheckedAtTicks { get; set; }
     public long? SettledAtTicks { get; set; }
     public string? Note { get; set; }
+
+    /// <summary>2026-11-18-3863h: the environments deployed once this one settles green, comma-separated; null for none.</summary>
+    public string? PromotesTo { get; set; }
 }

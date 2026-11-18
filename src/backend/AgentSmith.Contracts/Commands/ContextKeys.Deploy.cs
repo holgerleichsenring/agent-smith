@@ -14,4 +14,8 @@ public static partial class ContextKeys
 
     /// <summary>The version to deliver; absent asks the run to promote it from the environment the template names.</summary>
     public const string DeployVersion = "DeployVersion";
+
+    /// <summary>2026-11-18-3863h: the version a settled deploy of the source environment delivered, seeded only by the
+    /// server's promotion — never by a person, whose typed version for a promoted environment is refused.</summary>
+    public const string DeployPromotedVersion = "DeployPromotedVersion";
 }

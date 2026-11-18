@@ -143,4 +143,10 @@ A deploy doesn't end with its run. agent-smith keeps reading what it delivered u
 
 While CI or the pipeline runs, it is read every `merge.ci_poll_seconds`. One still running `merge.ci_pending_seconds` after delivery stops being followed and says so, with the link to look yourself. Excerpts are bounded by `merge.ci_excerpt_chars` and `merge.ci_failed_checks_read`. A deploy whose binding no longer leads to the repository it went to stops being followed with that reason. All of these are the project's existing merge and tickets settings in the studio; agent-smith only reads the host here.
 
-Promoting automatically into environments without approval, and the series run calling a deploy, are planned.
+## Promotion and the series
+
+Once a deploy settles green (its pull request merged with CI green or none reporting, or its pipeline run green), agent-smith deploys each environment the template says `promotes_from` it **and** the binding sets to `approval: false`, at the version that settled. The promoted deploy is a run like any other, listed on the same ticket. If the source environment's manifest carries a newer version by then, that one hasn't settled, so nothing is promoted and the note says so. A GitOps promotion follows the merge, not a healthy rollout: agent-smith can't see the cluster.
+
+An environment with approval on, the default, is never deployed without a person. If its approval was turned on after the source deploy started, it is left for a person too. A template whose environments promote in a cycle is refused when it is read.
+
+A series run's master can deploy as well, through the same entry the ticket page uses, but only to environments the binding delivers without approval and only when the series' approver holds `runs.control`. It names the context, the environment and, for an entry environment, the version.

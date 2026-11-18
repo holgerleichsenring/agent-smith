@@ -22,7 +22,8 @@ public sealed class DeployRecordProjection
         {
             RunId = e.RunId, Project = e.Project, Context = e.Context, ContextRepo = e.ContextRepo, Environment = e.Environment,
             Version = e.Version, Delivery = e.Delivery, Repo = e.Repo, Url = e.Url, PullRequestUrl = e.PullRequestUrl,
-            PipelineRunId = e.PipelineRunId, CiState = CiStates.Pending, DeliveredAtTicks = e.Timestamp.UtcTicks,
+            PipelineRunId = e.PipelineRunId, CiState = CiStates.Pending,
+            PromotesTo = e.PromotesTo is { Count: > 0 } to ? string.Join(',', to) : null, // 2026-11-18-3863h DeliveredAtTicks = e.Timestamp.UtcTicks,
             SettledAtTicks = unnamed ? e.Timestamp.UtcTicks : null,
             Note = unnamed ? "the host started the pipeline without naming the run, so it is not followed" : null,
         });

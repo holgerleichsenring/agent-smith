@@ -491,6 +491,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("PromotesTo")
+                        .HasColumnType("text");
+
                     b.Property<string>("PullRequestState")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");

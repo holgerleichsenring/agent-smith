@@ -20,7 +20,7 @@ public sealed partial class DeployManifestPlan(DeployVersion versions, Deploymen
         if (input.Declaration.Environment(request.Environment) is not { } declared)
             return (null, $"the deployment template declares no environment '{request.Environment}'");
         var (version, versionError) = await versions.DecideAsync(
-            new DeployVersionQuestion(project, target, input.Declaration, declared, request.Version), cancellationToken);
+            new DeployVersionQuestion(project, target, input.Declaration, declared, request.Version, request.PromotedVersion), cancellationToken);
         if (version is null) return (null, versionError);
         var (repo, repoError) = target.RepoOf(project, target.Environment);
         if (repo is null) return (null, repoError);

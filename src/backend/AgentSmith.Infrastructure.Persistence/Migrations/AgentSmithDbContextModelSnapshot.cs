@@ -472,6 +472,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PromotesTo")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PullRequestState")
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");

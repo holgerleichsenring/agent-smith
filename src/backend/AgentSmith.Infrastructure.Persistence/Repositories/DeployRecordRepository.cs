@@ -28,6 +28,20 @@ public sealed class DeployRecordRepository(IUnitOfWork unitOfWork)
 
     public Task SaveAsync(CancellationToken ct) => unitOfWork.SaveChangesAsync(ct);
 
+    /// <summary>2026-11-18-3863h: settles the record in the store only if no one did yet — true for the one caller that
+    /// did, so a promotion it starts is started once even across a lease handover.</summary>
+    public async Task<bool> SettleOnceAsync(DeployRecord record, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        var (at, note) = (record.SettledAtTicks, record.Note);
+        return await unitOfWork.Set<DeployRecord>().Where(r => r.RunId == record.RunId && r.SettledAtTicks == null)
+            .ExecuteUpdateAsync(u => u.SetProperty(r => r.SettledAtTicks, at).SetProperty(r => r.Note, note), ct) == 1;
+    }
+
+    /// <summary>2026-11-18-3863h: the ticket the deploy run is listed on, or null.</summary>
+    public Task<string?> TicketOfRunAsync(string runId, CancellationToken ct) => // empty when the run named none
+        unitOfWork.Set<Run>().Where(r => r.Id == runId).Select(r => r.TicketId).FirstOrDefaultAsync(ct);
+
     public static string? Failures(IReadOnlyList<CiFailure> failures) =>
         failures.Count == 0 ? null : JsonSerializer.Serialize(failures, JsonSerializerOptions.Web);
 
