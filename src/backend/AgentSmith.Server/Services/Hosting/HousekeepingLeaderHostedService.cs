@@ -71,11 +71,13 @@ public sealed class HousekeepingLeaderHostedService(
         var queuedRuns = services.GetRequiredService<AgentSmith.Server.Services.Lifecycle.QueuedRunSweeper>();
         // 2026-10-02-5ab2c: the Redis active-run set rebuilt from the rows after a flush.
         var reseeder = services.GetRequiredService<AgentSmith.Server.Services.Events.ActiveRunSetReseeder>();
+        // 2026-11-17-0207a: every active series run gets its beat here, one replica sweeping.
+        var series = services.GetRequiredService<AgentSmith.Server.Services.Series.SeriesRunSweeper>();
         return Task.WhenAll(
             reconciler.RunAsync(ct), watchdog.RunAsync(ct), enforcer.RunAsync(ct),
             resumeSweeper.RunAsync(ct), RunCorpseSweepAsync(corpseReaper, ct), legacyCopy.RunAsync(ct),
             queuedRuns.RunAsync(AgentSmith.Server.Services.Lifecycle.QueuedRunSweeper.ScanInterval, ct),
-            reseeder.RunAsync(ct));
+            reseeder.RunAsync(ct), series.RunAsync(ct));
     }
 
     // p0355: leader-elected periodic corpse-pod sweep. A pod whose owning run is not

@@ -48,6 +48,8 @@ public static class ContextBuildersExtensions
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
         AddBuilder<PlanFilingContextBuilder>(services, CommandNames.PlanFiling); // 2026-11-17-5701b
         AddBuilder<FileTicketsContextBuilder>(services, CommandNames.FileTickets);
+        AddBuilder<OpenSeriesRunContextBuilder>(services, CommandNames.OpenSeriesRun); AddBuilder<ReadSeriesContextBuilder>(services, CommandNames.ReadSeries); // 0207a
+        AddBuilder<SeriesMasterContextBuilder>(services, CommandNames.SeriesMaster); AddBuilder<PostSeriesStatusContextBuilder>(services, CommandNames.PostSeriesStatus);
         AddBuilder<CloseTicketContextBuilder>(services, CommandNames.CloseTicket); // 2026-11-17-e061a
         AddBuilder<ReopenTicketContextBuilder>(services, CommandNames.ReopenTicket);
         AddBuilder<StartTicketContextBuilder>(services, CommandNames.StartTicket); // 2026-11-17-e061b

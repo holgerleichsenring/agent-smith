@@ -37,4 +37,16 @@ public sealed class DialogueGlobalConfig
 
     /// <summary>2026-11-17-f9b0c: the most mock versions a conversation keeps over all its specs.</summary>
     public int MockVersionsPerConversation { get; set; } = 100;
+
+    /// <summary>2026-11-17-0207a: what a series master's own loops may spend over one series, in USD. The tickets' runs
+    /// have their own caps; this bounds the judging, which runs on events, never on a timer.</summary>
+    public decimal SeriesMasterBudgetUsd { get; set; } = 20m;
+
+    /// <summary>2026-11-17-0207b: how often a series run reports its table into the conversation when nothing changed,
+    /// in minutes — the cadence the operator chose from a reference session; a change is reported at once.</summary>
+    public int SeriesStatusMinutes { get; set; } = 15;
+
+    /// <summary>2026-11-17-0207c: how long a series waits on a question that names a recommendation before it takes the
+    /// recommendation, in minutes — the operator's policy; a question without one waits for the operator.</summary>
+    public int QuestionDefaultMinutes { get; set; } = 120;
 }

@@ -334,7 +334,10 @@
         },
         "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
         "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
-        "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." }
+        "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." },
+        "series_master_budget_usd": { "type": "number", "description": "What a series master's own loops may spend over one series, in USD; past it the series keeps reporting but its master judges no more. Default 20." },
+        "series_status_minutes": { "type": "integer", "description": "How often a series run reports its table into its Work it out conversation when nothing changed; a change is reported at once. Default 15." },
+        "question_default_minutes": { "type": "integer", "description": "How long a series waits on a question that names a recommendation before it takes the recommendation and says so; a question without one waits for the operator. Default 120." }
       }
     },
     "persistence": {

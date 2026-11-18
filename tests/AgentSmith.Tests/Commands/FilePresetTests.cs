@@ -10,7 +10,7 @@ public sealed class FilePresetTests
     [Fact]
     public void File_IsPlanThenFile()
     {
-        PipelinePresets.TryResolve(PipelinePresets.FileName).Should().Equal(CommandNames.PlanFiling, CommandNames.FileTickets);
+        PipelinePresets.TryResolve(PipelinePresets.FileName).Should().Equal(CommandNames.PlanFiling, CommandNames.FileTickets, CommandNames.OpenSeriesRun); // 0207a
         PipelinePresets.Names.Should().Contain(PipelinePresets.FileName);
     }
 

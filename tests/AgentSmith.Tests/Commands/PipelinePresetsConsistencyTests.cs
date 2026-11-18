@@ -24,6 +24,8 @@ public sealed class PipelinePresetsConsistencyTests
         preset.Should().NotBeEmpty();
         // 2026-11-17-5701b: a filing reads no skill, so it binds no catalog step; its prologue still resolves one.
         if (presetName == PipelinePresets.FileName) return;
+        // 2026-11-17-0207a: a series beat reads no skill either; its master's body is the server's own.
+        if (presetName == PipelinePresets.SeriesRunName) return;
         // 2026-11-17-e061a: an act on a filed ticket reads no skill either.
         if (PipelinePresets.NotRoutableBecause(presetName)?.Contains("filed ticket") == true) return;
         preset[0].Should().Be(CommandNames.LoadCatalog,

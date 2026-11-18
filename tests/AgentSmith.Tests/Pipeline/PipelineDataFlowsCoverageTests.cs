@@ -17,7 +17,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(),
             new PrReviewDataFlow(),
-            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new RefreshBaseDataFlow()
+            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new RefreshBaseDataFlow(), new SeriesRunDataFlow()
         };
         var declaredNames = declared
             .Select(d => d.PresetName)
@@ -39,7 +39,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(),
             new PrReviewDataFlow(),
-            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new RefreshBaseDataFlow()
+            new SpecDialogDataFlow(), new CodeDataFlow(), new SpecDeriveDataFlow(), new FileDataFlow(), new CloseDataFlow(), new ReopenDataFlow(), new StartDataFlow(), new AmendDataFlow(), new CommentDataFlow(), new TicketBodyDataFlow(), new BranchCleanupDataFlow(), new RetargetDataFlow(), new RefreshBaseDataFlow(), new SeriesRunDataFlow()
         };
 
         foreach (var flow in declared)

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Series;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
@@ -25,6 +26,7 @@ public static class TicketFactStoreExtensions
             .AddSingleton<ITicketRequirementStore, TicketRequirementRepository>()
             // 2026-10-14-dbceg: the landed tickets; the repository is itself the singleton port
             .AddSingleton<ITicketLandingStore, LandedTicketRepository>()
-            .AddSingleton<ITicketClosedMarkStore, ClosedTicketRepository>(); // 2026-10-15-114fa: the close marks
+            .AddSingleton<ITicketClosedMarkStore, ClosedTicketRepository>() // 2026-10-15-114fa: the close marks
+            .AddSingleton<ISeriesRunStore, SeriesRunRepository>(); // 2026-11-17-0207a: the series runs
     }
 }

@@ -31,7 +31,7 @@ public static partial class PipelinePresets
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
-            [FileName] = File, // 2026-11-17-5701b
+            [FileName] = File, [SeriesRunName] = SeriesRun, // 2026-11-17-5701b, 0207a
             [BranchCleanupName] = BranchCleanup, [RefreshBaseName] = RefreshBase, // 2026-11-17-713ec, 023fb
         };
         foreach (var (name, steps) in HostActSteps) All[name] = steps; // 2026-11-17-e061: the acts on a filed ticket
@@ -54,7 +54,7 @@ public static partial class PipelinePresets
         ["pr-review"] = PipelineType.Structured,
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
-        [FileName] = PipelineType.Discussion,
+        [FileName] = PipelineType.Discussion, [SeriesRunName] = PipelineType.Discussion, // 0207a
         [BranchCleanupName] = PipelineType.Structured, [RefreshBaseName] = PipelineType.Structured, // 713ec, 023fb
     };
 
