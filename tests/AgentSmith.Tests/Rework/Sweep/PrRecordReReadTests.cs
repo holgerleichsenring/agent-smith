@@ -46,9 +46,11 @@ public sealed class PrRecordReReadTests : IDisposable
         Tracker = new TrackerConnection { Name = tracker, Type = TrackerType.GitHub, Polling = new PollingConfig { Enabled = polling } },
     };
 
-    private void Configure(params ResolvedProject[] projects) =>
+    private void Configure(params ResolvedProject[] projects) => Configure(new TicketsConfig(), projects);
+
+    private void Configure(TicketsConfig tickets, params ResolvedProject[] projects) =>
         _loader.Setup(l => l.LoadConfig(It.IsAny<string>()))
-            .Returns(new AgentSmithConfig { Projects = projects.ToDictionary(p => p.Name) });
+            .Returns(new AgentSmithConfig { Projects = projects.ToDictionary(p => p.Name), Tickets = tickets });
 
     private Task<int> CycleAsync() =>
         new PrRecordReReadHostedService(_h.Store.Services, new ServerContext("agentsmith.yml"), _loader.Object, _h.Clock,
@@ -105,6 +107,15 @@ public sealed class PrRecordReReadTests : IDisposable
     }
 
     [Fact]
+    public async Task PrRecordReRead_ConfiguredOpenCap_NamesAtMostThatMany()
+    {
+        Configure(new TicketsConfig { PrRereadOpenCap = 3 }, Project("web", "hooks"));
+        for (var i = 0; i < 5; i++) await SeedAsync("web", $"t{i}", $"{i}", PrReviewStates.Open, Stale);
+
+        (await CycleAsync()).Should().Be(3, "2026-11-17-f9b0d: tickets.pr_reread_open_cap bounds one pass");
+    }
+
+    [Fact]
     public async Task PrRecordReRead_TwoStaleRecordsOfOneTicket_EnqueueOneNudge()
     {
         await SeedAsync("web", "7", "1", PrReviewStates.Open, Stale);
@@ -128,7 +139,7 @@ public sealed class PrRecordReReadTests : IDisposable
         }
         var first = _nudged.Select(n => n.TicketId).ToList();
         _nudged.Clear();
-        _h.Clock.Now += PrRecordReReadHostedService.Interval;
+        _h.Clock.Now += TimeSpan.FromSeconds(new TicketsConfig().PrRereadIntervalSeconds);
 
         await CycleAsync();
 

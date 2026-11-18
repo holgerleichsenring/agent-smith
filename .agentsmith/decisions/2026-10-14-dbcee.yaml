@@ -9,7 +9,7 @@ decisions:
       agent-smith only ever votes +10 (AzureReposAutoComplete), so a -5 from the creator identity is a
       person sharing the token's identity, never our own act. The voter still passes the worker's trust
       check (PrStandingAct). Contract decision 13 and section 5 default 5; main-thread answer 1
-      (default, pending operator ratification).
+      (default, ratified by the operator 2026-11-17: all as shipped).
   - category: Architecture
     chose: "The Azure vote handler passes PrAuthorId null; PrReworkAdmission's author rule is unchanged and a null author matches no reviewer"
     over: "A host switch inside the shared admission"

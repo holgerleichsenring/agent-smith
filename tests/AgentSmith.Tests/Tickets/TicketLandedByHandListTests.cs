@@ -35,10 +35,10 @@ public sealed class TicketLandedByHandListTests : IDisposable
     [Fact]
     public async Task TicketBucketRule_AttemptStartedAfterTheByHandLanding_IsNotDone()
     {
-        await _h.AddAsync(Run("r-1"), Step("r-1"));
+        await _h.AddAsync(Run("r-1", status: "failed"), Step("r-1"));
         await ByHandAsync(T.AddHours(-1));
 
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.Idle, "an attempt started after the landing is that attempt's ticket");
+        (await RowAsync()).Bucket.Should().Be(TicketBucket.Failed, "an attempt started after the landing is that attempt's ticket");
     }
 
     [Fact]

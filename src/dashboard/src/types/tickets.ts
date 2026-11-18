@@ -30,7 +30,7 @@ export const TICKET_BUCKETS = [
 ] as const;
 export type TicketBucket = (typeof TICKET_BUCKETS)[number];
 
-/** URL bucket -> the server's word. "ended" is the server's idle: cancelled, or finished without a pull request. */
+/** URL bucket -> the server's word. "ended" is the server's idle: an attempt that ended neither failed, cancelled nor delivered (2026-11-17-f9b0a). */
 export const SERVER_BUCKET: Readonly<Record<TicketBucket, TicketServerBucket>> = {
   "needs-you": "needs_you",
   working: "working",

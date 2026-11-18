@@ -37,6 +37,6 @@ public sealed class TicketBucketPreconditionTests
         Bucket(RunStatuses.Failed, kind).Should().Be(TicketBucket.Failed);
 
     [Fact]
-    public void TicketBucketRule_PreconditionKindOnACancelledAttempt_IsIdle() =>
-        Bucket("cancelled", RunEndKinds.Preflight).Should().Be(TicketBucket.Idle);
+    public void TicketBucketRule_PreconditionKindOnACancelledAttempt_IsFailed() =>
+        Bucket("cancelled", RunEndKinds.Preflight).Should().Be(TicketBucket.Failed, "2026-11-17-f9b0a: a cancelled head is failed");
 }

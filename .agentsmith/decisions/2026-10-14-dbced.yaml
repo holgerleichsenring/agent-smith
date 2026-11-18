@@ -9,7 +9,7 @@ decisions:
       A load-time merge would make the settings form save all four tiers back on the operator's next save,
       pinning today's defaults into his store. ForTier is the one reader (ScopeEstimateRecorder,
       ResumedCapRecompute), so the rule lives there and the stored per_tier stays exactly what he saved.
-      Contract section 5 default 4 (default, pending operator ratification).
+      Contract section 5 default 4 (default, ratified by the operator 2026-11-17: all as shipped).
   - category: Behaviour
     chose: "A tier default may raise a run above a configured Default; a tier that must stay lower is stated in per_tier"
     over: "Capping tier defaults at the configured Default"

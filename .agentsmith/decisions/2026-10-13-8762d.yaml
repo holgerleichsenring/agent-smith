@@ -6,7 +6,7 @@ decisions:
     chose: "Annotate, never block: a flagged result passes with '[framework] ' lines appended at its end; an exception passes through unchanged"
     over: "Blocking, retrying or rewriting a flagged call"
     reason: |
-      Contract decision 11 (default, pending operator ratification): a false alarm costs a sentence. The wrapper
+      Contract decision 11 (default, ratified by the operator 2026-11-17: as built): a false alarm costs a sentence. The wrapper
       rethrows the inner exception as-is, so the consecutive-error count of 2026-09-19-c511c counts exactly what
       it counted before, and the model still reads "Error: Function failed. Exception: <message>" for a throw.
       Appending keeps the line inside the head-and-tail bound every loop applies.

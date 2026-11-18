@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f9b0a
+
+decisions:
+  - category: Architecture
+    chose: "A cancelled head is Failed and a delivered head (success or shortfall) that reaches the ended arms is Done at its FinishedAt; idle keeps only what ended neither way"
+    over: "Idle for both (as shipped); both to stuck"
+    reason: "The operator ratified the recommendation on 2026-11-17 (contract Q2 of 114fb): idle means nothing happened, and in both cases something did. Delivered covers shortfall too, the status the run gives a partial delivery."
+  - category: Implementation
+    chose: "The new arms sit last in Ended, after stuck and PR closed, so a precondition stop, the stuck check and a closed-unmerged pull request still win"
+    over: "A separate arm before the tracker-close check"
+    reason: "Only the old idle remainder changes; every earlier precedence stays as 114fb, 114fc and f3fbb built it."
+  - category: Implementation
+    chose: "The ticket page reads the failed bucket's cancelled head as pill 'Cancelled' with the conversation act, and a done bucket without pull requests as the attempt finishing without one (or a by-hand mark when the head did not deliver)"
+    over: "Leaving 'Attempt n failed.' and 'the pull requests are merged.'"
+    reason: "Both sentences would be false for the tickets the new arms bring in."

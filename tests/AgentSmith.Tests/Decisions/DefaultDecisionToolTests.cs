@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
@@ -108,7 +109,7 @@ public sealed class DefaultDecisionToolTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.CurrentSpec, SpecBuildNoteTests.Draft("2026-10-14-5678a"));
 
-        var prompt = new SpecExecutionPromptFactory().Build(pipeline,
+        var prompt = new SpecExecutionPromptFactory(new LoaderSeriesSettingsReader()).Build(pipeline,
             new Ticket(new TicketId("7"), "t", "d", null, "open", "test"),
             new Repository(new BranchName("main"), "https://example.test/shop.git"), ["shop"], string.Empty, string.Empty);
 

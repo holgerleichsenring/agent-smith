@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f9b0c
+goal: "The build-note section cap lives in series: and the three mock caps in dialogue:, each named with value and key in the text it bounds, as the operator ratified on 2026-11-17."
+
+applies_to: "default (build note section, conversation mock store) with dashboard (series and dialogue settings forms)"
+
+requires: [2026-11-17-f9b0b]
+
+facts:
+  - claim: "The build-note section is bounded by SpecBuildNoteSection.MaxChars = 8000 and rendered by SpecExecutionPromptFactory and PremiseCheckPrompt."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecBuildNoteSection.cs:13,21, src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:70, src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:110"
+  - claim: "The mock caps are constants on IConversationMocks, checked by the store and again by the write tool."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/IConversationMocks.cs:11-17, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ConversationMockRepository.cs:55-65, src/backend/AgentSmith.Application/Services/Tools/MockWriteToolHost.cs:64-72"
+  - claim: "series: is read live through ISeriesSettingsReader; the server's dialogue block has no live reader yet, while CurrentConfigSnapshot follows the store."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ISeriesSettingsReader.cs:7-10, src/backend/AgentSmith.Server/Services/Config/CurrentConfigSnapshot.cs:17-36"
+  - claim: "Decisions 11 and 12 were ratified 2026-11-17: same values, moved to config."
+    evidence: ".agentsmith/decisions/2026-10-13-8762r.yaml:37, .agentsmith/decisions/2026-10-13-8762m.yaml:32"
+
+scope:
+  in: "SeriesConfig.BuildNoteMaxChars (8000, refused below 1); SpecExecutionPromptFactory and SpecPremiseChecker read it through ISeriesSettingsReader and pass it to SpecBuildNoteSection.Render, whose dropped line names value and key. DialogueGlobalConfig gains mock_max_chars (90000), mock_versions_per_spec (20), mock_versions_per_conversation (100); the server registers DialogueGlobalConfig transient from CurrentConfigSnapshot; ConversationMockRepository refuses by them, each refusal naming value and key; the write tool keeps its shape checks and leaves the size to the store. Schema, Studio forms. Baseline rows of SpecBuildNoteSection and IConversationMocks leave."
+  out: "HandForwardToolHost's 20 x 300 entry bound stays listed debt."
+
+steps:
+  - id: build-note
+    action: "SeriesConfig property and Problems() line; Render(notes, maxChars, set) without a default bound; both callers read the setting."
+  - id: mocks
+    action: "DialogueGlobalConfig properties; IConversationMocks loses its constants; the repository takes DialogueGlobalConfig; the tool description names the key."
+  - id: forms
+    action: "agentsmith.schema.json series and dialogue properties; SeriesForm and the dialogue form gain the fields."
+
+tests:
+  - "SpecBuildNoteTests: an over-bound section names series.build_note_max_chars"
+  - "ConversationMockStoreTests: each cap from a given DialogueGlobalConfig, each refusal naming its key"
+  - "SeriesConfig problems: build_note_max_chars 0 is named"
+
+done:
+  - "The four values come from series: and dialogue: in yaml and the Studio, and each refusal names its key."
+  - "Build and full suite green at the spec gate."

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Models;
@@ -30,7 +31,7 @@ internal static class SeriesReviewFixtures
 
     public static SeriesContractInput Input(bool inRun = true) =>
         new(Contract(), [new(DraftA(), inRun ? SeriesContractMember.Cleared : null),
-            new(DraftB(), inRun ? SeriesContractMember.Cleared : null)], inRun)
+            new(DraftB(), inRun ? SeriesContractMember.Cleared : null)], inRun, new SpecReviewConfig().SeriesContractMaxChars)
         {
             RepositoryNames = AttackReviewFixtures.Names,
         };

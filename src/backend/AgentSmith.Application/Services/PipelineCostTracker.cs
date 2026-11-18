@@ -72,7 +72,7 @@ public sealed partial class PipelineCostTracker
             if (_costCap is null) return false;
             lock (_gate)
             {
-                return EstimateCostUsdLocked() > _costCap.Usd
+                return BudgetCostUsdLocked() > _costCap.Usd // 2026-11-17-b34ea: recorded calls, worker included
                     || EffectiveCapTokensLocked() > _costCap.Tokens;
             }
         }

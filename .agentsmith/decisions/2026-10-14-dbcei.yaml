@@ -23,7 +23,7 @@ decisions:
       The pre-check is a local read and spares a seconds-long tracker call for the common double click; the insert's
       unique key still decides a race past it, and the loser re-reads the winner for its 409 (contract §2.6).
   - category: Behaviour
-    chose: "409 when already landed, never overwritten (contract §2.6, §5 default 8, pending operator ratification); any existing ticket of a configured project, runs or filing or not (contract decision 24, section 5 default 34, pending operator ratification); done under the same time rule (contract §5 default 21, pending operator ratification)"
+    chose: "409 when already landed, never overwritten (contract §2.6, §5 default 8, ratified by the operator 2026-11-17: as built, with the four re-read sweep values moved to the tickets: block (2026-11-17-f9b0d)); any existing ticket of a configured project, runs or filing or not (contract decision 24, section 5 default 34, ratified by the operator 2026-11-17: as built, with the four re-read sweep values moved to the tickets: block (2026-11-17-f9b0d)); done under the same time rule (contract §5 default 21, ratified by the operator 2026-11-17: as built, with the four re-read sweep values moved to the tickets: block (2026-11-17-f9b0d))"
     over: "Overwriting a merged landing, requiring a run or record, or a by-hand landing outranking a later attempt"
     reason: "Built as the spec states."
   - category: Behaviour

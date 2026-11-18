@@ -54,7 +54,10 @@ internal static class ConfigCatalogMapper
                 agent.Compaction.IsEnabled,
                 agent.Compaction.ThresholdIterations,
                 agent.Compaction.MaxContextTokens,
-                agent.Compaction.KeepRecentIterations),
+                agent.Compaction.KeepRecentIterations,
+                agent.Compaction.MaxContextTokensTriggerRatio, // 2026-11-17-b34eb
+                agent.Compaction.FoldTargetRatio,
+                agent.Compaction.SummaryBudgetRatio),
             new AgentRetrySettings(
                 agent.Retry.MaxRetries,
                 agent.Retry.InitialDelayMs,

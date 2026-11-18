@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 
@@ -78,6 +79,8 @@ public sealed partial class PipelineCostTracker
         if (pipeline.TryGet<PriorSpendSnapshot>(ContextKeys.PriorSpend, out var prior)
             && prior is not null)
             tracker.SeedPriorSpend(prior);
+        if (pipeline.TryGet<RecordedCallLedger>(ContextKeys.RecordedCalls, out var calls) && calls is not null)
+            tracker.CountRecordedCalls(calls); // 2026-11-17-b34ea
         pipeline.Set(Key, tracker);
         return tracker;
     }

@@ -16,12 +16,17 @@ import type {
   SandboxSetting,
   SeriesSetting,
   SettingKey,
+  PreconditionsSetting,
+  BranchCleanupSetting,
   SettingValue,
   SkillsSetting,
   SpecReviewSetting,
+  TicketsSetting,
 } from "@/lib/configApi";
 import { CheckField, DrawerSection, NumberField, TextField, keep, patcher } from "./formFields";
 import { SeriesForm, SpecReviewForm } from "./SeriesSettingsForms";
+import { BranchCleanupForm, PreconditionsForm } from "./SweepSettingsForms";
+import { TicketsForm } from "./TicketsSettingsForm";
 import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
@@ -98,6 +103,12 @@ export function SettingsForm({
       return <SpecReviewForm value={value as SpecReviewSetting} onChange={onChange} />;
     case "series":
       return <SeriesForm value={value as SeriesSetting} onChange={onChange} />;
+    case "preconditions":
+      return <PreconditionsForm value={value as PreconditionsSetting} onChange={onChange} />;
+    case "branch_cleanup":
+      return <BranchCleanupForm value={value as BranchCleanupSetting} onChange={onChange} />;
+    case "tickets":
+      return <TicketsForm value={value as TicketsSetting} onChange={onChange} />;
   }
 }
 
@@ -442,6 +453,14 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label="Approval timeout (seconds)" value={value.approvalTimeoutSeconds}
         onChange={(v) => set({ approvalTimeoutSeconds: keep(v, value.approvalTimeoutSeconds) })} testId="setting-dialogue-approval"
         help="when it elapses on a parked run, the persisted default answer applies" />
+      <NumberField label="Mock size (characters)" value={value.mockMaxChars}
+        onChange={(v) => set({ mockMaxChars: keep(v, value.mockMaxChars) })} testId="setting-dialogue-mockchars"
+        help="the longest HTML mock a design conversation keeps" />
+      <NumberField label="Mock versions per spec" value={value.mockVersionsPerSpec}
+        onChange={(v) => set({ mockVersionsPerSpec: keep(v, value.mockVersionsPerSpec) })} testId="setting-dialogue-mockspec" />
+      <NumberField label="Mock versions per conversation" value={value.mockVersionsPerConversation}
+        onChange={(v) => set({ mockVersionsPerConversation: keep(v, value.mockVersionsPerConversation) })}
+        testId="setting-dialogue-mockconversation" />
     </>
   );
 }

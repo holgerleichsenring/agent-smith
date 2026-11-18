@@ -39,7 +39,9 @@ public sealed record ProjectEntity(
     IReadOnlyList<string>? DesignSources = null,
     // 2026-11-17-9a39a: on_green_push or on_merge. Nullable for the same reason Templates is — absent leaves
     // the stored value alone; blank clears it back to the default.
-    string? RequiresStart = null)
+    string? RequiresStart = null,
+    // 2026-11-17-b34eb: the merge block. Nullable for the same reason Templates is — absent leaves the stored block alone.
+    ProjectMerge? Merge = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }
@@ -49,3 +51,7 @@ public sealed record ProjectEntity(
 /// a strategy (tag | area_path | repo | to_address) plus the value to match.
 /// </summary>
 public sealed record ProjectResolution(string Strategy, string Value);
+
+/// <summary>2026-11-17-b34eb: the project's <c>merge:</c> block as the studio edits it; <see cref="When"/> is the
+/// snake_case name the YAML uses (manual, on_gate_green).</summary>
+public sealed record ProjectMerge(string When, bool RespectBranchProtection, bool RefreshOpenPullRequests);

@@ -29,11 +29,11 @@ decisions:
   - category: Implementation
     chose: "Candidate reads are charged before they run (all candidates of a citation at once); when they do not fit the 24-pair budget the citation is counted unchecked rather than read partially"
     over: "Reading candidates until the budget runs out"
-    reason: "A partial read cannot prove a unique match, so it could only produce a false 'found nowhere'. Budget 24 is the contract default, pending operator ratification (contract section 5, default 48)."
+    reason: "A partial read cannot prove a unique match, so it could only produce a false 'found nowhere'. Budget 24 is the contract default, ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b) (contract section 5, default 48)."
   - category: Implementation
     chose: "A failed re-ground publish does not fail SelectSpec: the handed-in set is put back into ContextKeys.SpecSet, the spec runs on its original text, each moved citation is listed stale ('its text is now at …; the re-ground revision was not published') and the step note names the failed publish"
     over: "Failing SelectSpec as g's own rounds fail their step"
-    reason: "Contract default, pending operator ratification (contract section 5 default 49, decision 30)."
+    reason: "Contract default, ratified by the operator 2026-11-17: as built, with the attack look floor and the re-ground budget moved to spec_review: (2026-11-17-f9b0b) (contract section 5 default 49, decision 30)."
   - category: Implementation
     chose: "BuildNoteContractCheck marks a deviation DECLARED when one of the note's deviations names its subject (the datum, the contract name, the move's destination) by whole word, case-insensitively"
     over: "Requiring the whole entry to be quoted"

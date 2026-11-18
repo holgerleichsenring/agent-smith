@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-b34ea
+
+decisions:
+  - category: Architecture
+    chose: "The cap's USD arm reads BudgetCostUsd: the larger of the tracker's own figure (priced accrual plus worker-reported cost) and the run's recorded-call ledger"
+    over: "Reading the ledger alone, or adding the two"
+    reason: "Each can miss what the other holds: the ledger sees only calls published under the run's frame (a harness or CLI composition without the publisher has none), the tracker only what its call sites hand it (102 of 172 calls in the replay). Both count the same calls where they overlap, so adding them double-counts; the larger is the lower bound neither undercuts."
+  - category: Scope
+    chose: "Reverse b0d7 for the money cap only: worker-reported cost now counts against pipeline_cost_cap; EstimateCostUsd, result.md and RunFinished.CostUsd stay the priced estimate"
+    over: "Keeping the USD fence unbound on worker spend (7c9bc, 166ab)"
+    reason: "Operator decision 2026-11-17: a worker run over budget stops like a provider run. result.md belongs to 7c9bd and the run row already sums recorded calls (166ab), so only the fence readers change."
+  - category: Implementation
+    chose: "The master's within-pass fence takes the larger of its frozen start plus the pass estimator and the run tracker's live BudgetCostUsd"
+    over: "The frozen start plus the estimator only"
+    reason: "The estimator sees only the responses the loop hands it; the run's ledger also sees the calls the loop's tools and compaction make. The run tracker is fed per iteration since p0341e, so reading it live double-counts nothing under max."
+  - category: Implementation
+    chose: "Attach the ledger in both PipelineCostTracker.GetOrCreate and RecordedCallAttach.To"
+    over: "Attaching it only where the ledger is set on the context"
+    reason: "The prologue's scope classification can create the tracker before the ledger is attached; either order must end with the tracker counting it."
+  - category: Review
+    chose: "Adversarial self-review: no double count (max, prior spend seeded into both the same way); a provider run may now stop earlier because the ledger counts calls the tracker missed, which is the truthful figure; no lock inversion (the ledger never calls the tracker); the tracker never crosses a checkpoint"
+    over: "Shipping without the review"
+    reason: "CLAUDE.md asks for a review per spec."
+  - category: Implementation
+    chose: "AgentCliWorkerProcessRunnerTests.Run_OptionsEnvironment_ReachesTheProcess reads its stdin before printing, as the other runner tests do"
+    over: "Retrying the gate until the race passes"
+    reason: "The script exited before the runner wrote the prompt, so under the gate's load the write hit a closed pipe (IOException: Broken pipe) and blocked this commit twice; the test pins the environment, not the race."

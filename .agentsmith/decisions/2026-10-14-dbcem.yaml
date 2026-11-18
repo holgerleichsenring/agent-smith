@@ -31,7 +31,7 @@ decisions:
     chose: "GitHub: native POST repos/{owner}/{repo}/issues/{dependent}/dependencies/blocked_by {issue_id: the required issue's internal Id} first; any ApiException (or a non-2xx status) falls back to one comment 'Agent Smith — requires #A (must merge first)'; a successful comment is Done"
     over: "Always a comment (contract section 8 answer 4), or reporting the comment fallback as a refusal"
     reason: |
-      Default pending operator ratification (contract section 5 default 20 as amended). Live check 2026-10-15 on
+      Default ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d) (contract section 5 default 20 as amended). Live check 2026-10-15 on
       github.com (a private repository of the operator): the POST answered 201 Created and
       GET .../dependencies/blocked_by listed the required issue; issue_dependencies_summary read blocked_by 1. Both
       test issues were deleted afterwards. The comment is the form an older GHES can show, so it counts as linked;
@@ -42,7 +42,7 @@ decisions:
     chose: "TicketGraphLinks (Server/Services/SpecDialog, 54 lines): one CreateRequiresLink per pass, one LinkAsync per stored edge in filing order, under a 60-second Deadline on a token only the deadline cancels, each call bounded by WaitAsync on that token; stops at the first Unreached or cut call and names every unreached edge in one note"
     over: "A client timeout per edge, the caller's token, or continuing past a silent tracker"
     reason: |
-      Default pending operator ratification (contract section 5 default 35: the 60-second deadline). WaitAsync bounds a
+      Default ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d) (contract section 5 default 35: the 60-second deadline). WaitAsync bounds a
       link that ignores its token, so a hung client costs the filing at most the deadline. The deadline timer comes from
       the injected TimeProvider so a test fires it by hand. A factory or link that throws despite the port's promise is
       caught and treated like the tracker not answering, because a throwing pass would cost the filing's report.
@@ -64,6 +64,6 @@ decisions:
     over: "A sixth private copy of the owner/repo parser"
     reason: "The capability sibling already parses the same connection's URL."
   - category: Defaults
-    chose: "Defaults pending operator ratification: contract section 5 defaults 6 and 20 (GitHub as amended), decision 19, and TicketGraphLinks.Deadline = 60 s"
+    chose: "Defaults ratified by the operator 2026-11-17: as built, with the link deadline and the dependents-wake window and cap moved to the tickets: block (2026-11-17-f9b0d); contract section 5 defaults 6 and 20 (GitHub as amended), decision 19, and TicketGraphLinks.Deadline = 60 s"
     over: "Waiting for ratification before building"
     reason: "The operator said build; each default is a code constant or a single class to change."

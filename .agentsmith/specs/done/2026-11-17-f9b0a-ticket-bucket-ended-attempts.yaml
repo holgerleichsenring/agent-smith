@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-f9b0a
+goal: "A ticket whose newest attempt was cancelled is in the failed bucket, and one whose attempt was delivered without a pull request is done, as the operator ratified on 2026-11-17."
+
+applies_to: "default (ticket bucket rule) with dashboard (ticket state sentences)"
+
+requires: []
+
+facts:
+  - claim: "Every arm after done ends in Idle for a cancelled head and for a delivered head with no pull request."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:61-72"
+  - claim: "The open question was contract Q2 of 114fb; the operator answered it 2026-11-17: cancelled to failed, success without a PR to done."
+    evidence: ".agentsmith/decisions/2026-10-15-114fb.yaml:24"
+  - claim: "The dashboard draws the failed bucket as 'Attempt n failed.' and the done bucket as 'Done — the pull requests are merged.'"
+    evidence: "src/dashboard/src/components/tickets/detail/ticketState.ts:63,67"
+
+scope:
+  in: "TicketBucketRule.Ended: a cancelled head is Failed (status kept on the state), a delivered head (success or shortfall) reaching the ended arms is Done at its FinishedAt; precedence otherwise unchanged. Dashboard ticketState: a failed bucket whose head was cancelled says so under the pill Cancelled; a done bucket with no pull request says the attempt finished without one. The ended filter keeps its name for what stays idle."
+  out: "The bucket names, the URL filters and the counts' shape."
+
+steps:
+  - id: rule
+    action: "TicketBucketRule.Ended maps cancelled to Failed and RunStatuses.IsDelivered to Done; the summary comment names the 2026-11-17 ratification."
+  - id: dashboard
+    action: "ticketState: failed() reads head.status === 'cancelled' for pill 'Cancelled' and 'Attempt n was cancelled.'; done reads an empty pullRequests list as 'Done — attempt n finished without a pull request.'; the SERVER_BUCKET comment names what idle still holds."
+  - id: tests
+    action: "Rule tests for both arms; the list tests that assumed a finished attempt is idle say what they test with a status that keeps their meaning; dashboard ticketState tests for both sentences."
+
+tests:
+  - "TicketBucketRuleSplitTests: cancelled head is Failed; success with no pull request is Done at FinishedAt; shortfall too"
+  - "TicketBucketPreconditionTests: a cancelled preflight head is Failed"
+  - "ticketState.test: a cancelled head in the failed bucket says Cancelled; a done bucket without pull requests names the attempt"
+
+done:
+  - "Cancelled heads list under Failed, delivered heads without a pull request under Done, on the server and on the ticket page."
+  - "Build and full suite green at the spec gate."

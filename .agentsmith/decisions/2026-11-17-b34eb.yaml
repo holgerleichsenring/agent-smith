@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-b34eb
+
+decisions:
+  - category: Architecture
+    chose: "merge.when and requires_start options ride the capabilities descriptor as the snake_case names of the MergeWhen and RequiresStart enums"
+    over: "A hard-coded list in the dashboard, or reading config/agentsmith.schema.json in the browser"
+    reason: "The descriptor is where every closed list the studio offers already comes from (p0345c), and it is derived from code, so a mode another spec adds to the enum (on_ci_green is in flight) is offered without touching the form. Snake case is the YAML loader's underscored naming, so the offered name is exactly what binds."
+  - category: Implementation
+    chose: "ProjectEntity.Merge and the three compaction ratios are nullable and written only when sent; a project without a merge block projects null and the form reads it as manual"
+    over: "Always projecting and writing a full block"
+    reason: "The present-means-told rule of Templates and Sandbox: an older client's save must not wipe a stored block, and a project nobody touched keeps a clean record."
+  - category: Implementation
+    chose: "A seventh project tab 'merge' for requires_start and the merge block; branch_cleanup and preconditions as their own settings forms"
+    over: "Appending the fields to the pipeline tab"
+    reason: "Both decide delivery, which none of the six tabs is about; the pipeline tab deliberately keeps one control (2026-09-16-74a2). The two sweeps are separate settings singletons on the server already, so they get a rail entry each."
+  - category: Scope
+    chose: "Sweep of settings added on 2026-11-16/17: merge.*, requires_start, compaction trigger/fold/summary ratios, branch_cleanup, preconditions added; limits and sandbox.allow_new_registries already had fields"
+    over: "A full audit of every older key"
+    reason: "Operator requirement relayed 2026-11-17 23:20 named today's settings; older gaps are a separate sweep."
+  - category: Review
+    chose: "Adversarial self-review: an unknown merge.when is refused naming the value, the allowed modes and the key; a cleared ratio field sends null, which keeps the stored value rather than zeroing it; the requires_start select shows the stored value even if the server stops offering it (SelectField keeps an unlisted current value)"
+    over: "Shipping without the review"
+    reason: "CLAUDE.md asks for a review per spec."

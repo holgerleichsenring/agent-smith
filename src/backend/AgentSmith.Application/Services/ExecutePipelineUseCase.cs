@@ -554,7 +554,7 @@ public sealed class ExecutePipelineUseCase(
         return eventPublisher.PublishAsync(
             new RunStartedEvent(
                 runId, trigger, request.PipelineName, repoNames, runStartedAt,
-                agentName, request.TicketId?.Value,
+                agentName, (request.TicketId ?? request.ShownOnTicket)?.Value, // 2026-11-17-b34ed
                 // p0275: the resolved preset's ordered step labels seed the dashboard skeleton.
                 PlannedSteps: PipelinePresets.TryResolve(request.PipelineName)?
                     .Select(CommandDisplayNames.Get).ToList(),
@@ -562,7 +562,7 @@ public sealed class ExecutePipelineUseCase(
                 // TOCTOU backstop can key a capacity-queue entry from it. Platform
                 // only means something for ticket runs (it names the tracker).
                 Project: projectConfig.Name,
-                Platform: request.TicketId is not null
+                Platform: (request.TicketId ?? request.ShownOnTicket) is not null
                     ? projectConfig.Tracker.Type.ToString().ToLowerInvariant()
                     : null),
             ct);

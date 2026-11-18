@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-b34ec
+
+decisions:
+  - category: Implementation
+    chose: "FiledTicketRows asks UnmetTicketRequirements.ForStartAsync when the filing's project resolves, OfAsync otherwise"
+    over: "A second green check in the list, or leaving the list on landings"
+    reason: "One rule for 'may this start' — the gate, the wake and a person's start all read ForStartAsync since 9a39a; a list that read landings showed blocked for a dependent the gate admits, until its code run's row replaced the never-run row. The graph node and the requires entries take this row's bucket, so they follow."
+  - category: Implementation
+    chose: "The ticket-store harness registers GreenPrerequisites and the database attempt reader"
+    over: "A harness without the green reader, which falls back to landings"
+    reason: "Production registers both (DispatcherExtensions, RelationalPersistenceExtensions); without them the list test would prove the fallback, not the rule."
+  - category: Review
+    chose: "Adversarial self-review: a project the list cannot resolve keeps the landing read; the extra reads run only for rows with unlanded requirements under on_green_push; a closed prerequisite is never green, so the row stays blocked naming it"
+    over: "Shipping without the review"
+    reason: "CLAUDE.md asks for a review per spec."

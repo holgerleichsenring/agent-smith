@@ -6,11 +6,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-10-13-8762m: renders the build notes of the specs that already ran, for the next spec's master
 /// and its premise check. Bounded: the oldest notes are dropped first until the section fits, and one
-/// line names each dropped spec and its record, which stays one read away.
+/// line names each dropped spec and its record, which stays one read away. 2026-11-17-f9b0c: the bound is
+/// series.build_note_max_chars, and the dropped line names it.
 /// </summary>
 public static class SpecBuildNoteSection
 {
-    public const int MaxChars = 8000;
     public const string Heading = "## Build notes of the specs that already ran";
     public const string NoNote = "no note";
 
@@ -18,23 +18,24 @@ public static class SpecBuildNoteSection
 
     /// <param name="set">2026-10-13-8762n: given, each note's deviations from the set's series contract that the
     /// note does not declare are marked.</param>
-    public static string Render(IReadOnlyList<PrecedingNote> notes, int maxChars = MaxChars, SpecSet? set = null)
+    public static string Render(IReadOnlyList<PrecedingNote> notes, int maxChars, SpecSet? set = null)
     {
         ArgumentNullException.ThrowIfNull(notes);
         if (notes.Count == 0) return string.Empty;
         var blocks = notes.Select(n => Block(n, set)).ToList();
         var dropped = 0;
         string text;
-        do text = Compose(notes, blocks, dropped);
+        do text = Compose(notes, blocks, dropped, maxChars);
         while (text.Length > maxChars && ++dropped <= notes.Count);
         return text;
     }
 
-    private static string Compose(IReadOnlyList<PrecedingNote> notes, IReadOnlyList<string> blocks, int dropped)
+    private static string Compose(IReadOnlyList<PrecedingNote> notes, IReadOnlyList<string> blocks, int dropped, int maxChars)
     {
         var sb = new StringBuilder("\n").Append(Heading).Append('\n');
         if (dropped > 0)
-            sb.Append("Dropped to keep this section short, oldest first — read their record: ")
+            sb.Append($"Dropped to keep this section within series.build_note_max_chars = {maxChars} characters, oldest first "
+                    + "— read their record: ")
                 .Append(string.Join(", ", notes.Take(dropped).Select(n => $"{n.SpecId} ({n.DoneFile})"))).Append('\n');
         foreach (var block in blocks.Skip(dropped)) sb.Append(block);
         return sb.ToString();

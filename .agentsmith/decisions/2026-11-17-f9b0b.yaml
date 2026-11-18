@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f9b0b
+
+decisions:
+  - category: Architecture
+    chose: "The attack look floor, the re-ground read budget and the series contract size are three spec_review: keys (attack_look_floor 24, reground_read_budget 24, series_contract_max_chars 60000), each refused below 1 by SpecReviewConfig.Problems()"
+    over: "A new block; keeping them in code"
+    reason: "The operator ratified decisions 7 and 8 on 2026-11-17: keep the numbers, move the constants to config. spec_review: is the review loop's block, read live per call, and its Problems() already refuses in the run and the Studio alike."
+  - category: Implementation
+    chose: "DerivationLookTerms.AttackReview became AttackReviewWith(allowance); every caller passes the floor it read, and the settle sentence a look past its allowance returns names spec_review.attack_look_floor"
+    over: "Keeping a static AttackReview with a default allowance"
+    reason: "A static default would reach a caller that forgot the config silently; the look's refusal already says the value, so the sentence adds the key and the reason (one review stays inside its share)."
+  - category: Implementation
+    chose: "SpecCitationRegrounder reads the budget through ISpecReviewSettingsReader and hands it to SpecRegroundSession; the log line for unchecked citations names value and key"
+    over: "Threading SpecReviewSettings through SpecEntryGrounding"
+    reason: "The regrounder is the one consumer; the settings reader is how the review loop already reads spec_review: live in the CLI and the server."
+  - category: Implementation
+    chose: "SeriesContractInput carries MaxChars as a positional parameter; the 'shown in part' line names spec_review.series_contract_max_chars and its value"
+    over: "An init property with a default"
+    reason: "Both constructors (the run's round and the design turn's) read the config, and a positional parameter cannot be forgotten."

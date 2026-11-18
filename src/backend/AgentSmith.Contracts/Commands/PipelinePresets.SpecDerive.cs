@@ -7,14 +7,22 @@ public static partial class PipelinePresets
     /// <summary>2026-10-26-bdd0b: true for a run that carries a ticket id but never moves the ticket: no working
     /// or failure comment, no status, no lifecycle label, no queue entry, no taken-ticket record.</summary>
     public static bool LeavesTicketAlone(string? pipelineName) =>
-        string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase)
+        string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase) || ShownOnTicketOnly(pipelineName)
         || string.Equals(pipelineName, MergeGreenName, StringComparison.OrdinalIgnoreCase); // 2026-11-17-3435b: merges, moves nothing
+
+    /// <summary>2026-11-17-b34ed: a run that acts beside a ticket — on its pull request or branch — and is shown on its
+    /// page: its row carries the ticket's id (PipelineRequest.ShownOnTicket), it leaves the ticket alone and nudges no
+    /// rework when it ends.</summary>
+    public static bool ShownOnTicketOnly(string? pipelineName) =>
+        string.Equals(pipelineName, RefreshBaseName, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(pipelineName, RetargetName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>2026-11-11-205ff review: true for a run that something relaunches when it did not fit — a ticket's run,
     /// which the reconciler re-enqueues. A derivation and a design turn are started by a person; nothing relaunches
     /// them, so a capacity refusal ends them failed instead of 'queued'.</summary>
     public static bool WaitsForCapacity(string? pipelineName) =>
-        !LeavesTicketAlone(pipelineName) && !(pipelineName is not null && NeedsHostContext(pipelineName));
+        !string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase) // b34ed: a refresh still waits
+        && !(pipelineName is not null && NeedsHostContext(pipelineName));
 
     /// <summary>The same question asked of a running pipeline, by the name the run was started under.</summary>
     public static bool LeavesTicketAlone(PipelineContext pipeline) =>

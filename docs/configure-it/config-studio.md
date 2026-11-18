@@ -67,7 +67,7 @@ Whether each repository is already bootstrapped is shown under **System → Conf
 
 ### The project drawer
 
-The project drawer has six tabs. A tab that needs attention carries a mark.
+The project drawer has seven tabs. A tab that needs attention carries a mark.
 
 **identity**. The project's name, and its agent and tracker, both picked from the catalogs. Once the Design sources catalog holds an entry, a **design sources** picker appears here too; see [Design sources](design-sources.md).
 
@@ -82,6 +82,8 @@ The project drawer has six tabs. A tab that needs attention carries a mark.
 **sandbox**. Per-project overrides for the sandbox. Every field is an override: leave it empty and the project inherits the value the placeholder names, and the help text says where that value comes from (a Settings value, the `SANDBOX_HOLD_SECONDS` environment variable, a built-in default, or "detected per run from the repository"). The fields are toolchain image, step timeout (seconds), run_command timeout (seconds), agent registry, agent version, sandbox hold (seconds), cpu & memory (all four quantities or none), per-language images, secret environment variables and mounted secret files. The secret fields inherit nothing, because there's no process-wide secrets block to inherit from, and they hold Kubernetes Secret names and keys, never values. An override applies to the next run of the project; the sandbox hold applies to the next turn of a design conversation. What each of these does at runtime is on [Sandbox architecture](../reference/concepts/sandbox-architecture.md).
 
 The cpu & memory group can't name one inherited number, because what a run gets depends on its pipeline, and a project's runs pick their pipeline per run (a ticket's labels, a trigger's default, the CLI). So it states both answers side by side: what a run that changes code gets (the process-wide sandbox default, or what the repository's context file names, clamped to the operator ceiling), and the fixed light profile every pipeline that changes no code is held to. Switching the group on seeds all four quantities from the code-run answer.
+
+**merge**. When a ticket that requires another may start (`requires_start`: once each prerequisite pushed a green branch, or once each merged), and the project's `merge:` block: whether a green code run merges its own pull requests, whether it waits for the host's branch protection, and whether a landing refreshes the other open pull requests on its base. The choices come from the server, so a mode it gains shows up here. A project with no `merge:` block reads as manual, and the block is written only once you change one of these. See [agentsmith.yml](../reference/configuration/agentsmith-yml.md).
 
 ## Trackers
 
@@ -125,7 +127,7 @@ An entry an activity still uses can't be removed; the editor names the activitie
 
 **Activities** gives every role the product routes a pick from the catalog: Coding (`primary`), Planning, Review & checks (`reasoning`), Project init (`contextGeneration`), Code map, Quick lookups (`scout`) and Summaries (`summarization`), each with a line on what it covers. Coding is required. Every other activity left unset follows Coding, and Code map follows Quick lookups when that one is set. Some activities carry a **needs strong** mark, because every later step builds on their answer. Point one of them at an entry tiered `fast` and the activity says so, the tab gets a mark, and the server reports it as an advisory finding. It's advice and nothing refuses it: the product never decides which model is strong, your tier does.
 
-**Provider** holds the provider type, the key secret, endpoint, API version and network timeout. **Tuning** holds prompt caching, compaction and retry, which stay collapsed and absent until you add them, so an agent you never touched keeps a clean record instead of a wall of persisted defaults.
+**Provider** holds the provider type, the key secret, endpoint, API version and network timeout. **Tuning** holds prompt caching, compaction (including its trigger, fold target and summary budget ratios) and retry, which stay collapsed and absent until you add them, so an agent you never touched keeps a clean record instead of a wall of persisted defaults.
 
 Every catalog model needs a price, and most already have one: the bundled public price list knows the hosted models by id, and the agent's pricing table only overrides it. A model the list doesn't know needs an override, and the studio refuses to save an agent with a catalog entry neither knows ("has no pricing entry — the bundled price list does not know it; add it to the agent's pricing table"). The Models tab warns about that before you press save. That's what keeps the dollar figure on every run honest. [Cost tracking](../reference/concepts/cost-tracking.md) has how a price is resolved.
 

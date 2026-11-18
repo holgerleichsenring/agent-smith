@@ -284,12 +284,13 @@ public sealed class SeriesContractRoundTests
     }
 
     [Fact]
-    public void SeriesContractRound_RunLook_AllowanceIsClearedMembersPlusTwelveNeverBelow24()
+    public void SeriesContractRound_RunLook_AllowanceIsClearedMembersPlusTwelveNeverBelowTheFloor()
     {
-        SeriesContractRound.Terms(2).Allowance.Should().Be(24);
-        SeriesContractRound.Terms(12).Allowance.Should().Be(24);
-        SeriesContractRound.Terms(20).Allowance.Should().Be(32);
-        SeriesContractRound.Terms(20).EvidencePrefix.Should().Be(DerivationLookTerms.AttackReview.EvidencePrefix);
+        SeriesContractRound.Terms(2, 24).Allowance.Should().Be(24);
+        SeriesContractRound.Terms(12, 24).Allowance.Should().Be(24);
+        SeriesContractRound.Terms(20, 24).Allowance.Should().Be(32);
+        SeriesContractRound.Terms(20, 50).Allowance.Should().Be(50);
+        SeriesContractRound.Terms(20, 24).EvidencePrefix.Should().Be("A");
     }
 
     [Fact]
