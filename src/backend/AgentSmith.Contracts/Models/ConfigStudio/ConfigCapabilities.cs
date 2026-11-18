@@ -38,6 +38,12 @@ public sealed record ConfigCapabilities(
     public IReadOnlyDictionary<string, IReadOnlyList<string>> AgentProviderPriceLists { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>();
 
+    /// <summary>2026-11-17-b34eb: the project's merge.when modes, from the MergeWhen enum.</summary>
+    public IReadOnlyList<string> MergeWhen { get; init; } = [];
+
+    /// <summary>2026-11-17-b34eb: the project's requires_start modes, from the RequiresStart enum.</summary>
+    public IReadOnlyList<string> RequiresStart { get; init; } = [];
+
     /// <summary>2026-10-14-dbced: per tier name, the cost ceiling a tier left out of per_tier keeps.</summary>
     public IReadOnlyDictionary<string, Configuration.CostCapValues> TierCostCapDefaults { get; init; } =
         new Dictionary<string, Configuration.CostCapValues>();

@@ -26,14 +26,14 @@ public static class CostCapStop
         if (cap is null) return $"no cost cap is configured; {spent} spent so far";
         var ceiling = string.Create(CultureInfo.InvariantCulture,
             $"${cap.Usd:0.00##} / {cap.Tokens:N0} tokens");
-        return $"the run's cost cap ({ceiling}) is exhausted — {spent} spent, "
-            + "any segment before a park included";
+        return $"the run's cost cap ({ceiling}) is exhausted — {spent} spent over its recorded calls, "
+            + "worker-reported cost and any segment before a park included; pipeline_cost_cap sets the cap";
     }
 
     /// <summary>The same sentence for a reader holding the run's tracker.</summary>
     public static string Describe(PipelineCostTracker tracker)
     {
         ArgumentNullException.ThrowIfNull(tracker);
-        return Describe(tracker.CostCap, tracker.EstimateCostUsd(), tracker.EffectiveBudgetTokens);
+        return Describe(tracker.CostCap, tracker.BudgetCostUsd, tracker.EffectiveBudgetTokens);
     }
 }

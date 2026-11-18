@@ -58,7 +58,8 @@ public sealed class RunStartProjection(
     private async Task AnnounceAsync(Run run, CancellationToken ct)
     {
         // 2026-10-26-bdd0e: a spec derivation's start refreshes the ticket page too.
-        if (activity is null || run.Pipeline is not (PipelinePresets.CodeName or PipelinePresets.SpecDeriveName) || string.IsNullOrEmpty(run.TicketId)
+        if (activity is null || run.Pipeline is not (PipelinePresets.CodeName or PipelinePresets.SpecDeriveName
+                or PipelinePresets.RefreshBaseName or PipelinePresets.RetargetName) || string.IsNullOrEmpty(run.TicketId) // b34ed
             || string.IsNullOrEmpty(run.Platform) || string.IsNullOrEmpty(run.Project)) return;
         try
         {

@@ -31,6 +31,7 @@ public sealed class StackedPullRequestRetargetTests
     private readonly Mock<IPreviousAttemptReader> _attempts = new();
     private readonly Mock<IActiveRunLease> _leases = new();
     private readonly Mock<ISourceProvider> _provider = new();
+    private AgentSmith.Domain.Models.TicketId? _shownOn;
     private readonly Mock<IActRun> _runs = new();
     private readonly List<PullRequestMove> _moved = [];
 
@@ -40,9 +41,11 @@ public sealed class StackedPullRequestRetargetTests
         _facts.Land("41");
         _attempts.Setup(a => a.LatestAsync(Project, "41", null, default)).ReturnsAsync(Attempt(PrerequisitePr));
         _provider.Setup(p => p.ReadPullRequestBaseAsync(PrerequisitePr, default)).ReturnsAsync("main");
-        _runs.Setup(r => r.RunAsync(Project, PipelinePresets.RetargetName, It.IsAny<IReadOnlyDictionary<string, object>>()))
-            .Callback<string, string, IReadOnlyDictionary<string, object>>((_, _, seeds) =>
+        _runs.Setup(r => r.RunAsync(Project, PipelinePresets.RetargetName, It.IsAny<IReadOnlyDictionary<string, object>>(),
+                It.IsAny<AgentSmith.Domain.Models.TicketId?>()))
+            .Callback<string, string, IReadOnlyDictionary<string, object>, AgentSmith.Domain.Models.TicketId?>((_, _, seeds, shown) =>
             {
+                _shownOn = shown;
                 _moved.AddRange(((RetargetPullRequestsRequest)seeds[ContextKeys.RetargetPullRequestsRequest]).Moves);
                 ((ActSlot<int>)seeds[ContextKeys.ActOutcome]).Set(_moved.Count);
             })
@@ -57,6 +60,7 @@ public sealed class StackedPullRequestRetargetTests
         (await Retarget().RetargetAsync(Of(), "42", Attempt(DependentPr), default)).Should().Be(1);
 
         _moved.Should().Equal(new PullRequestMove("api", DependentPr, "agent-smith/41", "main"));
+        _shownOn!.Value.Should().Be("42", "2026-11-17-b34ed: the run is listed on the dependent's page");
     }
 
     [Fact]

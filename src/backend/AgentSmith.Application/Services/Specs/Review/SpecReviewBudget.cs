@@ -20,7 +20,7 @@ public static class SpecReviewBudget
         ArgumentNullException.ThrowIfNull(settings);
         var share = settings.Review.BudgetSharePercent;
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
-        var (usd, tokens) = (tracker.EstimateCostUsd(), tracker.EffectiveBudgetTokens);
+        var (usd, tokens) = (tracker.BudgetCostUsd, tracker.EffectiveBudgetTokens); // 2026-11-17-b34ea
         if (tracker.CostCap is { } cap && (usd * 100 >= cap.Usd * share || tokens * 100 >= cap.Tokens * share))
             return string.Create(CultureInfo.InvariantCulture, $"review has used its {share}% share of the run's "
                 + $"cost cap (${usd:0.00##} / {tokens:N0} tokens of ${cap.Usd:0.00##} / {cap.Tokens:N0})");

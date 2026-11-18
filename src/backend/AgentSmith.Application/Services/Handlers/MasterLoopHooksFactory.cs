@@ -26,7 +26,7 @@ internal static class MasterLoopHooksFactory
         context.Pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
         var cap = context.Pipeline.TryGet<CostCapValues>("PipelineCostCap", out var c) ? c : null;
         var estimator = new PipelineCostTracker(resolver, pricingConfig, null);
-        var startUsd = costTracker.EstimateCostUsd();
+        var startUsd = costTracker.BudgetCostUsd; // 2026-11-17-b34ea: recorded calls, worker-reported cost included
         // p0376: use the cache-weighted token total, NOT raw TotalTokens — otherwise this
         // fence trips on cache-read volume (which is nearly free) while the USD cap has
         // ample room, killing a run mid-pass. Mirrors PipelineCostTracker.IsBudgetExhausted.
@@ -34,14 +34,14 @@ internal static class MasterLoopHooksFactory
         return new MasterLoopHooks(
             IsBudgetExhausted: cap is null
                 ? null
-                : () => startUsd + estimator.EstimateCostUsd() > cap.Usd
+                : () => PassUsd(startUsd, estimator, costTracker) > cap.Usd
                     || startTokens + estimator.EffectiveBudgetTokens > cap.Tokens,
             // 2026-09-22-7c41a: the fence's own numbers, said out loud. The cap and both
             // frozen baselines are right here; the governor that throws has neither.
             RenderBudgetStop: cap is null
                 ? null
                 : () => CostCapStop.Describe(
-                    cap, startUsd + estimator.EstimateCostUsd(),
+                    cap, PassUsd(startUsd, estimator, costTracker),
                     startTokens + estimator.EffectiveBudgetTokens),
             // p0341e: record EACH tool-loop iteration's usage into BOTH the pass-local fence
             // estimator AND the shared per-pipeline tracker — as it happens. This is the fix
@@ -52,8 +52,8 @@ internal static class MasterLoopHooksFactory
             // its ENTIRE spend from the summary and from IsBudgetExhausted. Feeding per
             // iteration makes the shared tracker exact and exception-proof; the redundant
             // handler-level Track calls for the coding master are dropped to avoid double-count.
-            // The fence math is unaffected — it reads the FROZEN startUsd/startTokens plus the
-            // independent estimator, never the shared tracker live.
+            // The fence reads the FROZEN startUsd/startTokens plus the independent estimator; since
+            // 2026-11-17-b34ea it also reads the run's recorded calls, which see worker calls too.
             RecordIterationUsage: response =>
             {
                 estimator.Track(response);
@@ -79,4 +79,8 @@ internal static class MasterLoopHooksFactory
             OnVerdictBrake: verdictOwed.Stopped,
             VerdictOwedAfterIterations: context.AgentConfig.VerdictOwedAfterIterations);
     }
+
+    // The pass's own calls on the frozen start, or the run's recorded calls if they already say more.
+    private static decimal PassUsd(decimal startUsd, PipelineCostTracker estimator, PipelineCostTracker run) =>
+        Math.Max(startUsd + estimator.BudgetCostUsd, run.BudgetCostUsd);
 }

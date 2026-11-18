@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-b34ea
+goal: "A run's money cap counts its recorded per-call costs, worker calls included, so a worker-mode run over budget stops as a provider run does."
+
+applies_to: "default (PipelineCostTracker, RecordedCallAttach, MasterLoopHooksFactory, CostCapStop, SpecReviewBudget)"
+
+requires: [2026-11-17-7c9bc]
+
+facts:
+  - claim: "The cap's USD arm compares the tracker's priced accrual, which holds no worker call; worker calls sit in their own channel and count only toward the token arm."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:68-79, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:89-95, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:357"
+  - claim: "The run keeps a ledger of every call the event publisher recorded, worker calls with their CLI-reported cost, and puts it on the context after the prologue."
+    evidence: "src/backend/AgentSmith.Contracts/Events/RecordedCallLedger.cs:11-55, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:53-54, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:81"
+  - claim: "The master's within-pass fence adds a pass-local estimator's priced accrual to the tracker's start figure."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterLoopHooksFactory.cs:28-45"
+  - claim: "The stop sentence names the cap and the spend, not the key that sets the cap."
+    evidence: "src/backend/AgentSmith.Application/Services/CostCapStop.cs:23-31"
+  - claim: "7c9bc and 166ab kept the USD fence unbound on worker spend (b0d7). Operator decision 2026-11-17: the cap counts worker spend like any other."
+    evidence: ".agentsmith/decisions/2026-11-17-7c9bc.yaml, observed: 2026-11-17, operator brief for the small follow-ups"
+
+upgrade_impact: "A worker-mode run now stops at its cost cap on the CLI-reported spend; before, only the token arm could stop it. Raise pipeline_cost_cap (default, per_pipeline or per_tier) where worker runs need more room."
+
+scope:
+  in: "PipelineCostTracker.BudgetCostUsd: the larger of the tracker's own figure (priced accrual plus worker-reported cost) and the run's recorded-call ledger, when one is attached (CountRecordedCalls). IsBudgetExhausted, CostCapStop, SpecReviewBudget's share and the master's within-pass fence read it. GetOrCreate attaches the context's ledger; RecordedCallAttach attaches it to a tracker that already exists. The stop sentence says the spend counts recorded calls, worker-reported cost included, and names pipeline_cost_cap."
+  out: "result.md and RunFinished.CostUsd keep EstimateCostUsd (7c9bd owns result.md). The token arm is unchanged."
+
+steps:
+  - id: budget
+    action: "PipelineCostTracker.Budget.cs (partial): CountRecordedCalls(ledger), BudgetCostUsd; IsBudgetExhausted's USD arm reads it."
+  - id: attach
+    action: "GetOrCreate and RecordedCallAttach.To attach the ledger whichever comes first."
+  - id: readers
+    action: "CostCapStop.Describe(tracker), SpecReviewBudget.Spent and MasterLoopHooksFactory read BudgetCostUsd; the sentence names the key."
+
+tests:
+  - "PipelineCostTrackerBudgetTests: worker-reported cost over the cap exhausts it; a ledger above the tracker's figure exhausts it; a ledger below it does not lower it; no cap stays false"
+  - "RecordedCallAttach: a tracker created before the attach and one created after both count the ledger"
+  - "CostCapStop names pipeline_cost_cap and the worker-included spend"
+  - "MasterLoopHooksFactory: a pass of worker responses whose reported cost crosses the cap trips the fence"
+
+done:
+  - "A worker-mode run whose recorded calls cross its USD cap stops at the next budget check with a sentence naming cap, spend and pipeline_cost_cap."

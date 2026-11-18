@@ -232,6 +232,7 @@ export function NumberField({
   placeholder,
   testId,
   help,
+  step,
 }: {
   label: string;
   value: number | undefined;
@@ -239,6 +240,8 @@ export function NumberField({
   placeholder?: string;
   testId?: string;
   help?: string;
+  /** 2026-11-17-b34eb: a ratio field takes fractions (e.g. 0.05). */
+  step?: number;
 }) {
   return (
     <div className="field">
@@ -248,6 +251,7 @@ export function NumberField({
       </label>
       <input
         type="number"
+        step={step}
         data-testid={testId}
         value={value ?? ""}
         placeholder={placeholder}
@@ -267,15 +271,21 @@ export function CheckField({
   value,
   onChange,
   testId,
+  help,
 }: {
   label: string;
   value: boolean;
   onChange: (v: boolean) => void;
   testId?: string;
+  /** 2026-11-17-b34eb: what turning it on does. */
+  help?: string;
 }) {
   return (
     <div className="field">
-      <label>{label}</label>
+      <label>
+        {label}
+        {help && <span className="help">{help}</span>}
+      </label>
       <div className="picks">
         <button
           type="button"
