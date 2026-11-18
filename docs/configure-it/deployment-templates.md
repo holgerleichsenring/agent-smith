@@ -70,6 +70,8 @@ environments:
 
 Making a context deployable is ordinary work: a ticket, or a Work it out conversation, that says "make the api deployable to test". The run opens the deployment template read only, next to the code, as `template:deploy:<context>`. The coding master is told which environments this project binds and with which parameter values, and it copies or adapts the declared files into the context. A parameter with no value in the binding and no default in the template becomes a question to a person, with the value the master recommends; until it is answered the ticket waits in needs clarification. A secret is written into the files by its name only.
 
+When a Work it out proposal adds a context that doesn't exist yet, in a project whose other contexts are bound to a deployment template, the reply ends with a line that says so: bind the new context to the template its siblings use (in the project's templates, kind deployment), then cut a spec that makes it deployable. Nothing is bound or cut for you.
+
 Because the template is opened like a code template, a coding run of a bound context needs to reach it: a revision that no longer exists fails the run before its first model call, the same as for a code template.
 
 ## Deploying

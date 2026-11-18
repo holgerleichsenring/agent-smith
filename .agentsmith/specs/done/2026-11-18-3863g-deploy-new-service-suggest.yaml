@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863g
+goal: "When a design turn's proposal creates a context that has no deployment binding while its project binds others, the reply ends with a line suggesting the binding and a make-deployable spec."
+
+applies_to: "default (spec dialog: CollectSpecDialogReplyHandler, DeployableSuggestion, docs)"
+
+requires: [2026-11-18-3863b]
+
+facts:
+  - claim: "Deployment bindings are per context and live in the project's template list."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ProjectTemplate.cs:20-32"
+  - claim: "A draft names the contexts it changes under contexts; applies_to is free text and never parsed."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:44"
+  - claim: "Every draft of a proposal (spec, epic parent and children, every ticket's specs) is one list."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalSpecSet.cs:21-28"
+  - claim: "A design turn grounds on the scope repositories' existing contexts (RepoContextYamls) and carries its project (SpecDialogProject); every turn's reply and outcome pass through one step."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:48-53, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecDialog.cs:113, src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:36-48"
+
+scope:
+  in: "DeployableSuggestion: from the proposal's drafts, the contexts they name that neither exist in the grounded repositories nor carry a deployment binding; when the project binds at least one deployment template, one line naming the new contexts, the template their siblings are bound to (or the templates, when they differ), and the two steps: bind in the project's templates (kind deployment), then a make-deployable spec. Appended to the turn's reply by CollectSpecDialogReplyHandler. No line without grounding (what exists is not guessed), without contexts in the drafts, or without a deployment binding. Docs: a paragraph in deployment-templates.md."
+  out: "Writing config from the conversation (admin assistant). Cutting the make-deployable spec automatically (the person decides)."
+
+steps:
+  - id: suggestion
+    action: "DeployableSuggestion.Of(proposal, project, grounded contexts)."
+  - id: reply
+    action: "CollectSpecDialogReplyHandler appends it to the reply."
+  - id: docs
+    action: "deployment-templates.md: a new service."
+
+tests:
+  - "DeployableSuggestion: a draft naming a new context in a project whose other contexts are deployable gets the line with the siblings' template; an existing or bound context, no deployment binding, or no grounding gets none"
+  - "CollectSpecDialogReplyHandler: a proposal adding a service ends its reply with the suggestion; an answer is unchanged"
+
+done:
+  - "A series that adds a service in a project whose other services are deployable ends its proposal with the suggestion."
