@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-00eab
+goal: "The Config studio's write guard signals a committed change through the shared ConfigChangedSignal instead of its own copy of the reload bump and ConfigChanged publish."
+
+applies_to: "default (ConfigStudioWriteGuard, studio routes, ArchiveRestore, ConfigChangedSignal)"
+
+requires: [2026-11-17-f3a8c]
+
+facts:
+  - claim: "ConfigStudioWriteGuard bumps the reload epoch and publishes ConfigChangedEvent itself; f3a8c named that copy as debt for the next change to the guard."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigStudioWriteGuard.cs, .agentsmith/decisions/2026-11-17-f3a8c.yaml"
+  - claim: "ConfigChangedSignal (scoped) does the same for the config and secret runs; ArchiveRestore, a singleton, also calls the guard."
+    evidence: "src/backend/AgentSmith.Application/Services/Admin/ConfigChangedSignal.cs, src/backend/AgentSmith.Application/Services/Admin/AdminPipelineExtensions.cs, src/backend/AgentSmith.Server/Extensions/DataArchiveTransferExtensions.cs"
+
+scope:
+  in: "GuardSignalingAsync(ctx, ConfigChangedSignal, action) on every caller (entity routes, change revert, settings, transfer, access, archive restore); ConfigChangedSignal a singleton (its two dependencies are), registered with the studio routes as well as with the admin pipelines; the source stays 'config-studio'; the signal failure is logged instead of swallowed silently."
+  out: "Changing what a write returns or which exceptions map to 409/400."
+
+steps:
+  - id: guard
+    action: "Guard takes ConfigChangedSignal; the private SignalConfigChangedAsync is deleted; callers take [FromServices] ConfigChangedSignal; ArchiveRestore takes it in its constructor."
+
+tests:
+  - "ConfigAttributionTests: the guard publishes ConfigChanged naming the principal through ConfigChangedSignal."
+  - "Booted server: a studio upsert bumps the epoch once."
+
+done:
+  - "One class signals a configuration change for the studio, the config run and the secret run."

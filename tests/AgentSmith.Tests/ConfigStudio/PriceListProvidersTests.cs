@@ -51,6 +51,7 @@ public sealed class PriceListProvidersTests
         services.AddLogging();
         services.AddSingleton<IRunContextAccessor, AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor>();
         services.AddAgentProviders();
+        services.AddSingleton<AgentSmith.Contracts.Services.ICredentialResolver>(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly); // 2026-11-18-9ae8
         using var provider = services.BuildServiceProvider();
         return [.. provider.GetServices<IChatClientBuilder>()];
     }

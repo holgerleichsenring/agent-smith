@@ -23,6 +23,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.17" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+    <!-- 2026-11-17-f3a8e: a master key delivered wrapped is unwrapped once by Azure Key Vault. Azure.Identity is
+         the version SqlClient already brings; Keys 4.7.0 needs no newer Azure.Core than that graph holds. -->
+    <PackageReference Include="Azure.Security.KeyVault.Keys" Version="4.7.0" />
+    <PackageReference Include="Azure.Identity" Version="1.11.4" />
   </ItemGroup>
 
   <ItemGroup>

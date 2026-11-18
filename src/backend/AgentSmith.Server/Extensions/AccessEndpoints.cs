@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Admin;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Security;
@@ -31,9 +32,8 @@ internal static class AccessEndpoints
         // custom roles this surface promises to keep.
         app.MapPut("/api/access",
             ([FromBody] JsonElement doc, [FromServices] AccessGrantWriter writer,
-                [FromServices] AccessSurfaceReader reader, [FromServices] IConfigReloadSignal reload,
-                [FromServices] ISystemEventPublisher events, HttpContext ctx, CancellationToken ct) =>
-            GuardSignalingAsync(ctx, reload, events, async () =>
+                [FromServices] AccessSurfaceReader reader, [FromServices] ConfigChangedSignal signal, HttpContext ctx, CancellationToken ct) =>
+            GuardSignalingAsync(ctx, signal, async () =>
             {
                 await writer.SaveAsync(doc, Attribution(ctx), ct);
                 return Results.Ok(await reader.ViewAsync(ct));
@@ -43,9 +43,9 @@ internal static class AccessEndpoints
         // an administrator removing a person means both.
         app.MapDelete("/api/access/people/{id}",
             (string id, [FromServices] PersonRemover remover, [FromServices] AccessSurfaceReader reader,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events,
+                [FromServices] ConfigChangedSignal signal,
                 HttpContext ctx, CancellationToken ct) =>
-            GuardSignalingAsync(ctx, reload, events, async () =>
+            GuardSignalingAsync(ctx, signal, async () =>
                 await remover.RemoveAsync(id, Attribution(ctx), ct)
                     ? Results.Ok(await reader.ViewAsync(ct))
                     : Results.NotFound(new { error = $"Nothing here names '{id}'." })))

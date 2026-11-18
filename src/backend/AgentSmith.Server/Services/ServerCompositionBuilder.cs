@@ -98,6 +98,10 @@ public static class ServerCompositionBuilder
         // read only, which is why it composes here and not in the core chain.
         services.AddSingleton<IInheritedSandboxProjection, InheritedSandboxProjection>();
 
+        // 2026-11-18-00eab: the one signal of a committed configuration change, for the studio's
+        // routes, the archive restore, the config run and the secret run alike.
+        services.TryAddSingleton<AgentSmith.Application.Services.Admin.ConfigChangedSignal>();
+
         return services;
     }
 

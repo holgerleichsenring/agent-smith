@@ -101,7 +101,8 @@ public sealed class ToolBearingTaskAgreementTests
             new WindowDerivedCompaction(),
             new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             new AgentSmith.Contracts.Runs.SecretMasker(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            new AgentSmith.Contracts.Services.CredentialResolver(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())));
 
     private sealed class StubBuilder : IChatClientBuilder
     {

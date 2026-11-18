@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-f3a8e
+
+decisions:
+  - category: Security
+    chose: "The vault unwraps the MASTER key once (a key-encryption-key hierarchy): the deployment delivers the 32-byte master key RSA-OAEP-256-encrypted with the public half of a Key Vault RSA key (AGENTSMITH_SECRET_MASTER_KEY_WRAPPED), the server calls unwrapKey with AGENTSMITH_SECRET_KEY_VAULT_KEY, and rows stay AES-GCM-wrapped under that key exactly as in f3a8d"
+    over: "The planned design: every row's data key wrapped by the vault (RSA-OAEP of a name-hash and the data key)"
+    reason: "Adversarial review: RSA wrapping needs only the PUBLIC key, which the encryption role may read, so a database writer could mint a data key, wrap it and plant a row the server would open as genuine — forgery f3a8d's AES-GCM wrap rules out. Per-row unwraps would also put one vault round trip per row inside the synchronous configuration load. With one unwrap at startup the rows keep their authenticity and nothing changes on the read path."
+  - category: Security
+    chose: "The key id stays 'env:'+HMAC of the key bytes whichever form delivered them"
+    over: "A 'kv:' id naming the vault key"
+    reason: "The id is part of each row's associated data. Keeping it a function of the key bytes lets an installation move the same key from raw to wrapped without a re-wrap; rotating to a new key works as in f3a8d (_PREVIOUS, then Re-wrap)."
+  - category: Security
+    chose: "The key source stays deployment-only (environment or a mounted file); the secret drawer and read_secrets show it read-only"
+    over: "A UI field for the vault URL or the wrapped key"
+    reason: "Anything stored in the database could be re-pointed by a database writer: a wrapped key they produced with the vault's public key would be one they know. Deployment bootstrap is the documented exception f3a8d established."
+  - category: Implementation
+    chose: "DefaultAzureCredential without developer or interactive sources (workload identity, managed identity — AZURE_CLIENT_ID picks a user-assigned one — or a service principal from the environment); CryptographyClient retries 2, network timeout 10 s; any failure is the ring's Problem naming the vault key and the variable"
+    over: "The SDK defaults (3 retries, 100 s timeout) and the full credential chain"
+    reason: "The unwrap runs while the configuration loads; a vault that cannot answer should make the stored values unreadable, said as a finding, not stall the load. A server must never fall back to someone's az login."
+  - category: Scope
+    chose: "Verdict BUILD WITH CUTS: built as the wrapped master key; cut: per-row vault wrapping, Managed HSM oct keys, a live-vault test (none reachable here; the SDK boundary is tested with a CryptographyClient stand-in, the unwrap with a local RSA key wrapped the way the docs tell an operator to)"
+    over: "REFUSE"
+    reason: "The SDK's CryptographyClient is mockable (virtual methods, CryptographyModelFactory) and the auth model needs no secret on the server under workload or managed identity, so the hierarchy is both safe and testable here; only the per-row design was unsafe."
+  - category: Implementation
+    chose: "Azure.Security.KeyVault.Keys 4.7.0 and Azure.Identity 1.11.4 referenced on Infrastructure.Persistence"
+    over: "A newer Azure.Identity"
+    reason: "1.11.4 and Azure.Core 1.44.1 are already in the server's graph through SqlClient, and Keys 4.7.0 needs nothing newer, so the dependency graph does not move."

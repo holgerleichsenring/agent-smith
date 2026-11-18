@@ -14,7 +14,7 @@ internal static class AdminConfigTools
     {
         if (!pipeline.TryGet<AdminConfigDraft>(ContextKeys.AdminConfigDraft, out var draft) || draft is null) return [];
         var tools = new AdminConfigDraftTools(services.GetRequiredService<IConfigStore>(),
-            services.GetRequiredService<ConfigEntityKinds>(), draft,
+            services.GetRequiredService<ConfigEntityKinds>(), services.GetRequiredService<OrphanedSecretValues>(), draft,
             services.GetRequiredService<ILoggerFactory>().CreateLogger<AdminConfigDraftTools>());
         return
         [

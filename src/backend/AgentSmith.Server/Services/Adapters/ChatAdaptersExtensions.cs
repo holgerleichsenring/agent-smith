@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
@@ -29,14 +30,13 @@ internal static class ChatAdaptersExtensions
 
     internal static IServiceCollection AddTeamsAdapter(this IServiceCollection services)
     {
-        var options = new TeamsAdapterOptions
+        var appId = Environment.GetEnvironmentVariable("TEAMS_APP_ID") ?? string.Empty;
+        services.AddSingleton(sp => new TeamsAdapterOptions(sp.GetRequiredService<ICredentialResolver>().Named)
         {
-            AppId = Environment.GetEnvironmentVariable("TEAMS_APP_ID") ?? string.Empty,
-            AppPassword = Environment.GetEnvironmentVariable("TEAMS_APP_PASSWORD") ?? string.Empty,
+            AppId = appId,
             TenantId = Environment.GetEnvironmentVariable("TEAMS_TENANT_ID") ?? string.Empty,
-        };
-        services.AddSingleton(options);
-        services.AddSingleton(new TeamsJwtValidator(options.AppId));
+        });
+        services.AddSingleton(new TeamsJwtValidator(appId));
         services.AddTransient<TeamsQuestionCardBuilder>();
         services.AddTransient<TeamsStatusCardBuilder>();
         services.AddTransient<TeamsCardBuilder>();
@@ -53,11 +53,8 @@ internal static class ChatAdaptersExtensions
 
     internal static IServiceCollection AddSlackAdapter(this IServiceCollection services)
     {
-        services.AddSingleton(new SlackAdapterOptions
-        {
-            BotToken = Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN") ?? string.Empty,
-            SigningSecret = Environment.GetEnvironmentVariable("SLACK_SIGNING_SECRET") ?? string.Empty
-        });
+        // 2026-11-18-9ae8: the credentials are read per use, environment first, then the secret store.
+        services.AddSingleton(sp => new SlackAdapterOptions(sp.GetRequiredService<ICredentialResolver>().Named));
         services.AddHttpClient<SlackApiClient>(c =>
         {
             c.BaseAddress = new Uri("https://slack.com/api/");

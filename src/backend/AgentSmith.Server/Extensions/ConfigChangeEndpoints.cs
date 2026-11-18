@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Admin;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -23,9 +24,8 @@ internal static class ConfigChangeEndpoints
             Results.Ok(store.GetChanges().Select(Services.Config.ConfigChangeView.From)))
            .Needs(Permissions.ConfigRead, Permissions.SecretsRead);
         app.MapPost("/api/config/changes/{id}/revert",
-            (string id, IConfigStore store, [FromServices] IConfigReloadSignal reload,
-                [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-                GuardSignalingAsync(ctx, reload, events,
+            (string id, IConfigStore store, [FromServices] ConfigChangedSignal signal, HttpContext ctx) =>
+                GuardSignalingAsync(ctx, signal,
                     () => { store.Revert(id, Attribution(ctx)); return Results.NoContent(); }))
            .Needs(Permissions.ConfigWrite, Permissions.SecretsWrite);
 

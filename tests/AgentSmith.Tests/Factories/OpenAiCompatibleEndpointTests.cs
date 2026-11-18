@@ -53,7 +53,7 @@ public sealed class OpenAiCompatibleEndpointTests : IDisposable
             Type = "openai", Endpoint = "https://llm.internal.example/v1", ApiKeySecret = NamedSecret,
         };
 
-        var build = () => new OpenAiChatClientBuilder(new RecordingHandler())
+        var build = () => new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, new RecordingHandler())
             .Build(agent, new ModelAssignment { Model = "m" });
 
         build.Should().Throw<InvalidOperationException>().WithMessage($"*'{NamedSecret}'*");
@@ -84,7 +84,7 @@ public sealed class OpenAiCompatibleEndpointTests : IDisposable
     public async Task OpenAi_RoleEndpoint_WinsOverTheAgents()
     {
         var handler = new RecordingHandler();
-        var client = new OpenAiChatClientBuilder(handler).Build(
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             new AgentConfig { Type = "openai", Endpoint = "https://agent.example/v1" },
             new ModelAssignment { Model = "m", Endpoint = "https://role.example/v1" });
 
@@ -105,7 +105,7 @@ public sealed class OpenAiCompatibleEndpointTests : IDisposable
     private static async Task<RecordingHandler> Send(AgentConfig agent)
     {
         var handler = new RecordingHandler();
-        var client = new OpenAiChatClientBuilder(handler).Build(agent, new ModelAssignment { Model = "m" });
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(agent, new ModelAssignment { Model = "m" });
         await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
         return handler;
     }

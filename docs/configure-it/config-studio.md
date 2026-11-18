@@ -29,9 +29,23 @@ A secret you create in the studio reads the environment variable of exactly its 
 
 An admin can also give a secret its value right in the studio: open the secret, type the value into the password field and press **Set value**. The value goes straight to the server, runs as a `secret` run with a run id, and is stored encrypted. Each value gets a key of its own (AES-256-GCM with a random nonce, so two equal values never store equal bytes), and that key is wrapped by a master key that is not in the database: `AGENTSMITH_SECRET_MASTER_KEY` (the base64 of 32 random bytes, for example `openssl rand -base64 32`) or `AGENTSMITH_SECRET_MASTER_KEY_FILE` pointing at a mounted k8s Secret. Without a master key the field says so and stores nothing.
 
-A stored value is never shown again, by the studio, the API or the admin assistant; the studio shows who set it and when. When the environment variable the secret reads holds a value, the environment wins. To rotate the master key, move the old key to `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS`, set the new one, and press **Re-wrap with the current master key**. Agent API keys still read their environment variable directly.
+A stored value is never shown again, by the studio, the API or the admin assistant; the studio shows who set it and when. When the environment variable the secret reads holds a value, the environment wins. To rotate the master key, move the old key to `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS`, set the new one, and press **Re-wrap with the current master key**.
 
-An agent's key secret works differently. The agent reads the environment variable the secret's name spells, directly, whatever the secret maps to. Name that secret after the variable in every case, such as `AZURE_OPENAI_API_KEY`. The fallbacks when that variable is empty are on [AI providers](../connect-your-stuff/ai-providers.md#api-keys).
+### Keeping the master key in Azure Key Vault
+
+The deployment can hold the master key wrapped instead of raw, so a leaked environment or k8s Secret is useless without access to the vault. Create an RSA key (2048 bits or more) in Key Vault, give the server's identity the **Key Vault Crypto Service Encryption User** role on it, and wrap a fresh 32-byte key with the key's public half:
+
+```bash
+az keyvault key download --vault-name <vault> --name <key> --file key.pub.pem
+openssl rand 32 | openssl pkeyutl -encrypt -pubin -inkey key.pub.pem \
+  -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 | base64
+```
+
+Set the output as `AGENTSMITH_SECRET_MASTER_KEY_WRAPPED` (or mount it and point `AGENTSMITH_SECRET_MASTER_KEY_WRAPPED_FILE` at it), and set `AGENTSMITH_SECRET_KEY_VAULT_KEY` to the key's versioned identifier, `https://<vault>.vault.azure.net/keys/<key>/<version>`. The server asks the vault to unwrap the key once, when it first needs it. It signs in as itself: workload identity, a managed identity (`AZURE_CLIENT_ID` picks a user-assigned one) or a service principal from the environment, never someone's `az login`. If the vault does not answer, stored values read as empty and the studio says why.
+
+To move an existing raw key into the vault, wrap that same key (`echo <base64 key> | base64 -d | openssl pkeyutl …`) and swap the variable. Stored values keep opening without a re-wrap. For a new key, keep the old one as `AGENTSMITH_SECRET_MASTER_KEY_PREVIOUS` or `AGENTSMITH_SECRET_MASTER_KEY_WRAPPED_PREVIOUS` and press **Re-wrap**. A previous wrapped key is unwrapped with `AGENTSMITH_SECRET_KEY_VAULT_KEY_PREVIOUS`, or with the current vault key when that variable is unset. The source is part of the deployment and not a setting, because anyone who can write the database could otherwise point it at a key they hold. The secret drawer shows which source is in use.
+
+An agent's key secret works a little differently. The agent first reads the environment variable that the secret's name spells. If that variable is empty, it uses the value of the secret with that name, which may be the value stored here. So name the secret after the variable, such as `AZURE_OPENAI_API_KEY`. The fallbacks for an empty variable are on [AI providers](../connect-your-stuff/ai-providers.md#api-keys).
 
 ## Adding something
 

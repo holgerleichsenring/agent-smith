@@ -241,7 +241,7 @@ public sealed class CopilotSessionChatClientTests
     {
         using var seat = new ScopedEnvironment(("AGENTSMITH_TEST_SEAT_A", "team-a-seat"),
             (AgentSmith.Contracts.Constants.AgentEnvKeys.CopilotGitHubToken, "fallback-seat"));
-        var builder = new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance);
+        var builder = new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly);
         var agent = new AgentConfig { Type = "copilot", Model = "gpt-5", ApiKeySecret = "AGENTSMITH_TEST_SEAT_A" };
 
         var client = builder.Build(agent, new ModelAssignment { Model = "gpt-5" });
@@ -256,7 +256,7 @@ public sealed class CopilotSessionChatClientTests
             (AgentSmith.Contracts.Constants.AgentEnvKeys.CopilotGitHubToken, null),
             ("GH_TOKEN", null),
             (AgentSmith.Contracts.Constants.AgentEnvKeys.GitHubToken, null));
-        var builder = new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance);
+        var builder = new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly);
 
         var act = () => builder.Build(new AgentConfig { Type = "copilot", Model = "gpt-5" }, new ModelAssignment());
 
@@ -269,7 +269,7 @@ public sealed class CopilotSessionChatClientTests
     {
         // ConfigStudioCapabilities hands the dashboard these verbatim; a second spelling would
         // appear as a second provider for one provider.
-        new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance)
+        new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly)
             .SupportedTypes.Should().Equal("copilot");
     }
 

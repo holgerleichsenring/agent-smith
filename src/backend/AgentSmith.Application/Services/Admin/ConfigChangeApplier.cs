@@ -12,28 +12,41 @@ namespace AgentSmith.Application.Services.Admin;
 /// and the items this run applied before it are reverted, newest first. That is compensation, not a transaction: a
 /// revert the store refuses is named in the report.
 /// </summary>
-public sealed class ConfigChangeApplier(IConfigStore store, ConfigEntityKinds kinds, ILogger<ConfigChangeApplier> logger)
+public sealed class ConfigChangeApplier(
+    IConfigStore store, ConfigEntityKinds kinds, OrphanedSecretValues orphans, ILogger<ConfigChangeApplier> logger)
 {
-    public ConfigApplyReport Apply(ConfigChangeRequest request, string runId)
+    /// <summary>
+    /// 2026-11-18-00eaa: catalog items first, in order; then the deletions of orphaned stored values, which cannot be
+    /// reverted — so every one of them is checked before any is deleted, and nothing irreversible happens before the
+    /// last check. A value set for the same name between the check and the delete is lost (accepted, narrow).
+    /// </summary>
+    public async Task<ConfigApplyReport> ApplyAsync(ConfigChangeRequest request, string runId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         var by = new ChangeAttribution($"{request.Person} via admin assistant (run {runId})");
-        for (var i = 0; i < request.Changes.Count; i++)
+        var numbered = request.Changes.Select((item, i) => (Item: item, Number: i + 1)).ToList();
+        foreach (var (item, number) in numbered.Where(n => !OrphanedSecretValues.Is(n.Item.Kind)))
         {
-            var item = request.Changes[i];
             try
             {
                 ApplyOne(item, by);
             }
             catch (Exception ex) when (ex is ConfigurationException or StaleConfigVersionException or System.Text.Json.JsonException)
             {
-                logger.LogInformation(ex, "Config run {RunId} refused change {Index}: {Kind}/{Id}", runId, i + 1, item.Kind, item.Id);
-                return new ConfigApplyReport(false, $"Change {i + 1} ({item.Operation} {item.Kind}/{item.Id}) was refused: "
-                    + $"{ex.Message} {Revert(by)}");
+                logger.LogInformation(ex, "Config run {RunId} refused change {Index}: {Kind}/{Id}", runId, number, item.Kind, item.Id);
+                return Refused(number, item, ex.Message, by);
             }
         }
+        var values = numbered.Where(n => OrphanedSecretValues.Is(n.Item.Kind)).ToList();
+        foreach (var (item, number) in values)
+            if (item.Operation != ConfigChangeItem.Delete || item.Before is null || await orphans.ReadAsync(store, item.Id, ct) != item.Before)
+                return Refused(number, item, "it is no longer the orphaned stored value the draft showed; ask the assistant to read it again.", by);
+        foreach (var (item, _) in values) await orphans.DeleteAsync(item.Id, ct);
         return new ConfigApplyReport(true, $"Applied {request.Changes.Count} configuration change(s) in run {runId}, as {by.Actor}.");
     }
+
+    private ConfigApplyReport Refused(int number, ConfigChangeItem item, string reason, ChangeAttribution by) =>
+        new(false, $"Change {number} ({item.Operation} {item.Kind}/{item.Id}) was refused: {reason} {Revert(by)}");
 
     private void ApplyOne(ConfigChangeItem item, ChangeAttribution by)
     {

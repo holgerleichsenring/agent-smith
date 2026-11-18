@@ -76,12 +76,14 @@ public sealed class AdminReadToolsUnitTests : IDisposable
         store.Setup(s => s.GetSecrets()).Returns([new SecretEntity("gh"), new SecretEntity("jira")]);
         var secrets = new Mock<ISecretValues>();
         secrets.Setup(s => s.Resolve("gh")).Returns("value-of-gh");
+        var documents = new Mock<IConfigDocumentStore>();
+        documents.Setup(d => d.LoadAll()).Returns([]);
         var vault = new Mock<ISecretVault>();
         vault.Setup(v => v.StatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([
             new AgentSmith.Contracts.Models.StoredSecretState("gh", "ada", DateTimeOffset.UtcNow, "env:1", true, true)]);
         var config = new AdminConfigReadTools(Mock.Of<IConfigurationLoader>(), new ServerContext("x"),
             Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()), null!, null!, secrets.Object,
-            new AgentSmith.Server.Services.Admin.Secrets.SecretValuesReader(store.Object, vault.Object));
+            new AgentSmith.Server.Services.Admin.Secrets.SecretValuesReader(store.Object, vault.Object, documents.Object, _ => null));
         var findings = new Mock<IStartupFindings>();
         findings.Setup(f => f.All).Returns([]);
 

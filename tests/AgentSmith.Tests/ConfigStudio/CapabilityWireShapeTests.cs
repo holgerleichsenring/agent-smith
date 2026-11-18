@@ -86,6 +86,7 @@ public sealed class CapabilityWireShapeTests
         });
         builder.Services.AddSingleton<IRunContextAccessor, AsyncLocalRunContextAccessor>();
         builder.Services.AddAgentProviders();
+        builder.Services.AddSingleton<AgentSmith.Contracts.Services.ICredentialResolver>(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly); // 2026-11-18-9ae8
         builder.Services.AddSingleton<IConfigStore>(_ =>
             throw new NotSupportedException("This host serves /api/config/capabilities only."));
 

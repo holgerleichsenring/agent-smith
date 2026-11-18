@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Admin;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -34,11 +35,11 @@ internal static class ConfigSettingsEndpoints
 
         app.MapPut("/api/config/settings/{type}",
             async (string type, [FromBody] JsonElement doc, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+                [FromServices] ConfigChangedSignal signal, HttpContext ctx) =>
             {
                 if (!Editable(store).Contains(type))
                     return Results.NotFound(new { error = $"Unknown settings type '{type}'." });
-                return await GuardSignalingAsync(ctx, reload, events,
+                return await GuardSignalingAsync(ctx, signal,
                     () => { store.SaveSetting(type, doc, Attribution(ctx)); return Results.Ok(store.GetSetting(type)); });
             }).Needs(Permissions.ConfigWrite);
 

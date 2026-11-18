@@ -1,4 +1,4 @@
-using AgentSmith.Contracts.Events;
+using AgentSmith.Application.Services.Admin;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Persistence;
@@ -25,8 +25,7 @@ public sealed class ArchiveRestore(
     IDataArchiveReader reader,
     ArchiveUploadSpool spool,
     IConfigStore store,
-    IConfigReloadSignal reload,
-    ISystemEventPublisher events,
+    ConfigChangedSignal signal,
     ILogger<ArchiveRestore> logger)
 {
     public async Task<IResult> RestoreAsync(
@@ -36,7 +35,7 @@ public sealed class ArchiveRestore(
         try
         {
             var report = await reader.ReadAsync(db, upload, cancellationToken);
-            return await GuardSignalingAsync(context, reload, events, () => Reloaded(report));
+            return await GuardSignalingAsync(context, signal, () => Reloaded(report));
         }
         catch (DataArchiveException ex)
         {

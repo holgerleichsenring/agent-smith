@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
@@ -23,7 +24,8 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 /// handler, so request shaping + response parsing are observable. Production
 /// passes null → the SDK's default transport (or the OAuth HttpClient).
 /// </summary>
-public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = null) : IChatClientBuilder
+public sealed class ClaudeChatClientBuilder(ICredentialResolver credentials, HttpMessageHandler? testTransport = null)
+    : IChatClientBuilder
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "claude", "anthropic" };
 
@@ -33,7 +35,7 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
 
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
-        var apiKey = ResolveApiKey(agent)
+        var apiKey = ResolveApiKey(credentials, agent)
             ?? throw new InvalidOperationException(
                 $"{AgentEnvKeys.AnthropicApiKey} (or configured ApiKeySecret) is required for type=claude.");
 
@@ -94,13 +96,7 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
         return new AnthropicClient(apiKey, http);
     }
 
-    private static string? ResolveApiKey(AgentConfig agent)
-    {
-        if (!string.IsNullOrEmpty(agent.ApiKeySecret))
-        {
-            var secret = Environment.GetEnvironmentVariable(agent.ApiKeySecret);
-            if (!string.IsNullOrEmpty(secret)) return secret;
-        }
-        return Environment.GetEnvironmentVariable(AgentEnvKeys.AnthropicApiKey);
-    }
+    /// <summary>2026-11-18-9ae8: the key this builder sends — also what picks the Anthropic rate tier.</summary>
+    public static string? ResolveApiKey(ICredentialResolver credentials, AgentConfig agent) =>
+        new AgentApiKey(credentials).Resolve(agent, AgentEnvKeys.AnthropicApiKey);
 }

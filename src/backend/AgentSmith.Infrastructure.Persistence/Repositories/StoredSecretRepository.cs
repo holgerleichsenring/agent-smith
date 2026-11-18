@@ -15,8 +15,11 @@ public sealed class StoredSecretRepository(IUnitOfWork unitOfWork, MasterKeyRing
     : ISecretVault
 {
     public string? Unavailable => keys.Problem ?? (keys.Current is null
-        ? $"No master key is configured: set {MasterKeyRing.Variable} (base64 of 32 bytes) or {MasterKeyRing.Variable}_FILE."
+        ? $"No master key is configured: set {MasterKeyRing.Variable} (base64 of 32 bytes) or {MasterKeyRing.Variable}_FILE, "
+          + $"or {MasterKeyRing.WrappedVariable} with {MasterKeyRing.VaultKeyVariable} (Azure Key Vault)."
         : null);
+
+    public string? KeySource => keys.Source;
 
     public async Task SetAsync(string name, SecretInput value, string setBy, CancellationToken ct)
     {

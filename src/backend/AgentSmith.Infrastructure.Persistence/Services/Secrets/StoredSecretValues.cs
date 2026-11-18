@@ -31,7 +31,7 @@ public sealed class StoredSecretValues(
     private string? Open(StoredSecret row)
     {
         if (keys.Find(row.KeyId) is not { } key) return Unreadable(row, keys.Current is null
-            ? $"no master key is configured ({MasterKeyRing.Variable})"
+            ? $"no master key is configured ({keys.Problem ?? MasterKeyRing.Variable + " or " + MasterKeyRing.WrappedVariable})"
             : "the master key that wrapped it is neither the current nor the previous one");
         try
         {

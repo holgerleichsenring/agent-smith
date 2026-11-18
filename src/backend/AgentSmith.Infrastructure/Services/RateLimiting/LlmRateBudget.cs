@@ -14,10 +14,13 @@ namespace AgentSmith.Infrastructure.Services.RateLimiting;
 /// </summary>
 public static class LlmRateBudget
 {
-    public static LlmRateLimitOptions For(AgentConfig agent, string providerType)
+    /// <param name="anthropicKey">2026-11-18-9ae8: the key the Claude builder sends for this agent, asked only for an
+    /// Anthropic agent. The tier is fixed when the limiter for a provider and model is first created.</param>
+    public static LlmRateLimitOptions For(AgentConfig agent, string providerType, Func<string?> anthropicKey)
     {
+        ArgumentNullException.ThrowIfNull(anthropicKey);
         var operatorOverride = agent.RateLimit;
-        var defaults = DefaultFor(providerType);
+        var defaults = DefaultFor(providerType, anthropicKey);
         return new LlmRateLimitOptions(
             RequestsPerMinute: operatorOverride?.RequestsPerMinute ?? defaults.RequestsPerMinute,
             InputTokensPerMinute: operatorOverride?.InputTokensPerMinute ?? defaults.InputTokensPerMinute);
@@ -25,10 +28,10 @@ public static class LlmRateBudget
 
     // p0188: a subscription / OAuth token gets a tight budget; the API-key tier defaults to
     // the published Tier 1 numbers. Local / community providers are effectively unlimited.
-    private static LlmRateLimitOptions DefaultFor(string providerType) =>
+    private static LlmRateLimitOptions DefaultFor(string providerType, Func<string?> anthropicKey) =>
         providerType.ToLowerInvariant() switch
         {
-            "claude" or "anthropic" => AnthropicDefault(),
+            "claude" or "anthropic" => AnthropicDefault(anthropicKey()),
             "openai" or "azure_openai" or "azure-openai" =>
                 new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 60_000),
             // 2026-09-07-d5f2: a Copilot seat meters PREMIUM REQUESTS, not tokens per minute, so
@@ -39,8 +42,8 @@ public static class LlmRateBudget
             _ => new LlmRateLimitOptions(RequestsPerMinute: 600, InputTokensPerMinute: 600_000),
         };
 
-    private static LlmRateLimitOptions AnthropicDefault() =>
-        (Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty)
+    private static LlmRateLimitOptions AnthropicDefault(string? key) =>
+        (key ?? string.Empty)
             .StartsWith("sk-ant-oat", StringComparison.Ordinal)
             ? new LlmRateLimitOptions(RequestsPerMinute: 5, InputTokensPerMinute: 20_000)
             : new LlmRateLimitOptions(RequestsPerMinute: 50, InputTokensPerMinute: 40_000);
