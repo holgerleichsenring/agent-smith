@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-3435d
+
+decisions:
+  - category: Architecture
+    chose: "Extend the merge tab and ProjectMerge the small-fix series landed (2026-11-17-b34eb) with the CI loop's seven keys as optional trailing members, in a MergeCiFields component beside its fields"
+    over: "A second merge section or a new tab"
+    reason: "Operator: reuse the parallel series' field components; one merge block, one section. on_ci_green is offered already because the modes come from the server's enum."
+  - category: Implementation
+    chose: "A sent block is written whole: each CI key as sent, a missing one at its default; the form keeps hidden values in its state"
+    over: "Keeping a stored CI key when the block is sent without it"
+    reason: "The sandbox block's rule (a sent block means told). Before this spec a studio save reset every CI key to its default because the mapping built a new MergePolicyConfig from three fields; the form now sends all of them, so the stored values survive a save."
+  - category: Implementation
+    chose: "The cadence and the fix budget show only with on_ci_green; the evidence bounds and the approval identity show for every mode"
+    over: "Showing every key for every mode"
+    reason: "The CI is read for every open pull request whatever the mode, so its bounds apply everywhere; the approval identity is used with respect_branch_protection in the CI merge. The cadence and the budget act only under on_ci_green."
+  - category: Review
+    chose: "Adversarial review round 1: BUILD WITH CUTS (optional trailing members, its own mapping file, block written whole, reuse the parallel merge section); the spec was rewritten onto the merge tab main gained meanwhile"
+    over: "The first draft's own ProjectEntity.Merge"
+    reason: "main's b34eb landed the merge tab while this series was built; a second one would have been a second path."

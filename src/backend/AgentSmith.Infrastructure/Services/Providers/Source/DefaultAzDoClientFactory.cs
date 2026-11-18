@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.Policy.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
@@ -46,6 +48,14 @@ public sealed class DefaultAzDoClientFactory : IAzDoClientFactory
 
     public IdentityHttpClient CreateIdentityClient(string organizationUrl, string personalAccessToken) =>
         Connect(organizationUrl, personalAccessToken).GetClient<IdentityHttpClient>();
+
+    public Task<PolicyHttpClient> CreatePolicyClientAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken) =>
+        Connect(organizationUrl, personalAccessToken).GetClientAsync<PolicyHttpClient>(cancellationToken);
+
+    public Task<BuildHttpClient> CreateBuildClientAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken) =>
+        Connect(organizationUrl, personalAccessToken).GetClientAsync<BuildHttpClient>(cancellationToken);
 
     // 2026-10-08-f147: ConnectAsync reads connectionData; AuthorizedIdentity is who the PAT is.
     public async Task<string?> AuthorizedIdentityIdAsync(

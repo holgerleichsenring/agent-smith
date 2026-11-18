@@ -54,7 +54,7 @@ public static class TicketConversationPromptSection
             ? TicketConversationSplit.Render(comments, attempt) ?? Render(comments)
             : Render(comments);
         // 2026-10-08-e8b9d: the pull-request review follows the ticket's own words; 2026-10-13-8762p: the overrules follow it.
-        return string.Join("\n\n", new[] { conversation, PrReviewFeedbackPromptSection.Render(pipeline),
+        return string.Join("\n\n", new[] { conversation, PrReviewFeedbackPromptSection.Render(pipeline), CiFailurePromptSection.Render(pipeline),
             OverruledDefaultsPromptSection.Render(pipeline) }.Where(part => part.Length > 0));
     }
 

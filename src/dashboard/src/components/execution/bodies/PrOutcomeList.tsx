@@ -63,7 +63,7 @@ function Outcome({ event }: { event: PullRequestOutcomeEvent }) {
   }
   // p0372: every PR reference renders as the ONE PrButton (same component as
   // the list rows and the Outcome beat).
-  if (event.status === "opened" && event.url) {
+  if ((event.status === "opened" || event.status === "awaiting_ci") && event.url) {
     return <PrButton url={event.url} testId={`pr-outcome-${event.repo}-link`} />;
   }
   // A failed outcome can still carry a PR (event.url, or a URL embedded in the

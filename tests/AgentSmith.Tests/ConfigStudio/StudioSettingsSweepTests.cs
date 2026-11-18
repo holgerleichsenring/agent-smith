@@ -30,6 +30,25 @@ public sealed class StudioSettingsSweepTests
         var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
 
         stored.Merge!.When.Should().Be(MergeWhen.OnGateGreen);
+        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge with
+        {
+            CiPollSeconds = 60, CiSettleSeconds = 180, CiPendingSeconds = 3600, CiFixAttempts = 3, CiExcerptChars = 4000,
+            CiFailedChecksRead = 5, // 2026-11-17-3435d: a block sent without the CI keys stores their defaults
+        });
+    }
+
+    // 2026-11-17-3435d
+    [Fact]
+    public void ProjectMerge_CiLoopKeys_RoundTrip_AndASaveKeepsThem()
+    {
+        var sent = new ProjectEntity("app", "a", "t", [], null, [], Merge: new ProjectMerge("on_ci_green", true, false,
+            CiPollSeconds: 30, CiSettleSeconds: 90, CiPendingSeconds: 600, CiFixAttempts: 2, CiExcerptChars: 1500,
+            CiFailedChecksRead: 3, ApprovalAuth: "approver"));
+
+        var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
+
+        stored.Merge!.When.Should().Be(MergeWhen.OnCiGreen);
+        (stored.Merge.CiFixAttempts, stored.Merge.ApprovalAuth).Should().Be((2, "approver"));
         ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge);
     }
 

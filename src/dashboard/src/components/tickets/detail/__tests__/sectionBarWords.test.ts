@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pr, ticket } from "../../__tests__/ticketFixtures";
-import { pullRequestFact, stateWord, trackerFact } from "../sectionBarWords";
+import { ciWords, pullRequestFact, stateWord, trackerFact } from "../sectionBarWords";
 import { attempt } from "./detailFixtures";
 
 // 2026-11-17-8d1ca: the section bar names the ticket's state as the list names its bucket, and its facts from
@@ -25,5 +25,15 @@ describe("sectionBarWords", () => {
     expect(pullRequestFact(ticket({ pullRequests: [] }))).toBe("no PR");
     const opened = attempt({ pullRequests: [{ repo: "portal-api", url: "https://example.test/pr/1" }] as never });
     expect(pullRequestFact(ticket({ pullRequests: [] }), [opened])).toBe("1 PR");
+  });
+
+  // 2026-11-17-3435a
+  it("pullRequestFact_AddsTheOpenPullRequestsCi", () => {
+    const red = { state: "red", headSha: "abc", at: null, failures: [{ name: "build", url: null, excerpt: "x" }, { name: "lint", url: null, excerpt: "y" }] };
+    expect(pullRequestFact(ticket({ pullRequests: [pr({ state: "open", ci: red })] }))).toBe("1 PR open · CI red: build, lint");
+    expect(ciWords([pr({ state: "open", ci: { state: "pending", headSha: "abc", at: null, failures: [] } })])).toBe("CI pending");
+    expect(ciWords([pr({ state: "open", ci: { state: "green", headSha: "abc", at: null, failures: [] } })])).toBe("CI green");
+    expect(ciWords([pr({ state: "open", ci: { state: "none", headSha: "abc", at: null, failures: [] } })])).toBeNull();
+    expect(ciWords([pr({ state: "merged", ci: red })])).toBeNull();
   });
 });

@@ -45,4 +45,20 @@ public sealed class PrReviewRecord : EntityBase
 
     /// <summary>The check time of the successful read that saw a merged or closed record open again.</summary>
     public long? ReopenedAtTicks { get; set; }
+
+    /// <summary>2026-11-17-3435a: none, pending, green or red for <see cref="CiHeadSha"/>; null before a CI read.</summary>
+    public string? CiState { get; set; }
+
+    /// <summary>The head the CI state was read for.</summary>
+    public string? CiHeadSha { get; set; }
+
+    /// <summary>The check time of the read that first saw this CI state on this head.</summary>
+    public long? CiAtTicks { get; set; }
+
+    /// <summary>A red head's failed checks (name, link, bounded excerpt) as a JSON array; null otherwise.</summary>
+    public string? CiFailuresJson { get; set; }
+
+    /// <summary>2026-11-17-3435b: '&lt;head&gt;:&lt;state&gt;' the CI loop last acted on (a merge started, a fix asked for);
+    /// null before it acted. A new head or a new verdict on the same head is acted on again.</summary>
+    public string? CiActed { get; set; }
 }

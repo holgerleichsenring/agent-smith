@@ -68,7 +68,7 @@ public sealed class SpecDerivationEnvelope
     public SpecHandback? Handback(JsonElement root)
     {
         if (!TryReadCase(root, out var el, out var parsed)
-            || parsed is SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep) return null;
+            || parsed is SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep or SpecHandbackCase.CiFixBudgetSpent) return null;
         if (parsed != SpecHandbackCase.Question)
             return new SpecHandback(parsed, SpecJsonReader.ReadString(el, "reason"));
         var readings = SpecJsonReader.ReadStrings(el, "readings");
@@ -104,6 +104,8 @@ public sealed class SpecDerivationEnvelope
                 "the scope_unassigned hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
             SpecHandbackCase.SeriesOutOfStep =>
                 "the series_out_of_step hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
+            SpecHandbackCase.CiFixBudgetSpent => // 2026-11-17-3435c
+                "the ci_fix_budget_spent hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
             _ => null,
         };
 

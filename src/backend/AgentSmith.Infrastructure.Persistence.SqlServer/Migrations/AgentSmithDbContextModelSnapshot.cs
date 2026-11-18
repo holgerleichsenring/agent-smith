@@ -800,6 +800,24 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("CiActed")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long?>("CiAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CiFailuresJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CiHeadSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("CiState")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 

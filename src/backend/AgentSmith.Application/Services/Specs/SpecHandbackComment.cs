@@ -64,6 +64,7 @@ public static class SpecHandbackComment
             SpecHandbackCase.SpecificationMissingFromBranch => Missing(handback) + waiting,
             SpecHandbackCase.ScopeUnassigned => ScopeUnassigned(handback) + waiting,
             SpecHandbackCase.SeriesOutOfStep => SeriesOutOfStepComment.Build(handback) + waiting,
+            SpecHandbackCase.CiFixBudgetSpent => CiFixBudgetComment.Build(handback) + waiting, // 2026-11-17-3435c
             _ => Contradiction(handback) + spec + waiting,
         };
     }

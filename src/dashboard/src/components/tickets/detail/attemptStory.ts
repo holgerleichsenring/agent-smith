@@ -72,7 +72,7 @@ function cutLines(entries: TicketConversationEntry[]): string[] {
 }
 
 function prLine(attempt: TicketAttempt): string | null {
-  const opened = attempt.pullRequests.filter((pr) => pr.status === "opened");
+  const opened = attempt.pullRequests.filter((pr) => pr.status === "opened" || pr.status === "awaiting_ci"); // 3435b
   if (opened.length === 0) return null;
   const names = opened.map((pr) => {
     const n = prNumber(pr.url);
