@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-00eaa
+
+decisions:
+  - category: Architecture
+    chose: "The drawer's Delete on an orphan calls the existing DELETE /api/config/secret-values/{name}, a 'secret' run under secrets.write"
+    over: "A new orphan route"
+    reason: "SecretWrite already deletes any stored row by name; the orphan block only had no button."
+  - category: Architecture
+    chose: "The assistant drafts kind 'secret-values', delete only and only for an orphan; the config run applies catalog items first, then checks every stored-value item before deleting any"
+    over: "Interleaving them in draft order, or a prompt line pointing at the drawer"
+    reason: "The operator asked for cleanup through the assistant's config maintenance. A deleted value cannot be reverted, so it goes last and only after every check passed (review): the catalog items stay revertible until then."
+  - category: Security
+    chose: "Approving the draft needs the admin assistant's grant, as for every kind it drafts, catalog secrets included"
+    over: "Also requiring secrets.write of the approver"
+    reason: "Review flagged that runs.control is not secrets.write. The admin conversation is visible to admin.assistant holders only (f3a8a), and that grant already lets the assistant draft deleting catalog secrets; an orphaned value is referenced by nothing. Raised as a separate permission question rather than special-cased for one kind."
+  - category: Security
+    chose: "The draft and the model see an orphan's name and when it was set only"
+    over: "The full stored state"
+    reason: "Review: the person who set it is not the model's business, and a key id would make a re-wrap between draft and apply refuse a valid delete."
+  - category: Implementation
+    chose: "A value set for the same name between the check and the delete is lost (accepted)"
+    over: "A conditional delete in the vault"
+    reason: "Narrow: setting a value re-creates the catalog name first in a separate run, and the check runs immediately before the delete."
+  - category: Implementation
+    chose: "The orphan block shows in every secret drawer, as the operator asked; a failed read shows nothing there"
+    over: "Moving it to the secrets list"
+    reason: "The operator named the drawer. The secret field beside it already reports a failed read."

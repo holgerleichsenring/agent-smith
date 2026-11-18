@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-00eaa: "SECRET ORPHAN CLEANUP (OrphanedSecretValues, ConfigChangeApplier.ApplyAsync, kind secret-values, drawer block). Stored values whose catalog secret is gone are deleted from any secret drawer or drafted by the admin assistant; deletes run last, after every check. -> .agentsmith/specs/done/2026-11-18-00eaa-secret-orphan-cleanup.yaml"
     2026-11-18-9ae8: "CREDENTIALS ENVIRONMENT FIRST (ICredentialResolver.Named, EnvironmentFirst, AgentApiKey, builders, LlmRateBudget, webhook secrets, Slack/Teams options, secret state variable). Agent keys and server credentials take the env var, else the catalog secret incl. its stored value. -> .agentsmith/specs/done/2026-11-18-9ae8-agent-key-stored-secret.yaml"
     2026-11-17-f3a8e: "SECRET MASTER KEY IN KEY VAULT (MasterKeyRing wrapped slots, IKeyVaultUnwrap, AzureKeyVaultUnwrap, key source in state). The master key may arrive RSA-OAEP-wrapped and be unwrapped once by Azure Key Vault; rows unchanged; per-row vault wrapping refused. -> .agentsmith/specs/done/2026-11-17-f3a8e-secret-master-key-vault.yaml"
     2026-11-18-00eab: "CONFIG SIGNAL SHARED (ConfigStudioWriteGuard, ConfigChangedSignal singleton, ArchiveRestore). Studio writes, archive restore, config and secret runs signal a committed change through one class; a failed signal is logged. -> .agentsmith/specs/done/2026-11-18-00eab-config-signal-shared.yaml"

@@ -20,7 +20,7 @@ public sealed class ApplyConfigChangesHandler(ConfigChangeApplier applier, Confi
         if (!pipeline.TryGet<ConfigChangeRequest>(ContextKeys.ConfigChangeRequest, out var request) || request is null)
             return CommandResult.Fail("A config run has no request — only an approved admin draft starts one.");
         var runId = pipeline.TryGet<string>(ContextKeys.RunId, out var id) ? id ?? string.Empty : string.Empty;
-        var report = applier.Apply(request, runId);
+        var report = await applier.ApplyAsync(request, runId, cancellationToken);
         await signal.SignalAsync("admin-assistant", request.Person);
         if (pipeline.TryGet<ActSlot<ConfigApplyReport>>(ContextKeys.ConfigApplyReport, out var slot)) slot?.Set(report);
         return report.Applied ? CommandResult.Ok(report.Line) : CommandResult.Fail(report.Line);
