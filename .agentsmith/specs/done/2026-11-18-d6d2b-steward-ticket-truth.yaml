@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-d6d2b
+goal: "The ticket steward reads its ticket's specs from an Azure DevOps branch, the ticket's own run records and project config, states what a failure does, and keeps checked apart from inferred."
+
+applies_to: "default (Infrastructure/Services/Providers/Source/AzureReposBranchRead.cs, Server/Services/SpecDialog, Server/Services/Series/SeriesRecordReads.cs, Application/Services/SpecDialog/TicketStewardPromptFactory.cs)"
+
+requires: [2026-11-18-d6d2a]
+
+facts:
+  - claim: "Live: the steward of a ticket filed with an approved 8-spec series called read_series and got 'The ticket's series holds no spec.', concluded no next attempt had a series to run and started nothing; TicketSeries holds the ticket's pointer (8 members, carrying repo set, revision 1) and every code run read the 8 specs from its checkout."
+    evidence: "prod DB TicketSeries row for the ticket; RunEvents of the three runs"
+  - claim: "read_series reads NextAttemptSeriesReader, whose basis is TicketBranchSpecs -> TicketBranchSeries -> SubSeriesFiles over BranchFiles, i.e. the host API's directory listing of .agentsmith/series/ on the ticket branch; an empty listing means no manifest, so the basis is empty."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ConversationSeriesRead.cs:19, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationStateReader.cs:58-64, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:51, src/backend/AgentSmith.Application/Services/Specs/BranchFiles.cs:28"
+  - claim: "AzureReposBranchRead.ListDirectoryAsync keeps only folders (IsFolder != true is skipped), so series/ manifests and spec files, which are files, never list on Azure DevOps. GitHub, GitLab and the local reader return every child's name."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchRead.cs:71, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubBranchRead.cs:51, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabBranchRead.cs:49, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalRepositoryRead.cs:42"
+  - claim: "The series master already borrows the admin assistant's run reads (read_run, read_llm_calls, read_run_events), masked and bounded the same way: 'One reader, two masters'."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRecordReads.cs:14-31"
+  - claim: "The steward's framework facts name only the work branch and labels; nothing tells it what a failure does to the ticket or that a reply (start_next_attempt) starts the next attempt."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/FrameworkFactsSection.cs:27-38, src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketReaders.cs:33-41"
+  - claim: "The steward contract asks it to report only confirmed acts but says nothing about keeping a checked fact apart from an inference; it invented a verifier finding no run recorded."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketStewardPromptFactory.cs:14-20"
+
+scope:
+  in: "Azure DevOps lists files and folders like the other three providers (ISourceProvider.cs:66-67 promises files and sub-directories). A ticket-scoped TicketRecordReads lends the steward the admin assistant's read_run_events (a run of this ticket in any project sharing its tracker; another is refused by name) and read_config (the bound project), masked and bounded as SeriesRecordReads lends them to the series master; no read_run (ticket_runs carries summary, failed step and verdicts), read_llm_calls, read_prompt or read_secrets. FrameworkFacts carries the project's failed_status; a steward-only section renders where a failure leaves the ticket and who starts the next attempt, by the start port actually granted. read_series says a record that names a series the branch did not answer is a failed read. The steward contract separates checked from inferred and asks instead of guessing."
+  out: "A RealCompositionHarness replay of the steward turn: the harness serves branches through LocalGitSourceProvider (git ls-tree lists files), so it could not show the Azure DevOps defect; the defect is pinned at the provider, the surface at the steward's tool composition and the words at the prompt. The design partner's prompt and surface. Dashboard changes."
+
+steps:
+  - id: listing
+    action: "AzureReposBranchRead.ChildLeaves (was FolderLeaves) keeps immediate children of any kind; the scope path itself and deeper paths stay out."
+  - id: reads
+    action: "TicketRecordReads(scopes, masker, project, ticketId) in Server/Services/SpecDialog: read_run_events after an ownership check over FiledWorkTrackerProjects.SharingTrackerWith + TicketRunsQuery, read_config(project); BoundTicket.Records built for a worked ticket, seeded as ContextKeys.SpecDialogTicketRecords (ContextKeys.TicketActs.cs); TicketActToolsFactory adds it for the steward only."
+  - id: facts
+    action: "FrameworkFacts.FailedStatus from TicketParkStatuses; StewardRestartSection in the steward prompt only: where a failure leaves the ticket, that the poll does not start it again, and start_next_attempt (its reason is only logged, so a changed instruction goes into the spec with edit_series first) or, without the start port, who may start it."
+  - id: contract
+    action: "TicketStewardPromptFactory contract: name the tool each fact came from; an inference is said as one; never a finding no tool showed; a read that found nothing says what it looked at; ask in the reply when unsure. ReadSeriesToolHost.Render: series named, no spec read -> failed read."
+
+tests:
+  - "AzureReposSourceProviderListDirectoryTests.ListDirectoryAsync_FilesAtTheLevel_AreListedBesideFolders"
+  - "TicketRecordReadsTests (own and sibling-project run read; another ticket's or another tracker's run refused; tool set)"
+  - "StewardTurnTests.StewardTurn_SeededTicketRecords_CarriesTheScopedReads_DesignTurnDoesNot"
+  - "TicketStewardPromptTests: contract, failed_status set/unset, start port present/absent, design partner facts carry no restart sentences"
+  - "ReadSeriesRenderTests: named series with no spec read reads as a failed read"
+
+done:
+  - "On Azure DevOps a ticket branch's series manifest and specs list, so read_series shows the series a filed ticket carries; a series the record names but the branch does not answer reads as a failed read."
+  - "The steward reads its own ticket's run events and its project's configuration, and no other ticket's runs."
+  - "The steward's prompt states where a failure leaves the ticket and how the next attempt starts, and asks it to keep checked facts apart from inferences."

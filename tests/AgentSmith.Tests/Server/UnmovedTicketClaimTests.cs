@@ -217,6 +217,21 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         result.Outcome.Should().Be(ClaimOutcome.Claimed);
     }
 
+    // 2026-11-18-d6d2a: the hold is against the poller, a webhook and the pump; a person's start (Retry, a reply, a
+    // start by name) passes it once, and the record stays for the next poll.
+    [Fact]
+    public async Task Claim_TicketLastLeftUnmoved_StartedByName_IsClaimedAndTheHoldStays()
+    {
+        await RecordUnmovedAsync();
+        var byName = Request() with { InitialContext = new() { [AgentSmith.Contracts.Commands.ContextKeys.RequestedByName] = true } };
+
+        var result = await ClaimService().ClaimAsync(byName, Config(), CancellationToken.None);
+
+        result.Outcome.Should().Be(ClaimOutcome.Claimed);
+        (await ClaimService().ClaimAsync(Request(), Config(), CancellationToken.None))
+            .Rejection.Should().Be(ClaimRejectionReason.TicketLastLeftUnmoved);
+    }
+
     private Task RecordUnmovedAsync() => _store.RecordAsync(
         new UnmovedTicketFact(Project, Ticket, Tracker, "Failed",
             TicketFinalizeOutcome.TrackerRejectedTheStatus),

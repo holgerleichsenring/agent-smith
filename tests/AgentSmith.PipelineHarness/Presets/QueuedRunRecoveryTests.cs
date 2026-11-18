@@ -48,7 +48,7 @@ public sealed class QueuedRunRecoveryTests
             started.Should().NotBeNull().And.Match<ClaimedRunStart>(s => s.IsBeating);
             duplicate.Should().BeNull("the copy pushed twice starts once");
             first.RunId.Should().Be(RunId);
-            ((JsonElement)first.Context![ContextKeys.RefreshPrinciples]).GetBoolean().Should().BeTrue();
+            first.Context![ContextKeys.RefreshPrinciples].Should().Be(true, "the queue restores a flag as a bool (2026-11-18-550aa)");
         }
         finally
         {
@@ -72,7 +72,7 @@ public sealed class QueuedRunRecoveryTests
             return Task.CompletedTask;
         }
 
-        public PipelineRequest Pop() => JsonSerializer.Deserialize<PipelineRequest>(_entries.Dequeue())!;
+        public PipelineRequest Pop() => QueuedRequestContext.Restore(JsonSerializer.Deserialize<PipelineRequest>(_entries.Dequeue())!);
 
         public async IAsyncEnumerable<PipelineRequest> ConsumeAsync(
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)

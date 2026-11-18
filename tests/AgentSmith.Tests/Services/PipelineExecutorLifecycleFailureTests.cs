@@ -63,10 +63,9 @@ public sealed class PipelineExecutorLifecycleFailureTests
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         pipeline.Set(ContextKeys.TicketId, new TicketId("18845"));
-        pipeline.Set(ContextKeys.FailedStatus, "Failed");
 
         var act = async () => await h.Sut.ExecuteAsync(
-            commands, new ResolvedProject(), pipeline, CancellationToken.None);
+            commands, FailedStatusProject.With("Failed"), pipeline, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         ticketProviderMock.Verify(
@@ -100,10 +99,9 @@ public sealed class PipelineExecutorLifecycleFailureTests
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         pipeline.Set(ContextKeys.TicketId, new TicketId("18846"));
-        pipeline.Set(ContextKeys.FailedStatus, "Failed");
 
         var act = async () => await h.Sut.ExecuteAsync(
-            commands, new ResolvedProject(), pipeline, CancellationToken.None);
+            commands, FailedStatusProject.With("Failed"), pipeline, CancellationToken.None);
 
         await act.Should().ThrowAsync<AgentSmith.Domain.Exceptions.CapacityExhaustedException>();
         ticketProviderMock.Verify(

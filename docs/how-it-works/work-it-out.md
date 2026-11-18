@@ -159,7 +159,7 @@ These are the only controls on the page besides send; nothing in the exchange is
 
 ### A list of tickets
 
-Some work is several pieces that should each merge on their own: a schema change first, then the API on top of it, then the screens. A list of tickets files each piece as its own ticket and records which one waits for which.
+Some work is several themes, each one a person reviews and accepts as a whole: the workflow and its API, the delivery, the admin views. A list of tickets files each theme as its own ticket, ordered by what must land first, and records which one waits for which.
 
 A conversation with no ticket may propose 2 to 20 tickets joined by `requires`. Each ticket carries its title, what it must achieve, its done items, its repositories, what it requires (another ticket of the list or one already in the tracker), and **its own specs**, written by the design partner and reviewed in the turn. The partner can offer the list for filing only once every ticket has at least one spec. The pane lists the tickets in the order they must merge, each with its specs and what it waits for.
 

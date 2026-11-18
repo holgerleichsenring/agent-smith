@@ -21,7 +21,8 @@ public sealed class DesignTurnTextContractTests
         var master = Folded();
 
         master.Should().Contain("the one repository it changes", "every spec is checked for its own repository");
-        master.Should().Contain("one repository per spec, several specs per repository",
+        // 2026-11-18-550ac: design-partner 3.5.0 says it within a theme.
+        master.Should().Contain("a spec is what one coding pass builds in one repository",
             "a spec naming several repositories is refused with the epic split advice");
         master.Should().NotContain("Repositories, constraints and exclusions are PROSE",
             "a text that calls the repository prose contradicts the server's check");

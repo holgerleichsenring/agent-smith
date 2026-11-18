@@ -1,0 +1,26 @@
+spec: 2026-11-18-d6d2c
+decisions:
+  - category: Architecture
+    chose: "Advice is a typed field on a satisfied CriterionAccount (CriterionAccount.Advice), set only through the citation resolver's satisfied path and rendered beside the citation on the pull request."
+    over: "An 'advice:' prefix inside the note string; a fourth disposition."
+    reason: "Operator direction (decider: the operator, stated in this session's brief as approved): a gap missed before on code the repair did not change is reported as advice and does not stop the run; thinner coverage is a note in the PR, not a stop. Adversarial review: a prefix in a note is an untyped fourth outcome; a field on the satisfied row adds no disposition, keeps SpecVerdict untouched, and still needs a resolving citation — advice never stands in for one. It is not the review's template advice (SpecReviewFixPass), which advises a fix pass, not a criterion."
+  - category: Implementation
+    chose: "Which files the repair changed is read with git: VerifiedHeads records a repair base per sandbox when the repair is handed back (ContextKeys.RepairBaseHeads, cleared per spec) and lists 'git diff --name-only <base>' before the next accounting."
+    over: "Let the verifier judge from the repair master's own answer."
+    reason: "Review: the thing being judged would write the evidence that softens the gate. The base is kept apart from the verified heads, which name a state a shortfall may deliver. The git helper and its timeout are VerifiedHeads' own, so no new limit."
+  - category: Scope
+    chose: "The record is the ratified spec and, after a repair, the previous findings and the changed files; the run's logged decisions and the repair's own answer are not in it."
+    over: "The operator's fuller list: decisions, what the repair claims, the commands."
+    reason: "Review: ContextKeys.Decisions spans every spec of the run and both are the agent's self-report; MasterAnswer is not cleared and is stale on the question path. The commands already reach the verifier. The changed files answer the question the claim would have answered, as a fact."
+  - category: Implementation
+    chose: "Previous findings come from ContextKeys.OutstandingCriteria, verbatim, unless it carries a StageRepair item."
+    over: "Re-read the typed SpecAccounts held at the repair."
+    reason: "The list the repair was handed is exactly the list the verifier must answer to; it is rendered, never parsed. Review finding kept: a stage repair hands back a red build, not findings, so carrying it over would turn every gap into advice."
+  - category: Scope
+    chose: "Findings are carried within a run only."
+    over: "Carry them across runs."
+    reason: "The live case spanned two runs; a fresh run's first verification has no previous list here. That needs the previous run's stored account read at the start of verification — the successor spec 'verifier reads the previous run's findings'."
+  - category: Implementation
+    chose: "The bundled-criterion rule lives in the attack reviewer's DecidabilityLens, the lens that reads a design turn's specs."
+    over: "A new cut verdict in SpecCutVerdicts."
+    reason: "One sentence beside the existing decidability question; a new verdict kind would be a second way to say 'this criterion cannot be verified as written'. Review verdict BUILD WITH CUTS; applied: typed advice, mechanical changed files, decisions and self-report cut, stage repair excluded, record on AccountEvidence, rendering in AccountRecordPrompt, tests for advice without citation and the repair base."

@@ -28,7 +28,8 @@ public sealed class BoundTicketReaders(
     BoundAttemptStarts starts,
     BoundSeriesPorts series,
     Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopes,
-    ILoggerFactory loggerFactory)
+    ILoggerFactory loggerFactory,
+    AgentSmith.Contracts.Runs.SecretMasker masker)
 {
     private static FrameworkFacts Facts(ResolvedProject project, string ticketId)
     {
@@ -37,7 +38,8 @@ public sealed class BoundTicketReaders(
             TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
             labels.For(TicketLifecycleStatus.Enqueued),
             labels.For(TicketLifecycleStatus.InProgress),
-            labels.ApprovedSetStamp);
+            labels.ApprovedSetStamp,
+            Application.Services.Tickets.TicketParkStatuses.Of(project).Failed); // 2026-11-18-d6d2b
     }
 
     public async Task<BoundTicket?> ForAsync(
@@ -46,6 +48,7 @@ public sealed class BoundTicketReaders(
         if (project is null) return null;
         var held = await store.GetAsync(sessionId, ct);
         if (held is null) return null;
+        var bound = await series.ForAsync(project, held.TicketId, sessionId, poster, ct);
         return new BoundTicket(
             new BoundTicketReader(
                 providers, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketReader>()),
@@ -62,8 +65,10 @@ public sealed class BoundTicketReaders(
             // And starting its next attempt — as the poster, only when the poster could.
             await starts.ForAsync(project, held.TicketId, sessionId, poster, ct),
             // And its series as the next attempt will read it — editable as the poster, only when the poster could.
-            await series.ForAsync(project, held.TicketId, sessionId, poster, ct))
+            bound)
         {
+            // 2026-11-18-d6d2b: and the ticket's own run records and project configuration, for the steward of a worked ticket.
+            Records = bound is null ? null : new TicketRecordReads(scopes, masker, project.Name, held.TicketId),
             // 2026-10-26-bdd0g: and deriving its specs without an attempt — as the poster, only when the poster could.
             Derive = poster.MayStartRuns
                 ? new ConversationSpecDerivation(scopes, project, held.TicketId, sessionId, poster.Id,
@@ -80,6 +85,9 @@ public sealed record BoundTicket(
 {
     /// <summary>2026-10-26-bdd0g: deriving the ticket's specs as the poster; null for a poster who may not start runs.</summary>
     public ISpecDerivationStart? Derive { get; init; }
+
+    /// <summary>2026-11-18-d6d2b: the ticket-scoped record reads; null for a ticket no code attempt worked.</summary>
+    public Application.Services.Tools.ITicketRecordReads? Records { get; init; }
 
     /// <summary>A code attempt worked the ticket — the one predicate the series ports are built on, so the steward
     /// leads exactly the turns that can read the series.</summary>

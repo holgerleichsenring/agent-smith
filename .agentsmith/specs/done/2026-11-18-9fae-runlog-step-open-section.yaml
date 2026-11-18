@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-9fae
+goal: "Opening a step in a log section the person opened keeps that section open and shows the step's detail; only a step named on arrival opens its section."
+
+applies_to: "default (src/dashboard: components/jobs/runlog/RunSectionedLog.tsx)"
+
+requires: [2026-11-18-d6d2e]
+
+facts:
+  - claim: "A section is open when initiallyOpen XOR the person's toggle holds; the open step's section was added to initiallyOpen on every render, so a step clicked in a section the person had opened cancelled their toggle and closed the section, hiding the step's detail."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunSectionedLog.tsx:51-53, 63"
+  - claim: "Seen on the ticket page in the screenshot rig: click a spec section open, click its step line — the section closes and no detail shows. The run page shared the logic; it rarely showed there because the step usually comes from ?step= on arrival."
+    evidence: "tools/screenshots rig, ticket /tickets/shop/41"
+
+scope:
+  in: "The section of the step named on arrival (the first open step seen before any step click; the run page reads ?step= after mount) opens with it and stays the arrival section; later step clicks change only the open step."
+  out: "Section toggling, initiallyOpen, the step address on the run page."
+
+steps:
+  - id: arrival-step
+    action: "Remember the section of the first open step seen before any step click and add only that one to the initially open set."
+  - id: tests
+    action: "Pin a clicked step in an opened section, and a step named on arrival."
+
+done:
+  - "A step clicked in a section the person opened leaves the section open and shows the step's detail."
+  - "A step named on arrival opens its section and shows its detail."
+
+tests:
+  - RunSectionedLog_AStepClickedInASectionThePersonOpened_KeepsTheSectionOpenAndShowsTheDetail
+  - RunSectionedLog_AStepNamedOnArrival_OpensItsSection

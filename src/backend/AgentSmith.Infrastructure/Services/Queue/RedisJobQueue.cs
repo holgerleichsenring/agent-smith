@@ -61,7 +61,9 @@ public sealed class RedisJobQueue(
     {
         try
         {
-            return JsonSerializer.Deserialize<PipelineRequest>(json);
+            // 2026-11-18-550aa: the request's strings and flags read as they were sent.
+            var request = JsonSerializer.Deserialize<PipelineRequest>(json);
+            return request is null ? null : QueuedRequestContext.Restore(request);
         }
         catch (JsonException ex)
         {

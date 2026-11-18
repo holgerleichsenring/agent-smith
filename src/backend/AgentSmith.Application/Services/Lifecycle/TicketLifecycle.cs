@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
@@ -32,12 +33,17 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// record has none to satisfy.
 /// </para>
 /// </remarks>
-public sealed class TicketLifecycle(ISpecApprovalStore? approvals = null, TimeProvider? time = null)
+public sealed class TicketLifecycle(
+    ISpecApprovalStore? approvals = null, TimeProvider? time = null, UnmovedTicketReport? unmoved = null)
 {
+    /// <summary>
+    /// 2026-11-18-550aa: the finalize's answer is recorded the way a park's is (moved clears, rejected or no
+    /// transition holds the ticket against the poller), and a status the tracker rejected is said on the
+    /// ticket with the summary, which Azure DevOps loses with the refused state.
+    /// </summary>
     public async Task FinalizeAsync(
         ITicketProviderFactory ticketFactory,
-        TrackerConnection ticketConfig,
-        TicketId ticketId,
+        TicketFinalizeTarget target,
         string? doneStatus,
         string summary,
         ILogger logger,
@@ -45,18 +51,30 @@ public sealed class TicketLifecycle(ISpecApprovalStore? approvals = null, TimePr
     {
         try
         {
-            var provider = ticketFactory.Create(ticketConfig);
-            await provider.FinalizeAsync(ticketId, summary, doneStatus, cancellationToken);
+            var provider = ticketFactory.Create(target.Tracker);
+            var finalize = await provider.FinalizeAsync(target.TicketId, summary, doneStatus, cancellationToken);
             logger.LogInformation(
-                "Ticket {Ticket} finalized (status='{Status}')",
-                ticketId, doneStatus ?? "<close>");
-            await MarkApprovalSatisfiedAsync(ticketConfig, ticketId, logger, cancellationToken);
+                "Ticket {Ticket} finalized (status='{Status}', {Outcome})",
+                target.TicketId, doneStatus ?? "<close>", finalize.Outcome);
+            await RecordAsync(provider, target, finalize, summary, cancellationToken);
+            await MarkApprovalSatisfiedAsync(target.Tracker, target.TicketId, logger, cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Failed to finalize ticket {Ticket}, PR was still created", ticketId);
+                "Failed to finalize ticket {Ticket}, PR was still created", target.TicketId);
         }
+    }
+
+    private async Task RecordAsync(ITicketProvider provider, TicketFinalizeTarget target,
+        TicketFinalizeResult finalize, string summary, CancellationToken cancellationToken)
+    {
+        if (unmoved is not null)
+            await unmoved.RecordParkAsync(target.Project, target.Tracker.Name, target.TicketId, finalize, cancellationToken);
+        if (finalize.Outcome == TicketFinalizeOutcome.TrackerRejectedTheStatus)
+            await provider.UpdateStatusAsync(target.TicketId, UnmovedStatusNote.Append(
+                summary, "done_status", finalize.RequestedStatus ?? string.Empty, finalize.Outcome.ToString()),
+                cancellationToken);
     }
 
     /// <summary>

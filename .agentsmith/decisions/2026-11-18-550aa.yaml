@@ -1,0 +1,26 @@
+spec: 2026-11-18-550aa
+decisions:
+  - category: Architecture
+    chose: "The done path reads done_status from TicketParkStatuses.Of(project) through the two context builders; ContextKeys.DoneStatus and its seed are deleted."
+    over: "Keep the seed and rely on the queue restore alone; a JsonElement-tolerant read of the key."
+    reason: "d6d2a's rule: one place holds the precedence of the statuses agent-smith moves a ticket into, and the gates and discovery already read it there. The builders already hold the project, so no lookup is added. Consequence stated: doors that never seeded the key (the CLI's code --ticket, every init run) now finalize to the project's done_status too, one rule everywhere, as d6d2a did for failure."
+  - category: Implementation
+    chose: "A done finalize is recorded with UnmovedTicketReport.RecordParkAsync, and a status the tracker rejected is posted comment-only with the summary and a done_status line (UnmovedStatusNote, now shared with d6d2a's failed_status note)."
+    over: "Treat the trigger's class default 'In Review' as unset for the finalize; leave the done result discarded."
+    reason: "Adversarial review, verdict BUILD WITH CUTS: with no tracker done_status the effective trigger says 'In Review' (the value the seed always carried and the gates count as done); a tracker without that state rejects it, Azure DevOps loses the summary with the refused PATCH, and nothing held the ticket, so the poller re-claimed it — d6d2a's loop on the done side. Treating a default as unset is a heuristic around a missing value; recording the answer the tracker gave is the mechanism parks and failures already use. RecordParkAsync's outcome set fits a non-failure end: a moved status clears a standing record (also one left by an earlier failure), rejected or no transition holds, a label-style not-expressible holds nothing."
+  - category: Scope
+    chose: "The job queue hands a request back with its Context's JSON strings and booleans as string and bool (QueuedRequestContext.Restore in RedisJobQueue.TryDeserialize); numbers, arrays and objects stay JsonElement."
+    over: "A JsonElement branch in every reader of a queued key; leaving the other keys to a successor."
+    reason: "Same mechanism, found in the sweep the brief asked for: a queued series beat or series verify missed SeriesRunId and failed 'this one has none' (OpenSeriesRunHandler saw Has() true and minted a new series), refresh-base missed SourceOverrideRepo and CheckoutBranch, a PR-command run missed PrNumber (Get<string> threw InvalidCast). The launchers' comments already promised 'strings only, so the request survives the queue'; the fix is where the round trip happens, once. Numbers stay JsonElement because int and long cannot be told apart and their readers (CheckpointedValues) parse them."
+  - category: Scope
+    chose: "The readers' JsonElement branches stay (Flag, IsTrue, ApprovedSpecSetResolver, ResumeRequestReader, RunParentTicket); CapacityQueuePump and ResumeRunLauncher deserialize InitialContextJson without the restore."
+    over: "One shared request-context reader for all three deserializers and deleting the tolerant branches."
+    reason: "Review finding 6. The claim gates (BoundaryStopGate, UnmovedTicketGate, ClaimPreChecker) and StackedBaseStamp read the pump's deserialized InitialContext before the request reaches the queue, so those branches are still reached; the run itself always comes off RedisJobQueue and reads native values. Unifying the three deserializers is a refactor with no defect behind it."
+  - category: Scope
+    chose: "NeedsClarificationStatus and NotImplementableStatus keep their seeds."
+    over: "Move them to TicketParkStatuses in this spec."
+    reason: "Same shape, no live effect: EffectiveTriggerBuilder copies both from the tracker, so the resolvers' tracker fallback returned the same value when the seed was lost, and the restore now reads the seed as sent. Moving them touches the two resolvers and about ten test files for no behaviour change."
+  - category: Implementation
+    chose: "Test doubles that claim RedisJobQueue's round trip (RecordingJobQueue, QueuedRunRecoveryTests.LosingJobQueue) apply the restore; QueuedRunFlushDockerTests and QueuedRunRecoveryTests read RefreshPrinciples as bool; the seed-pinning tests (SpawnPipelineRunsUseCaseTests' two, ChatTicketRunLaunchTests, SingleRepoRegressionTests) now pin that nothing is seeded."
+    over: "Leave the doubles on the raw round trip."
+    reason: "Review finding 5: a double that says it performs the production round trip must perform it, or the harness proves a different queue."

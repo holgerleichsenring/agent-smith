@@ -100,47 +100,18 @@ public sealed class SpawnPipelineRunsUseCaseTests
     }
 
     [Fact]
-    public async Task SpawnPipelineRuns_InitialContextCarriesDoneStatusFromMatchedTrigger()
+    public async Task SpawnPipelineRuns_TriggerStatuses_SeedNoDoneOrFailedStatus()
     {
+        // 2026-11-18-d6d2a / 550aa: the run reads done_status and failed_status from the project, so the claim
+        // carries neither; the request context holds no trigger status for a code run without a park.
         var harness = new Harness();
         var project = BuildProject("p1", repos: new[] { "repo-a" });
-        var trigger = new WebhookTriggerConfig { DoneStatus = "In Review" };
+        var trigger = new WebhookTriggerConfig { DoneStatus = "Resolved", FailedStatus = "Blocked" };
 
         await harness.Sut.ExecuteAsync(
             ClaimableConfig, project, "code", Envelope("42"), trigger, CancellationToken.None);
 
-        harness.LastRequest.Should().NotBeNull();
-        harness.LastRequest!.InitialContext.Should().NotBeNull();
-        harness.LastRequest.InitialContext![ContextKeys.DoneStatus].Should().Be("In Review");
-    }
-
-    [Fact]
-    public async Task SpawnPipelineRuns_InitialContextCarriesFailedStatusFromMatchedTrigger()
-    {
-        // p0261: failed_status is seeded so the failure path can terminalize the native status.
-        var harness = new Harness();
-        var project = BuildProject("p1", repos: new[] { "repo-a" });
-        var trigger = new WebhookTriggerConfig { DoneStatus = "In Review", FailedStatus = "Blocked" };
-
-        await harness.Sut.ExecuteAsync(
-            ClaimableConfig, project, "code", Envelope("42"), trigger, CancellationToken.None);
-
-        harness.LastRequest!.InitialContext![ContextKeys.FailedStatus].Should().Be("Blocked");
-    }
-
-    [Fact]
-    public async Task SpawnPipelineRuns_FailedStatusUnset_SeedsNoFailedStatus()
-    {
-        // 2026-11-17-166aa: failed_status unset → nothing seeded; a failed run never moves to done_status.
-        var harness = new Harness();
-        var project = BuildProject("p1", repos: new[] { "repo-a" });
-        var trigger = new WebhookTriggerConfig { DoneStatus = "Resolved" }; // FailedStatus null
-
-        await harness.Sut.ExecuteAsync(
-            ClaimableConfig, project, "code", Envelope("42"), trigger, CancellationToken.None);
-
-        harness.LastRequest!.InitialContext!.Should().NotContainKey(ContextKeys.FailedStatus);
-        harness.LastRequest!.InitialContext![ContextKeys.DoneStatus].Should().Be("Resolved");
+        harness.LastRequest!.InitialContext.Should().BeNull();
     }
 
     private static ResolvedProject BuildProject(string name, string[] repos) => new()

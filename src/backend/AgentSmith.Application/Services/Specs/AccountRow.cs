@@ -24,7 +24,8 @@ public sealed record AccountRow(
     string? Citation = null,
     string? Note = null,
     IReadOnlyList<string>? Citations = null,
-    string? Antecedent = null)
+    string? Antecedent = null,
+    string? Advice = null)
 {
     /// <summary>Everything this row cites, whichever field carried it. A bare string reads
     /// as a one-element list so an older answer still resolves.</summary>

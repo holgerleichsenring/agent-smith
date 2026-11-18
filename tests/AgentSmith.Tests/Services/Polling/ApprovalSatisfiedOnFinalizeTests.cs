@@ -56,7 +56,7 @@ public sealed class ApprovalSatisfiedOnFinalizeTests
         var provider = Provider();
 
         await new TicketLifecycle().FinalizeAsync(
-            Factory(provider), Tracker, new TicketId("DPG-1239"), "Done", "summary",
+            Factory(provider), new TicketFinalizeTarget("p", Tracker, new TicketId("DPG-1239")), "Done", "summary",
             NullLogger.Instance, CancellationToken.None);
 
         provider.Verify(p => p.FinalizeAsync(
@@ -65,7 +65,7 @@ public sealed class ApprovalSatisfiedOnFinalizeTests
 
     private static async Task FinalizeAsync(ISpecApprovalStore store, string ticketId) =>
         await new TicketLifecycle(store, new StoppedClock()).FinalizeAsync(
-            Factory(Provider()), Tracker, new TicketId(ticketId), "Done", "summary",
+            Factory(Provider()), new TicketFinalizeTarget("p", Tracker, new TicketId(ticketId)), "Done", "summary",
             NullLogger.Instance, CancellationToken.None);
 
     private static async Task<InMemorySpecApprovalStore> StoreWithAsync(string ticketId)

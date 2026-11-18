@@ -108,26 +108,6 @@
   .mock-tickets .tk-line-body { margin-left: 0; }
 }
 
-/* a run's sectioned log inside its line: the run page's sections (components/jobs/runlog), as plain mono lines */
-.mock-tickets .tk-runlog .rl-sections { display: flex; flex-direction: column; }
-.mock-tickets .tk-runlog .rl-sec { --tone: var(--ink-3); }
-.mock-tickets .tk-runlog .rl-sec.done { --tone: var(--ok); }
-.mock-tickets .tk-runlog .rl-sec.warn, .mock-tickets .tk-runlog .rl-sec.running { --tone: var(--run); }
-.mock-tickets .tk-runlog .rl-sec.bad { --tone: var(--bad); }
-.mock-tickets .tk-runlog .rl-sec-head { width: 100%; display: flex; align-items: baseline; gap: 10px; padding: 3px 0; border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
-.mock-tickets .tk-runlog .rl-chev { width: 12px; color: var(--ink-3); }
-.mock-tickets .tk-runlog .rl-sec-mark { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tone); align-self: center; }
-.mock-tickets .tk-runlog .rl-sec.pending .rl-sec-mark { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
-.mock-tickets .tk-runlog .rl-sec-title { flex: none; width: 170px; }
-.mock-tickets .tk-runlog .rl-sec-sum { flex: 1; min-width: 0; color: var(--ink-3); overflow-wrap: anywhere; }
-.mock-tickets .tk-runlog .rl-sec.warn .rl-sec-sum, .mock-tickets .tk-runlog .rl-sec.bad .rl-sec-sum { color: var(--tone); }
-.mock-tickets .tk-runlog .rl-sec-time { flex: none; font-size: 12px; color: var(--ink-3); }
-.mock-tickets .tk-runlog .rl-sec-body { padding: 2px 0 6px 22px; display: flex; flex-direction: column; gap: 2px; }
-.mock-tickets .tk-runlog .rl-line { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; font-family: var(--mono); font-size: 12px; line-height: 20px; color: var(--ink-2); overflow-wrap: anywhere; }
-.mock-tickets .tk-runlog .rl-line.done { color: var(--ink-2); }
-.mock-tickets .tk-runlog .rl-line.warn, .mock-tickets .tk-runlog .rl-line.running { color: var(--run); }
-.mock-tickets .tk-runlog .rl-line.bad { color: var(--bad); }
-.mock-tickets .tk-runlog .rl-line.pending, .mock-tickets .tk-runlog .rl-at, .mock-tickets .tk-runlog .rl-dim { color: var(--ink-3); }
 
 /* the spec card inside a report */
 .mock-tickets .tk-spec { margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; max-width: 70ch; }
@@ -150,9 +130,9 @@
 /* 2026-11-17-8d1cb: the Your move line on top of What happened — a dot, the title, the sentence and the act as a text
    link; no box. The composer at the bottom under one hairline. */
 .mock-tickets .tk-page .conv-dock { max-width: none; display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 0; background: var(--bg); }
-.mock-tickets .tk-page .conv-dock .composer { margin-top: 0; max-width: none; border: 0; border-top: 1px solid var(--line-2); border-radius: 0; background: var(--bg); }
-.mock-tickets .tk-page .conv-dock .cp-input { padding: 12px 0 4px; border-top: 0; background: none; }
-.mock-tickets .tk-page .conv-dock .cp-input textarea, .mock-tickets .tk-page .conv-dock .cp-input .d-input { border: 0; background: none; padding: 4px 0; box-shadow: none; }
+.mock-tickets .tk-page .conv-dock .composer { margin-top: 0; max-width: none; border: 0; border-radius: 0; background: var(--bg); }
+/* 2026-11-18-d6d2e: the reply box is the chat box New work draws (.chat-box), not a field under a hairline. */
+.mock-tickets .tk-page .conv-dock .chat-box { margin: 8px 0 4px; }
 .mock-tickets .tk-page .conv-dock .cp-body, .mock-tickets .tk-page .conv-dock .cp-actions { padding-left: 0; padding-right: 0; }
 .mock-tickets .tk-move { --tone: var(--ink-3); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 0 0 16px; }
 .mock-tickets .tk-move.amber { --tone: var(--run); }

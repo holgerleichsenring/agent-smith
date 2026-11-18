@@ -11,10 +11,13 @@ export function stateWord(summary: TicketSummary): string | null {
   return bucket ? TICKET_SECTIONS[bucket].title : null;
 }
 
-/** "Jira · In Review": the tracker and the status the newest attempt read; null when neither is recorded. */
+/** "Jira status In Review": the tracker and the status the newest attempt read there — labelled, so it never reads as the
+ *  ticket's own state beside it (2026-11-18-d6d2e); "tracker status New" without a platform, "Jira" without a status;
+ *  null when neither is recorded. */
 export function trackerFact(summary: TicketSummary): string | null {
   if (!summary.platform && !summary.trackerState) return null;
-  return [platformWords(summary.platform), summary.trackerState].filter(Boolean).join(" · ");
+  const tracker = summary.platform ? platformWords(summary.platform) : "tracker";
+  return summary.trackerState ? `${tracker} status ${summary.trackerState}` : tracker;
 }
 
 /** "1 PR merged, 1 open"; "2 PRs" when the attempts opened some whose state is not read yet; else "no PR". 2026-11-17-3435a:

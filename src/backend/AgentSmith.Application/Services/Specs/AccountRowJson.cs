@@ -33,8 +33,12 @@ internal sealed record AccountRowJson
 
     public string? Antecedent { get; init; }
 
+    /// <summary>2026-11-18-d6d2c: what a satisfied row still points out without stopping the run.</summary>
+    public string? Advice { get; init; }
+
     public AccountRow ToRow() =>
-        new(Criterion ?? string.Empty, DispositionOf(), Citation, Note, Citations, Antecedent);
+        new(Criterion ?? string.Empty, DispositionOf(), Citation, Note, Citations, Antecedent,
+            string.IsNullOrWhiteSpace(Advice) ? null : Advice.Trim());
 
     /// <summary>
     /// Anything unrecognised is NOT SATISFIED. A misspelled disposition is the account

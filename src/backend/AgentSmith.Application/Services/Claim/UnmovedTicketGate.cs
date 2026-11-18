@@ -10,6 +10,8 @@ namespace AgentSmith.Application.Services.Claim;
 /// capacity pump all pass through it, and a gate in the spawn funnel would leave the pump,
 /// which claims its head directly. The pump's RESUME of a parked run never reaches here,
 /// which is why a run that asked a question still comes back.
+/// <para>2026-11-18-d6d2a: it admits the starts <see cref="BoundaryStopGate"/> admits — a person's (Retry, a reply,
+/// a start by name) and a series auto-start; the hold is against the poller, a webhook and the pump.</para>
 /// </summary>
 internal sealed class UnmovedTicketGate(IUnmovedTicketStore store)
 {
@@ -17,6 +19,7 @@ internal sealed class UnmovedTicketGate(IUnmovedTicketStore store)
     public async Task<ClaimResult?> RefusalAsync(
         ClaimRequest request, AgentSmithConfig config, CancellationToken cancellationToken)
     {
+        if (BoundaryStopGate.AdmitsStart(request.InitialContext)) return null;
         var tracker = config.Projects[request.ProjectName].Tracker.Name;
         var standing = await store.FindStandingAsync(
             request.ProjectName, request.TicketId.Value, tracker, cancellationToken);
@@ -26,7 +29,7 @@ internal sealed class UnmovedTicketGate(IUnmovedTicketStore store)
                 ClaimRejectionReason.TicketLastLeftUnmoved,
                 $"The last run could not move this ticket to '{standing.ConfiguredStatus}' "
                 + $"({standing.Outcome}). Correct that status on tracker '{standing.Tracker}' "
-                + $"or on project '{standing.Project}' — saving either releases this ticket. "
+                + $"or on project '{standing.Project}' — saving either releases this ticket, and Retry starts it once. "
                 + "The usual cause is the WORK-ITEM TYPE rather than the status: a tracker that "
                 + "configures no work_item_kinds files everything as the provider's default type, "
                 + "and a status that type does not have can never be reached.");

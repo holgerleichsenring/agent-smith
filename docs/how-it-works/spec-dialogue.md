@@ -32,7 +32,7 @@ The design partner reads what you uploaded and what your repositories already do
 - **A bug ticket.** Something's broken; a bug ticket lands in your tracker.
 - **A spec.** A schema-valid spec, the same YAML shape this project itself is built with.
 - **An epic.** A cut into several specs, in order, each with its `requires:` edges. It's still one piece of work: it files one ticket, and one run works the specs in order, a successor never starting before its predecessor verified.
-- **A list of tickets.** 2 to 20 ticket texts joined by `requires`, for work whose pieces should each merge on their own. Each ticket is filed separately and starts only once the tickets it requires have landed. Only a conversation with no ticket proposes one. See [Ticket dependencies](ticket-dependencies.md).
+- **A list of tickets.** 2 to 20 ticket texts joined by `requires`, one per theme a person reviews and accepts as a whole, ordered by what must land first. Each ticket is filed separately and starts only once the tickets it requires have landed. Only a conversation with no ticket proposes one. See [Ticket dependencies](ticket-dependencies.md).
 
 A spec or epic proposal goes through review rounds inside the turn that made it: fresh reviewers read each draft against the same repositories and answer build, build with cuts, or refuse, the design partner applies the cuts, and the draft is reviewed again, up to `spec_review.rounds` rounds. A list of tickets is reviewed as a plan instead. What the review finds is shown next to the proposal when you're asked to approve it, with its evidence. A review that couldn't be taken blocks nothing.
 

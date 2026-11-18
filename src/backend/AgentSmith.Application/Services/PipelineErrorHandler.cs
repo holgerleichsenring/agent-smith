@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
@@ -32,12 +33,8 @@ public sealed class PipelineErrorHandler(
     {
         logger.LogWarning("Pipeline stopped at step {Step}: {Step} failed - {Message}",
             failure.FailedStep, failure.StepName, failure.Message);
-        // p0261: a FAILED run TERMINALIZES the native ticket status (not just a comment),
-        // so the ticket no longer reads as New/Active — the same one-step comment+status
-        // move success uses. The "working" status (PostWorkingStatusAsync) deliberately
-        // stays a comment-only UpdateStatus; only this terminal failure moves the status.
-        // 2026-09-07-f420: this is the ticket's ONE comment on a failed run, so it also
-        // says what the finalizer tail kept and where (the draft PR, the branch).
+        // p0261: a FAILED run TERMINALIZES the native ticket status (not just a comment). 2026-09-07-f420:
+        // the ticket's ONE comment on a failed run also says what the tail kept and where.
         // 2026-11-16-f3fbb: a precondition stop comments and keeps the ticket's status (no unmoved record).
         var comment = failureComment.ForStep(failure, context);
         await (RunEndKinds.IsPrecondition(failure.FailureKind)
@@ -56,13 +53,9 @@ public sealed class PipelineErrorHandler(
             Prompts.OwnTicketComment.WorkingStatus, cancellationToken);
 
     /// <summary>
-    /// p0269: a thrown exception (sandbox spawn quota, Redis down, config throw)
-    /// aborts the run before any step produces a failure CommandResult, so the
-    /// step-failure path that moves the native ticket status never runs. Route it
-    /// through the SAME terminalization (FinalizeFailureAsync) so the ticket leaves
-    /// trigger_statuses and the poller stops re-claiming it every cycle. No error-type
-    /// sniffing — every fatal exception terminalizes identically (cancellations are
-    /// filtered out by the caller, they carry their own status semantics).
+    /// p0269: a thrown exception aborts the run before any step produces a failure CommandResult; route it
+    /// through the SAME terminalization so the ticket leaves trigger_statuses. No error-type sniffing
+    /// (cancellations are filtered out by the caller, they carry their own status semantics).
     /// </summary>
     public Task HandleFatalFailureAsync(
         ResolvedProject projectConfig, PipelineContext context,
@@ -147,33 +140,43 @@ public sealed class PipelineErrorHandler(
     }
 
     /// <summary>
-    /// p0261: terminalize a FAILED run — comment AND move the native status to failed_status in one
-    /// provider-native step. 2026-11-17-166aa: failed_status only, never done; without one it comments
-    /// only (f3fbb's path) and BoundaryStopGate holds the ticket. Best-effort: a write failure is logged.
+    /// p0261: terminalize a FAILED run — comment AND move the native status to failed_status in one step.
+    /// 2026-11-17-166aa: failed_status only, never done; without one it comments only. 2026-11-18-d6d2a: the
+    /// status comes from the project (TicketParkStatuses, the gate's source), not the request context, whose
+    /// values the Redis job queue hands back as JsonElement. Best-effort: a write failure is logged and said.
     /// </summary>
     private async Task FinalizeFailureAsync(
         ResolvedProject projectConfig, PipelineContext context,
         string message, CancellationToken cancellationToken)
     {
+        // 2026-10-26-bdd0b: a spec derivation carries the ticket id and leaves the ticket alone.
+        if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null
+            || PipelinePresets.LeavesTicketAlone(context))
+            return;
+        var failedStatus = Tickets.TicketParkStatuses.Of(projectConfig).Failed;
+        var unmoved = failedStatus is null ? null : await MoveToFailedAsync(projectConfig, ticketId, message, failedStatus, cancellationToken);
+        if (failedStatus is null || unmoved is not null)
+            await PostTicketStatusAsync(projectConfig, context, failedStatus is null
+                ? message : Lifecycle.UnmovedStatusNote.Append(message, "failed_status", failedStatus, unmoved!), cancellationToken);
+    }
+
+    // 2026-11-18-d6d2a: why the status did not move when the ticket must hear it — a move the tracker rejected
+    // (AzDO loses the comment with it) or a write that threw; null when it moved or the comment already landed.
+    private async Task<string?> MoveToFailedAsync(ResolvedProject projectConfig, TicketId ticketId,
+        string message, string failedStatus, CancellationToken cancellationToken)
+    {
         try
         {
-            // 2026-10-26-bdd0b: a spec derivation carries the ticket id and leaves the ticket alone.
-            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null
-                || PipelinePresets.LeavesTicketAlone(context))
-                return;
-
-            if (!context.TryGet<string>(ContextKeys.FailedStatus, out var failedStatus) || string.IsNullOrEmpty(failedStatus))
-            { await PostTicketStatusAsync(projectConfig, context, message, cancellationToken); return; }
-
-            var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
-            var finalize = await ticketProvider.FinalizeAsync(
-                ticketId, message, failedStatus, cancellationToken);
+            var finalize = await ticketFactory.Create(projectConfig.Tracker)
+                .FinalizeAsync(ticketId, message, failedStatus, cancellationToken);
             await unmovedTickets.RecordAsync(
                 projectConfig.Name, projectConfig.Tracker.Name, ticketId, finalize, cancellationToken);
+            return finalize.Outcome == TicketFinalizeOutcome.TrackerRejectedTheStatus ? finalize.Outcome.ToString() : null;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to finalize ticket to failed_status — run/PR unaffected");
+            return ex.GetType().Name;
         }
     }
 }

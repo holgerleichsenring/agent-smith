@@ -69,8 +69,7 @@ public sealed class PipelineErrorHandlerPreconditionTests
     {
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.FailedStatus, "Failed");
-        var project = new ResolvedProject { Name = "p1", Tracker = new TrackerConnection { Name = "tracker-a" } };
+        var project = FailedStatusProject.With("Failed", "p1", "tracker-a");
         return _sut.HandleStepFailureAsync([], project, context, _lifecycle.Object,
             CommandResult.Fail("refused") with { FailureKind = kind }, CancellationToken.None);
     }

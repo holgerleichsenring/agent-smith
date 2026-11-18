@@ -45,6 +45,8 @@ public sealed partial class SpecDialogWorkPictureTests
         // 2026-11-17-5701d: 39053 with a ticket's specs under draft:tickets/<key>/ in the write_file format (5701a) and
         // design-partner-master 3.4.0 — the text that tells the master where a ticket's specs go and that filing puts
         // them on the ticket's branch.
+        // 2026-11-18-550ac: 38588 with design-partner-master 3.5.0 (system 17083, tools 20583, 22 tools) — the cut by
+        // theme replaced the merge and branch-state tests.
         (system + user + tools).Should().BeLessThan(40000, "a first design turn carries only what it can use");
         // 2026-11-15-bf77: offer_filing (24 tools, 37268) — File appears because the master offered the draft.
         count.Should().BeLessThanOrEqualTo(24);

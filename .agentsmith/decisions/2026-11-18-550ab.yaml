@@ -1,0 +1,30 @@
+spec: 2026-11-18-550ab
+decisions:
+  - category: Architecture
+    chose: "Reuse d6d2c's mechanism: the previous attempt's findings feed AccountRecord.PreviousFindings, the spec start heads become ContextKeys.RepairBaseHeads so VerifiedHeads.RepairChangedAsync names the files this attempt changed, and AccountRecordPrompt states the same carry-over rule."
+    over: "A second record, prompt section or changed-files reader for the cross-attempt case."
+    reason: "The brief: reuse AccountRecord / AccountRecordPrompt / VerifiedHeads. The only new pieces are the source of the list (a separate key, because OutstandingCriteria is the master's repair list) and its wording."
+  - category: Implementation
+    chose: "The previous attempt is ContextKeys.PreviousAttempt, which TicketExtrasFetcher already reads for the run; one new port reads that run's stored acceptance for the spec (IRunSpecAcceptanceReader over RunSpec.AcceptanceJson, null default without a store)."
+    over: "A second IPreviousAttemptReader call from SelectSpec; a reader searching every older attempt for the spec's newest account."
+    reason: "Adversarial review, verdict BUILD WITH CUTS, finding 1: the run already holds the attempt, a second read is a second source. Searching older attempts (finding 2) would carry findings over a branch whose state the guards below cannot vouch for; the latest attempt is the one whose end state is known."
+  - category: Implementation
+    chose: "Carried only when the previous attempt ended failed and this run works the ticket branch (composed from the ticket, not stacked, not cut fresh); only unmet rows whose criterion text the spec still states."
+    over: "Carry from any previous attempt and any branch."
+    reason: "Review findings 3 and 7: a shortfall reverts the unverified spec's work and a cancel is not known to keep it, a stacked or fresh cut starts elsewhere; with the work gone, a gap in a file this attempt did not change would be called 'missed before' and become advice on code that no longer exists. A criterion the operator rewrote between attempts is not the contract the old finding was about."
+  - category: Implementation
+    chose: "SelectSpec records the findings only after the entry account found the spec not satisfied; the entry account stays fresh."
+    over: "Record before the entry account."
+    reason: "Review finding 4: at entry nothing has changed, so every new gap would read 'missed before, in code this attempt did not change' and a verifier calling the old finding closed would mark the spec already satisfied and skip its work."
+  - category: Implementation
+    chose: "The base heads are copied only when a finding is carried; the stored rows render 'criterion (reason)' without a repository."
+    over: "Always copy; reconstruct the in-run 'repo: criterion (note)' shape."
+    reason: "Review findings 6 and 9: without a list AccountRecord drops the changed files, so a diff per sandbox would be spent for nothing. The stored acceptance view carries no repository key; the criterion and its reason are what the verifier must answer to."
+  - category: Scope
+    chose: "The last stored account is carried as it is, whichever pass took it (VerifySpec, its repair verification, a review fix-pass verification); a stage-problem account has no criteria and carries nothing."
+    over: "Filter by the pass that took it."
+    reason: "Review finding 8: RunSpecProjection keeps the last non-null acceptance, which is the account the attempt ended on — the one the person read on the failed attempt."
+  - category: Scope
+    chose: "The master's prompt does not get the previous attempt's findings; named successor: 'the master reads the previous attempt's findings'."
+    over: "Add them to the master prompt here."
+    reason: "Review finding 11. The brief scopes this spec to the verifier keeping its word; telling the master what to close is a prompt change of the coding pass with its own tests."

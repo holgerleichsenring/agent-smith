@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-d6d2e
+
+decisions:
+  - category: Architecture
+    chose: "RunSectionedLog takes the run's snapshot, events and steps from its caller, reads useRunSpecs itself, and draws the plan, spec and delivered bodies; the caller passes the open step, an id prefix, the Ticket body (absent: no Ticket section) and the Check body"
+    over: "A component that calls every run hook from a runId itself, or one that takes a whole body callback"
+    reason: "The run page already holds snapshot, events and steps for its head and Now block, so reading them again inside would double every read; the two bodies that differ between the pages are the only seam. Review: the body seam, not judgements and a ticket read per open run."
+  - category: Architecture
+    chose: "On the ticket page the snapshot is the store's useAttemptRun (GET /api/runs/{id}, re-read on RunsChanged), not useRunDetailSnapshot"
+    over: "useRunDetailSnapshot(runId, null) as on the run page"
+    reason: "The code disagrees with the brief here: the run page's hook refetches only when an overview list row changes, which the ticket page does not have, so it would go stale on a live run; the store already reads the same endpoint once per attempt and follows it."
+  - category: Behaviour
+    chose: "The ticket page's log has no Ticket section, and its Check section says 'Open the run to read each verdict and overrule one'"
+    over: "The run page's TicketBody and CheckBody in every report"
+    reason: "The thread opens with the ticket, the spec card shows the verdicts and links the overrule, and a second overrule control on one page is a second path; VerifySummary's card styles also clash with the ticket page's .crit rules. Review finding."
+  - category: Behaviour
+    chose: "The open step lives in the report's own state; ids carry the prefix 'r-{runId}-' on the ticket page and none on the run page"
+    over: "?step= on the ticket page too; unprefixed ids everywhere"
+    reason: "The step address belongs to the run page; several reports open at once would share step-N and run-sec-* ids; the run page's anchors and scroll keep their ids."
+  - category: Behaviour
+    chose: "Section opening follows the run page (running or stopped); a section holding only a finding starts closed. The log's fixed columns sit in the narrower report body as they are"
+    over: "Keeping the old inline log's open-on-finding rule, or a narrower column set for the ticket page"
+    reason: "One log, one rule; the template is the approved run-page design, not a variant. Review asked to state both."
+  - category: Architecture
+    chose: "run-log.css rules read ':is(.mock-viewer, .tk-runlog)' and RunSectionedLog imports the sheet; the .tk-runlog rules in ticket-thread.css, and .rl-sections, .rl-line, .rl-sec-time and .rl-slot in run-log.css, are deleted"
+    over: "Wrapping the ticket log in .mock-viewer, or a second set of ticket-page log styles"
+    reason: "Same specificity, no page-shell classes leaking into the ticket page, and the old styles were used only by the deleted RunSectionLog and RunInlineLog."
+  - category: Architecture
+    chose: "Delete RunSectionLog, storySections.ts and runSections()/SECTIONS/RunSection/LogLine/SectionId/sectionDuration; runSections.ts keeps the command table, the step and section states and checkOf, which runLogSections, RunStepDetail and runNowLines use"
+    over: "Deleting runSections.ts whole, as the brief said"
+    reason: "The code disagrees: the file also holds what the run page's own sections need. The verify-pass tests moved to VerifyPassLines.test; the command-placement cases moved to commandSection."
+  - category: Behaviour
+    chose: "The reply field sits in New work's composer box: a shared .chat-box rule (mock-parity.css, scoped to .mock-home and .mock-tickets) used by HomeComposer and TicketComposer; .cp-input and its overrides are gone"
+    over: "Work it out's exchange footer (a borderless field under a hairline — what the ticket page already had), or importing home.css on the ticket page"
+    reason: "The ticket field already was the shared DialogComposer; it read as plain text because its border was stripped under a hairline. New work's box is the composer that reads as a chat box; the rule is scoped so the conversation page's look does not change in this spec."
+  - category: Behaviour
+    chose: "The bar's tracker fact says 'Azure DevOps status New' ('tracker status New' without a platform); the state word stays the ticket's bucket"
+    over: "Hiding one of the two, or mapping tracker states onto buckets"
+    reason: "Both are true and different: the bucket is agent-smith's lifecycle, the tracker status is what the newest attempt read in the tracker. Labelling it is the same wording the no-run header already uses."

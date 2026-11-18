@@ -40,7 +40,8 @@ public sealed class AzureReposBranchRead(
     }
 
     // OneLevel returns the directory itself plus its immediate children, each Path carrying a
-    // leading "/"; both sides are normalised before the prefix match and only folders are kept.
+    // leading "/"; both sides are normalised before the prefix match. 2026-11-18-d6d2b: files and folders
+    // both list, as on GitHub, GitLab and a local clone — a series manifest is a file.
     public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, string branch, CancellationToken ct)
     {
         try
@@ -53,7 +54,7 @@ public sealed class AzureReposBranchRead(
                 "ListDirectoryAsync raw: project={Project} repo={Repo} path={Path} branch={Branch} items={Count} sample=[{Sample}]",
                 project, repoName, path, branch, items?.Count ?? 0,
                 items is null ? "" : string.Join(", ", items.Take(8).Select(i => $"{i.Path}|folder={i.IsFolder}")));
-            return items is null ? [] : FolderLeaves(items, path);
+            return items is null ? [] : ChildLeaves(items, path);
         }
         catch (VssServiceException ex) when (IsNotFound(ex))
         {
@@ -61,14 +62,14 @@ public sealed class AzureReposBranchRead(
         }
     }
 
-    private static List<string> FolderLeaves(IEnumerable<GitItem> items, string path)
+    private static List<string> ChildLeaves(IEnumerable<GitItem> items, string path)
     {
         var normPath = "/" + path.Trim('/');
         var prefix = normPath + "/";
         var result = new List<string>();
         foreach (var item in items)
         {
-            if (item.Path is null || item.IsFolder != true) continue;
+            if (item.Path is null) continue;
             var p = item.Path.StartsWith('/') ? item.Path : "/" + item.Path;
             if (string.Equals(p, normPath, StringComparison.Ordinal)) continue;
             var leaf = p.StartsWith(prefix, StringComparison.Ordinal) ? p[prefix.Length..] : p.TrimStart('/');

@@ -26,6 +26,8 @@ public static class SpecRepairScope
         ArgumentNullException.ThrowIfNull(pipeline);
         pipeline.Remove(ContextKeys.OutstandingCriteria);
         pipeline.Remove(ContextKeys.SpecRepairAttempted);
+        pipeline.Remove(ContextKeys.RepairBaseHeads); // 2026-11-18-d6d2c
+        pipeline.Remove(ContextKeys.PreviousAttemptFindings); // 2026-11-18-550ab
         // One structure correction per spec, so the next spec starts fresh.
         pipeline.Remove(ContextKeys.StructureFindings);
         pipeline.Remove(ContextKeys.StructureGateAttempted);

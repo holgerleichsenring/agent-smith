@@ -74,6 +74,33 @@ public sealed class StewardTurnTests
         loop.Tools.Should().NotContain(TicketStewardTools.Excluded);
     }
 
+    // 2026-11-18-d6d2b: the steward reads its ticket's record through the admin assistant's scoped reads; the design
+    // partner, seeded alike, does not get them.
+    [Fact]
+    public async Task StewardTurn_SeededTicketRecords_CarriesTheScopedReads_DesignTurnDoesNot()
+    {
+        var steward = new ReplyingLoop("Attempt 2 failed verify.");
+        var design = new ReplyingLoop("An answer.");
+        var stewardContext = TurnContext(PipelinePresets.TicketStewardMaster);
+        var designContext = TurnContext(DesignMaster);
+        stewardContext.Pipeline.Set(ContextKeys.SpecDialogTicketRecords, Records());
+        designContext.Pipeline.Set(ContextKeys.SpecDialogTicketRecords, Records());
+
+        await Run(steward, stewardContext);
+        await Run(design, designContext);
+
+        steward.Tools.Should().Contain(["read_run_events", "read_config"]);
+        design.Tools.Should().NotContain(["read_run_events", "read_config"]);
+    }
+
+    private static ITicketRecordReads Records()
+    {
+        var records = new Mock<ITicketRecordReads>();
+        records.Setup(r => r.Tools()).Returns(
+            [AIFunctionFactory.Create(() => "events", "read_run_events"), AIFunctionFactory.Create(() => "config", "read_config")]);
+        return records.Object;
+    }
+
     [Fact]
     public async Task DesignTurn_SameSeeds_KeepsWithdrawAndTheTicketActs()
     {

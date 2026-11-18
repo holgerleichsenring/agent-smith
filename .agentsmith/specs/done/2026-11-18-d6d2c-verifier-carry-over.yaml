@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-d6d2c
+goal: "The spec verifier lists every gap per criterion in one pass, reads the spec's record and its previous findings, and a gap it missed before on code the repair left alone is advice, not a stop."
+
+applies_to: "default (Application/Services/Specs: SpecAccountPrompt, AccountRecord, AccountRecordPrompt, AccountEvidenceRules, VerifiedHeads, CitationResolver, SpecAccountRenderer, Review/SpecAttackPrompt; Handlers/VerifySpecHandler.cs; Domain CriterionAccount)"
+
+requires: [2026-11-18-d6d2b]
+
+facts:
+  - claim: "Live: one composite criterion (seven claims ending 'are enforced by tested application behaviour') got four verifications over two runs, each naming a DIFFERENT single gap; each repair closed exactly the gap it was told; after one repair a second 'not satisfied' ended the run and the eight-spec series with it."
+    evidence: "prod DB RunEvents/RunSteps of the two failed runs; the ticket's failure comments"
+  - claim: "Every verification is a fresh model given the criteria, the commands and the diff only; it is told to find what is MISSING and that 'Saying \"not satisfied\" costs you nothing and is the useful answer'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountPrompt.cs:47-98, src/backend/AgentSmith.Application/Services/Specs/SpecAccountant.cs:28-87"
+  - claim: "The answer's note is 'one short sentence', so a criterion with several gaps reports one of them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountEvidenceRules.cs:92-100"
+  - claim: "One repair pass is allowed: the outstanding criteria with their notes go into ContextKeys.OutstandingCriteria and the repair master is told to close exactly these; the verification after it does not see that list and a second not-satisfied is the verdict."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:201-222, src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:45-58, src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:23-28"
+  - claim: "The verification is taken by SpecDeliveryAccounting through ISpecAccountant.AccountAsync, whose evidence (AccountEvidence) is handed to every call: each window, the correction and the full-reach pass."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDeliveryAccounting.cs:62, src/backend/AgentSmith.Application/Services/Specs/AccountCalls.cs:63-73, src/backend/AgentSmith.Application/Services/Specs/SpecAccountCall.cs:32"
+  - claim: "A satisfied row renders only its citation; its note never reaches the pull request."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountRenderer.cs:70-79"
+  - claim: "The attack reviewer that reads a design turn's specs asks of each done criterion whether it can be made true and observed, not whether it is one claim."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:27-33"
+
+scope:
+  in: "AccountRecord (the spec's yaml with its steps; after an accounting repair the previous findings the repair was handed and the files it changed, read with git against a repair base VerifiedHeads records when the repair is handed back) carried on AccountEvidence into every accounting call and rendered by AccountRecordPrompt. The prompt: every gap per criterion in one pass; what a 'not satisfied' costs; what 'tested' means; after a repair each previous finding said closed or open, a new one said why, and one missed before in a file the repair did not change answered as advice on a satisfied row that still needs a resolving citation. Advice is a typed field (CriterionAccount.Advice) and renders on the pull request. The attack reviewer's lens flags a done criterion that bundles several checkable claims."
+  out: "Findings across RUNS (a fresh run's first verification has no previous list): the successor 'verifier reads the previous run's findings' takes them from the run's stored account. The decisions the run logged and the repair master's own answer (self-report; ContextKeys.Decisions spans the whole run and MasterAnswer is stale on the question path). The repair count, the dispositions and SpecVerdict."
+
+steps:
+  - id: record
+    action: "AccountRecord(SpecYaml, PreviousFindings, RepairChanged).For(pipeline, repairChanged): previous findings from ContextKeys.OutstandingCriteria unless it carries a StageRepair item; VerifiedHeads.RecordRepairBaseAsync in VerifySpecHandler's repair hand-back (ContextKeys.RepairBaseHeads, cleared by SpecRepairScope) and RepairChangedAsync before the accounting; SpecDeliveryAccounting passes the record; ISpecAccountant.AccountAsync takes it (optional, last); AccountEvidence.Record carries it to SpecAccountCall."
+  - id: prompt
+    action: "SpecAccountPrompt: every gap in one pass, the cost of 'not satisfied', what 'tested' means; AccountRecordPrompt renders the spec and, after a repair, the carry-over rule and the changed files; AnswerShape asks for every gap in the note and an optional advice on a satisfied row."
+  - id: advice
+    action: "AccountRowJson/AccountRow/CitationResolver carry advice onto a satisfied CriterionAccount; SpecAccountRenderer appends it to both satisfied forms."
+  - id: review
+    action: "SpecAttackPrompt.DecidabilityLens: one done line is one checkable claim; a bundled criterion is a cut into one line per claim."
+
+tests:
+  - "VerifierCarryOverTests: prompt asks for every gap and states the cost (old line gone); after a repair it carries the spec, the previous findings, the rule and the changed files; AccountRecord.For skips a stage repair; an accountant answer with advice keeps it, delivers and renders it; advice on a row citing nothing stays outstanding; the attack lens names the rule"
+  - "VerifiedHeadsTests: the repair base and the changed files since it, apart from the verified heads"
+
+done:
+  - "A verification asks for every gap of a criterion in one pass and states what a 'not satisfied' costs."
+  - "The verification after a repair sees the spec, the previous findings and the files the repair changed; a gap missed before in a file the repair did not change is advice on a satisfied row and shows on the pull request."
+  - "The attack reviewer flags a done criterion that bundles several checkable claims."

@@ -1,44 +1,36 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { RunSectionLog } from "@/components/jobs/runlog/RunSectionLog";
-import { checkOf, runSections, type SectionId } from "@/components/jobs/runlog/runSections";
+import Link from "next/link";
+import { useState } from "react";
+import { RunSectionedLog } from "@/components/jobs/runlog/RunSectionedLog";
+import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunSteps } from "@/hooks/useRunSteps";
+import { runPath } from "@/lib/runPath";
 import { useAttemptRun } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt } from "@/types/tickets";
 
-// 2026-11-17-8d1cb: a run's sectioned log inside its What happened line — the run page's seven sections
-// (components/jobs/runlog) over the same step rows, read when the line opens and again when the attempt's status moves.
-// A section that stopped or holds a finding opens by itself; every verify pass is its own line in its section. The
-// check section lists the run's acceptance verdicts in words; overruling one stays on the run page.
-
-const MARKS: Record<string, string> = { met: "✓", unmet: "✗", unproven: "?", not_applicable: "–" };
+// 2026-11-17-8d1cb: a run's sectioned log inside its What happened line, read when the line opens.
+// 2026-11-18-d6d2e: the run page's own log (RunSectionedLog) — a section per spec with its steps done of planned, the
+// mechanics folded, each step opening its detail with its calls and commands. The run is the page store's read of it,
+// followed on the hub's RunsChanged; its events and steps come as on the run page. The open step is this line's own,
+// so the ticket page's address never changes. No Ticket section (the thread opens with the ticket); each verdict and
+// its overrule stay on the run page, the spec card shows the verdicts.
 
 export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
-  const steps = useRunSteps(attempt.runId, attempt.status);
-  const acceptance = useAttemptRun(attempt.runId).data?.acceptance ?? null;
-  const check = checkOf(acceptance);
-  const sections = useMemo(() => runSections(steps, [], check.state, check.summary), [steps, check.state, check.summary]);
-  const [toggled, setToggled] = useState<ReadonlySet<SectionId>>(new Set());
+  const snapshot = useAttemptRun(attempt.runId).data ?? null;
+  const events = useRunEvents(attempt.runId);
+  const steps = useRunSteps(attempt.runId, snapshot ?? attempt.status);
+  const [openStep, setOpenStep] = useState<number | null>(null);
   if (steps.length === 0) return null;
-  const open = new Set(sections.filter((s) => (s.state === "bad" || s.state === "warn") !== toggled.has(s.id)).map((s) => s.id));
-  const toggle = (id: SectionId) => setToggled((now) => {
-    const next = new Set(now);
-    if (!next.delete(id)) next.add(id);
-    return next;
-  });
   return (
     <div className="tk-runlog" data-testid={`thread-runlog-${attempt.number}`}>
-      <RunSectionLog sections={sections} open={open} onToggle={toggle} slots={{ check: 
-        (acceptance?.criteria ?? []).length === 0
-          ? <div className="rl-line rl-dim">No verdict recorded.</div>
-          : acceptance!.criteria.map((c) => (
-            <div key={c.text} className={`rl-line ${c.status === "met" ? "done" : c.status === "unmet" ? "bad" : "warn"}`}>
-              <span className="rl-at">{MARKS[c.status] ?? "·"}</span>
-              <span>{c.text}{c.reason && <span className="rl-dim">: {c.reason}</span>}</span>
-            </div>
-          ))
-      }} />
+      <RunSectionedLog runId={attempt.runId} snapshot={snapshot} events={events} steps={steps} openStep={openStep}
+        onOpenStep={setOpenStep} idPrefix={`r-${attempt.runId}-`}
+        checkBody={(
+          <div className="rl-body-line rl-dim" data-testid={`thread-runlog-check-${attempt.number}`}>
+            <Link href={runPath(attempt.runId)}>Open the run</Link> to read each verdict and overrule one.
+          </div>
+        )} />
     </div>
   );
 }

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-550ac
+goal: "The embedded skills catalog is pinned to v5.35.0: the design partner cuts one ticket per theme, the steward reads what its answer depends on, derivation's done list is the verdict."
+
+applies_to: "default (embedded skills catalog, skills config default, skill-text tests, docs, Application/Services/Specs/SpecCutVerdicts.cs)"
+
+requires: [2026-11-17-d0e0]
+
+facts:
+  - claim: "The v5.35.0 release asset's sha256 is 6dd2d66e1ee75018bb2869397fa956b6e8fd7c13a67eed0da893096c6ffd5b20, matching the release's published .sha256; against v5.34.0 only three masters differ: design-partner-master 3.4.0 -> 3.5.0, ticket-steward-master 1.2.2 -> 1.2.3, spec-derivation-master 1.10.0 -> 1.10.1."
+    evidence: "observed: 2026-11-18, gh release download v5.35.0 + shasum, diff -rq of both extracted tarballs"
+  - claim: "The pin is the csproj's SkillsCatalogVersion and SkillsCatalogSha256 with the tarball under Resources, the example config, three docs pages and the version SkillsConfigValidatorTests reads."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55, config/agentsmith.example.yml:625, docs/how-it-works/skills-catalog.md:20-85, docs/reference/skills/airgap.md:18-45, docs/reference/skills/your-own-skills.md:15-71, tests/AgentSmith.Tests/Configuration/SkillsConfigValidatorTests.cs:44"
+  - claim: "Skill-text tests pin sentences the release removed on purpose: the merge test and branch-state test, 'one per piece that must merge', 'A child is what one coding pass builds', the waiting-start sentence, 'At most {MaxSpecs} specs … a programme', 'THE TICKET'S OWN \"DONE WHEN\" IS THE DONE LIST.'"
+    evidence: "tests/AgentSmith.Tests/Skills/TicketGraphSkillRulesTests.cs:26-40, tests/AgentSmith.Tests/Skills/SeriesSkillRulesTests.cs:100-113, tests/AgentSmith.Tests/Skills/TicketStewardSkillTests.cs:38-43, tests/AgentSmith.Tests/Skills/ShapeRuleMasterRulesTests.cs:22-28, tests/AgentSmith.Tests/Skills/DesignTurnTextContractTests.cs:24, tests/AgentSmith.Tests/Skills/DesignReferenceRulesTests.cs:70"
+  - claim: "The cut review's DONE DROPPED excepts only a shape rule from a 'Done when' item no done entry states; spec-derivation-master 1.10.1 keeps an item about the process out of the done lines (its segment carried), so a correct cut would be flagged."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutVerdicts.cs:93-97"
+  - claim: "The waiting-start behaviour stays guarded without the dropped skill sentence: RequiresUnmetGate's refusal names the tickets a start waits for, a test reads it in the conversation, and steward 1.2.3 passes a refusal on as it is."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:36-45, tests/AgentSmith.Tests/SpecDialog/Continuation/OperatorChannelTests.cs:109"
+  - claim: "Four docs pages describe the removed rules: the 'Done when' list one for one, and a list of tickets cut where pieces merge on their own."
+    evidence: "docs/trigger-it/writing-a-ticket.md:40, docs/how-it-works/spec-dialogue.md:35, docs/how-it-works/work-it-out.md:162, docs/how-it-works/ticket-dependencies.md:3"
+  - claim: "The steward's prompt (TicketStewardPromptFactory's contract, StewardRestartSection) and steward 1.2.3 agree: read the record, keep checked apart from inferred, ask when unsure; start_next_attempt when the person asks, a different cause is said and starting stays the person's call; a refusal is passed on as the tool gave it."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketStewardPromptFactory.cs:13-23, src/backend/AgentSmith.Application/Services/SpecDialog/StewardRestartSection.cs:20-27"
+
+scope:
+  in: "The pin to agent-smith-skills v5.35.0; every test that reads the changed text, an assertion of a deliberately removed rule rewritten to the rule that replaced it; DONE DROPPED excepts an item about the process beside a shape rule; the four docs pages say what the masters now do; the design-turn prompt size measured again."
+  out: "Any skill text change (the skills repo PRs #285-#287; design-partner 3.5.0 still says a ticket's done list becomes the done lines one for one, a follow-up for the skills repo). The steward prompt (no contradiction with steward 1.2.3). TicketPlanReviewPrompt's size question (see decisions)."
+
+steps:
+  - id: pin
+    action: "Replace Resources/agentsmith-skills-v5.34.0.tar.gz with the released v5.35.0 (sha256 checked), update SkillsCatalogVersion and SkillsCatalogSha256, config/agentsmith.example.yml, the docs naming the pinned version and SkillsConfigValidatorTests."
+  - id: tests
+    action: "Run every test that reads skill text; rewrite the assertions of removed rules to the replacing text (one ticket per theme, a spec per repository in contract order, one claim per done line, the done list as verdict, work beyond MaxSpecs is a question, read what the answer depends on) and record each in decisions; re-measure SpecDialogPromptSizeTests."
+  - id: cut
+    action: "SpecCutVerdicts DoneDropped: '(a shape rule or an item about the process excepted)'; CutReviewVerdictPromptTests pins it."
+  - id: docs
+    action: "writing-a-ticket.md: the Done-when items become done lines where the diff or a command can show them, a process item stays carried; spec-dialogue.md, work-it-out.md and ticket-dependencies.md: one ticket per theme, ordered by what must land first."
+
+tests:
+  - "SkillsConfigValidatorTests and every test reading the three masters against the new pin; the rewritten assertions in TicketGraphSkillRulesTests, SeriesSkillRulesTests, TicketStewardSkillTests, ShapeRuleMasterRulesTests, DesignTurnTextContractTests and DesignReferenceRulesTests"
+  - "CutReviewVerdictPromptTests: DONE DROPPED excepts an item about the process"
+  - "SpecDialogPromptSizeTests re-measured"
+
+done:
+  - "The embedded catalog is v5.35.0 with design-partner-master 3.5.0, ticket-steward-master 1.2.3 and spec-derivation-master 1.10.1."
+  - "Tests read the new rules: one ticket per theme; a spec built in one repository, the shared contract first; one claim per done line; the ticket's own done list is the verdict; work beyond MaxSpecs is a question; the steward reads what its answer depends on and passes a refusal on as it is."
+  - "The cut review does not report a ticket's process item as a dropped outcome."

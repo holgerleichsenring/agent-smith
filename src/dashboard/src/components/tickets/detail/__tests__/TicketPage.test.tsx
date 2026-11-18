@@ -102,7 +102,7 @@ describe("Ticket page", () => {
     await open();
     const facts = screen.getByTestId("ticket-facts");
     expect(facts).toHaveTextContent("shop");
-    expect(screen.getByTestId("ticket-tracker-fact")).toHaveTextContent("GitHub · Active");
+    expect(screen.getByTestId("ticket-tracker-fact")).toHaveTextContent("GitHub status Active");
     expect(screen.getByTestId("ticket-branch")).toHaveTextContent("agent-smith/GH-101");
     expect(screen.getByTestId("ticket-more-menu")).not.toBeVisible();
     fireEvent.click(screen.getByTestId("ticket-more"));

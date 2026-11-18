@@ -53,7 +53,7 @@ export function NewWorkComposer({ projects, read, onStart }: {
   };
 
   return (
-    <section className="home-composer mock-dialog" aria-label="New work" data-testid="home-composer">
+    <section className="home-composer chat-box mock-dialog" aria-label="New work" data-testid="home-composer">
       <DialogComposer
         onSend={send}
         disabled={project === ""}

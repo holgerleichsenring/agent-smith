@@ -99,7 +99,8 @@ public sealed class SeriesSkillRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartner_DefinesTheChildAndTheProposedPrefix()
     {
-        Folded().Should().Contain("A child is what one coding pass builds and one reviewer can check",
+        // 2026-11-18-550ac: design-partner 3.5.0 names the unit within a theme.
+        Folded().Should().Contain("Within a theme, a spec is what one coding pass builds in one repository",
             Because("the unit of a child"))
             .And.Contain("a choice you make starts with `proposed:` and says what it rests on", Because("the proposed syntax"))
             .And.NotContain("those questions all at once", Because("one fork per question"));
@@ -107,8 +108,10 @@ public sealed class SeriesSkillRulesTests
 
     [Fact]
     public void EmbeddedSkills_SpecDerivationMaster_SaysWhatOneAttemptRuns() =>
+        // 2026-11-18-550ac: spec-derivation 1.10.1 — work beyond MaxSpecs is a question, not a programme.
         SpecDerivation().Should().Contain(
-            "At most {MaxSpecs} specs — the most one attempt runs (a re-cut: the most the series holds); beyond that "
-            + "the ticket is a programme and belongs in a design conversation.",
+            "One attempt runs at most {MaxSpecs} specs (a re-cut: the most the series holds); work that needs more is a "
+            + "question: one reading builds the first {MaxSpecs} now and the rest in a later attempt, the other cuts the "
+            + "ticket into several in a design conversation.",
             Because("the attempt size sentence"));
 }

@@ -17,7 +17,12 @@ public sealed class TicketStewardPromptFactory : ITicketStewardPromptFactory
         + "the next attempt, do it with your tools and report what the tool answered — never report an act no "
         + "tool confirmed, and never claim a tool you were not given. Propose nothing: the series changes only "
         + "through your tools, so a ```yaml or ```outcome block you write is quoted text, not a proposal, and "
-        + "nobody is asked to approve it.";
+        + "nobody is asked to approve it. You work on this ticket as a user of the framework: read its record with your "
+        + "tools — ticket_runs, read_run_events, read_series, read_config, the ticket — and name the tool each fact came "
+        + "from. Say an inference as one ('this suggests'), never as a fact, and never report a finding, verdict or "
+        + "reason that no tool showed you. A read that found nothing says what it looked at; it does not prove the thing "
+        + "is absent. When what you read disagrees with what the person or the ticket says, or you are unsure, say so "
+        + "and ask the person in your reply instead of guessing.";
 
     public string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried)
     {
@@ -29,7 +34,7 @@ public sealed class TicketStewardPromptFactory : ITicketStewardPromptFactory
 
             {DialogTranscriptSection.Render(pipeline, transcript, stewarded: true)}
             {SeededTicketSection.Render(pipeline)}
-            {FrameworkFactsSection.Render(pipeline)}
+            {FrameworkFactsSection.Render(pipeline)}{StewardRestartSection.Render(pipeline)}
             {DialogScopeRepositoriesSection.Render(pipeline)}
 
             ## Your reply

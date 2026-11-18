@@ -4,11 +4,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0420: the question put to a fresh instance — the criteria, the diff, and the
 /// instruction to find what is MISSING.
 /// <para>
-/// 2026-08-25-1360: the FILE LIST is a separate argument from the BODY. It used to be
-/// derived from the body, and the body is one WINDOW of an oversized delivery — so every
-/// window read a partial list under a heading calling it complete, and was then told that a
-/// criterion it cannot tie to a file is not satisfied. It was instructed to refuse a
-/// criterion over files it had been told did not exist.
+/// 2026-08-25-1360: the FILE LIST is a separate argument from the BODY: the body is one WINDOW of an
+/// oversized delivery, and a list derived from it refused criteria over files it said did not exist.
+/// 2026-11-18-d6d2c: the spec's record follows the diff (<see cref="AccountRecordPrompt"/>).
 /// </para>
 /// <para>
 /// Asked negatively on purpose: "all done" is the cheap answer to the positive question
@@ -22,7 +20,7 @@ public static class SpecAccountPrompt
     public static string For(
         IReadOnlyList<string> criteria, string diff, IReadOnlyList<string> commandResults,
         IReadOnlyList<string>? searchable = null, CitedFileIndex? deliveryFiles = null,
-        IReadOnlyList<string>? baseSearchable = null)
+        IReadOnlyList<string>? baseSearchable = null, AccountRecord? record = null)
     {
         ArgumentNullException.ThrowIfNull(criteria);
         ArgumentNullException.ThrowIfNull(commandResults);
@@ -49,9 +47,10 @@ public static class SpecAccountPrompt
             were ratified BEFORE the work started, and the diff the branch carries.
 
             Your job is to find what is MISSING. Go criterion by criterion and decide
-            whether THIS DIFF satisfies it. You did not do this work and have no account of
-            it other than the diff — do not assume anything happened that the diff does not
-            show.
+            whether THIS DIFF satisfies it, and name EVERY gap of a criterion in this one
+            pass — a gap you hold back costs the next attempt a run. You did not do this work
+            and have no account of it other than the diff — do not assume anything happened
+            that the diff does not show.
 
             A criterion about a BUILD OR TEST RESULT is not answerable from a diff — no diff
             contains a build log. It is answered by the commands listed under COMMANDS, which
@@ -94,8 +93,10 @@ public static class SpecAccountPrompt
             it, never from the name alone. Assuming the content of a file you were not shown
             is the one way to be wrong in the direction that costs nothing to state.
             A criterion you cannot tie to a file in the diff is NOT satisfied, whatever it
-            looks like it ought to be. Saying "not satisfied" costs you nothing and is the
-            useful answer; saying "satisfied" without a file is the one thing that misleads.
+            looks like it ought to be. A "not satisfied" stops the run: say it for behaviour
+            that is missing, never for taste. "Tested" means the rule is implemented and a test
+            exercises it, not that every permutation has its own test — thinner coverage is
+            "advice" on a satisfied row. Saying "satisfied" without a file is what misleads.
 
             {{AccountEvidenceRules.DiffReading}}{{AccountEvidenceRules.DiffJudging}}
 
@@ -114,6 +115,6 @@ public static class SpecAccountPrompt
 
             DIFF
             {{body}}
-            """;
+            """ + AccountRecordPrompt.Render(record);
     }
 }

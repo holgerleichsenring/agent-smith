@@ -19,6 +19,7 @@ public sealed class CutReviewVerdictPromptTests
         prompt.Should().Contain("There are five ways:")
             .And.Contain("3. NOT IN THE TICKET")
             .And.Contain("4. DONE DROPPED")
+            .And.Contain("(a\n   shape rule or an item about the process excepted)") // 2026-11-18-550ac: derivation 1.10.1 carries a process item
             .And.Contain("5. SHAPE RULE")
             .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket|done-dropped|shape-rule\"")
             .And.NotContain("FALSE PREMISE")

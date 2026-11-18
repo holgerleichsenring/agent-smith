@@ -1,0 +1,10 @@
+spec: 2026-11-18-9fae
+decisions:
+  - category: Implementation
+    chose: "Remember the section of the first open step seen before any step click (a ref, since the run page reads ?step= after mount) and open only that one; a later click changes the open step and nothing else."
+    over: "Forcing the open step's section open on every render (the section could then no longer be closed while it holds the open step)."
+    reason: "The section a clicked step sits in is already open by the person's own toggle; only arrival needs the section opened for them."
+  - category: Process
+    chose: "No separate adversarial review subagent for this two-line fix; the new test was checked to fail without the fix and pass with it."
+    over: "The full review round."
+    reason: "Found during the browser check of the d6d2/550a branch before the PR; the change is one line plus tests."

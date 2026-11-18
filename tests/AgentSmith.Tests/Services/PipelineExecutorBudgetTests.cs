@@ -146,10 +146,9 @@ public sealed class PipelineExecutorBudgetTests
         var h = new PipelineExecutorTestBuilder();
         var ticket = new Mock<ITicketProvider>();
         h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticket.Object);
-        var project = new ResolvedProject();
+        var project = FailedStatusProject.With("Failed");
         var pipeline = WithBudget(new StepBudget(2, "a test budget"));
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.FailedStatus, "Failed"); // 2026-11-17-166aa: a configured failed status finalizes
         ArrangeLoop(h, project, pipeline);
 
         var result = await h.Sut.ExecuteAsync([Loop], project, pipeline, CancellationToken.None);
@@ -173,10 +172,9 @@ public sealed class PipelineExecutorBudgetTests
         var h = new PipelineExecutorTestBuilder();
         var ticket = new Mock<ITicketProvider>();
         h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticket.Object);
-        var project = new ResolvedProject();
+        var project = FailedStatusProject.With("Failed");
         var pipeline = WithBudget(new StepBudget(2, "a test budget"));
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.FailedStatus, "Failed"); // 2026-11-17-166aa: a configured failed status finalizes
         ArrangeLoop(h, project, pipeline);
 
         var result = await h.Sut.ExecuteAsync([Loop], project, pipeline, CancellationToken.None);

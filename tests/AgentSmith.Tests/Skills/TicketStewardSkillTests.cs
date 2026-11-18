@@ -35,13 +35,20 @@ public sealed partial class TicketStewardSkillTests
         master.Should().Contain($"name: {PipelinePresets.TicketStewardMaster}").And.Contain("role: master");
     }
 
+    // 2026-11-18-550ac: steward 1.2.3 drops the waiting-start sentence; the refusal itself names the tickets it waits
+    // for (RequiresUnmetGate, OperatorChannelTests) and the steward passes it on as it is.
     [Fact]
-    public void TicketStewardSkill_WaitingStart_SaysWhatItWaitsForAndThatNothingStarted() =>
-        Master().Should().Contain(
-            "When `start_next_attempt` answers that the ticket waits for other tickets, tell the person which "
-            + "tickets it waits for and that nothing was started: once those are merged or marked done by hand, "
-            + "they ask for the attempt again.",
-            $"the pin is {PackagedMaster.Pin} and the waiting-start sentence ships from v5.18.0");
+    public void TicketStewardSkill_StartRefusal_IsPassedOnAsTheToolGaveIt() =>
+        PackagedMaster.Folded(PipelinePresets.TicketStewardMaster).Should().Contain(
+            "`start_next_attempt` answers that the attempt was requested or why it was refused; pass that on as it is.",
+            $"the pin is {PackagedMaster.Pin}: a refusal reaches the person in the tool's words");
+
+    // 2026-11-18-550ac: steward 1.2.3 reads what its answer depends on; the narrow-read and re-analyse rules are gone.
+    [Fact]
+    public void TicketStewardSkill_ReadsWhatItsAnswerDependsOn() =>
+        PackagedMaster.Folded(PipelinePresets.TicketStewardMaster).Should().Contain("Read what your answer depends on")
+            .And.Contain("separate what you checked from what you infer")
+            .And.NotContain("Read narrowly").And.NotContain("re-analyse");
 
     [Fact]
     public async Task TicketStewardSkill_NamesOnlyToolsTheStewardOffers()

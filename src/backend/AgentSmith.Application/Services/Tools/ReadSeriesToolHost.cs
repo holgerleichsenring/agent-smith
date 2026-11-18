@@ -32,7 +32,11 @@ public sealed class ReadSeriesToolHost(ISeriesRead series) : IToolHost
     {
         ArgumentNullException.ThrowIfNull(reading);
         if (reading.Failure is { } failure) return failure;
-        if (reading.Specs.Count == 0) return "The ticket's series holds no spec.";
+        if (reading.Specs.Count == 0)
+            return reading.SeriesId is { } named // 2026-11-18-d6d2b: a record naming a series the branch did not answer
+                ? $"The ticket's record names series {named}, but no spec of it was read from the ticket branch. That is a "
+                  + "failed read, not an empty series: say so, and do not conclude there is nothing to run."
+                : "The ticket's series holds no spec.";
         var text = new StringBuilder($"Series {reading.SeriesId ?? "(unnamed)"}, {reading.Specs.Count} spec(s):\n");
         foreach (var spec in reading.Specs)
             text.Append($"\n## {spec.Draft.SpecId} — {spec.State}, {(spec.Ran ? "ran" : "not run")}\n")

@@ -69,6 +69,25 @@ public sealed class AzureReposSourceProviderListDirectoryTests
         result.Should().BeEquivalentTo(new[] { "api", "docs" });
     }
 
+    // 2026-11-18-d6d2b: a series manifest and a spec are files; the listing names them as GitHub, GitLab and a clone do,
+    // so the host-side series read finds the manifest on an Azure DevOps ticket branch.
+    [Fact]
+    public async Task ListDirectoryAsync_FilesAtTheLevel_AreListedBesideFolders()
+    {
+        var items = new List<GitItem>
+        {
+            new() { Path = "/.agentsmith/series",                                 IsFolder = true  },
+            new() { Path = "/.agentsmith/series/2026-11-18-0a1b.yaml",           IsFolder = false },
+            new() { Path = "/.agentsmith/series/archive",                         IsFolder = true  },
+            new() { Path = "/.agentsmith/series/archive/2026-10-01-ffff.yaml",   IsFolder = false },
+        };
+        var sut = BuildSut(items);
+
+        var result = await sut.ListDirectoryAsync(".agentsmith/series", CancellationToken.None);
+
+        result.Should().BeEquivalentTo(new[] { "2026-11-18-0a1b.yaml", "archive" });
+    }
+
     [Fact]
     public async Task ListDirectoryAsync_EmptyApiResult_ReturnsEmpty()
     {

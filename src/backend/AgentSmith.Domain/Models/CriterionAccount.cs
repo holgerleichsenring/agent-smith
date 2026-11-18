@@ -19,13 +19,19 @@ namespace AgentSmith.Domain.Models;
 /// auditing the corpus cannot tell a vacuous conditional from a dodged one, and it is the
 /// field an overrule is recorded against.
 /// </param>
+/// <param name="Advice">
+/// 2026-11-18-d6d2c: on a satisfied row, what the account would still point out without stopping the run — thinner
+/// test coverage than it would like, or a gap missed by the previous verification on code the repair did not change.
+/// It reaches the pull request beside the citation; it never makes a criterion outstanding.
+/// </param>
 public sealed record CriterionAccount(
     string Criterion,
     AccountDisposition Disposition,
     string? Citation = null,
     string? Note = null,
     bool Mechanical = false,
-    string? Antecedent = null)
+    string? Antecedent = null,
+    string? Advice = null)
 {
     /// <summary>The branch satisfies it. Deliberately NOT named <c>Satisfied</c>: the bool
     /// this replaced had ten readers, and a reader that kept compiling would have kept

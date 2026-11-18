@@ -94,8 +94,13 @@ internal static class AccountEvidenceRules
             ? "  [{\"criterion\": \"<verbatim>\", \"disposition\": \"satisfied\" | \"not_applicable\" | \"not_satisfied\",\n"
               + "     \"citations\": [\"<one diff path, or one command copied whole>\", \"...\"],\n"
               + "     \"antecedent\": \"<not_applicable only: the precondition the base does not contain>\",\n"
-              + "     \"note\": \"<one short sentence>\"}]"
+              + Notes
             : "  [{\"criterion\": \"<verbatim>\", \"disposition\": \"satisfied\" | \"not_satisfied\",\n"
               + "     \"citations\": [\"<one diff path, or one command copied whole>\", \"...\"],\n"
-              + "     \"note\": \"<one short sentence>\"}]";
+              + Notes;
+
+    // 2026-11-18-d6d2c: every gap of a criterion in one answer, and advice that stops nothing on a satisfied row.
+    private const string Notes =
+        "     \"note\": \"<not_satisfied: EVERY gap you found for this criterion, separated by '; '; otherwise one short sentence>\",\n"
+        + "     \"advice\": \"<satisfied only, optional: what the reviewer should still know, e.g. thinner coverage>\"}]";
 }

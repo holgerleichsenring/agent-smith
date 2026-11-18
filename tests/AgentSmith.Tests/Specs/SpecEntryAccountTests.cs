@@ -177,9 +177,32 @@ public sealed class SpecEntryAccountTests
         accounts.Should().ContainSingle().Which.RepoKey.Should().Be("server");
     }
 
-    private static Task<CommandResult> Select(ISpecAccountant accountant, PipelineContext pipeline) =>
+    // 2026-11-18-550ab: the entry account stays fresh; a spec with work left carries the failed attempt's findings
+    // to its verification after the work.
+    [Fact]
+    public async Task APartlySatisfiedSpec_AfterAFailedAttempt_EntryStaysFresh_AndCarriesTheFindings()
+    {
+        var pipeline = Pipeline(SourceDiff);
+        pipeline.Set(ContextKeys.TicketId, new TicketId("7"));
+        pipeline.Set(ContextKeys.PreviousAttempt, new AgentSmith.Contracts.Runs.PreviousAttempt("run-a", "failed", DateTimeOffset.UnixEpoch, true));
+        var accountant = new CountingAccountant(AccountDisposition.Satisfied, outstanding: "the tests pass");
+
+        await Select(accountant, pipeline, new StoredAcceptance(Criterion, "expiry not rejected"));
+
+        accountant.LastRecord!.IsAfterRepair.Should().BeFalse("the entry account is taken before anything is carried");
+        pipeline.Get<List<string>>(ContextKeys.PreviousAttemptFindings).Should().Equal($"{Criterion} (expiry not rejected)");
+    }
+
+    private sealed class StoredAcceptance(string criterion, string reason) : AgentSmith.Contracts.Services.IRunSpecAcceptanceReader
+    {
+        public Task<AgentSmith.Contracts.Runs.AcceptanceView?> ReadAsync(string runId, string specId, CancellationToken cancellationToken) =>
+            Task.FromResult<AgentSmith.Contracts.Runs.AcceptanceView?>(new([new(criterion, "unmet", reason)], "verbatim", "the ratified spec"));
+    }
+
+    private static Task<CommandResult> Select(
+        ISpecAccountant accountant, PipelineContext pipeline, AgentSmith.Contracts.Services.IRunSpecAcceptanceReader? stored = null) =>
         new SelectSpecHandler(
-                Entry(accountant), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
+                Entry(accountant), StartHeads(), AgentSmith.Tests.TestHelpers.TestSpecReview.PreviousFindings(stored), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p1", pipeline), CancellationToken.None);
 
@@ -239,13 +262,16 @@ public sealed class SpecEntryAccountTests
     {
         public int Calls { get; private set; }
 
+        public AgentSmith.Application.Services.Specs.AccountRecord? LastRecord { get; private set; }
+
         public Task<SpecAccount> AccountAsync(
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars)
+            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record)
         {
             Calls++;
+            LastRecord = record;
             var rows = criteria
                 .Select(c => new CriterionAccount(
                     c, disposition, "src/Handler.cs",
@@ -267,7 +293,7 @@ public sealed class SpecEntryAccountTests
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars) =>
+            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record) =>
             throw new InvalidOperationException("429 Too Many Requests");
     }
 

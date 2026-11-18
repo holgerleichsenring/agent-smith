@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-550ab
+goal: "A spec's first verification after the work of a new attempt reads the previous failed attempt's stored findings for that spec and keeps its word on them, as after a repair."
+
+applies_to: "default (Application/Services/Specs: AccountRecord, AccountRecordPrompt, PreviousAttemptFindings; Handlers/SelectSpecHandler.cs; SpecRepairScope.cs; Contracts/Services/IRunSpecAcceptanceReader.cs; Infrastructure.Persistence/Services/DbRunSpecAcceptanceReader.cs)"
+
+requires: [2026-11-18-d6d2c]
+
+facts:
+  - claim: "Live, per d6d2c's decisions: run A failed spec X at verify, the operator's Retry started run B, and B's first verification of X was fresh and found a different gap in the same criterion."
+    evidence: ".agentsmith/decisions/2026-11-18-d6d2c.yaml (Scope: 'Findings are carried within a run only')"
+  - claim: "d6d2c's record carries previous findings only from ContextKeys.OutstandingCriteria, which SelectSpecHandler clears through SpecRepairScope.Reset when a spec is entered; the files the repair changed are read with git against ContextKeys.RepairBaseHeads, which only VerifiedHeads and SpecRepairScope touch."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountRecord.cs:20-31, src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:24-29, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:55, src/backend/AgentSmith.Application/Services/Specs/VerifiedHeads.cs:41-63"
+  - claim: "OutstandingCriteria is also read by the master's prompt as the list a repair pass must close, so a previous attempt's findings cannot ride on it; its rows read 'repo: criterion (note)'."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:45-58, src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:23-28"
+  - claim: "SelectSpecHandler records the spec's start heads, then takes an entry account; a satisfied entry account skips the spec's work, otherwise the spec is worked and VerifySpec takes the account through SpecDeliveryAccounting, which builds the record with AccountRecord.For and the files changed since RepairBaseHeads."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:58-70, src/backend/AgentSmith.Application/Services/Specs/SpecDeliveryAccounting.cs:62-67, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:163-165"
+  - claim: "The run already holds the ticket's previous code attempt: TicketExtrasFetcher reads IPreviousAttemptReader.LatestAsync excluding this run and sets ContextKeys.PreviousAttempt (its run id and status)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:40-52, src/backend/AgentSmith.Contracts/Commands/ContextKeys.Ticket.cs:17-18"
+  - claim: "Every spec's account is stored per run and spec: SpecStateChangedEvent carries the spec's AcceptanceJson (criterion text, met/unmet/not_applicable, the note as reason, the citation, no repository) and RunSpecProjection keeps the last non-null one on the RunSpec row."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecProgressRecorder.cs:55-60, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:43, src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:83-84"
+  - claim: "A run that delivers a shortfall reverts the unverified spec's work and ends with status shortfall; a plain failure keeps its work on the ticket branch, which a retry checks out again (composed from the ticket); a handed CheckoutBranch, a fresh init cut or a stacked cut start elsewhere."
+    evidence: "src/backend/AgentSmith.Application/Services/UnverifiedWorkReverter.cs:9-19, src/backend/AgentSmith.Application/Services/Pipeline/PipelineStepFailure.cs:90-95, src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:18-20, src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:22-29"
+
+scope:
+  in: "PreviousAttemptFindings, called by SelectSpecHandler once the entry account did not find the spec satisfied: when ContextKeys.PreviousAttempt ended Failed and this run's branch is composed from the ticket (not stacked, not cut fresh), the previous attempt's stored acceptance for the spec (IRunSpecAcceptanceReader over RunSpec.AcceptanceJson; null default without a store) gives its unmet rows whose criterion text is still a criterion of the spec, as 'criterion (reason)', under ContextKeys.PreviousAttemptFindings, and the spec start heads become ContextKeys.RepairBaseHeads. AccountRecord.For falls back to those findings when no repair list is set and marks the record FromPreviousAttempt; AccountRecordPrompt words heading, list sentence and changed-files label for the previous attempt, the carry-over rule itself unchanged. SpecRepairScope.Reset clears the key."
+  out: "Attempts before the latest, a latest attempt that never stored an account for the spec, one that ended other than failed (a shortfall reverted the unverified work; a cancel, status cancelled, is not known to have kept it), and a stage-problem account (it has no criteria): nothing is carried. The entry account stays fresh. The master's prompt does not get the previous findings (successor: the master reads the previous attempt's findings). The repair pass, SpecVerdict and the advice field are unchanged. No new store, column, event or limit."
+
+steps:
+  - id: read
+    action: "IRunSpecAcceptanceReader.ReadAsync(runId, specId) returns the stored AcceptanceView or null; NullRunSpecAcceptanceReader with TryAdd beside the previous-attempt default; DbRunSpecAcceptanceReader registered beside DbPreviousAttemptReader."
+  - id: record
+    action: "PreviousAttemptFindings.RecordAsync(pipeline, specId) applies the guards, sets ContextKeys.PreviousAttemptFindings and copies ContextKeys.SpecStartHeads to ContextKeys.RepairBaseHeads only when a finding is carried; SelectSpecHandler calls it after a not-satisfied entry account; SpecRepairScope.Reset removes the key."
+  - id: carry
+    action: "AccountRecord gains FromPreviousAttempt; For() uses OutstandingCriteria (not a stage repair) first, else PreviousAttemptFindings; AccountRecordPrompt renders 'THE PREVIOUS ATTEMPT'S LAST VERIFICATION OF THIS SPEC' and 'FILES THIS ATTEMPT CHANGED SINCE IT TOOK THE SPEC UP' for that source."
+
+tests:
+  - "VerifierCarryOverTests.TwoAttempts_SecondAttemptsVerification_KeepsItsWordOnTheFirstsFindings (SQLite: attempt A's RunSpec written by RunSpecProjection from a SpecStateChangedEvent with an unmet row; attempt B: PreviousAttempt failed, start heads; the record carries A's finding, the base is B's start; the accountant's prompt names the previous attempt; a satisfied answer with advice delivers)"
+  - "VerifierCarryOverTests.PreviousAttempt_ShortfallStackedOrRewritten_CarriesNothing (shortfall, success, cancelled, stacked, rewritten criterion) and PreviousAttempt_StoredNoAccountForTheSpec_CarriesNothing"
+  - "SpecEntryAccountTests.APartlySatisfiedSpec_AfterAFailedAttempt_EntryStaysFresh_AndCarriesTheFindings"
+  - "VerifierCarryOverTests.Record_ARepairListWinsOverThePreviousAttempt; RelationalComposition_ReadsTheStoredAcceptanceFromTheStore"
+
+done:
+  - "After a failed attempt, the verification of a spec the retry worked is given the unmet findings the failed attempt stored for that spec, and the files the retry changed since it took the spec up."
+  - "On that verification, a gap missed before in a file the retry did not change is advice on a satisfied row, as after a repair."
+  - "The entry account, a shortfall or cancelled predecessor and a rewritten criterion carry nothing."

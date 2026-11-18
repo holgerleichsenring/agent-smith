@@ -203,7 +203,7 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
         IReadOnlyList<string> commandResults, AgentConfig agent,
         BranchSearch? branchSearch,
         PipelineCostTracker costTracker, CancellationToken cancellationToken,
-        int windowBudgetChars = DiffWindows.DefaultBudgetChars)
+        int windowBudgetChars = DiffWindows.DefaultBudgetChars, AgentSmith.Application.Services.Specs.AccountRecord? record = null)
     {
         lock (_shown) _shown.AddRange(commandResults);
         string? withheld = null;
