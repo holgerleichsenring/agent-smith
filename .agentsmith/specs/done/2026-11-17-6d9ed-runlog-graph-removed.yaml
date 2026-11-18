@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-17-6d9ed
+goal: "The run page is the one log: the graph view, the story beats, the side rail, the trace drawer and what only they used are deleted with their CSS and tests."
+
+applies_to: "dashboard (app/jobs/[id] page; components/jobs/story, RunSideRail, components/execution, hooks/useRunExecutionTree, useRailSelection, styles)"
+
+requires: [2026-11-17-6d9ec]
+
+facts:
+  - claim: "The page still mounts RunStory, RunSideRail, the dialogue drawer and the trace drawer behind ?view=graph."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:171-322"
+  - claim: "VerifySummary and verifyFallback are also used by the Why page; EventDrawer by the system subsystem detail; TimingGutter's NodeStatus by RunRow, StatusIcon and runStatus; beatMonotonic by RunStats."
+    evidence: "src/dashboard/src/components/jobs/why/RunWhy.tsx:7-8, src/dashboard/src/components/system/SubsystemDetail.tsx:4, src/dashboard/src/components/jobs/runStatus.ts:1, src/dashboard/src/components/jobs/RunStats.tsx:5"
+
+scope:
+  in: "page.tsx renders RunLogView only; ?view=graph is ignored. Deleted, each after an import search shows only deleted code uses it: story/RunStory, StoryBar, TicketPanel, SpecPlanPanels, LedgerPanel, SpecsPanel, SpecOutcome, BuildNotes, OutcomePanel; RunSideRail; execution/NavRail, RailRow, DetailPane, ArchitectureDetail, PlanDetail, ResultDetail, PaneResizeHandle, ExecutionNode, ExecutionTree, LiveTail, StepOutcomeLine, CollapsibleSection and bodies/* except what the step detail reuses; hooks useRunExecutionTree, execution-tree/buckets and perRepoAggregator, useSystemExecutionTree (no importer), useRailSelection, usePersistedPaneWidth, useViewportWidth; jobs/TopologyGraph, TopologyDetail, TopologyCard, SandboxList; runlog RunFacts, RunStatusBox, RunProgressStrip and the storySections builders; their tests; CSS rules found unused by search, not by group name."
+  out: "Kept: VerifySummary, verifyFallback, UnmeasuredAccounts, CriterionJudgementControl, useRunJudgements, runLedger; beatMonotonic (RunStats); TimingGutter's NodeStatus (RunRow, StatusIcon, runStatus, runStepRail); execution-tree/llmPairing and eventDescriptors; EventDrawer (SubsystemDetail); SandboxBox and useSandboxEvents if the step detail uses them; RunSectionLog, runSections, VerifyPassLines and StorySectionId (ticket page inline log); .card/.badge/.kv (Why page) and .drawer (config EntityDrawer); the Why page."
+
+steps:
+  - id: page
+    action: "page.tsx keeps the data hooks and renders RunLogView."
+  - id: delete
+    action: "Delete each unused module, found by import search, and its tests."
+  - id: css
+    action: "Remove the storybar, beat, sidebox, health, pods, drawer, trace-grid, ledger, outcome and ticket-layout rules no remaining class uses; drop run-log.css rules of deleted pieces."
+  - id: tests
+    action: "Page tests rewritten against the log: live progress, parked run relaunching, step detail following the run, rail from projections."
+
+tests:
+  - "Page tests: no story-bar, side rail or trace drawer; ?view=graph renders the log."
+
+done:
+  - "No import of a deleted module remains; tsc, pnpm test and build are green."

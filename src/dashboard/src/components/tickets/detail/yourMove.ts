@@ -71,12 +71,13 @@ export function stuck(view: TicketStateView, base: Omit<YourMove, "tone" | "titl
   return { ...base, tone: "bad", why: true, title: stuckTitle(view.attempt) };
 }
 
-function stuckTitle(head: TicketAttempt | null): string {
+/** 2026-11-17-6d9ea: exported for the run page's How it ended, which names a stop the way the ticket page does. */
+export function stuckTitle(head: TicketAttempt | null): string {
   if (head?.endedOnInfrastructure) return "Stopped: the sandbox or host was lost";
   return (head?.endKind && STUCK_TITLES[head.endKind]) || "Stopped";
 }
 
-function instruction(detail: EndDetail): string | null {
+export function instruction(detail: EndDetail): string | null {
   if (!detail.control) return null;
   const to = detail.setTo ? ` to ${detail.setTo}` : "";
   const where = detail.settingsPath ? ` under ${detail.settingsPath}` : "";

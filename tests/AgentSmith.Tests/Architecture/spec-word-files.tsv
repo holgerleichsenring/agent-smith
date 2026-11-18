@@ -133,14 +133,6 @@ src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerRequestComposer.cs	
 src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs	Phase	4
 src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs	phase	7
 src/dashboard/src/components/dialog/__tests__/conversationDelete.test.ts	phase	2
-src/dashboard/src/components/execution/__tests__/LlmRowPairing.test.tsx	phase	13
-src/dashboard/src/components/execution/bodies/CommandTimeline.tsx	phase	3
-src/dashboard/src/components/execution/bodies/LlmCallsBody.tsx	phase	9
-src/dashboard/src/components/execution/bodies/__tests__/CommandTimeline.test.tsx	phase	1
-src/dashboard/src/components/execution/bodies/__tests__/LlmCallsBody.test.tsx	phase	5
-src/dashboard/src/components/jobs/story/RunStory.tsx	phase	13
-src/dashboard/src/components/jobs/story/StoryBar.tsx	phase	7
-src/dashboard/src/components/jobs/story/__tests__/StoryBar.test.tsx	phase	1
 src/dashboard/src/hooks/execution-tree/llmPairing.ts	phase	8
 src/dashboard/src/lib/configApi.ts	phase	1
 src/dashboard/src/lib/runSpecsApi.ts	phases	1

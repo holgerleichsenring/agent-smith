@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-6d9ed
+
+decisions:
+  - category: Behaviour
+    chose: "The run page renders the log only; an old ?view=graph address shows the log"
+    over: "Keeping the graph view behind a switch"
+    reason: "The operator approved one condensed log; every element of both old views has a place in it or a named reason to go (inventory in 6d9ea)."
+  - category: Architecture
+    chose: "Deleted with their tests: the story panels and beats, the side rail, the execution rail, step panel, overview panes and step bodies, the execution-tree fold, the rail selection and pane-width hooks, the topology graph and detail, TopologyCard and SandboxList, runStepRail's rail builders and runStatus.statusSpill"
+    over: "Leaving unused modules in place"
+    reason: "Nothing imports them once the page is the log; an import search decided each one."
+  - category: Architecture
+    chose: "Kept: VerifySummary with CriterionJudgementControl and UnmeasuredAccounts, verifyFallback, runLedger, useRunJudgements; llmPairing; EventDrawer (system subsystem detail); TimingGutter's NodeStatus; beatMonotonic (runs list); SandboxBox and useSandboxEvents; RunSectionLog and runSections (ticket page)"
+    over: "Deleting by directory"
+    reason: "Each has a user outside the graph view; the review named the ones a directory delete would have broken."
+  - category: Architecture
+    chose: "eventDescriptors goes with the fold; the step detail words its own lines"
+    over: "Keeping describeEvent for the step detail as 6d9ec's review suggested"
+    reason: "The step detail needs time, kind, text and meta apart and a filter per line; describeEvent returned one string."
+  - category: Behaviour
+    chose: "mock-parity.css loses only .mock-viewer selectors that name a class no remaining source uses, removed with postcss; the Why page's stage, card, kv, health, metric and trace-grid stay"
+    over: "Removing the rule groups by their comment headers"
+    reason: "Other surfaces share class names; a selector-level removal cannot take a rule another page still draws."
+  - category: Behaviour
+    chose: "The dashboard reference's Run detail section describes the log; the run-detail screenshot is not retaken here"
+    over: "Leaving the story-view text"
+    reason: "The text was wrong once the graph went; a retake needs a seeded run and is the screenshot spec's job (2026-10-15-5e9dc)."
