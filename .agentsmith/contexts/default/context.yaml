@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-dafc: "SECRET USERS REGISTRIES (EntityCard secretUsers, ConfigStudio secrets list). A secret card names the registries whose token is ${id} or the bare id, read from the registries setting; a feed token in use no longer reads not referenced yet. -> .agentsmith/specs/done/2026-11-18-dafc-secret-users-registries.yaml"
     2026-11-18-73ca: "SIDEBAR HOME AND WORK IT OUT (AppSidebar, app-shell.css). + New work and the brand lead to home (/); Work it out is its own item for the conversations. -> .agentsmith/specs/done/2026-11-18-73ca-sidebar-home-work-it-out.yaml"
     2026-11-18-98fa: "MASTER REPORT MARKDOWN (FinishSpecToolHost, MasterReport, MasterReportAccount, AcceptanceView.Reports, VerifySummary, ticket run log; pin v5.37.1). The coding master reports in markdown, never parsed, and ends with a typed finish_spec; verdict parser, per-line gate, claim objection, surrender challenge, declined criteria gone. -> .agentsmith/specs/done/2026-11-18-98fa-master-report-markdown.yaml"
     2026-11-18-4f3e: "SKILLS PIN v5.36.0 (embedded catalog, coding-master text tests, SpecExecutionPromptFactory, docs). Coding master 3.0.0 leads a sub-agent, writes plan.md to the run record and reports per done line with follow-ups; its verdict example parses field for field; MaxFixIterations stays bound for older pins. -> .agentsmith/specs/done/2026-11-18-4f3e-skills-pin-coding-master-leads.yaml"
