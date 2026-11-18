@@ -21,6 +21,8 @@ public static class AdminPipelineExtensions
         // 2026-11-17-f3a8c: the config run.
         services.AddSingleton<ConfigEntityKinds>().AddScoped<ConfigChangeApplier>().AddScoped<ConfigChangedSignal>();
         services.AddTransient<ICommandHandler<ApplyConfigChangesContext>, ApplyConfigChangesHandler>();
+        // 2026-11-17-f3a8d: the secret run.
+        services.AddScoped<SecretWrite>().AddTransient<ICommandHandler<WriteSecretContext>, WriteSecretHandler>();
         return services;
     }
 }

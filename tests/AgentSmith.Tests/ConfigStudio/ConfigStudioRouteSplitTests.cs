@@ -42,7 +42,7 @@ public sealed class ConfigStudioRouteSplitTests
 
     [Fact]
     public void ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit() =>
-        MappedRoutes().Should().HaveCount(48);
+        MappedRoutes().Should().HaveCount(52); // 2026-11-17-f3a8d: + the four secret-value routes
 
     [Fact]
     public void ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths() =>
@@ -85,6 +85,8 @@ public sealed class ConfigStudioRouteSplitTests
             "GET /api/config/settings",
             "GET /api/config/settings/{type}",
             "PUT /api/config/settings/{type}",
+            "GET /api/config/secret-values", "PUT /api/config/secret-values/{name}", // 2026-11-17-f3a8d
+            "DELETE /api/config/secret-values/{name}", "POST /api/config/secret-values/rewrap",
         ];
 
     // Maps the real endpoints onto a bare host and reads them back. Route mapping

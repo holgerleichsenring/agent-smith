@@ -70,18 +70,23 @@ public sealed class AdminReadToolsUnitTests : IDisposable
     }
 
     [Fact]
-    public void ReadSecretsAndHealth_NameAndPresence_NeverAValue()
+    public async Task ReadSecretsAndHealth_NameSourceAndPresence_NeverAValue()
     {
         var store = new Mock<IConfigStore>();
         store.Setup(s => s.GetSecrets()).Returns([new SecretEntity("gh"), new SecretEntity("jira")]);
         var secrets = new Mock<ISecretValues>();
         secrets.Setup(s => s.Resolve("gh")).Returns("value-of-gh");
+        var vault = new Mock<ISecretVault>();
+        vault.Setup(v => v.StatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([
+            new AgentSmith.Contracts.Models.StoredSecretState("gh", "ada", DateTimeOffset.UtcNow, "env:1", true, true)]);
         var config = new AdminConfigReadTools(Mock.Of<IConfigurationLoader>(), new ServerContext("x"),
-            Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()), null!, null!, store.Object, secrets.Object);
+            Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()), null!, null!, secrets.Object,
+            new AgentSmith.Server.Services.Admin.Secrets.SecretValuesReader(store.Object, vault.Object));
         var findings = new Mock<IStartupFindings>();
         findings.Setup(f => f.All).Returns([]);
 
-        config.ReadSecrets().Should().Contain("\"present\":true").And.Contain("\"present\":false").And.NotContain("value-of-gh");
+        (await config.ReadSecrets()).Should().Contain("\"present\":true").And.Contain("\"source\":\"stored\"")
+            .And.Contain("\"source\":\"missing\"").And.Contain("\"storedBy\":\"ada\"").And.NotContain("value-of-gh");
         new AdminHealthTools(findings.Object).ReadHealth().Should().Contain("replica");
     }
 

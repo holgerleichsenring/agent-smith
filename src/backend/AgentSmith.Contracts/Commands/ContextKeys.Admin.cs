@@ -11,4 +11,10 @@ public static partial class ContextKeys
 
     /// <summary>A config run's report slot, read back by the server after the run.</summary>
     public const string ConfigApplyReport = "ConfigApplyReport";
+
+    /// <summary>2026-11-17-f3a8d: a secret run's request — never serialized into a checkpoint, removed once sealed.</summary>
+    public const string SecretWriteRequest = "SecretWriteRequest";
+
+    /// <summary>2026-11-17-f3a8d: a secret run's report slot.</summary>
+    public const string SecretWriteReport = "SecretWriteReport";
 }

@@ -51,6 +51,7 @@ public static class ContextBuildersExtensions
         AddBuilder<CloseTicketContextBuilder>(services, CommandNames.CloseTicket); // 2026-11-17-e061a
         AddBuilder<AdminAssistantTurnContextBuilder>(services, CommandNames.AdminAssistantTurn); // 2026-11-17-f3a8a
         AddBuilder<ApplyConfigChangesContextBuilder>(services, CommandNames.ApplyConfigChanges); // 2026-11-17-f3a8c
+        AddBuilder<WriteSecretContextBuilder>(services, CommandNames.WriteSecret); // 2026-11-17-f3a8d
         AddBuilder<ReopenTicketContextBuilder>(services, CommandNames.ReopenTicket);
         AddBuilder<StartTicketContextBuilder>(services, CommandNames.StartTicket); // 2026-11-17-e061b
         AddBuilder<AmendTicketContextBuilder>(services, CommandNames.AmendTicket); // 2026-11-17-e061c

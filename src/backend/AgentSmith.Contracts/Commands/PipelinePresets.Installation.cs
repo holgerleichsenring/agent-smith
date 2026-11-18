@@ -16,10 +16,15 @@ public static partial class PipelinePresets
 
     public static readonly IReadOnlyList<string> Config = [CommandNames.ApplyConfigChanges];
 
+    /// <summary>2026-11-17-f3a8d: preset name of a secret run — a value set, deleted or re-wrapped in the admin area.</summary>
+    public const string SecretName = "secret";
+
+    public static readonly IReadOnlyList<string> Secret = [CommandNames.WriteSecret];
+
     // The runs on the installation, launched by the server with a transcript or a request only it supplies.
     private static readonly Dictionary<string, IReadOnlyList<string>> InstallationSteps = new(StringComparer.OrdinalIgnoreCase)
     {
-        [AdminTurnName] = AdminTurn, [ConfigName] = Config,
+        [AdminTurnName] = AdminTurn, [ConfigName] = Config, [SecretName] = Secret,
     };
 
     private const string InstallationReason = "it runs on the installation itself with a conversation or a request "

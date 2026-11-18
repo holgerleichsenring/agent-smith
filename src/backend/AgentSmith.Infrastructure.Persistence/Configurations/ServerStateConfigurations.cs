@@ -16,7 +16,7 @@ public sealed class ServerStateConfigurations
         modelBuilder.ApplyConfiguration(new ObservedCallerConfiguration()); // 2026-08-26-7a51
         modelBuilder.ApplyConfiguration(new ConnectionDiscoveryConfiguration()); // 2026-10-02-5ab2a
         modelBuilder.ApplyConfiguration(new PendingClarificationConfiguration()); // 2026-10-02-5ab2d
-        modelBuilder.ApplyConfiguration(new WebhookLastSeenConfiguration()); // 2026-10-02-5ab2e
+        modelBuilder.ApplyConfiguration(new WebhookLastSeenConfiguration()).ApplyConfiguration(new StoredSecretConfiguration()); // 5ab2e, f3a8d
         modelBuilder.ApplyConfiguration(new ReworkNudgeConfiguration()); // 2026-10-08-0781
         modelBuilder.ApplyConfiguration(new ReworkLedgerConfiguration()); // 2026-10-08-0781
         modelBuilder.ApplyConfiguration(new SweepCursorConfiguration()); // 2026-10-08-9e6e

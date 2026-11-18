@@ -7,6 +7,7 @@ DELETE	/api/config/design-sources/{id}	config.write	-
 DELETE	/api/config/mcp-servers/{id}	config.write	-
 DELETE	/api/config/projects/{id}	config.write	-
 DELETE	/api/config/repos/{id}	config.write	-
+DELETE	/api/config/secret-values/{name}	secrets.write	-
 DELETE	/api/config/secrets/{id}	secrets.write	-
 DELETE	/api/config/trackers/{id}	config.write	-
 DELETE	/api/projects/{name}/memories/{slug}	runs.control	route:name
@@ -40,6 +41,7 @@ GET	/api/config/projects	config.read	-
 GET	/api/config/projects/{project}/contexts	diagnostics.probe	-
 GET	/api/config/repos	config.read	-
 GET	/api/config/sandbox/image-trust	config.read	-
+GET	/api/config/secret-values	secrets.read	-
 GET	/api/config/secrets	secrets.read	-
 GET	/api/config/settings	config.read	-
 GET	/api/config/settings/{type}	config.read	-
@@ -108,6 +110,7 @@ POST	/api/config/mcp-servers	config.write	-
 POST	/api/config/projects	config.write	-
 POST	/api/config/projects/validate	config.write	-
 POST	/api/config/repos	config.write	-
+POST	/api/config/secret-values/rewrap	secrets.write	-
 POST	/api/config/secrets	secrets.write	-
 POST	/api/config/trackers	config.write	-
 POST	/api/config/trackers/check	config.write,diagnostics.probe	-
@@ -145,6 +148,7 @@ PUT	/api/config/design-sources/{id}	config.write	-
 PUT	/api/config/mcp-servers/{id}	config.write	-
 PUT	/api/config/projects/{id}	config.write	-
 PUT	/api/config/repos/{id}	config.write	-
+PUT	/api/config/secret-values/{name}	secrets.write	-
 PUT	/api/config/secrets/{id}	secrets.write	-
 PUT	/api/config/settings/{type}	config.write	-
 PUT	/api/config/trackers/{id}	config.write	-
