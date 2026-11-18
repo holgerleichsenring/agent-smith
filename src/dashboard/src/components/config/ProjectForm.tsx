@@ -188,7 +188,7 @@ export function ProjectForm({
           />
         )}
 
-        {tab === "merge" && <ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} />}
+        {tab === "merge" && <ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} secrets={catalog.secrets} />}
       </div>
 
       <DraftFindings findings={findings} />

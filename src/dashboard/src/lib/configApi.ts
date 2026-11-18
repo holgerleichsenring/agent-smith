@@ -718,6 +718,14 @@ export interface ProjectMerge {
   when: string;
   respectBranchProtection: boolean;
   refreshOpenPullRequests: boolean;
+  /** 2026-11-17-3435d: the CI loop's keys; absent or null is the key's default. */
+  ciPollSeconds?: number | null;
+  ciSettleSeconds?: number | null;
+  ciPendingSeconds?: number | null;
+  ciFixAttempts?: number | null;
+  ciExcerptChars?: number | null;
+  ciFailedChecksRead?: number | null;
+  approvalAuth?: string | null;
 }
 
 export interface StudioMcpServer {
