@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-e06be: "RUN STEP CALL SEQUENCE (callSequence, StepCallSequence, fetchPromptDigest, promptId on PairedLlmCall). The LLM filter of an open step lists its calls numbered: role · model · tokens (cache) · cost · time, then fed and decided lines from the digest or tool events; a click opens CallPrompt; newest 20, show earlier. -> .agentsmith/specs/done/2026-11-18-e06be-runlog-call-sequence.yaml"
     2026-11-18-e06bd: "PROMPT CALL DIGEST (PromptDigestView, PromptChain, PromptDigestLines, PromptDigestReader, GET /api/runs/{runId}/prompts/digest?ids=). Per stored call one fed line (its last message, tool results named) and one decided line (the answer its tool-loop successor carries). -> .agentsmith/specs/done/2026-11-18-e06bd-prompt-call-digest.yaml"
     2026-11-18-e06bc: "RUN LOG SPEC RECORD STRUCTURED (specRecord yaml parse, SpecRecordView, CitedList, VerifySummary renderCitation). The spec it executed reads as labelled rows (goal, scope, steps, tests, done, other keys, delivered); delivered and checked criteria cite at most two paths inline, more behind n files ›. -> .agentsmith/specs/done/2026-11-18-e06bc-runlog-spec-structured.yaml"
     2026-11-18-e06bb: "RUN LOG MARKDOWN AND DECISIONS (LogText InlineText/BlockText, decisionParts, DecisionLine). Log text renders bold, code, links, paragraphs and lists; a decision is one line, bold title and dim cut reason, whole on click; used in acceptance, plan, decisions and step lines. -> .agentsmith/specs/done/2026-11-18-e06bb-runlog-markdown-decisions.yaml"

@@ -10,6 +10,7 @@ import type { LogStep } from "./runLogSections";
 import { commandKey } from "./runSections";
 import { InlineText } from "./LogText";
 import { RunStepHead } from "./RunStepHead";
+import { StepCallSequence } from "./StepCallSequence";
 import { repoOutcomeWords, repoSummary, stepDetailLines, type DetailFilter, type DetailLine } from "./stepDetailLines";
 
 // 2026-11-17-6d9ec: an open step, in place under its line — what the graph's "Full pipeline — step x/n" panel showed,
@@ -73,22 +74,30 @@ export function RunStepDetail({ runId, step, live }: Props) {
           </span>
         </div>
       )}
-      {page.hasOlder && (
-        <div className="rl-detail-older" data-testid="step-events-older-notice">
-          showing this step&rsquo;s newest events; older ones exist ·{" "}
-          <button type="button" className="rl-filter" disabled={page.loading} onClick={page.loadOlder} data-testid="step-events-load-older">
-            {page.loading ? "loading…" : "load older"}
-          </button>
-        </div>
-      )}
-      {visible.map((l) => <Line key={l.key} line={l} />)}
-      {!row.planned && shown.length === 0 && (
-        <div className="rl-detail-line rl-dim" data-testid="step-detail-empty">{page.loading ? "reading the step…" : "nothing recorded here"}</div>
-      )}
-      {shown.length > CAP && (
-        <button type="button" className="rl-filter rl-more-lines" onClick={() => setAll((a) => !a)} data-testid="step-show-all">
-          {all ? "show fewer" : `show all ${shown.length} ›`}
-        </button>
+      {!row.planned && filter === "llm" ? (
+        // 2026-11-18-e06be: the LLM filter is the step's call sequence — numbered, fed and decided, the prompt on a click.
+        <StepCallSequence runId={runId} events={page.events} total={row.llmCalls ?? null} hasOlder={page.hasOlder}
+          loading={page.loading} loadOlder={page.loadOlder} runEnded={!live} />
+      ) : (
+        <>
+          {page.hasOlder && (
+            <div className="rl-detail-older" data-testid="step-events-older-notice">
+              showing this step&rsquo;s newest events; older ones exist ·{" "}
+              <button type="button" className="rl-filter" disabled={page.loading} onClick={page.loadOlder} data-testid="step-events-load-older">
+                {page.loading ? "loading…" : "load older"}
+              </button>
+            </div>
+          )}
+          {visible.map((l) => <Line key={l.key} line={l} />)}
+          {!row.planned && shown.length === 0 && (
+            <div className="rl-detail-line rl-dim" data-testid="step-detail-empty">{page.loading ? "reading the step…" : "nothing recorded here"}</div>
+          )}
+          {shown.length > CAP && (
+            <button type="button" className="rl-filter rl-more-lines" onClick={() => setAll((a) => !a)} data-testid="step-show-all">
+              {all ? "show fewer" : `show all ${shown.length} ›`}
+            </button>
+          )}
+        </>
       )}
       {commandKey(row) === "AnalyzeCode" && <AnalyzeDoc runId={runId} />}
     </>

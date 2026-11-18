@@ -124,7 +124,9 @@
 /* 2026-11-18-e06ba: a plan step on one line — the action truncates (whole on hover), the target is short and dim. */
 .mock-viewer .rl-ledger-act { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mock-viewer .rl-ledger:hover .rl-ledger-act { white-space: normal; }
-.mock-viewer .rl-ledger-target { max-width: 32ch; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The target is cut at its start, so the file name — its last segment — stays visible. */
+.mock-viewer .rl-ledger-target { max-width: 40ch; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.mock-viewer .rl-ledger-target > bdi { direction: ltr; }
 .mock-viewer .rl-strong { color: var(--ink); }
 .mock-viewer .rl-num { list-style: none; margin: 0; padding: 0; }
 .mock-viewer .rl-num > li { display: grid; grid-template-columns: 3ch minmax(0, 1fr); gap: 8px; }
@@ -201,7 +203,8 @@
 .mock-viewer .rl-spec-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; }
 .mock-viewer .rl-spec-label { color: var(--ink-3); }
 .mock-viewer .rl-spec-val { min-width: 0; overflow-wrap: anywhere; }
-.mock-viewer .rl-spec-step { display: grid; grid-template-columns: minmax(6ch, max-content) minmax(0, 1fr); gap: 10px; }
+.mock-viewer .rl-spec-step { display: grid; grid-template-columns: 12ch minmax(0, 1fr); gap: 10px; }
+.mock-viewer .rl-spec-step > .rl-dim { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mock-viewer .rl-delivered { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; column-gap: 10px; }
 .mock-viewer .rl-delivered-mark { color: var(--ink-3); }
 .mock-viewer .rl-delivered.done .rl-delivered-mark, .mock-viewer .rl-delivered.done .rl-delivered-state { color: var(--ok); }
@@ -213,3 +216,18 @@
 .mock-viewer .rl-cited-items { display: flex; flex-direction: column; padding-left: 14px; }
 .mock-viewer .rl-cited-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 640px) { .mock-viewer .rl-spec-row { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+/* 2026-11-18-e06be: a step's model calls — number, role · model, tokens and spend in aligned columns; what the call was
+   fed and what it decided as two dim lines under it; the prompt opens under its call. */
+.mock-viewer .rl-calls { display: flex; flex-direction: column; gap: 4px; }
+.mock-viewer .rl-call-line { width: 100%; display: grid; grid-template-columns: 5ch minmax(0, 1fr) auto 15ch; gap: 0 12px; padding: 0; border: 0; background: none; font: inherit; color: var(--ink-2); text-align: left; cursor: pointer; }
+.mock-viewer .rl-call-line:disabled { cursor: default; }
+.mock-viewer .rl-call-line[aria-expanded="true"] { color: var(--ink); }
+.mock-viewer .rl-call-n { color: var(--ink-3); text-align: right; }
+.mock-viewer .rl-call-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-viewer .rl-call-tokens { color: var(--ink-3); white-space: nowrap; }
+.mock-viewer .rl-call-spend { text-align: right; white-space: nowrap; }
+.mock-viewer .rl-call-io { padding-left: calc(5ch + 12px); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-viewer .rl-call-prompt { padding: 2px 0 8px calc(5ch + 12px); }
+@media (max-width: 640px) { .mock-viewer .rl-call-line { grid-template-columns: 5ch minmax(0, 1fr); } .mock-viewer .rl-call-tokens, .mock-viewer .rl-call-spend { grid-column: 2; text-align: left; } }
+.mock-viewer .rl-call-prompt .kv { display: block; margin: 0 0 4px; padding: 0; border: 0; background: none; font-size: 12px; color: var(--ink-3); }

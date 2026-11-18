@@ -116,7 +116,7 @@ export function PlanBody({ runId, ledger, hasSpecs, events }: { runId: string; l
             <div key={e.id} className={`rl-body-line rl-ledger ${e.status}`} data-testid={`ledger-line-${e.id}`} data-status={e.status}>
               <span className="rl-ledger-tag">{LEDGER_TAG[e.status]}</span>
               <span className="rl-ledger-act" title={e.activity}><InlineText text={e.activity} /></span>
-              {e.target ? <span className="rl-ledger-target" title={e.target} data-testid={`ledger-target-${e.id}`}>{shortTargets(e.target)}</span> : <span />}
+              {e.target ? <span className="rl-ledger-target" title={e.target} data-testid={`ledger-target-${e.id}`}><bdi>{shortTargets(e.target)}</bdi></span> : <span />}
             </div>
           ))}
           <div className="rl-body-line rl-dim" data-testid="plan-body-ledger-count">{ledgerCount(ledger)}</div>
@@ -208,7 +208,7 @@ export function CheckBody({ snapshot, events, judged }: { snapshot: RunSnapshot 
     <div className="rl-body rl-plain" data-testid="check-body">
       <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} judgements={judged.judgements}
         judgementBusy={judged.busy} onRecordJudgement={judged.record} onWithdrawJudgement={judged.withdraw}
-        renderCitation={(citation) => <CitedList text={citation} />} />
+        renderCitation={(citation) => <CitedList text={citation} />} renderText={(text) => <InlineText text={text} />} />
       {judged.error && <div className="rl-body-line rl-bad" data-testid="check-body-error">The judgement was not recorded: {judged.error}</div>}
     </div>
   );

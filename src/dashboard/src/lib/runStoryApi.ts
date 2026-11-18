@@ -156,3 +156,23 @@ export async function fetchCallPrompt(
     signal,
   );
 }
+
+/** 2026-11-18-e06be: one call in two lines — what it was fed and what it decided; null where the store holds neither. */
+export interface PromptDigestView {
+  promptId: string;
+  fed: string | null;
+  decided: string | null;
+}
+
+export async function fetchPromptDigest(
+  runId: string,
+  promptIds: string[],
+  signal?: AbortSignal,
+): Promise<PromptDigestView[]> {
+  const ids = promptIds.map(encodeURIComponent).join(",");
+  const body = await getJson<{ calls?: PromptDigestView[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/prompts/digest?ids=${ids}`,
+    signal,
+  );
+  return body.calls ?? [];
+}
