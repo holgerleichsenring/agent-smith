@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.190.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.189.0...v0.190.0) (2026-11-18)
+
+
+### Features
+
+* **loop:** a master starts sub-agents in the background, writes to them and continues them (2026-11-18-c8e2a) ([a478aaf](https://github.com/holgerleichsenring/agent-smith/commit/a478aaff50f7246e04a2e640499b4f9321234465))
+* **master:** the coding master reports per done line, fixed in passing and follow-ups (2026-11-18-c8e2b) ([837d234](https://github.com/holgerleichsenring/agent-smith/commit/837d234a293eb78f404ab8407240171dd0a2a38c))
+* **master:** the master's report is markdown; finish_spec carries what the pipeline needs (2026-11-18-98fa) ([8ac34a9](https://github.com/holgerleichsenring/agent-smith/commit/8ac34a9f5ca42bca3db090a15f8372234d75f942))
+* **report:** the master's report and its sub-agent's work are shown, and a follow-up is filed with one action (2026-11-18-c8e2d) ([c558f09](https://github.com/holgerleichsenring/agent-smith/commit/c558f096fcbddf33e077313c02d1f2ef3c685168))
+* **skills:** pin skills v5.36.0 — the coding master leads a sub-agent and reports with follow-ups (2026-11-18-4f3e) ([a845321](https://github.com/holgerleichsenring/agent-smith/commit/a845321df3281556167b588695671c5b23d298f0))
+* the coding master leads a sub-agent and reports in markdown; verify is mechanical (2026-11-18-c8e2, 4f3e, 98fa) ([01506ec](https://github.com/holgerleichsenring/agent-smith/commit/01506ec062e5e10f1c49551fe2ccc4ea49e86f81))
+* **verify:** verify is mechanical; the spec's account is its master's report (2026-11-18-c8e2c) ([bc797e7](https://github.com/holgerleichsenring/agent-smith/commit/bc797e7397a7cbe83b7d751c5bb57b2e5b1191ac))
+
+
+### Bug Fixes
+
+* **review:** a spec review cut only removes or narrows; missing scope is a finding (2026-11-18-c8e2e) ([70b63c5](https://github.com/holgerleichsenring/agent-smith/commit/70b63c54aac678deaef76941db20e63d98ef9c28))
+
 ## [0.189.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.188.0...v0.189.0) (2026-11-18)
 
 

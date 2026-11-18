@@ -65,7 +65,7 @@ spec:
       # CLI image into the internal registry alongside the server image.
       initContainers:
         - name: migrate
-          image: holgerleichsenring/agent-smith-cli:0.189.0  # x-release-please-version
+          image: holgerleichsenring/agent-smith-cli:0.190.0  # x-release-please-version
           imagePullPolicy: IfNotPresent
           # p0348: call the DLL directly — the image ENTRYPOINT is a gosu shim
           # that cannot drop privileges under this hardened securityContext.
@@ -78,7 +78,7 @@ spec:
               mountPath: /var/lib/agentsmith
       containers:
         - name: server
-          image: holgerleichsenring/agent-smith-server:0.189.0  # x-release-please-version
+          image: holgerleichsenring/agent-smith-server:0.190.0  # x-release-please-version
           ports:
             - containerPort: 8081
           env:
