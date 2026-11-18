@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-0207a
+
+decisions:
+  - category: Architecture
+    chose: "The series master is a durable SeriesRun record plus short 'series-run' beat runs (ReadSeries, SeriesMaster, PostSeriesStatus), each a queued run with its own run id, started by a sweep on the housekeeping leader"
+    over: "One long-lived run that parks between events"
+    reason: "Every non-design-turn run is cancelled after orchestrator.max_run_wall_time_seconds and only a ticket run can checkpoint; several servers run side by side, so a series held in one process would die with it. A beat any worker takes, over a record any replica reads, is a pipeline run with a run id for every step of work."
+  - category: Architecture
+    chose: "A series runs one beat at a time because the sweep starts none while the newest beat's run row is unfinished; a dead beat is finished by the run reaper"
+    over: "A lease column on the series record"
+    reason: "Adversarial review: a lease would be a second mechanism beside the run lease; the run row already says whether the beat is alive."
+  - category: Architecture
+    chose: "The record holds only the series' own state (members, question, verdicts, thread, cursors, spend); requires edges, landings, runs and done criteria are read from the tables that keep them"
+    over: "Copying edges and criteria into the record at filing"
+    reason: "Review: TicketRequirement and ApprovedSeries already carry them; a copied fact is a second answer waiting to disagree."
+  - category: Architecture
+    chose: "The master's body is embedded (PromptOwner.Embedded, series-master)"
+    over: "A master skill in agent-smith-skills with a release and a pin bump"
+    reason: "Its tools are this server's records and acts, so it changes with the server; the parallel admin assistant took the same route. No skills PR is needed."
+  - category: Implementation
+    chose: "The master judges only when something needs it (a ticket newly red; later specs add operator messages, answered questions, failed checks and a stand-still); its spend accrues on the record and dialogue.series_master_budget_usd (default 20) bounds it, said once when spent"
+    over: "A master call on every beat or on the status cadence"
+    reason: "Review: a cadence call is about 96 model calls a day per series for nothing a plain table cannot say. The tickets' runs have their own caps; this bounds the judging only, and the message names the value and the key."
+  - category: Implementation
+    chose: "The master's thread keeps each judged beat's prompt and answer, not its tool calls; the loop's compaction bounds what is sent"
+    over: "Persisting the full tool transcript"
+    reason: "A beat's tool calls stay in its run; what the master concluded is its answer, which is what the next beat needs."
+  - category: Implementation
+    chose: "Acts go through the paths a person's act takes, as the series' approver with the runs.control sampled at filing: start = TicketStartRun after UnmetTicketRequirements, retry = RunRetry, tell = the ticket conversation route (running attempt reads it mid-run, otherwise the steward answers); propose_recut posts a proposal and changes nothing"
+    over: "Direct status moves or rework nudges from the series"
+    reason: "No second path: each act reuses the one the dashboard and the conversation already use. A stale permission is accepted like every filed start's."
+  - category: Implementation
+    chose: "A filing of two or more tickets opens a series; one ticket opens none; a filing seeded with a series id joins it"
+    over: "A series for every filing"
+    reason: "A single ticket is worked in its own ticket conversation; the series' verify files its follow-up into the same series by its id."

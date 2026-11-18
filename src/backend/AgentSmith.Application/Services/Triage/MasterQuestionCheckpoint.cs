@@ -83,6 +83,7 @@ public sealed class MasterQuestionCheckpoint(
             : null;
         return new DialogQuestion(
             askId, choices is null ? QuestionType.FreeText : QuestionType.Choice,
-            text, Context: null, choices, DefaultAnswer: null, Patience);
+            text, Context: null, choices, DefaultAnswer: null, Patience,
+            RecommendedIndex: choices is null ? null : first.RecommendedIndex); // 0207c: a series relaying it may take it
     }
 }

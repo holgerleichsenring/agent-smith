@@ -136,6 +136,7 @@ vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: (limit?: number) => fetchSpecDialogConversations(limit),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
+  fetchSeriesRun: () => Promise.resolve(null), // 2026-11-17-0207e: no series in these conversations
   // 2026-09-25-8e51b: the binding is passed on only when there IS one, so every case that
   // predates it still asserts the three-argument call it always made.
   // 2026-11-10-ccd9 review: the card a message names is recorded beside the call, for the cases about it.

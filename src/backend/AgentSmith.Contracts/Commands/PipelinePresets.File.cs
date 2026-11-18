@@ -12,5 +12,6 @@ public static partial class PipelinePresets
     [
         CommandNames.PlanFiling,
         CommandNames.FileTickets,
+        CommandNames.OpenSeriesRun, // 2026-11-17-0207a: two or more filed tickets are a series the series master owns
     ];
 }

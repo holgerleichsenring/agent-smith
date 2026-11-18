@@ -30,6 +30,7 @@ public static partial class PipelinePresets
             [TicketBodyName] = string.Empty, // 2026-11-17-dd05b
             [RetargetName] = string.Empty, // 2026-11-17-9a39c
             [AdminTurnName] = AdminAssistantMaster, [ConfigName] = string.Empty, [SecretName] = string.Empty, // f3a8a, f3a8c, f3a8d
+            [SeriesRunName] = "series-master", [SeriesVerifyName] = "series-verify-master", // 0207a, 0207d: embedded bodies
             [MergeGreenName] = string.Empty, // 2026-11-17-3435b
         };
 

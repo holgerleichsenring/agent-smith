@@ -38,6 +38,11 @@ public static class PromptOwnership
             // 2026-11-17-f3a8a: the admin assistant's master is the server's own — its tools read and change this
             // server's records, so it changes with the server rather than with a skills release.
             ["admin-assistant-master"] = PromptOwner.Embedded,
+
+            // 2026-11-17-0207a: the series master's body is the server's own — its tools are this server's records and
+            // acts, so it changes with the server rather than with a skills release.
+            ["series-master"] = PromptOwner.Embedded,
+            ["series-verify-master"] = PromptOwner.Embedded, // 2026-11-17-0207d: the series check's body, same reason
         };
 
     /// <summary>

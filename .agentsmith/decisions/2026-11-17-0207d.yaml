@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-0207d
+
+decisions:
+  - category: Architecture
+    chose: "A series-verify preset (LoadCatalog, CheckoutSource, VerifySeries, PlanFiling, FileTickets, OpenSeriesRun) launched on the queued path by the beat once every ticket landed; the follow-up is filed by the filing run's own steps"
+    over: "Checking in-process on the leader, or a second filer"
+    reason: "Review: a sandboxed model run belongs on the queued path any worker takes. No second path: PlanFiling and FileTickets are the 'file' run's steps, so a follow-up is filed, recorded and started exactly like an approved one; with nothing failing they report nothing to file."
+  - category: Architecture
+    chose: "The criteria are the done criteria of the specs read off each ticket's branch (TicketBranchSeries), behind ISeriesCriteria; a ticket whose branch cannot be read is named in the verdict"
+    over: "Reading the approval record's copy"
+    reason: "ApprovalSetReadersRatchetTests: the ticket branch is the only spec text, and a spec the steward revised is what the series must meet. The check is the cross-ticket re-check after every merge, which no single run's keystone can make."
+  - category: Implementation
+    chose: "One follow-up per check carrying every failure not followed up before; a criterion failing again after its follow-up landed is reported as open, never re-filed; a check with no new failure ends the series"
+    over: "One ticket per failed criterion, or re-filing each time"
+    reason: "Bounded by a property, not a count: the series ends once nothing new fails. The summary says what stays open and whether anything waits on the operator."
+  - category: Implementation
+    chose: "An unrecorded criterion counts as not shown to hold; a check that ended without a verdict is told to the master, whose check_series starts it again"
+    over: "Ignoring unrecorded criteria, or relaunching automatically"
+    reason: "A silent criterion is not a pass; an automatic relaunch of a broken check would loop."
+  - category: Implementation
+    chose: "The composition test scripts the tickets' facts, the queued launch, the criteria and the clock; everything between — filing, store, conversation, routing, beats, master tools, the check run with its checkout and its filing — is the real composition"
+    over: "Driving real ticket runs and merges"
+    reason: "Starting, stacking and merging tickets are the existing pipelines' own and have their own tests; the series owns what it reads and says."

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-17-0207c
+
+decisions:
+  - category: Architecture
+    chose: "Operator brief: a question with a recommendation is taken by default after dialogue.question_default_minutes (default 120, the approved mock's policy) and the conversation says 'Taken by default at HH:mm'; without a recommendation it waits"
+    over: "Every question waiting for a person, or decide_by_default for everything"
+    reason: "The operator asked for it in the brief and approved the mock that shows it. decide_by_default stays the master's way for a choice that needs no person at all; ask_human with a recommendation is a choice that needs a person but must not stop the series."
+  - category: Architecture
+    chose: "The timed default applies to questions inside a series only: the series master's own, and a member ticket's parked master question relayed into the conversation, whose answer (operator's or default) is delivered to the parked run through IDialogueAnswerInbox for the resume sweep"
+    over: "Giving every ticket master question a DefaultAnswer and a 120-minute deadline"
+    reason: "Adversarial review: changing every ticket's 14-day patience is a global change nobody ratified, and the resume sweep's default posts nothing anywhere. Relaying keeps one place to answer — the conversation — and reuses the inbox the dashboard answers through."
+  - category: Implementation
+    chose: "PlanOpenQuestion.RecommendedIndex carries recommended_index to DialogQuestion.RecommendedIndex on the checkpoint; DefaultAnswer and patience unchanged"
+    over: "Parsing the 'Recommended:' line out of the question text"
+    reason: "The recommendation is data the asker gave; reading it back from prose would be a heuristic for data that exists."
+  - category: Implementation
+    chose: "One question at a time; the operator's next message while one waits is its answer"
+    over: "Several open questions matched by reply"
+    reason: "The conversation is a dialog: a reply after a question answers it, as in the reference session. A relay waits until the waiting question is answered."

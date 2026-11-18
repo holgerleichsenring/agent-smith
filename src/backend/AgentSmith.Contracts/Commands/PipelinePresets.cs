@@ -31,7 +31,7 @@ public static partial class PipelinePresets
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
-            [FileName] = File, // 2026-11-17-5701b
+            [FileName] = File, [SeriesRunName] = SeriesRun, [SeriesVerifyName] = SeriesVerify, // 5701b, 0207a, 0207d
             [BranchCleanupName] = BranchCleanup, [RefreshBaseName] = RefreshBase, [DeployName] = Deploy, // 2026-11-17-713ec, 023fb, 2026-11-18-3863c
         };
         foreach (var (name, steps) in HostActSteps.Concat(InstallationSteps)) All[name] = steps; // e061 acts on a ticket, f3a8a installation
@@ -54,7 +54,7 @@ public static partial class PipelinePresets
         ["pr-review"] = PipelineType.Structured,
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
-        [FileName] = PipelineType.Discussion,
+        [FileName] = PipelineType.Discussion, [SeriesRunName] = PipelineType.Discussion, [SeriesVerifyName] = PipelineType.Structured, // 0207a, 0207d
         [BranchCleanupName] = PipelineType.Structured, [RefreshBaseName] = PipelineType.Structured, [DeployName] = PipelineType.Structured, // 713ec, 023fb, 3863c
     };
 

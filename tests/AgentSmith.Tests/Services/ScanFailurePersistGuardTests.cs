@@ -77,6 +77,8 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.TicketBodyName, false)] [InlineData(PipelinePresets.RetargetName, false)] [InlineData(PipelinePresets.MergeGreenName, false)] // dd05b, 9a39c, 3435b
     [InlineData(PipelinePresets.BranchCleanupName, false)] // 2026-11-17-713ec
     [InlineData(PipelinePresets.RefreshBaseName, false)] // 2026-11-17-023fb: a refresh run never force-pushes WIP
+    [InlineData(PipelinePresets.SeriesRunName, false)] // 2026-11-17-0207a: a series beat changes no code
+    [InlineData(PipelinePresets.SeriesVerifyName, false)] // 2026-11-17-0207d: the series check reads the default branch
     [InlineData(PipelinePresets.AdminTurnName, false)] // 2026-11-17-f3a8a
     [InlineData(PipelinePresets.ConfigName, false)] // 2026-11-17-f3a8c
     [InlineData(PipelinePresets.SecretName, false)] // 2026-11-17-f3a8d
@@ -90,7 +92,7 @@ public sealed class ScanFailurePersistGuardTests
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
             PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, .. InstallationPresets]);
+            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, .. InstallationPresets]);
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
     private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName];
