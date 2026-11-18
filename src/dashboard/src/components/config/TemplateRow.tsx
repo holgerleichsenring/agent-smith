@@ -84,7 +84,8 @@ export function TemplateRow({
         </button>
       </div>
       <div className="tpl-target" data-testid={`${testId}-target`}>
-        built after {template.project || MISSING} / {template.repo || MISSING} ·{" "}
+        {/* 2026-11-18-3863a: a deployment binding says how the context is delivered, and where to. */}
+        {template.kind === "deployment" ? "delivered after" : "built after"} {template.project || MISSING} / {template.repo || MISSING} ·{" "}
         {template.templateContext || MISSING}{" "}
         {/* An absent revision lands on the TARGET repository's own default branch: the
             clone carries no -b and the revision is only landed on when one is declared,
@@ -92,6 +93,11 @@ export function TemplateRow({
         <span className="tpl-rev">
           {template.revision ? `@ ${template.revision}` : "@ its default branch"}
         </span>
+        {template.kind === "deployment" && (
+          <span className="tpl-envs" data-testid={`${testId}-envs`}>
+            {" "}→ {(template.environments ?? []).map((e) => e.name || MISSING).join(", ") || "no environment yet"}
+          </span>
+        )}
       </div>
       {open && (
         <TemplateEditor

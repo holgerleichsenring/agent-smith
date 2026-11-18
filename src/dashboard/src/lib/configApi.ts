@@ -630,6 +630,19 @@ export interface TemplateReference {
   repo: string;
   templateContext: string;
   revision?: string | null;
+  /** 2026-11-18-3863a: "code" (absent) or "deployment". */
+  kind?: string | null;
+  /** 2026-11-18-3863a: a deployment binding's environments. */
+  environments?: DeploymentEnvironmentReference[] | null;
+}
+
+/** 2026-11-18-3863a: one environment of a deployment binding. `repo` is a repos-catalog ref holding the
+ *  environment's manifest (absent: the context's own repository); `approval` absent reads as true. */
+export interface DeploymentEnvironmentReference {
+  name: string;
+  repo?: string | null;
+  approval?: boolean | null;
+  parameters?: Record<string, string> | null;
 }
 
 /** 2026-09-22-6968: the six SCALAR per-project sandbox overrides. Each field is

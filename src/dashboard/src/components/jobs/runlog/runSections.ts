@@ -41,7 +41,7 @@ const SECTION_OF: Record<string, StepSectionId> = {
   VerifySpec: "verify", RunVerifyPhase: "verify", ConvergenceCheck: "verify",
   ReviewSpecDiff: "review", RunReviewPhase: "review",
   WriteSpecRecord: "deliver", WriteRunResult: "deliver", CommitAndPR: "deliver", PrCrossLink: "deliver",
-  PersistWorkBranch: "deliver", DeliverOutput: "deliver", InitCommit: "deliver", InitComplete: "deliver", CompletePullRequests: "deliver", RefreshBranchBase: "deliver",
+  PersistWorkBranch: "deliver", DeliverOutput: "deliver", InitCommit: "deliver", InitComplete: "deliver", CompletePullRequests: "deliver", RefreshBranchBase: "deliver", DeployToEnvironment: "deliver",
   PostPrComments: "deliver", WriteTickets: "deliver", DeliverFindings: "deliver", FileTickets: "deliver",
 };
 

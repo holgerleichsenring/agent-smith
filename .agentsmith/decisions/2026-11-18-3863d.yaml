@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863d
+
+decisions:
+  - category: UX
+    chose: "Deploy lives in the ticket page's More menu, hidden without runs.control or without a deployment binding"
+    over: "A project-level deploy page"
+    reason: "The operator asked for deploy runs to show on the ticket and run pages like other runs; the ticket is where landed work is, and More is where acts that are not the next step sit. A project page waits until there is something to show on it (3863f)."
+  - category: UX
+    chose: "An empty version means promote; whether the environment promotes is not shown, and a wrong choice comes back as the run's outcome"
+    over: "Reading the template in the dashboard to know which environments promote"
+    reason: "promotes_from lives in the template repository at a revision; reading it needs the template scope the run already opens. The field's placeholder says what empty does (review finding)."
+  - category: Implementation
+    chose: "A start re-reads the ticket page (useTicketEdited)"
+    over: "Waiting for a hub event"
+    reason: "The derivation act re-reads the same way, so the started run shows among the ticket's runs without depending on an event the spec did not name (review finding)."

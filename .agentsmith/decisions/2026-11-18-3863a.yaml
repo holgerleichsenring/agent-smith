@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863a
+
+decisions:
+  - category: Architecture
+    chose: "A deployment template is the existing template binding with kind deployment and environments"
+    over: "A second list (deployments:) on the project, or a new config entity"
+    reason: "No second path: the binding already says 'this context follows that context of another project at a revision', with its rules, delete edge, studio picker and scope sandbox. A second list would duplicate all of it; a new entity repeats the mcp_server lesson the template spec recorded."
+  - category: Architecture
+    chose: "A deployment binding is addressed template:deploy:<context> and is held out of TemplateDeclarations until 3863b"
+    over: "Sharing template:<context>, or opening it with the code templates at once"
+    reason: "Ownership is by address and the first declaration wins, so a context with both a code and a deployment template would lose one. Every prefix filter still sees template:, and the router splits on '/', so the mark cannot shadow. Held back because until 3863b the master would be told a delivery template is what the context is 'built after' and given its principles as code advice (review finding)."
+  - category: Architecture
+    chose: "An environment's repo is a repos-catalog ref, resolved like a template's own repo; absent means the context's own repository"
+    over: "A repo of this project"
+    reason: "A project's repos are checked out and discovered by every coding run of the project; a GitOps manifest repository has no business there (review finding)."
+  - category: Implementation
+    chose: "approval defaults to true and is stored nullable"
+    over: "Default false, or a prod-name heuristic"
+    reason: "Operator: prod needs explicit approval by default. Defaulting every environment to approval is the safe default without guessing which name means production; an operator turns it off per environment in the studio."
+  - category: Implementation
+    chose: "Whether an environment repo resolves is a loader finding; the shared rules refuse only a glob"
+    over: "Resolving refs in the studio draft check"
+    reason: "Resolution needs the connection catalog and URL builder the loader owns; the draft check works on names. The same split the template's own repo has: the rules say what is malformed, the loader says what does not exist."
+  - category: Scope
+    chose: "Environment names are not checked against the template here"
+    over: "Reading the template's deployment.yaml at save time"
+    reason: "Like context names, they live in the template repository; they are refused where the template is read (the deploy run)."

@@ -244,7 +244,9 @@ templates:
     revision: v2.4.0             # optional: tag, branch or commit; empty = default branch
 ```
 
-Refused: an unknown project, a repo that project doesn't carry, a wildcard repo, a `context_repo` this project doesn't carry, and a cycle. [Project templates](../../configure-it/templates.md) explains what reads them.
+A binding with `kind: deployment` (default `code`) says how the context is delivered, and lists `environments`, each with `name`, optional `repo` (a repos-catalog ref holding the manifest; default the context's own repo), `approval` (default `true`: a person merges the delivery's pull request) and `parameters` (string values of the template's parameters). See [Deployment templates](../../configure-it/deployment-templates.md).
+
+Refused: an unknown project, a repo that project doesn't carry, a wildcard repo, a `context_repo` this project doesn't carry, a cycle, an unknown `kind`, `environments` on a code binding, an unnamed or repeated environment, and an environment repo that is a wildcard or doesn't resolve. [Project templates](../../configure-it/templates.md) explains what reads them.
 
 ### projects.sandbox
 

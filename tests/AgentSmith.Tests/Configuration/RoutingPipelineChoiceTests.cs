@@ -35,10 +35,10 @@ public sealed class RoutingPipelineChoiceTests
     {
         PipelinePresets.Routable.Should().Contain(PipelinePresets.CodeName)
             .And.Contain("security-scan").And.Contain("pr-review");
-        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 13,
-            "the offer is DERIVED — it is the presets minus the thirteen no label can start (the design "
+        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 14,
+            "the offer is DERIVED — it is the presets minus the fourteen no label can start (the design "
             + "conversation, the spec derivation, the branch cleanup, 2026-11-17-5701b's filing and e061a's close and reopen "
-            + "e061b's start, e061c's amend and comment, dd05b's ticket-body, 9a39c's retarget, 023fb's refresh-base, 3435b's merge-green), not a hand-written list the next preset would silently join");
+            + "e061b's start, e061c's amend and comment, dd05b's ticket-body, 9a39c's retarget, 023fb's refresh-base, 3435b's merge-green, 3863c's deploy), not a hand-written list the next preset would silently join");
     }
 
     [Fact]

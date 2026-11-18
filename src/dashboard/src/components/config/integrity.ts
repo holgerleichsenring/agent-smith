@@ -86,7 +86,9 @@ export function projectIntegrity(
  * a different fix. The revision is optional and never makes a binding unfinished.
  */
 export function isTemplateUnfinished(template: TemplateReference): boolean {
-  return !template.context || !template.project || !template.repo || !template.templateContext;
+  // 2026-11-18-3863a: an environment row without a name is a row still being typed.
+  return !template.context || !template.project || !template.repo || !template.templateContext
+    || (template.environments ?? []).some((e) => !e.name);
 }
 
 /** The indices of the bindings <see cref="isTemplateUnfinished"/> refuses. */

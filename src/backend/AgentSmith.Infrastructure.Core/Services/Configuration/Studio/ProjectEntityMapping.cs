@@ -24,7 +24,7 @@ internal static class ProjectEntityMapping
             pipelines,
             ToResolution(project),
             project.DefaultPipeline,
-            ToTemplates(project),
+            TemplateReferenceMapping.ToTemplates(project),
             ToSandbox(project),
             [.. project.DesignSources], RequiresStartNames.Written(project.RequiresStart), ProjectMergeMapping.ToEntity(project.Merge)); // 9a39a, b34eb
     }
@@ -52,7 +52,7 @@ internal static class ProjectEntityMapping
     /// <summary>
     /// 2026-09-22-6c46: the structured three, always PRESENT on the way out — the studio is
     /// being told what the stored project holds and "none of the three" is an answer, the
-    /// same way <see cref="ToTemplates"/> always returns a list. Absence means something
+    /// same way <see cref="TemplateReferenceMapping.ToTemplates"/> always returns a list. Absence means something
     /// else entirely on the way IN: see <see cref="ProjectSandboxStructured"/>. Each
     /// collection is copied, so nothing the studio hands back can alias the stored block.
     /// </summary>
@@ -73,26 +73,6 @@ internal static class ProjectEntityMapping
                     ? [.. files.Select(f => new SandboxSecretFile { Mount = f.Mount, Secret = f.Secret, Key = f.Key })]
                     : null,
             };
-
-    /// <summary>
-    /// Always a list, never null, on the way OUT: the studio is being told what the stored
-    /// project holds, and "none" is an answer. Null on the way IN means something else
-    /// entirely — see ProjectEntity.Templates.
-    /// </summary>
-    public static IReadOnlyList<TemplateReference> ToTemplates(RawProjectEntry project) =>
-        [.. project.Templates.Select(t => new TemplateReference(
-            t.Context, t.Project, t.Repo, t.TemplateContext, t.Revision, t.ContextRepo))];
-
-    public static List<RawTemplateEntry> ToRaw(IReadOnlyList<TemplateReference> templates) =>
-        [.. templates.Select(t => new RawTemplateEntry
-        {
-            Context = t.Context,
-            Project = t.Project,
-            Repo = t.Repo,
-            TemplateContext = t.TemplateContext,
-            Revision = t.Revision,
-            ContextRepo = t.ContextRepo,
-        })];
 
     // p0345c: surface the flat resolution shorthand; when the project instead
     // declares a full trigger wrapper, surface ITS resolution read-only so the

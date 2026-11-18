@@ -26,7 +26,7 @@ public static class RawProjectPatch
         // constructs a ProjectEntity without this field would otherwise wipe the stored
         // declaration, which is exactly how default_branch and consumes are already lost.
         if (entity.Templates is { } templates)
-            project.Templates = ProjectEntityMapping.ToRaw(templates);
+            project.Templates = TemplateReferenceMapping.ToRaw(templates);
         if (entity.Resolution is { } resolution)
             project.Resolution = new Dictionary<string, string> { [resolution.Strategy] = resolution.Value };
         if (entity.Sandbox is { } sandbox) ApplySandbox(sandbox, project);
