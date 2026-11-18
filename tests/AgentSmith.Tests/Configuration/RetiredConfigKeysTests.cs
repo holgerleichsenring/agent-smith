@@ -57,6 +57,20 @@ public sealed class RetiredConfigKeysTests
             "limits.max_concurrent_skill_calls", "limits.max_skills_per_phase");
     }
 
+    // 2026-11-18-9c1ca: the switch of the post-turn review, which is gone.
+    [Fact]
+    public void RetiredConfigKeys_SpecReviewDesignTurn_ReportsAdvisory()
+    {
+        const string yaml = """
+            spec_review:
+              rounds: 4
+              design_turn: true
+            """;
+
+        _detector.InYaml(yaml, "config/agentsmith.yml").Should().ContainSingle()
+            .Which.Field.Should().Be("spec_review.design_turn");
+    }
+
     [Fact]
     public void RetiredConfigKeys_ConfidenceThreshold_ReportsAdvisory()
     {

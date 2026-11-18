@@ -16,20 +16,19 @@ public sealed partial class SpecDialogOutcomeTests
 {
     private const string Answer = "The service has no widget store yet; is a widget per tenant or global?";
 
-    // 2026-11-09-0620b: the first-turn ban is gone. A draft is reviewed and shown under review, and nothing is filed
-    // before the operator approves it, so a first turn that already knows the cut proposes it.
+    // 2026-11-09-0620b: the first-turn ban is gone. Nothing is filed before the operator approves a draft, so a first
+    // turn that already knows the cut proposes it.
     [Fact]
     public async Task SpecDialogOutcomeGate_FirstTurnDraft_IsKeptAsAProposal()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         ScriptSpec(harness.ChatClient);
-        harness.ChatClient.EnqueueText("Here is the spec draft; the reviewers said build.");
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
         string.Join("\n", harness.ChatClient.CallMessages[0].Select(m => m.Text)).Should()
             .NotContain("MAY NOT propose");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the write, the reply, and the reply after the review report (92e9b)");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply (2026-11-18-9c1ca)");
         result.Outcome.Should().BeOfType<SpecOutcome>();
     }
 
@@ -55,15 +54,13 @@ public sealed partial class SpecDialogOutcomeTests
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient.EnqueueSpecWrite(ValidDraftYaml).EnqueueDeferred(() =>
             new Microsoft.Extensions.AI.ChatResponse(new Microsoft.Extensions.AI.ChatMessage(
-                Microsoft.Extensions.AI.ChatRole.Assistant, "Here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length })
-            .EnqueueDeferred(() => new Microsoft.Extensions.AI.ChatResponse(new Microsoft.Extensions.AI.ChatMessage(
-                Microsoft.Extensions.AI.ChatRole.Assistant, "The review holds; here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length });
+                Microsoft.Extensions.AI.ChatRole.Assistant, "Here is the spec dr")) { FinishReason = Microsoft.Extensions.AI.ChatFinishReason.Length });
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the review report is a pass of its own (92e9b); nothing re-asks a cut reply");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "nothing re-asks a cut reply");
         result.Outcome.Should().BeOfType<SpecOutcome>().Which.Draft.SpecId.Should().Be("p9999");
-        result.Reply.Should().Be("The review holds; here is the spec dr");
+        result.Reply.Should().Be("Here is the spec dr");
     }
 
     /// <summary>The tool results the master read on its <paramref name="call"/>-th call.</summary>

@@ -1048,8 +1048,6 @@ export interface SpecReviewSetting {
   reviewers: number;
   maxConcurrent: number;
   budgetSharePercent: number;
-  /** 2026-11-12-cd4ch: one advisory review pass after a design turn; 2026-11-12-7c1c: on by default. */
-  designTurn?: boolean;
   /** 2026-11-17-f9b0b: the fewest looks one attack reviewer gets. */
   attackLookFloor: number;
   /** 2026-11-17-f9b0b: the file reads one entered spec's citations are re-grounded against. */

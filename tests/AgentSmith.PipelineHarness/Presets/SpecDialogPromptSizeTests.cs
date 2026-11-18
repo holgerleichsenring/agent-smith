@@ -49,6 +49,7 @@ public sealed partial class SpecDialogWorkPictureTests
         // theme replaced the merge and branch-state tests.
         (system + user + tools).Should().BeLessThan(40000, "a first design turn carries only what it can use");
         // 2026-11-15-bf77: offer_filing (24 tools, 37268) — File appears because the master offered the draft.
-        count.Should().BeLessThanOrEqualTo(24);
+        // 2026-11-18-9c1ca: review_proposal gone (23 at most).
+        count.Should().BeLessThanOrEqualTo(23);
     }
 }

@@ -488,8 +488,7 @@ public sealed class AgenticMasterHandler(
 
         // p0315b/p0315e: a dialog reply's typed terminal outcome resolves BEFORE it is shown.
         if (isSpecDialog)
-            loopResult = await dialogTurn.ConcludeAsync(
-                context, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
+            loopResult = await dialogTurn.ConcludeAsync(context, loopResult, cancellationToken);
 
         var changes = fs.GetChanges();
 

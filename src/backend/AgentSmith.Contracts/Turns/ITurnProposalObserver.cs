@@ -23,15 +23,4 @@ public interface ITurnProposalObserverAccessor
 
     /// <summary>Sets <paramref name="observer"/> until the returned handle is disposed.</summary>
     IDisposable Observe(ITurnProposalObserver observer);
-
-    /// <summary>
-    /// Publishes the proposal as it stands, marked under review, to whoever listens on this flow.
-    /// On the contract for the reason <see cref="ITurnActivityObserverAccessor.ReportAsync"/> is, and with
-    /// its warning: a dynamic proxy does not inherit this body, so hand a test the real accessor.
-    /// </summary>
-    Task PublishUnderReviewAsync(OutcomeProposal proposal, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(proposal);
-        return Current?.PublishAsync(proposal with { UnderReview = true }, cancellationToken) ?? Task.CompletedTask;
-    }
 }
