@@ -15,6 +15,8 @@ internal static class SpecDerivationExtensions
         services.TryAddScoped<DerivationRunRepository>();
         services.TryAddScoped<SpecDerivationGate>();
         services.TryAddScoped<SpecDerivationLauncher>();
+        services.TryAddScoped<Services.Deployment.DeployLauncher>(); // 2026-11-18-3863c: queued like a derivation
+        services.TryAddScoped<Services.Deployment.DeploymentBindings>();
         return services;
     }
 }

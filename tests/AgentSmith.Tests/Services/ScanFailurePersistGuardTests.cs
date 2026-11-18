@@ -77,6 +77,7 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.TicketBodyName, false)] [InlineData(PipelinePresets.RetargetName, false)] [InlineData(PipelinePresets.MergeGreenName, false)] // dd05b, 9a39c, 3435b
     [InlineData(PipelinePresets.BranchCleanupName, false)] // 2026-11-17-713ec
     [InlineData(PipelinePresets.RefreshBaseName, false)] // 2026-11-17-023fb: a refresh run never force-pushes WIP
+    [InlineData(PipelinePresets.DeployName, false)] // 2026-11-18-3863c: a deploy writes a manifest branch, never WIP
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -86,7 +87,7 @@ public sealed class ScanFailurePersistGuardTests
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
             PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.MergeGreenName]);
+            PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName]);
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

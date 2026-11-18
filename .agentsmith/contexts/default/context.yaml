@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-3863c: "DEPLOY RUN GITOPS (deploy preset, DeployToEnvironmentHandler, ManifestVersionKey, DeployLauncher, /api/projects/{p}/deployments). A version goes to an environment as a manifest PR per the template: promoted envs take the source's version, no-approval envs merge, CI read back; listed on its ticket. -> .agentsmith/specs/done/2026-11-18-3863c-deploy-run-gitops.yaml"
     2026-11-18-3863b: "DEPLOYMENT TEMPLATE IN THE LOOK (TemplateDeclarations, DeploymentTemplateDetail, MasterTemplateAdvice, docs). Runs open a deployment template as template:deploy:<ctx>; the master is told its deployment.yaml, bound environments' values, to ask for a missing parameter and to name secrets only. -> .agentsmith/specs/done/2026-11-18-3863b-deployment-template-in-look.yaml"
     2026-11-18-3863a: "DEPLOYMENT TEMPLATE BINDING (template binding kind + environments, DeploymentEnvironmentRules, TemplateScopeName, studio rows). A context binds a deployment template with environments (repos-catalog repo, approval default on, parameters); addressed template:deploy:<ctx>; not opened by runs yet. -> .agentsmith/specs/done/2026-11-18-3863a-deployment-template-binding.yaml"
     2026-11-17-3435d: "CI SETTINGS STUDIO (ProjectMerge CI keys, ProjectMergeMapping, MergeCiFields). The studio's merge tab edits ci_poll/settle/pending_seconds, ci_fix_attempts, ci_excerpt_chars, ci_failed_checks_read and approval_auth; a save writes them instead of resetting them. -> .agentsmith/specs/done/2026-11-17-3435d-ci-settings-studio.yaml"
@@ -1586,7 +1587,7 @@ state:
   active: {}
   planned:
     2026-11-18-3863e: "DEPLOY BY PIPELINE TRIGGER (source providers, deploy step). delivery pipeline starts the provider's pipeline with the version and records the run link. requires 3863c. -> .agentsmith/specs/planned/2026-11-18-3863e-deploy-pipeline-trigger.yaml"
-    2026-11-18-3863f: "DEPLOY STATUS READ (deploy records, CI reader). A deploy's pull request merge and CI state with the failing check, on 3435a's reader. requires 3863c. -> .agentsmith/specs/planned/2026-11-18-3863f-deploy-status-read.yaml"
+    2026-11-18-3863f: "DEPLOY STATUS FOLLOW (deploy records, CI reader). A deploy's pull request followed until merged and CI settled, with the failing check, on 3435a's reader. requires 3863c. -> .agentsmith/specs/planned/2026-11-18-3863f-deploy-status-read.yaml"
     2026-11-18-3863g: "NEW SERVICE DEPLOYABLE SUGGESTION (spec dialog). A series adding a context without a deployment binding suggests binding it and a make-deployable spec. requires 3863b. -> .agentsmith/specs/planned/2026-11-18-3863g-deploy-new-service-suggest.yaml"
     2026-11-18-3863h: "DEPLOY PROMOTION AND SERIES CALL (deploy launcher, series run). A merged deploy promotes to no-approval environments; the series run may call deploy. requires 3863c, 3863f. -> .agentsmith/specs/planned/2026-11-18-3863h-deploy-promotion-series.yaml"
     2026-11-11-205fj: "SPAWN SURFACE DESCRIPTION (spawn_agents). The design surface states its configured child count and rounds, no coding-run vocabulary. -> .agentsmith/specs/planned/2026-11-11-205fj-spawn-surface-description.yaml"

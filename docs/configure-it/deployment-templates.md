@@ -71,3 +71,26 @@ environments:
 Making a context deployable is ordinary work: a ticket, or a Work it out conversation, that says "make the api deployable to test". The run opens the deployment template read only, next to the code, as `template:deploy:<context>`. The coding master is told which environments this project binds and with which parameter values, and it copies or adapts the declared files into the context. A parameter with no value in the binding and no default in the template becomes a question to a person, with the value the master recommends; until it is answered the ticket waits in needs clarification. A secret is written into the files by its name only.
 
 Because the template is opened like a code template, a coding run of a bound context needs to reach it: a revision that no longer exists fails the run before its first model call, the same as for a code template.
+
+## Deploying
+
+A deploy is a run like any other, with a run id, steps and a ledger. A person starts it from a ticket's page (**···** → **Deploy**) or with `POST /api/projects/{project}/deployments` (`runs.control`), naming the context, the environment and, for an entry environment, the version:
+
+```json
+{ "context": "api", "environment": "test", "version": "1.4.2", "ticketId": "42" }
+```
+
+The `deploy` run then:
+
+1. finds the binding and the environment in the project's configuration, and reads the template's `deployment.yaml` at the bound revision
+2. decides the version. An entry environment takes the version you named. An environment the template says `promotes_from` another takes the version that environment's manifest carries now, and a typed version for it is refused: the template decides what reaches it
+3. reads the environment's manifest on its repository's default branch. If it already carries the version, nothing is written
+4. otherwise writes the new version into the scalar at `version_key` (nothing else in the file changes) on a fresh branch `agent-smith/deploy/<context>-<environment>/<run id>`, and opens a pull request to the default branch
+5. leaves that pull request for a person to merge when the environment needs approval (the default), or merges it in the project's merge mode (`merge.respect_branch_protection`) when approval is off. A merge the host only arms or refuses is reported, and the pull request waits for a person
+6. reads the pull request's CI as the host reports it then (none, pending, green, or red with the failed checks and their links) and puts it in the run's outcome
+
+A version is letters, digits, `.`, `_` and `-`, starting with a letter or digit, so a tag or a commit sha. A digest (`sha256:…`) is refused. agent-smith doesn't build images: your CI builds the image for a version, and the deploy points an environment at it.
+
+The run is listed on the ticket it was started from, and it doesn't touch that ticket's own runs, status or lease. The pull request it opens isn't one of the ticket's pull requests, so the merge policy, base refreshes and rework never act on it.
+
+Only the GitOps pull request is built so far. Starting a provider's pipeline instead, following a deploy's pull request until it is merged and its CI settled, promoting automatically into environments without approval, and the series run calling a deploy are planned.

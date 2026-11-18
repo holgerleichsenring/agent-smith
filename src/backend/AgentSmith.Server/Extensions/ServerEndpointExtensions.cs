@@ -63,6 +63,7 @@ internal static class ServerEndpointExtensions
         app.MapConfigQueryEndpoints();
         app.MapConfigStudioEndpoints(); // p0345: config studio CRUD + audit/revert
         app.MapProjectInitEndpoints(); // p0489: start init-project for a configured project
+        app.MapDeploymentEndpoints(); // 2026-11-18-3863c: deploy a context to an environment
         app.MapProjectBootstrapEndpoints(); // 2026-10-13-0b82c: is each repository bootstrapped
         app.MapDiagnosticsEndpoints();
         app.MapIdentityEndpoints(); // p0503d: what this caller's token carried

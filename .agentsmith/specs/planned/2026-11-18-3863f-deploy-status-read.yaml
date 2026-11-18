@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-18-3863f
-goal: "A deploy's status is read back: its pull request's merge and CI state (and a started pipeline's result) with the failing check and reason, shown on the deploy run."
+goal: "A deploy's status is followed after its run ends: its pull request's merge and CI state (and a started pipeline's result) with the failing check and reason, on the ticket and run pages."
 
 applies_to: "default (deploy records, CI reader) + dashboard"
 
 requires: [2026-11-18-3863c]
 
 facts:
-  - claim: "The CI reader with failure reasons per provider is built in 2026-11-17-3435a and not yet on main; a deploy pull request is deliberately NOT a PrReviewRecord, so the merge policy, base refresh and rework never touch it."
-    evidence: "observed: 2026-11-18, the IPullRequestCiReader contract exists on branch spec/2026-11-17-3435a and not on main"
+  - claim: "The CI reader with failure reasons per provider is on main (2026-11-17-3435a, #860); the deploy run reads it once when it ends (3863c). A deploy pull request is deliberately NOT a PrReviewRecord, so the merge policy, base refresh and rework never touch it."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPullRequestCiReader.cs:8-11, src/backend/AgentSmith.Application/Services/Deployment/DeployCiStatus.cs:13-30"
 
 scope:
   in: "A DeployRecord per deploy run (project, context, environment, version, pull request url, state, CI state and failures); a refresh that reads merge state and CI through IPullRequestCiReader; the run page and ticket page show it."

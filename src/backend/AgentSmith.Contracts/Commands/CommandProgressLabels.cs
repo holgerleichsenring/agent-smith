@@ -60,7 +60,7 @@ public static partial class CommandNames
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
-        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", // 713ec, 023fa, 023fb
+        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", [DeployToEnvironment] = "Delivering the version to the environment", // 713ec, 023fa, 023fb, 3863c
         [GenerateTests] = "Generating tests", [GenerateDocs] = "Generating docs",
         [Triage] = "Triaging ticket",
         [SwitchSkill] = "Switching skill",
