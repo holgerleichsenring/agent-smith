@@ -24,7 +24,7 @@ public sealed class SeriesTicketFacts(
             .ToDictionary(l => l.TicketId, l => l.LandedAt, StringComparer.Ordinal);
         var facts = new List<SeriesTicketFact>();
         foreach (var ticket in tickets)
-            facts.Add(await ReadOneAsync(resolved, ticket, landed.GetValueOrDefault(ticket.TicketId), cancellationToken));
+            facts.Add(await ReadOneAsync(resolved, ticket, LandedAt(landed, ticket.TicketId), cancellationToken));
         return facts;
     }
 
@@ -49,6 +49,11 @@ public sealed class SeriesTicketFacts(
         OpenedPullRequest = latest.OpenedPullRequest, PullRequests = [.. latest.PullRequestUrls.Values],
         EndDetail = latest.Status == RunStatuses.Success ? null : latest.EndDetail?.Subject ?? latest.CancelReason ?? latest.EndKind,
     };
+
+    // 2026-11-18: a ticket with no landing has no landing time; GetValueOrDefault on a non-nullable value handed back
+    // 0001-01-01, so every ticket read as landed.
+    internal static DateTimeOffset? LandedAt(IReadOnlyDictionary<string, DateTimeOffset> landed, string ticketId) =>
+        landed.TryGetValue(ticketId, out var at) ? at : null;
 
     private static string Key(ResolvedProject project, SeriesTicket ticket) =>
         TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticket.TicketId).Value;

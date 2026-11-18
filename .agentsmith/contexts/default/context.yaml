@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-353d: "SERIES LANDED FACTS (SeriesTicketFacts). A series ticket with no landing reads as not landed; GetValueOrDefault had made every ticket landed at 0001-01-01, so the panel and the master counted all as landed. -> .agentsmith/specs/done/2026-11-18-353d-series-landed-facts.yaml"
     2026-11-18-5fd3c: "DOCS VERSION CURRENT (docs install/host pages, deploy compose and k8s manifests, release-please-config.json). Every pinned release reads 0.188.0 and carries an x-release-please marker; release-please bumps those files as generic extra-files. -> .agentsmith/specs/done/2026-11-18-5fd3c-docs-version-current.yaml"
     2026-11-18-5fd3b: "DOCS FEATURE PAGES (docs/how-it-works, configure-it/secrets.md). Series run, CI loop and merge policy with branch cleanup, stacked start, admin assistant and secrets each have a page; the studio's secret sections moved to secrets.md. -> .agentsmith/specs/done/2026-11-18-5fd3b-docs-feature-pages.yaml"
     2026-11-18-5fd3a: "DOCS FLOW RESTRUCTURE (docs, README, overrides.css). Audit in notes/2026-11-18-5fd3-docs-audit.md; How it works opens with an end-to-end page pictured stage by stage; home, dashboard, Work it out, dependencies and studio match the redesigned UI. -> .agentsmith/specs/done/2026-11-18-5fd3a-docs-flow-restructure.yaml"

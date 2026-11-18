@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-353d
+goal: "A series ticket that has not landed reads as not landed, so the series panel and the series master count landings correctly."
+
+applies_to: "default (AgentSmith.Server/Services/Series/SeriesTicketFacts.cs)"
+
+requires: [2026-11-17-0207a]
+
+facts:
+  - claim: "SeriesTicketFacts passes landed.GetValueOrDefault(ticket.TicketId) from a Dictionary<string, DateTimeOffset>, which yields 0001-01-01 for a ticket with no landing, so LandedAt is never null."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketFacts.cs:27"
+
+scope:
+  in: "Read the landing time with TryGetValue so a missing landing is null."
+  out: "Any other series fact."
+
+steps:
+  - id: fix
+    action: "Replace GetValueOrDefault with a LandedAt helper using TryGetValue; unit-test both cases."
+
+tests:
+  - "LandedAt_TicketWithoutLanding_IsNull"
+  - "LandedAt_LandedTicket_IsItsLandingTime"
+
+done:
+  - "A ticket without a landing row has LandedAt null; a landed ticket keeps its landing time."
