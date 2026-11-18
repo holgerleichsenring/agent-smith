@@ -41,6 +41,8 @@ vi.mock("@/lib/configApi", async (importOriginal) => {
     remove: vi.fn().mockResolvedValue(undefined),
   });
   return {
+    // 2026-11-18-dafc: the secrets list reads the registries setting.
+    fetchSetting: vi.fn(async () => []),
     agentsApi: client(agents),
     trackersApi: client(trackers),
     connectionsApi: client(connections),

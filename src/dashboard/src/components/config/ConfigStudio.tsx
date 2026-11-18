@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
-import { ConfigStoreNotEmptyError, fetchConfigExportYml, importConfigYml } from "@/lib/configApi";
+import { useEffect, useRef, useState } from "react";
+import type { ConfigEntityKind, RegistryEntry, StudioEntity } from "@/lib/configApi";
+import { ConfigStoreNotEmptyError, fetchConfigExportYml, fetchSetting, importConfigYml } from "@/lib/configApi";
 import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
 import { ChangesView } from "./ChangesView";
@@ -258,6 +258,7 @@ function EntityCatalog({
   onEdit: (entity: StudioEntity) => void;
 }) {
   const items = catalog[kind];
+  const registries = useSecretRegistries(kind === "secrets");
   const cards = loading ? (
     <div className="empty">Loading…</div>
   ) : items.length === 0 ? (
@@ -273,6 +274,7 @@ function EntityCatalog({
         entity={entity}
         catalog={catalog}
         onEdit={() => onEdit(entity)}
+        registries={registries}
       />
     ))
   );
@@ -310,4 +312,20 @@ function EntityCatalog({
       {cards}
     </div>
   );
+}
+
+// 2026-11-18-dafc: a registry token references a secret too; the secrets list reads the
+// registries setting once so each card can say which feed uses it. A failed read leaves
+// the cards as they were — the label is a convenience, not a gate.
+function useSecretRegistries(active: boolean): RegistryEntry[] {
+  const [registries, setRegistries] = useState<RegistryEntry[]>([]);
+  useEffect(() => {
+    if (!active) return;
+    const ctl = new AbortController();
+    fetchSetting("registries", ctl.signal)
+      .then((r) => setRegistries(r ?? []))
+      .catch(() => {});
+    return () => ctl.abort();
+  }, [active]);
+  return registries;
 }
