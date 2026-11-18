@@ -71,9 +71,8 @@ public enum EventType
     // JSON. The server-side applier persists both onto the run row (ProgressLedgerJson / AcceptanceJson) so the run
     // detail serves the REAL story; the event stream is the only DB channel a spawned orchestrator has.
     RunStoryRecorded = 74,
-    // p0357: the run's resolved cost budget (complexity tier + cap USD/tokens),
-    // published by ScopeRepos at step ~4 — persisted onto the run row so the
-    // dashboard can render spent/cap from early in the run.
+    // p0357: the run's resolved cost budget (complexity tier + cap USD/tokens), published by ScopeRepos at step ~4 —
+    // persisted onto the run row so the dashboard can render spent/cap from early in the run.
     RunBudgetResolved = 75,
     // p0374a: the per-entry transitions of one accepted update_progress call —
     // entry, from-state, to-state, cause, master pass. The ledger snapshot on the
@@ -93,9 +92,8 @@ public enum EventType
     // is addressable after the run — the spec used to survive only as a
     // "p19213a: " prefix on a step name.
     SpecStateChanged = 79,
-    // p0466: the executed spec, as WriteSpecRecord wrote it into the
-    // working tree. Mirrored into the artifact store so the server can serve
-    // the record of a spec whose sandbox and branch are long gone.
+    // p0466: the executed spec, as WriteSpecRecord wrote it into the working tree. Mirrored into the artifact store
+    // so the server can serve the record of a spec whose sandbox and branch are long gone.
     SpecRecorded = 80,
     // 2026-09-17-042eh: what a fresh reviewer found in the spec's own diff, as JSON — its own event and
     // artifact row, because the record body carries the findings as prose and 042ej reads them as data.
@@ -117,4 +115,6 @@ public enum EventType
     DialogActivity = 90,
     // 2026-11-17-d6fbc: one verify pass as data — stages per repository, stale derivations.
     VerifyPassRecorded = 91,
+    // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
+    DeployDelivered = 92,
 }

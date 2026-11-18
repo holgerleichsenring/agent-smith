@@ -20,7 +20,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// 2026-10-14-dbceh: then it recovers a lost wake of the tickets the day's landings freed.
 /// Collaborators resolve at run time, as <see cref="ChangeSweepHostedService"/>'s do.
 /// <para>2026-11-17-3435b: the CI loop rides on it — it ticks at the smallest merge.ci_poll_seconds of the on_ci_green
-/// projects (<see cref="CiWatchSelection"/>), nudges their CI-due records every tick and runs the rest at its interval.</para>
+/// projects (<see cref="CiWatchSelection"/>), nudges their CI-due records every tick and runs the rest at its interval.
+/// 2026-11-18-3863f: every tick also runs the deploy follow, and ticks at its cadence while a deploy is unsettled.</para>
 /// </summary>
 public sealed class PrRecordReReadHostedService(
     IServiceProvider services,
@@ -48,11 +49,12 @@ public sealed class PrRecordReReadHostedService(
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
             var interval = TimeSpan.FromSeconds(config.Tickets.PrRereadIntervalSeconds);
             var full = clock.GetUtcNow() - lastFull >= interval;
-            try { await (full ? ReReadOnceAsync(ct) : CiOnceAsync(ct)); }
+            TimeSpan? deploy = null; // 2026-11-18-3863f: the deploy follow rides on this loop and its lease
+            try { await (full ? ReReadOnceAsync(ct) : CiOnceAsync(ct)); deploy = await services.GetRequiredService<Deployment.DeployFollowPass>().RunAsync(config, ct); }
             catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "Pull-request re-read failed; retried next cycle"); }
             if (full) lastFull = clock.GetUtcNow();
             var ci = CiWatchSelection.Cadence(CiWatchSelection.Watched(config.Projects.Values)); // 2026-11-17-3435b
-            await Task.Delay(ci is { } tick && tick < interval ? tick : interval, clock, ct);
+            await Task.Delay(new[] { ci, deploy, interval }.Min(t => t ?? interval), clock, ct);
         }
     }
 

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-3863f
+
+decisions:
+  - category: Architecture
+    chose: "A DeployRecords table of its own, inserted from a DeployDeliveredEvent on the run's stream"
+    over: "Making the deploy pull request a PrReviewRecord, or keeping the follow state on the Runs row"
+    reason: "A deploy pull request must stay outside the merge policy, base refresh and rework, which act on every PrReviewRecord (3863c); a pipeline run has no pull request at all. The Runs row is the run's, finished when it ends; the follow writes long after. No deploy storage existed, so this is not a second one of a kind; the event is how a step reaches the database."
+  - category: Architecture
+    chose: "The follow rides on PrRecordReReadHostedService's leader loop and lease"
+    over: "A DeployFollowHostedService with its own lease"
+    reason: "One loop that already reads hosts on the CI loop's cadence (review finding: no second trigger); it ticks at the smaller of its own and the deploy follow's need."
+  - category: Implementation
+    chose: "The projection only inserts; the follow is the only writer after that"
+    over: "Upserting every field from the event"
+    reason: "A replayed event would reset a settled record to pending (review finding)."
+  - category: Implementation
+    chose: "The event names the repository delivered to; the follow re-resolves it from the live binding and stops when it no longer leads there"
+    over: "Storing the repository's URL and token reference in the record"
+    reason: "The GitOps manifest repository may be the environment's own, not the context's (review finding); config is the one place a repository and its secret are named, and a changed binding is said rather than followed blindly."
+  - category: Implementation
+    chose: "No new setting: merge.ci_poll_seconds, ci_pending_seconds, ci_excerpt_chars, ci_failed_checks_read and tickets.pr_reread_interval_seconds / pr_reread_open_cap bound the follow, their descriptions now say so"
+    over: "A deploy: block with follow settings"
+    reason: "The same reads, at the same costs, for the same reasons; every one already has a studio field. Pending counts from delivery, so a stuck pipeline stops being followed and says where to look."
+  - category: UX
+    chose: "The ticket's run list draws deploy runs, and the deploy's standing is a block under its line and on its run's page"
+    over: "A project-level deploy page"
+    reason: "3863d listed deploy runs on the ticket but the dashboard drew only merge-green; the operator asked for deploys on the ticket and run pages like other runs."

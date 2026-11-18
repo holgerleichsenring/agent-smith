@@ -20,9 +20,9 @@ export function MergeCiFields({ merge, secrets, onChange }: {
     <>
       {merge.when === "on_ci_green" && (
         <>
-          {number("ciPollSeconds", "CI poll seconds", "60", "how often the open pull requests' CI is read")}
+          {number("ciPollSeconds", "CI poll seconds", "60", "how often the open pull requests' CI, and a running deploy, is read")}
           {number("ciSettleSeconds", "CI settle seconds", "180", "how long 'no CI reporting' must last before it merges")}
-          {number("ciPendingSeconds", "CI pending seconds", "3600", "after this a head still pending leaves the fast poll")}
+          {number("ciPendingSeconds", "CI pending seconds", "3600", "after this a head still pending leaves the fast poll, and a deploy stops being followed")}
           {number("ciFixAttempts", "CI fix attempts", "3", "red-CI fix runs in a row before the ticket is handed back")}
         </>
       )}

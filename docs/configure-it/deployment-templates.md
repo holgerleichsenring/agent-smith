@@ -132,4 +132,13 @@ The run's outcome names the started run with its link and what the host says of 
 
 Every deploy starts the pipeline, a redeploy of the version an environment already runs too. A pipeline doesn't write a manifest agent-smith reads, so an environment promotes from a pipeline environment only when that one names a `manifest` and `version_key` its pipeline keeps up to date. `approval` means the same as for a pull request: only a person starts the deploy. Gate the run itself with the host's own environment approvals.
 
-Following a deploy's pull request or pipeline until it settles, promoting automatically into environments without approval, and the series run calling a deploy are planned.
+## Following a deploy
+
+A deploy doesn't end with its run. agent-smith keeps reading what it delivered until it settles, and the deploy run's page and its line on the ticket show where it stands:
+
+- a **pull request**: its state (open, merged, closed) and its CI on the head it has then, with each failed check's name, the end of its log and its link. It has settled once it is merged or closed and its CI is no longer running. While it waits for a person with its CI done, it is read every `tickets.pr_reread_interval_seconds`.
+- a **pipeline run**: running, green, or failed with its failed jobs, their log ends and links. It has settled once it finished.
+
+While CI or the pipeline runs, it is read every `merge.ci_poll_seconds`. One still running `merge.ci_pending_seconds` after delivery stops being followed and says so, with the link to look yourself. Excerpts are bounded by `merge.ci_excerpt_chars` and `merge.ci_failed_checks_read`. A deploy whose binding no longer leads to the repository it went to stops being followed with that reason. All of these are the project's existing merge and tickets settings in the studio; agent-smith only reads the host here.
+
+Promoting automatically into environments without approval, and the series run calling a deploy, are planned.

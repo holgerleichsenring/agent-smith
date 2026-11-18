@@ -75,6 +75,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   MemoryUseRecorded: EventType.MemoryUseRecorded, // 2026-10-25-9324b
   DialogActivity: EventType.DialogActivity, // 2026-11-10-d854c
   VerifyPassRecorded: EventType.VerifyPassRecorded, // 2026-11-17-d6fbc
+  DeployDelivered: EventType.DeployDelivered, // 2026-11-18-3863f
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

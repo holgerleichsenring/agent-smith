@@ -9,4 +9,5 @@ namespace AgentSmith.Application.Services.Deployment;
 public sealed record GitOpsOrder(
     RepoConnection Repo, string Path, string Content, BranchName Branch, string Title, string Body, bool Approval,
     BranchProtection Protection,
-    CiReadRequest Ci);
+    CiReadRequest Ci,
+    string Version);

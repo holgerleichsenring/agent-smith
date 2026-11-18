@@ -53,6 +53,8 @@ export enum EventType {
   MemoryUseRecorded = 89,
   DialogActivity = 90,
   VerifyPassRecorded = 91,
+  // 2026-11-18-3863f: a deploy delivered its pull request or started its pipeline.
+  DeployDelivered = 92,
 }
 
 interface RunEventBase {
@@ -795,6 +797,22 @@ export interface VerifyPassRecordedEvent extends RunEventBase {
   staleDerivations: VerifyStaleDerivation[];
 }
 
+/** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
+ *  not name it). Mirrors C# DeployDeliveredEvent. */
+export interface DeployDeliveredEvent extends RunEventBase {
+  type: EventType.DeployDelivered;
+  project: string;
+  context: string;
+  contextRepo?: string | null;
+  environment: string;
+  version: string;
+  delivery: string;
+  repo: string;
+  url: string;
+  pullRequestUrl?: string | null;
+  pipelineRunId?: string | null;
+}
+
 /** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */
 export interface SpecReviewCut {
   register: string;
@@ -883,7 +901,8 @@ export type RunEvent =
   | DefaultDecisionTakenEvent
   | MemoryUseRecordedEvent
   | DialogActivityEvent
-  | VerifyPassRecordedEvent;
+  | VerifyPassRecordedEvent
+  | DeployDeliveredEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

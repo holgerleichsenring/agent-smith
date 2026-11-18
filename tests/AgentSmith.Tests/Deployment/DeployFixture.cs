@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Deployment;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -47,6 +48,9 @@ internal sealed class DeployFixture
     /// <summary>2026-11-18-3863e: whether the hosts answer with <see cref="Runner"/> or run no pipeline.</summary>
     public bool HostRunsPipelines { get; set; } = true;
 
+    /// <summary>2026-11-18-3863f: what the deliveries told the server.</summary>
+    public List<RunEvent> Published { get; } = [];
+
     public static ResolvedProject Project() => new()
     {
         Name = "shop", Repos = [AppRepo],
@@ -74,6 +78,10 @@ internal sealed class DeployFixture
         var scopes = new ProjectTemplateScopes(
             new CodingMasterTemplateTests.FixedScopeFactory(new CodingMasterTemplateTests.RecordingScope()),
             NullLogger<ProjectTemplateScopes>.Instance);
+        var events = new Mock<IEventPublisher>();
+        events.Setup(e => e.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<RunEvent, CancellationToken>((e, _) => Published.Add(e)).Returns(Task.CompletedTask);
+        var published = new DeployDeliveredPublisher(events.Object, TimeProvider.System);
         var runners = new Mock<IPipelineRunnerFactory>();
         runners.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(() => HostRunsPipelines ? Runner.Object : null);
         return new DeployToEnvironmentHandler(
@@ -81,9 +89,9 @@ internal sealed class DeployFixture
                 new DeploymentDeclarationParser(), NullLogger<DeploymentTemplateRead>.Instance),
             [
                 new GitOpsDeployDelivery(new DeployManifestPlan(new DeployVersion(manifests), manifests, keys),
-                    new GitOpsDelivery(sources.Object, new DeployCiStatus(NullLogger<DeployCiStatus>.Instance))),
+                    new GitOpsDelivery(sources.Object, new DeployCiStatus(NullLogger<DeployCiStatus>.Instance)), published),
                 new PipelineDeployDelivery(new DeployPipelinePlan(new DeployVersion(manifests)),
-                    new PipelineDelivery(runners.Object, NullLogger<PipelineDelivery>.Instance)),
+                    new PipelineDelivery(runners.Object, NullLogger<PipelineDelivery>.Instance), published),
             ]);
     }
 

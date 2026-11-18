@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { TicketAttempt } from "@/types/tickets";
+import { DeployFollowBlock } from "../deploying/DeployFollowBlock";
 import { causeLabel, causeWhere } from "./attemptStory";
 import { clock } from "./flowWords";
 import { runListLines } from "./runLines";
@@ -29,6 +30,7 @@ export function TicketRunsSection() {
             <span className="tk-chev" aria-hidden="true">›</span>
           </Link>
           {line.attempt && <ChangeEvent attempt={line.attempt} project={detail.project} ticketId={detail.ticketId} />}
+          {line.who === "Deploy" && line.outcome !== "running" && <DeployFollowBlock runId={line.runId} />}
         </div>
       ))}
     </div>

@@ -26,7 +26,7 @@ public sealed class DeployPipelinePlan(DeployVersion versions)
         if (inputs is null) return (null, $"environment '{declared.Name}': {inputError}");
         return (new PipelineTriggerOrder($"Deploy of `{request.Context}` {version} to {declared.Name}", repo,
             new PipelineRunOrder(pipeline.Name, pipeline.Ref, inputs),
-            new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead)), null);
+            new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead), version), null);
     }
 
     private static Dictionary<string, string?> Values(DeployPlanInput input, DeclaredEnvironment declared, string version)

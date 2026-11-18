@@ -44,7 +44,7 @@ public sealed partial class DeployManifestPlan(DeployVersion versions, Deploymen
             + $"`{input.TemplateSha ?? binding.Revision ?? "its default branch"}`, by agent-smith run {run}.";
         return new GitOpsOrder(repo, declared.Manifest!, content, branch, $"Deploy {request.Context} {version} to {declared.Name}",
             body, input.Target.Environment.Approval, project.Merge.Protection,
-            new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead));
+            new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead), version);
     }
 
     private static string Segment(string value) => NotRefSafe().Replace(value, "-");

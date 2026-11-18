@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
 using FluentAssertions;
@@ -48,6 +49,7 @@ public sealed class DeployPipelineTriggerTests
         _fixture.Runner.Verify(r => r.StartAsync(It.Is<PipelineRunOrder>(o => o.Pipeline == "deploy.yml" && o.Ref == null
             && o.Inputs["version"] == "v2" && o.Inputs["target"] == "test" && o.Inputs["image"] == "registry.example/app"),
             It.IsAny<CancellationToken>()), Times.Once);
+        _fixture.Published.OfType<DeployDeliveredEvent>().Single().PipelineRunId.Should().Be("42"); // 2026-11-18-3863f
     }
 
     [Fact]

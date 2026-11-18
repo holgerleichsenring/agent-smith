@@ -26,7 +26,7 @@ public sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) 
     [
         new RunRowFamily(
             new RunStartProjection(new(), NullLogger<RunStartProjection>.Instance), finalization: new(new()),
-            checkpoints: new(), expectations: new(), pullRequests: new(), classification: new()),
+            checkpoints: new(), expectations: new(), pullRequests: new(), classification: new(), deploys: new()),
         new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
         new RunSandboxFamily(new(new(), new(), new()), new()),
         new RunSpecFamily(new(), new(new())),

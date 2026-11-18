@@ -22,6 +22,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunSandboxProjection>().AddSingleton<SandboxEndFold>(); // 2026-10-13-9a59i
         services.AddSingleton<RunStepTimeProjection>();
         services.AddSingleton<RunPullRequestProjection>();
+        services.AddSingleton<DeployRecordProjection>(); // 2026-11-18-3863f
         // p0413: what the scope classifier decided about the ticket — its size and
         // its shape — on the run row.
         services.AddSingleton<RunClassificationProjection>();

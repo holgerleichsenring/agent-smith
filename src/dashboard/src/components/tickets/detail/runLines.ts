@@ -72,10 +72,28 @@ export function mergeListLine(run: TicketOtherRun): RunListLine {
   };
 }
 
-/** Every attempt, derivation and merge-green run, newest start first. */
+/** 2026-11-18-3863f: a deploy run started from this ticket; where its delivery stands is drawn under it. */
+export function deployListLine(run: TicketOtherRun): RunListLine {
+  const running = run.finishedAt === null;
+  const ok = run.status === "success";
+  return {
+    runId: run.runId,
+    who: "Deploy",
+    outcome: running ? "running" : ok ? "delivered" : "not delivered",
+    text: "Deploy to an environment.",
+    meta: [clock(run.startedAt), elapsed(run.startedAt, run.finishedAt), money(run.cost)].filter(Boolean).join(" · "),
+    tone: running ? "run" : ok ? "ok" : "bad",
+    href: runPath(run.runId),
+    attempt: null,
+    startedAt: run.startedAt,
+  };
+}
+
+/** Every attempt, derivation, merge-green and deploy run, newest start first. */
 export function runListLines(attempts: readonly TicketAttempt[], derivations: readonly TicketDerivation[],
   otherRuns: readonly TicketOtherRun[] = []): RunListLine[] {
   return [...attempts.map(attemptListLine), ...derivations.map(derivationListLine),
-    ...otherRuns.filter((r) => r.pipeline === "merge-green").map(mergeListLine)]
+    ...otherRuns.filter((r) => r.pipeline === "merge-green").map(mergeListLine),
+    ...otherRuns.filter((r) => r.pipeline === "deploy").map(deployListLine)]
     .sort((l, r) => Date.parse(r.startedAt) - Date.parse(l.startedAt) || (l.runId < r.runId ? 1 : -1));
 }

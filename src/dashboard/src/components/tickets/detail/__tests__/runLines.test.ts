@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TicketDerivation } from "@/types/tickets";
-import { attemptListLine, derivationListLine, mergeListLine, runListLines } from "../runLines";
+import { attemptListLine, deployListLine, derivationListLine, mergeListLine, runListLines } from "../runLines";
 import { attempt } from "./detailFixtures";
 
 // 2026-11-17-8d1cc: the Runs section's lines from recorded fields — every attempt says how it ended with its end kind.
@@ -36,5 +36,13 @@ describe("runLines", () => {
     expect(mergeListLine(merge)).toMatchObject({ who: "Merge", outcome: "done", tone: "ok", href: "/jobs/m-1", attempt: null });
     const lines = runListLines([attempt({ startedAt: "2026-09-04T10:00:00Z" })], [], [merge, { ...merge, runId: "x-1", pipeline: "retarget" }]);
     expect(lines.map((l) => l.runId)).toEqual(["m-1", "r-1"]);
+  });
+
+  // 2026-11-18-3863f
+  it("runListLines_DrawDeployRuns", () => {
+    const deploy = { runId: "dp-1", pipeline: "deploy", status: "success", startedAt: "2026-09-04T14:00:00Z", finishedAt: "2026-09-04T14:00:30Z", cost: 0, neverStarted: false };
+    expect(deployListLine(deploy)).toMatchObject({ who: "Deploy", outcome: "delivered", tone: "ok", href: "/jobs/dp-1" });
+    const lines = runListLines([attempt({ startedAt: "2026-09-04T10:00:00Z" })], [], [deploy]);
+    expect(lines.map((l) => l.runId)).toEqual(["dp-1", "r-1"]);
   });
 });

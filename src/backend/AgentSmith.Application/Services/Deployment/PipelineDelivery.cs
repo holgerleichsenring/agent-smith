@@ -11,23 +11,23 @@ namespace AgentSmith.Application.Services.Deployment;
 /// </summary>
 public sealed class PipelineDelivery(IPipelineRunnerFactory runners, ILogger<PipelineDelivery> logger)
 {
-    /// <summary>Whether the pipeline started, and the sentence that says where its run stands.</summary>
-    public async Task<(bool Started, string Sentence)> DeliverAsync(PipelineTriggerOrder order, CancellationToken cancellationToken)
+    /// <summary>Whether the pipeline started, the sentence that says where its run stands, and the run.</summary>
+    public async Task<(bool Started, string Sentence, PipelineRunStart? Run)> DeliverAsync(PipelineTriggerOrder order, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(order);
         var what = order.Run.Pipeline is { } name ? $"pipeline `{name}` of `{order.Repo.Name}`" : $"the pipeline of `{order.Repo.Name}`";
         if (runners.Create(order.Repo) is not { } runner)
-            return (false, $"`{order.Repo.Name}` is a {order.Repo.Type} repository, whose host runs no pipeline");
+            return (false, $"`{order.Repo.Name}` is a {order.Repo.Type} repository, whose host runs no pipeline", null);
         PipelineRunStart start;
         try { start = await runner.StartAsync(order.Run, cancellationToken); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "The {What} could not be started", what);
-            return (false, $"{what} could not be started: {ex.Message}");
+            return (false, $"{what} could not be started: {ex.Message}", null);
         }
         if (start.RunId is null)
-            return (true, $"{what} started; the host did not name the run, so it is not followed — its runs are at {start.Url}");
-        return (true, $"{what} started run {start.Url}; {await StateAsync(runner, start, order.Ci, cancellationToken)}");
+            return (true, $"{what} started; the host did not name the run, so it is not followed — its runs are at {start.Url}", start);
+        return (true, $"{what} started run {start.Url}; {await StateAsync(runner, start, order.Ci, cancellationToken)}", start);
     }
 
     private async Task<string> StateAsync(IPipelineRunner runner, PipelineRunStart start, CiReadRequest bounds, CancellationToken ct)

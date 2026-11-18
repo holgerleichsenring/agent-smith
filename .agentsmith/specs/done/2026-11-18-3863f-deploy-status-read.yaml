@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-3863f
+goal: "A deploy is followed after its run ends — its pull request's merge and CI, or its pipeline run, until settled — and the run and ticket pages show where it stands and why it failed."
+
+applies_to: "default (deploy event, DeployRecord on three providers, follow service, run endpoint) + dashboard (run page, ticket runs)"
+
+requires: [2026-11-18-3863c, 2026-11-18-3863e]
+
+upgrade_impact: "A new table (DeployRecords) on SQLite, SQL Server and PostgreSQL. A server with deploy records reads each unsettled one's host every merge.ci_poll_seconds while its CI or pipeline runs, and an open deploy pull request whose CI settled every tickets.pr_reread_interval_seconds until it is merged or closed."
+
+facts:
+  - claim: "The CI reader with failure reasons per provider is on main (2026-11-17-3435a); the deploy run reads it once when it ends. A deploy pull request is deliberately NOT a PrReviewRecord, so the merge policy, base refresh and rework never touch it."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPullRequestCiReader.cs:8-11, src/backend/AgentSmith.Application/Services/Deployment/DeployCiStatus.cs:13-30, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/NamedPullRequestReader.cs:24-25"
+  - claim: "A step reaches the database only through its run's event stream; the run row family projects an event into rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:14-50, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:20-27"
+  - claim: "A pipeline run is read back by IPipelineRunner.ReadAsync (2026-11-18-3863e); a pull request's state by IPrReviewStateReader."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/IPipelineRunner.cs:10-20, src/backend/AgentSmith.Contracts/Reviews/IPrReviewStateReader.cs:9-12"
+  - claim: "The ticket page lists other runs only for merge-green; a deploy run is listed on the ticket (ShownOnTicket) but never drawn."
+    evidence: "src/dashboard/src/components/tickets/detail/runLines.ts:76-80"
+
+scope:
+  in: "DeployDeliveredEvent (run, project, context, context repo, environment, version, delivery, the repository delivered to, pull request url or pipeline run id, link), published by both deliveries through DeployDeliveredPublisher (nothing when nothing was delivered); DeployRecordProjection INSERTS a DeployRecord per run and a replay leaves it alone (a pipeline run the host did not name is inserted settled); the follow is the record's only writer after that. DeployFollow (server, read-only towards hosts) re-resolves the repository by the binding and reads a due record — the PR's state, then its CI on the head that read saw, or the pipeline run — with the bounds merge.ci_excerpt_chars and ci_failed_checks_read, and DeployFollowVerdict decides settled: a pipeline not pending; a PR merged or closed with CI not pending; pending is measured from delivery, and a run still pending after merge.ci_pending_seconds stops being followed and says so; a removed project or a binding that no longer resolves to that repository stops with its reason. Due: every merge.ci_poll_seconds while pending, every tickets.pr_reread_interval_seconds for an open PR whose CI settled. DeployFollowPass rides on PrRecordReReadHostedService's leader loop, at most tickets.pr_reread_open_cap records per pass, and asks for the smallest merge.ci_poll_seconds tick while any record is unsettled. GET /api/runs/{runId}/deployment (runs.read). Dashboard: DeployFollow block on a deploy run's page and under the deploy line now drawn on the ticket's runs list. No new setting: cadence and bounds are the CI loop's keys, their descriptions name the deploy follow."
+  out: "Cluster rollout state (needs cluster access agent-smith does not have). Acting on a settled deploy (2026-11-18-3863h)."
+
+steps:
+  - id: event
+    action: "EventType.DeployDelivered, DeployDeliveredEvent, EventTypeResolver; DeployDeliveredPublisher used by GitOpsDeployDelivery and PipelineDeployDelivery; the hub-events mirror, FilterRail and eventFilterQuery."
+  - id: record
+    action: "DeployRecord entity + configuration + DbSet, migrations AddDeployRecords on the three providers, DeployRecordProjection in RunRowFamily, DeployRecordRepository, DeployRecordView in Contracts."
+  - id: follow
+    action: "DeployFollowVerdict, DeployFollow, DeployFollowPass run from PrRecordReReadHostedService; registration."
+  - id: endpoint
+    action: "DeploymentEndpoints GET /api/runs/{runId}/deployment."
+  - id: dashboard
+    action: "deploymentsApi.getDeployRecord; DeployFollowBlock; RunLogView shows it for a deploy run; runListLines draws deploy runs and TicketRunsSection shows the block under them."
+  - id: docs
+    action: "deployment-templates.md 'Following a deploy'; merge.ci_* descriptions in agentsmith-yml.md and the studio help."
+
+tests:
+  - "DeployFollowVerdict: pipeline green/red settles; pending past ci_pending_seconds settles with its reason; an open PR stays; a merged PR with CI pending stays, with CI green settles"
+  - "DeployFollow: a deploy PR whose check failed records the failed check, its excerpt and link; a pipeline run read red records its failed job"
+  - "DeployRecordProjection: the event inserts one record per run; a replay after the follow settled it changes nothing"
+  - "Endpoint: a run's record is answered; a run without one is 404"
+  - "Dashboard: DeployFollowBlock shows the failed check with its excerpt and link; runListLines draws a deploy run"
+  - "Harness: a pipeline deploy through the real composition publishes DeployDeliveredEvent with its run; handler tests: a GitOps deploy publishes its pull request, an unchanged one nothing"
+
+done:
+  - "A deploy pull request whose check failed shows the failed check, its excerpt and link on the deploy run and under it on the ticket."
