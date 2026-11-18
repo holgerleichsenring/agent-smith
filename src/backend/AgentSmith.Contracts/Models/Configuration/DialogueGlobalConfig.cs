@@ -33,4 +33,11 @@ public sealed class DialogueGlobalConfig
     /// take one from. Unset means an admin's "Agent Smith" conversation answers that it names none.
     /// </summary>
     public string? AdminAgent { get; set; }
+
+    /// <summary>2026-11-17-f3a8b: the most rows one admin assistant read returns — runs, events or calls. Default 50.</summary>
+    public int AdminReadLimit { get; set; } = 50;
+
+    /// <summary>2026-11-17-f3a8b: the most characters one admin assistant tool result carries; a longer one is cut and
+    /// says so, and a prompt is read page by page in this size. Default 40000.</summary>
+    public int AdminResultMaxChars { get; set; } = 40_000;
 }

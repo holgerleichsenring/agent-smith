@@ -29,11 +29,17 @@ public sealed class AdminAssistantTurnHandler(
             AdminTurnPrompt.Build(pipeline), turnTools.For(pipeline, surface.Tools(pipeline)), pipeline, slot);
         var result = await loopRunner.RunAsync(request, cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(result.Response);
-        pipeline.Set(ContextKeys.MasterAnswer, result.Response.Text ?? string.Empty);
+        var proposed = outcome.Of(pipeline);
+        pipeline.Set(ContextKeys.MasterAnswer, Answer(result.Response.Text, proposed));
         pipeline.Set(ContextKeys.MasterSkillName, PipelinePresets.AdminAssistantMaster);
-        pipeline.Set(ContextKeys.SpecDialogOutcome, outcome.Of(pipeline));
+        pipeline.Set(ContextKeys.SpecDialogOutcome, proposed);
         return CommandResult.Ok("Admin assistant answered");
     }
+
+    // 2026-11-17-f3a8c: a turn that drafted changes and said nothing is answered by what it drafted.
+    private static string Answer(string? text, OutcomeProposal proposed) =>
+        !string.IsNullOrWhiteSpace(text) ? text
+        : proposed is ConfigChangeOutcome changes ? $"The draft holds {changes.Changes.Count} configuration change(s)." : string.Empty;
 
     // The turn's run id on its reply slot and on the conversation's row before the first call, as the design turn's grounding does.
     private async Task LinkRunAsync(PipelineContext pipeline, SpecDialogReplySlot slot, CancellationToken cancellationToken)

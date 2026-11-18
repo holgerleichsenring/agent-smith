@@ -16,7 +16,7 @@ facts:
 
 scope:
   in: "Tools read_config_entity(kind,id) and draft_config_change(operation upsert|delete, kind, id, document) / drop_config_change; kinds are the studio's (agents, trackers, repos, projects, mcp-servers, secrets, connections, design-sources, settings/<type>); duplicate, move and cleanup are drafts of these; ConfigChangeOutcome (items with before/after) stored and shown as kind 'config'; approving it runs the 'config' preset [ApplyConfigChanges] on the installation; items apply in order through IConfigStore with actor '<person> via admin assistant (run <id>)'; each item is refused when the stored entity no longer matches the before the draft showed; the first refusal stops the run and the earlier items of this run are reverted in reverse order (compensation, not a transaction; a revert that fails is named); the report names item, kind, id and the store's message; reload bumped and ConfigChanged published; the pane shows the diff and 'Apply'."
-  out: "Secret values (f3a8d). role_mapping (access.write surface; the tool refuses it). A dry-run validator: the store's validators decide at apply. The file-backed store (read-only; the tool says so)."
+  out: "Secret values (f3a8d). role_mapping (access.write surface; the tool refuses it). A dry-run validator: the store's validators decide at apply."
 
 steps:
   - id: model

@@ -22,7 +22,7 @@ public sealed class AdminTurnRunner(
     IConfigurationLoader configLoader, ServerContext serverContext, ExecutePipelineUseCase pipelineUseCase,
     SpecDialogTurnGate gate, DashboardActivityChannel activity, SpecDialogThreadStore threads,
     SpecDialogTurnEnding ending, SpecDialogTurnRunLink runLink, SpecDialogThreadWriteLink threadWrites,
-    SpecDialogOperatorInbox inbox) : ISpecDialogTurnRunner
+    SpecDialogOperatorInbox inbox, SpecDialogProposalContinuity continuity) : ISpecDialogTurnRunner
 {
     private static readonly IReadOnlyDictionary<string, ISourceScopeSandbox> NoTemplates =
         new Dictionary<string, ISourceScopeSandbox>();
@@ -52,6 +52,7 @@ public sealed class AdminTurnRunner(
     {
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
         var agent = InstallationProject.AdminAgent(config);
+        state = await continuity.ContinuingAsync(state, cancellationToken); // 2026-11-17-f3a8c: the awaiting draft
         var seeds = AdminTurnSeeds.Build(state, slot, agent, await threads.LoadAsync(state, agent, cancellationToken),
             poster, inbox.For(state.JobId, poster, slot.Thread));
         var request = new PipelineRequest(

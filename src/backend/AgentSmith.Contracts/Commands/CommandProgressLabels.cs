@@ -49,7 +49,7 @@ public static partial class CommandNames
         ["PlanOpenQuestionsCommand"] = "Posting Plan open questions",
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
-        [AgenticMaster] = "Running master skill", [AdminAssistantTurn] = "Running the admin assistant", // 2026-11-17-f3a8a
+        [AgenticMaster] = "Running master skill", [AdminAssistantTurn] = "Running the admin assistant", [ApplyConfigChanges] = "Applying configuration changes", // f3a8a, f3a8c
         [LoadCachedCodeMap] = "Loading cached code map", [GroundSpecDialog] = "Grounding the design conversation",
         [CollectSpecDialogReply] = "Collecting design reply", [PlanFiling] = "Planning the filing", [FileTickets] = "Filing the tickets",
         [CloseTicket] = "Closing the ticket", [ReopenTicket] = "Reopening the ticket", [StartTicket] = "Starting the ticket",

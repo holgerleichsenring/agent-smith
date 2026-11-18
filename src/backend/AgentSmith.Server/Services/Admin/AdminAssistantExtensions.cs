@@ -14,6 +14,14 @@ public static class AdminAssistantExtensions
     {
         services.AddScoped<SpecDialogTurnRunner>().AddScoped<AdminTurnRunner>();
         services.AddScoped<ISpecDialogTurnRunner, ConversationTurnRunner>();
+        // 2026-11-17-f3a8b: the server's read tools, scoped with the turn's unit of work.
+        services.AddScoped<Read.AdminReadSettings>().AddScoped<Read.AdminRunTools>().AddScoped<Read.AdminCallTools>()
+            .AddScoped<Read.AdminEventTools>().AddScoped<Read.AdminPromptTools>()
+            .AddScoped<Read.AdminConfigReadTools>().AddScoped<Read.AdminHealthTools>();
+        services.AddScoped<IAdminToolSurface, AdminToolSurface>();
+        // 2026-11-17-f3a8c: a turn proposes what it drafted; Apply is a config run.
+        services.AddSingleton<IAdminTurnOutcome, ConfigDraftOutcome>();
+        services.AddScoped<Config.IConfigApplyRun, Config.ConfigApplyRun>().AddScoped<Config.ConfigOutcomeSink>();
         return services.AddAdminPipelines();
     }
 }

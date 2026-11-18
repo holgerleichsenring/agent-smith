@@ -317,6 +317,14 @@
         "admin_agent": {
           "type": "string",
           "description": "The agent the admin assistant (Work it out > Agent Smith, admins only) runs on. Unset, the conversation says it names none."
+        },
+        "admin_read_limit": {
+          "type": "integer",
+          "description": "The most rows one admin assistant read returns (runs, events, calls). Default 50."
+        },
+        "admin_result_max_chars": {
+          "type": "integer",
+          "description": "The most characters one admin assistant tool result carries; prompts are read page by page in this size. Default 40000."
         }
       }
     },

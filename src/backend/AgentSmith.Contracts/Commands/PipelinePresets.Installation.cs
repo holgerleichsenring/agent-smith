@@ -11,10 +11,15 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> AdminTurn =
         [CommandNames.AdminAssistantTurn, CommandNames.CollectSpecDialogReply];
 
+    /// <summary>2026-11-17-f3a8c: preset name of a config run — an applied set of configuration changes.</summary>
+    public const string ConfigName = "config";
+
+    public static readonly IReadOnlyList<string> Config = [CommandNames.ApplyConfigChanges];
+
     // The runs on the installation, launched by the server with a transcript or a request only it supplies.
     private static readonly Dictionary<string, IReadOnlyList<string>> InstallationSteps = new(StringComparer.OrdinalIgnoreCase)
     {
-        [AdminTurnName] = AdminTurn,
+        [AdminTurnName] = AdminTurn, [ConfigName] = Config,
     };
 
     private const string InstallationReason = "it runs on the installation itself with a conversation or a request "

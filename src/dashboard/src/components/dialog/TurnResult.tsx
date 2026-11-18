@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogConfigChanges } from "./DialogConfigChanges";
 import type { ReactNode } from "react";
 import { DialogProposalFindings } from "./DialogProposalFindings";
 import { notReviewedLabel } from "./DialogProposalRounds";
@@ -51,6 +52,7 @@ export function TurnResult({
       {proposal.kind === "comment" && proposal.comment && (
         <p className="dsh-body whitespace-pre-wrap text-ink" data-testid="turn-comment">{proposal.comment}</p>
       )}
+      {proposal.kind === "config" && <DialogConfigChanges changes={proposal.configChanges ?? []} />}
       {(proposal.tickets?.length ?? 0) > 0 && (
         <div className="d-turn-head"><span>{proposal.tickets!.length} tickets</span><span>in merge order</span></div>
       )}

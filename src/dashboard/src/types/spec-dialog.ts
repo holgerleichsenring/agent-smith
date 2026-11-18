@@ -454,6 +454,8 @@ export interface SpecDialogProposalPush {
   tickets?: SpecDialogGraphTicket[];
   /** 2026-10-28-7a69c: the comment a ticket's conversation proposes to post; absent for every other kind. */
   comment?: string | null;
+  /** 2026-11-17-f3a8c: the admin assistant's drafted configuration changes, in the order Apply applies them. */
+  configChanges?: SpecDialogConfigChange[] | null;
   /** 2026-11-04-96a0c: per upload, what the proposing turn and the conversation opened; absent on an older proposal. */
   uploads?: SpecDialogUploadRead[];
   /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries; absent on a draft under review. */
@@ -670,4 +672,13 @@ export interface FiledWork {
   /** 2026-09-25-8e51d: the specification approved for the ticket this conversation BELONGS to,
    *  which a conversation that filed nothing itself still has. Null when there is none. */
   approved?: ApprovedSetView | null;
+}
+
+/** 2026-11-17-f3a8c: one drafted configuration change — the entity's document after, and what the store held before. */
+export interface SpecDialogConfigChange {
+  operation: "upsert" | "delete" | string;
+  kind: string;
+  id: string;
+  document?: string | null;
+  before?: string | null;
 }

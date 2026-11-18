@@ -78,6 +78,7 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.BranchCleanupName, false)] // 2026-11-17-713ec
     [InlineData(PipelinePresets.RefreshBaseName, false)] // 2026-11-17-023fb: a refresh run never force-pushes WIP
     [InlineData(PipelinePresets.AdminTurnName, false)] // 2026-11-17-f3a8a
+    [InlineData(PipelinePresets.ConfigName, false)] // 2026-11-17-f3a8c
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -90,7 +91,7 @@ public sealed class ScanFailurePersistGuardTests
             PipelinePresets.TicketBodyName, PipelinePresets.RetargetName, .. InstallationPresets]);
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
-    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName];
+    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName];
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

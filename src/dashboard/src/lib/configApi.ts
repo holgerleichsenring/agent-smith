@@ -958,6 +958,9 @@ export interface DialogueSetting {
   dashboardUrl?: string | null;
   // 2026-11-17-f3a8a: the agent the admin assistant runs on.
   adminAgent?: string | null;
+  // 2026-11-17-f3a8b: what one admin assistant read may return.
+  adminReadLimit?: number;
+  adminResultMaxChars?: number;
 }
 
 export interface DeploymentSetting {

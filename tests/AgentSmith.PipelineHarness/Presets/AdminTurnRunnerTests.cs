@@ -58,6 +58,9 @@ public sealed class AdminTurnRunnerTests
         harness.ChatClient.CallMessages[secondStarts].Should().Contain(m => m.Role == ChatRole.Assistant && m.Text.Contains("Noted: teal."));
     }
 
+    internal static Task<ConversationState> OpenAsync(RealCompositionHarness harness, string text) =>
+        AppendAsync(harness, text, open: true);
+
     private static async Task<ConversationState> AppendAsync(RealCompositionHarness harness, string text, bool open = false)
     {
         await using var scope = harness.Services.CreateAsyncScope();
@@ -68,7 +71,7 @@ public sealed class AdminTurnRunnerTests
         return (await sessions.AppendTurnAsync(Platform, Dialog, TranscriptRole.User, text, null, null, CancellationToken.None))!;
     }
 
-    private static async Task<SpecDialogTurnResult?> TurnAsync(RealCompositionHarness harness, ConversationState state)
+    internal static async Task<SpecDialogTurnResult?> TurnAsync(RealCompositionHarness harness, ConversationState state)
     {
         await using var scope = harness.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ISpecDialogTurnRunner>()

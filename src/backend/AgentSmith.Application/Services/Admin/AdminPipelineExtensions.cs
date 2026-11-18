@@ -18,6 +18,9 @@ public static class AdminPipelineExtensions
         services.TryAddSingleton<IAdminTurnOutcome, AnswerOnlyAdminOutcome>();
         services.AddTransient<AdminTurnTools>();
         services.AddTransient<ICommandHandler<AdminAssistantTurnContext>, AdminAssistantTurnHandler>();
+        // 2026-11-17-f3a8c: the config run.
+        services.AddSingleton<ConfigEntityKinds>().AddScoped<ConfigChangeApplier>().AddScoped<ConfigChangedSignal>();
+        services.AddTransient<ICommandHandler<ApplyConfigChangesContext>, ApplyConfigChangesHandler>();
         return services;
     }
 }

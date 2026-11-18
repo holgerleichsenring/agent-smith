@@ -189,8 +189,11 @@ public sealed class ServerDiLifetimeTests
             using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             using var scope = provider.CreateScope();
 
+            // 2026-11-17-f3a8c: the router sends configuration changes to a config run and everything else to the filing.
             scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.IOutcomeSink>()
-                .Should().BeOfType<AgentSmith.Server.Services.SpecDialog.TicketFilingOutcomeSink>();
+                .Should().BeOfType<AgentSmith.Server.Services.Admin.Config.OutcomeSinkRouter>();
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.TicketFilingOutcomeSink>()
+                .Should().NotBeNull();
             scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.Continuation.TicketContinuationAct>()
                 .Should().NotBeNull();
             scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Tickets.TicketApprovalPreview>()

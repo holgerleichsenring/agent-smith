@@ -27,6 +27,9 @@ internal static class AdminTurnSeeds
             [ContextKeys.SpecDialogOperatorMessages] = messages,
         };
         if (thread is not null) seeds[ContextKeys.SpecDialogThread] = thread;
+        // 2026-11-17-f3a8c: the draft continues the changes still awaiting a decision.
+        seeds[ContextKeys.AdminConfigDraft] = new Application.Services.Admin.AdminConfigDraft(
+            (state.Revising as ConfigChangeOutcome)?.Changes);
         if (poster.MayStartRuns) seeds[ContextKeys.MayStartRuns] = true;
         return seeds;
     }
