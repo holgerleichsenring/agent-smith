@@ -50,7 +50,7 @@ internal sealed class GitSpecSetPublisher(CitationRepo repo, DateTimeOffset at) 
                 new SpecDeliveryAccounting(TestHelpers.TestGit.Delivery, null!, new SandboxTargets(),
                     NullLogger<SpecDeliveryAccounting>.Instance),
                 new SandboxTargets(), new SpecSandboxes(new SandboxTargets()), NullLogger<SpecEntryAccount>.Instance),
-            TestHelpers.TestSpecReview.StartHeads(),
+            TestHelpers.TestSpecReview.StartHeads(), TestHelpers.TestSpecReview.PreviousFindings(),
             new SpecProgressRecorder(new Application.Services.Events.NoOpEventPublisher()),
             Grounding(), NullLogger<SelectSpecHandler>.Instance);
 }

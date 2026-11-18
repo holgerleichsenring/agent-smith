@@ -22,6 +22,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class SelectSpecHandler(
     SpecEntryAccount entryAccount,
     SpecStartHeads startHeads,
+    PreviousAttemptFindings previousFindings,
     ISpecProgressRecorder progress,
     Specs.Review.ISpecEntryGrounding entryGrounding,
     ILogger<SelectSpecHandler> logger)
@@ -64,10 +65,10 @@ public sealed class SelectSpecHandler(
             spec.SpecId, set.Key, spec.Draft.Goal);
 
         var accounts = await entryAccount.TakeAsync(context.Pipeline, cancellationToken);
-        return Satisfied(accounts)
-            ? await AlreadyDoneAsync(context.Pipeline, spec, accounts, cancellationToken)
-            : CommandResult.Ok($"Spec {spec.SpecId}: {spec.Draft.Goal}"
-                + stepNote);
+        if (Satisfied(accounts)) return await AlreadyDoneAsync(context.Pipeline, spec, accounts, cancellationToken);
+        // 2026-11-18-550ab: entry stays fresh; the verification after the work carries the failed attempt's findings.
+        await previousFindings.RecordAsync(context.Pipeline, spec.SpecId, cancellationToken);
+        return CommandResult.Ok($"Spec {spec.SpecId}: {spec.Draft.Goal}" + stepNote);
     }
 
     /// <summary>

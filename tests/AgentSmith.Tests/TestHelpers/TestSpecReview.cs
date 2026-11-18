@@ -32,4 +32,9 @@ internal static class TestSpecReview
 
     public static SpecStartHeads StartHeads(SandboxTargets? targets = null) =>
         new(targets ?? new SandboxTargets(), NullLogger<SpecStartHeads>.Instance);
+
+    /// <summary>2026-11-18-550ab: the previous attempt's findings over a reader; none without one.</summary>
+    public static PreviousAttemptFindings PreviousFindings(AgentSmith.Contracts.Services.IRunSpecAcceptanceReader? reader = null) =>
+        new(reader ?? new AgentSmith.Application.Services.Resume.NullRunSpecAcceptanceReader(),
+            NullLogger<PreviousAttemptFindings>.Instance);
 }

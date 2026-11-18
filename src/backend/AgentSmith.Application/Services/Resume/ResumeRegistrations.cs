@@ -30,6 +30,7 @@ public static class ResumeRegistrations
         services.TryAddSingleton<IDialogueAnswerInbox, NoOpDialogueAnswerInbox>();
         services.TryAddSingleton<IPriorRunLedgerReader, NullPriorRunLedgerReader>();
         services.TryAddSingleton<IPreviousAttemptReader, NullPreviousAttemptReader>(); // 2026-10-08-7c0e
+        services.TryAddSingleton<IRunSpecAcceptanceReader, NullRunSpecAcceptanceReader>(); // 2026-11-18-550ab
         services.TryAddSingleton<IDecidedDefaults, NullDecidedDefaults>(); // 2026-10-13-8762p
         services.AddMemoryStanding(); // 2026-10-25-9324a-c: the memory ledger's DB-free defaults and readers
         services.TryAddSingleton<IReworkNudges, AgentSmith.Application.Services.Rework.NullReworkNudges>(); // 2026-10-08-0781

@@ -108,6 +108,7 @@ public static class SpecDerivationRegistrations
     // 2026-09-17-042eh: the spec review's own collaborators — where a spec began, its
     // diff, the instance that reads it, and the undo of a fix pass that was not green.
     services.AddTransient<SpecStartHeads>();
+    services.AddTransient<PreviousAttemptFindings>(); // 2026-11-18-550ab
     services.AddTransient<SpecDiffs>();
     services.AddTransient<SpecDiffReviewer>().AddTransient<RatifiedMockReview>();
     services.AddTransient<SpecReviewRevert>();

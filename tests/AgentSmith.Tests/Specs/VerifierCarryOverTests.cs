@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Specs;
 /// satisfied", the spec's record beside the diff, and — after a repair — the previous findings with the files the repair
 /// changed, so a gap it missed before on code the repair left alone is advice on a satisfied row, not a stop.
 /// </summary>
-public sealed class VerifierCarryOverTests
+public sealed partial class VerifierCarryOverTests
 {
     private const string Criterion = "only an eligible recipient can act";
     private const string File = "src/Api/Approvals/Eligibility.cs";

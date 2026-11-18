@@ -13,6 +13,10 @@ public static partial class ContextKeys
     /// not the run's. Rewritten at every SelectSpec.</summary>
     public const string SpecStartHeads = "SpecStartHeads";
 
+    /// <summary>2026-11-18-550ab: the unmet findings the ticket's previous failed attempt stored for the current spec,
+    /// "criterion (reason)", carried to this attempt's verification of it; cleared when a spec is entered.</summary>
+    public const string PreviousAttemptFindings = "PreviousAttemptFindings";
+
     /// <summary>2026-09-17-042eh: the findings the spec review kept
     /// (IReadOnlyList&lt;<see cref="Domain.Models.SpecFinding"/>&gt;) — what the fix pass is
     /// given, what the record states and what the artifact carries. Cleared at spec start.</summary>
