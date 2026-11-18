@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-00eab
+
+decisions:
+  - category: Architecture
+    chose: "ConfigStudioWriteGuard.GuardSignalingAsync takes the shared ConfigChangedSignal; every studio route, the access surface and ArchiveRestore pass it, and the guard's private bump-and-publish copy is gone"
+    over: "Keeping the static copy beside the service the config and secret runs use"
+    reason: "f3a8c named the copy as debt for the next change to the guard. Two copies of 'bump the epoch, publish ConfigChanged' can drift on the source name, the actor or the failure handling; one class signals every configuration change."
+  - category: Implementation
+    chose: "ConfigChangedSignal is a singleton, TryAdd-registered by the server composition and by the admin pipelines"
+    over: "Scoped, registered by the admin pipelines only"
+    reason: "ArchiveRestore is a singleton and calls the guard; both dependencies (IConfigReloadSignal, ISystemEventPublisher) are singletons. Review: a host that maps the studio routes without the spec-dialog chain would otherwise answer 500 on every write."
+  - category: Implementation
+    chose: "A failed signal is logged as a warning, as the config run's was"
+    over: "The guard's silent catch-all"
+    reason: "The write already committed either way; a swallowed failure left a stale replica with no trace of why."

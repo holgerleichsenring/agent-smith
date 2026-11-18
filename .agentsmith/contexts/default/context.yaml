@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-00eab: "CONFIG SIGNAL SHARED (ConfigStudioWriteGuard, ConfigChangedSignal singleton, ArchiveRestore). Studio writes, archive restore, config and secret runs signal a committed change through one class; a failed signal is logged. -> .agentsmith/specs/done/2026-11-18-00eab-config-signal-shared.yaml"
     2026-11-17-f3a8d: "SECRET STORE (StoredSecrets table on three providers, SecretEnvelope AES-GCM, MasterKeyRing, 'secret' preset, /api/config/secret-values, SecretValueField). Admins set, rotate and delete installation secret values, envelope-encrypted under a master key outside the DB; write-only; env wins. -> .agentsmith/specs/done/2026-11-17-f3a8d-secret-store-envelope.yaml"
     2026-11-17-f3a8c: "ADMIN CONFIG CHANGE (ConfigChangeOutcome, draft tools, OutcomeSinkRouter, ConfigOutcomeSink, 'config' preset, ConfigChangeApplier). The assistant drafts creates, duplicates, moves and cleanups; Apply runs a config run through the studio's store, attributed, reverting on refusal. -> .agentsmith/specs/done/2026-11-17-f3a8c-admin-config-change.yaml"
     2026-11-17-f3a8b: "ADMIN READ TOOLS (AdminToolSurface, AdminRun/Call/Event/Prompt/Ticket/ConfigRead/HealthTools, MaskedResultTool, dialogue.admin_read_limit/admin_result_max_chars). Reads runs, calls with prompt ids and cost per role, events, prompts, tickets, config, secret presence, health; masked and bounded. -> .agentsmith/specs/done/2026-11-17-f3a8b-admin-read-tools.yaml"

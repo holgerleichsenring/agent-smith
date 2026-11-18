@@ -19,7 +19,7 @@ public static class AdminPipelineExtensions
         services.AddTransient<AdminTurnTools>();
         services.AddTransient<ICommandHandler<AdminAssistantTurnContext>, AdminAssistantTurnHandler>();
         // 2026-11-17-f3a8c: the config run.
-        services.AddSingleton<ConfigEntityKinds>().AddScoped<ConfigChangeApplier>().AddScoped<ConfigChangedSignal>();
+        services.AddSingleton<ConfigEntityKinds>().AddScoped<ConfigChangeApplier>().TryAddSingleton<ConfigChangedSignal>();
         services.AddTransient<ICommandHandler<ApplyConfigChangesContext>, ApplyConfigChangesHandler>();
         // 2026-11-17-f3a8d: the secret run.
         services.AddScoped<SecretWrite>().AddTransient<ICommandHandler<WriteSecretContext>, WriteSecretHandler>();

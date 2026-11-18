@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Admin;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
@@ -33,7 +34,7 @@ internal static class ConfigTransferEndpoints
         app.MapPost("/api/config/import",
             async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store,
                 [FromServices] ConfigImportPlanner planner,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx,
+                [FromServices] ConfigChangedSignal signal, HttpContext ctx,
                 [FromServices] LegacyTriggerMigration? triggerBlocks) =>
             {
                 var force = req.Query["force"] == "true";
@@ -44,7 +45,7 @@ internal static class ConfigTransferEndpoints
                     {
                         error = "Config store is not empty; confirm to overwrite it (versions are bumped, history kept).",
                     });
-                return await GuardSignalingAsync(ctx, reload, events, () =>
+                return await GuardSignalingAsync(ctx, signal, () =>
                 {
                     var plan = planner.Plan(yaml, "the imported file");
                     var writes = plan.Docs

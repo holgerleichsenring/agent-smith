@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Admin;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
@@ -65,13 +66,13 @@ internal static class ConfigEntityRoutes
         app.MapGet(basePath, (IConfigStore store) => Results.Ok(getAll(store))).Needs(read);
 
         app.MapPost(basePath, ([FromBody] TEntity entity, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            GuardSignalingAsync(ctx, reload, events,
+                [FromServices] ConfigChangedSignal signal, HttpContext ctx) =>
+            GuardSignalingAsync(ctx, signal,
                 () => { upsert(store, entity, Attribution(ctx)); return Results.Ok(entity); })).Needs(write);
 
         app.MapPut(basePath + "/{id}", (string id, [FromBody] TEntity entity, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            GuardSignalingAsync(ctx, reload, events, () =>
+                [FromServices] ConfigChangedSignal signal, HttpContext ctx) =>
+            GuardSignalingAsync(ctx, signal, () =>
             {
                 var withRouteId = withId(entity, id);
                 upsert(store, withRouteId, Attribution(ctx));
@@ -79,8 +80,8 @@ internal static class ConfigEntityRoutes
             })).Needs(write);
 
         app.MapDelete(basePath + "/{id}", (string id, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            GuardSignalingAsync(ctx, reload, events,
+                [FromServices] ConfigChangedSignal signal, HttpContext ctx) =>
+            GuardSignalingAsync(ctx, signal,
                 () => { delete(store, id, Attribution(ctx)); return Results.NoContent(); })).Needs(write);
     }
 }

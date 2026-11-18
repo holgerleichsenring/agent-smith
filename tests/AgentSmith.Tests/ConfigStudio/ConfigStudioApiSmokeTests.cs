@@ -620,6 +620,7 @@ public sealed class ConfigStudioApiSmokeTests
         // CLI/no-Redis baseline so [FromServices] resolves.
         builder.Services.AddSingleton<IConfigReloadSignal, NullConfigReloadSignal>();
         builder.Services.AddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
+        builder.Services.AddSingleton<AgentSmith.Application.Services.Admin.ConfigChangedSignal>(); // 2026-11-18-00eab
         // p0345c: the capabilities endpoint reads the REAL registered chat-client
         // builders; the repo-picker endpoint reads the REAL disk snapshot store.
         // p0416: the external-worker builder is constructed with the rest; the run
