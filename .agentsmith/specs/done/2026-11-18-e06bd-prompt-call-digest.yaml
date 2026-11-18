@@ -17,7 +17,7 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Extensions/RunStoryEndpoints.cs:26-27"
 
 scope:
-  in: "PromptDigestView(PromptId, Fed, Decided). PromptDigestLines (pure): fed = the call's last message as one line ('<tool> result: <first line>' resolving the tool name from the call's earlier tool calls, else '<role>: <first line>'); decided = the child's answer block ('<tool> <args>' per tool call, else the first text line); 160 chars, ellipsis. PromptDigestReader resolves a list of ids in one read of the run's records. GET /api/runs/{runId}/prompts/digest?ids=a,b (at most 50) answers { calls }. An unknown id is left out; a call with no stored child has Decided null."
+  in: "PromptDigestView(PromptId, Fed, Decided). PromptDigestLines (pure): fed = the call's last message as one line ('<tool> result: <first line>' resolving the tool name from the call's earlier tool calls, else '<role>: <first line>'); decided = the child's answer block ('<tool> <args>' per tool call, else the first text line); 160 chars, ellipsis. PromptDigestReader resolves a list of ids in one read of the run's records. GET /api/runs/{runId}/prompts/digest?ids=a,b answers { calls }. An unknown id is left out; a call with no stored child has Decided null."
   out: "Storing answers of a chain's last call (it has no child); pipeline-specific wording."
 
 steps:
