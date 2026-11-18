@@ -53,7 +53,6 @@ public sealed class ChatTicketRunLaunchTests : IDisposable
         _claimed.PipelineName.Should().Be("mad-discussion");
         var context = _claimed.InitialContext!;
         context[ContextKeys.DoneStatus].Should().Be("Resolved");
-        context[ContextKeys.FailedStatus].Should().Be("Blocked");
         context.IsRequestedByName().Should().BeTrue();
     }
 

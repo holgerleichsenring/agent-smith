@@ -1,0 +1,22 @@
+spec: 2026-11-18-d6d2a
+decisions:
+  - category: Architecture
+    chose: "Fix the re-trigger loop at its source: the failure finalize reads failed_status from TicketParkStatuses.Of(project); ContextKeys.FailedStatus and its seeding are deleted."
+    over: "A JsonElement-tolerant context read, or keeping the key with a project fallback."
+    reason: "The brief assumed a refused status move. The live tracker history says otherwise: each failure's comment landed with no state change, and the operator's cancel moved the same item to 'Failed' — the state exists, the failure path never asked. The seeded string came back from the Redis job queue as a JsonElement and TryGet<string> missed it. TicketParkStatuses is already the one precedence place the gate and the cancel finalizer read, so one source replaces two."
+  - category: Scope
+    chose: "BoundaryStopGate's left-in-place arm is not changed (the brief asked for a hold 'whatever failed_status says')."
+    over: "Drop the 'Failed is null' condition so every failed or person-cancelled attempt holds the ticket against the poller."
+    reason: "Adversarial review, verdict BUILD WITH CUTS: with the source fixed the ticket leaves its trigger status on failure, and a rejected move is already held by UnmovedTicketGate, which runs first. The arm would only add a hold after a thrown, often transient, write, and it would silently refuse every poll for a person who drags a failed ticket back into a trigger status. The incident is fixed without it; an unconditional hold is the operator's call with that cost stated."
+  - category: Implementation
+    chose: "A finalize the tracker rejected, or one that threw, posts one comment-only note: the failure text plus \"failed_status 'X' could not be set: <outcome or exception type>\"; NoTransition and NotExpressible post nothing more."
+    over: "A note on every not-moved outcome, or the reason in the run's EndDetail."
+    reason: "Review: Jira's NoTransition and GitHub's label-style NotExpressible already landed the comment, so a note there duplicates or misleads. Azure DevOps sends comment and state in one PATCH, so a rejected move loses the comment and the note is the only word on the ticket. The exception TYPE, not its message, keeps internal addresses out of a tracker comment. EndDetail is the precondition record; the ticket comment is where a person reads a failure."
+  - category: Implementation
+    chose: "UnmovedTicketGate admits what BoundaryStopGate.AdmitsStart admits (Retry, a reply, a start by name, a series auto-start); the record stays."
+    over: "Refuse every start until the configuration is saved (c1a7, 1fa0)."
+    reason: "The operator's acceptance: failed_status configured, move refused, ticket still in a trigger status -> the poll is refused, a Retry admitted. A Retry whose park check finds no parked status never released the hold, so its launch was refused too. One admit list for both gates; the poller, a webhook and the pump stay held until the configuration changes."
+  - category: Scope
+    chose: "The CLI's code --ticket and the orphan re-enqueue now move a failed ticket to failed_status too; the done path's identical read is left to the successor spec 'done-status reads the project configuration'."
+    over: "Keep a request-context source for those doors; fix done in this spec."
+    reason: "Review finding: neither door ever seeded the key, so their failures only commented — one rule everywhere is the point. CommitAndPRHandler.cs:402 and InitCommitHandler.cs:156 read DoneStatus the same way, so a configured done_status is replaced by the tracker connection's own; a different status and its own tests."

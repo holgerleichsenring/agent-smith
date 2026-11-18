@@ -30,11 +30,6 @@ public static partial class ContextKeys
     public const string PipelineName = "PipelineName";
 
     public const string DoneStatus = "DoneStatus";
-    /// <summary>p0261: native ticket status a FAILED run terminalizes to (failure
-    /// counterpart of DoneStatus). Seeded by SpawnPipelineRunsUsecase from the
-    /// trigger's failed_status, falling back to done_status. Read by the failure
-    /// path (PipelineErrorHandler) to move the ticket out of its trigger status.</summary>
-    public const string FailedStatus = "FailedStatus";
     /// <summary>p0318: native ticket status the clarification gates park the ticket in
     /// when the run needs user input. Seeded by SpawnPipelineRunsUseCase from the
     /// trigger's needs_clarification_status (null when unset — then the gate posts +

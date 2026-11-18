@@ -75,7 +75,63 @@ public sealed class PipelineErrorHandlerTests
             .Should().BeNull();
     }
 
-    private async Task FailWithFinalizeAsync(TicketFinalizeResult finalize)
+    // 2026-11-18-d6d2a: the claim's request reaches the run through the Redis job queue, which hands every context
+    // value back as a JsonElement; the failure path reads failed_status from the project, so it still moves.
+    [Fact]
+    public async Task HandleStepFailureAsync_RequestContextThroughTheJobQueue_MovesToTheProjectsFailedStatus()
+    {
+        var ticketProvider = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var queued = System.Text.Json.JsonSerializer.Deserialize<PipelineRequest>(System.Text.Json.JsonSerializer.Serialize(
+            new PipelineRequest("p1", "code", Context: new() { [ContextKeys.DoneStatus] = "Resolved" })))!;
+        var context = new PipelineContext();
+        foreach (var (key, value) in queued.Context!) context.Set(key, value);
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+
+        await _sut.HandleStepFailureAsync([], FailedStatusProject.With("Failed", "p1", "tracker-a"),
+            context, _lifecycleMock.Object, CommandResult.Fail("criteria unmet"), CancellationToken.None);
+
+        context.TryGet<string>(ContextKeys.DoneStatus, out _).Should().BeFalse("the premise: queued values are JsonElements");
+        ticketProvider.Verify(t => t.FinalizeAsync(It.IsAny<TicketId>(), It.IsAny<string>(), "Failed", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleStepFailureAsync_TrackerRejectedTheMove_SaysSoOnTheTicket()
+    {
+        var ticketProvider = await FailWithFinalizeAsync(TicketFinalizeResult.Rejected("Blocked", "RuleValidationException"));
+
+        ticketProvider.Verify(t => t.UpdateStatusAsync(It.IsAny<TicketId>(), It.Is<string>(c =>
+            c.Contains("Agent Smith — Failed") && c.Contains("failed_status 'Blocked' could not be set: TrackerRejectedTheStatus")
+            && c.Contains("Retry")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleStepFailureAsync_FinalizeThrows_SaysSoNamingTheExceptionType()
+    {
+        var ticketProvider = new Mock<ITicketProvider>();
+        ticketProvider.Setup(t => t.FinalizeAsync(It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("https://internal.example/secret-path 503"));
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+
+        await _sut.HandleStepFailureAsync([], FailedStatusProject.With("Blocked"), context, _lifecycleMock.Object,
+            CommandResult.Fail("boom"), CancellationToken.None);
+
+        ticketProvider.Verify(t => t.UpdateStatusAsync(It.IsAny<TicketId>(), It.Is<string>(c =>
+            c.Contains("could not be set: HttpRequestException") && !c.Contains("internal.example")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // NoTransition and NotExpressible: the tracker took the comment and kept its status; the unmoved record holds it.
+    [Fact]
+    public async Task HandleStepFailureAsync_StatusNotExpressible_PostsNoSecondComment()
+    {
+        var ticketProvider = await FailWithFinalizeAsync(TicketFinalizeResult.NotExpressible("Blocked"));
+
+        ticketProvider.Verify(t => t.UpdateStatusAsync(It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private async Task<Mock<ITicketProvider>> FailWithFinalizeAsync(TicketFinalizeResult finalize)
     {
         var ticketProvider = new Mock<ITicketProvider>();
         ticketProvider.Setup(t => t.FinalizeAsync(
@@ -84,12 +140,12 @@ public sealed class PipelineErrorHandlerTests
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.FailedStatus, "Blocked");
 
         await _sut.HandleStepFailureAsync(
             Array.Empty<string>(),
-            new ResolvedProject { Name = "p1", Tracker = new TrackerConnection { Name = "tracker-a" } },
+            FailedStatusProject.With("Blocked", "p1", "tracker-a"),
             context, _lifecycleMock.Object, CommandResult.Fail("boom"), CancellationToken.None);
+        return ticketProvider;
     }
 
     [Fact]
@@ -101,7 +157,6 @@ public sealed class PipelineErrorHandlerTests
 
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.FailedStatus, "Blocked");
         var failure = CommandResult.Fail("boom") with
         {
             FailedStep = 2,
@@ -111,7 +166,7 @@ public sealed class PipelineErrorHandlerTests
 
         await _sut.HandleStepFailureAsync(
             Array.Empty<string>(),
-            new ResolvedProject(),
+            FailedStatusProject.With("Blocked"),
             context,
             _lifecycleMock.Object,
             failure,
@@ -142,14 +197,13 @@ public sealed class PipelineErrorHandlerTests
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.FailedStatus, "Blocked");
         context.Set<IReadOnlyList<AgentSmith.Application.Models.OpenedPullRequest>>(
             ContextKeys.OpenedPullRequests,
             [new AgentSmith.Application.Models.OpenedPullRequest(
                 "primary", "https://stub.test/pulls/7", AgentSmith.Application.Models.OpenStatus.Opened)]);
 
         await _sut.HandleStepFailureAsync(
-            Array.Empty<string>(), new ResolvedProject(), context, _lifecycleMock.Object,
+            Array.Empty<string>(), FailedStatusProject.With("Blocked"), context, _lifecycleMock.Object,
             CommandResult.Fail("boom"), CancellationToken.None);
 
         ticketProvider.Verify(t => t.FinalizeAsync(
@@ -229,10 +283,9 @@ public sealed class PipelineErrorHandlerTests
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.FailedStatus, "Blocked");
 
         await _sut.FinalizeFailedTicketAsync(
-            new ResolvedProject(), context, "the sandbox vanished", CancellationToken.None);
+            FailedStatusProject.With("Blocked"), context, "the sandbox vanished", CancellationToken.None);
 
         ticketProvider.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "99"),

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-d6d2a
+goal: "A failed code attempt moves its ticket to failed_status from the project configuration, says on the ticket when it cannot, and a person's Retry passes the unmoved-ticket hold."
+
+applies_to: "default (Application/Services/PipelineErrorHandler.cs, FailureTicketComment.cs, Claim/UnmovedTicketGate.cs, Spawning/SpawnRequestBuilder.cs)"
+
+requires: [2026-11-17-166aa]
+
+facts:
+  - claim: "Live: three code runs on one ticket of a three-repository project; run A failed criteria-unmet, run B was created 7 s later and failed, run C 48 s after B; B and C carry cause channel retrigger. The tracker configures failed_status 'Failed'. The work item's update history shows each failure's comment landing with NO state change; the operator's cancel at the end moved the same item New -> Failed. So the state exists and the failure path never asked for it; the brief's 'refused move' hypothesis is wrong, and UnmovedTickets is empty because no move was ever attempted."
+    evidence: "prod DB Runs/RunAttempts 2026-11-18 10:26-11:10 UTC; tracker work-item updates API (read-only)"
+  - claim: "FinalizeFailureAsync reads failed_status with context.TryGet<string>(ContextKeys.FailedStatus); without a string it only comments."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:165"
+  - claim: "SpawnRequestBuilder seeds ContextKeys.FailedStatus into the claim's InitialContext as a string."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:86"
+  - claim: "The claim enqueues a PipelineRequest whose Context is Dictionary<string, object>; RedisJobQueue round-trips it with JsonSerializer, so every value comes back a JsonElement. PipelineContext.TryGet<T> is an 'obj is T' test, so TryGet<string> of a JsonElement is false."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PipelineRequest.cs:17, src/backend/AgentSmith.Infrastructure/Services/Queue/RedisJobQueue.cs:25, src/backend/AgentSmith.Contracts/Commands/PipelineContext.cs:61"
+  - claim: "TicketParkStatuses.Of(project) is the one precedence place for the statuses agent-smith moves a ticket into; BoundaryStopGate and CancelledTicketFinalizer already read Failed from it, which is why the cancel moved the ticket and the failure did not."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketParkStatuses.cs:17, src/backend/AgentSmith.Application/Services/Claim/BoundaryStopGate.cs:47, src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:58"
+  - claim: "BoundaryStopGate holds a left-in-place end only when the project has no failed_status, trusting configuration for whether the ticket actually left its trigger status."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/BoundaryStopGate.cs:45-48"
+  - claim: "A finalize that throws is logged only; a finalize that answers not-moved is recorded for UnmovedTicketGate but nothing on the ticket says the status was not set (Azure DevOps sends comment and state in one PATCH, so a refused PATCH also loses the comment)."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:171-177, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:182"
+
+scope:
+  in: "The failure finalize reads failed_status from TicketParkStatuses (the seeded context key and its seeding are removed). A finalize the tracker rejected, or one that threw, posts one comment-only note: the failure text plus the status that could not be set and why (outcome or exception TYPE, never its message). UnmovedTicketGate admits the starts BoundaryStopGate admits (Retry, a reply, a start by name, a series auto-start)."
+  out: "BoundaryStopGate's left-in-place arm stays as it is (cut by the review, see decisions). The CLI's code --ticket and the orphan re-enqueue never seeded the key, so their failures now also move to failed_status: the same rule everywhere, intended. The done path's TryGet<string>(DoneStatus) has the same JsonElement shape (CommitAndPRHandler.cs:402, InitCommitHandler.cs:156): a configured done_status is replaced by the tracker connection's own; that is a separate defect for the successor spec 'done-status reads the project configuration'. No new store, column, gate or limit."
+
+steps:
+  - id: source
+    action: "PipelineErrorHandler.FinalizeFailureAsync takes the status from TicketParkStatuses.Of(projectConfig).Failed; delete ContextKeys.FailedStatus and the SpawnRequestBuilder seeding; tests that set the key configure the project's trigger instead; SpawnPipelineRunsUseCaseTests' two seeding tests and the chat-launch assertion on the key go."
+  - id: note
+    action: "FailureTicketComment.ForUnmovedStatus(comment, status, reason) appends a status line; PipelineErrorHandler posts it comment-only when the finalize answered TrackerRejectedTheStatus (Azure DevOps sends comment and state in one PATCH, so the comment was lost) or threw. NoTransition and NotExpressible already landed their comment and keep their unmoved record only."
+  - id: admit
+    action: "UnmovedTicketGate returns null for a request BoundaryStopGate.AdmitsStart admits; its refusal sentence also names Retry."
+
+tests:
+  - "PipelineErrorHandlerTests.HandleStepFailureAsync_RequestContextThroughTheJobQueue_MovesToTheProjectsFailedStatus"
+  - "PipelineErrorHandlerTests.HandleStepFailureAsync_TrackerRejectedTheMove_SaysSoOnTheTicket"
+  - "PipelineErrorHandlerTests.HandleStepFailureAsync_FinalizeThrows_SaysSoNamingTheExceptionType"
+  - "PipelineErrorHandlerTests.HandleStepFailureAsync_StatusNotExpressible_PostsNoSecondComment"
+  - "UnmovedTicketClaimTests.Claim_TicketLastLeftUnmoved_StartedByName_IsClaimedAndTheHoldStays (with Claim_TicketLastLeftUnmoved_IsRejectedWithTheNewReason for the poll)"
+
+done:
+  - "A failed run moves its ticket to the project's failed_status even when its request came through the Redis job queue."
+  - "A failure whose status move the tracker rejected or that threw says so on the ticket, naming the status and the reason."
+  - "A ticket held by an unmoved record is refused to the poller, a webhook and the pump, and admitted for Retry, a reply, a start by name and a series auto-start."

@@ -79,11 +79,8 @@ internal static class SpawnRequestBuilder
             ctx[ContextKeys.ApprovedSpecSet] = approvedSetJson;
         if (!string.IsNullOrEmpty(trigger.DoneStatus))
             ctx[ContextKeys.DoneStatus] = trigger.DoneStatus;
-        // p0261: seed failed_status so a FAILED run terminalizes the native ticket
-        // status (PipelineErrorHandler reads this). 2026-11-17-166aa: no fallback to
-        // done_status — a failure must never look done; unset leaves the status in place.
-        if (!string.IsNullOrEmpty(trigger.FailedStatus))
-            ctx[ContextKeys.FailedStatus] = trigger.FailedStatus;
+        // 2026-11-18-d6d2a: failed_status is not seeded — the failure path reads it from the project
+        // (TicketParkStatuses); a seeded string came back from the Redis job queue as a JsonElement.
         // p0318: seed needs_clarification_status so the clarification gate can park the
         // ticket there. NO fallback to done_status — unset means "park not configured",
         // and the gate then posts the questions + halts without moving the status.
