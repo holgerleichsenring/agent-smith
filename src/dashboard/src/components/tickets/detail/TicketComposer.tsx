@@ -7,8 +7,7 @@ import { DialogWorking } from "@/components/dialog/DialogWorking";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
 import { approvalEffectLabel } from "@/lib/tickets/approvalEffect";
 import type { Read } from "@/lib/tickets/TicketPageReads";
-import type { TicketApprovalPreview, TicketAttempt, TicketConversation } from "@/types/tickets";
-import { RetryUnchanged } from "./RetryUnchanged";
+import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets";
 import { useTicketComposer, type ResumeRefusal } from "./useTicketComposer";
 
 // 2026-11-16-6877a: no heading of its own; it sits under the Your move box and its placeholder says what a reply does.
@@ -17,13 +16,13 @@ import { useTicketComposer, type ResumeRefusal } from "./useTicketComposer";
 // label each; with no open approval question it is a plain composer. Approve answers the approval question
 // with approve, Discard with reject, Ask for changes focuses the text field. Rendered only when 9a59h does
 // not hide the conversation — the server's marker, not the client identity, gates it.
+// 2026-11-18-d6d2d: Retry unchanged left the action row; it sits in the newest attempt's report.
 
 interface Props {
   conversation: TicketConversation;
   project: string;
   ticketId: string;
   preview: Read<TicketApprovalPreview>;
-  newest: TicketAttempt | null;
   /** 2026-11-16-6877a: the text field, focused by the page's Your move box. */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
 }
@@ -35,7 +34,7 @@ const REFUSAL_WORDS: Record<ResumeRefusal["kind"], string> = {
   "not-found": "",
 };
 
-export function TicketComposer({ conversation, project, ticketId, preview, newest, inputRef }: Props) {
+export function TicketComposer({ conversation, project, ticketId, preview, inputRef }: Props) {
   const composer = useTicketComposer(conversation, project, ticketId);
   const { dialog, engaged, approval, refusal } = composer;
   const own = useRef<HTMLTextAreaElement>(null);
@@ -83,21 +82,18 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
               void dialog.send(answer, project, decision, undefined, otherProposal?.proposalId ?? other.questionId)} />
         </div>
       )}
-      <div className="cp-actions">
-        {label?.approvable && (
-          <button type="button" className="btn primary" data-testid="ticket-approve"
-            onClick={() => composer.act({ kind: "decide", decision: "approved", proposalId: conversation.proposal?.proposalId ?? undefined })}>Approve</button>
-        )}
-        {label && (
-          <>
-            <button type="button" className="btn" data-testid="ticket-ask-changes"
-              onClick={() => { composer.act({ kind: "focus" }); input.current?.focus(); }}>Ask for changes</button>
-            <button type="button" className="btn" data-testid="ticket-discard"
-              onClick={() => composer.act({ kind: "decide", decision: "rejected" })}>Discard</button>
-          </>
-        )}
-        <RetryUnchanged attempt={newest} project={project} />
-      </div>
+      {label && (
+        <div className="cp-actions">
+          {label.approvable && (
+            <button type="button" className="btn primary" data-testid="ticket-approve"
+              onClick={() => composer.act({ kind: "decide", decision: "approved", proposalId: conversation.proposal?.proposalId ?? undefined })}>Approve</button>
+          )}
+          <button type="button" className="btn" data-testid="ticket-ask-changes"
+            onClick={() => { composer.act({ kind: "focus" }); input.current?.focus(); }}>Ask for changes</button>
+          <button type="button" className="btn" data-testid="ticket-discard"
+            onClick={() => composer.act({ kind: "decide", decision: "rejected" })}>Discard</button>
+        </div>
+      )}
       {dialog.failure && !refusal && engaged && (
         <div className="cp-note bad" data-testid="ticket-composer-failure">{dialog.failure.message}</div>
       )}

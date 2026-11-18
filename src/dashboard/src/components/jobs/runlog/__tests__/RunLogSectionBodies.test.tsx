@@ -30,7 +30,7 @@ const fetched = {
 
 describe("RunLogSectionBodies", () => {
   it("TicketBody_SaysTheTicketAndLinksTheTrackerAndThePage", () => {
-    render(<TicketBody snapshot={snap()} events={[fetched]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true }} />);
+    render(<TicketBody snapshot={snap()} events={[fetched]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true, latest: null, reread: () => {} }} />);
     expect(screen.getByTestId("ticket-body-title")).toHaveTextContent("13 · Upgrade");
     expect(screen.getByTestId("ticket-body-facts")).toHaveTextContent("Active · GitHub · labels agent · 2 attachments");
     expect(screen.getByTestId("ticket-body-tracker")).toHaveAttribute("href", "https://example.test/issues/13");
@@ -44,7 +44,7 @@ describe("RunLogSectionBodies", () => {
       { text: "Every package is current", status: "met" as const, reason: null, citation: null },
       { text: "The build passes", status: "met" as const, reason: null, citation: null },
     ], outcome: null, ratifiedBy: null };
-    render(<TicketBody snapshot={snap({ acceptance })} events={[]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true }} />);
+    render(<TicketBody snapshot={snap({ acceptance })} events={[]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true, latest: null, reread: () => {} }} />);
     expect(screen.getByTestId("ticket-body-title")).toHaveTextContent("13 · Upgrade");
     expect(screen.getAllByTestId("ticket-body-criterion").map((li) => li.textContent)).toEqual(["1.Every package is current", "2.The build passes"]);
     expect(screen.getByTestId("ticket-body-empty")).toHaveTextContent("body not recorded on this run — open the ticket");

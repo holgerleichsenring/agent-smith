@@ -522,6 +522,27 @@ describe("Ticket thread", () => {
     expect(screen.queryByTestId("ticket-retry")).toBeNull();
   });
 
+  // 2026-11-18-d6d2d: Retry sits with the attempt it retries — the newest report — never in the composer.
+  it("RetryUnchanged_SitsInTheNewestAttemptsReport_NotInTheComposer_AndNotOnAnOlderAttempt", async () => {
+    world.detail = detail([
+      attempt({ status: "failed", summary: "Build broke" }),
+      attempt({ number: 2, runId: "r-2", status: "failed", summary: "Tests broke" }),
+    ]);
+    await open();
+    expect(screen.getAllByTestId("ticket-retry")).toHaveLength(1);
+    expect(within(screen.getByTestId("thread-report-2")).getByTestId("ticket-retry")).toBeInTheDocument();
+    expect(within(screen.getByTestId("ticket-composer")).queryByTestId("ticket-retry")).toBeNull();
+    expect(screen.queryByTestId("thread-retry-1")).toBeNull();
+  });
+
+  it("RetryUnchanged_AnInfrastructureEnd_OffersOneRetry_InTheYourMoveBox", async () => {
+    world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    expect(screen.getAllByTestId("ticket-retry")).toHaveLength(1);
+    expect(within(screen.getByTestId("ticket-state")).getByTestId("ticket-retry")).toBeInTheDocument();
+  });
+
   it("WithoutRunsControl_ThePendingQuestionShowsAsTextWithNoAnswerCard", async () => {
     const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
     world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);

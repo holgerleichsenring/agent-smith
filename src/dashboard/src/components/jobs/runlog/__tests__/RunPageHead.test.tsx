@@ -15,7 +15,7 @@ function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
   };
 }
 
-const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt: null, newest: true };
+const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt: null, newest: true, latest: null, reread: () => {} };
 const head = (over: Partial<RunSnapshot> = {}, t: typeof ticket | null = ticket) =>
   render(<RunPageHead runId="run-abc" snapshot={snap(over)} ticket={t} repoNames={["server"]} stepCount={5} onDeleted={() => {}} />);
 

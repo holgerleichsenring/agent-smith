@@ -9,12 +9,22 @@ import type { TicketAttempt } from "@/types/tickets";
 // refusal's text is shown as the server wrote it (a closed ticket's points at the conversation).
 // 2026-11-17-166ad: offered for a finished newest attempt that is neither a success nor handed back — the
 // server retries any such end, not only an infrastructure one.
+// 2026-11-18-d6d2d: onAnswer tells the page how the request settled — the run page follows a requested Retry to the
+// new attempt and re-reads the ticket after a refusal.
 
 export const RUNS_CONTROL = "runs.control";
 
 type Outcome = { kind: "idle" } | { kind: "sending" } | { kind: "requested" } | { kind: "said"; text: string };
 
-export function RetryUnchanged({ attempt, project }: { attempt: TicketAttempt | null; project: string }) {
+export type RetrySettled = "requested" | "refused";
+
+interface Props {
+  attempt: TicketAttempt | null;
+  project: string;
+  onAnswer?: (settled: RetrySettled) => void;
+}
+
+export function RetryUnchanged({ attempt, project, onAnswer }: Props) {
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
   if (!attempt || !retriable(attempt) || lacks) return null;
@@ -24,6 +34,7 @@ export function RetryUnchanged({ attempt, project }: { attempt: TicketAttempt | 
     try {
       const answer = await retryAttempt(attempt.runId);
       setOutcome(answer.kind === "requested" ? { kind: "requested" } : { kind: "said", text: answer.refusal.text });
+      onAnswer?.(answer.kind === "requested" ? "requested" : "refused");
     } catch (thrown) {
       setOutcome({ kind: "said", text: thrown instanceof Error ? thrown.message : String(thrown) });
     }
