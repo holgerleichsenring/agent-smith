@@ -339,7 +339,8 @@ describe("Mock parity", () => {
     const tabs: Array<[string, string[]]> = [
       // 2026-11-17-8d1cb: What happened (TicketRail mock): the Your move line, one line per event, the composer.
       // 2026-11-18-d6d2d: the composer's action row draws only while an approval waits (Retry left it), so no .cp-actions here.
-      ["", [".tk-move", ".thread", ".tk-line", ".tk-line-head", ".tk-at", ".tk-dot", ".tk-who", ".tk-text", ".tk-entry", ".tk-entry.internal", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".composer", ".cp-input"]],
+      // 2026-11-18-d6d2e: the reply field sits in New work's .chat-box, not the mock's .cp-input.
+      ["", [".tk-move", ".thread", ".tk-line", ".tk-line-head", ".tk-at", ".tk-dot", ".tk-who", ".tk-text", ".tk-entry", ".tk-entry.internal", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".composer"]],
       ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
         // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
         ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],

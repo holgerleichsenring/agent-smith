@@ -97,7 +97,7 @@ export function TicketComposer({ conversation, project, ticketId, preview, input
       {dialog.failure && !refusal && engaged && (
         <div className="cp-note bad" data-testid="ticket-composer-failure">{dialog.failure.message}</div>
       )}
-      <div className="cp-input mock-dialog" onFocus={() => composer.act({ kind: "focus" })}>
+      <div className="chat-box mock-dialog" data-testid="ticket-chat-box" onFocus={() => composer.act({ kind: "focus" })}>
         <DialogComposer
           inputRef={input}
           onSend={(text) => composer.act({ kind: "send", text })}

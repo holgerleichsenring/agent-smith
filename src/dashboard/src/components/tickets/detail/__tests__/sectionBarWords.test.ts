@@ -15,8 +15,9 @@ describe("sectionBarWords", () => {
   });
 
   it("trackerFact_NamesTrackerAndStatus_OnlyWhenRecorded", () => {
-    expect(trackerFact(ticket({ platform: "jira", trackerState: "In Review" }))).toBe("Jira · In Review");
+    expect(trackerFact(ticket({ platform: "jira", trackerState: "In Review" }))).toBe("Jira status In Review");
     expect(trackerFact(ticket({ platform: "github", trackerState: null }))).toBe("GitHub");
+    expect(trackerFact(ticket({ platform: null, trackerState: "New" }))).toBe("tracker status New");
     expect(trackerFact(ticket({ platform: null, trackerState: null }))).toBeNull();
   });
 

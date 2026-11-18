@@ -24,6 +24,8 @@ export interface RunLogProps {
   body: (section: LogSection) => ReactNode;
   /** The open step's detail. */
   detail: (step: LogStep) => ReactNode;
+  /** 2026-11-18-d6d2e: prefixed to every element id, so several logs on one page never share one. */
+  idPrefix?: string;
 }
 
 export function RunLog(props: RunLogProps) {
@@ -41,14 +43,14 @@ export function RunLog(props: RunLogProps) {
         const isOpen = props.open.has(s.id);
         return (
           <section key={s.id} className={`rl-sec ${s.state}`} data-testid={`run-section-${s.id}`} data-state={s.state} data-kind={s.kind}>
-            <button type="button" className="rl-sec-head" aria-expanded={isOpen} aria-controls={`run-sec-${s.id}`} onClick={() => props.onToggle(s.id)}>
+            <button type="button" className="rl-sec-head" aria-expanded={isOpen} aria-controls={`${props.idPrefix ?? ""}run-sec-${s.id}`} onClick={() => props.onToggle(s.id)}>
               <span className="rl-chev" aria-hidden="true">{isOpen ? "▾" : "▸"}</span>
               <span className="rl-sec-mark" aria-hidden="true" />
               <span className="rl-sec-title">{s.title}</span>
               <span className="rl-sec-sum" data-testid={`run-section-meta-${s.id}`}>{s.meta}</span>
             </button>
             {isOpen && (
-              <div className="rl-sec-body" id={`run-sec-${s.id}`}>
+              <div className="rl-sec-body" id={`${props.idPrefix ?? ""}run-sec-${s.id}`}>
                 <Steps section={s} passes={passes} {...props} />
                 {props.body(s)}
               </div>
@@ -60,7 +62,7 @@ export function RunLog(props: RunLogProps) {
   );
 }
 
-function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggleMechanics, detail }:
+function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggleMechanics, detail, idPrefix = "" }:
   RunLogProps & { section: LogSection; passes: Map<number, VerifyPassRecordedEvent[]> }) {
   const hidden = section.steps.filter((s) => !s.story);
   const holdsOpen = hidden.some((s) => s.row.stepIndex === openStep);
@@ -79,7 +81,7 @@ function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggl
           )}
           {(step.story || showAll) && (
             <StepLine step={step} open={openStep === step.row.stepIndex} onToggle={() => onToggleStep(step.row.stepIndex)}
-              passes={passes.get(step.row.stepIndex) ?? []} detail={detail} />
+              passes={passes.get(step.row.stepIndex) ?? []} detail={detail} id={`${idPrefix}step-${step.row.stepIndex}`} />
           )}
         </Fragment>
       ))}
@@ -87,12 +89,12 @@ function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggl
   );
 }
 
-function StepLine({ step, open, onToggle, passes, detail }: {
-  step: LogStep; open: boolean; onToggle: () => void; passes: VerifyPassRecordedEvent[]; detail: (step: LogStep) => ReactNode;
+function StepLine({ step, open, onToggle, passes, detail, id }: {
+  step: LogStep; open: boolean; onToggle: () => void; passes: VerifyPassRecordedEvent[]; detail: (step: LogStep) => ReactNode; id: string;
 }) {
   const { row } = step;
   return (
-    <div className={`rl-step ${step.state}`} data-testid={`run-step-${row.stepIndex}`} data-state={step.state} id={`step-${row.stepIndex}`}>
+    <div className={`rl-step ${step.state}`} data-testid={`run-step-${row.stepIndex}`} data-state={step.state} id={id}>
       <button type="button" className="rl-step-line" aria-expanded={open} onClick={onToggle} data-testid="run-log-line">
         <span className="rl-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
         <span className="rl-step-name">{step.label}</span>

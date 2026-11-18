@@ -535,6 +535,15 @@ describe("Ticket thread", () => {
     expect(screen.queryByTestId("thread-retry-1")).toBeNull();
   });
 
+  // 2026-11-18-d6d2e: the reply field sits in New work's chat box.
+  it("Composer_TheReplyFieldSitsInTheChatBox", async () => {
+    world.detail = detail([attempt()]);
+    await open();
+    const box = within(screen.getByTestId("ticket-composer")).getByTestId("ticket-chat-box");
+    expect(box).toHaveClass("chat-box");
+    expect(within(box).getByTestId("dialog-composer-text")).toHaveAttribute("placeholder", "Reply to ask for a change. A reply starts the next run.");
+  });
+
   it("RetryUnchanged_AnInfrastructureEnd_OffersOneRetry_InTheYourMoveBox", async () => {
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };

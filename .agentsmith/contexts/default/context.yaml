@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-d6d2e: "TICKET RUN LOG (RunSectionedLog, RunInlineLog, run-log.css, chat-box, trackerFact). A ticket report draws the run page's sectioned log: a section per spec, planned hollow, steps open in place, address untouched; RunSectionLog and runSections() deleted; reply box in New work's chat box; tracker status labelled. -> .agentsmith/specs/done/2026-11-18-d6d2e-ticket-run-log.yaml"
     2026-11-18-d6d2d: "RETRY FOLLOWS ATTEMPT (useRunTicket, RunNow, RetryUnchanged, AttemptReport, useYourMove). Retry only on the ticket's latest attempt; an older one links to the latest; a requested Retry opens the new attempt once the ticket nudge names it; on the ticket page Retry sits in the newest report, not the composer. -> .agentsmith/specs/done/2026-11-18-d6d2d-retry-follows-attempt.yaml"
     2026-11-18-353d: "SERIES LANDED FACTS (SeriesTicketFacts). A series ticket with no landing reads as not landed; GetValueOrDefault had made every ticket landed at 0001-01-01, so the panel and the master counted all as landed. -> .agentsmith/specs/done/2026-11-18-353d-series-landed-facts.yaml"
     2026-11-18-5fd3c: "DOCS VERSION CURRENT (docs install/host pages, deploy compose and k8s manifests, release-please-config.json). Every pinned release reads 0.188.0 and carries an x-release-please marker; release-please bumps those files as generic extra-files. -> .agentsmith/specs/done/2026-11-18-5fd3c-docs-version-current.yaml"
