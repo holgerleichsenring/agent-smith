@@ -33,10 +33,8 @@ interface Props {
   steps: RunStepRow[];
   repoNames: string[];
   connectionState: HubConnectionState;
-  /** The page's one read of the run's judgements, shared with the graph view. */
+  /** The page's one read of the run's judgements. */
   judged: RunJudgements;
-  graph: boolean;
-  onGraph: () => void;
   onDeleted: () => void;
 }
 
@@ -46,7 +44,7 @@ function flip(set: ReadonlySet<string>, id: string): Set<string> {
   return next;
 }
 
-export function RunLogView({ runId, snapshot, events, steps, repoNames, connectionState, judged, graph, onGraph, onDeleted }: Props) {
+export function RunLogView({ runId, snapshot, events, steps, repoNames, connectionState, judged, onDeleted }: Props) {
   const ticket = useRunTicket(runId, snapshot);
   const specs = useRunSpecs(runId, events.length);
   const ledger = useMemo(() => runLedger(snapshot, events), [snapshot, events]);
@@ -92,9 +90,6 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
         body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} />} />
       <div className="rl-more">
         <Link className="rl-link" href={runTracePath(runId)} data-testid="run-open-why">Why it went this way</Link>
-        <button type="button" className="rl-link" aria-pressed={graph} onClick={onGraph} data-testid="run-show-graph">
-          {graph ? "Hide the graph" : "Show as graph"}
-        </button>
       </div>
     </div>
   );

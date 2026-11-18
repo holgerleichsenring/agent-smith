@@ -108,9 +108,6 @@ vi.mock("@/lib/ticketCloseApi", () => ({ closeTicket: (...args: unknown[]) => cl
 // 2026-10-25-0099c: the Delivery page's one read.
 const deliveryApi = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/lib/deliveryApi", () => ({ fetchDelivery: (...args: unknown[]) => deliveryApi.fetch(...args) }));
-vi.mock("@/hooks/useRunExecutionTree", () => ({
-  useRunExecutionTree: () => ({ nodes: [] }),
-}));
 vi.mock("@/hooks/useRunDetailSnapshot", () => ({
   useRunDetailSnapshot: (_runId: string, list: RunSnapshot | null) => list,
 }));
@@ -287,21 +284,13 @@ describe("Mock parity", () => {
 
     // ---- run viewer (run-viewer.html) ----
     const viewer = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
-    // 2026-11-16-6877b: the default view is the sectioned log; the story view is behind "Show as graph".
+    // 2026-11-17-6d9ed: the run page is the one log; the story view and its side rail are gone.
     const logRoot = await screen.findByTestId("run-log");
     expect(logRoot.closest(".mock-viewer")).not.toBeNull();
     for (const cls of [".rl-head", ".rl-crumb", ".rl-meta", ".rl-now", ".rl-log", ".rl-sec", ".rl-sec-head", ".rl-more"]) {
       expect(logRoot.querySelector(cls), `run log missing ${cls}`).not.toBeNull();
     }
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    const viewerRoot = await screen.findByTestId("run-viewer-root");
-    expect(viewerRoot.closest(".mock-shell")).not.toBeNull();
-    expect(viewerRoot.closest(".mock-viewer")).not.toBeNull();
-    expect(viewerRoot.className).toContain("wrap");
-    expect(viewerRoot.className).toContain("is-run");
-    for (const cls of [".storybar", ".beat", ".marker", ".section-head", ".stage", ".grid", ".sidebox", ".trace-btn", ".metric"]) {
-      expect(viewerRoot.querySelector(cls), `run viewer missing ${cls}`).not.toBeNull();
-    }
+    expect(screen.queryByTestId("run-viewer-root")).toBeNull();
     viewer.unmount();
 
     // ---- config studio (config-studio.html) ----
@@ -568,40 +557,15 @@ describe("Mock parity", () => {
     }
   });
 
-  it("TraceDrawer_HostsExistingMasterDetail", async () => {
-    overviewRef.current = {
-      active: [snap()],
-      recent: [],
-      systemActivity: null,
-    };
-    render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
-    await screen.findByTestId("run-log");
-
-    // The mock's right drawer exists in mock chrome and hosts the EXISTING
-    // NavRail + DetailPane master/detail — nothing lost, mock look gained.
-    const drawer = screen.getByTestId("trace-drawer");
-    expect(drawer.className).toContain("drawer");
-    expect(drawer.className).not.toContain("open");
-    expect(within(drawer).getByTestId("nav-rail")).toBeInTheDocument();
-    expect(within(drawer).getByTestId("trace-master-detail")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    fireEvent.click(await screen.findByTestId("side-rail-pipeline-jump"));
-    expect(screen.getByTestId("trace-drawer").className).toContain("open");
-  });
-
-  it("DialogueDrawer_ExistsOnlyForARealPendingQuestion", async () => {
+  it("Question_ShowsOnlyForARealPendingQuestion", async () => {
     // Running run, no question → no dialogue affordance anywhere.
     overviewRef.current = { active: [snap()], recent: [], systemActivity: null };
     const noQ = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
     await screen.findByTestId("run-log");
     expect(screen.queryByTestId("run-question")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("dialogue-drawer")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("side-rail-dialogue")).not.toBeInTheDocument();
     noQ.unmount();
 
-    // Parked run with a REAL question → banner + dialogue drawer hosting the
-    // existing PendingQuestionCard in mock chrome.
+    // Parked run with a REAL question → the Now block asks it with the existing PendingQuestionCard.
     overviewRef.current = {
       active: [
         snap({
@@ -622,14 +586,7 @@ describe("Mock parity", () => {
       systemActivity: null,
     };
     render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
-    // 2026-11-16-6877b: the question card is in the status box; the graph view keeps its banner and drawer.
     expect(within(await screen.findByTestId("run-question")).getByTestId("pending-question-card")).toHaveTextContent("Keep the outbox?");
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    const banner = await screen.findByTestId("run-banner");
-    expect(banner.className).toContain("wait");
-    const drawer = screen.getByTestId("dialogue-drawer");
-    expect(within(drawer).getByTestId("pending-question-card")).toHaveTextContent("Keep the outbox?");
-    fireEvent.click(screen.getByTestId("side-rail-dialogue"));
-    expect(screen.getByTestId("dialogue-drawer").className).toContain("open");
+    expect(screen.getByTestId("run-now-label")).toHaveTextContent("Waiting for your answer");
   });
 });

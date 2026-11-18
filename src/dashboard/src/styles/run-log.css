@@ -141,7 +141,7 @@
 .mock-viewer .rl-plain .crit .c-stat { background: none; padding: 0; border-radius: 0; font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; }
 .mock-viewer .rl-plain .hint { font-size: 12px; }
 .mock-viewer .rl-plain .btn-link { text-decoration: underline; }
-@media (max-width: 640px) { .mock-viewer .rl-step-llm { display: none; } .mock-viewer .rl-log .rl-sec-body { padding-left: 12px; } .mock-viewer .rl-log .rl-sec-head { flex-wrap: wrap; } }
+@media (max-width: 640px) { .mock-viewer .rl-step-llm { display: none; } .mock-viewer .rl-log .rl-sec-body { padding-left: 12px; } .mock-viewer .rl-log .rl-sec-head { flex-wrap: wrap; row-gap: 0; } .mock-viewer .rl-log .rl-sec-title { flex: 1 1 0; white-space: normal; } .mock-viewer .rl-log .rl-sec-sum { flex: 1 0 100%; text-align: left; padding-left: 31px; white-space: normal; } }
 
 /* 2026-11-17-6d9ec: an open step's detail, terminal-like — filters as text links, the summary on the right, one line per
    event with its time, kind, text and meta. */
@@ -162,7 +162,7 @@
 .mock-viewer .rl-detail-line[data-tone="run"] .rl-text { color: var(--run); }
 .mock-viewer .rl-detail-line[data-tone="bad"] .rl-text, .mock-viewer .rl-detail-line[data-tone="bad"] .rl-meta-col { color: var(--bad); }
 .mock-viewer .rl-detail-line[data-tone="dim"] .rl-text { color: var(--ink-3); }
-.mock-viewer .rl-detail-repo { color: var(--ink-2); }
+.mock-viewer .rl-detail-repo { color: var(--ink-2); overflow-wrap: anywhere; }
 .mock-viewer .rl-detail-older { color: var(--ink-3); font-family: var(--sans); font-size: 12px; }
 .mock-viewer .rl-more-lines { font-family: var(--sans); font-size: 12px; padding-top: 4px; text-align: left; }
 .mock-viewer .rl-output { max-height: 320px; overflow: auto; padding: 4px 0 4px 14px; white-space: pre-wrap; color: var(--ink-2); }

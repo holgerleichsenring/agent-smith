@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -124,14 +124,12 @@ describe("The live view", () => {
     expect(urlsFetched().some((u) => u.includes("/trace"))).toBe(false);
   });
 
-  it("LiveView_OffersTheStoryView_AsADeliberateStep", async () => {
+  it("LiveView_OffersTheWhyPage_AsADeliberateStep_AndNoGraph", async () => {
     renderLiveView();
 
     expect(await screen.findByTestId("run-open-why")).toHaveAttribute("href", "/jobs/r1/why");
-    fireEvent.click(screen.getByTestId("run-show-graph"));
-    const link = await screen.findByTestId("side-rail-why");
-    expect(link).toHaveTextContent("Why this run did that");
-    expect(link).toHaveAttribute("href", "/jobs/r1/why");
-    expect(within(screen.getByTestId("run-viewer-root")).getByTestId("side-rail-progress")).toHaveTextContent("of 2 steps");
+    expect(screen.queryByTestId("run-show-graph")).toBeNull();
+    expect(screen.queryByTestId("run-side-rail")).toBeNull();
+    expect(screen.getByTestId("run-meta-steps")).toHaveTextContent("step 2 of 2");
   });
 });

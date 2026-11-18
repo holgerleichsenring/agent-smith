@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-17-6d9ed: "RUN GRAPH VIEW REMOVED (app/jobs/[id] page, story, RunSideRail, execution rail and panes, execution-tree fold, topology, mock-parity.css). The run page is the one log; the beats, side rail and trace drawer are deleted with their tests and CSS. -> .agentsmith/specs/done/2026-11-17-6d9ed-runlog-graph-removed.yaml"
     2026-11-17-6d9ec: "RUN STEP DETAIL IN PLACE (stepDetailLines, RunStepDetail, useStepAddress, callActivity). A step opens its llm calls, commands, writes, decisions, findings and observations as terminal lines with text-link filters, a summary and show-all; ?step= addresses it, #n=step- maps. -> .agentsmith/specs/done/2026-11-17-6d9ec-runlog-step-detail.yaml"
     2026-11-17-6d9eb: "RUN LOG BY SPEC (runLogSections, RunLog, RunLogSectionBodies, RunStepHead). The run log is Ticket, Got ready, The plan, a section per spec, Checked, Delivered; section and step lines say llm, cost and time, mechanics fold, story panels read plain. -> .agentsmith/specs/done/2026-11-17-6d9eb-runlog-spec-sections.yaml"
     2026-11-17-6d9ea: "RUN PAGE HEAD AND NOW (RunPageHead, runMetaWords, RunNow, runNowLines, useRunTicket attempt). The run page opens with the mock's crumb, one meta line and details, and a Now block that follows the agent from hub events and says how a run ended with its acts. -> .agentsmith/specs/done/2026-11-17-6d9ea-runlog-inventory-head-now.yaml"

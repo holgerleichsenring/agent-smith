@@ -1,13 +1,8 @@
-import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import type { RunStepRow } from "@/lib/runStepsApi";
 
-// p0388b: the execution rail, built from the RunStep projection rows instead of
-// folded from the replayed event log. One row in, one row out — no ordering
-// reconstruction, so the rail is complete even when the client's live buffer
-// holds nothing at all.
-
-const STEP_ID_PREFIX = "step-";
+// p0388b: the step rows the server projects, read for the run page. 2026-11-17-6d9ed: the graph view's rail is gone;
+// what stays is the spec-prefix split, the story/mechanics rule and the step's time split, which the run log reads.
 
 // p0395: the shape the server splices for spec steps (p0393a) — "p19106a:
 // Generate plan". Current servers split it into RunStepView.SpecId before it
@@ -20,36 +15,6 @@ const SPEC_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)): (
 export function splitSpecPrefix(label: string): { specId: string | null; label: string } {
   const match = SPEC_PREFIX_RE.exec(label);
   return match ? { specId: match[1], label: match[2] } : { specId: null, label };
-}
-
-export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
-  const totalSeconds = Math.max(1, steps.reduce((acc, s) => acc + (s.durationSeconds ?? 0), 0));
-  let elapsed = 0;
-  return steps.map((s) => {
-    const duration = s.durationSeconds ?? 0;
-    const startSeconds = elapsed;
-    elapsed += duration;
-    const split = splitSpecPrefix(s.displayName ?? s.stepName);
-    return {
-      id: stepNodeId(s.stepIndex),
-      label: split.label,
-      specId: s.specId ?? split.specId,
-      status: railStatus(s.status),
-      depth: 0,
-      startSeconds,
-      durationSeconds: duration,
-      totalSeconds,
-      durationLabel: duration > 0 ? formatDuration(duration) : "",
-      message: s.resultMessage,
-      costBadge: composeCostBadge(s),
-      timeBadge: composeTimeBadge(s),
-      stepClass: s.stepClass ?? null,
-      hasFinding: s.hasFinding ?? false,
-      // p0405: the server marks what has not been reached; the rail renders it
-      // subordinate. It does not decide which steps those are.
-      planned: s.planned === true,
-    };
-  });
 }
 
 // p0404: the step's wall-clock, split the way the server already decided it —
@@ -93,35 +58,6 @@ export function isStoryRow(node: {
   if (node.stepClass === "internal") return false;
   if (node.stepClass === "gate") return node.hasFinding === true;
   return true;
-}
-
-export function stepNodeId(stepIndex: number): string {
-  return `${STEP_ID_PREFIX}${stepIndex}`;
-}
-
-/** The rail id's step index, or null when the selection is an overview entry. */
-export function stepIndexOf(nodeId: string): number | null {
-  if (!nodeId.startsWith(STEP_ID_PREFIX)) return null;
-  const parsed = Number.parseInt(nodeId.slice(STEP_ID_PREFIX.length), 10);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-// The projection's own status words; anything else — including the absent status
-// of a p0405 planned step — reads as not-yet-run rather than being guessed into a
-// terminal state.
-function railStatus(status: string | null): NodeStatus {
-  if (status === "success") return "ok";
-  if (status === "failed") return "fail";
-  if (status === "running") return "run";
-  if (status === "cancelled") return "cancel";
-  return "wait";
-}
-
-// p0388b: the per-step rollup now comes from the attributed child rows, so the
-// badge is a straight read instead of a sum over whatever events were buffered.
-function composeCostBadge(step: RunStepRow): string | null {
-  if (!step.llmCalls) return null;
-  return `$${(step.costUsd ?? 0).toFixed(4)} · ${step.llmCalls} LLM`;
 }
 
 function formatDuration(seconds: number): string {

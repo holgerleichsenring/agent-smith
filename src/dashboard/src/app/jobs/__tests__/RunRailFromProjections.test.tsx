@@ -89,6 +89,7 @@ function urlsFetched(): string[] {
 
 beforeEach(() => {
   fetchMock.mockReset();
+  window.history.replaceState(null, "", "/jobs/r1");
   fetchMock.mockImplementation(async (url: string) => {
     if (url.includes("/steps/")) {
       return { ok: true, json: async () => ({ events: [], nextSeq: 0, hasMore: false }) };
@@ -100,31 +101,40 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
+async function openEverySection() {
+  await waitFor(() => expect(screen.getByTestId("run-section-ready")).toHaveAttribute("data-state", "done"));
+  for (const id of ["ready", "work"]) {
+    const head = screen.getByTestId(`run-section-${id}`).querySelector(".rl-sec-head")!;
+    if (head.getAttribute("aria-expanded") === "false") fireEvent.click(head);
+  }
+}
+
 describe("Run rail from projections", () => {
-  it("NavRail_RendersEveryStep_WhenTheLiveBufferIsEmpty", async () => {
+  // 2026-11-17-6d9ed: the log, not a rail — every projected step is a line in its section.
+  it("RunLog_RendersEveryStep_WhenTheLiveBufferIsEmpty", async () => {
     renderRunDetail();
 
-    const rail = await screen.findByTestId("nav-rail");
-    await waitFor(() => expect(rail).toHaveTextContent("Fetch ticket"));
-    expect(rail).toHaveTextContent("Analyze codebase");
-    expect(rail).toHaveTextContent("Implement");
+    await openEverySection();
+    expect(screen.getByTestId("run-step-0")).toHaveTextContent("Fetch ticket");
+    expect(screen.getByTestId("run-step-1")).toHaveTextContent("Analyze codebase");
+    expect(screen.getByTestId("run-step-2")).toHaveTextContent("Implement");
   });
 
   it("StepSelection_FetchesOnlyThatStepsPage", async () => {
     renderRunDetail();
 
-    const rail = await screen.findByTestId("nav-rail");
-    await waitFor(() => expect(rail).toHaveTextContent("Analyze codebase"));
+    await openEverySection();
     const beforeClick = urlsFetched().length;
-    fireEvent.click(within(rail).getByText("Analyze codebase"));
+    fireEvent.click(within(screen.getByTestId("run-step-1")).getByTestId("run-log-line"));
 
     await waitFor(() =>
       expect(urlsFetched().slice(beforeClick).some((u) => u.includes("/steps/1/events"))).toBe(true));
-    // Selecting step 1 fetches step 1's page and nothing else — not the run's
+    // Opening step 1 fetches step 1's page and nothing else — not the run's
     // trail, and not the other steps' bodies.
     const afterClick = urlsFetched().slice(beforeClick);
     expect(afterClick.filter((u) => /\/steps\/\d+\/events/.test(u))
       .every((u) => u.includes("/steps/1/events"))).toBe(true);
+    expect(window.location.search).toBe("?step=1");
   });
 
   it("RunDetail_NoRequestReturnsTheWholeTrail", async () => {
