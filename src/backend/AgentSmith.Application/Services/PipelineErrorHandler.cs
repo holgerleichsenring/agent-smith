@@ -157,7 +157,7 @@ public sealed class PipelineErrorHandler(
         var unmoved = failedStatus is null ? null : await MoveToFailedAsync(projectConfig, ticketId, message, failedStatus, cancellationToken);
         if (failedStatus is null || unmoved is not null)
             await PostTicketStatusAsync(projectConfig, context, failedStatus is null
-                ? message : failureComment.ForUnmovedStatus(message, failedStatus, unmoved!), cancellationToken);
+                ? message : Lifecycle.UnmovedStatusNote.Append(message, "failed_status", failedStatus, unmoved!), cancellationToken);
     }
 
     // 2026-11-18-d6d2a: why the status did not move when the ticket must hear it — a move the tracker rejected

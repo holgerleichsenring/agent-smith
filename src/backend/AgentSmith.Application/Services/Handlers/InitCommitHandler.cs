@@ -153,10 +153,10 @@ public sealed class InitCommitHandler(
         InitCommitContext context, IReadOnlyList<OpenedPullRequest> opened,
         TicketId ticketId, CancellationToken ct)
     {
-        context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
         var summary = InitTicketSummary.Compose(context.Configs.Count, opened);
         return ticketLifecycle.FinalizeAsync(
-            ticketFactory, context.TrackerConnection, ticketId, doneStatus, summary, logger, ct);
+            ticketFactory, new TicketFinalizeTarget(context.ProjectName, context.TrackerConnection, ticketId),
+            context.DoneStatus, summary, logger, ct);
     }
 
     private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)

@@ -75,15 +75,15 @@ public sealed class PipelineErrorHandlerTests
             .Should().BeNull();
     }
 
-    // 2026-11-18-d6d2a: the claim's request reaches the run through the Redis job queue, which hands every context
-    // value back as a JsonElement; the failure path reads failed_status from the project, so it still moves.
+    // 2026-11-18-d6d2a: a serialized request hands its context values back as JsonElements (the job queue restores
+    // strings since 2026-11-18-550aa); the failure path reads failed_status from the project either way.
     [Fact]
     public async Task HandleStepFailureAsync_RequestContextThroughTheJobQueue_MovesToTheProjectsFailedStatus()
     {
         var ticketProvider = new Mock<ITicketProvider>();
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var queued = System.Text.Json.JsonSerializer.Deserialize<PipelineRequest>(System.Text.Json.JsonSerializer.Serialize(
-            new PipelineRequest("p1", "code", Context: new() { [ContextKeys.DoneStatus] = "Resolved" })))!;
+            new PipelineRequest("p1", "code", Context: new() { [ContextKeys.NeedsClarificationStatus] = "Question" })))!;
         var context = new PipelineContext();
         foreach (var (key, value) in queued.Context!) context.Set(key, value);
         context.Set(ContextKeys.TicketId, new TicketId("99"));
@@ -91,7 +91,7 @@ public sealed class PipelineErrorHandlerTests
         await _sut.HandleStepFailureAsync([], FailedStatusProject.With("Failed", "p1", "tracker-a"),
             context, _lifecycleMock.Object, CommandResult.Fail("criteria unmet"), CancellationToken.None);
 
-        context.TryGet<string>(ContextKeys.DoneStatus, out _).Should().BeFalse("the premise: queued values are JsonElements");
+        context.TryGet<string>(ContextKeys.NeedsClarificationStatus, out _).Should().BeFalse("the premise: serialized values are JsonElements");
         ticketProvider.Verify(t => t.FinalizeAsync(It.IsAny<TicketId>(), It.IsAny<string>(), "Failed", It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -222,10 +222,9 @@ public sealed class PipelineErrorHandlerTests
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.DoneStatus, "Resolved");
 
         await _sut.HandleStepFailureAsync(
-            Array.Empty<string>(), new ResolvedProject(), context, _lifecycleMock.Object,
+            Array.Empty<string>(), DoneOnlyProject(), context, _lifecycleMock.Object,
             CommandResult.Fail("boom"), CancellationToken.None);
 
         ticketProvider.Verify(t => t.UpdateStatusAsync(
@@ -242,10 +241,9 @@ public sealed class PipelineErrorHandlerTests
         _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
-        context.Set(ContextKeys.DoneStatus, "Resolved");
 
         await _sut.HandleFatalFailureAsync(
-            new ResolvedProject(), context, new InvalidOperationException("spawn quota"), CancellationToken.None);
+            DoneOnlyProject(), context, new InvalidOperationException("spawn quota"), CancellationToken.None);
 
         ticketProvider.Verify(t => t.UpdateStatusAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -447,4 +445,11 @@ public sealed class PipelineErrorHandlerTests
             AgentSmith.Application.Services.Prompts.OwnTicketComment.WorkingStatus,
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // 2026-11-18-550aa: a project whose trigger has a done_status and no failed_status.
+    private static ResolvedProject DoneOnlyProject() => new()
+    {
+        Tracker = new TrackerConnection { Type = TrackerType.GitHub },
+        GithubTrigger = new WebhookTriggerConfig { DoneStatus = "Resolved" },
+    };
 }

@@ -399,9 +399,8 @@ public sealed class CommitAndPRHandler(
 
         var summary = await completedSummary.BuildAsync(
             context.Pipeline, context.Configs, opened, context.Changes, shortfall, ct);
-        context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
         await ticketLifecycle.FinalizeAsync(
-            ticketFactory, context.TrackerConnection, context.Ticket.Id,
-            doneStatus, summary, logger, ct);
+            ticketFactory, new TicketFinalizeTarget(context.ProjectName, context.TrackerConnection, context.Ticket.Id),
+            context.DoneStatus, summary, logger, ct);
     }
 }

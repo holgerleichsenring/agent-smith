@@ -45,15 +45,14 @@ public sealed class ChatTicketRunLaunchTests : IDisposable
     }
 
     [Fact]
-    public async Task ChatFixTicket_ResolvesStatusesFromTheProjectsTrigger()
+    public async Task ChatFixTicket_ClaimsOnTheProjectsTracker()
     {
         await Handler().HandleAsync(Fix(pipeline: "mad-discussion"), CancellationToken.None);
 
         _claimed!.Platform.Should().Be("azuredevops", "the envelope speaks for the project's tracker");
         _claimed.PipelineName.Should().Be("mad-discussion");
-        var context = _claimed.InitialContext!;
-        context[ContextKeys.DoneStatus].Should().Be("Resolved");
-        context.IsRequestedByName().Should().BeTrue();
+        // 2026-11-18-550aa: done_status is read from the project by the run, not seeded.
+        _claimed.InitialContext!.IsRequestedByName().Should().BeTrue();
     }
 
     [Fact]

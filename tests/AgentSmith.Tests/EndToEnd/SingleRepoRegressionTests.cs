@@ -157,12 +157,12 @@ public sealed class SingleRepoRegressionTests
         captured.TicketId!.Value.Should().Be(ticketId);
         captured.Headless.Should().BeTrue();
         captured.PlanAnswers.Should().BeNull();
-        captured.Context.Should().NotBeNull();
-        captured.Context![ContextKeys.DoneStatus].Should().Be(doneStatus);
+        // 2026-11-18-550aa: done_status is no longer seeded — the run reads it from the project.
+        captured.Context?.Should().NotContainKey("DoneStatus");
         // repoName parameter retained for call-site readability but no longer
         // asserted on PipelineRequest: the unified-run model derives repo set
         // from project config at ExecutePipelineUseCase time, not from the request.
-        _ = (platform, repoName);
+        _ = (platform, repoName, doneStatus);
     }
 
     private static WebhookTriggerConfig NewTrigger() => new()

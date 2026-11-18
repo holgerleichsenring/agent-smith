@@ -103,8 +103,8 @@ public sealed class PipelineRunner(IServiceProvider services)
     public string? NeedsClarificationStatus { get; set; }
 
     /// <summary>
-    /// 2026-09-07-f420: DoneStatus mirrors the seed SpawnRequestBuilder performs from the trigger
-    /// config; FailedStatus (2026-11-18-d6d2a) is the project trigger's failed_status. Unset → none.
+    /// 2026-11-18-d6d2a / 550aa: DoneStatus and FailedStatus are the project trigger's done_status and
+    /// failed_status, where the run reads them. Unset → none (a blank done_status is no status).
     /// </summary>
     public string? DoneStatus { get; set; }
 
@@ -153,8 +153,9 @@ public sealed class PipelineRunner(IServiceProvider services)
             Repos = ReposOverride?.ToList() ?? [RepoOverride ?? BuildRepo()],
             Templates = TemplatesOverride?.ToList() ?? [],
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
-            // 2026-11-18-d6d2a: failed_status lives on the project's trigger, where the failure path reads it.
-            GithubTrigger = FailedStatus is null ? null : new WebhookTriggerConfig { FailedStatus = FailedStatus },
+            // 2026-11-18-d6d2a / 550aa: done_status and failed_status live on the project's trigger, where the run reads them.
+            GithubTrigger = FailedStatus is null && DoneStatus is null ? null
+                : new WebhookTriggerConfig { FailedStatus = FailedStatus, DoneStatus = DoneStatus ?? string.Empty },
             Agent = agent,
             Pipeline = presetName,
             Sandbox = SandboxOverride,
@@ -268,7 +269,6 @@ public sealed class PipelineRunner(IServiceProvider services)
     {
         if (NeedsClarificationStatus is not null)
             pipeline.Set(ContextKeys.NeedsClarificationStatus, NeedsClarificationStatus);
-        if (DoneStatus is not null) pipeline.Set(ContextKeys.DoneStatus, DoneStatus);
         foreach (var (key, value) in RequestContext) pipeline.Set(key, value);
         pipeline.Set(ContextKeys.SourceFilePath, SourceFilePathOverride ?? CreateLegalStubFile());
         pipeline.Set(ContextKeys.SwaggerPath, SwaggerPathOverride ?? "https://stub.test/swagger.json");

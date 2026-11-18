@@ -99,8 +99,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, "closed");
 
         string? postedSummary = null;
         _ticketProviderMock.Setup(t => t.FinalizeAsync(
@@ -123,6 +122,28 @@ public sealed class InitCommitHandlerLifecycleTests
 
         postedSummary.Should().Contain("pull/7");
         postedSummary.Should().Contain("Init Complete");
+    }
+
+    // 2026-11-18-550aa: the builder reads done_status from the project, so the init run finalizes to it.
+    [Fact]
+    public async Task ExecuteAsync_ContextFromBuilder_FinalizesWithTheProjectsDoneStatus()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo"));
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection()]);
+        var project = new ResolvedProject
+        {
+            Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
+            AzuredevopsTrigger = new WebhookTriggerConfig { DoneStatus = "Resolved" },
+        };
+        var context = (InitCommitContext)new AgentSmith.Application.Services.Builders.InitCommitContextBuilder().Build(
+            PipelineCommand.Simple(CommandNames.InitCommit), project, pipeline);
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.Is<TicketId>(id => id.Value == "42"), It.IsAny<string>(), "Resolved", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -157,8 +178,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, "closed");
 
         _ticketProviderMock.Setup(t => t.FinalizeAsync(
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
@@ -189,7 +209,6 @@ public sealed class InitCommitHandlerLifecycleTests
                 ["docs"] = _sandboxMock.Object,
             });
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
         var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");
         var configs = new[]
         {
@@ -197,7 +216,7 @@ public sealed class InitCommitHandlerLifecycleTests
             new RepoConnection { Name = "client" },
             new RepoConnection { Name = "docs" },
         };
-        var context = new InitCommitContext(repo, configs, new TrackerConnection(), pipeline);
+        var context = new InitCommitContext(repo, configs, new TrackerConnection(), pipeline, "closed");
 
         string? postedSummary = null;
         _ticketProviderMock.Setup(t => t.FinalizeAsync(
@@ -223,8 +242,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, "closed");
         SetupCommitReportsNothingToCommit();
 
         string? postedSummary = null;
@@ -255,8 +273,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, "closed");
 
         string? postedSummary = null;
         _ticketProviderMock.Setup(t => t.FinalizeAsync(
@@ -305,8 +322,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, "closed");
         SetupStagedNameOnlyDiff(
             ".agentsmith/runs/run-1-init/plan.md\n.agentsmith/runs/run-1-init/result.md\n");
 
@@ -384,8 +400,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        pipeline.Set(ContextKeys.DoneStatus, "closed");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, "closed");
         SetupStagedNameOnlyDiff(".agentsmith/context.yaml\n");
         _sandboxMock.Setup(s => s.RunStepAsync(
                 It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("commit")),
@@ -435,10 +450,10 @@ public sealed class InitCommitHandlerLifecycleTests
                     "nothing to commit, working tree clean")));
     }
 
-    private InitCommitContext CreateContext(PipelineContext pipeline)
+    private InitCommitContext CreateContext(PipelineContext pipeline, string? doneStatus = null)
     {
         var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");
-        return new InitCommitContext(repo, new[] { new RepoConnection() }, new TrackerConnection(), pipeline);
+        return new InitCommitContext(repo, new[] { new RepoConnection() }, new TrackerConnection(), pipeline, doneStatus);
     }
 
     private PipelineContext NewPipelineWithSandbox()

@@ -241,8 +241,7 @@ public partial class CommitAndPRHandlerTests
     public async Task ExecuteAsync_WithDoneStatus_FinalizesAtomicallyWithStatus()
     {
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.DoneStatus, "In Review");
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, doneStatus: "In Review");
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -482,7 +481,6 @@ public partial class CommitAndPRHandlerTests
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
-        pipeline.Set(ContextKeys.DoneStatus, "done");
         pipeline.Set(ContextKeys.MasterVerification,
             new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
         pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
@@ -518,7 +516,7 @@ public partial class CommitAndPRHandlerTests
                 (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = ShortfallPipeline(withVerifiedHead: true);
-        var context = CreateContext(pipeline);
+        var context = CreateContext(pipeline, doneStatus: "done");
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -548,7 +546,7 @@ public partial class CommitAndPRHandlerTests
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = ShortfallPipeline(withVerifiedHead: false);
 
-        var result = await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+        var result = await _sut.ExecuteAsync(CreateContext(pipeline, doneStatus: "done"), CancellationToken.None);
 
         result.Message.Should().Contain("Run failed");
         capturedDraft.Should().BeTrue();
@@ -565,7 +563,7 @@ public partial class CommitAndPRHandlerTests
     {
         var pipeline = ShortfallPipeline(withVerifiedHead: true);
 
-        await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+        await _sut.ExecuteAsync(CreateContext(pipeline, doneStatus: "done"), CancellationToken.None);
 
         Contracts.Specs.RunShortfall.DeliveredOn(pipeline).Should().NotBeNull();
         _sandboxMock.Verify(s => s.RunStepAsync(
@@ -578,7 +576,6 @@ public partial class CommitAndPRHandlerTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
-        pipeline.Set(ContextKeys.DoneStatus, "done");
         pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
         pipeline.Set(ContextKeys.SpecSequenceProgress, new Contracts.Specs.SpecSequenceProgress(
         [
@@ -727,7 +724,7 @@ public partial class CommitAndPRHandlerTests
             .And.NotContain("<h2").And.NotContain("&amp;");
     }
 
-    private CommitAndPRContext CreateContext(PipelineContext? pipeline = null, string? description = null)
+    private CommitAndPRContext CreateContext(PipelineContext? pipeline = null, string? description = null, string? doneStatus = null)
     {
         var pl = pipeline ?? NewPipelineWithSandbox();
         var repo = new Repository(new BranchName("fix/123"), "https://github.com/test/repo");
@@ -737,7 +734,7 @@ public partial class CommitAndPRHandlerTests
         {
             new(new FilePath("README.md"), "content", "Created")
         };
-        return new CommitAndPRContext(repo, changes, ticket, new[] { new RepoConnection() }, new TrackerConnection(), pl);
+        return new CommitAndPRContext(repo, changes, ticket, new[] { new RepoConnection() }, new TrackerConnection(), pl, doneStatus);
     }
 
     private void SeedSandboxes(PipelineContext pipeline)

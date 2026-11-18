@@ -62,7 +62,9 @@ public sealed class CommitAndPRContextBuilder : IContextBuilder
             ? c
             : Array.Empty<CodeChange>();
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new CommitAndPRContext(repo, changes, ticket, repos, project.Tracker, pipeline);
+        // 2026-11-18-550aa: done_status from the project, not a seeded key the job queue hands back as a JsonElement.
+        return new CommitAndPRContext(repo, changes, ticket, repos, project.Tracker, pipeline,
+            Tickets.TicketParkStatuses.Of(project).Done, project.Name);
     }
 }
 
@@ -72,7 +74,8 @@ public sealed class InitCommitContextBuilder : IContextBuilder
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        return new InitCommitContext(repo, repos, project.Tracker, pipeline);
+        return new InitCommitContext(repo, repos, project.Tracker, pipeline,
+            Tickets.TicketParkStatuses.Of(project).Done, project.Name); // 2026-11-18-550aa
     }
 }
 

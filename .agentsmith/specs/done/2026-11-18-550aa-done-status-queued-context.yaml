@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-550aa
+goal: "A finished run moves its ticket to the project's done_status and says so when the tracker refuses, and a run taken off the job queue reads its request's strings and flags as sent."
+
+applies_to: "default (Application/Services/Handlers/CommitAndPRHandler.cs, InitCommitHandler.cs, Lifecycle/TicketLifecycle.cs, Builders/PlanExecutionContextBuilders.cs, Spawning/SpawnRequestBuilder.cs; Contracts/Models/QueuedRequestContext.cs; Infrastructure/Services/Queue/RedisJobQueue.cs)"
+
+requires: [2026-11-18-d6d2a]
+
+facts:
+  - claim: "The done path reads done_status with TryGet<string>(ContextKeys.DoneStatus) and hands null to FinalizeAsync when it misses."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:402, src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:156"
+  - claim: "SpawnRequestBuilder seeds ContextKeys.DoneStatus as a string; RedisJobQueue deserializes PipelineRequest with no converter, so every Context value comes back a JsonElement, and PipelineContext.TryGet<T> is an 'obj is T' test."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:80-81, src/backend/AgentSmith.Infrastructure/Services/Queue/RedisJobQueue.cs:64, src/backend/AgentSmith.Contracts/Commands/PipelineContext.cs:61"
+  - claim: "What a null status does per tracker: GitHub and GitLab are built with no done status and close the issue instead of setting the configured label; Jira takes the close transition instead of the transition to done_status; Azure DevOps uses the connection's done_status, the same value when the tracker sets one, else 'Closed'."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs:61-70, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-30, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketFinalizer.cs:30-37, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketFinalizer.cs:24, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:48"
+  - claim: "TicketParkStatuses.Of(project).Done is the effective trigger's done_status — what the seed carried and what the run-end checks and discovery's parking exclusion count as done; the effective trigger takes the tracker's done_status, else the class default 'In Review'."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketParkStatuses.cs:20, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/EffectiveTriggerBuilder.cs:44, src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs:23, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:91-93"
+  - claim: "TicketLifecycle.FinalizeAsync discards the finalize result, so a done move the tracker rejected records nothing and, on Azure DevOps where comment and state are one PATCH, loses the summary too; UnmovedTicketReport.RecordParkAsync is the outcome set a non-failure end records (moved clears; rejected or no transition records; not expressible or nothing asked does neither)."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:47-52, src/backend/AgentSmith.Application/Services/Lifecycle/UnmovedTicketReport.cs:52-63, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketFinalizer.cs:30-36"
+  - claim: "Both context builders already receive the ResolvedProject."
+    evidence: "src/backend/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs:53-75"
+  - claim: "Every server launch goes through QueuedRunDispatch to this queue (and QueuedRunSweeper re-pushes the stored request into it); ExecutePipelineUseCase copies request.Context into the pipeline as it arrives, and ResolveRepos reads SourceOverrideRepo with 'value is string' off request.Context."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunDispatch.cs:18-27, src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunSweeper.cs:66-67, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:333-336, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:451-454"
+  - claim: "Same mechanism, other keys: a series beat seeds SeriesRunId as a string, read with TryGet<string> by ReadSeriesHandler, VerifySeriesHandler and OpenSeriesRunHandler; refresh-base and PR-command runs seed SourceOverrideRepo, CheckoutBranch and PrNumber as strings, read with 'is string', TryGet<string> or Get<string> (an InvalidCast in AnalyzePrDiffContextBuilder)."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunLaunch.cs:23-24, src/backend/AgentSmith.Application/Services/Series/ReadSeriesHandler.cs:21, src/backend/AgentSmith.Application/Services/Series/VerifySeriesHandler.cs:27, src/backend/AgentSmith.Application/Services/Series/OpenSeriesRunHandler.cs:23-24, src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:42-46, src/backend/AgentSmith.Server/Services/Webhooks/PrRunContextFactory.cs:51-56, src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:23, src/backend/AgentSmith.Application/Services/Builders/AnalyzePrDiffContextBuilder.cs:14"
+  - claim: "The readers that tolerate the round trip accept the native type first: ApprovedSpecSetResolver and ResumeRequestReader try string, Flag tries bool, IsTrue accepts true, RunParentTicket switches on string or JsonElement. The claim gates read a capacity-queue candidate's InitialContext, which CapacityQueuePump deserializes itself, so they keep their JsonElement branches."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:85-89, src/backend/AgentSmith.Application/Services/Resume/ResumeRequestReader.cs:70-78, src/backend/AgentSmith.Contracts/Commands/PipelineContextExtensions.cs:40-46, src/backend/AgentSmith.Contracts/Commands/RequestedByNameExtensions.cs:35-36, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:126"
+
+scope:
+  in: "CommitAndPRContext and InitCommitContext carry the project name and the done status their builder reads from TicketParkStatuses.Of(project).Done; ContextKeys.DoneStatus and its seed are deleted. TicketLifecycle records the done finalize through UnmovedTicketReport.RecordParkAsync and, when the tracker rejected the status, posts the summary comment-only with the status line d6d2a's failure note carries (UnmovedStatusNote, shared by both). The job queue hands a request back with its Context's JSON strings and booleans as string and bool (QueuedRequestContext.Restore in RedisJobQueue); numbers, arrays and objects stay JsonElement. Doors that start working: queued series beats and series verifies, refresh-base on its work branch and repository, PR-command runs."
+  out: "Doors that never seeded the key (the CLI's code --ticket, every init run) now finalize to the project's done_status too: one rule everywhere, as d6d2a did for failure. NeedsClarificationStatus and NotImplementableStatus keep their seeds: the effective trigger copies both from the tracker, so the resolvers' tracker fallback already gave the same value. The readers' JsonElement branches stay (the pump's InitialContext still has them). The capacity pump and the resume launcher's own deserialization are not changed. No new store, key, gate or limit."
+
+steps:
+  - id: done
+    action: "CommitAndPRContext and InitCommitContext gain 'string? DoneStatus = null, string ProjectName = \"\"' (last); their builders pass TicketParkStatuses.Of(project).Done and project.Name; FinalizeTicketAsync passes both to TicketLifecycle.FinalizeAsync as a TicketFinalizeTarget (project, tracker, ticket id); delete ContextKeys.DoneStatus, the SpawnRequestBuilder seed and its pinning tests (SpawnPipelineRunsUseCaseTests' two seed tests, ChatTicketRunLaunchTests and SingleRepoRegressionTests' seed assertions); tests that set the key pass the status on the context; PipelineErrorHandlerTests' round-trip premise uses another seeded string; the pipeline harness's DoneStatus configures the project trigger beside FailedStatus, blank when unset."
+  - id: rejected
+    action: "TicketLifecycle takes an optional UnmovedTicketReport; FinalizeAsync(factory, target, …) records the result with RecordParkAsync and, on TrackerRejectedTheStatus, posts UpdateStatusAsync(UnmovedStatusNote.Append(summary, \"done_status\", status, outcome)); FailureTicketComment.ForUnmovedStatus moves to UnmovedStatusNote with the field named, text unchanged for failed_status."
+  - id: queue
+    action: "QueuedRequestContext.Restore(PipelineRequest) maps each Context JsonElement of kind String to string and True/False to bool; RedisJobQueue.TryDeserialize returns the restored request; the harness's RecordingJobQueue and LosingJobQueue, which claim the same round trip, apply it; QueuedRunFlushDockerTests reads RefreshPrinciples as bool."
+
+tests:
+  - "CommitAndPRHandlerTests.ExecuteAsync_ContextFromBuilder_FinalizesWithTheProjectsDoneStatus (GitHub project, trigger done_status, pipeline seeded from a JSON round-tripped request: transition to the label, no close)"
+  - "InitCommitHandlerLifecycleTests.ExecuteAsync_ContextFromBuilder_FinalizesWithTheProjectsDoneStatus"
+  - "TicketLifecycleTests: a rejected done move records the ticket unmoved and posts the summary with the done_status line; a moved one clears the record"
+  - "QueuedRequestContextTests.Restore_SerializedRequest_ReadsStringsAndFlagsAsSent (string, bool, number, object)"
+  - "RedisJobQueueTests.ConsumeAsync_SeriesBeatRequest_HandsBackTheSeriesIdAsAString (IDatabase mock popping SeriesRunLaunch's request JSON)"
+
+done:
+  - "A code or init run whose request came through the job queue moves its ticket to the project's done_status."
+  - "A done move the tracker rejected leaves the ticket held against the poller and the summary on the ticket with the status that could not be set."
+  - "A run taken off the job queue reads every string and boolean of its request context with TryGet<string> and TryGet<bool>, so a queued series beat finds its series."

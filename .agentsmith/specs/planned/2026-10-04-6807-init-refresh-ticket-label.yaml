@@ -8,7 +8,7 @@ requires: [2026-10-04-2bf2]
 
 facts:
   - claim: "Trigger settings become context keys of a spawned run in one place."
-    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:67-95"
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:67-93"
   - claim: "A tracker's trigger settings are WebhookTriggerConfig, including the label-to-pipeline map."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs:12"
   - claim: "The init preset fetches the ticket before the bootstrap rounds."

@@ -29,7 +29,6 @@ public static partial class ContextKeys
     /// ToolKit pipeline-allow-list lookup key.</summary>
     public const string PipelineName = "PipelineName";
 
-    public const string DoneStatus = "DoneStatus";
     /// <summary>p0318: native ticket status the clarification gates park the ticket in
     /// when the run needs user input. Seeded by SpawnPipelineRunsUseCase from the
     /// trigger's needs_clarification_status (null when unset — then the gate posts +

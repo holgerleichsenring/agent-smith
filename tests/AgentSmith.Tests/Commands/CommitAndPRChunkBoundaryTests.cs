@@ -100,7 +100,6 @@ public partial class CommitAndPRHandlerTests
     {
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
-        pipeline.Set(ContextKeys.DoneStatus, "done");
         pipeline.Set(ContextKeys.SpecSet, new SpecSet("github-123",
             [.. new[] { "p0001a", "p0001b", "p0001c" }.Select(id => new DerivedSpec(new SpecDraft(id, $"Goal {id[^1]}", $"spec: {id}", []), id, string.Empty, []))],
             SpecAccounting.Empty, [new SpecRevision(1, "initial derivation", DateTimeOffset.UnixEpoch)], SpecSource.Derived));

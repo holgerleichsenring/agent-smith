@@ -56,7 +56,7 @@ public sealed class QueuedRunFlushDockerTests(ITestOutputHelper output)
             var duplicate = await gate.ClaimAsync(popped[1], CancellationToken.None);
             started.Should().NotBeNull();
             duplicate.Should().BeNull("two copies of one request start once");
-            ((JsonElement)popped[0].Context![ContextKeys.RefreshPrinciples]).GetBoolean().Should().BeTrue();
+            popped[0].Context![ContextKeys.RefreshPrinciples].Should().Be(true, "the queue restores a flag as a bool (2026-11-18-550aa)");
         }
         finally
         {

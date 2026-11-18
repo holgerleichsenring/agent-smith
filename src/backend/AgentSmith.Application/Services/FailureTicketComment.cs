@@ -39,13 +39,6 @@ public sealed class FailureTicketComment
 
     public string ForMessage(string message) => Heading + WebUtility.HtmlEncode(message);
 
-    /// <summary>2026-11-18-d6d2a: the failure comment with the status it could not set and why — posted comment-only
-    /// when the tracker rejected the move or the write threw, so the ticket says why it stays where it is.</summary>
-    public string ForUnmovedStatus(string comment, string failedStatus, string reason) =>
-        comment + $"<br/><b>Status:</b> failed_status '{WebUtility.HtmlEncode(failedStatus)}' could not be set: "
-        + $"{WebUtility.HtmlEncode(reason)}. The ticket stays in its current status; correct the status on the "
-        + "tracker or the project, or start it again with Retry.";
-
     /// <summary>What was kept and where; empty when nothing was persisted.</summary>
     public string PersistedWork(PipelineContext pipeline)
     {
