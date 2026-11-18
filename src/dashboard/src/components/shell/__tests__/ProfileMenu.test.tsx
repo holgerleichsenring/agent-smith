@@ -35,10 +35,10 @@ const identity: CallerIdentity = {
   findings: [], nameIsReadable: true,
 };
 
-function renderProfile(authority = "") {
+function renderProfile(authority = "", collapsed = false) {
   return render(
     <RuntimeSettingsProvider settings={{ auth: { ...DEFAULT_RUNTIME_SETTINGS.auth, authority } }}>
-      <ProfileMenu collapsed={false} />
+      <ProfileMenu collapsed={collapsed} />
     </RuntimeSettingsProvider>,
   );
 }
@@ -65,11 +65,33 @@ describe("ProfileMenu", () => {
     expect(screen.getByTestId("profile-system")).toHaveAttribute("href", "/system");
   });
 
+  it("Profile_CollapsedSidebar_MenuIsPortalledOutOfTheSidebar_AnchoredToTheButton", () => {
+    renderProfile("", true);
+    const button = screen.getByTestId("profile-button");
+    button.getBoundingClientRect = () => ({ left: 18, top: 840, right: 44, bottom: 866, width: 26, height: 26, x: 18, y: 840, toJSON: () => ({}) });
+    open();
+    const menu = screen.getByTestId("profile-menu");
+    expect(screen.getByTestId("profile").contains(menu)).toBe(false);
+    expect(menu.parentElement).toBe(document.body);
+    expect(menu.style.left).toBe("18px");
+    expect(menu.style.bottom).toBe(`${window.innerHeight - 840 + 6}px`);
+  });
+
+  it("Profile_ClickInsideThePortalledMenu_DoesNotCountAsOutside_ClickOutsideCloses", () => {
+    renderProfile("", true);
+    open();
+    fireEvent.mouseDown(screen.getByTestId("profile-settings"));
+    expect(screen.getByTestId("profile-menu")).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId("profile-menu")).toBeNull();
+  });
+
   it("Profile_EscapeClosesTheMenu", () => {
     renderProfile();
     open();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByTestId("profile-menu")).toBeNull();
+    expect(screen.getByTestId("profile-button")).toHaveFocus();
   });
 
   it("Profile_NoAuthority_NamesTheInstallation_NoAccountAndNoIdentityRead", async () => {
