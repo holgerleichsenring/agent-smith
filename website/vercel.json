@@ -25,6 +25,17 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "agent-smith.org"
+        }
+      ],
+      "destination": "https://www.codeably.ai/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
@@ -32,7 +43,18 @@
           "value": "agent-smith.org"
         }
       ],
-      "destination": "https://codeably.ai/:path*",
+      "destination": "https://www.codeably.ai/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.agent-smith.org"
+        }
+      ],
+      "destination": "https://www.codeably.ai/",
       "permanent": true
     },
     {
@@ -43,7 +65,7 @@
           "value": "www.agent-smith.org"
         }
       ],
-      "destination": "https://codeably.ai/:path*",
+      "destination": "https://www.codeably.ai/:path*",
       "permanent": true
     }
   ]
