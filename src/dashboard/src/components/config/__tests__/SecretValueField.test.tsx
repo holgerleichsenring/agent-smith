@@ -13,7 +13,8 @@ import { SecretValueField } from "../SecretValueField";
 
 const view = {
   masterKeyPresent: true, masterKeyProblem: null, orphans: [],
-  secrets: [{ name: "gh_token", fromEnvironment: true, stored: { name: "gh_token", setBy: "ada", setAt: "2026-11-17T10:00:00Z", keyId: "env:1", keyCurrent: true, readable: true } }],
+  masterKeySource: "Azure Key Vault key https://kv.vault.azure.net/keys/k/1 (AGENTSMITH_SECRET_MASTER_KEY_WRAPPED)",
+  secrets: [{ name: "gh_token", variable: "GH_TOKEN", fromEnvironment: true, stored: { name: "gh_token", setBy: "ada", setAt: "2026-11-17T10:00:00Z", keyId: "env:1", keyCurrent: true, readable: true } }],
 };
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -24,8 +25,9 @@ describe("SecretValueField", () => {
     render(<SecretValueField name="gh_token" />);
 
     await waitFor(() => expect(screen.getByTestId("secret-value-state").textContent).toContain("set by ada"));
-    expect(screen.getByTestId("secret-value-state").textContent).toContain("is set and wins");
+    expect(screen.getByTestId("secret-value-state").textContent).toContain("GH_TOKEN is set and wins");
     expect((screen.getByTestId("secret-value-input") as HTMLInputElement).type).toBe("password");
+    expect(screen.getByTestId("secret-value-key-source").textContent).toContain("Azure Key Vault key");
   });
 
   it("posts the typed value and clears the field whatever the answer", async () => {

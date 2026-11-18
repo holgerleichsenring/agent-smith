@@ -13,16 +13,18 @@ namespace AgentSmith.Server.Services.Admin.Config;
 /// full new document or its removal, drop a drafted change. Nothing is written here: the draft is shown with an Apply
 /// button, and Apply runs a config run.
 /// </summary>
-public sealed class AdminConfigDraftTools(IConfigStore store, ConfigEntityKinds kinds, AdminConfigDraft draft, ILogger logger)
+public sealed class AdminConfigDraftTools(
+    IConfigStore store, ConfigEntityKinds kinds, OrphanedSecretValues orphans, AdminConfigDraft draft, ILogger logger)
 {
     [Description("Reads one configuration entity as the Config studio holds it (null when absent). kind is one of: "
-        + "agents, trackers, repos, projects, mcp-servers, secrets, connections, design-sources, settings/<type>; for "
-        + "settings the id is ignored.")]
-    public string ReadConfigEntity(string kind, string id)
+        + "agents, trackers, repos, projects, mcp-servers, secrets, connections, design-sources, settings/<type>, or "
+        + "secret-values (a stored value whose catalog secret is gone: its name and when it was set, never the value); "
+        + "for settings the id is ignored.")]
+    public async Task<string> ReadConfigEntity(string kind, string id, CancellationToken cancellationToken = default)
     {
         try
         {
-            return kinds.Read(store, kind, id) ?? "null";
+            return (OrphanedSecretValues.Is(kind) ? await orphans.ReadAsync(store, id, cancellationToken) : kinds.Read(store, kind, id)) ?? "null";
         }
         catch (ConfigurationException ex)
         {
@@ -33,12 +35,16 @@ public sealed class AdminConfigDraftTools(IConfigStore store, ConfigEntityKinds 
 
     [Description("Drafts a configuration change for the administrator to apply: operation 'upsert' with the entity's "
         + "full JSON document (as read_config_entity shows it; to duplicate, read one and draft it under the new id), or "
-        + "'delete'. Drafting the same kind and id again replaces that change. Returns the draft so far.")]
-    public string DraftConfigChange(string operation, string kind, string id, string? document = null)
+        + "'delete'. An orphaned stored secret value (kind secret-values, listed by read_secrets) can only be deleted. "
+        + "Drafting the same kind and id again replaces that change. Returns the draft so far.")]
+    public async Task<string> DraftConfigChange(
+        string operation, string kind, string id, string? document = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            draft.Put(Item(operation, kind, id, document));
+            draft.Put(OrphanedSecretValues.Is(kind)
+                ? new ConfigChangeItem(operation, OrphanedSecretValues.Kind, id, null, await orphans.DraftAsync(store, operation, id, cancellationToken))
+                : Item(operation, kind, id, document));
             return Summary();
         }
         catch (Exception ex) when (ex is ConfigurationException or JsonException)

@@ -129,7 +129,7 @@ public sealed class ClaudeHistoryCacheTests : IDisposable
     public async Task ClaudeCache_MultiTurnReadHeavy_LastMessageCarriesCacheControl()
     {
         var handler = new RecordingHandler(AnthropicResponse());
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             new AgentConfig { Type = "claude", ApiKeySecret = KeySecret },
             new ModelAssignment { Model = "claude-sonnet-5" });
 
@@ -153,7 +153,7 @@ public sealed class ClaudeHistoryCacheTests : IDisposable
     {
         var handler = new RecordingHandler(AnthropicResponse());
         var agent = new AgentConfig { Type = "claude", ApiKeySecret = KeySecret, Cache = new CacheConfig { IsEnabled = false } };
-        var client = new ClaudeChatClientBuilder(handler).Build(agent, new ModelAssignment { Model = "claude-sonnet-5" });
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(agent, new ModelAssignment { Model = "claude-sonnet-5" });
 
         await client.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "just one turn")], new ChatOptions());
@@ -166,7 +166,7 @@ public sealed class ClaudeHistoryCacheTests : IDisposable
     public async Task ClaudeCache_BreakpointCount_StaysWithinAnthropicLimitOfFour()
     {
         var handler = new RecordingHandler(AnthropicResponse());
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             new AgentConfig { Type = "claude", ApiKeySecret = KeySecret },
             new ModelAssignment { Model = "claude-sonnet-5" });
 
@@ -188,7 +188,7 @@ public sealed class ClaudeHistoryCacheTests : IDisposable
     public async Task OpenAiPath_MessageHistoryCaching_UnaffectedByTheChange()
     {
         var handler = new RecordingHandler(OpenAiResponse());
-        var client = new OpenAiChatClientBuilder(handler).Build(
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             new AgentConfig { Type = "openai", ApiKeySecret = KeySecret },
             new ModelAssignment { Model = "gpt-4.1" });
 

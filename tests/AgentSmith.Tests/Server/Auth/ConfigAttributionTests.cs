@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Application.Services.Admin;
 using System.Security.Claims;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
@@ -50,12 +52,14 @@ public sealed class ConfigAttributionTests
         var context = Context(Authenticated());
 
         await ConfigStudioWriteGuard.GuardSignalingAsync(
-            context, reload.Object, events.Object, Results.NoContent);
+            context, new ConfigChangedSignal(reload.Object, events.Object, NullLogger<ConfigChangedSignal>.Instance),
+            Results.NoContent);
 
         events.Verify(e => e.PublishAsync(
             It.Is<ConfigChangedEvent>(published =>
                 published.Actor == ConfigStudioWriteGuard.Attribution(context).Actor
-                && published.Actor == Caller),
+                && published.Actor == Caller && published.Source == ConfigStudioWriteGuard.StudioSource
+                && published.Epoch == 7),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -27,7 +27,8 @@ public sealed class ConfigSecretReferences(Func<string, string?> envReader)
             ? secrets.TryGetValue(name, out var fromSecrets) ? fromSecrets : envReader(name) ?? string.Empty
             : value;
 
-    private static string? Referenced(string value) =>
+    /// <summary>2026-11-18-9ae8: the variable a <c>${NAME}</c> reference names; null for anything else.</summary>
+    public static string? Referenced(string? value) => value is null ? null :
         value.StartsWith("${", StringComparison.Ordinal) && value.EndsWith('}')
             ? value[2..^1]
             : null;

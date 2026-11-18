@@ -56,6 +56,7 @@ public sealed class ConfigCapabilitiesTests
         services.AddLogging();
         services.AddSingleton<IRunContextAccessor, AsyncLocalRunContextAccessor>();
         services.AddAgentProviders();
+        services.AddSingleton<AgentSmith.Contracts.Services.ICredentialResolver>(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly); // 2026-11-18-9ae8
         return services;
     }
 

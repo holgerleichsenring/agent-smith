@@ -30,7 +30,7 @@ public sealed class SdkRetryPolicyTests : IDisposable
     public async Task OpenAi_TheSdkRetryPolicy_IsDisabledSoARefusalReachesOurLayer()
     {
         var handler = new RateLimitHandler();
-        var client = new OpenAiChatClientBuilder(handler).Build(
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             new AgentConfig { Type = "openai", ApiKeySecret = KeySecret },
             new ModelAssignment { Model = "gpt-4.1" });
 
@@ -50,7 +50,7 @@ public sealed class SdkRetryPolicyTests : IDisposable
             Type = "azure_openai", ApiKeySecret = KeySecret,
             Endpoint = "https://test.openai.azure.com", Deployment = "my-deploy",
         };
-        var client = new OpenAiChatClientBuilder(handler).Build(agent, new ModelAssignment { Model = "gpt-4.1" });
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(agent, new ModelAssignment { Model = "gpt-4.1" });
 
         await Refuses(client);
 
@@ -68,7 +68,7 @@ public sealed class SdkRetryPolicyTests : IDisposable
             Type = "azure_openai", ApiKeySecret = KeySecret,
             Endpoint = "https://test.openai.azure.com", Deployment = "my-deploy",
         };
-        var client = new OpenAiChatClientBuilder(new DroppingHandler())
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, new DroppingHandler())
             .Build(agent, new ModelAssignment { Model = "gpt-4.1" });
 
         var thrown = (await FluentActions

@@ -23,7 +23,7 @@ public sealed class ToolImageWireShapeTests : IDisposable
     [Fact]
     public async Task OpenAi_ImageInUserMessageAfterTool_IsSentAsImageUrl()
     {
-        var body = await Send(h => new OpenAiChatClientBuilder(h), "openai", OpenAiReply, ImageAfterTool());
+        var body = await Send(h => new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, h), "openai", OpenAiReply, ImageAfterTool());
 
         body.IndexOf("\"role\":\"tool\"", StringComparison.Ordinal).Should()
             .BeLessThan(body.LastIndexOf("\"role\":\"user\"", StringComparison.Ordinal));
@@ -33,7 +33,7 @@ public sealed class ToolImageWireShapeTests : IDisposable
     [Fact]
     public async Task OpenAi_ImageInsideToolMessage_IsDropped()
     {
-        var body = await Send(h => new OpenAiChatClientBuilder(h), "openai", OpenAiReply, ImageInsideTool());
+        var body = await Send(h => new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, h), "openai", OpenAiReply, ImageInsideTool());
 
         body.Should().Contain("\"role\":\"tool\"").And.NotContain(Base64);
     }
@@ -41,7 +41,7 @@ public sealed class ToolImageWireShapeTests : IDisposable
     [Fact]
     public async Task Anthropic_ImageInUserMessageAfterTool_IsSentAsBase64ImageBlock()
     {
-        var body = await Send(h => new ClaudeChatClientBuilder(h), "claude", AnthropicReply, ImageAfterTool());
+        var body = await Send(h => new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, h), "claude", AnthropicReply, ImageAfterTool());
 
         body.IndexOf("tool_result", StringComparison.Ordinal).Should()
             .BeLessThan(body.IndexOf("\"type\":\"image\"", StringComparison.Ordinal));

@@ -17,7 +17,7 @@ public sealed class ToolImageDeliveryTests
     [Fact]
     public async Task ToolImage_CopilotBuilder_SendsNoImageAndTheNote()
     {
-        new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance)
+        new CopilotChatClientBuilder(new FakeCopilotRuntime(), NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly)
             .AcceptsImageAfterToolResult.Should().BeFalse();
 
         var last = await RunOneRender(acceptsImage: false, vision: true);

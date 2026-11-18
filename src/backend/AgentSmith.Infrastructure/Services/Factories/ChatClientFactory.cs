@@ -34,6 +34,7 @@ public sealed class ChatClientFactory(
     ToolImages.IToolImageRelay toolImages, // 2026-10-01-283dd
     Contracts.Runs.SecretMasker masker, // 2026-10-25-c5a7i
     ILoggerFactory loggerFactory,
+    ICredentialResolver credentials, // 2026-11-18-9ae8
     Contracts.Prompts.IPromptRecorder? prompts = null) // 2026-11-09-0620a
     : IChatClientFactory
 {
@@ -225,7 +226,7 @@ public sealed class ChatClientFactory(
     private IChatClient WrapWithRateLimit(
         IChatClient bare, AgentConfig agent, ModelAssignment assignment, string providerType)
     {
-        var options = LlmRateBudget.For(agent, providerType);
+        var options = LlmRateBudget.For(agent, providerType, () => ClaudeChatClientBuilder.ResolveApiKey(credentials, agent));
         var modelKey = string.IsNullOrEmpty(assignment.Model) ? new ModelRoleChain(agent).PrimaryModel : assignment.Model;
         var limiter = rateLimiterRegistry.GetOrCreate(providerType, modelKey ?? "default", options);
         var label = $"{providerType}/{modelKey}";

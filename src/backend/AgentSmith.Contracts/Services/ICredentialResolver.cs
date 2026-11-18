@@ -16,4 +16,10 @@ public interface ICredentialResolver
     string For(ResolvedConnection connection);
 
     string For(TrackerConnection tracker);
+
+    /// <summary>
+    /// 2026-11-18-9ae8: a credential named by its environment variable — an agent's api_key_secret, a provider's
+    /// fallback variable, a webhook or chat adapter secret — by <see cref="EnvironmentFirst"/>; null when unset.
+    /// </summary>
+    string? Named(string name);
 }

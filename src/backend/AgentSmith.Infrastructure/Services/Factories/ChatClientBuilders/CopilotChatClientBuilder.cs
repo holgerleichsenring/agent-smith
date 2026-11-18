@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilot;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -17,7 +18,8 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 /// </summary>
 public sealed class CopilotChatClientBuilder(
     ICopilotRuntime runtime,
-    ILoggerFactory loggerFactory) : IChatClientBuilder
+    ILoggerFactory loggerFactory,
+    ICredentialResolver credentials) : IChatClientBuilder
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "copilot" };
 
@@ -30,7 +32,7 @@ public sealed class CopilotChatClientBuilder(
         var seatToken = ResolveSeatToken(agent)
             ?? throw new InvalidOperationException(
                 $"A seat token is required for type=copilot. Set the agent's api_key_secret to the "
-                + $"name of an environment variable holding it, or set {AgentEnvKeys.CopilotGitHubToken} "
+                + $"name of an environment variable or secret holding it, or set {AgentEnvKeys.CopilotGitHubToken} "
                 + $"(or GH_TOKEN / {AgentEnvKeys.GitHubToken}). Copilot rejects org-owned PATs, so the "
                 + "token must belong to a person with a seat.");
 
@@ -52,15 +54,8 @@ public sealed class CopilotChatClientBuilder(
     /// The agent's own secret first — a seat belongs to a person, so two agents naming two
     /// secrets are two seats. The SDK's own precedence is the fallback for a single-seat host.
     /// </summary>
-    private static string? ResolveSeatToken(AgentConfig agent)
-    {
-        if (!string.IsNullOrEmpty(agent.ApiKeySecret))
-        {
-            var secret = Environment.GetEnvironmentVariable(agent.ApiKeySecret);
-            if (!string.IsNullOrEmpty(secret)) return secret;
-        }
-        return Environment.GetEnvironmentVariable(AgentEnvKeys.CopilotGitHubToken)
-            ?? Environment.GetEnvironmentVariable("GH_TOKEN")
-            ?? Environment.GetEnvironmentVariable(AgentEnvKeys.GitHubToken);
-    }
+    private string? ResolveSeatToken(AgentConfig agent) =>
+        new AgentApiKey(credentials).Resolve(agent, AgentEnvKeys.CopilotGitHubToken, GhToken, AgentEnvKeys.GitHubToken);
+
+    private const string GhToken = "GH_TOKEN";
 }

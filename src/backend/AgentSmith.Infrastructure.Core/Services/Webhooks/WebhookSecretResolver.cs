@@ -6,7 +6,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Webhooks;
 /// <summary>
 /// p0506: the single platform-to-secret table. The environment read is injected, so a
 /// test states what is configured instead of mutating the process every other test in
-/// the suite shares.
+/// the suite shares. 2026-11-18-9ae8: a platform's variable resolves by
+/// <see cref="EnvironmentFirst"/> over the configuration handed in — the variable when set,
+/// else the catalog secret of that name, whose value may be stored in the admin area.
 /// </summary>
 public sealed class WebhookSecretResolver(Func<string, string?> envReader) : IWebhookSecretResolver
 {
@@ -39,5 +41,5 @@ public sealed class WebhookSecretResolver(Func<string, string?> envReader) : IWe
                 .Select(p => p.JiraTrigger?.Secret)
                 .Where(secret => !string.IsNullOrEmpty(secret))
                 .Select(secret => secret!)]
-            : envReader(envVar) is { Length: > 0 } fromEnvironment ? [fromEnvironment] : [];
+            : EnvironmentFirst.Resolve(envVar, envReader, new LoadedSecretValues(config)) is { Length: > 0 } value ? [value] : [];
 }

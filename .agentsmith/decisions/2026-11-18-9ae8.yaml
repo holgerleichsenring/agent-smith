@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-9ae8
+
+decisions:
+  - category: Architecture
+    chose: "One rule, EnvironmentFirst.Resolve(name, environment, ISecretValues), behind ICredentialResolver.Named: the variable when it holds a value, else the catalog secret of that name, whose value is its reference's variable or the stored value"
+    over: "A second resolver for agent keys, or reading IStoredSecretValues directly in the builders"
+    reason: "ICredentialResolver already resolves every repo, connection and tracker token through ISecretValues, which follows the config store and the masker (f3a8d). Going through the catalog keeps a stored agent key masked in what runs record, and the resolver is the one place a credential is looked up."
+  - category: Implementation
+    chose: "The catalog lookup is by the secret's NAME, case-insensitive (ConfigNames): api_key_secret ANTHROPIC_API_KEY finds the secret anthropic_api_key"
+    over: "Also searching for a catalog secret whose reference names the variable"
+    reason: "Review: the spec implied both. The studio names a secret after its variable and the agent's key field references a catalog secret by name; a reverse lookup by reference would make two secrets claim one variable. Documented in ai-providers.md."
+  - category: Scope
+    chose: "Moved: the Claude, OpenAI, Gemini and Copilot builders (api_key_secret and every fallback variable), LlmRateBudget (now the agent's resolved Anthropic key, not ANTHROPIC_API_KEY), the GitHub, GitLab and Azure DevOps webhook secrets, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET and TEAMS_APP_PASSWORD (read per access). Kept on the environment: the master key, the persistence connection, REDIS_URL and SANDBOX_REDIS_URL, TEAMS_APP_ID/TEAMS_TENANT_ID, LegacyCredentialMigration and the external worker CLI"
+    over: "Moving every Environment.GetEnvironmentVariable"
+    reason: "Review confirmed the list is complete. The kept ones are deployment bootstrap: the database and the stored values live behind them, so they cannot come from there; the Teams ids are identifiers; the legacy migration only fills a catalog entry; the worker CLI signs in by itself."
+  - category: Security
+    chose: "A webhook or Slack signing secret whose only copy is stored and cannot be opened resolves empty (verification off), as an unset variable always did"
+    over: "Failing closed when a catalog secret exists but resolves empty"
+    reason: "Review flagged the fail-open. Failing closed on 'declared but empty' would refuse every delivery on installations whose catalog lists the secret without a value, which the example configuration does. The unreadable row is already a finding naming the secret and its key."
+  - category: Implementation
+    chose: "Builders and the factory take ICredentialResolver as a required constructor parameter; tests pass TestCredentials.EnvironmentOnly or Isolated(environment, catalog)"
+    over: "An optional parameter defaulting to the environment"
+    reason: "An optional default would silently fall back to the environment in any host that forgot the registration. AgentApiKey is a small class over the resolver because NoStaticStateRule forbids a static that takes a collaborator."
+  - category: Implementation
+    chose: "The secret state asks the environment for the variable the catalog secret references, read from the stored secret document, and the drawer names that variable"
+    over: "Adding SecretVariable to IConfigStore"
+    reason: "Review: the state asked for the catalog NAME, so anthropic_api_key reading ${ANTHROPIC_API_KEY} showed 'stored' while the environment won. DbConfigStore is over the file-length ratchet and may only shrink, so the reader reads the document store directly."
+  - category: Scope
+    chose: "Adversarial review BUILD WITH CUTS applied: name rule stated, state variable fix, shared Claude key resolution for the rate tier (fixed when the limiter is first created), Teams token cache noted, test migration listed"
+    over: "The first draft"
+    reason: "The first draft left the drawer reporting the wrong source and implied a reverse lookup it did not build."

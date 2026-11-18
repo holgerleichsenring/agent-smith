@@ -30,7 +30,7 @@ internal static class ToolLoopErrorToleranceSupport
         new WindowDerivedCompaction(),
         new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
         new AgentSmith.Contracts.Runs.SecretMasker(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())),
-        NullLoggerFactory.Instance);
+        NullLoggerFactory.Instance, AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly);
 
     /// <summary>A read_file tool that runs <paramref name="body"/> on every call.</summary>
     public static AITool Tool(Func<string, string> body) => AIFunctionFactory.Create((string path) => body(path), "read_file");

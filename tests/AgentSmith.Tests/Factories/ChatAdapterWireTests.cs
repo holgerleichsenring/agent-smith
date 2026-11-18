@@ -31,7 +31,7 @@ public sealed class ChatAdapterWireTests : IDisposable
     public async Task OpenAi_RequestShaping_CarriesModelMessagesAndTools()
     {
         var handler = new RecordingHandler(OpenAiResponse());
-        var client = new OpenAiChatClientBuilder(handler).Build(
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             OpenAiAgent(), new ModelAssignment { Model = "gpt-4.1" });
 
         await client.GetResponseAsync([new ChatMessage(ChatRole.User, "weather in Berlin?")], WithWeatherTool());
@@ -46,7 +46,7 @@ public sealed class ChatAdapterWireTests : IDisposable
     public async Task OpenAi_ResponseWithToolCall_ParsesToFunctionCallContent()
     {
         var handler = new RecordingHandler(OpenAiResponse());
-        var client = new OpenAiChatClientBuilder(handler).Build(
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             OpenAiAgent(), new ModelAssignment { Model = "gpt-4.1" });
 
         var response = await client.GetResponseAsync(
@@ -76,7 +76,7 @@ public sealed class ChatAdapterWireTests : IDisposable
             Type = "azure_openai", ApiKeySecret = KeySecret,
             Endpoint = "https://test.openai.azure.com", Deployment = "my-deploy",
         };
-        var client = new OpenAiChatClientBuilder(handler).Build(agent, new ModelAssignment { Model = "gpt-4.1" });
+        var client = new OpenAiChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(agent, new ModelAssignment { Model = "gpt-4.1" });
 
         await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], new ChatOptions());
 
@@ -89,7 +89,7 @@ public sealed class ChatAdapterWireTests : IDisposable
     public async Task Anthropic_RequestShaping_SetsModelIdAndMessages()
     {
         var handler = new RecordingHandler(AnthropicResponse());
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
 
         await client.GetResponseAsync([new ChatMessage(ChatRole.User, "weather in Berlin?")], new ChatOptions());
@@ -108,7 +108,7 @@ public sealed class ChatAdapterWireTests : IDisposable
         var agent = AnthropicAgent();
         agent.Catalog["sonnet"] = new CatalogModel { Model = "claude-sonnet-4-6" };
         agent.Models = new ModelRegistryConfig { Primary = new() { Use = "sonnet" } };
-        var client = new ClaudeChatClientBuilder(handler).Build(agent, new ModelAssignment());
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(agent, new ModelAssignment());
 
         await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], new ChatOptions());
 
@@ -119,7 +119,7 @@ public sealed class ChatAdapterWireTests : IDisposable
     public async Task Anthropic_ResponseWithToolUse_ParsesToFunctionCallContent()
     {
         var handler = new RecordingHandler(AnthropicResponse());
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
 
         var response = await client.GetResponseAsync(
@@ -138,7 +138,7 @@ public sealed class ChatAdapterWireTests : IDisposable
         // ChatOptions.RawRepresentationFactory, and the SDK stamps the ephemeral
         // cache_control marker on the last system block + last tool.
         var handler = new RecordingHandler(AnthropicResponse());
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
 
         await client.GetResponseAsync(
@@ -160,7 +160,7 @@ public sealed class ChatAdapterWireTests : IDisposable
         var handler = new RecordingHandler(AnthropicResponse());
         var agent = AnthropicAgent();
         agent.Cache = new CacheConfig { IsEnabled = false };
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             agent, new ModelAssignment { Model = "claude-sonnet-4-6" });
 
         await client.GetResponseAsync(
@@ -180,7 +180,7 @@ public sealed class ChatAdapterWireTests : IDisposable
         // output_config.format (structured output) — the enforcement mechanism a
         // follow-up can rely on. Empirically confirmed forwarded despite the old SDK pin.
         var handler = new RecordingHandler(AnthropicResponse());
-        var client = new ClaudeChatClientBuilder(handler).Build(
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
             AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
 
         var schema = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(

@@ -1,6 +1,7 @@
 "use client";
 
 import { SecretValueField } from "./SecretValueField";
+import { OrphanedSecretValues } from "./OrphanedSecretValues";
 import type {
   ConfigCapabilities,
   ConfigEntityKind,
@@ -209,6 +210,7 @@ export function EntityForm({
             </span>
           </div>
           {!isNew && <SecretValueField name={draft.id} />}
+          <OrphanedSecretValues />
         </div>
       );
     }
