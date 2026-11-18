@@ -94,6 +94,7 @@ internal static class SpecDialogTurnSeeds
             if (bound.Series is { } series) seeds[ContextKeys.SpecDialogSeriesRead] = series.Read;
             if (bound.Series?.Edit is { } edit) seeds[ContextKeys.SpecDialogSeriesEdit] = edit;
             if (bound.Worked) seeds[ContextKeys.SpecDialogSteward] = true; // the builder falls back without the master
+            if (bound.Records is { } records) seeds[ContextKeys.SpecDialogTicketRecords] = records; // 2026-11-18-d6d2b
         }
         // 2026-10-01-7f7ab: the project's design sources — names and secret NAMES, never a token —
         // from which the master builds design_read; a project with none seeds nothing.

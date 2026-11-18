@@ -21,4 +21,8 @@ public static partial class ContextKeys
     /// <summary><c>ActSlot&lt;T&gt;</c> — the mutable holder an act's step fills with what it did; the server reads it
     /// back after the run, because the pipeline context never leaves the run.</summary>
     public const string ActOutcome = "ActOutcome";
+
+    /// <summary>2026-11-18-d6d2b: <c>ITicketRecordReads</c> — the record reads the ticket steward borrows from the admin
+    /// assistant, scoped to its ticket. Seeded on a bound turn whose ticket a code attempt worked.</summary>
+    public const string SpecDialogTicketRecords = "SpecDialogTicketRecords";
 }

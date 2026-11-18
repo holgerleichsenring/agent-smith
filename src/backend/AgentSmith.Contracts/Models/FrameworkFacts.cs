@@ -21,5 +21,7 @@ namespace AgentSmith.Contracts.Models;
 /// <param name="InProgressLabel">What it calls one being worked.</param>
 /// <param name="ApprovedSetStamp">What it marks a ticket with when it filed it from an approved
 /// specification — the words an installation renamed, not the defaults.</param>
+/// <param name="FailedStatus">2026-11-18-d6d2b: where a failed attempt moves the ticket (the project's failed_status);
+/// null when the project configures none and a failure leaves the ticket in its status.</param>
 public sealed record FrameworkFacts(
-    string WorkBranch, string EnqueuedLabel, string InProgressLabel, string ApprovedSetStamp);
+    string WorkBranch, string EnqueuedLabel, string InProgressLabel, string ApprovedSetStamp, string? FailedStatus = null);

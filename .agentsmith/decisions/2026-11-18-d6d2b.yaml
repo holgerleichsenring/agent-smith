@@ -1,0 +1,22 @@
+spec: 2026-11-18-d6d2b
+decisions:
+  - category: Architecture
+    chose: "Fix 'the series holds no spec' at the source: Azure DevOps' directory listing returns files as well as folders, as GitHub, GitLab and the local reader already do."
+    over: "A fallback in the steward's read (the pointer's member count, the approval record's text) or a separate Azure-only manifest lookup."
+    reason: "The brief asked why NextAttemptSeriesReader yields nothing for a filed ticket. The chain ends at AzureReposBranchRead, which kept only folders (added in 5115c3082 for context discovery), while ISourceProvider promises files and sub-directories; the series manifest is a file, so no manifest was ever found on Azure DevOps and the basis was empty. The branch stays the one spec truth; other callers already cope with files because three providers return them."
+  - category: Implementation
+    chose: "read_series says 'record names series X, no spec read from the branch: a failed read, not an empty series' when the pointer names a series and the branch yields none."
+    over: "Make TicketBranchSeries report Unreadable whenever a pointer exists and the branch answers nothing."
+    reason: "Review asked for the contradiction to surface. Changing TicketBranchSeries would turn a landed ticket whose branch the cleanup deleted into a failed read for the ticket page, the continuation reader and the series criteria; the steward's reading is where the wrong conclusion was drawn, so the words change there."
+  - category: Architecture
+    chose: "TicketRecordReads lends the steward the admin assistant's read_run_events and read_config, scoped to the bound ticket (runs in every project sharing its tracker) and project, masked and bounded as SeriesRecordReads does for the series master."
+    over: "A steward-only reader of runs and config; or the unscoped admin surface."
+    reason: "Operator direction: reuse the admin read tools, scoped, no second set. The same readers run behind an ownership check. Review: the basis run may belong to a sibling project on the same tracker, so the check spans SharingTrackerWith through TicketRunsQuery. read_run is left out because ticket_runs already carries summary, failed step and per-criterion verdicts; read_llm_calls and read_prompt are left out because the steward uses the framework and does not debug it; read_secrets never."
+  - category: Scope
+    chose: "The restart facts (where a failure leaves the ticket, who starts the next attempt) render in the steward's prompt only, chosen by the start port the turn was actually granted."
+    over: "Add them to FrameworkFactsSection, which the design partner renders too."
+    reason: "Review: the design partner's prompt would carry sentences that are false there, and a poster without runs.control has no start_next_attempt. start_next_attempt's reason is only logged (ConversationAttemptStart), so the prompt says a changed instruction goes into the spec with edit_series first — that is how the operator's reply reaches the next attempt."
+  - category: Scope
+    chose: "No RealCompositionHarness replay of the steward turn."
+    over: "The operator's suggested replay with a scripted model over the recorded state."
+    reason: "The harness serves branches through LocalGitSourceProvider, whose git ls-tree lists files, so a replay could not have reproduced the defect and would pass before and after the fix. The defect is pinned at the provider, the surface in StewardTurnTests, the words in TicketStewardPromptTests. Review verdict BUILD WITH CUTS; applied: steward-only facts, sibling ownership, read_run dropped, failed-read wording, key in ContextKeys.TicketActs.cs."

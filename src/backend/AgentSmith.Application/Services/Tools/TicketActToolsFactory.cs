@@ -55,6 +55,9 @@ public sealed class TicketActToolsFactory(
             if (pipeline.TryGet<ISeriesEdit>(ContextKeys.SpecDialogSeriesEdit, out var edit) && edit is not null)
                 tools.AddRange(new EditSeriesToolHost(edit).GetTools(null, null));
         }
+        if (context.IsTicketSteward && pipeline.TryGet<ITicketRecordReads>(ContextKeys.SpecDialogTicketRecords, out var records)
+            && records is not null)
+            tools.AddRange(records.Tools()); // 2026-11-18-d6d2b: the steward reads its ticket's record, nothing else
         return tools;
     }
 

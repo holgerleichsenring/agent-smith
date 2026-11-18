@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-18-d6d2b: "STEWARD READS ITS TICKET (AzureReposBranchRead, TicketRecordReads, StewardRestartSection, ReadSeriesToolHost). Azure DevOps lists files, so a filed series reads from the branch; the steward reads its ticket's run events and project config, is told where a failure leaves the ticket, and keeps checked apart from inferred. -> .agentsmith/specs/done/2026-11-18-d6d2b-steward-ticket-truth.yaml"
     2026-11-18-d6d2a: "FAILED STATUS FROM THE PROJECT (PipelineErrorHandler, FailureTicketComment, UnmovedTicketGate). A failed run moves to the project's failed_status; the seeded key came back from the job queue as JsonElement, so failures only commented and were re-claimed. A rejected or thrown move is said on the ticket; Retry passes the hold. -> .agentsmith/specs/done/2026-11-18-d6d2a-failed-attempt-reclaim.yaml"
     2026-11-18-353d: "SERIES LANDED FACTS (SeriesTicketFacts). A series ticket with no landing reads as not landed; GetValueOrDefault had made every ticket landed at 0001-01-01, so the panel and the master counted all as landed. -> .agentsmith/specs/done/2026-11-18-353d-series-landed-facts.yaml"
     2026-11-18-5fd3c: "DOCS VERSION CURRENT (docs install/host pages, deploy compose and k8s manifests, release-please-config.json). Every pinned release reads 0.188.0 and carries an x-release-please marker; release-please bumps those files as generic extra-files. -> .agentsmith/specs/done/2026-11-18-5fd3c-docs-version-current.yaml"
