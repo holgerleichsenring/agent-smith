@@ -79,7 +79,6 @@ public sealed class ScopeReposApprovedTests
 
         var result = await Handler(store, ClassifierNames("encrypter", "server", "client")).ExecuteAsync(Context(pipeline), default);
 
-        result.Message.Should().Contain("approved specification named the repositories");
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
             .Select(r => r.Name).Should().NotContain("encrypter",
                 "the carrying repo is the first of the resolved scope and must not be scoped out");
@@ -117,16 +116,15 @@ public sealed class ScopeReposApprovedTests
     }
 
     [Fact]
-    public async Task ScopeRepos_WithoutApprovedRepositories_ClassifiesAsBefore()
+    public async Task ScopeRepos_WithoutApprovedRepositories_KeepsTheProjectsRepositories()
     {
         var pipeline = NewPipeline("server", "client");
 
-        await Handler(ApprovedSetDoubles.Store(), ClassifierNames("client", "server")).ExecuteAsync(
+        await Handler(ApprovedSetDoubles.Store(), ClassifierNames("client")).ExecuteAsync(
             Context(pipeline), default);
 
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
-            .Should().ContainSingle().Which.Name.Should().Be("client",
-                "a ticket nobody approved behaves exactly as it does today");
+        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Select(r => r.Name)
+            .Should().Equal(["server", "client"], "2026-11-18-9c1cb: no model call narrows the run; the master scopes itself");
     }
 
     /// <summary>
@@ -163,52 +161,6 @@ public sealed class ScopeReposApprovedTests
                 "nothing of the approval is left to publish, and the flag wins");
     }
 
-    /// <summary>
-    /// 2026-09-17-0e79a review: an approved scope skips only the NARROWING. The keystone's
-    /// per-repo delivery gate (p0384) and the context scope (p0336b) still run — losing them was
-    /// a silent regression of the two things that make a multi-repo run verifiable.
-    /// </summary>
-    [Fact]
-    public async Task ScopeRepos_WithApprovedRepositories_StillPublishesTheExpectedChangeRepos()
-    {
-        var pipeline = NewPipeline("server", "client", "encrypter");
-        var store = await StoreNaming("server", "client");
-
-        await Handler(store, MustChange("server", "client")).ExecuteAsync(Context(pipeline), default);
-
-        pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.ExpectedChangeRepos, out var expected)
-            .Should().BeTrue("the keystone gates delivery per repository on this key");
-        expected.Should().Contain("server");
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
-            .Select(r => r.Name).Should().Equal("server", "client");
-    }
-
-    [Fact]
-    public void ApprovedRepoScope_NarrowOverAnApprovedScope_ChangesNothing()
-    {
-        var pipeline = NewPipeline("server", "client");
-        var approved = new ApprovedRepoScope.Scope([new RepoConnection { Name = "server" }], FromApproval: true);
-
-        ApprovedSetDoubles.Scope().Narrow(pipeline, approved, [new RepoConnection { Name = "client" }]);
-
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
-            .Select(r => r.Name).Should().Equal(["server", "client"],
-                "the handler's own publish is skipped, so the approved scope stands");
-    }
-
-    [Fact]
-    public void ApprovedRepoScope_Kept_IsTheApprovalWhenThereIsOneAndTheNarrowingOtherwise()
-    {
-        var approved = new ApprovedRepoScope.Scope([Repo("server"), Repo("client")], FromApproval: true);
-        var classified = new ApprovedRepoScope.Scope([Repo("server"), Repo("client")], FromApproval: false);
-
-        ApprovedRepoScope.Kept(approved, [Repo("server")]).Select(r => r.Name)
-            .Should().Equal(["server", "client"], "an approved scope is never narrowed further");
-        ApprovedRepoScope.Kept(classified, [Repo("server")]).Select(r => r.Name)
-            .Should().Equal(["server"]);
-        ApprovedRepoScope.Kept(classified, null).Select(r => r.Name).Should().Equal(["server", "client"]);
-    }
-
     private static RepoConnection Repo(string name) => new() { Name = name };
 
     private async Task<ISpecApprovalStore> StoreNaming(params string[] repos)
@@ -234,16 +186,6 @@ public sealed class ScopeReposApprovedTests
     }
 
     // p0384: every repository affected, and the subset that must CHANGE named separately.
-    private static string MustChange(params string[] repos)
-    {
-        var entries = repos.Select(r =>
-            $"{{\"name\": \"{r}\", \"affected\": true, \"confidence\": 0.95}}");
-        var expected = repos.Select(r => $"\"{r}\"");
-        return $"{{\"repos\": [{string.Join(", ", entries)}], \"complexity\": \"medium\", "
-            + $"\"expected_changes\": [{string.Join(", ", expected)}], "
-            + "\"rationale\": \"both are affected.\"}}";
-    }
-
     private static string Refusal() => """
         {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
                    {"name": "client", "affected": false, "confidence": 0.9}],
@@ -264,8 +206,7 @@ public sealed class ScopeReposApprovedTests
                 AgentSmithConfig.Empty(), Mock.Of<Contracts.Events.IEventPublisher>(),
                 NullLogger<ScopeEstimateRecorder>.Instance),
             new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance),
-            NullLogger<ScopeReposHandler>.Instance);
+            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)

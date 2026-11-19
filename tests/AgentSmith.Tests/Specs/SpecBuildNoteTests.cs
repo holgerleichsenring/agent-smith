@@ -177,7 +177,7 @@ public sealed class SpecBuildNoteTests
         prompt.Should().Contain(SpecBuildNoteSection.Heading).And.Contain($"### {First}")
             .And.Contain("- renamed: Bus -> MessageBus")
             .And.Contain("## Experiential memory index").And.Contain("bus-name")
-            .And.Contain("call hand_forward once");
+            .And.Contain("finish_spec also carries the build note");
     }
 
     internal static SpecDraft Draft(string id, string? yaml = null) =>

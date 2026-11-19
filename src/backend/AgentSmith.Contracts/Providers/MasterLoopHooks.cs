@@ -27,7 +27,7 @@ namespace AgentSmith.Contracts.Providers;
 ///   <item><see cref="RenderReminder"/> — the ledger discipline reminder, injected as a
 ///     synthetic user message after <see cref="ReminderEveryNIterations"/> iterations
 ///     WITHOUT an update_progress call (p0359: staleness — a model that keeps its ledger
-///     current is never interrupted) and on drift.</item>
+///     current is never interrupted). 2026-11-18-9c1cc: no drift trigger.</item>
 /// </list></para>
 /// </summary>
 public sealed record MasterLoopHooks(
@@ -36,7 +36,6 @@ public sealed record MasterLoopHooks(
     Action<ChatResponse>? RecordIterationUsage = null,
     Func<string?>? RenderReminder = null,
     int ReminderEveryNIterations = 10,
-    int DriftEditlessIterations = 8,
     // p0341d: the compaction PIN carriers + config. When Compaction is enabled, a
     // CompactingChatClient (below the governor, below UseFunctionInvocation) reduces the
     // message list in-flight once it crosses the threshold: it PINS the system prompt +
@@ -46,21 +45,11 @@ public sealed record MasterLoopHooks(
     // state), never a pass-start snapshot. Null accessors => that pin part is omitted.
     Func<string?>? RenderLedgerForPin = null,
     Func<string?>? RenderWorkingStateForPin = null,
-    CompactionConfig? Compaction = null,
-    // 2026-09-08-805f: the ledger-complete brake. When <see cref="IsLedgerComplete"/> answers
-    // true for <see cref="VerdictOwedAfterIterations"/> further tool iterations, the governor
-    // appends <see cref="RenderVerdictDemand"/> once as a user turn; when the same allowance
-    // passes again without the pass ending, it ends the pass itself and reports the turns
-    // counted since the checklist completed through <see cref="OnVerdictBrake"/>. Null
-    // <see cref="IsLedgerComplete"/> (or an allowance of zero) keeps the brake off.
-    Func<bool>? IsLedgerComplete = null,
-    Func<string?>? RenderVerdictDemand = null,
-    Action<int>? OnVerdictBrake = null,
-    int VerdictOwedAfterIterations = 3)
+    CompactionConfig? Compaction = null)
 {
     /// <summary>2026-11-10-85e2: whether these hooks give the governor anything to do.</summary>
     public bool Governs => IsBudgetExhausted is not null || RecordIterationUsage is not null
-        || RenderReminder is not null || IsLedgerComplete is not null;
+        || RenderReminder is not null;
 }
 
 /// <summary>

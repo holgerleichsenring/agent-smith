@@ -104,8 +104,7 @@ public sealed class RecordedCallCapTests
         var tracker = new PipelineCostTracker(config: null, costCap: Cap);
         var ledger = () => new ProgressLedger([]);
         var hooks = MasterLoopHooksFactory.Build(context, tracker, ledger,
-            new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), null),
-            new VerdictOwed("master", ledger, () => 0m, 3, NullLogger.Instance));
+            new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), null));
 
         hooks.RecordIterationUsage!(Worker(0.70m).AttachTo(new ChatResponse(new ChatMessage(ChatRole.Assistant, "a"))));
         hooks.IsBudgetExhausted!().Should().BeFalse();

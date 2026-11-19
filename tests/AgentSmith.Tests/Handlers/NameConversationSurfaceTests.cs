@@ -70,7 +70,7 @@ public sealed class NameConversationSurfaceTests
     }
 
     [Fact]
-    public async Task MasterToolComposition_ANamedConversation_OffersNoNameConversation()
+    public async Task MasterToolComposition_ANamedConversation_KeepsItsName()
     {
         var loop = new SurfaceCapturingLoop();
 
@@ -78,7 +78,10 @@ public sealed class NameConversationSurfaceTests
                 0, limits: new LoopLimitsConfig())
             .ExecuteAsync(DesignContext(nameable: false), CancellationToken.None);
 
-        loop.MasterTools.Should().NotContain(NameConversationToolHost.Name);
+        // 2026-11-18-9c1cd: offered on every turn, so the set never changes; a named conversation keeps its name.
+        var answer = await loop.Tools.OfType<AIFunction>().Single(t => t.Name == NameConversationToolHost.Name)
+            .InvokeAsync(new AIFunctionArguments { ["subject"] = "Another name" });
+        answer!.ToString().Should().Contain("already has a name");
     }
 
     [Fact]

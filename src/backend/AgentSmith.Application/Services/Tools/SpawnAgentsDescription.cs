@@ -12,8 +12,8 @@ internal static class SpawnAgentsDescription
     private const string Opening =
         "Runs sub-agents in parallel, each in a fresh context, and returns when all have finished — or, with background "
         + "true, at once with their ids: each then works beside you, its answer reaches you with a later tool result, "
-        + "send_message writes to it while it works or continues it once it finished, and wait_for_agents waits for the "
-        + "next to finish. ";
+        + "send_message writes to it while it works or continues it once it finished, and send_message with wait: true "
+        + "waits for the next to finish. ";
 
     private const string Task =
         "Each task needs a descriptive name (a role, not 'agent1' or 'worker' — generic names are refused), a one-line "

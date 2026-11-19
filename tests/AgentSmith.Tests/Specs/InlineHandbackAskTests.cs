@@ -21,8 +21,7 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class InlineHandbackAskTests
 {
-    private static readonly SpecHandback Objection = ReviewObjectionQuestion.For(
-        [new StandingObjection("2026-11-02-1234a", [new SpecReviewFinding("The handler does not exist.", "src/H.cs:1")])]);
+    private static readonly SpecHandback Objection = Review.ReviewObjectionFixtures.For("2026-11-02-1234a");
 
     private static readonly SpecHandback DerivationQuestion = new(
         SpecHandbackCase.Question, "'at 100' reads two ways",
@@ -33,7 +32,7 @@ public sealed class InlineHandbackAskTests
     {
         var pipeline = Pipeline(Objection);
 
-        var result = await Ask(Answering(ReviewObjectionQuestion.BuildAsReviewed)).HandleAsync(pipeline, Objection, default);
+        var result = await Ask(Answering(Review.ReviewObjectionFixtures.BuildAsReviewed)).HandleAsync(pipeline, Objection, default);
 
         result.IsSuccess.Should().BeTrue(result.Message);
         result.InsertNext.Should().BeNull("the rest of the preset builds the reviewed specs");
@@ -60,7 +59,7 @@ public sealed class InlineHandbackAskTests
         var result = await Ask(Answering(string.Empty)).HandleAsync(pipeline, Objection, default);
 
         result.IsSuccess.Should().BeTrue("a person pressing Enter on the shown default has chosen it");
-        result.Message.Should().Contain(ReviewObjectionQuestion.BuildAsReviewed);
+        result.Message.Should().Contain(Review.ReviewObjectionFixtures.BuildAsReviewed);
     }
 
     [Fact]
@@ -68,10 +67,10 @@ public sealed class InlineHandbackAskTests
     {
         var pipeline = Pipeline(Objection);
 
-        var result = await Ask(Answering(ReviewObjectionQuestion.ChangeAsAsked)).HandleAsync(pipeline, Objection, default);
+        var result = await Ask(Answering(Review.ReviewObjectionFixtures.ChangeAsAsked)).HandleAsync(pipeline, Objection, default);
 
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain(ReviewObjectionQuestion.ChangeAsAsked).And.Contain("ticket text");
+        result.Message.Should().Contain(Review.ReviewObjectionFixtures.ChangeAsAsked).And.Contain("ticket text");
     }
 
     /// <summary>2026-11-04-9e8c: a derivation question is asked once per run; the second hand-back ends printing

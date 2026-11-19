@@ -52,7 +52,7 @@ A summarizer failure is not fatal. The compactor logs a warning ("Context compac
 
 ## When folding is not enough
 
-If a role states a `context_window_tokens` and the forwarded view still reaches 85% of it, the loop is finalized: tool calling is switched off for one turn and the model is told to answer from the evidence it already has. A shallow answer beats a context-length error.
+If a role states a `context_window_tokens` and the forwarded view still reaches 85% of it, the loop is finalized: tool results are re-cut to fit and the model is told to answer from the evidence it already has. Its tools stay declared as they were — the tool set never changes during a run — so a model that keeps calling them is ended by the iteration ceiling, the cost cap, or, when not even the re-cut fits, a step failure naming the window.
 
 ## Configuration
 

@@ -62,7 +62,6 @@ src/backend/AgentSmith.Application/Services/Tools/DesignReadToolHost.cs	phase	1
 src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs	phase	2
 src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs	Per-phase	1
 src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs	phase	2
-src/backend/AgentSmith.Application/Services/Tools/GetArtifactCredentialsToolHost.cs	phase	2
 src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs	phase	3
 src/backend/AgentSmith.Application/Services/Tools/IPathWriteGuard.cs	phase	4
 src/backend/AgentSmith.Application/Services/Tools/IToolHost.cs	Per-phase	1

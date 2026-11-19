@@ -160,7 +160,6 @@ public sealed class TicketTextDerivationTests
         pipeline.Set(ContextKeys.SandboxDiscoveries,
             (IReadOnlyDictionary<string, RemoteContextDiscovery>)new Dictionary<string, RemoteContextDiscovery>());
         var deriver = new SpecSetDeriver(
-            CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(new CutReviewTestDoubles.CappingFactory(client), new AsyncLocalRunContextAccessor(), DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
             HandbackTestDoubles.Gate(), SeriesSettingsDoubles.Reader(), ReferenceCarryDoubles.Materializer(_held), NullLogger<SpecSetDeriver>.Instance);

@@ -27,10 +27,6 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
         // count is above zero (max_sub_agents_per_run, or max_sub_agents_per_dialog_turn
         // for a design turn) gets it, and a child does not. 2026-11-10-14a3a: answers come back whole.
         typeof(SpawnAgentToolHost),
-        // p0191: agent calls get_artifact_credentials on package-manager auth
-        // failures. Master + sub-agents both need it (any spec that runs
-        // toolchain commands may hit a private feed).
-        typeof(GetArtifactCredentialsToolHost),
         // p0193: typed write path for context.yaml. write_file is rejected
         // for those paths; agent must call write_context_yaml instead.
         typeof(WriteContextYamlToolHost),

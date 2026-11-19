@@ -38,7 +38,7 @@ public static partial class PipelinePresets
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket,
-        CommandNames.ScopeRepos, // p0331: narrow to ticket-affected repos before any sandbox
+        CommandNames.ScopeRepos, // p0331 / 2026-11-18-9c1cb: estimate and refusal before any sandbox; it narrows nothing
         // 2026-11-16-f3fba: every precondition that needs no sandbox — config, image trust, the
         // toolchain fallback and the bootstrap as the host serves it — before the first sandbox.
         // It replaces BootstrapCheck + BootstrapGate, which asked the bootstrap question in it.
@@ -57,7 +57,6 @@ public static partial class PipelinePresets
         // findable once the code has been read.
         CommandNames.DeriveSpec,
         CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
-        CommandNames.ReviewSpecs, // 2026-10-13-8762g: each unbuilt spec attacked before it binds
         CommandNames.SpecGate,       // spec validated before a single master token
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
         // 2026-09-01-379a: after the prerequisites installed the CLI the probe calls,

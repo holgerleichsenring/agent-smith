@@ -92,14 +92,6 @@ public sealed class FilingOfferTests
     }
 
     [Fact]
-    public void TicketStewardTools_ExcludeOfferFiling()
-    {
-        IList<AITool> master = [.. new OfferFilingToolHost(new SpecDialogReplySlot()).GetTools(null, null)];
-
-        TicketStewardTools.Of(master).Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task CollectSpecDialogReply_StampsOfferLedAndTheLineOfTheCurrentDraft()
     {
         var slot = Drafted(changed: true);

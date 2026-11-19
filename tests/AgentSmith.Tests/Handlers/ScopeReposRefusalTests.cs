@@ -61,7 +61,6 @@ public sealed class ScopeReposRefusalTests
         handback.Reason.Should().Be("irreversible destruction of customer data");
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(2,
             "nothing is scoped for a run that will not proceed");
-        pipeline.Has(ContextKeys.RepoScopeRationale).Should().BeFalse();
         pipeline.Has("PipelineCostCap").Should().BeFalse("nothing is sized for a refused run");
         pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions).Should().BeTrue();
         decisions!.Should().ContainSingle(d => d.Category == "scope" && d.Decision.StartsWith("Refused:"));
@@ -97,8 +96,8 @@ public sealed class ScopeReposRefusalTests
 
         result.InsertNext.Should().BeNull();
         pipeline.Has(ContextKeys.SpecHandback).Should().BeFalse();
-        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().ContainSingle(
-            "a reply without a refusal scopes exactly as today");
+        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(2,
+            "2026-11-18-9c1cb: a reply without a refusal narrows nothing");
     }
 
     private ScopeReposHandler Handler(string classifierReply)
@@ -119,8 +118,7 @@ public sealed class ScopeReposRefusalTests
             new ScopeEstimateRecorder(
                 AgentSmithConfig.Empty(), events.Object, NullLogger<ScopeEstimateRecorder>.Instance),
             new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance),
-            NullLogger<ScopeReposHandler>.Instance);
+            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)

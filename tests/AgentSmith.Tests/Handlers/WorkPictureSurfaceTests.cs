@@ -72,17 +72,6 @@ public sealed class WorkPictureSurfaceTests
             "a run with no reply slot has nowhere to put the picture");
     }
 
-    [Fact]
-    public void TicketStewardTools_StewardSurface_DropsStateWorkPicture()
-    {
-        var slot = new SpecDialogReplySlot();
-        IList<AITool> master = [.. new WorkPictureToolHost(slot).GetTools(null, null),
-            .. new NameConversationToolHost(slot).GetTools(null, null)];
-
-        TicketStewardTools.Of(master).Select(t => t.Name).Should()
-            .NotContain(WorkPictureToolHost.Name).And.Contain(NameConversationToolHost.Name);
-    }
-
     private static async Task<string> Invoke(
         SpecDialogReplySlot slot, string kind, string truth, string size, string? effort = null) =>
         (await new WorkPictureToolHost(slot).GetTools(null, null).Single().InvokeAsync(

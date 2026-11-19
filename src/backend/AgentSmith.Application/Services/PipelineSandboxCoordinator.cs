@@ -77,10 +77,6 @@ public sealed class PipelineSandboxCoordinator(
         var inventory = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.RemoteContextInventory, out var inv) ? inv : null;
         var readBranches = ContextReadBranches.For(context);
-        // p0336b: contexts scoping shed within a KEPT repo (a whole sandbox each). Absence of a
-        // repo entry keeps ALL its contexts, so a mid-run escalation to an unscoped repo provisions.
-        var scopedContexts = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<string>>>(
-            ContextKeys.ScopedContexts, out var sc) ? sc : null;
         foreach (var repo in repos)
         {
             var discoveries = contextOverride is not null
@@ -88,9 +84,6 @@ public sealed class PipelineSandboxCoordinator(
                 : inventory is not null && inventory.TryGetValue(repo.Name ?? string.Empty, out var cached)
                     ? cached
                     : await sandboxLanguageResolver.ResolveAllAsync(repo, readBranches, cancellationToken);
-            // The `--context NAME` override already pinned a single context — leave it.
-            if (contextOverride is null)
-                discoveries = Scope.ScopedContextFilter.Apply(discoveries, repo.Name, scopedContexts);
             // p0336c: group by RESOLVED toolchain IMAGE only (was image+resources).
             // Same-image contexts of one repo build SEQUENTIALLY under the single
             // agentic loop, so splitting them into separate pods by declared

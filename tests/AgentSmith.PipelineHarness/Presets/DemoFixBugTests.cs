@@ -41,13 +41,6 @@ public sealed class DemoFixBugTests : IAsyncLifetime
          "handback": {"case": "none", "reason": ""}}
         """;
 
-    // 2026-11-02-2b26d: a REFUSE is admitted only on a look of the reviewer's own, so each of the panel's two
-    // reviewers searches first; whichever answers after its search refuses on that search.
-    private const string Refuse = """
-        {"verdict": "REFUSE", "cuts": [], "findings": [{"text": "Nothing in the sample names a bulk discount rule.",
-          "repository": "default", "path": null, "line": 0, "cites": "A1"}]}
-        """;
-
     [Fact]
     public async Task Demo_FixBug_InlineTicket_EndToEndWithScriptedChatClient()
     {
@@ -69,63 +62,6 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         ticket.Source.Should().Be(InlineTicket.Source, "the run's requirement record is the inline payload");
         ticket.Title.Should().Contain("Bulk discount");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
-    }
-
-    /// <summary>2026-11-02-2b26d: a review objection standing on the demo's inline run is asked in the terminal.
-    /// 2026-11-10-8e59: nobody is there, the question times out, so the spec is not built unreviewed.</summary>
-    [Fact]
-    public async Task Demo_ReviewObjection_Unanswered_BuildsNothing()
-    {
-        var workspace = await MaterializeAsync();
-        await using var harness = Harness();
-        harness.StubSandboxFactory!.AdvancesHeadOnCommit = true; // the review's revision is a second commit
-        harness.ChatClient
-            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "BulkDiscountRule"}""")
-            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "BulkDiscountRule"}""")
-            .EnqueueSpecAttackReply(Refuse)
-            .EnqueueSpecAttackReply(Refuse)
-            .EnqueueText(DerivedSpec)
-            // The rewrite after a REFUSE without cuts reads the main FIFO; a reply that is no spec leaves it standing.
-            .EnqueueText("The spec cannot be rewritten from what was opened.");
-
-        var runner = Runner(harness, workspace);
-        var result = await runner.RunAsync("code");
-
-        result.IsSuccess.Should().BeFalse("silence never builds an unreviewed spec");
-        result.Message.Should().Contain("not built unreviewed");
-        var set = runner.LastContext!.Get<AgentSmith.Contracts.Specs.SpecSet>(ContextKeys.SpecSet);
-        set.Handback!.QuestionKind.Should().Be(AgentSmith.Contracts.Specs.SpecQuestionKind.ReviewObjection,
-            "the objection was asked");
-        harness.ChatClient.ToolCalls.Select(c => c.Name).Should().NotContain("write_file");
-    }
-
-    /// <summary>2026-11-10-8e59: Enter on the shown default ("build") is a person's explicit choice, so the fix is made.</summary>
-    [Fact]
-    public async Task Demo_ReviewObjection_EnterOnTheShownDefault_CommitsTheFix()
-    {
-        var workspace = await MaterializeAsync();
-        var terminal = new StringWriter();
-        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
-        {
-            HarnessProjectAnalyzerStub.Register(services);
-            services.RemoveAll<IDialogueTransport>();
-            services.AddSingleton<IDialogueTransport>(new ConsoleDialogueTransport(
-                new StringReader("\n"), terminal, NullLogger<ConsoleDialogueTransport>.Instance));
-        });
-        harness.StubSandboxFactory!.AdvancesHeadOnCommit = true;
-        harness.ChatClient
-            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "BulkDiscountRule"}""")
-            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "BulkDiscountRule"}""")
-            .EnqueueSpecAttackReply(Refuse)
-            .EnqueueSpecAttackReply(Refuse)
-            .EnqueueText(DerivedSpec)
-            .EnqueueText("The spec cannot be rewritten from what was opened.");
-        ScriptTheFix(harness.ChatClient);
-
-        var result = await Runner(harness, workspace).RunAsync("code");
-
-        result.IsSuccess.Should().BeTrue($"Enter on the shown default is an explicit build: {result.Message}");
-        harness.ChatClient.ToolCalls.Select(c => c.Name).Should().Contain("write_file");
     }
 
     /// <summary>2026-11-04-9e8c: the demo's derivation asks which reading the ticket means; the answer typed in the

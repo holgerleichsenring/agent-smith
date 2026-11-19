@@ -8,6 +8,8 @@ using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
+using AgentSmith.Tests.TestHelpers;
+
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
@@ -21,7 +23,7 @@ public sealed class DesignTurnToolSurfaceTests
     private const string CodingMaster = "coding-agent-master";
 
     private static readonly string[] Removed =
-        ["ask_human", "decide_by_default", "http_request", "remember", "list_directory", "grep_in_file"];
+        ["ask_human", "decide_by_default", "http_request", "list_directory", "grep_in_file"];
 
     [Fact]
     public async Task SpecDialogSurface_OffersOnlyConversationTools()
@@ -33,13 +35,13 @@ public sealed class DesignTurnToolSurfaceTests
         var names = loop.MasterTools.Select(t => t.Name).ToList();
         names.Should().NotContain(Removed);
         names.Should().Contain(["read_file", "grep_in_tree", "find_files", "directory_tree",
-            "spawn_agents"]);
+            "spawn_agents", "remember"]); // 2026-11-18-9c1cd: remember is offered and answers why a poster may not
     }
 
-    /// <summary>2026-11-10-14a3d: the memory and withdrawal tools come with what they work on. The turn carries its
-    /// dialogue identity, as every design turn does; the withdrawal port is seeded only once something was filed.</summary>
+    /// <summary>2026-11-18-9c1cd: the memory and withdrawal tools are offered whether or not a store was found or
+    /// something was filed — the set never changes within a conversation; a tool that cannot act says why.</summary>
     [Fact]
-    public async Task DesignSurface_SourceUploadNoDesignNoMemoryNoFiling_HasNoVisualMockMemoryOrWithdrawTools()
+    public async Task DesignSurface_WithOrWithoutStoreAndFiling_OffersTheSameTools()
     {
         var bare = new CapturingLoop();
         var withStoreAndFiling = new CapturingLoop();
@@ -50,12 +52,12 @@ public sealed class DesignTurnToolSurfaceTests
         await Run(bare, DesignMaster, DesignContext());
         await Run(withStoreAndFiling, DesignMaster, context);
 
-        bare.MasterTools.Select(t => t.Name).Should().NotContain(["recall", "dispute_memory", "withdraw_filed_ticket"]);
-        withStoreAndFiling.MasterTools.Select(t => t.Name).Should().Contain(["recall", "dispute_memory", "withdraw_filed_ticket"]);
+        bare.MasterTools.Select(t => t.Name).Should().Contain(["recall", "remember", "withdraw_filed_ticket"])
+            .And.Equal(withStoreAndFiling.MasterTools.Select(t => t.Name));
     }
 
     [Fact]
-    public async Task CodingSurface_KeepsAskHumanDecideByDefaultAndTheFullReadSet()
+    public async Task CodingSurface_KeepsAskHumanAndOverrulableDecisions_OneToolPerJob()
     {
         var loop = new CapturingLoop();
         var context = MasterHandlerFixture.BuildContext(CodingMaster);
@@ -63,7 +65,9 @@ public sealed class DesignTurnToolSurfaceTests
 
         await Run(loop, CodingMaster, context);
 
-        loop.MasterTools.Select(t => t.Name).Should().Contain(Removed);
+        loop.MasterTools.Select(t => t.Name).Should().Contain(["ask_human", "remember", "log_decision", "read_file"])
+            .And.NotContain(["http_request", "list_directory", "grep_in_file", "decide_by_default"]); // 9c1cd
+        loop.MasterTools.Takes("log_decision", "overrulable").Should().BeTrue();
     }
 
     [Fact]

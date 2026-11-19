@@ -29,11 +29,3 @@ public sealed record SpecSequenceContext(PipelineContext Pipeline) : ICommandCon
 
 /// <summary>p0393a: input for SelectSpec — the spec id travels on the command.</summary>
 public sealed record SelectSpecContext(string SpecId, PipelineContext Pipeline) : ICommandContext;
-
-/// <summary>2026-09-17-0e79c: input for the premise check — the agent that asks, and the
-/// tracker the hand-back comments on. The spec itself is the CURRENT one, published by
-/// SelectSpec, because the check is about the spec the run is entering.</summary>
-public sealed record CheckSpecPremisesContext(
-    AgentConfig AgentConfig,
-    TrackerConnection? Tracker,
-    PipelineContext Pipeline) : ICommandContext;

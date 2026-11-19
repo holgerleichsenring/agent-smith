@@ -27,17 +27,13 @@ namespace AgentSmith.Tests.Server;
 public sealed class StoredSpecReviewSettingsReaderTests
 {
     [Fact]
-    public async Task StoredSpecReviewSettingsReader_StoreThatNeverLoaded_Throws()
+    public void StoredSpecReviewSettingsReader_StoreThatNeverLoaded_Throws()
     {
         var store = new Mock<IConfigStore>();
         store.Setup(s => s.GetSetting(It.IsAny<string>())).Throws(new InvalidOperationException("db down"));
         var reader = new StoredSpecReviewSettingsReader(store.Object);
 
         reader.Invoking(r => r.Current()).Should().Throw<InvalidOperationException>();
-        var result = await new ReviewLoopRig().Handler(reader).ExecuteAsync(
-            new ReviewSpecsContext(null, [], new AgentConfig(), new ReviewLoopRig().Pipeline), CancellationToken.None);
-        result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("The spec_review settings could not be read: db down");
     }
 
     [Fact]
@@ -54,7 +50,7 @@ public sealed class StoredSpecReviewSettingsReaderTests
     }
 
     [Fact]
-    public async Task ReviewSpecs_StoreEditOfRounds_AppliesToTheNextRunWithoutRebuildingTheProvider()
+    public void SpecReviewSettings_StoreEditOfRounds_AppliesToTheNextReadWithoutRebuildingTheProvider()
     {
         using var h = new DbConfigTestHarness();
         h.Import("spec_review:\n  rounds: 3\n");
@@ -67,16 +63,11 @@ public sealed class StoredSpecReviewSettingsReaderTests
 
         h.Store.SaveSetting("spec_review", JsonDocument.Parse("""{"rounds":0}""").RootElement,
             new ChangeAttribution("operator"));
-        var rig = new ReviewLoopRig();
-        var result = await rig.Handler(provider.GetRequiredService<ISpecReviewSettingsReader>()).ExecuteAsync(
-            new ReviewSpecsContext(null, [], new AgentConfig(), rig.Pipeline), CancellationToken.None);
-
-        result.Message.Should().Be("spec review skipped: spec_review.rounds is 0");
-        rig.Inputs.Should().BeEmpty();
+        provider.GetRequiredService<ISpecReviewSettingsReader>().Current().Review.Rounds.Should().Be(0);
     }
 
     [Fact]
-    public void ReviewSpecsHandler_ResolvesFromTheRealServiceProvider()
+    public void SpecReviewSettingsReader_ResolvesFromTheRealServiceProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -84,10 +75,8 @@ public sealed class StoredSpecReviewSettingsReaderTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ICommandHandler<ReviewSpecsContext>>()
-            .Should().BeOfType<AgentSmith.Application.Services.Handlers.ReviewSpecsHandler>();
         services.Where(d => d.ServiceType == typeof(ISpecReviewSettingsReader)).Should().ContainSingle()
             .Which.ImplementationType.Should().Be(typeof(StoredSpecReviewSettingsReader));
-        scope.ServiceProvider.GetRequiredService<SpecReviewLoop>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<SpecReviewPanel>().Should().NotBeNull();
     }
 }

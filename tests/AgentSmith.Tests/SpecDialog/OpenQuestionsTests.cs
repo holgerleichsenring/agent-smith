@@ -76,17 +76,6 @@ public sealed class OpenQuestionsTests
     }
 
     [Fact]
-    public void TicketStewardTools_ExcludeStateOpenQuestions()
-    {
-        var slot = new SpecDialogReplySlot();
-        IList<AITool> master = [.. new OpenQuestionsToolHost(slot).GetTools(null, null),
-            .. new NameConversationToolHost(slot).GetTools(null, null)];
-
-        TicketStewardTools.Of(master).Select(t => t.Name).Should()
-            .NotContain(OpenQuestionsToolHost.Name).And.Contain(NameConversationToolHost.Name);
-    }
-
-    [Fact]
     public async Task CollectSpecDialogReply_EveryProposalPath_CarriesTotalSpendAndCapHit()
     {
         var question = new OpenQuestion("Keep the CSV export?", "Keep it", ["s-1"]);

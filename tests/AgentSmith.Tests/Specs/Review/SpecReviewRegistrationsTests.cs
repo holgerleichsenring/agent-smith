@@ -43,23 +43,18 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
-    public void ReviewExhaustionAndPark_ResolveWithTheReviewStepFromTheRealServiceProvider()
+    public void ReviewSpecsStep_IsNotRegistered()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ReviewExhaustion>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ReviewObjectionPark>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<
-            AgentSmith.Contracts.Commands.ICommandHandler<AgentSmith.Application.Models.ReviewSpecsContext>>()
-            .Should().BeOfType<AgentSmith.Application.Services.Handlers.ReviewSpecsHandler>();
+        services.Should().NotContain(d => d.ServiceType.Name.Contains("ReviewSpecsContext"),
+            "2026-11-18-9c1cb: nothing reviews a spec before its master");
     }
 
     [Fact]
-    public void ProposalReviewPass_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
+    public void TurnFlow_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -67,16 +62,15 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ProposalAttackPass>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.ProposalReviewPass>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>()
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.ProposalMechanicalChecks>()
             .Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogDecisionPath>()
             .Should().NotBeNull();
     }
 
     [Fact]
-    public void ReviewProposalTool_FromTheRealServiceProvider_IsOnTheDesignPartnersSurface()
+    public void DesignPartnersSurface_FromTheRealServiceProvider_OffersNoReviewProposal()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -89,11 +83,13 @@ public sealed class SpecReviewRegistrationsTests
         context.Pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.SpecDialogReplySlot, new AgentSmith.Contracts.Models.SpecDialogReplySlot());
 
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Tools.TicketActToolsFactory>().Tools(context)
-            .Select(t => t.Name).Should().Contain(AgentSmith.Application.Services.Tools.ReviewProposalToolHost.Name);
+            .Select(t => t.Name).Should().NotContain("review_proposal",
+                "2026-11-18-9c1ca: a master that wants a review spawns a sub-agent with a review brief")
+            .And.Contain("state_work_picture", "the surface was composed");
     }
 
     [Fact]
-    public void AddSpecReview_ResolvesSeriesContractRound()
+    public void AddSpecReview_ResolvesTheSeriesContractReviewer()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -101,10 +97,8 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<SeriesContractRound>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<ISeriesContractReviewer>().Should().BeOfType<SeriesContractReviewer>();
         scope.ServiceProvider.GetRequiredService<SeriesContractAdmission>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ProposalSeriesRound>().Should().NotBeNull();
     }
 
     [Fact]

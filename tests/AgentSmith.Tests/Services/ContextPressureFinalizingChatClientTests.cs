@@ -7,7 +7,8 @@ namespace AgentSmith.Tests.Services;
 
 /// <summary>
 /// 2026-10-07-6b9dc: the finaliser forwards only what fits 0.85 of the stated window; when
-/// every tool result is at the floor it fails locally instead of sending a refused request.
+/// every tool result is at the floor it fails locally instead of sending a refused request. 2026-11-18-9c1cc: the
+/// caller's tools and tool mode go down unchanged.
 /// </summary>
 public sealed class ContextPressureFinalizingChatClientTests
 {
@@ -65,14 +66,35 @@ public sealed class ContextPressureFinalizingChatClientTests
         inner.Forwarded!.Last().Text.Should().Be(ContextPressureFinalizingChatClient.FinalizeInstruction);
     }
 
+    [Fact]
+    public async Task Finaliser_SeveralRoundsPastTheBound_KeepTheCallersToolsAndToolMode()
+    {
+        // 2026-11-18-9c1cc: the tool set never changes during a run — the forced turn steers by its text only.
+        var inner = new CapturingChat();
+        var client = new ContextPressureFinalizingChatClient(inner, Window, "Primary");
+        var options = new ChatOptions { Tools = WithTools.Tools, ToolMode = ChatToolMode.Auto };
+        var messages = ForwardedViewFitTests.Loop(("a", ForwardedViewFitTests.Text(1_040_000)));
+
+        for (var round = 0; round < 3; round++)
+            await client.GetResponseAsync(messages, options);
+
+        inner.Options.Should().HaveCount(3).And.OnlyContain(o => ReferenceEquals(o, options),
+            "the caller's options go down unchanged on every finalised round");
+        options.ToolMode.Should().Be(ChatToolMode.Auto);
+        options.Tools.Should().ContainSingle();
+    }
+
     private sealed class CapturingChat : IChatClient
     {
         public List<ChatMessage>? Forwarded { get; private set; }
+
+        public List<ChatOptions?> Options { get; } = [];
 
         public Task<ChatResponse> GetResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
+            Options.Add(options);
             Forwarded = messages.ToList();
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "done")));
         }

@@ -21,7 +21,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// (2026-11-10-14a3a: answers come back whole, so nothing reads them a second time). Every function on the master's and the children's surface carries the
 /// sanity annotations.
 /// </summary>
-public sealed class MasterToolComposition(
+public sealed partial class MasterToolComposition(
     AgenticToolSurface toolSurface,
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory,
     LoopLimitsConfig loopLimits,
@@ -37,66 +37,49 @@ public sealed class MasterToolComposition(
     Loop.Sanity.ToolResultSanityWrapper sanity,
     ILogger<MasterToolComposition> logger)
 {
+    // 2026-11-18-9c1cd: the surfaces are built in MasterToolComposition.Surfaces.cs, over these.
+    private readonly AgenticToolSurface _surface = toolSurface;
+    private readonly RenderReferenceToolFactory _references = renderReference;
+    private readonly DesignReadToolHostFactory _design = designRead;
+    private readonly EnsureRepoSandboxToolFactory _ensure = ensureRepoSandboxFactory;
+    private readonly GateStageToolHost _gate = gateStage;
+    private readonly TicketActToolsFactory _acts = ticketActs;
+    private readonly DesignWorkToolGate _work = designWork;
+    private readonly ILogger _logger = logger;
     // Children share the master's filesystem and base surface, never spawn_agents. A design turn fans out under its
     // own count and child ceiling and is kept off the escalation valve (a writable sandbox) and the ledger.
+    // 2026-11-18-9c1cd: at most 20 tools per master, one per job, and the set fixed for the run or conversation — a
+    // merged tool (MergedTools, MergedDialogTools) is offered on every turn and answers why when a part cannot act.
     public IList<AITool> Compose(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, MasterRecordTools records, IToolHost human,
-        GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
+        WriteContextYamlToolHost writeContextYaml,
         WebToolHost? web, ProgressLedgerToolHost progress,
         WithdrawFiledTicketToolHost? withdraw, ReadTicketToolHost? readTicket,
         TicketWorkToolHost? ticketWork, TicketRunsToolHost? ticketRuns,
         AgenticMasterContext context, SubAgentTeam team)
     {
         Loop.Sanity.RefusedWriteLog.OpenFresh(context.Pipeline); // 2026-10-17-a196a: this step's refusals only
-        // p0380: recall (read) + remember (memory-only proposal) join EVERY master surface, including Review/scan.
-        // 2026-09-22-9519: the withdrawal joins the design surface here, built only where a dialogue identity exists.
-        // 2026-11-10-14a3d: a design turn's memory tools only over a store its grounding found.
-        var memory = !isSpecDialog || context.Pipeline.TryGet<string>(ContextKeys.MemoryIndex, out var index) && !string.IsNullOrWhiteSpace(index);
+        // A design turn's ticket reads, for its children too (without the series, which only the master acts on).
+        AIFunction? Ticket(bool withSeries, IReadOnlyList<AITool> acts) => readTicket is null ? null
+            : MergedDialogTools.ReadTicket(
+                MergedTools.Named(readTicket.GetTools(null, null), "read_ticket")!,
+                ticketWork is null ? null : MergedTools.Named(ticketWork.GetTools(null, null), "ticket_work"),
+                ticketRuns is null ? null : MergedTools.Named(ticketRuns.GetTools(null, null), "ticket_runs"),
+                withSeries ? MergedTools.Named(acts, "read_series") : null,
+                withSeries ? MergedTools.Named(acts, "verify_series") : null);
+        // p0380: recall (read) + remember join EVERY master surface, including Review/scan; a design turn's recall is
+        // offered whether or not its grounding found a store (2026-11-18-9c1cd), and says when there is none.
         IList<AITool> BaseSurface() => isSpecDialog
-            ? [.. toolSurface.SpecDialog(fs, web, memory ? records.Recall : null),
-               .. withdraw?.GetTools(null, null) ?? [],
-               // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
-               // gate — only a BOUND design turn carries the port this is built from.
-               .. readTicket?.GetTools(null, null) ?? [],
-               .. ticketWork?.GetTools(null, null) ?? [],
-               .. ticketRuns?.GetTools(null, null) ?? []]
+            ? [.. _surface.SpecDialog(fs, web, records.Recall), .. Ticket(false, []) is { } read ? [read] : Array.Empty<AITool>()]
             : isScanMaster
-                ? toolSurface.Review(fs, records.Log, web, records.Recall, records.Remember)
-                : toolSurface.ReadWriteWithHuman(
-                    fs, records.Log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
+                ? _surface.Review(fs, records.Log, web, records.Recall, records.Remember)
+                : _surface.ReadWriteWithHuman(
+                    fs, records.Log, human, web: web, writeContextYaml: writeContextYaml,
                     recall: records.Recall, remember: records.Remember);
 
-        var master = BaseSurface();
-        // 8762o: decide_by_default — the coding master only, no child; fc66: a design turn's choices go in its reply.
-        if (!isScanMaster && !isSpecDialog) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
-        if (memory) master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 9324b: every master, no child
-        // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
-        // source — the MASTER only, outside BaseSurface: children fanning out over one file would
-        // multiply calls against one rate limit, so no child surface derived from it carries it.
-        if (!isScanMaster && designRead.Create(context.Pipeline) is { } design)
-            master = [.. master, .. design.GetTools(null, null)];
-        // 2026-10-01-283de: render_reference joins the design MASTER — one browser sandbox serves the
-        // conversation, so children fanning out would only queue on it. 2026-10-01-283df: and the
-        // coding master of a project whose config enables the browser; the factory decides.
-        // 2026-10-01-283di: with compare_reference beside it.
-        if (!isScanMaster) master = [.. master, .. renderReference.Tools(context.Pipeline, isSpecDialog)];
-        // The bound-ticket acts (start_next_attempt, the series tools) join the design MASTER outside BaseSurface:
-        // a child acts on no one's word, so no child surface carries them.
-        if (isSpecDialog) master = [.. master, .. ticketActs.Tools(context), .. designWork.Tools(context.Pipeline, records),
-            .. ConversationNotesToolHost.For(context.Pipeline)?.GetTools(null, null) ?? []]; // 2026-11-12-cd4ck
-        if (context.IsTicketSteward) master = TicketStewardTools.Of(master); // answers and acts, files nothing
-        // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
-        // counterpart to ScopeRepos' conservative narrowing. Scan masters read
-        // everything anyway (full scope, no narrowing) and must not spawn.
-        // p0341: coding masters also get update_progress (the durable ledger); scan /
-        // spec-dialog surfaces never do — a read-only review keeps no checklist.
-        if (!isScanMaster && !isSpecDialog)
-            master = master
-                .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
-                .Concat(progress.GetTools(null, null))
-                .Concat(gateStage.Tools(context.Pipeline))
-                .Concat(records.SpecTools) // 8762m hand_forward, ec48a revise_spec: a spec's master only, never a child
-                .ToList();
+        var master = isSpecDialog ? DialogMaster(fs, records, web, withdraw, context, Ticket)
+            : isScanMaster ? ScanMaster(BaseSurface(), records)
+            : CodingMaster(BaseSurface(), fs, records, web, progress, context);
         // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.
         var fanOut = isSpecDialog ? loopLimits.MaxSubAgentsPerDialogTurn : loopLimits.MaxSubAgentsPerRun;
         if (fanOut <= 0) return sanity.Wrap(master, context.Pipeline);

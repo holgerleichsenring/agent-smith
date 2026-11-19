@@ -95,7 +95,6 @@
 1	AgentSmith.Application/Services/Sandbox/WorkCloneOpener.cs
 1	AgentSmith.Application/Services/SandboxGitOperations.cs
 1	AgentSmith.Application/Services/Scans/CitedCodeWindow.cs
-1	AgentSmith.Application/Services/Scope/RepoScopeEvaluator.cs
 2	AgentSmith.Application/Services/SecurityFindingsFormatter.cs
 4	AgentSmith.Application/Services/SpecDialog/RepositoryLayoutReader.cs
 1	AgentSmith.Application/Services/SpecExecution/SpecFormatFailureRecorder.cs
@@ -105,7 +104,6 @@
 1	AgentSmith.Application/Services/Specs/AuditCommands.cs
 1	AgentSmith.Application/Services/Specs/CitationMatch.cs
 1	AgentSmith.Application/Services/Specs/CommandElision.cs
-1	AgentSmith.Application/Services/Specs/ContradictionChecker.cs
 1	AgentSmith.Application/Services/Specs/DependencyAuditTool.cs
 3	AgentSmith.Application/Services/Specs/DerivationLookTerms.cs
 1	AgentSmith.Application/Services/Specs/ForeignCommitProbe.cs
@@ -130,8 +128,6 @@
 1	AgentSmith.Application/Services/Specs/SpecCutReviewer.cs
 1	AgentSmith.Application/Services/Specs/SpecDerivationCall.cs
 1	AgentSmith.Application/Services/Specs/SpecIdFactory.cs
-1	AgentSmith.Application/Services/Specs/SpecPremiseChecker.cs
-1	AgentSmith.Application/Services/Specs/SpecPremisesReader.cs
 1	AgentSmith.Application/Services/Specs/SpecQuotableText.cs
 4	AgentSmith.Application/Services/Specs/SpecRunCommandBudget.cs
 1	AgentSmith.Application/Services/Specs/SpecSetDeriver.cs

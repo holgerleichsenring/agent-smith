@@ -15,7 +15,7 @@ public sealed class UnnamedRepositoryWrite
     {
         if (call.Tool is not ("write_file" or "edit" or "multi_edit")) return null;
         if (scope.NamedRepositories.Count == 0) return null;
-        if (call.Tool == "multi_edit" && call.Flag("dry_run")) return null;
+        if (call.Tool is ("multi_edit" or "edit") && call.Flag("dry_run")) return null;
 
         var target = scope.Normalise(call.Argument("path"));
         var repository = target.Repository ?? scope.SingleRepository;

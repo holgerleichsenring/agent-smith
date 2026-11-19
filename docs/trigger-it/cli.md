@@ -74,7 +74,7 @@ agent-smith code --ticket 54 --project todolist --headless
 agent-smith code --ticket 54 --project azuredevops-todolist --repo todolist-api
 ```
 
-Only touches `todolist-api`. You rarely need this by hand: the `ScopeRepos` step reads the ticket first and narrows the run to the affected repos on its own, before any sandbox is provisioned. `--repo` wins over that classification.
+Only touches `todolist-api`. You rarely need this by hand: without it the run keeps the repos an approved spec names, otherwise the project's.
 
 On a repository with several bootstrapped contexts, `--context <name>` pins the run to `.agentsmith/contexts/<name>` instead of discovering the contexts.
 

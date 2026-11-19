@@ -8,7 +8,6 @@ Each box is one step. Green means a model runs there, and it names which one and
 
 ![The control flow of an agent-smith run, generated from the pipeline presets: the code pipeline's steps in order, the ones that call a model, a table of what each model call is asked for and what is expected back, one row per shipped pipeline with its master and step count, and a closing note on what the diagram cannot show.](../../assets/control-flow.svg)
 
-
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
@@ -44,7 +43,7 @@ Pipeline: code
 ├── LoadCatalog            → loads the skills catalog (embedded by default)
 ├── PipelineNameInitializer→ stamps the pipeline name for master routing
 ├── FetchTicket            → reads ticket + comments + attachments from the tracker
-├── ScopeRepos             → narrows the run to the repos the ticket touches
+├── ScopeRepos             → sizes the ticket, refuses what must not be done
 ├── CheckoutSource         → clones repos, creates branches
 ├── RunPreflight           → checks the sandbox and branch preconditions
 ├── SetupRegistryAuth      → pre-stages private-feed credentials

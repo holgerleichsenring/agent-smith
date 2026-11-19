@@ -11,13 +11,13 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public sealed class AgenticToolSurface
 {
-    /// <summary>Full agentic surface: fs + log + human + (optional) web + (optional) credentials + (optional) write_context_yaml + (optional) memory recall/remember (p0380).</summary>
+    /// <summary>Full agentic surface: fs + log + human + (optional) web + (optional) write_context_yaml + (optional) memory recall/remember (p0380).
+    /// 2026-11-18-9c1cd: no credentials tool — registry auth is staged in every sandbox before the master runs.</summary>
     public IList<AITool> ReadWriteWithHuman(
         FilesystemToolHost fs,
         LogDecisionToolHost log,
         IToolHost human,
         WebToolHost? web = null,
-        GetArtifactCredentialsToolHost? credentials = null,
         WriteContextYamlToolHost? writeContextYaml = null,
         MemoryRecallToolHost? recall = null,
         MemoryWriteToolHost? remember = null) =>
@@ -25,7 +25,6 @@ public sealed class AgenticToolSurface
             .Concat(log.GetTools(phase: null, investigatorMode: null))
             .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
-            .Concat(credentials?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Concat(writeContextYaml?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Concat(recall?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Concat(remember?.GetTools(phase: null, investigatorMode: null) ?? [])

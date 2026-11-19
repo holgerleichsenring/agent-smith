@@ -22,8 +22,6 @@ export function SpecReviewForm({ value, onChange }: { value: SpecReviewSetting; 
       <NumberField label="Budget share (percent)" value={value.budgetSharePercent}
         onChange={(v) => set({ budgetSharePercent: keep(v, value.budgetSharePercent) })} testId="setting-specreview-share"
         help="share of the run's cost cap and wall clock review may use" />
-      <CheckField label="Review Work it out proposals" value={value.designTurn ?? true}
-        onChange={(v) => set({ designTurn: v })} testId="setting-specreview-designturn" />
       <NumberField label="Attack look floor" value={value.attackLookFloor}
         onChange={(v) => set({ attackLookFloor: keep(v, value.attackLookFloor) })} testId="setting-specreview-lookfloor"
         help="the fewest file looks one reviewer gets; a spec citing many paths gets its paths plus 12" />

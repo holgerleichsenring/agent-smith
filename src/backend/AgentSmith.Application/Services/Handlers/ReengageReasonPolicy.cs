@@ -21,7 +21,7 @@ internal static class ReengageReasonPolicy
 {
     internal static ReengageDecision Decide(
         string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
-        bool budgetExhausted, IReadOnlyList<CodeChange> changes, int reengagePass, bool verdictDemandedInPass)
+        bool budgetExhausted, IReadOnlyList<CodeChange> changes, int reengagePass)
     {
         if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
             return Stop(null);
@@ -34,7 +34,7 @@ internal static class ReengageReasonPolicy
         if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0)
             return Drive(MasterPassReasons.UnbackedDone);
         if (verification is null)
-            return UnfinishedAfterOneRedrive(reengagePass, verdictDemandedInPass)
+            return UnfinishedAfterOneRedrive(reengagePass)
                 ? Stop(MasterPassReasons.Verdictless)
                 : Drive(MasterPassReasons.Unfinished);
         return Stop(MasterPassReasons.NothingLeft);
@@ -42,11 +42,9 @@ internal static class ReengageReasonPolicy
 
     /// <summary>
     /// p0406: a master that never called finish_spec has had its one re-drive for it — a second is the same prompt
-    /// against the same silence. 2026-09-08-805f: a demand the ledger-complete brake appended inside a pass IS that
-    /// re-drive, so it bites from the first pass then.
+    /// against the same silence.
     /// </summary>
-    internal static bool UnfinishedAfterOneRedrive(int reengagePass, bool verdictDemandedInPass) =>
-        reengagePass > 1 || verdictDemandedInPass;
+    internal static bool UnfinishedAfterOneRedrive(int reengagePass) => reengagePass > 1;
 
     private static ReengageDecision Drive(string reason) => new(true, reason);
 

@@ -26,32 +26,4 @@ public sealed class SpecIdentityRuleTests
         SpecIdentityRule.Holds(Draft(), Draft(With(from, to))).Should().BeFalse();
         SpecIdentityRule.Holds(Draft(), Draft(With("one file.\"", "one dated file.\""))).Should().BeTrue();
     }
-
-    [Theory]
-    [InlineData("spec: 2026-10-14-5678a", "spec: 2026-10-14-5678z")]
-    [InlineData("requires: [2026-10-14-1234a]", "requires: []")]
-    public async Task Rederiver_ChangedRequiresOrId_IsRefused(string from, string to)
-    {
-        var reply = Reply(With(from, to));
-
-        var rewrite = await Rederiver(reply).RederiveAsync(new PipelineContext(), Draft(),
-            [new SpecReviewFinding("The handler does not exist.", "shop search:'Handler' [A1]")], null, new AgentConfig(),
-            CancellationToken.None);
-
-        rewrite.Should().BeNull("a rewrite that moves the spec's identity is a different spec in its place");
-    }
-
-    [Fact]
-    public async Task Rederiver_RewriteKeepingItsIdentity_IsAdmitted()
-    {
-        var rewrite = await Rederiver(Reply(With("one file.\"", "one dated file.\""))).RederiveAsync(new PipelineContext(),
-            Draft(), [], "Accounting reads one file per day.", new AgentConfig(), CancellationToken.None);
-
-        rewrite!.Goal.Should().Contain("one dated file");
-    }
-
-    private static SpecRederiver Rederiver(string reply) => new(
-        new ScriptedChatClientFactory(() => new ChatResponse(new ChatMessage(ChatRole.Assistant, reply))),
-        new AsyncLocalRunContextAccessor(), Specs.DerivationTestLooks.Factory(),
-        new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), NullLogger<SpecRederiver>.Instance);
 }

@@ -28,15 +28,15 @@ public sealed class FilesystemToolHostTests
     // alongside the agent-smith-skills 2.6.0 catalogue rename.
     private static readonly string[] ReadOnlyToolNames =
     {
-        "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
+        "read_file", "grep_in_tree", "find_files",
         "directory_tree", "run_command", "http_request"
     };
 
     private static readonly string[] WriteCapableToolNames =
     {
-        "read_file", "write_file", "edit", "multi_edit",
-        "grep_in_file", "grep_in_tree", "find_files",
-        "list_directory", "directory_tree", "run_command", "http_request"
+        "read_file", "write_file", "edit",
+        "grep_in_tree", "find_files",
+        "directory_tree", "run_command"
     };
 
     [Fact]

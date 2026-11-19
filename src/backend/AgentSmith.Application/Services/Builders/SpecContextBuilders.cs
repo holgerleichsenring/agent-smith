@@ -59,17 +59,3 @@ public sealed class SelectSpecContextBuilder : IContextBuilder
     }
 }
 
-/// <summary>
-/// 2026-09-17-0e79c: the premise check reads the CURRENT spec off the pipeline, so all it
-/// needs from the project is the agent that asks and the tracker the hand-back tells.
-/// </summary>
-public sealed class CheckSpecPremisesContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(
-        PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        ArgumentNullException.ThrowIfNull(project);
-        return new CheckSpecPremisesContext(project.Agent, project.Tracker, pipeline);
-    }
-}
-

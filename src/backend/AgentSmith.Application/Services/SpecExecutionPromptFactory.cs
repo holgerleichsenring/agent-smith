@@ -66,7 +66,6 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
             {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
             {SpecExecutionPromptBlocks.StaleCitations(pipeline)}
-            {Specs.PremiseCorrection.PromptBlock(pipeline)}
             {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), series.Current().Series.BuildNoteMaxChars, set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
             {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}{Specs.ApprovalOwnerWordsSection.For(pipeline)}
 
@@ -74,12 +73,12 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
             You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
             The spec above is the plan of record: its steps are your checklist (the progress
             ledger is seeded from them) and you own how each step lands in this codebase.
-            Take a choice a person might overrule with decide_by_default; log every other non-obvious choice via log_decision
+            Take a choice a person might overrule with log_decision overrulable: true; log every other non-obvious choice via log_decision
             as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
             {SpecExecutionPromptBlocks.DoneCriteria(draft)}
             Before you call finish_spec, look at EACH done criterion above — your report says what you
             saw for each, and one you leave says why and where it goes, never dropped silently.
-            Before finish_spec, call hand_forward once with what you renamed and moved (each
+            finish_spec also carries the build note: what you renamed and moved (each
             `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
             When you are genuinely blocked on missing input, call ask_human once: the
             question is posted to the ticket and this run pauses for the answer.

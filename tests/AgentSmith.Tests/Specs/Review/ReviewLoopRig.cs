@@ -17,9 +17,9 @@ using Moq;
 namespace AgentSmith.Tests.Specs.Review;
 
 /// <summary>
-/// 2026-10-13-8762g: the review loop and its step as the tests compose them — the real loop, panel, merge,
-/// residue check, round publisher and revision publisher over a scripted reviewer, reviser, rewrite and
-/// evidence check, and a set publisher that takes every revision onto the branch unless told not to.
+/// 2026-10-13-8762g: the review's parts as the tests compose them — a scripted reviewer, reviser and evidence check,
+/// and a set publisher that takes every revision onto the branch unless told not to. 2026-11-18-9c1cb: the run-time
+/// loop and its step are gone; revise_spec and the panel still use these parts.
 /// </summary>
 internal sealed class ReviewLoopRig
 {
@@ -81,7 +81,6 @@ internal sealed class ReviewLoopRig
         _ => new SeriesContractReview(Build(), []);
     public Mock<ISpecRoundEvidence> Evidence { get; } = new();
     public Mock<ISpecCutReviser> Reviser { get; } = new();
-    public Mock<ISpecRederiver> Rederiver { get; } = new();
     public Mock<Contracts.Specs.ISpecSetPublisher> Publisher { get; } = new();
     public RecordingEventPublisher Events { get; } = new();
     public AsyncLocalRunContextAccessor RunContext { get; } = new();
@@ -119,43 +118,12 @@ internal sealed class ReviewLoopRig
         return this;
     }
 
-    public SpecReviewLoop Loop() => new(
-        new SpecReviewPanel(Reviewer.Object, DerivationTestLooks.Factory()), Evidence.Object, Reviser.Object,
-        new SpecCutResidues(), Rederiver.Object,
-        new SpecReviewRoundPublisher(Events, RunContext, NullLogger<SpecReviewRoundPublisher>.Instance),
-        new SpecReviewRevision(Publisher.Object));
-
     public SpecReviewRun Run(int rounds = 4, int reviewers = 1, int wallSeconds = 1800, string? widerGoal = null) =>
         new(Pipeline, Settings(rounds, reviewers, wallSeconds), new AgentConfig(), widerGoal);
 
     public static SpecReviewSettings Settings(int rounds = 4, int reviewers = 1, int wallSeconds = 1800, int share = 40) =>
         new(new SpecReviewConfig { Rounds = rounds, Reviewers = reviewers, MaxConcurrent = 2, BudgetSharePercent = share },
             wallSeconds);
-
-    public ReviewSpecsHandler Handler(SpecReviewSettings settings)
-    {
-        var reader = new Mock<ISpecReviewSettingsReader>();
-        reader.Setup(r => r.Current()).Returns(settings);
-        return Handler(reader.Object);
-    }
-
-    public ReviewSpecsHandler Handler(ISpecReviewSettingsReader reader, AgentSmith.Application.Services.Specs.ISeriesSettingsReader? series = null) => new(reader, series ?? AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(),
-        new ApprovedSpecSetResolver(Mock.Of<ISpecApprovalStore>(), NullLogger<ApprovedSpecSetResolver>.Instance),
-        Loop(), new ReviewExhaustion(NullLogger<ReviewExhaustion>.Instance),
-        new ReviewObjectionPark(new SpecReviewRevision(Publisher.Object), NullLogger<ReviewObjectionPark>.Instance),
-        SeriesRound(), NullLogger<ReviewSpecsHandler>.Instance);
-
-    public SeriesContractRound SeriesRound() => new(
-        SeriesReviewer.Object, DerivationTestLooks.Factory(), Reviser.Object, new SpecCutResidues(),
-        new SpecReviewRevision(Publisher.Object),
-        new SpecReviewRoundPublisher(Events, RunContext, NullLogger<SpecReviewRoundPublisher>.Instance), Loop());
-
-    public async Task<CommandResult> ExecuteAsync(SpecReviewSettings settings, AgentSmith.Domain.Entities.Ticket? ticket = null)
-    {
-        using var _ = RunContext.BeginScope(RunId);
-        return await Handler(settings).ExecuteAsync(
-            new ReviewSpecsContext(ticket, [], new AgentConfig(), Pipeline), CancellationToken.None);
-    }
 
     public SpecSet Set => Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
 

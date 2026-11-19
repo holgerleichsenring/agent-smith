@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
 /// 2026-09-17-0e79a: the repositories an APPROVAL named, published before the inventory is
-/// built — and the rule that decides when the classifier's narrowing is skipped altogether.
+/// built.
 /// <para>
 /// The seam matters: ScopeRepos reads ContextKeys.Repos into a local and builds the remote
 /// context inventory from it one line later, so an approved scope published at the end would
@@ -24,8 +24,7 @@ namespace AgentSmith.Application.Services.Scope;
 /// configure fails the step.
 /// </para>
 /// <para>
-/// Only the NARROWING is skipped for an approved scope. The estimate, the security refusal, the
-/// per-repo expected-change gate (p0384) and the context scope (p0336b) all still run.
+/// 2026-11-18-9c1cb: nothing narrows after it — the run keeps these repositories and the master scopes itself.
 /// </para>
 /// </summary>
 public sealed class ApprovedRepoScope(
@@ -33,18 +32,10 @@ public sealed class ApprovedRepoScope(
     ILogger<ApprovedRepoScope> logger)
 {
     /// <summary>The repositories the run works, whether an approval named them or not.</summary>
-    /// <param name="FromApproval">True when a person named them, so nothing may narrow them.</param>
+    /// <param name="FromApproval">True when a person named them.</param>
     /// <param name="Error">Set when the approval named a repository the project does not configure.</param>
     public sealed record Scope(
         IReadOnlyList<RepoConnection> Repos, bool FromApproval, string? Error = null);
-
-    /// <summary>The repositories the run keeps: an approval's are never narrowed further.</summary>
-    public static IReadOnlyList<RepoConnection> Kept(
-        Scope scope, IReadOnlyList<RepoConnection>? scoped)
-    {
-        ArgumentNullException.ThrowIfNull(scope);
-        return scope.FromApproval ? scope.Repos : scoped ?? scope.Repos;
-    }
 
     /// <summary>Resolves the scope and PUBLISHES it, before anything reads ContextKeys.Repos.</summary>
     public async Task<Scope> OpenAsync(
@@ -77,25 +68,6 @@ public sealed class ApprovedRepoScope(
             key.Value, approved.Count, string.Join(", ", approved.Select(r => r.Name)));
         pipeline.Set(ContextKeys.Repos, (IReadOnlyList<RepoConnection>)approved);
         return new Scope(approved, true);
-    }
-
-    /// <summary>Publishes what the classifier narrowed to — never over a scope a person named.</summary>
-    public void Narrow(PipelineContext pipeline, Scope scope, IReadOnlyList<RepoConnection>? scoped)
-    {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        ArgumentNullException.ThrowIfNull(scope);
-        if (scope.FromApproval || scoped is null) return;
-        pipeline.Set(ContextKeys.Repos, scoped);
-        logger.LogDebug("Repo scope narrowed to {Count} repository/repositories", scoped.Count);
-    }
-
-    /// <summary>The reason the classifier's narrowing does not apply, or null when it does.</summary>
-    public static string? Settled(Scope scope)
-    {
-        ArgumentNullException.ThrowIfNull(scope);
-        return scope.FromApproval
-            ? "Repo scoping skipped: the approved specification named the repositories"
-            : null;
     }
 
     private static string MissingRepos(IReadOnlyList<string> missing, string key) =>

@@ -36,17 +36,13 @@ public sealed class SpecSequenceHandler(
         // 2026-10-13-8762u: one attempt runs a chunk sized by series.specs_per_attempt and the wall clock LEFT.
         var (size, refused) = AttemptSize(context.Pipeline);
         if (refused is not null) return Task.FromResult(CommandResult.Fail(refused));
-        // 2026-10-13-8762g: a stop splices only the specs before it; the rest is left to the next attempt.
-        var stop = context.Pipeline.TryGet<SpecSequenceStop>(ContextKeys.SpecSequenceStop, out var s) ? s : null;
-        var beforeStop = stop is null ? pending.Count : pending.TakeWhile(p => p.SpecId != stop.BeforeSpecId).Count();
-        IReadOnlyList<DerivedSpec> building = [.. pending.Take(Math.Min(size, beforeStop))];
-        var chunked = building.Count < beforeStop; // a Park stop beyond the chunk end is not applied this attempt
-        context.Pipeline.Set(ContextKeys.SpecSequenceProgress, Progress(set, pending, building.Count, beforeStop, stop));
+        IReadOnlyList<DerivedSpec> building = [.. pending.Take(size)];
+        var chunked = building.Count < pending.Count;
+        context.Pipeline.Set(ContextKeys.SpecSequenceProgress, Progress(set, pending, building.Count));
         // 2026-09-17-0e79e: the executor's loop guard is sized here, because this is where
         // the work is known — the specs this attempt splices, never the set's own count.
         context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForSpecs(building.Count));
         var commands = building.SelectMany(spec => PerSpec.Select(name => new PipelineCommand(name) { SpecId = spec.SpecId }))
-            .Concat(stop is { Park: true } && !chunked ? [PipelineCommand.Simple(CommandNames.SpecHandback)] : [])
             .ToArray();
 
         var next = chunked ? $"; this attempt's chunk is {building.Count} of {pending.Count}; the next attempt starts at {pending[building.Count].SpecId}" : string.Empty;
@@ -56,7 +52,7 @@ public sealed class SpecSequenceHandler(
         return Task.FromResult(CommandResult.OkAndContinueWith(
             $"{building.Count} spec(s) to work through: "
             + string.Join(", ", building.Select(p => $"{p.SpecId} ({p.Draft.Goal})"))
-            + (stop is null || chunked ? string.Empty : $"; stopping before {stop.BeforeSpecId}: {stop.Reason}") + next,
+            + next,
             commands));
     }
 
@@ -72,23 +68,12 @@ public sealed class SpecSequenceHandler(
             + $"({settings.RunWallSeconds}), and one block is reserved for the commit-and-PR tail");
     }
 
-    /// <summary>The progress table: the specs past the chunk deferred with the chunk's reason up to g's stop and
-    /// with the stop's from it; when g's stop ends the attempt, a parked stop spec is handed back with its reason.</summary>
-    private static SpecSequenceProgress Progress(
-        SpecSet set, IReadOnlyList<DerivedSpec> pending, int built, int beforeStop, SpecSequenceStop? stop)
+    /// <summary>The progress table: the specs past the chunk deferred with the chunk's reason.</summary>
+    private static SpecSequenceProgress Progress(SpecSet set, IReadOnlyList<DerivedSpec> pending, int built)
     {
         var progress = SpecSequenceProgress.ForSet(set);
         var after = pending.Skip(built).Select(p => p.SpecId).ToList();
-        if (after.Count == 0) return progress;
-        if (built < beforeStop)
-        {
-            var chunkPart = stop is { Park: false } ? beforeStop - built : after.Count;
-            progress = progress.Deferring(after.Take(chunkPart).ToList(),
-                $"beyond this attempt's chunk of {built} spec(s) (series.specs_per_attempt and the wall clock left)");
-            return chunkPart < after.Count ? progress.Deferring(after.Skip(chunkPart).ToList(), stop!.Reason) : progress;
-        }
-        var deferred = after.Where(id => !stop!.Park || id != stop.BeforeSpecId).ToList();
-        progress = progress.Deferring(deferred, stop!.Reason);
-        return stop.Park ? progress.With(stop.BeforeSpecId, SpecRunState.HandedBack, stop.Reason) : progress;
+        return after.Count == 0 ? progress : progress.Deferring(after,
+            $"beyond this attempt's chunk of {built} spec(s) (series.specs_per_attempt and the wall clock left)");
     }
 }

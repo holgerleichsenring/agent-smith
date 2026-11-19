@@ -32,7 +32,7 @@ public sealed class ToolKitCompositionTests
         // Deprecated aliases (grep/glob/list_files) removed with the catalogue rename.
         // No write_file / edit / multi_edit in Plan.
         tools.Should().BeEquivalentTo(
-            "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory",
+            "read_file", "grep_in_tree", "find_files",
             "directory_tree", "run_command", "http_request",
             "log_decision", "ask_human");
     }
@@ -45,7 +45,7 @@ public sealed class ToolKitCompositionTests
         var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Implementation, null, DefaultHosts()));
 
         // p0154: 11 filesystem-host primitives + log_decision + ask_human = 13. Deprecated aliases gone.
-        tools.Should().HaveCount(13);
+        tools.Should().HaveCount(9); // 2026-11-18-9c1cd
     }
 
     [Fact]

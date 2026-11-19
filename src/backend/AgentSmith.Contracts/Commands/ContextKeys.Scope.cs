@@ -15,34 +15,12 @@ public static partial class ContextKeys
     /// initially-descoped repo also hits the cache.</summary>
     public const string RemoteContextInventory = "RemoteContextInventory";
 
-    /// <summary>p0336b: IReadOnlyDictionary&lt;string, IReadOnlyList&lt;string&gt;&gt; keyed by repo name
-    /// → the KEPT context names for that repo, set only when context-level scoping narrowed a
-    /// repo below its full context set. A repo ABSENT from this map keeps ALL its contexts
-    /// (today's behaviour), so the key is absent entirely when nothing was narrowed. The sandbox
-    /// coordinator provisions only the kept contexts; the ensure_repo_sandbox escalation ignores
-    /// it (a mid-run escalation to a dropped context is an explicit operator/agent decision).</summary>
-    public const string ScopedContexts = "ScopedContexts";
-
     /// <summary>2026-09-08-1830: the <see cref="Models.ScopeNamedContexts"/> the scope call
     /// NAMED for this ticket — its claim, not a narrowing. Set on every ticketed run whose
     /// classification names contexts, a single-repo run included, so the derivation's cut
     /// can be held against it; absent when the scope call named none, or every repository
     /// in scope has a single context. Never read by the sandbox coordinator.</summary>
     public const string ScopeNamedContexts = "ScopeNamedContexts";
-
-    /// <summary>p0331: human-readable record of the ScopeRepos decision — which repos the
-    /// run was narrowed to (or why it kept all of them: low confidence, parse failure, LLM
-    /// error, unknown repo name), with the classifier's rationale. Also appended to
-    /// ContextKeys.Decisions so result.md and the dashboard surface it; a wrong narrowing
-    /// must be diagnosable, never silent.</summary>
-    public const string RepoScopeRationale = "RepoScopeRationale";
-
-    /// <summary>p0384: IReadOnlyList&lt;string&gt; of repo names the scope classifier expects
-    /// to CHANGE (vs kept only for inspection) — the optional expected_changes subset of
-    /// the kept repos, validated by RepoScopeEvaluator. Absent / empty preserves the
-    /// keystone's anyCode semantics exactly (fail-open); present, the keystone requires
-    /// a committed diff per listed repo.</summary>
-    public const string ExpectedChangeRepos = "ExpectedChangeRepos";
 
     /// <summary>p0413: the <see cref="Models.WorkShapeVerdict"/> the scope classifier
     /// stated for this ticket — the SHAPE of the work (deterministic transformation /

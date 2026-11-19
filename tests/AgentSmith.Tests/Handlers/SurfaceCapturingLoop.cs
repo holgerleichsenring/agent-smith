@@ -14,11 +14,15 @@ internal sealed class SurfaceCapturingLoop(bool spawn = false) : IAgenticLoopRun
 
     public IReadOnlyList<string> MasterTools { get; private set; } = [];
 
+    /// <summary>2026-11-18-9c1cd: the master's tools themselves, whose schemas show what a merged tool takes.</summary>
+    public IReadOnlyList<AITool> Tools { get; private set; } = [];
+
     public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
     {
         if (MasterTools.Count == 0)
         {
             MasterTools = [.. request.Tools!.OfType<AIFunction>().Select(t => t.Name)];
+            Tools = [.. request.Tools!];
             if (spawn)
                 await request.Tools!.OfType<AIFunction>().Single(t => t.Name == "spawn_agents").InvokeAsync(
                     new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, cancellationToken);

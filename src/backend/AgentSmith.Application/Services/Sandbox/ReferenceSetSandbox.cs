@@ -85,7 +85,7 @@ public sealed class ReferenceSetSandbox(
         StepKind.ReadFile or StepKind.ListFiles or StepKind.Grep or StepKind.DirectoryTree or StepKind.Run => null,
         _ => SourceScopeRefusal.Because(step,
             $"Step kind '{step.Kind}' is not served on an upload's container — it serves the file reads and "
-            + "commands (run_in_reference); a command may write into the copy."),
+            + "commands (run_command with repo reference:<name>); a command may write into the copy."),
     };
 
     public async Task<string> MaterializeAsync(CancellationToken cancellationToken)

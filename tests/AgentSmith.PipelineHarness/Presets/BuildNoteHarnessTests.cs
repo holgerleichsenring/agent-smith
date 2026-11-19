@@ -50,7 +50,8 @@ public sealed class BuildNoteHarnessTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueToolCall("remember",
                 """{"type":"project","name":"guard-home","description":"the empty-payload guard lives in src/Guard.cs","body":"One guard for every caller."}""")
-            .EnqueueToolCall("hand_forward", """{"renamed":["PayloadCheck -> EmptyPayloadGuard"],"persisted":["file src/Guard.cs"]}""")
+            // 2026-11-18-9c1cd: the build note rides finish_spec; the closing finish_spec names no note field and keeps it.
+            .EnqueueToolCall("finish_spec", """{"status":"green","summary":"the guard","renamed":["PayloadCheck -> EmptyPayloadGuard"],"persisted":["file src/Guard.cs"]}""")
             .EnqueueFinish()
             .EnqueueText("Planning: migrate the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// callers"}""")

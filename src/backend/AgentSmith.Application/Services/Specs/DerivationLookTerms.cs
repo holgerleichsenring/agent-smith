@@ -52,28 +52,6 @@ public sealed record DerivationLookTerms(
     public static DerivationLookTerms ProposalReviewWith(int allowance) =>
         CutReview with { Actor = "proposal review", Allowance = allowance, EvidencePrefix = "P", MayRunAStage = false };
 
-    /// <summary>2026-09-17-0e79c: the check a spec's own stated premises are put to before
-    /// its work starts. Its own letter M — L is the derivation's and P is the proposal
-    /// review's — and the cut review's allowance, for the same reason: it checks the premises
-    /// of a spec that exists rather than deciding what to build. Its rule differs in what a
-    /// citation BUYS: there is no quote to fall back on, so a premise reported without an id
-    /// the framework minted is recorded unproven rather than discarded.</summary>
-    public static DerivationLookTerms PremiseCheck { get; } = new(
-        "premise check", CutReviewAllowance, "M",
-        "Judge the premises on what you have; report as unproven any you could not look at.",
-        "a premise you report as no longer holding cites that id in \"cites\", and one that cites none is recorded unproven.",
-        MayRunAStage: true);
-
-    /// <summary>2026-10-12-3a36b: the second reading a contradiction hand-back is put to before it
-    /// parks. Its own letter C — its ids travel back into the DERIVER's conversation with a
-    /// refutation, where an L-id already names a look the deriver took — and the cut review's
-    /// allowance, because it checks one claim that exists rather than deciding what to build.</summary>
-    public static DerivationLookTerms ContradictionCheck { get; } = new(
-        "contradiction check", CutReviewAllowance, "C",
-        "Judge the claim on what you have; refute it only with a look you took.",
-        "a refutation you report cites that id in \"cites\", and one that cites none is discarded.",
-        MayRunAStage: false);
-
     /// <summary>2026-09-17-042eh: looks one spec review may take. Eight against the cut
     /// review's six: it judges a DIFF, so every file it reports on is a file it must open,
     /// and a spec touching a handful of files exhausts six before it has read them all.</summary>

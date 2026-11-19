@@ -1,8 +1,6 @@
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Specs;
-using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.TestSupport;
@@ -39,23 +37,6 @@ internal static class HandbackTestDoubles
             NullLogger<InlineHandbackAsk>.Instance);
     }
 
-    /// <summary>A gate whose checker lets every cited contradiction stand.</summary>
-    public static ContradictionHandbackGate Gate(IContradictionChecker? checker = null) =>
-        new(checker ?? new StandingChecker(), Specs.DerivationTestLooks.Factory(),
-            NullLogger<ContradictionHandbackGate>.Instance);
-
-    /// <summary>Lets every contradiction stand; records what it was asked.</summary>
-    public sealed class StandingChecker(ContradictionCheck? answer = null) : IContradictionChecker
-    {
-        public List<(SpecHandback Handback, IReadOnlyList<EvidenceLook> Cited)> Asked { get; } = [];
-
-        public Task<ContradictionCheck> CheckAsync(
-            SpecHandback handback, IReadOnlyList<EvidenceLook> cited, DerivationLook look, string key,
-            AgentConfig agent, AgentSmith.Application.Services.PipelineCostTracker costTracker,
-            CancellationToken cancellationToken)
-        {
-            Asked.Add((handback, cited));
-            return Task.FromResult(answer ?? ContradictionCheck.Stands("the claim holds"));
-        }
-    }
+    /// <summary>2026-11-18-9c1cb: the mechanical contradiction gate.</summary>
+    public static ContradictionHandbackGate Gate() => new(NullLogger<ContradictionHandbackGate>.Instance);
 }

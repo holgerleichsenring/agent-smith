@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using AgentSmith.PipelineHarness.Composition;
@@ -9,47 +8,30 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-09-17-042ed: a spec or epic proposal is reviewed inside the turn that produced it, and
-/// the findings come back ON the proposal the turn returns.
-/// <para>
-/// The review is a call the framework makes on its own behalf, so it is answered by
-/// <see cref="HarnessSpecCutReviewer"/> rather than from the master's script — the same boundary
-/// p0422 drew for the derivation's cut review, and for the same reason.
-/// </para>
+/// 2026-11-18-9c1ca: a design turn ends when its master ends. No reviewer reads the draft afterwards and nothing sends
+/// the master round again; the draft carries only the mechanical checks' findings (cited files). A review the master
+/// wants, it commissions itself.
 /// </summary>
 public sealed partial class SpecDialogOutcomeTests
 {
     [Fact]
-    public async Task Turn_SpecProposal_IsReviewedBeforeItReturns()
+    public async Task Turn_SpecProposal_IsNotReviewedOrReDrivenAfterTheMasterEnds()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         var reviewer = Reviewer(harness).Finds(new CutFinding(
-            "p9999", "GET /widget returns the widget", "contradiction",
-            "the spec also forbids touching the service"));
-        ScriptSpec(harness.ChatClient);
-        harness.ChatClient.EnqueueText("The contradiction stands: the spec forbids touching the service.");
+            "p9999", "GET /widget returns the widget", "contradiction", "the spec also forbids touching the service"));
+        ScriptSpec(harness.ChatClient, "Here is the spec draft.");
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        var asked = reviewer.Asked.Should().ContainSingle().Subject;
-        asked.Drafts.Should().ContainSingle().Which.SpecId.Should().Be("p9999");
-        asked.TicketText.Should().BeNull("a design turn has no ticket behind it");
-        asked.Repositories.Should().Equal([Repo], "the review reads the turn's own repositories");
-        var finding = result.Outcome.Should().BeOfType<SpecOutcome>()
-            .Which.Findings.Should().ContainSingle().Subject;
-        finding.Why.Should().Be("the spec also forbids touching the service");
-        finding.Quote.Should().Be("GET /widget returns the widget");
-        finding.Evidence.Should().BeNull("a contradiction quotes the spec; it cites no look");
-        harness.ChatClient.ScriptedInvocationCount.Should().Be(3, "the write, the reply, and the reply after the review report; the review is not drawn from the master's script");
-        // 2026-11-12-92e9b: the master reads the review of its final draft before its reply goes out.
-        harness.ChatClient.CallMessages.Select(call => call.Last().Text)
-            .Should().ContainSingle(text => text.StartsWith(DesignTurnReviewReport.Heading, StringComparison.Ordinal))
-            .Which.Should().Contain("the spec also forbids touching the service");
-        result.Reply.Should().Be("The contradiction stands: the spec forbids touching the service.");
+        reviewer.Asked.Should().BeEmpty("no reviewer runs on the draft unless the master commissions one");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2, "the write and the reply; nothing re-drives the master");
+        result.Outcome.Should().BeOfType<SpecOutcome>().Which.ReviewRounds.Should().BeEmpty();
+        result.Reply.Should().Be("Here is the spec draft.");
     }
 
     [Fact]
-    public async Task Turn_EpicProposal_IsReviewedAsItsParentAndEveryChild()
+    public async Task Turn_EpicProposal_IsNotReviewed()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         var reviewer = Reviewer(harness);
@@ -57,10 +39,8 @@ public sealed partial class SpecDialogOutcomeTests
 
         var result = await RunTurnAsync(harness, Discussed("plan the widget platform"));
 
-        reviewer.Asked.Should().ContainSingle().Which.Drafts.Select(d => d.SpecId)
-            .Should().Equal("p9000", "p9000a", "p9000b");
-        result.Outcome.Should().BeOfType<EpicOutcome>().Which.Findings.Should().BeEmpty(
-            "a clean review leaves the proposal exactly as the turn wrote it");
+        reviewer.Asked.Should().BeEmpty();
+        result.Outcome.Should().BeOfType<EpicOutcome>().Which.Children.Should().HaveCount(2);
     }
 
     [Fact]
@@ -73,7 +53,7 @@ public sealed partial class SpecDialogOutcomeTests
         var result = await RunTurnAsync(harness, Discussed("add a null check to AppendTurnAsync"));
 
         result.Outcome.Should().BeOfType<BugOutcome>();
-        reviewer.Asked.Should().BeEmpty("a bug is a ticket someone will run, not a plan to check");
+        reviewer.Asked.Should().BeEmpty();
     }
 
     // 2026-09-17-042ed: the stand-in answers what it was ASKED about. A design session proposes

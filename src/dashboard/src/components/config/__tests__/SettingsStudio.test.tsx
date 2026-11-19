@@ -371,12 +371,12 @@ describe("SettingsStudio", () => {
     fireEvent.change(screen.getByTestId("setting-specreview-reviewers"), { target: { value: "3" } });
     fireEvent.change(screen.getByTestId("setting-specreview-concurrent"), { target: { value: "1" } });
     fireEvent.change(screen.getByTestId("setting-specreview-share"), { target: { value: "25" } });
-    // 2026-11-12-7c1c: an absent switch reads as on, the default; one click turns it off.
-    fireEvent.click(screen.getByTestId("setting-specreview-designturn"));
+    // 2026-11-18-9c1ca: no review runs after a Work it out turn, so there is no switch for one.
+    expect(screen.queryByTestId("setting-specreview-designturn")).toBeNull();
     fireEvent.click(screen.getByTestId("settings-save"));
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
     expect(saveSetting).toHaveBeenCalledWith("spec_review",
-      { rounds: 0, reviewers: 3, maxConcurrent: 1, budgetSharePercent: 25, designTurn: false, attackLookFloor: 24, regroundReadBudget: 24, seriesContractMaxChars: 60000 });
+      { rounds: 0, reviewers: 3, maxConcurrent: 1, budgetSharePercent: 25, attackLookFloor: 24, regroundReadBudget: 24, seriesContractMaxChars: 60000 });
   });
 
   it("SettingsStudio_SeriesForm_EditsCapsBudgetAndWallClock", async () => {

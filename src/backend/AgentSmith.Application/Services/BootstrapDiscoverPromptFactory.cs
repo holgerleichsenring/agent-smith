@@ -63,7 +63,7 @@ internal static class BootstrapDiscoverPromptFactory
             until an entrypoint or a deploy artefact of its own proves otherwise.
 
             Use your read-only tools (`directory_tree`, `read_file`,
-            `list_directory`, `find_files`, `grep_in_tree`) freely — depth over
+            `find_files`, `grep_in_tree`) freely — depth over
             speed. There is no read-call cap. Confirm each component's language
             from the same Read pass that proved it.
 

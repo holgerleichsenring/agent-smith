@@ -33,8 +33,8 @@ public sealed class ReferencePromptSectionTests
         var section = Section(new ReferenceCoverage(readable, new HashSet<string> { "app/f00.cs", "app/f01.cs" }, 4));
 
         section.Should().Contain("Earlier turns of this conversation opened 2 of the 30 files read_file can read")
-            .And.Contain("grep_in_tree and run_in_reference are not counted")
-            .And.Contain("Their content is not in this turn; your notes (read_notes) carry what you kept.")
+            .And.Contain("grep_in_tree and run_command are not counted")
+            .And.Contain("Their content is not in this turn; your notes (read_file notes:) carry what you kept.")
             .And.Contain("`app/f02.cs`").And.Contain("`app/f26.cs`").And.NotContain("`app/f27.cs`")
             .And.Contain("… and 3 more.")
             .And.Contain("4 files read_file cannot open (binary or over 1 MB) are not counted.");
@@ -64,7 +64,7 @@ public sealed class ReferencePromptSectionTests
     [Fact]
     public void ReferenceCoverageText_NamesGrepInTree() =>
         ReferenceCoverageText.Under(new ReferenceCoverage(new HashSet<string> { "a.cs" }, new HashSet<string>(), 0))
-            .Should().Contain("grep_in_tree and run_in_reference are not counted").And.NotContain("; grep and");
+            .Should().Contain("grep_in_tree and run_command are not counted").And.NotContain("; grep and");
 
     private string Section(ReferenceCoverage coverage)
     {

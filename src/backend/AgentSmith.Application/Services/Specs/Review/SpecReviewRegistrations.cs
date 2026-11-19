@@ -22,23 +22,17 @@ public static class SpecReviewRegistrations
             .AddTransient<SpecRevisionGuard>()
             .AddTransient<SpecCutResidues>()
             .AddTransient<ISpecCutReviser, SpecCutReviser>()
-            // 2026-10-13-8762g: the loop, its panel, the rewrite and the one mid-run revision publisher; the
-            // settings read live per call (the server replaces the loader reader with its store's).
+            // 2026-10-13-8762g: the panel and the rewrite; the settings read live per call (the server replaces the
+            // loader reader with its store's). 2026-11-18-9c1cb: the run-time review loop is gone.
             .AddTransient<ISpecRoundEvidence, SpecRoundEvidence>()
             .AddTransient<SpecReviewPanel>().AddTransient<SpecReviewRevision>()
-            .AddTransient<ISpecRederiver, SpecRederiver>().AddTransient<SpecReviewLoop>()
             .AddSingleton<ISpecReviewSettingsReader, LoaderSpecReviewSettingsReader>()
-            .AddTransient<ReviewExhaustion>().AddTransient<ReviewObjectionPark>() // 2026-10-13-8762h
-            // 2026-11-12-cd4ch: the design turn's one advisory pass and its panel.
-            .AddTransient<ProposalAttackPanel>().AddTransient<ProposalAttackPass>()
             .AddTransient<SeriesContractCheck>().AddTransient<SeriesContractReader>() // 2026-10-13-8762j
-            // 2026-10-13-8762k: the set-scope round — reviewer, admission, the run's round and the turn's.
+            // 2026-10-13-8762k: the set-scope round — reviewer, admission, and the run's round.
             .AddTransient<SeriesContractAdmission>().AddTransient<ISeriesContractReviewer, SeriesContractReviewer>()
-            .AddTransient<SeriesContractRound>().AddTransient<ProposalSeriesRound>()
             // 2026-10-13-8762n: the entered spec's citation re-ground — history, regrounder, entry.
             .AddTransient<SpecCitationHistory>().AddTransient<SpecCitationRegrounder>()
             .AddTransient<ISpecEntryGrounding, SpecEntryGrounding>()
-            .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>()
             // 2026-11-17-ec48a: the coding master's revise_spec — its one review, gate, text, writer and orchestration.
             .AddTransient<SpecRevisionReview>().AddTransient<Revision.SpecRevisionGate>()
             .AddTransient<Revision.SpecRevisionText>().AddTransient<Revision.SpecRevisionWriter>()

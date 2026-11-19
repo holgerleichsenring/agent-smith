@@ -67,7 +67,7 @@ public sealed class MasterLoopGovernorChatClientTests
             IsBudgetExhausted: () => exhausted,
             RecordIterationUsage: _ => exhausted = true, // one iteration then the cap trips
             RenderReminder: () => null,
-            ReminderEveryNIterations: 0, DriftEditlessIterations: 0);
+            ReminderEveryNIterations: 0);
         var sut = new MasterLoopGovernorChatClient(new RecordingInner(), hooks);
 
         // First iteration passes (budget not yet exhausted), records usage → exhausted.
@@ -86,7 +86,7 @@ public sealed class MasterLoopGovernorChatClientTests
         var inner = new RecordingInner();
         var hooks = new MasterLoopHooks(
             RenderReminder: () => "[reminder] current ledger here",
-            ReminderEveryNIterations: 2, DriftEditlessIterations: 0);
+            ReminderEveryNIterations: 2);
         var sut = new MasterLoopGovernorChatClient(inner, hooks);
 
         await sut.GetResponseAsync(Convo()); // iteration 1 — no injection
@@ -104,7 +104,7 @@ public sealed class MasterLoopGovernorChatClientTests
         var inner = new RecordingInner();
         var hooks = new MasterLoopHooks(
             RenderReminder: () => "[reminder] stale",
-            ReminderEveryNIterations: 2, DriftEditlessIterations: 0);
+            ReminderEveryNIterations: 2);
         var sut = new MasterLoopGovernorChatClient(inner, hooks);
 
         var updatingConvo = new List<ChatMessage>
@@ -120,44 +120,23 @@ public sealed class MasterLoopGovernorChatClientTests
     }
 
     [Fact]
-    public async Task InPassReminder_DriftSignalNoEditsForKIterations_TriggersInjection()
+    public async Task ReadsWithoutAnEdit_NoReminderAndNoBrake()
     {
+        // 2026-11-18-9c1cc: nothing judges how much the master reads — no drift trigger; and a complete
+        // checklist never ends a pass. Only staleness (disabled here) and the money fence act.
         var inner = new RecordingInner();
-        var hooks = new MasterLoopHooks(
-            RenderReminder: () => "[reminder] drift",
-            ReminderEveryNIterations: 0, // periodic disabled — only drift can fire it
-            DriftEditlessIterations: 2);
+        var hooks = new MasterLoopHooks(RenderReminder: () => "[reminder] drift", ReminderEveryNIterations: 0);
         var sut = new MasterLoopGovernorChatClient(inner, hooks);
-
-        // Each convo ends with an assistant turn that called a READ tool (no edit) → drift grows.
         var readConvo = new List<ChatMessage>
         {
             new(ChatRole.System, "sys"),
             new(ChatRole.Assistant, new AIContent[] { new FunctionCallContent("c1", "read_file") }),
         };
 
-        await sut.GetResponseAsync(readConvo); // streak 1
-        await sut.GetResponseAsync(readConvo); // streak 2 → drift fires
-        inner.Forwarded[1].Should().Contain(m => Text(m).Contains("drift"));
-    }
+        for (var i = 0; i < 20; i++)
+            await sut.GetResponseAsync(readConvo);
 
-    [Fact]
-    public async Task Drift_ResetsWhenEditToolCalled_NoInjection()
-    {
-        var inner = new RecordingInner();
-        var hooks = new MasterLoopHooks(
-            RenderReminder: () => "[reminder] drift",
-            ReminderEveryNIterations: 0, DriftEditlessIterations: 2);
-        var sut = new MasterLoopGovernorChatClient(inner, hooks);
-
-        var editConvo = new List<ChatMessage>
-        {
-            new(ChatRole.System, "sys"),
-            new(ChatRole.Assistant, new AIContent[] { new FunctionCallContent("c1", "write_file") }),
-        };
-
-        await sut.GetResponseAsync(editConvo);
-        await sut.GetResponseAsync(editConvo);
+        inner.Forwarded.Should().HaveCount(20, "every iteration reaches the model");
         inner.Forwarded.Should().OnlyContain(msgs => !msgs.Any(m => Text(m).Contains("drift")));
     }
 

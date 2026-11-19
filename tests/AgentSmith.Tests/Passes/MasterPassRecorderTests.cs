@@ -45,7 +45,7 @@ public sealed class MasterPassRecorderTests
     public void PassRecorder_RepairStep_OpensBecauseRepair()
     {
         var pipeline = SpecPipeline();
-        pipeline.Set(ContextKeys.SpecRepairAttempted, true);
+        pipeline.Set(ContextKeys.SpecRepairRed, "build exited 1");
         pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "it builds" });
 
         MasterPassRecorder.Opener(pipeline).Should().Be(MasterPassReasons.Repair);

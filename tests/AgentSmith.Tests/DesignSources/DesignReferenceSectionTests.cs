@@ -26,7 +26,7 @@ public sealed class DesignReferenceSectionTests
         var section = DesignReferenceSection.Render(texts, readable: true);
 
         section.Should().Contain("## Design references").And.Contain($"- {Rebuilt}")
-            .And.Contain("design_read").And.NotContain("Checkout");
+            .And.Contain("web_fetch").And.NotContain("Checkout"); // 2026-11-18-9c1cd: a Figma link is read through web_fetch
     }
 
     [Fact]

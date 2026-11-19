@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-9c1cc
+goal: "The master's loop is steered by mechanical facts only: a red stage returns while repairs make progress, and the drift reminder, ledger-complete brake and tools-off final turn are gone."
+
+applies_to: "default (Specs/StageRepair, VerifySpecHandler; Infrastructure Agent MasterLoopGovernorChatClient, LedgerCompleteBrake, ContextPressureFinalizingChatClient; Handlers VerdictOwed, MasterLoopHooksFactory, re-engagement policies; AgentConfig, RetiredConfigKeys, schema)"
+
+requires: [2026-11-18-9c1cb]
+
+facts:
+  - claim: "StageRepair hands a red declared stage back to the master once: ContextKeys.SpecRepairAttempted set means no further repair, and a still-red stage fails the spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StageRepair.cs:21-37"
+  - claim: "The re-engagement loop's progress test is mechanical: a pass produced new work when the tool host's write log changed (ReengageProgressPolicy.ProducedNewWork)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageProgressPolicy.cs:85-94"
+  - claim: "MasterLoopGovernorChatClient injects the ledger reminder on staleness or on drift (K consecutive iterations with no edit or write call), and runs LedgerCompleteBrake, which demands the verdict and then ends the pass while the ledger is complete."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/MasterLoopGovernorChatClient.cs:55-88, src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/LedgerCompleteBrake.cs:39-60"
+  - claim: "ContextPressureFinalizingChatClient sets ToolMode None on the forced final turn unless finish_spec is declared."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ContextPressureFinalizingChatClient.cs:84-91"
+
+scope:
+  in: "StageRepair: a red stage goes back to the master again after each repair round that made progress, mechanically: the repair pass wrote to the tree (its write log, ContextKeys.CodeChanges, is not empty — the re-engagement loop's produced-new-work signal) and the failure changed (stage, exit code or output tail differ from the last red); not once the run's cost budget is spent. ContextKeys.SpecRepairAttempted is replaced by SpecRepairRed (the last red's signature) and its rename-table row goes; the first pass's verdict is kept once. The executor's step budget (StepBudget) stays the backstop; its rationale names repeated repairs. Governor: the drift trigger and its config key go; the staleness reminder and the money fence stay. LedgerCompleteBrake, LedgerBrakeAction, VerdictOwed and the hooks IsLedgerComplete/RenderVerdictDemand/OnVerdictBrake/VerdictOwedAfterIterations go, with the verdict-demanded flag in ReengageReasonPolicy, MasterLoopStop, MasterReengagementPolicy, ReengageStopLog and ReengageSession (a pass after the first re-drive with no report still stops as verdictless). Retired config keys: agents.*.reminder_drift_editless_iterations and agents.*.verdict_owed_after_iterations (RetiredConfigKeys rows; removed from AgentConfig and the schema as agents.*.parallelism was; docs row). ContextPressureFinalizingChatClient: the forced turn forwards the caller's options unchanged — tools declared, tool mode as the caller set it; the instruction text steers; the re-cut to the window, the iteration ceiling and the money fence bound it, and a request that cannot be cut to fit fails the step with its named reason as before."
+  out: "The staleness reminder (it re-shows the master's own checklist, nothing judges it). Compaction thresholds. The re-engagement loop's own stops. ProjectMapFinalizer's tools-off final turn (the analyzer scout, not a master; named follow-up: analyzer final turn keeps its tools). The run account keeping one problem line per red round."
+
+upgrade_impact: "Two agent config keys are retired: a file that still sets them loads with an advisory. A red build may go back to the master more than once, while each repair changes the failure; a checkpoint taken before this may give one extra repair. A loop that keeps calling tools past the context bound now ends by answering, the iteration ceiling, the money fence, or the step failing as unfittable — no longer by tools switched off."
+
+steps:
+  - id: repair
+    action: "StageRepair.Offer: progress-bounded and budget-bounded; key renamed; VerifySpec unchanged otherwise."
+  - id: governor
+    action: "Delete the drift trigger and the brake; prune hooks, VerdictOwed, the verdict-demanded parameters and the config keys; retire the keys."
+  - id: finalize
+    action: "FinalizeOptions removed: the forced turn forwards the caller's options."
+  - id: tests
+    action: "Update StageRepair, governor, brake, finalizing and re-engagement tests."
+
+tests:
+  - "StageRepair: a second, different red after a repair that wrote goes back again; the same red again fails; a red after a repair that wrote nothing fails; a spent budget fails at once."
+  - "Governor: K edit-less iterations inject no reminder; the money fence still throws; a complete ledger never ends a pass."
+  - "Finalizing client: the forced turn carries the caller's tools with the caller's tool mode, over several tool rounds past the bound."
+
+done:
+  - "No code path re-drives or ends the master on drift or a complete ledger; tools never change within a run; a red stage returns to the master while its repairs make progress, bounded by budget and existing limits."
+  - "Build and the full suite are green."

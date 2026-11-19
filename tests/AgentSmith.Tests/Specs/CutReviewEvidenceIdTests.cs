@@ -32,7 +32,7 @@ public sealed class CutReviewEvidenceIdTests
         var scopes = new CountingScopes();
         var pipeline = PipelineWithTemplate();
 
-        var review = Factory(scopes: scopes).ForCutReview(pipeline);
+        var review = Factory(scopes: scopes).OnTerms(pipeline, DerivationLookTerms.CutReview);
 
         scopes.Created.Should().Be(0, "a second look must not clone every template again");
         review!.Templates.Should().BeEmpty();
@@ -62,19 +62,6 @@ public sealed class CutReviewEvidenceIdTests
         reviewer.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read a", 1, Ran: true));
 
         reviewer.Lines.Single().Should().Be($"[R1] {Repo}: the cut review ran 'read a' exited 1");
-    }
-
-    [Fact]
-    public void Rejection_FalsePremise_CarriesTheMintedEvidenceLine()
-    {
-        var line = $"[R1] {Repo}: the cut review ran 'grep -E 'NewBus' .' exited 1";
-        var review = new SpecCutReview([new CutFinding(
-            "p1a", "the senders already reference the new bus", SpecCutVerdicts.FalsePremise,
-            "no reference exists", Cites: "[r1]")]);
-
-        var rejection = SpecCutRejection.For(review, [line]);
-
-        rejection.Should().Contain("p1a").And.Contain("false-premise").And.EndWith($"(evidence: {line})");
     }
 
     private static int Taken(DerivationLookBudget budget)

@@ -132,7 +132,6 @@ public sealed class SeriesContractDerivationTests
     private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(StepProvider provider, SpecSet? previous)
     {
         var deriver = new SpecSetDeriver(
-            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), AgentSmith.Tests.TestSupport.ReferenceCarryDoubles.Materializer(), NullLogger<SpecSetDeriver>.Instance);

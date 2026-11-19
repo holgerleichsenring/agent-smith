@@ -17,7 +17,7 @@ public static class SpecDialogChildTools
     public static readonly IReadOnlySet<string> ReadTools = new HashSet<string>(StringComparer.Ordinal)
     {
         "read_file", "grep_in_tree", "find_files", "directory_tree",
-        "web_fetch", "recall", "read_ticket", "ticket_work", "ticket_runs",
+        "web_fetch", "recall", "read_ticket",
     };
 
     /// <summary>The read tools of the parent's surface.</summary>

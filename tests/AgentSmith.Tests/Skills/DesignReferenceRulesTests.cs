@@ -90,12 +90,12 @@ public sealed class DesignReferenceRulesTests
         // 2026-11-10-14a3h: design_read's guidance rides its own description, offered only with a Figma source.
         partner.Should().NotContain("## Reading a design",
             Because("the section left the system prompt for the tool that appears with its material"));
-        Folded().Should().Contain("citing the frame's link with its `node-id` and the `version` `design_read` reported",
+        Folded().Should().Contain("citing the frame's link with its `node-id` and the `version` `web_fetch` reported",
             "a ticket derived from a design cites the version the run compares against");
 
         // 2026-11-18-4f3e: coding-agent-master 3.0.0 keeps the tool split in one sentence; the expected_version
         // and unreadable-frame rules left with the master that built by itself.
-        coding.Should().Contain("Figma links are read with `design_read`, other web pages with `web_fetch`",
+        coding.Should().Contain("Web pages and Figma links are read with `web_fetch`", // 9c1cd: design_read is web_fetch
             Because("web_fetch on a Figma link returns the shell, which reads as an empty design"));
     }
 

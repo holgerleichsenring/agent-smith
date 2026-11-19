@@ -11,12 +11,12 @@ namespace AgentSmith.Application.Services.Handlers;
 internal static class MasterLoopStop
 {
     /// <summary>Why the loop's top check said stop.</summary>
-    public static MasterStopKind ClassifyTop(bool budgetExhausted, MasterVerification? verification, int reengagePass, bool verdictDemanded)
+    public static MasterStopKind ClassifyTop(bool budgetExhausted, MasterVerification? verification, int reengagePass)
     {
         if (budgetExhausted) return MasterStopKind.Budget;
         if (verification?.Blocker is not null) return MasterStopKind.Blocker;
         if (verification?.Status == VerificationStatus.Failed) return MasterStopKind.RedDrained;
-        if (verification is null && ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass, verdictDemanded))
+        if (verification is null && ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass))
             return MasterStopKind.Verdictless;
         return MasterStopKind.Satisfied;
     }

@@ -42,10 +42,7 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> CodeSpecBlock =
     [
         CommandNames.SelectSpec,
-        // 2026-09-17-0e79c: what the spec says it RESTS ON is checked against the code before
-        // a master token is spent on it. After SelectSpec, so a spec the branch already
-        // satisfies drops it with the rest of the work steps.
-        CommandNames.CheckSpecPremises,
+        // 2026-11-18-9c1cb: no premise check — the master reads the code the spec touches itself.
         CommandNames.AgenticMaster,
         CommandNames.MasterOpenQuestions,
         // p0437: the work reaches the branch BEFORE the gate reads it. Live on ticket

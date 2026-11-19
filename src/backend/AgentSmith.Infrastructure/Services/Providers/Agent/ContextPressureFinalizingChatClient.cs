@@ -9,11 +9,11 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// so it measures the view that is actually forwarded — reduction gets first refusal and
 /// this fires only when reduction was not enough or is not configured.
 ///
-/// <para>The exit is the one the iteration budget already takes: the conversation keeps
-/// its evidence, one instruction demands the final answer, and tool calling is switched
-/// off for that turn. A shallow answer from partial evidence beats an HTTP 400. The
-/// caller's <see cref="ChatOptions"/> is CLONED, never mutated: the function-invoking
-/// client hands the same instance down on every iteration.</para>
+/// <para>The conversation keeps its evidence, tool results are re-cut to the bound, and one
+/// instruction asks for the final answer. 2026-11-18-9c1cc: the tool set never changes during a
+/// run, so the caller's <see cref="ChatOptions"/> go down unchanged — tools declared, tool mode as
+/// the caller set it; the text steers. A loop that keeps calling tools is ended by its iteration
+/// ceiling or the money fence, or fails the step when not even the re-cut fits the window.</para>
 /// </summary>
 internal sealed class ContextPressureFinalizingChatClient(
     IChatClient inner, int windowTokens, string role, ILogger? logger = null)
@@ -33,9 +33,6 @@ internal sealed class ContextPressureFinalizingChatClient(
         + "Omit anything you found no evidence for. No prose about the limit. When your tools include "
         + "finish_spec, write your report and call finish_spec, and no other tool.";
 
-    // 2026-11-18-98fa: the one call a spec's master ends with; the finalising turn leaves it callable.
-    private const string ClosingTool = "finish_spec";
-
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
@@ -50,7 +47,7 @@ internal sealed class ContextPressureFinalizingChatClient(
             "Context pressure on {Role}: ~{Estimated} of {Window} window tokens — finalising "
             + "the tool loop instead of overflowing it", role, estimated, windowTokens);
         var forced = new List<ChatMessage>(list) { new(ChatRole.User, FinalizeInstruction) };
-        return await base.GetResponseAsync(Fitted(forced), FinalizeOptions(options!), cancellationToken);
+        return await base.GetResponseAsync(Fitted(forced), options, cancellationToken);
     }
 
     // 2026-10-07-6b9dc: the instruction alone shrinks nothing, so a recent tail that outgrew
@@ -80,13 +77,4 @@ internal sealed class ContextPressureFinalizingChatClient(
         + $"estimates ~{estimated} tokens, {estimated - toolTokens} of them not tool output (instructions, "
         + "ticket and conversation). Cutting tool output cannot make it fit; the role needs a larger "
         + "window (models.<role>.context_window_tokens, if the deployment allows it) or a smaller prompt.";
-
-    // Tools stay declared — a provider rejects a request whose history carries tool
-    // blocks without the tools parameter — but ToolMode=None forbids further calls; 98fa: Auto while finish_spec is declared.
-    private static ChatOptions FinalizeOptions(ChatOptions options)
-    {
-        var clone = options.Clone();
-        clone.ToolMode = options.Tools!.Any(t => t.Name == ClosingTool) ? ChatToolMode.Auto : ChatToolMode.None;
-        return clone;
-    }
 }

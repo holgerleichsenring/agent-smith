@@ -50,27 +50,6 @@ public sealed class SpecDialogDiscussionPromptTests
     // 2026-09-17-042ed: the confirmation the findings were shown in is posted to the thread and
     // never appended to the transcript, so the edit turn is shown them here or nowhere.
     [Fact]
-    public void EditTurn_AfterAReviewedProposal_IsShownItsFindings()
-    {
-        var pipeline = With(new SpecDialogTurn("user", "cut it in two"));
-        pipeline.Set<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal,
-            new SpecOutcome(new SpecDraft("p9999", "widget goal", "spec: p9999", [])) with
-            {
-                Findings =
-                [
-                    new ProposalFinding("p9999", "false premise", "the endpoint is already there",
-                        Quote: null, Evidence: "[P1] repo-a: the proposal review ran 'read src/Api.cs' exited 0"),
-                ],
-            });
-
-        var prompt = new SpecDialogPromptFactory().Build(pipeline, 0, 0);
-
-        prompt.Should().Contain("What the review of your last proposal found")
-            .And.Contain("p9999 — false premise: the endpoint is already there")
-            .And.Contain("[P1] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
-    }
-
-    [Fact]
     public void Turn_AfterAFiledProposal_IsShownNoFindings()
     {
         var reviewedClean = With(new SpecDialogTurn("user", "and now the next one"));

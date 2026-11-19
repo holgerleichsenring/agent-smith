@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-18-9c1cd
+goal: "Every master offers at most 20 tools, no two doing one job, and its tool set is fixed for the whole run or conversation; a tool that cannot act answers why."
+
+applies_to: "default (Handlers/MasterToolComposition, Tools/* hosts, AgenticToolSurface, TicketActToolsFactory, TicketStewardTools, SpecDialogChildTools, DesignWorkToolGate, RenderReferenceToolFactory, MasterRecordToolHosts, SubAgentTeamToolHost, FilesystemToolHost; skills pin)"
+
+requires: [2026-11-18-9c1cc]
+
+facts:
+  - claim: "MasterToolComposition composes the coding master from AgenticToolSurface.ReadWriteWithHuman plus decide_by_default, dispute_memory, design_read, render/compare_reference, view_reference_image, ensure_repo_sandbox, update_progress, run_gate_stage, hand_forward, revise_spec, finish_spec and spawn_agents/send_message/wait_for_agents — up to 33 tools."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:42-119"
+  - claim: "A design turn's memory tools join only once a memory index was found, name_conversation only while the conversation is unnamed, remember and run_command only for a poster who may start runs, run_in_reference and view_reference_image only once an upload exists."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:54, src/backend/AgentSmith.Application/Services/Tools/TicketActToolsFactory.cs:32-33, src/backend/AgentSmith.Application/Services/Tools/DesignWorkToolGate.cs:24, src/backend/AgentSmith.Application/Services/Tools/ReferenceDesignTools.cs:28"
+  - claim: "Registry credentials are staged in every sandbox before the master runs."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs:3-17"
+  - claim: "grep_in_tree already takes one file as its root."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:453"
+
+scope:
+  in: "The final lists and the old-to-new table are .agentsmith/notes/2026-11-18-9c1cd-tool-surfaces.md. Merges: edit takes one or many edits with dry_run (multi_edit); grep_in_tree (grep_in_file); directory_tree with_sizes/sort_by and its listing counted toward unread areas (list_directory); web_fetch reads a Figma link through the design source (design_read); log_decision overrulable (decide_by_default); remember dispute (dispute_memory); finish_spec carries the build note (hand_forward); run_command stage (run_gate_stage), reference:<name> repo on a design turn (run_in_reference); send_message wait (wait_for_agents); render_reference reference+pairs (compare_reference); read_file shows upload images (view_reference_image), reads mock: and notes: (read_mock, read_notes); write_file writes mock:, notes: and deletes with delete:true (write_mock, write_notes, delete_file); state_work_picture open_questions (state_open_questions); read_ticket part tracker/runs/series and verify (ticket_work, ticket_runs, read_series, verify_series); start_next_attempt mode derive/preview (derive_specs). Dropped: get_artifact_credentials (auth staged before the run, and now also in a sandbox ensure_repo_sandbox adds), http_request on the coding master (run_command reaches the network). write_context_yaml stays on the coding master and its children: its typed JSON document is the schema. Fixed sets: recall, remember, name_conversation, run_command, withdraw_filed_ticket, start_next_attempt and edit_series are always offered on the surfaces that carry them and answer why when they cannot act. Skills pin to the release carrying the new names."
+  out: "Bootstrap, scout, series, admin and pr-review surfaces beyond the shared filesystem set (the shared set changes for them too: no grep_in_file, list_directory, multi_edit; the implementation set no http_request). A credential for a feed the agent's own change introduces (no tool hands one any more). A ticket conversation that changes role from design partner to steward is a change of master, not of a master's tool set."
+
+upgrade_impact: "Tool names change for every master (table in the notes file); the skills release v5.38.0 pinned here describes the new names, and a catalog pinned before it names tools that no longer exist. The coding master no longer has http_request or get_artifact_credentials; bootstrap and scan surfaces lose grep_in_file, list_directory and multi_edit too."
+
+steps:
+  - id: contract
+    action: "Write the tool lists to the notes file and hand them to the skills session."
+  - id: fs
+    action: "Filesystem sets drop grep_in_file, list_directory, multi_edit; the implementation set drops http_request; edit takes edits."
+  - id: composites
+    action: "Merged tools as delegating functions over the existing hosts; composition uses them; conditional tools always present with refusals."
+  - id: pin
+    action: "Pin the skills release (csproj version + sha256, tarball, example config, docs, validator tests)."
+  - id: tests
+    action: "Per-master count and uniqueness, stability across turns/drives, one test per merge."
+
+tests:
+  - "Each master's composed surface has at most 20 tools with unique names, for the fullest configuration."
+  - "Two design turns of one conversation (named/unnamed, with/without memory index, poster with/without runs.control, with/without upload) compose the same names; two compositions of one coding run compose the same names."
+  - "Each merged tool performs the old tool's job."
+
+done:
+  - "No master offers more than 20 tools or two tools for one job; no master's tool set changes during a run or a conversation."
+  - "Build and the full suite are green."

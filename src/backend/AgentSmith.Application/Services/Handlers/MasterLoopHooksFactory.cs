@@ -20,7 +20,7 @@ internal static class MasterLoopHooksFactory
     // tracker (which the handler updates between passes for result.md accuracy).
     internal static MasterLoopHooks Build(
         AgenticMasterContext context, PipelineCostTracker costTracker, Func<ProgressLedger> ledger,
-        LogDecisionToolHost log, VerdictOwed verdictOwed)
+        LogDecisionToolHost log)
     {
         context.Pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
         context.Pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
@@ -61,7 +61,6 @@ internal static class MasterLoopHooksFactory
             },
             RenderReminder: () => MasterNudges.BuildInPassReminder(ledger()),
             ReminderEveryNIterations: context.AgentConfig.LedgerReminderEveryNIterations,
-            DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations,
             // p0341d: the compaction PIN carriers — rendered CURRENT from PipelineContext /
             // the live decision log at compaction time, never a pass-start snapshot. So the
             // continuous pass preserves the THREAD (ledger + working state) as it compacts.
@@ -71,13 +70,7 @@ internal static class MasterLoopHooksFactory
                 return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
             },
             RenderWorkingStateForPin: () => WorkingStateSection.Build(log.GetDecisions(), null),
-            Compaction: context.AgentConfig.Compaction,
-            // 2026-09-08-805f: the ledger-complete brake — the handler-side state answers the
-            // predicate, renders the one demand and logs both events with the spend.
-            IsLedgerComplete: verdictOwed.IsLedgerComplete,
-            RenderVerdictDemand: verdictOwed.RenderDemand,
-            OnVerdictBrake: verdictOwed.Stopped,
-            VerdictOwedAfterIterations: context.AgentConfig.VerdictOwedAfterIterations);
+            Compaction: context.AgentConfig.Compaction);
     }
 
     // The pass's own calls on the frozen start, or the run's recorded calls if they already say more.

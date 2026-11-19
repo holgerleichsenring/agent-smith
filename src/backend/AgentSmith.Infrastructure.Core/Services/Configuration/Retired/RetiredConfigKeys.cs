@@ -58,7 +58,14 @@ public static class RetiredConfigKeys
         new("limits.max_concurrent_skill_calls", "2026-11-17", SkillCallRuntimeGone),
         new("limits.max_skills_per_phase", "2026-11-17",
             "Nothing read it after triage retired (p0312); the skills a stage runs are its master's choice."),
+        new("agents.*.reminder_drift_editless_iterations", "2026-11-18",
+            "Nothing reminds the master on reads without an edit any more: its loop is steered by mechanical facts only (2026-11-18-9c1cc)."),
+        new("agents.*.verdict_owed_after_iterations", "2026-11-18",
+            "Nothing demands the master's report or ends its pass when its checklist is complete (2026-11-18-9c1cc)."),
         new("limits.max_dialog_sub_agent_loop_iterations", "2026-11-12",
             "A design turn's child reads its ceiling from agents.<name>.dialog_sub_agent_loop_iterations (2026-11-12-cd4cl)."),
+        new("spec_review.design_turn", "2026-11-18",
+            "No review runs after a Work it out turn: its master owns the draft and commissions a review when it wants "
+            + "one; the run still reviews each spec before it is built (2026-11-18-9c1ca)."),
     ];
 }

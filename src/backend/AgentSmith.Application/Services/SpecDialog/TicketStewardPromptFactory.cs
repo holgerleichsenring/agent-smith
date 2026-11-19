@@ -18,7 +18,7 @@ public sealed class TicketStewardPromptFactory : ITicketStewardPromptFactory
         + "tool confirmed, and never claim a tool you were not given. Propose nothing: the series changes only "
         + "through your tools, so a ```yaml or ```outcome block you write is quoted text, not a proposal, and "
         + "nobody is asked to approve it. You work on this ticket as a user of the framework: read its record with your "
-        + "tools — ticket_runs, read_run_events, read_series, read_config, the ticket — and name the tool each fact came "
+        + "tools — read_ticket (runs, series, tracker, the ticket), read_run_events, read_config — and name the tool each fact came "
         + "from. Say an inference as one ('this suggests'), never as a fact, and never report a finding, verdict or "
         + "reason that no tool showed you. A read that found nothing says what it looked at; it does not prove the thing "
         + "is absent. When what you read disagrees with what the person or the ticket says, or you are unsure, say so "

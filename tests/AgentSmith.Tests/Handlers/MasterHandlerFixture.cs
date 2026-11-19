@@ -38,7 +38,7 @@ internal static class MasterHandlerFixture
         IDecisionLogger? decisions = null,
         AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null,
         AgentSmith.Contracts.Memory.IProjectMemoryRepository? projectMemory = null) =>
-        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents, projectMemory), AgentSmithConfig.Empty(),
+        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents, projectMemory),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
@@ -48,7 +48,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecExecutionPromptFactory(new AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader()),
-            TurnFlow(loop),
+            TurnFlow(),
             new MasterTicketExtras(new NoOpTicketDocumentMaterializer()),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
@@ -86,19 +86,12 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(), new AgentSmith.Application.Services.Turns.MidTurnMessageTools(),
             NullLogger<AgenticMasterHandler>.Instance);
 
-    /// <summary>The dialog turn's prompt and reply handling: both prompt contracts, the outcome gate and the
-    /// proposal review over the same loop — no reviewer call unless a test proposes.</summary>
-    internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow(IAgenticLoopRunner loop) =>
+    /// <summary>The dialog turn's prompt and reply handling: both prompt contracts and the mechanical checks on the
+    /// master's draft (2026-11-18-9c1ca: no review after the turn).</summary>
+    internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow() =>
         new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
-            new AgentSmith.Application.Services.SpecDialog.DesignTurnReviewDrive(new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
-                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Checks(),
-                // 2026-11-12-cd4ch: the design turn's pass off, as by default; the pass has its own rig.
-                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
-                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 4, designTurn: false)),
-                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Pass(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
-                loop, NullLogger<AgentSmith.Application.Services.SpecDialog.DesignTurnReviewDrive>.Instance));
+            AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Checks());
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks (2026-11-15-06fc: as files).</summary>

@@ -43,7 +43,7 @@ public static class SourceScopeRefusal
             _ => Because(step,
                 $"Step kind '{step.Kind}' is not available on the read-only source sandbox "
                 + "for spec-dialog grounding — it serves file reads (read_file, grep, "
-                + "list_directory, directory_tree), the processes the server itself builds, "
+                + "directory_tree), the processes the server itself builds, "
                 + "and writes under a declared prefix."),
         };
     }

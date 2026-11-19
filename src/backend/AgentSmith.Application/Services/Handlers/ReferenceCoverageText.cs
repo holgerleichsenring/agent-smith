@@ -18,8 +18,8 @@ internal static class ReferenceCoverageText
         if (coverage.Files > 0)
         {
             lines.Add($"Earlier turns of this conversation opened {coverage.Opened.Count} of the {coverage.Files} files "
-                + "read_file can read (read_file only; grep_in_tree and run_in_reference are not counted). Their content is not "
-                + "in this turn; your notes (read_notes) carry what you kept.");
+                + "read_file can read (read_file only; grep_in_tree and run_command are not counted). Their content is not "
+                + "in this turn; your notes (read_file notes:) carry what you kept.");
             lines.Add(Unopened(coverage));
         }
         if (coverage.Unreadable > 0)

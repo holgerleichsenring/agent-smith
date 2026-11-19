@@ -36,8 +36,8 @@ public sealed class MemoryWriteToolHost(
     private const string Base =
         "Records a new experiential memory (or updates one by name) in the repository it is about. One fact per " +
         "entry; check recall first and update rather than duplicate. A memory is a hint with a track record, never " +
-        "a rule: whether it holds is decided by the runs that rely on it (hand_forward relied_on) and by disputes " +
-        "(dispute_memory), never by approval. Only a repository with a code change this run can take one.";
+        "a rule: whether it holds is decided by the runs that rely on it (finish_spec relied_on) and by disputes, " +
+        "never by approval. Only a repository with a code change this run can take one.";
 
     private const string ProjectTarget =
         " A lesson that holds beyond this repository — how the project wants work done, a constraint every " +

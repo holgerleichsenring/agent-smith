@@ -60,7 +60,6 @@ Once the budget is exhausted:
 
 - A skill call that hasn't started is skipped. It returns an `Incomplete` outcome with a `cost-cap-exhausted` observation, and the pipeline runs its compile and delivery steps with what it has, so you still see partial output.
 - The coding master's current pass stops, and it isn't re-engaged for another pass.
-- A spec whose premise check is skipped for money is marked unchecked, not passed.
 
 Every one of these says the same sentence, naming the cap and what was spent in the units the cap compared:
 

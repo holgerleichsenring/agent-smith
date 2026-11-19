@@ -19,8 +19,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Commands;
 
 /// <summary>
-/// A declared stage that ran red earns the spec's one repair pass with its output, over real
-/// clones: never twice, never beside a resolution finding.
+/// A declared stage that ran red goes back to the master with its output, over real clones: again only while the
+/// repairs make progress (2026-11-18-9c1cc), never beside a resolution finding.
 /// </summary>
 [Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
@@ -41,7 +41,7 @@ public sealed class VerifySpecStageRepairTests
         result.InsertNext.Should().HaveCount(StageRepair.RepairBlock.Count).And.OnlyContain(c => c.SpecId == SpecId);
         clones.Pipeline.Get<List<string>>(ContextKeys.OutstandingCriteria).Should().ContainSingle()
             .Which.Should().StartWith(StageRepair.ItemPrefix).And.Contain("exited 1").And.Contain("app is still 1");
-        clones.Pipeline.Get<bool>(ContextKeys.SpecRepairAttempted).Should().BeTrue();
+        clones.Pipeline.Get<string>(ContextKeys.SpecRepairRed).Should().Contain("app is still 1");
     }
 
     [Fact]
@@ -53,15 +53,15 @@ public sealed class VerifySpecStageRepairTests
         var result = await Verify(clones);
 
         result.Message.Should().StartWith("Verification failed: ").And.Contain("exited 1")
-            .And.EndWith("; one repair pass follows").And.NotContain("\n");
+            .And.EndWith("; it goes back to the master with its output").And.NotContain("\n");
     }
 
     [Fact]
-    public async Task VerifySpec_RedStageAfterItsRepair_FailsTheSpec()
+    public async Task VerifySpec_RedStageAfterARepairThatWroteNothing_FailsTheSpec()
     {
         await using var clones = await Clones(RedStage);
         if (clones is null) return;
-        clones.Pipeline.Set(ContextKeys.SpecRepairAttempted, true);
+        clones.Pipeline.Set(ContextKeys.SpecRepairRed, "an earlier red"); // and the repair wrote nothing
 
         var result = await Verify(clones);
 
@@ -94,7 +94,7 @@ public sealed class VerifySpecStageRepairTests
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("resolution failure");
         result.InsertNext.Should().BeNullOrEmpty();
-        clones.Pipeline.TryGet<bool>(ContextKeys.SpecRepairAttempted, out _).Should().BeFalse();
+        clones.Pipeline.TryGet<string>(ContextKeys.SpecRepairRed, out _).Should().BeFalse();
     }
 
     [Fact]

@@ -33,7 +33,7 @@ public static class FigmaNodeSummary
         }
         if (shown < total)
             text.AppendLine($"[truncated: {total - shown} of {total} nodes not shown — budget {budget} characters;"
-                + " call design_read on a child node's link or id to read further]");
+                + " call web_fetch on a child node's link or id to read further]");
         return text.ToString().TrimEnd();
     }
 

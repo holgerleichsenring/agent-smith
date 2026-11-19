@@ -26,10 +26,6 @@ public sealed class SpecReviewConfigTests
     }
 
     [Fact]
-    public void SpecReviewConfig_DesignTurn_DefaultsOn() =>
-        new AgentSmithConfig().SpecReview.DesignTurn.Should().BeTrue("2026-11-12-7c1c: a design turn's advisory pass runs unless turned off");
-
-    [Fact]
     public void SpecReviewConfig_RatifiedBounds_DefaultToTheBuiltValuesAndNameTheirKeyBelowOne()
     {
         var config = new SpecReviewConfig();

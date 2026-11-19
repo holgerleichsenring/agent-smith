@@ -33,12 +33,8 @@ internal static class MasterReengagementPolicy
     // emitted no parseable verdict ("Your verdict") and a verdict is expected. Model-fitness
     // salvage — the skill instructs "Your verdict"; some models skip the closing artifact.
     // Pure + testable. Mirrors ShouldDriveApply.
-    // 2026-09-08-805f: a demand the ledger-complete brake already appended INSIDE the pass is
-    // this re-drive; a second one would be the same prompt against the same silence.
-    internal static bool ShouldNudgeForVerdict(
-        string? pipelineName, MasterVerification? verification, bool verdictDemandedInPass) =>
+    internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
         verification is null
-        && !verdictDemandedInPass
         && !string.IsNullOrEmpty(pipelineName)
         && PipelinePresets.ExpectsCodeChanges(pipelineName);
 

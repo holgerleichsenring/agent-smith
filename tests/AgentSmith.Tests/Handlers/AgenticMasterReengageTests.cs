@@ -29,8 +29,8 @@ public sealed class AgenticMasterReengageTests
         IReadOnlyList<string> criteria, IReadOnlyList<CodeChange> changes, int reengagePass, bool verdictDemandedInPass)
     {
         _ = criteria;
-        return ReengageReasonPolicy.Decide(pipeline, ledger, verification, budgetExhausted, changes, reengagePass,
-            verdictDemandedInPass).Reengage;
+        _ = verdictDemandedInPass;
+        return ReengageReasonPolicy.Decide(pipeline, ledger, verification, budgetExhausted, changes, reengagePass).Reengage;
     }
 
     private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
@@ -163,19 +163,6 @@ public sealed class AgenticMasterReengageTests
             "code", Ledger(ProgressStatus.Done), verification: null,
             budgetExhausted: false, criteria, NoChanges, reengagePass: 2, verdictDemandedInPass: false)
             .Should().BeFalse("a second re-drive is the same prompt against the same silence");
-    }
-
-    [Fact]
-    public void ShouldReengage_NoVerdict_DemandedInPass_StopsOnPassOne()
-    {
-        // 2026-09-08-805f: the ledger-complete brake demanded the verdict inside the pass and
-        // the master spent the allowance on tools instead. That demand was the salvage; the
-        // run ends on the unknown verdict exactly as an idle stop does.
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Done), verification: null,
-            budgetExhausted: false, new[] { "Inventory recorded" }, NoChanges, reengagePass: 1,
-            verdictDemandedInPass: true)
-            .Should().BeFalse();
     }
 
     [Fact]

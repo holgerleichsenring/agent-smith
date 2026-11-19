@@ -34,7 +34,7 @@ public abstract record OutcomeProposal
     public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
 
     /// <summary>2026-10-13-8762i: the spec ids (or <see cref="ProposalReviewTokens.Series"/>) not reviewed yet; null
-    /// when all were. 2026-11-10-8e59: information only — each is reviewed before it is built.</summary>
+    /// when all were. 2026-11-10-8e59: information only.</summary>
     public IReadOnlyList<string>? NotReviewed { get; init; }
 
     /// <summary>2026-11-10-8e59: the drafts whose exact text a review ended clean on.</summary>

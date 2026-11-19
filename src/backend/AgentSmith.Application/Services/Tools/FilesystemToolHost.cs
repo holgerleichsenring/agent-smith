@@ -180,7 +180,7 @@ public sealed class FilesystemToolHost : IToolHost
     // emits YAML through the same serializer the parser uses, so the LLM
     // can never produce a context.yaml the framework cannot read back.
     private const string ContextYamlPathRejection =
-        "Error: write_file / edit / multi_edit are not allowed for " +
+        "Error: write_file / edit are not allowed for " +
         ".agentsmith/contexts/*/context.yaml. Use the write_context_yaml " +
         "tool — it takes a structured JSON document and emits valid YAML " +
         "via the framework's typed serializer, eliminating LLM-generated " +
@@ -266,6 +266,7 @@ public sealed class FilesystemToolHost : IToolHost
         return result;
     }
 
+    // 2026-11-18-9c1cd: not offered as a tool; directory_tree's flat form.
     [Description("Lists the contents of a directory. Pass depth>1 for recursive listing. with_sizes=true adds a size column; sort_by={name|size|mtime} controls ordering. Use this for ad-hoc inspection; use directory_tree for a nested overview, find_files when you already know a name pattern.")]
     public Task<string> ListDirectory(
         [Description("Directory to list, from the repository root; '.' is the root.")] string path = ".",
@@ -290,16 +291,20 @@ public sealed class FilesystemToolHost : IToolHost
         _ => DirectorySortBy.Name
     };
 
-    [Description("Returns a nested text tree of the given directory, MCP filesystem-server directory_tree shape. Use this to get a one-shot layout overview instead of N list_directory walks.")]
+    [Description("Lists a directory: a nested tree to max_depth (default 4; 1 lists the direct children only). with_sizes adds a size column and sort_by orders entries (name, size descending, mtime newest first) — either one gives a flat listing instead of the tree. Use find_files when you already know a name pattern.")]
     public Task<string> DirectoryTree(
         [Description("Directory to start from, from the repository root; '.' is the root.")] string root = ".",
-        [Description("Maximum recursion depth (default 4).")] int? max_depth = null,
+        [Description("Maximum recursion depth (default 4; 1 = direct children only).")] int? max_depth = null,
         [Description("Optional list of basename globs to skip (e.g. ['*.min.js', 'bin']). The standard noisy dirs (.git, node_modules, bin, obj, etc.) are always skipped.")] IReadOnlyList<string>? exclude_globs = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        [Description("When true, a flat listing with a size column. Default false.")] bool with_sizes = false,
+        [Description("A flat listing ordered by 'name', 'size' (descending) or 'mtime' (newest first).")] string? sort_by = null)
     {
         _logger?.LogInformation("tool_call: DirectoryTree root={Root} depth={Depth}", root, max_depth);
         if (DraftReader is { } draft && SpecDialog.Writes.DraftPath.Names(root)) return Task.FromResult(DraftFileReads.Tree(draft(), root));
+        if (with_sizes || sort_by is not null) return ListDirectory(root, max_depth, with_sizes, sort_by ?? "name", ct);
         if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
+        lock (_sync) _listedPaths.Add(root); // 9c1cd: a listing counts toward UnreadAreas, as list_directory's did
         var (runner, bare, routeErr) = Route(root);
         if (routeErr is not null) return Task.FromResult(routeErr);
         return runner!.TreeAsync(bare, max_depth, exclude_globs, ct);
@@ -327,14 +332,20 @@ public sealed class FilesystemToolHost : IToolHost
         return FileSearchStep.Format(run, limit);
     }
 
-    [Description("Replaces an EXACT string occurrence in a file. By default old_string must appear EXACTLY ONCE — provide enough surrounding context to make it unique. With replace_all=true, every occurrence is replaced and the count is reported.")]
+    [Description("Replaces EXACT text in one file. Either one replacement — old_string must appear EXACTLY ONCE (give enough surrounding context to make it unique) unless replace_all is true — or several at once: pass edits, applied in order, all or none. dry_run with edits reports what would change and writes nothing.")]
     public async Task<string> Edit(
         [Description("Path of the file to edit, from the repository root.")] string path,
-        [Description("Exact string to find. Include enough surrounding context for uniqueness unless replace_all is true.")] string old_string,
-        [Description("Replacement string.")] string new_string,
+        [Description("Exact text to find, for one replacement. Include enough surrounding context for uniqueness unless replace_all is true.")] string? old_string = null,
+        [Description("Replacement text, for one replacement.")] string? new_string = null,
         [Description("When true, replace every occurrence and report the count. Default false.")] bool replace_all = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        [Description("Several replacements in one file, applied in order, all or none: each {old_string, new_string, replace_all}. Leave old_string/new_string empty when you pass these.")] IReadOnlyList<MultiEditOp>? edits = null,
+        [Description("With edits: report what would change and write nothing.")] bool dry_run = false)
     {
+        if (edits is { Count: > 0 })
+            return string.IsNullOrEmpty(old_string)
+                ? await MultiEdit(path, edits, dry_run, ct)
+                : "Error: pass either old_string/new_string or edits, not both.";
         _logger?.LogInformation("tool_call: Edit path={Path} old_len={Old} new_len={New} replace_all={All}",
             path, old_string?.Length ?? 0, new_string?.Length ?? 0, replace_all);
         if (IsContextYamlPath(path))
@@ -502,6 +513,9 @@ public sealed class FilesystemToolHost : IToolHost
     private static AIFunction Tool(Delegate impl, string name) =>
         AIFunctionFactory.Create(impl, name: name);
 
+    // 2026-11-18-9c1cd: one tool per job — grep_in_file is grep_in_tree over one file, list_directory is
+    // directory_tree's flat form, multi_edit is edit's edits, and http_request leaves the read/write set: run_command
+    // reaches the network there. The methods stay for their callers.
     // p0154: deprecated grep / glob / list_files aliases removed alongside the
     // agent-smith-skills 2.6.0 rename. The new tool surface is the only surface.
     // p0353: http_request exposed on its own so surfaces that otherwise get the read-only
@@ -512,10 +526,8 @@ public sealed class FilesystemToolHost : IToolHost
     private IEnumerable<AIFunction> ReadOnlySet() =>
     [
         Tool(ReadFile, "read_file"),
-        Tool(GrepInFile, "grep_in_file"),
         Tool(GrepInTree, "grep_in_tree"),
         Tool(FindFiles, "find_files"),
-        Tool(ListDirectory, "list_directory"),
         Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
         Tool(HttpRequest, "http_request"),
@@ -528,14 +540,10 @@ public sealed class FilesystemToolHost : IToolHost
         Tool(ReadFile, "read_file"),
         Tool(WriteFile, "write_file"),
         Tool(Edit, "edit"),
-        Tool(MultiEdit, "multi_edit"),
-        Tool(GrepInFile, "grep_in_file"),
         Tool(GrepInTree, "grep_in_tree"),
         Tool(FindFiles, "find_files"),
-        Tool(ListDirectory, "list_directory"),
         Tool(DirectoryTree, "directory_tree"),
         Tool(RunCommand, "run_command"),
-        Tool(HttpRequest, "http_request"),
     ];
 
     // p0161d: BootstrapDiscover gets read-only filesystem only. No write_file,
@@ -546,10 +554,8 @@ public sealed class FilesystemToolHost : IToolHost
     private IEnumerable<AIFunction> BootstrapDiscoverSet() =>
     [
         Tool(ReadFile, "read_file"),
-        Tool(GrepInFile, "grep_in_file"),
         Tool(GrepInTree, "grep_in_tree"),
         Tool(FindFiles, "find_files"),
-        Tool(ListDirectory, "list_directory"),
         Tool(DirectoryTree, "directory_tree"),
     ];
 

@@ -25,7 +25,7 @@ A line left open is the master's call, weighed by what it costs the spec's and t
 
 After the master, `VerifySpec` runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). This is the only thing that blocks a spec, like a commit gate.
 
-A red stage goes back to the master once with its output; the master hands it to its sub-agent. If the stage is still red afterwards, the spec fails, and the run says so honestly. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong).
+A red stage goes back to the master with its output; the master hands it to its sub-agent. It goes back again while each repair changes the code and the failure, and not once the run's cost budget is spent. If the same stage fails the same way after a repair, or the repair changed nothing, the spec fails, and the run says so honestly. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong).
 
 A repository whose contexts need two toolchain images is worked in two sandboxes. Before a stage runs, every sandbox of one repository is brought to the union of their work. When two sandboxes changed the same file to different contents, nothing is applied and verify is red, naming the file. A run where a change was delivered and no repository ran any verify command over it fails too: nobody checked what shipped.
 

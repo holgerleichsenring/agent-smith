@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-9c1cc
+
+decisions:
+  - category: Behaviour
+    chose: "A red stage goes back to the master again after a repair round that made progress: the repair pass wrote to the tree (its write log, ContextKeys.CodeChanges, is not empty — the re-engagement loop's produced-new-work signal) and the failure signature changed (repository, stage, exit code, output tail); a spent cost budget ends it at once; the executor's step budget is the backstop"
+    over: "'The repair wrote something' alone (the brief's first reading of the re-engagement test)"
+    reason: "Adversarial review: CodeChanges is per master step, so 'wrote something' never stops a repair that oscillates or writes without fixing; the failure signature is the mechanical fact that says a round moved. No counter and no new limit."
+  - category: Behaviour
+    chose: "ContextKeys.SpecRepairAttempted (bool) is replaced by SpecRepairRed (the last red's signature) and its SpecRenameTable row and spec-word allowlist row go"
+    over: "Reusing the old key name for a string"
+    reason: "Review: an old checkpoint carries a bool; under a new key it reads as no earlier repair, which costs at most one extra repair round. The rename row pointed at a constant that no longer exists."
+  - category: Behaviour
+    chose: "The governor keeps the money fence and the staleness reminder; the drift trigger, LedgerCompleteBrake, LedgerBrakeAction, VerdictOwed and their hooks go; the verdict-demanded flag leaves ReengageReasonPolicy, MasterLoopStop, MasterReengagementPolicy, ReengageStopLog and ReengageSession"
+    over: "Deleting the staleness reminder too"
+    reason: "The brief names drift and the brake. The staleness reminder re-shows the master's own checklist and decides nothing; the drift trigger judged reading without editing, and the brake demanded a report and ended passes on a complete ledger. A pass after the first re-drive with no report still stops as verdictless — that is the loop's own stop, not the brake."
+  - category: Architecture
+    chose: "agents.*.reminder_drift_editless_iterations and agents.*.verdict_owed_after_iterations are retired: RetiredConfigKeys rows, removed from AgentConfig, the schema and the docs row"
+    over: "Keeping them declared and ignored"
+    reason: "A declared key nothing reads silently does nothing; the retired-key advisory is the existing path (agents.*.parallelism took it). Neither key had a dashboard field."
+  - category: Behaviour
+    chose: "The context-pressure forced turn forwards the caller's ChatOptions unchanged — tools declared, tool mode as the caller set it — and steers by its instruction text; the re-cut to the window stays"
+    over: "Relying on compaction alone, or keeping ToolMode None"
+    reason: "The tool set never changes during a run (Anthropic guidance). Compaction already runs first; this client fires only when it was not enough. A model that keeps calling tools past the bound is ended by the iteration ceiling or the money fence, or the step fails naming the window when not even the re-cut fits — accepted in upgrade_impact."
+  - category: Scope
+    chose: "ProjectMapFinalizer's tools-off final turn and the run account keeping one problem line per red round are left as they are"
+    over: "Changing them here"
+    reason: "The analyzer scout is not a master; named follow-up 'analyzer final turn keeps its tools'. Problem lines per round are the record of what each round saw."

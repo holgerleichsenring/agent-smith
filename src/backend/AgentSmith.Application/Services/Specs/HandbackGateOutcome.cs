@@ -4,21 +4,18 @@ namespace AgentSmith.Application.Services.Specs;
 /// gate saw it.</summary>
 public enum HandbackGateStep
 {
-    /// <summary>Not a contradiction — the cut goes on to the review as before.</summary>
+    /// <summary>Not a contradiction — the cut goes on as before.</summary>
     Continue,
 
-    /// <summary>The contradiction parks: confirmed, unsettled, or not checkable.</summary>
+    /// <summary>The contradiction parks: cited, or uncited on the last attempt.</summary>
     Park,
 
     /// <summary>The contradiction cites no look the derivation took — asked again.</summary>
     ReAsk,
-
-    /// <summary>A second reading refuted it — one more attempt, with the refutation.</summary>
-    Refuted,
 }
 
 /// <param name="Step">What the deriver does next.</param>
-/// <param name="Message">What the deriver is answered with on a re-ask or a refutation.</param>
+/// <param name="Message">What the deriver is answered with on a re-ask.</param>
 public sealed record HandbackGateOutcome(HandbackGateStep Step, string? Message = null)
 {
     public static HandbackGateOutcome Continue { get; } = new(HandbackGateStep.Continue);

@@ -40,6 +40,20 @@ public sealed class FilesystemToolHostEditAndMultiEditTests
         written.Last().Should().Be("the only qux here");
     }
 
+    // 2026-11-18-9c1cd: edit takes several edits — multi_edit's job, through the one tool.
+    [Fact]
+    public async Task Edit_WithEdits_AppliesThemAtomically_AndRefusesBothForms()
+    {
+        var (host, written) = BuildWithContent("alpha beta");
+
+        var result = await host.Edit("file.cs", edits: [new("alpha", "ONE"), new("beta", "TWO")]);
+        var both = await host.Edit("file.cs", "alpha", "x", edits: [new("beta", "TWO")]);
+
+        result.Should().Contain("Applied 2 edit(s)");
+        written.Last().Should().Be("ONE TWO");
+        both.Should().StartWith("Error").And.Contain("not both");
+    }
+
     [Fact]
     public async Task MultiEdit_AppliesAllEditsAtomically_InOrder()
     {

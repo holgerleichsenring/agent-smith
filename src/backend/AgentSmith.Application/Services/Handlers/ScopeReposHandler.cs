@@ -1,12 +1,8 @@
-using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Scope;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -14,12 +10,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// p0331: understand the ticket, THEN provision. Runs after FetchTicket and
 /// before CheckoutSource (the first sandbox-requiring step). Two jobs:
 /// 1. Build the pre-checkout remote context inventory (RemoteContextInventoryBuilder).
-/// 2. One cheap LLM call classifies ticket → affected repos and narrows
-///    ContextKeys.Repos to that subset (the ONE seam checkout / sandboxes /
-///    CommitAndPR / PrCrossLink all re-read). All-repos fallback on low
-///    confidence / parse failure / LLM error / unknown repo name; the decision
-///    + rationale is always recorded on the run. A CLI --repo override already
-///    narrowed Repos to one entry, so the classifier never overrides the operator.
+/// 2. One cheap LLM call estimates the ticket and may refuse it.
+/// 2026-11-18-9c1cb: it no longer narrows ContextKeys.Repos or the contexts — the run keeps the
+/// repositories an approval or the project names, and the master scopes itself.
 /// <para>
 /// p0413: the same reply also estimates the ticket's SIZE and its SHAPE;
 /// ScopeEstimateRecorder turns both into run state (cost cap / derivation input).
@@ -27,8 +20,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Only SCOPING is meaningless when there is one repository — how much work the
 /// ticket is and what kind of work it is are questions a single-repo run has too,
 /// and skipping them left it on the static ceiling, cut blind. A single-repo run
-/// therefore estimates and stops there: no narrowing, no context scoping, no
-/// expected-changes gate — none of those is the estimate.
+/// therefore estimates like any other.
 /// </para>
 /// <para>
 /// The same reply carries the run's only pre-sandbox SECURITY judgement: a ticket
@@ -39,11 +31,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <para>
 /// 2026-09-08-1830: the contexts the reply NAMES are recorded on every ticketed run,
 /// single-repo included, as the claim the derivation's cut is held against. Naming is
-/// not narrowing: a single-repo run still scopes nothing.
+/// not narrowing.
 /// </para>
 /// <para>
 /// 2026-09-17-0e79a: ApprovedRepoScope answers WHICH repositories first — an approval names them
-/// and they are published before the inventory — and says when narrowing does not apply.
+/// and they are published before the inventory.
 /// </para>
 /// </summary>
 public sealed class ScopeReposHandler(
@@ -52,8 +44,7 @@ public sealed class ScopeReposHandler(
     RepoScopeClassifier classifier,
     ScopeEstimateRecorder estimates,
     ScopeRefusalRecorder refusals,
-    ScopeNamedContextsRecorder namedContexts,
-    ILogger<ScopeReposHandler> logger)
+    ScopeNamedContextsRecorder namedContexts)
     : ICommandHandler<ScopeReposContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -76,45 +67,11 @@ public sealed class ScopeReposHandler(
         await estimates.ApplyAsync(pipeline, reply.Estimate, cancellationToken);
         // p0413a: --repo (or a one-repo project) already decided WHICH repositories; the estimate is
         // recorded. 2026-10-12-6bfae: a failed call is said, never filed under the silent "skipped".
-        if (repos.Count <= 1)
-        {
-            namedContexts.Record(pipeline, reply.Classification, repos, inventory);
-            return CommandResult.Ok(reply.CallFailed
-                ? $"Single-repo run without a ticket estimate: the scope call failed — {reply.Error}"
-                : "Repo scoping skipped: single-repo run (one repo or --repo)");
-        }
-        var (scoped, record, expectedChanges) = RepoScopeEvaluator.Evaluate(
-            reply.Classification, reply.Error, repos);
-        // The scope decision is a run artifact, never silent: a named context key
-        // for programmatic consumers + a decision entry result.md / dashboard render.
-        pipeline.Set(ContextKeys.RepoScopeRationale, record);
-        pipeline.AppendDecisions([new PlanDecision("scope", record)]);
-        logger.LogInformation("{Record}", record);
-        // 2026-09-17-0e79a: a no-op over an approved scope — but everything BELOW it still runs.
-        approvedScope.Narrow(pipeline, scope, scoped);
-        var kept = ApprovedRepoScope.Kept(scope, scoped);
-        // p0384: the validated must-change subset feeds the keystone's per-repo delivery gate.
-        // Absent key = anyCode semantics: the classifier imposed no per-repo requirement.
-        if (expectedChanges.Count > 0)
-            pipeline.Set(ContextKeys.ExpectedChangeRepos, expectedChanges);
-        // p0336b: narrow CONTEXTS within the kept repos — same keep-all fallback.
-        ApplyContextScope(pipeline, reply.Classification, reply.Error, kept, inventory);
-        namedContexts.Record(pipeline, reply.Classification, kept, inventory);
-        return CommandResult.Ok(ApprovedRepoScope.Settled(scope) ?? record);
-    }
-
-    private void ApplyContextScope(
-        PipelineContext pipeline, RepoScopeClassification? classification, string? error,
-        IReadOnlyList<RepoConnection> keptRepos,
-        IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> inventory)
-    {
-        var (contexts, dropped) = ContextScopeEvaluator.Evaluate(classification, error, keptRepos, inventory);
-        if (contexts is null || dropped.Count == 0) return;
-        pipeline.Set(ContextKeys.ScopedContexts, contexts);
-        // The drop is a run artifact, not silent — the coordinator provisions
-        // fewer sandboxes and the dashboard shows why (same channel as repo scope).
-        var record = "Context scope: dropped " + string.Join(", ", dropped.Select(d => $"{d.Repo}/{d.Context}"));
-        pipeline.AppendDecisions([new PlanDecision("scope", record)]);
-        logger.LogInformation("{Record}", record);
+        // 2026-11-18-9c1cb: the run keeps the repositories the approval or the project names; the master
+        // scopes itself (ensure_repo_sandbox). The reply's contexts are recorded, never used to narrow.
+        namedContexts.Record(pipeline, reply.Classification, repos, inventory);
+        return CommandResult.Ok(reply.CallFailed
+            ? $"No ticket estimate: the scope call failed — {reply.Error}"
+            : $"Repo scoping skipped: the run keeps its {repos.Count} repository/repositories; the ticket is estimated");
     }
 }

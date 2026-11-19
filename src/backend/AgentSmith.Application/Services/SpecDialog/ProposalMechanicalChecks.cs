@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using Microsoft.Extensions.Logging;
@@ -5,19 +6,30 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-11-12-cd4ci: what a design turn's proposal is checked for when no review pass runs — read, no model call: a
-/// spec's or an epic's cited files, a ticket list's ticket:&lt;id&gt; requirements and (2026-11-17-5701a) its specs'
-/// cited files. The run reviews every spec before it is built either way.
+/// 2026-11-12-cd4ci: what a design turn's proposal is checked for — read, no model call: a spec's or an epic's cited
+/// files, a ticket list's ticket:&lt;id&gt; requirements and (2026-11-17-5701a) its specs' cited files. 2026-11-18-9c1ca:
+/// the only checks a design turn's draft gets from outside its master. 2026-11-18-9c1cb: no run reviews a spec before
+/// its master builds it.
 /// </summary>
 public sealed class ProposalMechanicalChecks(
-    ProposalEvidenceReview evidence, TicketPlanReview plans, ILogger<ProposalMechanicalChecks> logger)
+    ProposalEvidenceReview evidence, TicketExistenceFindings existence, ILogger<ProposalMechanicalChecks> logger)
 {
+    /// <summary>The spec id a finding about a ticket list as a whole carries.</summary>
+    public const string ListKey = "the list";
+
+    /// <summary>The problem of the one finding a list in a ticket's own conversation gets.</summary>
+    public const string BoundProblem = "bound conversation";
+
+    public const string BoundWhy =
+        "a list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket";
+
     public async Task<OutcomeProposal> CheckAsync(PipelineContext pipeline, OutcomeProposal proposal, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(proposal);
+        if (proposal is not TicketGraphOutcome && ProposalSpecSet.Drafts(proposal).Count == 0) return proposal;
         IReadOnlyList<ProposalFinding> kept = proposal is TicketGraphOutcome graph
-            ? (await plans.CheckAsync(pipeline, graph, ct)).Findings
+            ? await ListFindingsAsync(pipeline, graph, ct)
             : [];
         try
         {
@@ -29,4 +41,10 @@ public sealed class ProposalMechanicalChecks(
             return kept.Count == 0 ? proposal : proposal with { Findings = kept };
         }
     }
+
+    private async Task<IReadOnlyList<ProposalFinding>> ListFindingsAsync(
+        PipelineContext pipeline, TicketGraphOutcome graph, CancellationToken ct) =>
+        pipeline.Has(ContextKeys.SpecDialogTicket)
+            ? [new ProposalFinding(ListKey, BoundProblem, BoundWhy)]
+            : await existence.FindingsAsync(pipeline, graph, ct);
 }

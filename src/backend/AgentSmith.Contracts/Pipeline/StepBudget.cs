@@ -34,8 +34,9 @@ public sealed record StepBudget(int Limit, string Origin)
     public const int BaseAllowance = 40;
 
     /// <summary>
-    /// One spec: its six-command block plus the repair pass, the premise check, the review
-    /// and the fix pass that can follow it — about seventeen at worst, rounded up.
+    /// One spec: its six-command block plus repair passes of four commands each. 2026-11-18-9c1cc: a red stage
+    /// returns to the master while each repair changes the failure, so this is the backstop that ends a repair
+    /// carousel the failure signature does not — three repairs fit beside the block.
     /// </summary>
     public const int PerSpecAllowance = 20;
 

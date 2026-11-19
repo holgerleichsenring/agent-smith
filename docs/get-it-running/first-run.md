@@ -104,7 +104,7 @@ agent-smith code --ticket 54 --project todolist
 
 In CLI mode the sandbox is in-process, so no Docker is required. The run goes through the `code` pipeline:
 
-1. `FetchTicket` reads ticket 54, and `ScopeRepos` decides which of the project's repos it touches (here only `todolist-api`).
+1. `FetchTicket` reads ticket 54, and `ScopeRepos` sizes the ticket and checks it may be done; the run keeps the project's repos (here only `todolist-api`).
 2. `CheckoutSource` creates the run branch, then `RunPreflight` proves the preconditions it can only check now that the branch and sandbox exist.
 3. `BootstrapCheck` and `BootstrapGate` refuse a repo without `.agentsmith/contexts/<name>/context.yaml`; run `init-project` first (see [Onboarding](../reference/setup/onboarding.md)). Then the principles, the memory index and the context are loaded.
 4. `AnalyzeCode` sweeps the repo, and `DeriveSpec` turns the ticket into one or more specs, each with a done-list. When the ticket contradicts what is in the repository, `SpecHandback` parks it with a question instead of guessing.

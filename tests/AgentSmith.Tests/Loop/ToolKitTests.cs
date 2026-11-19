@@ -44,7 +44,7 @@ public sealed class ToolKitTests
         // p0154: deprecated grep / glob / list_files aliases removed in lockstep
         // with the agent-smith-skills 2.6.0 catalogue rename.
         tools.Should().Contain("read_file")
-             .And.Contain("grep_in_tree").And.Contain("list_directory")
+             .And.Contain("grep_in_tree").And.Contain("directory_tree")
              .And.Contain("run_command").And.Contain("log_decision").And.Contain("ask_human");
         tools.Should().NotContain("write_file");
     }
@@ -60,12 +60,12 @@ public sealed class ToolKitTests
         // list_directory/directory_tree/find_files/grep_in_file/grep_in_tree/
         // run/http) + log_decision + ask_human = 13 total. Deprecated aliases
         // gone alongside the agent-smith-skills 2.6.0 catalogue rename.
-        tools.Should().HaveCount(13);
+        tools.Should().HaveCount(9); // 2026-11-18-9c1cd: 7 filesystem tools + log_decision + ask_human
         tools.Should().Contain(new[]
         {
-            "read_file", "write_file", "edit", "multi_edit",
-            "list_directory", "directory_tree", "find_files", "grep_in_file", "grep_in_tree",
-            "run_command", "http_request",
+            "read_file", "write_file", "edit",
+            "directory_tree", "find_files", "grep_in_tree",
+            "run_command",
             "log_decision", "ask_human"
         });
     }
@@ -101,7 +101,7 @@ public sealed class ToolKitTests
         var tools = NamesOf(kit.GetToolsFor("code", null, null, hosts));
 
         // Same count as Implementation: full filesystem-host surface + log_decision + ask_human.
-        tools.Should().HaveCount(13);
+        tools.Should().HaveCount(9); // 2026-11-18-9c1cd: 7 filesystem tools + log_decision + ask_human
     }
 
     [Fact]

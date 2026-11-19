@@ -27,10 +27,6 @@ internal static class DerivationTestLooks
             new ProjectTemplateScopes(
                 scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
             activity ?? TurnActivityRecorder.Tools(),
-            new VerifyStageResolver(
-                new DeclaredStagePresence(readers, NullLogger<DeclaredStagePresence>.Instance),
-                NullLogger<VerifyStageResolver>.Instance),
-            new ContextVerifyStagesResolver(),
             NullLogger<DerivationLook>.Instance);
     }
 

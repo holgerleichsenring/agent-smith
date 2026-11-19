@@ -29,7 +29,6 @@ PhaseId	rewrite	REWRITE	the spec id under its old name, as the frozen SpecRename
 PhaseProgress	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseProposal	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseRecorded	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
-PhaseRepairAttempted	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseReviewEntry	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseReviewReport	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
 PhaseReviewed	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it

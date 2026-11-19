@@ -29,12 +29,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// view — and a gap that survives the pin becomes a question for the author.
 /// </para>
 /// <para>
-/// 2026-10-12-3a36b: a contradiction hand-back passes <see cref="ContradictionHandbackGate"/>
-/// between parse and review; a refutation is a second extra attempt beside the pin's.
+/// 2026-10-12-3a36b: a contradiction hand-back passes <see cref="ContradictionHandbackGate"/> after the parse.
+/// 2026-11-18-9c1cb: no second model reviews the cut or refutes a hand-back; the checks here are mechanical.
 /// </para>
 /// </summary>
 public sealed class SpecSetDeriver(
-    CutReviewStep cutReview,
     SpecDerivationCall call,
     DerivationLookFactory looks,
     IPromptCatalog prompts,
@@ -93,14 +92,9 @@ public sealed class SpecSetDeriver(
                 if (!attempts.IsLast(attempt)) { messages.Add(attempts.Reject("Your series contract was rejected", contract)); continue; }
                 logger.LogWarning("Spec derivation attempt {Attempt}: the series contract is dropped, the cut kept: {Problem}", attempt, contract);
             }
-            var gated = await handbacks.JudgeAsync(parsed.Derivation, parsed.Uncited, look,
-                attempts.IsLast(attempt), attempts.Refuted, agentConfig, pipeline, cancellationToken);
+            var gated = handbacks.Judge(parsed.Derivation, parsed.Uncited, look, attempts.IsLast(attempt));
             if (gated.Step == HandbackGateStep.Park) return (parsed.Derivation, null);
             if (gated.Step != HandbackGateStep.Continue) { messages.Add(attempts.Gated(gated, parsed.Derivation)); continue; }
-            // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut can be DELIVERED.
-            var rejection = await cutReview.ReviewAsync(
-                parsed.Derivation, ticket, attempt, attempts.Kept, looks, agentConfig, pipeline, cancellationToken);
-            if (rejection is not null) { messages.Add(attempts.Reject("Your cut cannot be delivered", rejection)); continue; }
             var gap = coverage.Gap(named, parsed.Derivation.Set);
             if (gap.Count == 0) return (parsed.Derivation, null);
             if (attempts.Pinned) return (ScopedContextQuestion.For(parsed.Derivation, gap, named!), null);

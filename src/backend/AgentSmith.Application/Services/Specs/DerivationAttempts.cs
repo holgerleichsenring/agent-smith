@@ -6,9 +6,8 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-12-3a36b: the state of one derivation's retry loop — how many attempts it may take,
-/// the best cut it saw, the last rejection it answered, and the uncited contradiction it asked
-/// about again. Split from <see cref="SpecSetDeriver"/> when a refutation became a second reason
-/// for an extra attempt beside the pin: the bound is now a sum, and the loop reads it from here.
+/// the last rejection it answered, and the uncited contradiction it asked about again.
+/// 2026-11-18-9c1cb: no cut review keeps a best cut and nothing refutes a hand-back.
 /// </summary>
 internal sealed class DerivationAttempts(int max)
 {
@@ -17,14 +16,9 @@ internal sealed class DerivationAttempts(int max)
     /// <summary>Set once a cut left a named context uncovered and was pinned back.</summary>
     public bool Pinned { get; private set; }
 
-    /// <summary>Set once a contradiction hand-back was refuted by a second reading.</summary>
-    public bool Refuted { get; private set; }
-
-    public LeastObjectedCut Kept { get; } = new();
-
     public string? LastError { get; private set; }
 
-    public int Bound => max + (Pinned ? 1 : 0) + (Refuted ? 1 : 0);
+    public int Bound => max + (Pinned ? 1 : 0);
 
     public bool IsLast(int attempt) => attempt >= Bound;
 
@@ -44,17 +38,16 @@ internal sealed class DerivationAttempts(int max)
             ScopedContextGapPromptSection.Render(gap, ScopedContextCoverage.Carried(cut)));
     }
 
-    /// <summary>A contradiction the gate did not let park: asked again, or refuted.</summary>
+    /// <summary>A contradiction the gate did not let park: asked again.</summary>
     public ChatMessage Gated(HandbackGateOutcome outcome, SpecDerivation derivation)
     {
         ArgumentNullException.ThrowIfNull(outcome);
-        Refuted |= outcome.Step == HandbackGateStep.Refuted;
         if (outcome.Step == HandbackGateStep.ReAsk) _uncitedHandback = derivation;
         return Reject("Your hand-back was not accepted", outcome.Message);
     }
 
-    /// <summary>What the loop answers once the attempts ran out: the least-objected cut, else an
-    /// uncited contradiction — which parks unchecked rather than falling through to the fallback.</summary>
+    /// <summary>What the loop answers once the attempts ran out: an uncited contradiction — which parks
+    /// rather than falling through to the fallback — else the last rejection.</summary>
     public (SpecDerivation? Derivation, string? Error) Exhausted =>
-        Kept.Best is null && _uncitedHandback is not null ? (_uncitedHandback, null) : (Kept.Best, LastError);
+        _uncitedHandback is not null ? (_uncitedHandback, null) : (null, LastError);
 }

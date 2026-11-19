@@ -55,7 +55,7 @@ public static class PipelineHandlersExtensions
         // and the per-run factory for the master's escalation tool host.
         services.AddTransient<SandboxRepoCloner>().AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
-        services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
+        services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>().AddTransient<SetupRegistryAuthHandler>().AddTransient<MidRunRegistryAuth>();
         // p0375: generic registry-auth staging for ecosystems the deterministic
         // NuGet/npm fast-paths do not cover — declared/persisted registry_auth
         // template first, Scout-role LLM fallback second, token substituted host-side.
@@ -92,7 +92,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<DeriveSpecContext>, DeriveSpecHandler>();
         services.AddTransient<ICommandHandler<SpecSequenceContext>, SpecSequenceHandler>();
         services.AddTransient<ICommandHandler<SelectSpecContext>, SelectSpecHandler>();
-        services.AddTransient<ICommandHandler<CheckSpecPremisesContext>, CheckSpecPremisesHandler>(); // 0e79c
         services.AddTransient<ICommandHandler<SpecHandbackContext>, SpecHandbackHandler>();
         services.AddSpecDerivation();
         services.AddTransient<DiscoveryOutputParser>();
@@ -168,8 +167,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<BugOutcomeParser>().AddTransient<TicketCommentOutcomeParser>(); // 7a69c
         services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>().AddTransient<TicketGraphOutcomeParser>(); // 3a36e, dbcej
         services.AddTransient<RequiresEdgeChecker>().AddTransient<TicketGraphChecker>().AddTransient<TicketGraphOrderer>(); SpecDialog.Writes.ProposalWriteRegistrations.AddProposalWrites(services); // cd4ca
-        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalReview>().AddTransient<ProposalWholeSetReview>().AddTransient<ProposalReviewPass>().AddTransient<ProposalMechanicalChecks>().AddTransient<TicketExistenceFindings>() // cd4ch/i
-            .AddTransient<SpecDialogTurnFlow>().AddTransient<DesignTurnReviewDrive>().AddTransient<TicketPlanReview>().AddTransient<TicketPlanReviewer>(); // dbcek
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<ProposalMechanicalChecks>().AddTransient<TicketExistenceFindings>() // cd4ch/i
+            .AddTransient<SpecDialogTurnFlow>(); // 2026-11-18-9c1ca: no post-turn review
         // 2026-10-02-3f06c: the proposal's cited files, read before its model review.
         services.AddTransient<EvidenceReferences>().AddTransient<EvidenceCheck>().AddTransient<EpicChildOrderer>().AddTransient<ProposalEvidenceReview>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();

@@ -19,21 +19,37 @@ public sealed class SubAgentTeamToolHost(
 {
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? executionStage, string? investigatorMode) =>
     [
-        AIFunctionFactory.Create(SendMessage, name: "send_message", description:
-            "Writes to a sub-agent you started, by its id. A running one reads it with its next tool result; a finished "
-            + "one continues with it as its next turn, keeping everything it did so far, and its answer reaches you "
-            + "when it finishes again."),
-        AIFunctionFactory.Create(WaitForAgents, name: "wait_for_agents", description:
-            "Waits until a sub-agent you started finishes (its answer comes with this result) or none is running."),
+        AIFunctionFactory.Create(MessageAsync, name: "send_message", description:
+            "Writes to a sub-agent you started, by its id or name: a running one reads it with its next tool result; a "
+            + "finished one continues with it as its next turn, keeping everything it did so far, and its answer "
+            + "reaches you when it finishes again. wait: true (with or without a message) then waits until one of your "
+            + "sub-agents finishes — its answer comes with this result — or none is running."),
     ];
 
+    /// <summary>2026-11-18-9c1cd: send_message and wait_for_agents as one tool.</summary>
+    public async Task<string> MessageAsync(
+        [Description("The sub-agent's id, as spawn_agents returned it, or its name. Omit to only wait.")] string? agent_id = null,
+        [Description("What you tell it: feedback, a correction, the next thing to do.")] string? text = null,
+        [Description("True waits until a sub-agent finishes, or none is running.")] bool wait = false,
+        CancellationToken ct = default)
+    {
+        var sent = string.IsNullOrWhiteSpace(agent_id) && string.IsNullOrWhiteSpace(text) ? null
+            : string.IsNullOrWhiteSpace(agent_id) || string.IsNullOrWhiteSpace(text)
+                ? "Error: a message needs both agent_id and text; to only wait, pass wait: true and neither."
+                : await SendMessage(agent_id, text, ct);
+        if (sent is null && !wait) return "Error: pass agent_id and text to write to a sub-agent, or wait: true to wait for one.";
+        if (!wait || sent?.StartsWith("Error", StringComparison.Ordinal) == true) return sent!;
+        var waited = await WaitForAgents(ct);
+        return sent is null ? waited : $"{sent}\n{waited}";
+    }
+
     public async Task<string> SendMessage(
-        [Description("The sub-agent's id, as spawn_agents returned it, or its name.")] string agent_id,
-        [Description("What you tell it: feedback, a correction, the next thing to do.")] string text,
+        string agent_id,
+        string text,
         CancellationToken ct = default)
     {
         if (team.Find(agent_id) is not { } member)
-            return $"No sub-agent has the id '{agent_id}'. Yours: {Roster()}.";
+            return $"Error: no sub-agent has the id '{agent_id}'. Yours: {Roster()}.";
         if (member.TryPost(text))
         {
             await events.MessagedAsync(member.Id, context, text, continued: false, ct); // 2026-11-18-c8e2d
