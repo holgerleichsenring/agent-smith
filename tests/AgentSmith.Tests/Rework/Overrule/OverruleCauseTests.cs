@@ -81,14 +81,6 @@ public sealed class OverruleCauseTests
     }
 
     [Fact]
-    public void PreviousCutPrompt_Overrule_AppendNamesTheOverruledDefaultsSection()
-    {
-        var rendered = PreviousCutPromptSection.Render(Executed(2), SpecRevisionCause.Overrule, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
-
-        rendered.Should().Contain("A person overruled a default").And.Contain("ADD new specs after them that carry out what the overruled defaults section asks");
-    }
-
-    [Fact]
     public void SpecSourceResolver_Overrule_KeepsTheApproval_AndReDerives()
     {
         var decision = new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), ApprovedSetDoubles.Continuation(),

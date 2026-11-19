@@ -19,17 +19,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class TicketMessageToRunCompositionTests
 {
-    private const string OneSpec = """
-        {"specs": [
-           {"slug": "introduce-the-guard",
-            "goal": "Introduce the empty-payload guard",
-            "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
-            "done": ["An empty request body is answered with 400."],
-            "carries": [1,2,3]}],
-         "discarded": [],
-         "ignored_instructions": [],
-         "handback": {"case": "none", "reason": ""}}
-        """;
 
     private sealed class OneMessage : ITicketConversationMessages
     {
@@ -54,11 +43,11 @@ public sealed class TicketMessageToRunCompositionTests
             services.AddSingleton<ITicketConversationMessages>(new OneMessage());
         });
         harness.ChatClient
-            .EnqueueText(OneSpec)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueFinish();
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }
+            .WithSeries(new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400."));
         runner.RequestContext[ContextKeys.ProjectName] = "fixture";
 
         var result = await runner.RunAsync("code");

@@ -9,8 +9,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0393a through the REAL composition: an ORDINARY ticket — no hand-written spec
-/// anywhere — runs the `code` preset end to end because DeriveSpec turns it into spec
-/// specs first. This is the spec's headline claim, asserted against the wired pipeline
+/// anywhere — runs the `code` preset end to end because DeriveSpec gives it a stand-in
+/// spec first (2026-11-19-6b0ba). This is the spec's headline claim, asserted against the wired pipeline
 /// rather than a handler with mocks.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -18,12 +18,11 @@ public sealed class DerivedSpecCodeTests
 {
 
     [Fact]
-    public async Task Harness_OrdinaryTicket_RunsCodePresetEndToEndThroughDerivation()
+    public async Task Harness_OrdinaryTicket_RunsCodePresetEndToEndThroughAStandIn()
     {
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
@@ -36,6 +35,7 @@ public sealed class DerivedSpecCodeTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Specs.Should().ContainSingle();
         set.Source.Should().Be(SpecSource.Derived, "the ticket carried no spec of its own");
+        set.StandIns.Should().Equal([set.Specs[0].SpecId], "its coding master writes the spec (2026-11-19-6b0ba)");
         runner.LastContext!.Get<SpecDraft>(ContextKeys.CurrentSpec).Done
             .Should().NotBeEmpty("the spec's done-list is the run's acceptance contract");
     }
@@ -49,7 +49,6 @@ public sealed class DerivedSpecCodeTests
         // the entry account is what decides whether it is worked at all. This case is about
         // one master pass per spec, so it says plainly that spec 2 is not yet delivered.
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // spec 1: plan, master, verdict
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
@@ -59,7 +58,7 @@ public sealed class DerivedSpecCodeTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
             .EnqueueFinish();
 
-        var runner = new PipelineRunner(harness.Services);
+        var runner = new PipelineRunner(harness.Services).WithSeries(HarnessSeries.TwoSpecs);
         await runner.RunAsync("code");
 
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
@@ -69,24 +68,4 @@ public sealed class DerivedSpecCodeTests
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
     }
 
-    // p0391a, end to end: the harness fixture configures no needs_clarification_status, so
-    // the hand-back CANNOT park — and a run that cannot park must fail loudly rather than
-    // hand back silently and leave the ticket claimable for the next poll cycle.
-    [Fact]
-    public async Task Harness_DerivationHandsBackWhereNoParkStatusExists_FailsInsteadOfSilently()
-    {
-        await using var harness = RealCompositionHarness.Build(
-            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.NotImplementableJson);
-
-        var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("code");
-
-        runner.LastContext!.Get<SpecHandback>(ContextKeys.SpecHandback)
-            .Case.Should().Be(SpecHandbackCase.NotImplementable);
-        harness.ChatClient.ToolCalls.Should().BeEmpty(
-            "an unimplementable ticket stops instead of producing a plausible wrong spec");
-        result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("needs_clarification_status");
-    }
 }

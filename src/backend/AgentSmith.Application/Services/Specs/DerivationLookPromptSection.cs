@@ -26,7 +26,7 @@ internal static class DerivationLookPromptSection
             + $"Every result starts with an evidence id such as [{look.Terms.EvidencePrefix}3]; "
             + look.Terms.CiteRule);
         foreach (var repository in look.Repositories)
-            sb.AppendLine($"- {repository}{Declared(look, repository)}");
+            sb.AppendLine($"- {repository}");
         if (look.Templates.Count == 0) return sb.ToString();
 
         // 2026-09-13-84c0: apart from the targets, and said in the same breath as what they
@@ -42,21 +42,5 @@ internal static class DerivationLookPromptSection
             + "it, so running out of the template allowance ends the derivation.");
         foreach (var template in look.Templates.Keys) sb.AppendLine($"- {template}");
         return sb.ToString();
-    }
-
-    /// <summary>
-    /// 2026-09-20-9c74: what a holder that may run a stage can actually ask for. A tool the
-    /// holder is not told the LABELS of is a tool it spends its one run guessing at, so the
-    /// labels are listed beside the repository the way the names themselves are. They are the
-    /// RAW declaration: only the cannot-fail filter can be applied here, and it is the one
-    /// that empties a whole repository.
-    /// </summary>
-    private static string Declared(DerivationLook look, string repository)
-    {
-        if (!look.Terms.MayRunAStage) return string.Empty;
-        var labels = look.DeclaredStageLabels(repository);
-        return labels.Count == 0
-            ? " (declares no verify stage you may run)"
-            : $" (declared verify stages you may run by label: {string.Join(", ", labels)})";
     }
 }

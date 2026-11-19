@@ -6,35 +6,6 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
-/// p0393a: the one LLM call of the DeriveSpec step, and the only place JUDGEMENT
-/// lives. What is load-bearing and where the spec boundaries fall is a judgement,
-/// so it sits in the pinned skill and can be tuned without a release. Cutting the
-/// chosen spans and writing the markdown is base functionality and lives in code:
-/// the model returns ANCHORS, never content.
-/// <para>
-/// 2026-10-06-03c7c: the caller hands in the series' base id — read off the branch or minted —
-/// and every spec id is that base plus a letter.
-/// </para>
-/// <para>
-/// 2026-10-12-3a36e: and the scope's repository names, which each spec's repos is checked
-/// against or filled from.
-/// </para>
-/// </summary>
-public interface ISpecSetDeriver
-{
-    Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-        Ticket ticket,
-        IReadOnlyList<TicketSegment> segments,
-        SpecSet? previous,
-        string series,
-        string cause,
-        IReadOnlyList<string> repositories,
-        AgentConfig agentConfig,
-        PipelineContext pipeline,
-        CancellationToken cancellationToken);
-}
-
-/// <summary>
 /// p0393a: reads the set back from the CHECKED-OUT ticket branch. The clone is the
 /// fetch — a re-trigger or a PR-comment trigger lands on the same
 /// <c>agent-smith/&lt;ticketId&gt;</c> branch, so whatever a reviewer committed on the

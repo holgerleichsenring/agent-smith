@@ -36,7 +36,7 @@ public sealed class ApprovedSetDeriveSpecTests
         var result = await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Deriver.Calls.Should().Be(0, "an approved set is worked, never re-derived");
+        harness.Recuts.Calls.Should().Be(0, "an approved set is worked, never re-derived");
         harness.Writer.Written!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
         harness.Writer.Written.Source.Should().Be(SpecSource.Approved);
         harness.PullRequests.Opened.Should().Be(1, "the reviewer needs the draft pull request at the spec commit");
@@ -109,7 +109,7 @@ public sealed class ApprovedSetDeriveSpecTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Filed()), default);
 
-        harness.Deriver.Calls.Should().Be(0,
+        harness.Recuts.Calls.Should().Be(0,
             "deriving here would silently replace a ratified spec with a guess");
         harness.Writer.Written.Should().BeNull("there is nothing to publish");
     }
@@ -192,7 +192,7 @@ public sealed class ApprovedSetDeriveSpecTests
         await harness.Handler().ExecuteAsync(context, default);
 
         harness.Writer.Written.Should().BeNull("nothing is published from a pasted spec");
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
         context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Case
             .Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
     }
@@ -205,13 +205,12 @@ public sealed class ApprovedSetDeriveSpecTests
     public async Task ApprovedSet_HandWrittenSpecTicketWithNoRecord_DerivesFromItsText()
     {
         var harness = Harness();
-        harness.Deriver.Result = Derivation();
 
         var result = await harness.Handler().ExecuteAsync(
             harness.Context(Ticket(EmbeddedSpec, labels: ["phase"])), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Deriver.Calls.Should().Be(1, "no code path reads a ticket description as a spec");
+        harness.Recuts.Calls.Should().Be(1, "no code path reads a ticket description as a spec");
         harness.Writer.Written!.Source.Should().Be(SpecSource.Derived);
     }
 
@@ -219,14 +218,13 @@ public sealed class ApprovedSetDeriveSpecTests
     public async Task LoudMiss_SpecTicketWithAParentStamp_StillDerives()
     {
         var harness = Harness();
-        harness.Deriver.Result = Derivation();
 
         var result = await harness.Handler().ExecuteAsync(
             harness.Context(Ticket(labels:
                 ["phase", FiledTicketLabels.ApprovedSetStamp, "phase-parent:42"])), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Deriver.Calls.Should().Be(1,
+        harness.Recuts.Calls.Should().Be(1,
             "an epic child of the N-children shape deliberately carries no spec");
     }
 
@@ -243,7 +241,7 @@ public sealed class ApprovedSetDeriveSpecTests
 
         await harness.Handler().ExecuteAsync(context, default);
 
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
         context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason
             .Should().Contain("nobody approved it");
     }
@@ -252,12 +250,11 @@ public sealed class ApprovedSetDeriveSpecTests
     public async Task ApprovedSet_NoRecordAndNoSpecLabel_DerivesExactlyAsBefore()
     {
         var harness = Harness();
-        harness.Deriver.Result = Derivation();
 
         var result = await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Deriver.Calls.Should().Be(1);
+        harness.Recuts.Calls.Should().Be(1);
         harness.Writer.Written!.Source.Should().Be(SpecSource.Derived);
     }
 
@@ -265,13 +262,12 @@ public sealed class ApprovedSetDeriveSpecTests
     public async Task ApprovedSet_MalformedEmbeddedSpecAndNoRecord_IsDerivedFrom()
     {
         var harness = Harness();
-        harness.Deriver.Result = Derivation();
 
         var result = await harness.Handler().ExecuteAsync(
             harness.Context(Ticket("```yaml\nspec: nope\ngoal: 3\n```")), default);
 
         result.IsSuccess.Should().BeTrue("2026-10-06-03c7d: a ticket's text is input, never a spec");
-        harness.Deriver.Calls.Should().Be(1);
+        harness.Recuts.Calls.Should().Be(1);
     }
 
     /// <summary>
@@ -287,7 +283,7 @@ public sealed class ApprovedSetDeriveSpecTests
         await harness.Handler().ExecuteAsync(harness.Context(Ticket(), carried), default);
 
         harness.Writer.Written!.Source.Should().Be(SpecSource.Approved);
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
     }
 
     /// <summary>
@@ -349,16 +345,4 @@ public sealed class ApprovedSetDeriveSpecTests
     private static Ticket Ticket(string description = "Migrate the client.", IReadOnlyList<string>? labels = null) =>
         new(new TicketId("19106"), "Migrate the client", description, null, "open", "azdo", labels ?? []);
 
-    private static SpecDerivation Derivation()
-    {
-        var segments = TicketSegmenter.Segment("Migrate the client.");
-        var spec = new DerivedSpec(
-            ApprovedSets.Spec("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
-        return new SpecDerivation(
-            new SpecSet(
-                Key, [spec], SpecAccountingBuilder.Build([spec], [], segments),
-                [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
-                SpecSource.Derived),
-            []);
-    }
 }

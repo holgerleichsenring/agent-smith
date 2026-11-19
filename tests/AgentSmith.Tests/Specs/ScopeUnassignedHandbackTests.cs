@@ -25,20 +25,14 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class ScopeUnassignedHandbackTests
 {
-    private static readonly SpecHandback Unassigned = SpecScopeHandback.For(
-        "azdo-1", "2026-10-12-0a0a", SpecSource.Derived, ["BackgroundWorker", "Server"]).Handback!;
+    // A stored hand-back of the case: nothing raises it since 2026-11-19-6b0ba, and a parked ticket still reads it.
+    private static readonly SpecHandback Unassigned = new(SpecHandbackCase.ScopeUnassigned,
+        "The ticket could not be cut into specs that each change exactly one of the repositories in scope (api, web).");
 
     private static readonly TrackerConnection Parkable = new()
     {
         Type = TrackerType.AzureDevOps, NeedsClarificationStatus = "needs-info", NotImplementableStatus = "blocked",
     };
-
-    [Fact]
-    public void SpecScopeHandback_MultiRepo_IsScopeUnassigned()
-    {
-        Unassigned.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
-        Unassigned.Reason.Should().Contain("BackgroundWorker, Server");
-    }
 
     [Fact]
     public void SpecHandbackComment_ScopeUnassigned_NotTheContradictionText()
@@ -84,7 +78,7 @@ public sealed class ScopeUnassignedHandbackTests
             .ExecuteAsync(new SpecHandbackContext(null, null, [], Pipeline()), default);
 
         result.IsSuccess.Should().BeFalse("continuing would run checkout with no spec to work");
-        result.Message.Should().Contain("BackgroundWorker, Server");
+        result.Message.Should().Contain("api, web");
     }
 
     [Fact]
@@ -105,20 +99,6 @@ public sealed class ScopeUnassignedHandbackTests
         var pointer = await pointers.GetAsync(string.Empty, "azdo-1", default);
         pointer!.LastHandbackCase.Should().Be(SpecHandbackCase.ScopeUnassigned);
         pointer.HandbackHeads.Should().BeNull("only a contradiction stores the heads it parked at");
-    }
-
-    [Theory]
-    [InlineData("scope_unassigned")]
-    [InlineData("ScopeUnassigned")]
-    [InlineData("6")]
-    public void SpecDerivationEnvelope_ModelNamesScopeUnassigned_Refused(string name)
-    {
-        using var doc = JsonDocument.Parse(
-            $$$"""{"specs": [], "handback": {"case": "{{{name}}}", "reason": "cannot divide"}}""");
-        var envelope = new SpecDerivationEnvelope();
-
-        envelope.Handback(doc.RootElement).Should().BeNull("only the code raises this case");
-        envelope.HandbackRejection(doc.RootElement).Should().Contain("raised by the framework");
     }
 
     private static TicketComment OurComment() => new(

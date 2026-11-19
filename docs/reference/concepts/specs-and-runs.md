@@ -124,7 +124,7 @@ The key is the spec id; the text after it is a one-line summary, and planned spe
 
 ### Specs in a code run
 
-A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into a series of specs under `.agentsmith/specs/planned/`, one YAML spec and one Markdown companion each, plus a manifest at `.agentsmith/series/{base}.yaml` that records the ticket, the order and where every part of the ticket went. The series id is minted the same way this project mints its own, today's date plus four random hex digits (`2026-10-15-3f2a`), and its specs are that id plus a letter: `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and so on. When a spec has run, the run moves it to `.agentsmith/specs/done/` with an outcome block and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
+A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. Its specs are a series under `.agentsmith/specs/planned/` — written in a design conversation, or by the coding master itself from a stand-in when the ticket came without one —, one YAML spec and one Markdown companion each, plus a manifest at `.agentsmith/series/{base}.yaml` that records the ticket, the order and where every part of the ticket went. The series id is minted the same way this project mints its own, today's date plus four random hex digits (`2026-10-15-3f2a`), and its specs are that id plus a letter: `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and so on. When a spec has run, the run moves it to `.agentsmith/specs/done/` with an outcome block and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
 
 ## Runs
 
@@ -245,7 +245,7 @@ Real numbers from actual pipeline runs. Costs depend on model choice, codebase s
 
 When codeably processes a ticket:
 
-1. **Specify** — cuts the ticket into specs on the ticket branch and posts the cut to the ticket
+1. **Specify** — the series on the ticket branch, or the coding master writes the spec first from a stand-in
 2. **Execute** — works one spec at a time; the master reads the code the spec touches and finds out whether its premises hold
 3. **Verify** — runs the repository's declared verify stages and takes the [delivery account](../../how-it-works/delivery-account.md) per spec
 4. **Record** — writes the spec record, then `result.md` with the account, cost and decision data

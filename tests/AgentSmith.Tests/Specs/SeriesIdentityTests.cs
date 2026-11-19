@@ -1,3 +1,6 @@
+using AgentSmith.Domain.Models;
+using AgentSmith.Application.Services.Validation;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
@@ -14,10 +17,6 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class SeriesIdentityTests
 {
-    private const string Reply = """
-        {"specs": [{"slug": "rename", "goal": "Rename the clients", "done": ["Renamed."], "carries": [1]}]}
-        """;
-
     [Fact]
     public void Series_TwoTrackersSameTicketNumber_DifferentIds()
     {
@@ -134,9 +133,11 @@ public sealed class SeriesIdentityTests
             "a set without a series has no manifest to be written to");
     }
 
+    // 2026-11-19-6b0ba: the set a ticket with no spec gets — its ids follow the series as a cut's did.
     private static SpecSet Parse(TicketKey key, string series, IReadOnlyList<TicketSegment> segments) =>
-        DerivationTestParsers.Real().Parse(Reply, key.Value, series, "1", segments, SpecSource.Derived)
-            .Derivation!.Set;
+        new SpecStandIns(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), new DerivedSpecYamlRenderer())
+            .Build(key.Value, series, new Ticket(new TicketId("1"), "Rename the clients", "Rename the clients.", null, "open", "test"),
+                segments, null, SpecSource.Derived, ["app"], []);
 
     private static SpecSet Set(string? series) =>
         new("jira-1", [], SpecAccounting.Empty, [], SpecSource.Derived, Series: series);

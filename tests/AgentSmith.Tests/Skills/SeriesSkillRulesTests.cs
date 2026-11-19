@@ -25,24 +25,12 @@ public sealed class SeriesSkillRulesTests
 
     private static string DesignPartner() => PackagedMaster.Read("design-partner-master");
     private static string Folded() => PackagedMaster.Folded("design-partner-master");
-    private static string SpecDerivation() => PackagedMaster.Read("spec-derivation-master");
 
     /// <summary>2026-11-12-681f: the contract's shape is write_contract's schema; the master names the tool.</summary>
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_EmitsASeriesContract() =>
         Folded().Should().Contain("`draft:contract.yaml` for the names and data the children share",
             Because("the epic contract rule"));
-
-    [Fact]
-    public void EmbeddedSkills_SpecDerivationMaster_EmitsASeriesContract() =>
-        SpecDerivation().Should().Contain(
-            "Optionally add a \"contract\" object beside \"specs\" — \"names\" [{name, kind, number?, owner, writers?}], "
-            + "\"data\" [{datum, lives_in, owner, writers?}], \"areas\" [{spec, paths}], \"budgets\" [{path, spec, max_lines}] "
-            + "— naming each spec by its 1-based position in your reply (only an executed spec may be named by its id); "
-            + "kind is one of event, system-event, table, context-key, endpoint, config, command, tool, type; give each "
-            + "name or datum one owner (the others are writers), each number one name per kind, no '*' in a path, and a "
-            + "line budget from every spec that touches a shared file.",
-            Because("the derived set's contract rule"));
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_LeavesMockAuthoringToItsTool() =>
@@ -105,12 +93,4 @@ public sealed class SeriesSkillRulesTests
             .And.NotContain("those questions all at once", Because("one fork per question"));
     }
 
-    [Fact]
-    public void EmbeddedSkills_SpecDerivationMaster_SaysWhatOneAttemptRuns() =>
-        // 2026-11-18-550ac: spec-derivation 1.10.1 — work beyond MaxSpecs is a question, not a programme.
-        SpecDerivation().Should().Contain(
-            "One attempt runs at most {MaxSpecs} specs (a re-cut: the most the series holds); work that needs more is a "
-            + "question: one reading builds the first {MaxSpecs} now and the rest in a later attempt, the other cuts the "
-            + "ticket into several in a design conversation.",
-            Because("the attempt size sentence"));
 }

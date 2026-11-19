@@ -33,8 +33,8 @@ public static partial class PipelinePresets
     /// without attempting its work.</summary>
     public const string SpecDeriveName = "spec-derive";
 
-    // 2026-10-26-bdd0a: the code preset's front, word for word, up to and including SpecGate, and nothing
-    // after it: no prerequisites, no master, no commit, no pull request of code. The derivation and the per-repository placement are the code run's own, so a set derived here is the set a code
+    // 2026-10-26-bdd0a: the code preset's front, word for word, up to and including SpecGate; 2026-11-19-6b0ba: then
+    // the coding master on each stand-in, writing the spec only — no prerequisites, no commit, no pull request of code. The derivation and the per-repository placement are the code run's own, so a set derived here is the set a code
     // run would have derived. Written out rather than taken from Code: a field initializer in a partial file
     // runs in an order the C# spec does not fix. No PipelineNameInitializer: the name is not in the catalog's
     // pipeline_name enum and no skill of the front keys on it, the reason spec-dialog leaves the step out.
@@ -54,5 +54,21 @@ public static partial class PipelinePresets
         CommandNames.DeriveSpec,
         CommandNames.SpecHandback,
         CommandNames.SpecGate,
+        // 2026-11-19-6b0ba: the coding master writes each stand-in — the uploads it builds against first.
+        CommandNames.MaterializeReferenceSets,
+        CommandNames.SpecSequence,
     ];
+
+    /// <summary>2026-11-19-6b0ba: what a spec derivation splices per stand-in — the coding master writes the spec and
+    /// builds nothing; the gate after it judges that one spec and ends the run when none is left.</summary>
+    public static readonly IReadOnlyList<string> SpecDeriveBlock =
+    [
+        CommandNames.SelectSpec,
+        CommandNames.AgenticMaster,
+        CommandNames.SpecGate,
+    ];
+
+    /// <summary>The block SpecSequence splices per spec for <paramref name="pipelineName"/>.</summary>
+    public static IReadOnlyList<string> SpecBlockFor(string? pipelineName) =>
+        string.Equals(pipelineName, SpecDeriveName, StringComparison.OrdinalIgnoreCase) ? SpecDeriveBlock : CodeSpecBlock;
 }

@@ -36,7 +36,6 @@ public sealed class ExternalWorkerTicketTests
             // nothing to scope, but its size and shape are still asked for, and in
             // worker mode the worker answers that call like every other.
             .EnqueueText(ScopeEstimateReply)
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             // 2026-10-13-8762g: ReviewSpecs asks spec_review.reviewers (2) fresh reviewers before the master.
             .EnqueueText(AttackBuild).EnqueueText(AttackBuild)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")

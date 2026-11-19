@@ -68,17 +68,6 @@ public sealed class TicketGraphCompositionTests : IDisposable
         scope.ServiceProvider.GetRequiredService<TicketGraphLinks>().Should().NotBeNull();
     }
 
-    [Fact]
-    public void SpecSetDeriver_FromRealServiceCollection_ResolvesTheMaterializer()
-    {
-        using var provider = Composition().BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        scope.ServiceProvider.GetRequiredService<ISpecSetDeriver>().Should().BeOfType<SpecSetDeriver>();
-        scope.ServiceProvider.GetRequiredService<ReferenceMaterializer>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<IFilingRun>().Should().BeOfType<FilingRun>(); // 2026-11-17-5701b
-    }
-
     private static ServiceCollection Composition()
     {
         var services = new ServiceCollection();

@@ -30,7 +30,6 @@ public sealed class ProjectMapIsolationTests
         {
             poisoner.ChatClient
                 .EnqueueText("{}")
-                .EnqueueText(SpecDerivationFixture.DerivationJson)
                 .EnqueueText("No changes needed.");
             await new PipelineRunner(poisoner.Services).RunAsync("code");
         }
@@ -40,7 +39,6 @@ public sealed class ProjectMapIsolationTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")

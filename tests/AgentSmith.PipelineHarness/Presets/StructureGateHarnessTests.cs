@@ -46,7 +46,6 @@ public sealed class StructureGateHarnessTests
     {
         await using var harness = Harness();
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
             .EnqueueFinish()
@@ -70,7 +69,6 @@ public sealed class StructureGateHarnessTests
     {
         await using var harness = Harness();
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
             .EnqueueFinish()

@@ -17,15 +17,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// number in front of every line. A holder that reports a LINE needs them — the read tool
 /// returns raw content, so an unnumbered line number is a figure nobody can check — and a
 /// holder that only quotes text does not, and pays no tokens for them.</param>
-/// <param name="MayRunAStage">2026-09-20-9c74: whether this holder may RUN one verify stage a
-/// repository declared, by label. The tool itself is withheld by the collaborator — a look
-/// built without one has none, whatever its terms say — and this term is what the prompt
-/// sentence is rendered from, so a holder knows whether it may ask. Both, so a mistake in
-/// either one fails closed. Every holder names its own value: one of the five is defined AS
-/// another with fields replaced, and a default would reach it silently.</param>
 public sealed record DerivationLookTerms(
     string Actor, int Allowance, string EvidencePrefix, string Settle, string CiteRule,
-    bool NumberedReads = false, bool MayRunAStage = false)
+    bool NumberedReads = false)
 {
     /// <summary>Looks one derivation may take, across every attempt of its retry loop.</summary>
     public const int DerivationAllowance = 12;
@@ -37,20 +31,18 @@ public sealed record DerivationLookTerms(
     public static DerivationLookTerms Derivation { get; } = new(
         "derivation", DerivationAllowance, "L",
         "Write the work order on what you have; state as an assumption what you could not settle.",
-        "a fact you state cites that id, and a fact that cites none is recorded as an assumption.",
-        MayRunAStage: false);
+        "a fact you state cites that id, and a fact that cites none is recorded as an assumption.");
 
     public static DerivationLookTerms CutReview { get; } = new(
         "cut review", CutReviewAllowance, "R",
         "Judge the cut on what you have; report no false premise you did not look at.",
-        "a false premise you report cites that id in \"cites\", and one that cites none is discarded.",
-        MayRunAStage: false);
+        "a false premise you report cites that id in \"cites\", and one that cites none is discarded.");
 
     /// <summary>2026-09-17-042ed: a design turn's proposal, reviewed inside the turn. The cut
     /// review's rules, under its own name and letter. 2026-11-12-cd4cl: its allowance is the agent's
     /// <c>dialog_review_look_allowance</c>.</summary>
     public static DerivationLookTerms ProposalReviewWith(int allowance) =>
-        CutReview with { Actor = "proposal review", Allowance = allowance, EvidencePrefix = "P", MayRunAStage = false };
+        CutReview with { Actor = "proposal review", Allowance = allowance, EvidencePrefix = "P" };
 
     /// <summary>2026-09-17-042eh: looks one spec review may take. Eight against the cut
     /// review's six: it judges a DIFF, so every file it reports on is a file it must open,
@@ -68,7 +60,7 @@ public sealed record DerivationLookTerms(
         "spec review", SpecReviewAllowance, "P",
         "Report only on the files you did read; say nothing about the rest.",
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
-        NumberedReads: true, MayRunAStage: false);
+        NumberedReads: true);
 
     /// <summary>2026-10-13-8762e: a fresh reviewer attacking a spec before it is built. 2026-11-17-f9b0b: its allowance
     /// is never below spec_review.attack_look_floor, and the look past it says so.</summary>
@@ -77,7 +69,7 @@ public sealed record DerivationLookTerms(
         "Answer on what you opened; claim nothing about a cited file you did not open. The allowance is the larger of "
         + "spec_review.attack_look_floor and the spec's cited paths plus 12, so one review stays inside its share of the run.",
         "a cut or finding you report cites that id in \"cites\", and one that cites none is discarded.",
-        NumberedReads: true, MayRunAStage: false);
+        NumberedReads: true);
 
     /// <summary>2026-10-13-8762e: sized to one spec — its distinct cited paths plus 12, never below the floor.</summary>
     public static DerivationLookTerms AttackReviewFor(Contracts.Models.SpecDraft draft, int floor) =>

@@ -39,7 +39,7 @@ public sealed class TicketLabelNoteDownstreamTests
             new Ticket(new TicketId("42"), "Widget storage", Body + Note, null, "open", "test"));
 
     [Fact]
-    public async Task Prompts_TheMasterTheClassifierTheDerivationTheCutReviewAndTheEpicGround_DoNotSeeTheNote()
+    public async Task Prompts_TheMasterTheClassifierTheCutReviewAndTheEpicGround_DoNotSeeTheNote()
     {
         var ticket = Fetched();
         var pipeline = new PipelineContext();
@@ -52,12 +52,11 @@ public sealed class TicketLabelNoteDownstreamTests
             MasterUserPrompt.Build(
                 ticket, new Repository(new BranchName("run/42"), "https://git.test/app"), [], "", ""),
             await ClassifierPromptAsync(ticket),
-            SpecPromptComposer.Compose(ticket, segments, previous: null, cause: "", pipeline, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults),
             SpecCutReviewPrompt.For([Draft()], SpecCutReviewTicketText.Of(ticket), look: null),
             EpicGroundPromptSection.Build(pipeline),
         ];
 
-        prompts.Should().HaveCount(5).And.OnlyContain(
+        prompts.Should().HaveCount(4).And.OnlyContain(
             p => !p.Contains(TicketLabelNote.BeginIdentifier, StringComparison.Ordinal)
                 && !p.Contains(TicketLabelNote.Heading, StringComparison.Ordinal)
                 && !p.Contains("binds this ticket to spec execution", StringComparison.Ordinal));
@@ -71,12 +70,12 @@ public sealed class TicketLabelNoteDownstreamTests
         // The whole-ticket fallback pins the entire description AS the ratified spec markdown,
         // so a leak here is not a prompt hazard — it is the specification.
         var ticket = Fetched();
-        var fallback = new SpecFallback(
+        var fallback = new SpecStandIns(
             new SpecDraftValidator(new SpecSchemaProvider()),
             new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
         var set = fallback.Build(
-            "key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(ticket.Description), [], SpecSource.Derived, []);
+            "key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(ticket.Description), null, SpecSource.Derived, [], []);
 
         var markdown = set.Specs.Single().Markdown;
         markdown.Should().Contain("Make the widget storable")

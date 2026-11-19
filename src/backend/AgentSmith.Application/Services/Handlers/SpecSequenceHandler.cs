@@ -19,7 +19,8 @@ public sealed class SpecSequenceHandler(
 {
     // The block lives on PipelinePresets, not here: the park-capability questions are
     // asked against the preset at CONFIGURATION time, before any run splices anything.
-    private static IReadOnlyList<string> PerSpec => PipelinePresets.CodeSpecBlock;
+    private static IReadOnlyList<string> PerSpec(PipelineContext pipeline) =>
+        PipelinePresets.SpecBlockFor(pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) ? name : null);
 
     public Task<CommandResult> ExecuteAsync(
         SpecSequenceContext context, CancellationToken cancellationToken)
@@ -28,7 +29,9 @@ public sealed class SpecSequenceHandler(
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null || set.Specs.Count == 0)
             return Task.FromResult(CommandResult.Ok("No derived specs to execute — the run has no spec set"));
 
-        var pending = set.UnexecutedTail;
+        // 2026-11-19-6b0ba: a spec derivation writes only the stand-ins; a written spec waits for its person.
+        IReadOnlyList<DerivedSpec> pending = PipelinePresets.LeavesTicketAlone(context.Pipeline)
+            ? [.. set.UnexecutedTail.Where(p => set.IsStandIn(p.SpecId))] : set.UnexecutedTail;
         if (pending.Count == 0)
             return Task.FromResult(CommandResult.Ok(
                 $"Every spec of {set.Key} already executed on this branch — nothing left to run"));
@@ -42,7 +45,7 @@ public sealed class SpecSequenceHandler(
         // 2026-09-17-0e79e: the executor's loop guard is sized here, because this is where
         // the work is known — the specs this attempt splices, never the set's own count.
         context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForSpecs(building.Count));
-        var commands = building.SelectMany(spec => PerSpec.Select(name => new PipelineCommand(name) { SpecId = spec.SpecId }))
+        var commands = building.SelectMany(spec => PerSpec(context.Pipeline).Select(name => new PipelineCommand(name) { SpecId = spec.SpecId }))
             .ToArray();
 
         var next = chunked ? $"; this attempt's chunk is {building.Count} of {pending.Count}; the next attempt starts at {pending[building.Count].SpecId}" : string.Empty;

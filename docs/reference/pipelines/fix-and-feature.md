@@ -17,8 +17,8 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | 7 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` context |
 | 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadDesignSystem / LoadContext | Loads the repo's principles, memory index, root DESIGN.md and context |
 | 9 | AnalyzeCode | Scout agent maps the relevant code |
-| 10 | DeriveSpec | Turns the ticket into an ordered series of specs on the ticket branch |
-| 11 | SpecHandback | Parks the ticket when the derivation handed it back |
+| 10 | DeriveSpec | Reads the series on the ticket branch; a ticket without one gets a stand-in spec per repository (no model) |
+| 11 | SpecHandback | Parks the ticket when the series cannot be worked (out of step, approved set missing) |
 | 12 | SpecGate | Validates the spec before a single master token is spent |
 | 13 | EnsurePrerequisites / ProbeTarget / MaterializeReferenceSets | Installs what the work needs, checks the target answers, and writes the uploaded sets and images the approval cites |
 | 14 | SpecSequence | Splices one block of steps per spec this attempt builds |
@@ -56,7 +56,6 @@ graph TD
     Verify -->|green, next spec| Spec
     Verify -->|green| PR[CommitAndPR]
 
-    style Derive fill:#27ae60,color:#fff
     style Verify fill:#c0392b,color:#fff
 ```
 
@@ -66,7 +65,7 @@ Before `VerifySpec` runs a stage, every sandbox of one repository is brought to 
 
 ## The specification
 
-`DeriveSpec` cuts the ticket into a **series**: an ordered set of specs that share one base id. The base is minted in code, once, from the clock: today's UTC date plus four random hex digits, such as `2026-10-15-3f2a`. Each spec is the base plus a letter, `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and a re-run reads the base back from the branch instead of minting a new one. On the ticket branch the series lies as:
+A ticket's specs are a **series**: an ordered set of specs that share one base id. The base is minted in code, once, from the clock: today's UTC date plus four random hex digits, such as `2026-10-15-3f2a`. Each spec is the base plus a letter, `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and a re-run reads the base back from the branch instead of minting a new one. On the ticket branch the series lies as:
 
 ```
 .agentsmith/
@@ -83,17 +82,19 @@ Before `VerifySpec` runs a stage, every sandbox of one repository is brought to 
 
 Per spec there is a schema-valid YAML file and a Markdown companion with the verbatim parts of the ticket it carries. The manifest at `.agentsmith/series/{base}.yaml` is what the next run reads: the ticket it belongs to, the goal, the ordered spec ids, the revisions, the accounting (which spec carries each part of the ticket, or why a part was discarded), a hand-back if there was one, the approval when a person approved the series, and the series contract. A spec's directory is its state. When a spec has run, `WriteSpecRecord` moves it and its companion from `planned/` to `done/` and appends an `outcome:` block: the run that executed it, what it delivered, the build note under `hand_forward`.
 
-A fresh cut holds at most `series.specs_per_attempt` specs (default 8). A series may grow to `series.max_specs` (default 24) through later re-cuts and additions; one attempt builds at most `series.specs_per_attempt` of them, fewer when the run's wall clock left does not fit that many, and the rest wait for the next attempt.
+A series may grow to `series.max_specs` (default 24); one attempt builds at most `series.specs_per_attempt` of them (default 8), fewer when the run's wall clock left does not fit that many, and the rest wait for the next attempt.
 
-Before it writes, the derivation may look at the repositories through read-only tools. A cut that fails validation goes back to the model with the reason, up to three attempts; no fresh model reviews the cut. A cut that covers fewer of the contexts the scope call named gets one more attempt; a gap that survives it becomes a question for the author. If nothing usable comes back from a one-repository scope, the whole ticket runs as one spec and the run says why; over several repositories the ticket is handed back instead (see below).
+### A ticket without a spec
 
-In a multi-repository scope every spec names exactly one repository. Work in two repositories is cut as two specs. How the series is then split across the repositories is on [Multi-repo](../../how-it-works/multi-repo.md#one-series-across-repositories).
+When the branch carries no series, or every spec of it already ran and new input arrived (a comment, an edit, Request changes), `DeriveSpec` writes a **stand-in** per repository in scope: the whole ticket as one spec naming that repository, its goal the ticket's title, its done lines the ticket's own criteria. No model runs in that step. The manifest lists the stand-ins under `stand_ins`. The coding master on a stand-in writes the real spec first — from the ticket, its conversation and the code it reads — and records it with `revise_spec`, which takes it off the list; a repository with nothing to do gets a spec that says so. Work beyond one spec is a follow-up the master proposes in its report. New input over specs that have not run yet keeps them as they are; the master is told the input and amends the spec itself.
 
-The series is committed, a draft spec PR opens in every repository the series touches, and the cut is posted to the ticket with its criteria, facts and assumptions. The run doesn't wait on it. How you correct a cut, and how an approved specification from a design conversation is handled, is on [Expectations](../../how-it-works/expectations.md#the-done-list-is-the-expectation).
+In a multi-repository scope every spec names exactly one repository. How the series is then split across the repositories is on [Multi-repo](../../how-it-works/multi-repo.md#one-series-across-repositories).
+
+The series is committed and a draft spec PR opens in every repository the series touches; a stand-in is not posted to the ticket, since it is the ticket. The run doesn't wait on it. How you correct a cut, and how an approved specification from a design conversation is handled, is on [Expectations](../../how-it-works/expectations.md#the-done-list-is-the-expectation).
 
 ### The series contract
 
-A series with several specs may carry a contract in its manifest: the names its members declare and the numbers those take (an event, a table, an endpoint, a config key, a tool and so on, from a fixed list of kinds), the data each member owns, the files each member touches, and a per-member line budget for a file several of them share. Every entry names its owner by spec id. Each thing has one owner, a number is taken once per kind, and a file several members touch needs a budget from each of them. A contract that collides goes back to the model with every collision named; if the last attempt still collides, the cut is kept without a contract.
+A series with several specs may carry a contract in its manifest: the names its members declare and the numbers those take (an event, a table, an endpoint, a config key, a tool and so on, from a fixed list of kinds), the data each member owns, the files each member touches, and a per-member line budget for a file several of them share. Every entry names its owner by spec id. Each thing has one owner, a number is taken once per kind, and a file several members touch needs a budget from each of them. A design conversation writes it; a stand-in carries none.
 
 ### Build notes
 
@@ -101,7 +102,7 @@ Each spec's master ends by handing a build note to the next spec through `finish
 
 ## When the ticket comes back to you
 
-The derivation hands a ticket back instead of guessing. Each case comments on the ticket and parks it:
+These cases comment on the ticket and park it. The first four come from series written before 2026-11-19, when a model cut the ticket; a stored one still parks and reads as before:
 
 - **Two readings.** The comment lists both and names the one the run would take. Answer and move the ticket back to a trigger status; if the ticket comes back with nobody having answered, the run proceeds on the named reading and says so.
 - **Contradicts the repository.** A contradiction that cites nothing is asked again, and on the last attempt it parks; one that cites evidence parks in `needs_clarification_status`. No second model refutes it. A second contradiction with no reply on the ticket in between ends the run as a failed step: "the loop ends here".

@@ -38,5 +38,4 @@ internal static class HandbackTestDoubles
     }
 
     /// <summary>2026-11-18-9c1cb: the mechanical contradiction gate.</summary>
-    public static ContradictionHandbackGate Gate() => new(NullLogger<ContradictionHandbackGate>.Instance);
 }

@@ -27,7 +27,6 @@ public sealed class CompletionCommentChangesTests
         });
         harness.StubSandboxFactory!.GitAnswers["diff --name-status"] = (0, "A\tsrc/EarlierPass.cs\nM\tsrc/Patch.cs\n");
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: patch it.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
             .EnqueueFinish();

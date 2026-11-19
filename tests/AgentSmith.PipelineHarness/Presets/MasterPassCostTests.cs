@@ -28,13 +28,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class MasterPassCostTests
 {
-    private const string OneSpecJson = """
-        {"specs": [
-           {"slug": "introduce-the-guard", "goal": "Introduce the empty-payload guard",
-            "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
-            "done": ["An empty request body is answered with 400."], "carries": [1,2,3,4]}],
-         "discarded": [], "ignored_instructions": [], "handback": {"case": "none", "reason": ""}}
-        """;
 
     private const string Red = "Not yet: the build is red.";
 
@@ -43,13 +36,12 @@ public sealed class MasterPassCostTests
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), Project);
         harness.ChatClient
-            .EnqueueText(OneSpecJson)
             .EnqueueDeferred(() => PricedFinish("failed"))
             .EnqueueDeferred(() => Priced(string.Empty))
             .EnqueueDeferred(() => Priced(Red))
             .EnqueueThrow(new MasterBudgetExhaustedException("per-pipeline cost budget exhausted"));
 
-        var runner = new PipelineRunner(harness.Services);
+        var runner = new PipelineRunner(harness.Services).WithSeries(new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400."));
         await runner.RunAsync("code");
         var runId = runner.LastRunId!;
 

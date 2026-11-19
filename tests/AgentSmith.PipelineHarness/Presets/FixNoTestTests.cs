@@ -44,18 +44,14 @@ public sealed class FixNoTestTests
         harness.ChatClient
             // Call 1 is AnalyzeCode's project analyzer — this harness does not stub it.
             .EnqueueText("{}")
-            // p0393: the run reaches the master only after the expectation draft.
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        // p0421: delivery is judged by the RATIFIED criteria, and this run ratified none
-        // — its scripted derivation returns "{}". A gate that failed it anyway would be
-        // inventing a requirement nobody stated, which is exactly what the old preset list
-        // did to mad, legal and security. What a run WITH criteria owes is covered by
-        // RunDeliveryGateTests; what it owes with none is nothing.
-        result.IsSuccess.Should().BeTrue(
-            "a run that ratified no criteria is not judged for delivery — there is nothing to judge");
+        // 2026-11-19-6b0ba: the stand-in carries the ticket's own criteria, and a master that ends without
+        // finish_spec reported no outcome for them — the run delivered nothing and says so.
+        result.IsSuccess.Should().BeFalse("a code run that ships nothing is a failure, not a hollow success");
+        result.Message.Should().Contain("finish_spec");
     }
 }

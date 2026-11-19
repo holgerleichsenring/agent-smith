@@ -83,7 +83,7 @@ public static partial class PipelinePresets
         if (!commands.Contains(CommandNames.SpecSequence, StringComparer.Ordinal))
             return commands;
         return [.. commands.SelectMany(
-            c => c == CommandNames.SpecSequence ? CodeSpecBlock : [c])];
+            c => c == CommandNames.SpecSequence ? SpecBlockFor(pipelineName) : [c])];
     }
 
     private static bool HasStep(string pipelineName, string commandName) =>

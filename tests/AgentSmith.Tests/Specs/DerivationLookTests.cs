@@ -33,9 +33,9 @@ public sealed class DerivationLookTests
     {
         var pipeline = new PipelineContext();
 
-        var look = Factory().Create(pipeline);
+        var look = Factory().OnTerms(pipeline, DerivationLookTerms.CutReview);
 
-        look.Should().BeNull("a derivation over nothing checked out writes from the ticket alone");
+        look.Should().BeNull("a look over nothing checked out is no look");
         DerivationTools.For(look).Should().BeNull(
             "null and an empty Tools list are different calls; null is the one with no offer");
     }
@@ -49,10 +49,10 @@ public sealed class DerivationLookTests
         pipeline.Set(ContextKeys.SandboxDiscoveries,
             (IReadOnlyDictionary<string, RemoteContextDiscovery>)new Dictionary<string, RemoteContextDiscovery>());
 
-        var look = Factory().Create(pipeline);
+        var look = Factory().OnTerms(pipeline, DerivationLookTerms.CutReview);
 
         look!.Repositories.Should().BeEquivalentTo(["api", "worker"],
-            "the derivation looks over every sandbox of the run, not the carrying repo's one");
+            "a look covers every sandbox of the run, not the carrying repo's one");
     }
 
     [Fact]

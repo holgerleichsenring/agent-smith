@@ -50,8 +50,6 @@ src/backend/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs	p
 src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs	PHASE	1
 src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs	phase	1
 src/backend/AgentSmith.Application/Services/SpecDialog/SpecTicketRenderer.cs	phase	2
-src/backend/AgentSmith.Application/Services/Specs/DerivedSpecBuilder.cs	Phase	1
-src/backend/AgentSmith.Application/Services/Specs/DerivedSpecSequence.cs	Phases	1
 src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs	phase	1
 src/backend/AgentSmith.Application/Services/Specs/SeriesJoinOrder.cs	Phases	2
 src/backend/AgentSmith.Application/Services/Specs/SeriesJoined.cs	Phases	1

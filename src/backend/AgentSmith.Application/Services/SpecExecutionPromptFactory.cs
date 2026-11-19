@@ -57,7 +57,7 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
 
         return $"""
             {header}
-
+            {SpecWritingPromptBlocks.StandIn(pipeline, draft)}{SpecWritingPromptBlocks.KeptInput(pipeline, draft)}
             ## Working Repositories
             One checkout per repository, all on the run branch:
             {Handlers.MasterUserPrompt.RenderCheckouts(repository, sandboxKeys)}
@@ -69,26 +69,30 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
             {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), series.Current().Series.BuildNoteMaxChars, set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
             {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}{Specs.ApprovalOwnerWordsSection.For(pipeline)}
 
-            ## Spec contract
-            You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
-            The spec above is the plan of record: its steps are your checklist (the progress
-            ledger is seeded from them) and you own how each step lands in this codebase.
-            Take a choice a person might overrule with log_decision overrulable: true; log every other non-obvious choice via log_decision
-            as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
-            {SpecExecutionPromptBlocks.DoneCriteria(draft)}
-            Before you call finish_spec, look at EACH done criterion above — your report says what you
-            saw for each, and one you leave says why and where it goes, never dropped silently.
-            finish_spec also carries the build note: what you renamed and moved (each
-            `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
-            When you are genuinely blocked on missing input, call ask_human once: the
-            question is posted to the ticket and this run pauses for the answer.
-            The operator may write to you while you work; such a message arrives after a tool result. Adjust your
-            work to it. When it changes what this spec must make true — its goal, steps or done criteria — revise the
-            spec with revise_spec: one fresh review of the changed text decides, an accepted revision is written to the
-            ticket branch and its done criteria are the ones you verify; a refused one comes back with the reviewers'
-            findings, to revise again or to ask with ask_human.
+            {(SpecWritingPromptBlocks.IsWriteOnly(pipeline) ? SpecWritingPromptBlocks.WriteOnlyContract(draft) : BuildContract(draft))}
             {AgentPromptBuilder.BuildOperatorAnswersSection(answers)}
             """;
     }
 
+    // The contract of a run that builds the spec.
+    private static string BuildContract(SpecDraft draft) => $"""
+        ## Spec contract
+        You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
+        The spec above is the plan of record: its steps are your checklist (the progress
+        ledger is seeded from them) and you own how each step lands in this codebase.
+        Take a choice a person might overrule with log_decision overrulable: true; log every other non-obvious choice via log_decision
+        as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
+        {SpecExecutionPromptBlocks.DoneCriteria(draft)}
+        Before you call finish_spec, look at EACH done criterion above — your report says what you
+        saw for each, and one you leave says why and where it goes, never dropped silently.
+        finish_spec also carries the build note: what you renamed and moved (each
+        `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
+        When you are genuinely blocked on missing input, call ask_human once: the
+        question is posted to the ticket and this run pauses for the answer.
+        The operator may write to you while you work; such a message arrives after a tool result. Adjust your
+        work to it. When it changes what this spec must make true — its goal, steps or done criteria — revise the
+        spec with revise_spec: one fresh review of the changed text decides, an accepted revision is written to the
+        ticket branch and its done criteria are the ones you verify; a refused one comes back with the reviewers'
+        findings, to revise again or to ask with ask_human.
+        """;
 }

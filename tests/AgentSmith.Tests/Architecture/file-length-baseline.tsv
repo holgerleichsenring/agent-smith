@@ -97,7 +97,6 @@
 147	AgentSmith.Infrastructure/Services/Security/SessionProvider.cs
 144	AgentSmith.Infrastructure/Services/Security/SourceFileEnumerator.cs
 144	AgentSmith.Server/Services/Events/RunBeatsComputer.cs
-143	AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs
 143	AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs
 142	AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs
 141	AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs

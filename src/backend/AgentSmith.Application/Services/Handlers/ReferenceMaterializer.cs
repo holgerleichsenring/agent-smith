@@ -14,9 +14,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-10-01-283df: carries the uploaded material an approval cites into the CARRYING repository's sandbox, outside
 /// the commit, published for the prompt and render_reference; a set that cannot be read fails the run. 2026-10-08-e8b9k:
 /// the images too, among the attachments (<see cref="UploadImageAttachments"/>). 2026-10-12-f5f7e: the earliest spec's repo.
-/// <para>2026-10-14-dbcel: a TICKET TEXT's derivation carries it FIRST (<see cref="CarryForDerivationAsync"/>) — one copy
-/// into the carrying repository, else the first record repository with a sandbox; the master and the look read every
-/// sandbox by prefix. The step carries again on every run, idempotently: a resume re-runs it in a fresh sandbox.</para>
+/// <para>The step carries again on every run, idempotently: a resume re-runs it in a fresh sandbox. 2026-11-19-6b0ba: a
+/// spec derivation runs it too, before the master that writes each stand-in.</para>
 /// </summary>
 public sealed class ReferenceMaterializer(
     ApprovedSpecSetResolver approvals,
@@ -38,25 +37,6 @@ public sealed class ReferenceMaterializer(
                 ? "no spec names the repository to write them into"
                 : $"the run holds no sandbox of '{carrying}', the repository of the series' earliest spec"));
         return await CarryIntoAsync(pipeline, record, target, cancellationToken);
-    }
-
-    /// <summary>Carries a ticket text's cited material before its derivation; any other record carries nothing
-    /// here. A refusal or a throw is a warning — the derivation runs without it and the later step fails the run.</summary>
-    public async Task CarryForDerivationAsync(PipelineContext pipeline, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        if (approvals.Published(pipeline) is not { TicketText: true } record || record.CitedSets.Count + record.CitedImages.Count == 0) return;
-        try
-        {
-            var result = Target(pipeline, record, record.CarryingRepo) is { } target
-                ? await CarryIntoAsync(pipeline, record, target, cancellationToken)
-                : CommandResult.Fail("no repository of the approval has a sandbox in this run");
-            if (!result.IsSuccess) logger.LogWarning("The derivation runs without the cited material: {Reason}", result.Message);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "The derivation runs without the cited material");
-        }
     }
 
     private async Task<CommandResult> CarryIntoAsync(

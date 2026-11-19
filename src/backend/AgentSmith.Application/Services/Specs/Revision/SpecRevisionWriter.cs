@@ -27,6 +27,8 @@ public sealed class SpecRevisionWriter(
         ArgumentNullException.ThrowIfNull(run);
         ArgumentNullException.ThrowIfNull(text);
         var before = run.Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
+        // 2026-11-19-6b0ba: a written revision is the spec its master wrote — no longer the ticket's stand-in.
+        run.Pipeline.Set(ContextKeys.SpecSet, before with { StandIns = [.. before.StandIns.Where(id => id != text.SpecId)] });
         var published = await revision.PublishAsync(run.Pipeline, [text], Cause(run.Pipeline, reason), ct);
         if (!published.IsSuccess)
         {

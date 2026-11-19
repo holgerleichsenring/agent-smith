@@ -9,41 +9,28 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-09-07-b7e2: builds the derivation's tool host over every sandbox of the run —
-/// the map SpecDeliveryAccounting (retired by 2026-11-18-c8e2c) already hands the account's search, read from
-/// the pipeline the same way. Null when the run has no sandbox: a derivation over an
-/// inline ticket with nothing checked out writes from the ticket alone, as it did.
+/// 2026-09-07-b7e2: builds a look — the bounded read-only tools — over a run's or a turn's repositories, on its
+/// holder's terms. 2026-11-19-6b0ba: the spec derivation, its first holder, is gone; the design turn's reviews and
+/// the attack reviewer remain.
 /// </summary>
 public sealed class DerivationLookFactory(
     SandboxTargets targets, ISandboxFileReaderFactory files,
-    IPackageEcosystemDetector ecosystems, ProjectTemplateScopes templates,
+    IPackageEcosystemDetector ecosystems,
     TurnActivityTools turnActivity, // 2026-09-17-042ee: what a look reads is a step
     ILogger<DerivationLook> logger)
 {
-    public DerivationLook? Create(PipelineContext pipeline)
-    {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
-        logger.LogInformation(
-            "The derivation may look into {Count} repositor{Plural}: {Repos}",
-            sandboxes.Count, sandboxes.Count == 1 ? "y" : "ies", string.Join(", ", sandboxes.Keys));
-        return new DerivationLook(
-            sandboxes, files, ecosystems, logger, templates.For(pipeline), activity: turnActivity,
-            names: Review.SpecReviewRepositories.Names(pipeline));
-    }
-
     /// <summary>
     /// The run's repositories on any holder's own terms, with no template scope unless BORROWED (54beb: the diff
     /// reviewer's, from the run's owner; the look never disposes them). Null when the run has no sandbox.
     /// </summary>
-    public DerivationLook? OnTerms(PipelineContext pipeline, DerivationLookTerms terms, DerivationLookStages? stages = null,
+    public DerivationLook? OnTerms(PipelineContext pipeline, DerivationLookTerms terms,
         IReadOnlyDictionary<string, ISourceScopeSandbox>? borrowed = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
             Review.ReviewReferences.Beside(pipeline, sandboxes)!, files, ecosystems, logger, borrowed, terms, activity: turnActivity,
-            stages: stages, borrowsTemplates: borrowed is not null, names: Review.SpecReviewRepositories.Names(pipeline));
+            borrowsTemplates: borrowed is not null, names: Review.SpecReviewRepositories.Names(pipeline));
     }
 
     /// <summary>

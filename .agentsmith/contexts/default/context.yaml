@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-19-6b0ba: "DERIVATION BY THE CODING MASTER (DeriveSpecHandler, SpecStandIns, SpecSet.StandIns, SpecWritingPromptBlocks, SpecDerivationGate, spec-derive preset). No model cuts a ticket: one whole-ticket stand-in per repository, which the coding master writes with revise_spec; spec-derive runs it write-only. Deriver, look stage run gone. -> .agentsmith/specs/done/2026-11-19-6b0ba-derivation-coding-master.yaml"
     2026-11-19-9c6e: "MASTER NO UNBACKED REDRIVE (ReengageReasonPolicy). A done step the diff does not show no longer re-drives the master after a green finish_spec; the replay showed five wasted passes. -> .agentsmith/specs/done/2026-11-19-9c6e-master-no-unbacked-redrive.yaml"
     2026-11-18-9c1cd: "MASTER TOOL SURFACE (MasterToolComposition, MergedTools, MergedDialogTools, FilesystemToolHost; skills v5.38.0). Every master offers at most 20 tools, one per job, the same on every turn and drive; merged tools answer why they cannot act. -> .agentsmith/specs/done/2026-11-18-9c1cd-master-tool-surface.yaml"
     2026-11-18-9c1cc: "MASTER LOOP HEURISTICS REMOVED (StageRepair, MasterLoopGovernorChatClient, ContextPressureFinalizingChatClient, RetiredConfigKeys). A red stage returns to the master while repairs change the failure; the drift reminder and ledger-complete brake are gone; the forced final turn keeps its tools. -> .agentsmith/specs/done/2026-11-18-9c1cc-master-loop-heuristics-removed.yaml"

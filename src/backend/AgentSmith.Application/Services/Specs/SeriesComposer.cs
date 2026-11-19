@@ -50,5 +50,6 @@ public sealed class SeriesComposer(SeriesJoin join, SeriesManifest manifest, ILo
         {
             Goal = string.IsNullOrWhiteSpace(doc.Goal) ? null : doc.Goal,
             Contract = SeriesContractYaml.Read(doc.Contract), // 2026-10-13-8762j
+            StandIns = doc.StandIns is { Count: > 0 } standIns ? [.. standIns] : [], // 2026-11-19-6b0ba
         };
 }

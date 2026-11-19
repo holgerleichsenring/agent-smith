@@ -38,8 +38,6 @@ public sealed class CutReviewEvidenceIdTests
         review!.Templates.Should().BeEmpty();
         review.Repositories.Should().Equal(Repo);
         review.Terms.Should().Be(DerivationLookTerms.CutReview);
-        Factory(scopes: scopes).Create(pipeline)!.Templates.Should().ContainSingle(
-            "the derivation's own look still opens the declared template");
     }
 
     [Fact]

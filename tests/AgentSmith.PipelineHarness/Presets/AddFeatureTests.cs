@@ -27,7 +27,6 @@ public sealed class AddFeatureTests
         harness.ChatClient
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
@@ -55,7 +54,6 @@ public sealed class AddFeatureTests
         // derivation; the master then answers with no tool calls = no changes.
         harness.ChatClient.EnqueueText("{}")
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Already implemented.");
 
         var runner = new PipelineRunner(harness.Services);

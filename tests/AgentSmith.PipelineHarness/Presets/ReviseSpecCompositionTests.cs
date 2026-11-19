@@ -29,17 +29,6 @@ public sealed class ReviseSpecCompositionTests
     private const string Message = "also answer a whitespace-only body with 400";
     private const string StagedNames = "diff --cached --name-only";
 
-    private const string OneSpec = """
-        {"specs": [
-           {"slug": "introduce-the-guard",
-            "goal": "Introduce the empty-payload guard",
-            "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
-            "done": ["An empty request body is answered with 400."],
-            "carries": [1,2,3]}],
-         "discarded": [],
-         "ignored_instructions": [],
-         "handback": {"case": "none", "reason": ""}}
-        """;
 
     private const string Refuse = """
         {"verdict": "REFUSE", "cuts": [], "findings": [{"text": "Nothing in the sample reads a request body.",
@@ -122,7 +111,6 @@ public sealed class ReviseSpecCompositionTests
     // index is answered as git would, so the gate that keeps staged work out of the spec commit admits the revision.
     private static void Script(RealCompositionHarness harness, Action beforeRevise, string verdict) =>
         harness.ChatClient
-            .EnqueueText(OneSpec)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueDeferred(() =>
@@ -168,7 +156,8 @@ public sealed class ReviseSpecCompositionTests
 
     private static PipelineRunner Runner(RealCompositionHarness harness)
     {
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }
+            .WithSeries(new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400."));
         runner.RequestContext[ContextKeys.ProjectName] = "fixture";
         return runner;
     }

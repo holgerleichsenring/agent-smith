@@ -32,10 +32,11 @@ public sealed class ApprovedSetRecutOnDemandTests
         var result = await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Deriver.Calls.Should().Be(1, "a person asked for this set to be cut again");
+        harness.Recuts.Calls.Should().Be(1, "a person asked for this set to be cut again");
         harness.Writer.Written!.Current.Cause.Should().Be(SpecRevisionCause.RecutDemand,
             "the history must say why an approved set changed");
-        harness.Writer.Written.Specs.Select(p => p.SpecId).Should().Equal("p19106z");
+        harness.Writer.Written.Specs.Select(p => p.SpecId).Should().Equal(["p19106a", "p19106b"],
+            "2026-11-19-6b0ba: the unbuilt specs are kept and the demand goes to their coding master");
     }
 
     [Fact]
@@ -46,7 +47,7 @@ public sealed class ApprovedSetRecutOnDemandTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Deriver.Calls.Should().Be(0, "only the reserved phrase is new; a remark is a remark");
+        harness.Recuts.Calls.Should().Be(0, "only the reserved phrase is new; a remark is a remark");
         harness.Writer.Written!.Current.Cause.Should()
             .Be($"{SpecRevisionCause.Comment} — {ApprovedSetKept.Kept}");
     }
@@ -58,7 +59,7 @@ public sealed class ApprovedSetRecutOnDemandTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
         harness.Writer.Written!.Current.Cause.Should()
             .Be($"{SpecRevisionCause.TicketEdit} — {ApprovedSetKept.Kept}");
     }
@@ -76,7 +77,7 @@ public sealed class ApprovedSetRecutOnDemandTests
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         harness.Writer.Written!.Current.Cause.Should().Be(SpecRevisionCause.RecutDemand);
-        harness.Deriver.Calls.Should().Be(1);
+        harness.Recuts.Calls.Should().Be(1);
     }
 
     [Fact]
@@ -89,12 +90,12 @@ public sealed class ApprovedSetRecutOnDemandTests
 
         await harness.Handler().ExecuteAsync(context, default);
 
-        harness.Deriver.Calls.Should().Be(0, "a resume continues what the run was doing");
+        harness.Recuts.Calls.Should().Be(0, "a resume continues what the run was doing");
         harness.Writer.Written!.Current.Cause.Should().Be(SpecRevisionCause.Resume);
     }
 
     /// <summary>
-    /// The set the model produces carries no approval of its own. Published as it stands, the next
+    /// The set a re-cut publishes carries no approval of its own. Published as it stands, the next
     /// run would read an UNAPPROVED set off the branch and the next ordinary comment would re-cut
     /// it — the immunity gone after exactly one demand.
     /// </summary>
@@ -130,30 +131,8 @@ public sealed class ApprovedSetRecutOnDemandTests
 
         await next.Handler().ExecuteAsync(next.Context(Ticket()), default);
 
-        next.Deriver.Calls.Should().Be(0, "the same demand must not re-cut the set on every run");
+        next.Recuts.Calls.Should().Be(0, "the same demand must not re-cut the set on every run");
         next.Writer.Written!.Current.Cause.Should().NotBe(SpecRevisionCause.RecutDemand);
-    }
-
-    /// <summary>
-    /// A re-cut that HANDS BACK posts no cut comment, so the anchor never moves past the demand.
-    /// The approval the demand recorded is what clears it there — without it the hand-back would
-    /// re-fire on every later run of that ticket.
-    /// </summary>
-    [Fact]
-    public async Task RecutOnDemand_ARecutThatHandsBack_StillClearsTheDemand()
-    {
-        var harness = Harness();
-        harness.Deriver.Result = HandedBack();
-        var demand = Demand();
-        harness.Comments = [OurCut(), demand];
-
-        await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
-
-        harness.Writer.Written!.IsHandedBack.Should().BeTrue();
-        harness.Cuts.Comments.Should().BeEmpty("a hand-back posts no cut comment to move the anchor");
-        harness.Writer.Written.Approval!.At.Should().Be(demand.CreatedAt);
-        SpecRecutDemand.In([OurCut(), demand], harness.Writer.Written.Approval).Should().BeNull(
-            "the demand is cleared by its own timestamp, not by anchor arithmetic");
     }
 
     /// <summary>The cut comment tells the author a demand was acted on — the author learns it
@@ -172,24 +151,20 @@ public sealed class ApprovedSetRecutOnDemandTests
     }
 
     /// <summary>
-    /// A spec that ran is never edited, and the demand can only reach the tail. That is ENFORCED
-    /// rather than asked for: the model is handed the previous set, and SpecDerivationParser
-    /// re-uses its executed head verbatim while discarding the model's entries for those
-    /// positions (pinned by Recut_UnexecutedTail_IsRepartitionedWhileTheExecutedHeadKeepsItsIds).
-    /// What this pins is the wiring — a demand really does put that head in front of the parser.
+    /// A spec that ran is never edited, and the demand can only reach the tail. 2026-11-19-6b0ba: the tail is
+    /// kept and the demand handed to its coding master, which amends the spec with revise_spec.
     /// </summary>
     [Fact]
-    public async Task RecutOnDemand_TheSpecThatAlreadyRan_IsHandedToTheModelAsTheExecutedHead()
+    public async Task RecutOnDemand_TheSpecThatAlreadyRan_IsKeptAndTheTailGoesToItsMaster()
     {
         var harness = Harness(executed: "p19106a");
         harness.Comments = [OurCut(), Demand()];
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Deriver.CauseSeen.Should().Be(SpecRevisionCause.RecutDemand);
-        harness.Deriver.PreviousSeen!.ExecutedHead.Select(p => p.SpecId).Should().Equal(
-            ["p19106a"],
-            "the parser re-uses that head verbatim — a demand can only reach the unstarted tail");
+        harness.Recuts.CauseSeen.Should().Be(SpecRevisionCause.RecutDemand);
+        harness.Writer.Written!.Executed.Should().Equal(["p19106a"], "a demand can only reach the unstarted tail");
+        harness.Writer.Written.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
     }
 
     /// <summary>A demand is ACTED on, so there is nothing to report as kept — the kept-set notice
@@ -211,7 +186,6 @@ public sealed class ApprovedSetRecutOnDemandTests
         string? fingerprint = null, string? executed = null, DateTimeOffset? approvedAt = null)
     {
         var harness = new ApprovedSetHarness { Branch = { Key = Key }, PointerSha = "branch-sha" };
-        harness.Deriver.Result = Recut();
         harness.Branch.SeedSeries("2026-10-06-0a0a",
             BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approvedAt ?? Approved),
             new Dictionary<string, string>
@@ -262,22 +236,4 @@ public sealed class ApprovedSetRecutOnDemandTests
     private static TicketComment Ordinary(string body) =>
         new("sample.operator", Demanded, body);
 
-    // What the model answers a demand with: one spec that is not what the branch carried.
-    private static SpecDerivation Recut(SpecHandback? handback = null)
-    {
-        var segments = TicketSegmenter.Segment(Text);
-        var spec = new DerivedSpec(
-            ApprovedSets.Spec("p19106z", "Cut again on demand").Draft, "p19106z", string.Empty,
-            [.. segments.Select(s => s.Id)]);
-        return new SpecDerivation(
-            new SpecSet(
-                Key, handback is null ? [spec] : [],
-                handback is null ? SpecAccountingBuilder.Build([spec], [], segments) : SpecAccounting.Empty,
-                [new SpecRevision(1, SpecRevisionCause.Initial, Approved)],
-                SpecSource.BranchArtifact, handback),
-            []);
-    }
-
-    private static SpecDerivation HandedBack() => Recut(
-        new SpecHandback(SpecHandbackCase.Question, "which of the two clients is meant?"));
 }

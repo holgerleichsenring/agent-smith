@@ -17,22 +17,6 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed class BuildNoteHarnessTests
 {
 
-    private const string TwoSpecs = """
-        {"specs": [
-           {"slug": "introduce-the-guard",
-            "goal": "Introduce the empty-payload guard",
-            "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
-            "done": ["An empty request body is answered with 400."],
-            "carries": [1,2,3]},
-           {"slug": "migrate-the-callers",
-            "goal": "Move the existing callers onto the guard",
-            "steps": [{"id": "callers", "action": "Route every caller through the guard"}],
-            "done": ["No caller builds its own empty-payload check."],
-            "carries": [4,5,6]}],
-         "discarded": [],
-         "ignored_instructions": [],
-         "handback": {"case": "none", "reason": ""}}
-        """;
 
     [Fact]
     public async Task Harness_TwoSpecSeries_SpecTwoMasterPromptCarriesMemoryRememberedInSpecOne()
@@ -45,7 +29,6 @@ public sealed class BuildNoteHarnessTests
         });
         harness.StubSandboxFactory!.ReportsWorkingTree = true; // remember needs a change to land with
         harness.ChatClient
-            .EnqueueText(TwoSpecs)
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueToolCall("remember",
@@ -57,7 +40,7 @@ public sealed class BuildNoteHarnessTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// callers"}""")
             .EnqueueFinish();
 
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.WithSeries(HarnessSeries.TwoSpecs);
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue();

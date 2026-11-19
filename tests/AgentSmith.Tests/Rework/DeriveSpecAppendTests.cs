@@ -27,8 +27,8 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-10-08-f114: a set whose every spec ran — the branch carries both specs under done/, as a
-/// branch re-cut from a base that merged the series does — appends new specs for a comment or a
-/// Request changes, and keeps its executed head when the derivation fails.
+/// branch re-cut from a base that merged the series does — appends a stand-in for a comment or a
+/// Request changes (2026-11-19-6b0ba), its executed head kept.
 /// </summary>
 public sealed class DeriveSpecAppendTests
 {
@@ -45,47 +45,33 @@ public sealed class DeriveSpecAppendTests
         """;
 
     [Fact]
-    public async Task Derive_FullyExecutedSetWithComment_AppendsSpecAfterHead()
+    public async Task Derive_FullyExecutedSetWithComment_AppendsAStandInAfterHead()
     {
-        var deriver = new CapturingDeriver(Appended());
         var published = new CapturingPublisher();
 
-        await Handler(deriver, published, pointerSha: MarkerSha)
+        await Handler(published, pointerSha: MarkerSha)
             .ExecuteAsync(Context([OurCut(), Operator("rename the client as well")]), default);
 
-        deriver.CauseSeen.Should().Be(SpecRevisionCause.Comment);
         published.Set!.Specs.Select(p => p.SpecId).Should().Equal(HeadId, TailId, NewId);
         published.Set.UnexecutedTail.Select(p => p.SpecId).Should().Equal(NewId);
+        published.Set.StandIns.Should().Equal([NewId], "its coding master writes the spec the comment asks for");
+        published.Set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
     }
 
     [Fact]
-    public async Task Derive_BranchFromBaseCarryingMergedSeries_ReworkAppends()
+    public async Task Derive_BranchFromBaseCarryingMergedSeries_ReworkAppendsAStandIn()
     {
-        var deriver = new CapturingDeriver(Appended());
         var published = new CapturingPublisher();
 
-        await Handler(deriver, published, pointerSha: MarkerSha)
+        await Handler(published, pointerSha: MarkerSha)
             .ExecuteAsync(Context([OurCut()], new ReworkAct("alice", DateTimeOffset.UtcNow, ReworkChannel.PullRequest)), default);
 
-        deriver.CauseSeen.Should().Be(SpecRevisionCause.Rework);
         published.Set!.UnexecutedTail.Select(p => p.SpecId).Should().Equal(NewId);
+        published.Set.Executed.Should().Equal([HeadId, TailId], "the executed head is kept as it ran");
+        published.Set.Current.Cause.Should().Be(SpecRevisionCause.Rework);
     }
 
-    [Fact]
-    public async Task Derive_FailsOverExecutedHead_KeepsSet()
-    {
-        var deriver = new CapturingDeriver(null);
-        var published = new CapturingPublisher();
-
-        await Handler(deriver, published, pointerSha: MarkerSha)
-            .ExecuteAsync(Context([OurCut(), Operator("rename the client as well")]), default);
-
-        published.Set!.Specs.Select(p => p.SpecId).Should().Equal(HeadId, TailId);
-        published.Set.Executed.Should().Equal(HeadId, TailId);
-    }
-
-    private static DeriveSpecHandler Handler(
-        ISpecSetDeriver deriver, ISpecSetPublisher publisher, string? pointerSha)
+    private static DeriveSpecHandler Handler(ISpecSetPublisher publisher, string? pointerSha)
     {
         var files = SeededFiles();
         var factory = new Mock<ISandboxFileReaderFactory>();
@@ -103,26 +89,21 @@ public sealed class DeriveSpecAppendTests
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
-            deriver, SeriesDoubles.BranchRead(reader), publisher, pointers,
+            SeriesDoubles.BranchRead(reader), publisher, pointers,
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
-            new SpecCoverageRefusal(
-                new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
+            new SpecStandIns(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecSetTicketCommenter(tickets.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
-            new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
-            NullLogger<DeriveSpecHandler>.Instance);
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
     }
 
     private static DeriveSpecContext Context(IReadOnlyList<TicketComment> thread, ReworkAct? act = null)
@@ -146,7 +127,7 @@ public sealed class DeriveSpecAppendTests
 
     private static TicketComment OurCut() => new(
         "agent-smith", DateTimeOffset.UtcNow.AddHours(-2),
-        SpecSetComment.Render(Appended().Set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
+        SpecSetComment.Render(Head(), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
 
     private static TicketComment Operator(string body) =>
         new("operator", DateTimeOffset.UtcNow.AddHours(-1), body);
@@ -184,41 +165,19 @@ public sealed class DeriveSpecAppendTests
           - "Done {id}."
         """;
 
-    // The model's reply: the executed head repeated, the tail cut again with the comment in view.
-    private static SpecDerivation Appended()
+    // The set the branch carries, both specs executed — what our cut comment rendered.
+    private static SpecSet Head()
     {
         var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
-        DerivedSpec Spec(string id, string goal) => new(
-            new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+        DerivedSpec Spec(string id) => new(
+            new SpecDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
-        var specs = new[] { Spec(HeadId, $"Goal {HeadId}"), Spec(TailId, $"Goal {TailId}"), Spec(NewId, "Rename as the review asks") };
-        return new SpecDerivation(
-            new SpecSet(
-                Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
-                [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.BranchArtifact, ExecutedSpecIds: [HeadId, TailId], Series: Series),
-            []);
-    }
-
-    private sealed class CapturingDeriver(SpecDerivation? derivation) : ISpecSetDeriver
-    {
-        public int Calls { get; private set; }
-        public SpecSet? PreviousSeen { get; private set; }
-        public string? CauseSeen { get; private set; }
-        public string? SeriesSeen { get; private set; }
-
-        public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
-            CancellationToken cancellationToken)
-        {
-            Calls++;
-            PreviousSeen = previous;
-            CauseSeen = cause;
-            SeriesSeen = series;
-            return Task.FromResult<(SpecDerivation?, string?)>((derivation, derivation is null ? "unusable" : null));
-        }
+        var specs = new[] { Spec(HeadId), Spec(TailId) };
+        return new SpecSet(
+            Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
+            [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
+            SpecSource.BranchArtifact, ExecutedSpecIds: [HeadId, TailId], Series: Series);
     }
 
     private sealed class CapturingPublisher : ISpecSetPublisher

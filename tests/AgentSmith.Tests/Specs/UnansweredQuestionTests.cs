@@ -109,19 +109,17 @@ public sealed class UnansweredQuestionTests
             .Pin(null, new PipelineContext()).Should().BeNull();
 
     [Fact]
-    public void Compose_PinnedQuestion_ReachesTheDerivationPromptWithoutAPreviousCutSection()
+    public void StandIn_PinnedQuestion_ReachesTheCodingMastersPrompt()
     {
         var pipeline = new PipelineContext();
-        var previous = Previous(taken: 0);
-        new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance).Pin(previous, pipeline);
+        new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance).Pin(Previous(taken: 0), pipeline);
 
-        var prompt = SpecPromptComposer.Compose(
-            Ticket(), TicketSegmenter.Segment("Adopt the newest versions, even breaking."),
-            previous, SpecRevisionCause.Retrigger, pipeline, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
+        var prompt = AgentSmith.Application.Services.SpecWritingPromptBlocks.StandIn(
+            AgentSmith.Tests.TestSupport.StandInSets.Run(pipeline, AgentSmith.Tests.TestSupport.StandInSets.Draft),
+            AgentSmith.Tests.TestSupport.StandInSets.Draft);
 
         prompt.Should().Contain("## The question from the last run was left unanswered");
         prompt.Should().Contain("Reading (a) is");
-        prompt.Should().NotContain("The previous cut — AMEND it", "a hand-back holds no cut to amend");
     }
 
     [Fact]

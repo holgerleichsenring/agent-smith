@@ -24,8 +24,6 @@ internal static class DerivationTestLooks
         var readers = files ?? new StubSandboxFileReaderFactory();
         return new DerivationLookFactory(
             new SandboxTargets(), readers, new PackageEcosystemDetector(),
-            new ProjectTemplateScopes(
-                scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
             activity ?? TurnActivityRecorder.Tools(),
             NullLogger<DerivationLook>.Instance);
     }

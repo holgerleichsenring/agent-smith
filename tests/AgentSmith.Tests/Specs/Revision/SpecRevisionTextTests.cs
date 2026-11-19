@@ -59,4 +59,15 @@ public sealed class SpecRevisionTextTests
         draft.Should().BeNull();
         refusal.Should().Contain("nothing to revise");
     }
+
+    // 2026-11-19-6b0ba: a stand-in states no applies_to; the spec its master writes may add one, and only to a stand-in.
+    [Fact]
+    public void Read_AStandInWithoutAppliesTo_MayGainOne()
+    {
+        var bare = CutRevisionFixtures.Draft(CutRevisionFixtures.With("applies_to: \"backend (export)\"\n", "", CutRevisionFixtures.Yaml));
+        var revised = CutRevisionFixtures.With(SpecRevisionRig.Criterion, SpecRevisionRig.Revised);
+
+        SpecRevisionRig.Text().Read(bare, revised, isStandIn: true).Draft.Should().NotBeNull();
+        SpecRevisionRig.Text().Read(bare, revised).Refusal.Should().Contain("keeps spec");
+    }
 }

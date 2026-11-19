@@ -38,7 +38,8 @@ public sealed class SpecSourceResolver(
     /// <summary>What the run should work from, and whether the model has to be called.</summary>
     /// <param name="Source">Where the set came from.</param>
     /// <param name="Set">The set already available, if any.</param>
-    /// <param name="NeedsModel">True when the deriver has to run — a first cut or an amendment.</param>
+    /// <param name="NeedsModel">True when a cut was asked for — a first cut or an amendment; 2026-11-19-6b0ba: no model
+    /// runs, DeriveSpec writes stand-ins or keeps the unbuilt specs for their master.</param>
     /// <param name="Cause">The cause the next revision names.</param>
     /// <param name="Handback">2026-09-22-6ad7: set when the run PARKS instead of working — the
     /// approved specification is not readable on the branch and there is none to guess from.</param>
@@ -47,21 +48,13 @@ public sealed class SpecSourceResolver(
     /// one would read back as unapproved on the next run — losing the immunity after exactly one
     /// demand.</param>
     /// <param name="Expired">2026-10-12-3a36b: the branch's hand-back is derived again because a
-    /// scoped branch got a foreign commit since it parked; a derivation that yields nothing keeps
-    /// the stored hand-back rather than a fallback.</param>
+    /// scoped branch got a foreign commit since it parked.</param>
     /// <param name="Failure">2026-10-12-f5f7f: set when the run cannot go on — a member of the series
     /// is outside the run's checkout.</param>
     /// <param name="Discarded">2026-10-13-9a59l: what an approval's merge did not apply, for the kept notice.</param>
     public sealed record Decision(
         SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null, SpecHandback? Handback = null,
-        SpecApproval? Approval = null, bool Expired = false, string? Failure = null, string? Discarded = null)
-    {
-        /// <summary>The set a derivation that yields nothing keeps instead of a fresh fallback: one over an
-        /// executed head, whose record of work a fresh set would drop (2026-10-08-f114), or an expired
-        /// hand-back (2026-10-12-3a36b) — expiry never approves a guess. Null when nothing is kept.</summary>
-        public SpecSet? KeptOnFailure =>
-            Set is { } carried && (Expired || carried.ExecutedHead.Count > 0) ? carried : null;
-    }
+        SpecApproval? Approval = null, bool Expired = false, string? Failure = null, string? Discarded = null);
 
     public Decision Decide(
         SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer, PipelineContext pipeline,

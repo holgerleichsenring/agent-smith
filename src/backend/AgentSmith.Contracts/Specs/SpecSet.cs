@@ -69,6 +69,14 @@ public sealed record SpecSet(
     /// null when none was declared.</summary>
     public SeriesContract? Contract { get; init; }
 
+    /// <summary>2026-11-19-6b0ba: the specs that are still the ticket's stand-in — whole-ticket specs DeriveSpec wrote
+    /// because no spec existed, which the coding master writes before it builds; revise_spec takes an id off. Series-wide
+    /// like the goal: the manifest's <c>stand_ins</c>.</summary>
+    public IReadOnlyList<string> StandIns { get; init; } = [];
+
+    /// <summary>True when <paramref name="specId"/> is still a stand-in.</summary>
+    public bool IsStandIn(string specId) => StandIns.Contains(specId, StringComparer.Ordinal);
+
     /// <summary>2026-10-12-f5f7d: the sub-series of <paramref name="repo"/> — only the specs that
     /// name it, every series-wide field unchanged.</summary>
     public SpecSet OfRepository(string repo)

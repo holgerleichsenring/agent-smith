@@ -21,29 +21,16 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class SeriesCutPublishedTests
 {
-    private const string ThreeSpecJson = """
-        {"specs": [
-           {"slug": "introduce-the-guard", "goal": "Introduce the empty-payload guard",
-            "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
-            "done": ["An empty request body is answered with 400."], "carries": [1,2,3,4]},
-           {"slug": "migrate-the-callers", "goal": "Move the existing callers onto the guard",
-            "steps": [{"id": "callers", "action": "Route every caller through the guard"}],
-            "done": ["No caller builds its own empty-payload check."], "carries": [5,6,7,8]},
-           {"slug": "document-the-guard", "goal": "Document the guard for callers",
-            "steps": [{"id": "docs", "action": "Describe the 400 answer in the API notes"}],
-            "done": ["The API notes name the 400 answer."], "carries": [9,10,11,12]}],
-         "discarded": [], "ignored_instructions": [], "handback": {"case": "none", "reason": ""}}
-        """;
 
     [Fact]
     public async Task Harness_ThreeSpecRun_RowsExistBeforeTheFirstSpecStarts()
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), Project);
         harness.ChatClient
-            .EnqueueText(ThreeSpecJson)
             .EnqueueThrow(new MasterBudgetExhaustedException("per-pipeline cost budget exhausted"));
 
-        var runner = new PipelineRunner(harness.Services);
+        var runner = new PipelineRunner(harness.Services).WithSeries([.. HarnessSeries.TwoSpecs,
+            new HarnessSeries.Member("Document the guard for callers", "The API notes name the 400 answer.")]);
         await runner.RunAsync("code");
         var runId = runner.LastRunId!;
 

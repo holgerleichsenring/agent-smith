@@ -25,7 +25,8 @@ public sealed class MasterSpecRevision(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (string.IsNullOrWhiteSpace(reason)) return SpecRevisionReplies.NotRevised("give the reason for the revision");
         if (await gate.RefusalAsync(pipeline, ct) is { } refused) return SpecRevisionReplies.NotRevised(refused);
-        var (draft, refusal) = texts.Read(pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec), yaml);
+        var current = pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec);
+        var (draft, refusal) = texts.Read(current, yaml, pipeline.Get<SpecSet>(ContextKeys.SpecSet).IsStandIn(current.SpecId));
         if (draft is null) return SpecRevisionReplies.NotRevised(refusal!);
         var (run, stop) = Run(pipeline, agent, reason);
         if (run is null) return SpecRevisionReplies.NotRevised(stop!);

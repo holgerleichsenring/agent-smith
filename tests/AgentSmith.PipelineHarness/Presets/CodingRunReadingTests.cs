@@ -27,7 +27,6 @@ public sealed class CodingRunReadingTests
                 services.RemoveAll<ISourceScopeObserverAccessor>();
                 services.AddSingleton<ISourceScopeObserverAccessor>(observers);
             });
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.DerivationJson);
 
         await new PipelineRunner(harness.Services)
         {

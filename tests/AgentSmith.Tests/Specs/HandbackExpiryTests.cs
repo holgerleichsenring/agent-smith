@@ -24,9 +24,8 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-10-12-3a36b: an approved set the branch carries as a CONTRADICTION hand-back is replayed
-/// without a model call — until somebody else commits to a scoped branch. Then it is derived again,
-/// the derived set stays approved, and a derivation that yields nothing keeps the stored hand-back
-/// rather than an approved one-spec guess.
+/// as it is — until somebody else commits to a scoped branch. Then it is written again: 2026-11-19-6b0ba, as a
+/// stand-in its coding master writes, and the set stays approved.
 /// </summary>
 public sealed class HandbackExpiryTests
 {
@@ -36,48 +35,32 @@ public sealed class HandbackExpiryTests
     private static readonly SpecApproval Approval = new(DateTimeOffset.UtcNow.AddDays(-1), "conv-1", "reviewer");
 
     [Fact]
-    public async Task Expiry_ApprovedSet_ReDerivedSetStaysApproved()
+    public async Task Expiry_ApprovedSet_StandInStaysApproved()
     {
-        var deriver = new StubDeriver(Derived());
         var published = new CapturingPublisher();
 
-        await Handler(deriver, published).ExecuteAsync(Context(author: "reviewer@example.com"), default);
+        await Handler(published).ExecuteAsync(Context(author: "reviewer@example.com"), default);
 
-        deriver.Calls.Should().Be(1, "a foreign commit expires the stored hand-back");
-        published.Set!.IsHandedBack.Should().BeFalse();
+        published.Set!.IsHandedBack.Should().BeFalse("a foreign commit expires the stored hand-back");
         published.Set.Specs.Should().ContainSingle();
-        published.Set.Approval.Should().Be(Approval, "the approval rides onto the set derived again");
+        published.Set.StandIns.Should().ContainSingle("its coding master writes the spec again (2026-11-19-6b0ba)");
+        published.Set.Approval.Should().Be(Approval, "the approval rides onto the set written again");
     }
 
     [Fact]
-    public async Task Expiry_DerivationFails_KeepsHandbackNoApprovedFallback()
+    public async Task Expiry_OnlyOurCommitsSince_ReplaysTheStoredHandback()
     {
-        var deriver = new StubDeriver(null);
-        var published = new CapturingPublisher();
-
-        await Handler(deriver, published).ExecuteAsync(Context(author: "reviewer@example.com"), default);
-
-        deriver.Calls.Should().Be(1);
-        published.Set!.IsHandedBack.Should().BeTrue("expiry never approves a guess");
-        published.Set.Specs.Should().BeEmpty("no one-spec fallback is created");
-    }
-
-    [Fact]
-    public async Task Expiry_OnlyOurCommitsSince_ReplaysTheStoredHandbackWithoutTheModel()
-    {
-        var deriver = new StubDeriver(Derived());
         var published = new CapturingPublisher();
         var context = Context(author: SandboxGitIdentity.Email);
 
-        await Handler(deriver, published).ExecuteAsync(context, default);
+        await Handler(published).ExecuteAsync(context, default);
 
-        deriver.Calls.Should().Be(0);
         published.Set!.IsHandedBack.Should().BeTrue();
         context.Pipeline.TryGet<bool>(ContextKeys.ForeignCommitSinceHandback, out var foreign).Should().BeTrue();
         foreign.Should().BeFalse();
     }
 
-    private static DeriveSpecHandler Handler(ISpecSetDeriver deriver, ISpecSetPublisher publisher)
+    private static DeriveSpecHandler Handler(ISpecSetPublisher publisher)
     {
         var pointers = new InMemorySpecSetPointerStore();
         pointers.SaveAsync(string.Empty, new SpecSetPointer(
@@ -85,25 +68,23 @@ public sealed class HandbackExpiryTests
                 HandbackHeads: new Dictionary<string, string> { [Repo] = "stored-sha" }), default)
             .GetAwaiter().GetResult();
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
-        var fallback = new SpecFallback(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
-        var gate = new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance);
+        var standIns = new SpecStandIns(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
-            deriver, SeriesDoubles.BranchRead(new StubReader()), publisher, pointers,
+            SeriesDoubles.BranchRead(new StubReader()), publisher, pointers,
             new ApprovedSpecSetResolver(new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
-            fallback, new SpecCoverageRefusal(gate, fallback),
+            standIns,
             new SpecSetTicketCommenter(tickets.Object, Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(),
                 AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
-            ApprovedSetDoubles.KeptNotice(), gate,
+            ApprovedSetDoubles.KeptNotice(),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
-            HandbackTestDoubles.Probe(), new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
-            NullLogger<DeriveSpecHandler>.Instance);
+            HandbackTestDoubles.Probe(), new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
     }
 
     private static DeriveSpecContext Context(string author)
@@ -125,22 +106,6 @@ public sealed class HandbackExpiryTests
         SpecSource.BranchArtifact,
         new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "the request has no such field"),
         TicketFingerprint: TicketTextFingerprint.Of(Ticket()), Approval: Approval, Series: Series);
-
-    private static SpecDerivation Derived()
-    {
-        var segments = TicketSegmenter.Segment(Ticket().Description);
-        var id = SeriesIdFactory.Member(Series, 0);
-        DerivedSpec[] specs =
-        [
-            new(new SpecDraft(id, "Send the id", $"spec: {id}", []) { Done = ["The id is sent."] },
-                id, string.Empty, [.. segments.Select(s => s.Id)]),
-        ];
-        return new SpecDerivation(
-            new SpecSet(Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
-                [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.BranchArtifact, Series: Series),
-            []);
-    }
 
     /// <summary>Answers the probe's git questions: our identity, main as the base, and one commit
     /// since the stored head by <c>author</c>.</summary>
@@ -171,19 +136,6 @@ public sealed class HandbackExpiryTests
             Task.FromResult(SpecSetOnBranch.Answered(new SpecSetReadResult(StoredHandback(), "spec-sha")));
     }
 
-    private sealed class StubDeriver(SpecDerivation? result) : ISpecSetDeriver
-    {
-        public int Calls { get; private set; }
-
-        public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
-            CancellationToken cancellationToken)
-        {
-            Calls++;
-            return Task.FromResult<(SpecDerivation?, string?)>((result, result is null ? "no cut" : null));
-        }
-    }
 
     private sealed class CapturingPublisher : ISpecSetPublisher
     {

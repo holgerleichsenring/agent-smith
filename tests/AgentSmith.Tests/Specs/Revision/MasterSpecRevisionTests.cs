@@ -138,4 +138,17 @@ public sealed class MasterSpecRevisionTests
         (await rig.ReviseAsync(SpecRevisionRig.RevisedYaml, " ")).Should().Contain("give the reason");
         rig.Loop.Inputs.Should().BeEmpty();
     }
+
+    // 2026-11-19-6b0ba: the spec its master wrote is no longer the ticket's stand-in.
+    [Fact]
+    public async Task Revise_AStandIn_TakesItOffTheStandIns()
+    {
+        var rig = new SpecRevisionRig();
+        var set = rig.Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
+        rig.Pipeline.Set(ContextKeys.SpecSet, set with { StandIns = [rig.Current.SpecId] });
+
+        await rig.ReviseAsync(SpecRevisionRig.RevisedYaml);
+
+        rig.Loop.Set.StandIns.Should().BeEmpty();
+    }
 }

@@ -29,17 +29,6 @@ public sealed class DemoFixBugTests : IAsyncLifetime
     private readonly string _workspace = Path.Combine(
         Path.GetTempPath(), $"agentsmith-harness-demo-{Guid.NewGuid():N}");
 
-    private const string DerivedSpec = """
-        {"specs": [
-           {"slug": "bulk-discount-boundary",
-            "goal": "Apply the bulk discount at exactly 100.00",
-            "steps": [{"id": "boundary", "action": "Include the 100.00 boundary in the discount check"}],
-            "done": ["Order totals of exactly 100.00 receive the bulk discount.",
-                     "Totals below 100.00 stay undiscounted."],
-            "carries": [1,2,3,4,5,6,7,8]}],
-         "discarded": [], "ignored_instructions": [],
-         "handback": {"case": "none", "reason": ""}}
-        """;
 
     [Fact]
     public async Task Demo_FixBug_InlineTicket_EndToEndWithScriptedChatClient()
@@ -48,9 +37,7 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         Directory.Exists(Path.Combine(workspace, ".git")).Should().BeTrue();
 
         await using var harness = Harness();
-        // p0393a: DeriveSpec turns the ticket into the spec set and drains one FIFO slot. The spec's done-list
-        // is the run's acceptance contract — p0328's negotiation left the code pipeline with it.
-        harness.ChatClient.EnqueueText(DerivedSpec);
+        // 2026-11-19-6b0ba: DeriveSpec writes the inline ticket as a stand-in spec without a model call.
         ScriptTheFix(harness.ChatClient);
 
         var runner = Runner(harness, workspace);
@@ -62,39 +49,6 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         ticket.Source.Should().Be(InlineTicket.Source, "the run's requirement record is the inline payload");
         ticket.Title.Should().Contain("Bulk discount");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
-    }
-
-    /// <summary>2026-11-04-9e8c: the demo's derivation asks which reading the ticket means; the answer typed in the
-    /// terminal joins the ticket thread, the spec is derived again with it, and the fix is made.</summary>
-    [Fact]
-    public async Task Demo_DerivationQuestion_AnsweredInTheTerminal_CommitsTheFix()
-    {
-        var workspace = await MaterializeAsync();
-        var terminal = new StringWriter();
-        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
-        {
-            HarnessProjectAnalyzerStub.Register(services);
-            services.RemoveAll<IDialogueTransport>();
-            services.AddSingleton<IDialogueTransport>(new ConsoleDialogueTransport(
-                new StringReader("1\n"), terminal, NullLogger<ConsoleDialogueTransport>.Instance));
-        });
-        harness.ChatClient
-            .EnqueueText("""
-                {"specs": [], "discarded": [], "ignored_instructions": [],
-                 "handback": {"case": "question", "reason": "'exactly 100.00' reads two ways",
-                              "readings": ["100.00 itself gets the discount", "only totals above 100.00 get it"],
-                              "taken": 1}}
-                """)
-            .EnqueueText(DerivedSpec);
-        ScriptTheFix(harness.ChatClient);
-
-        var result = await Runner(harness, workspace).RunAsync("code");
-
-        result.IsSuccess.Should().BeTrue($"the answered question derives again and builds: {result.Message}");
-        terminal.ToString().Should().Contain("'exactly 100.00' reads two ways");
-        harness.ChatClient.PromptsSeen.Where(p => p.Contains("spec-derivation-master", StringComparison.Ordinal))
-            .Should().HaveCount(2).And.Subject.Last().Should().Contain("100.00 itself gets the discount");
-        harness.ChatClient.ToolCalls.Select(c => c.Name).Should().Contain("write_file");
     }
 
     private static void ScriptTheFix(AgentSmith.PipelineHarness.Llm.ScriptedChatClient chat) => chat

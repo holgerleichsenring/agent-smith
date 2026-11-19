@@ -23,7 +23,9 @@ internal sealed class StubTicketProvider(Func<TicketId, Ticket>? holds = null) :
 
     public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(holds is null
-            ? new Ticket(ticketId, "Stub ticket", "Stub description", null, "Open", "Stub")
+            // 2026-11-19-6b0ba: the ticket's own criteria are a stand-in spec's done lines, as the derived cut's were.
+            ? new Ticket(ticketId, "Stub ticket", "Stub description",
+                "- An empty request body is answered with 400.\n- Existing callers stay unaffected.", "Open", "Stub")
             : holds(ticketId));
 
     public Task<CreatedTicket> CreateAsync(

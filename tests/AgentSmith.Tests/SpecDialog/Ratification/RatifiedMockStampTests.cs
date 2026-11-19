@@ -108,21 +108,5 @@ public sealed class RatifiedMockStampTests : IDisposable
         });
     }
 
-    [Fact]
-    public void DerivedSpecBuilder_ModelElementNamesRatifiedMock_DraftCarriesNone()
-    {
-        var builder = new DerivedSpecBuilder(new SpecDraftValidator(
-                new AgentSmith.Application.Services.Validation.SpecSchemaProvider()), new SpecDraftReader(),
-            new DerivedSpecYamlRenderer(), new SpecDerivationEnvelope(), new FactResolver());
-        using var element = System.Text.Json.JsonDocument.Parse(
-            """{"goal": "Build the page.", "done": ["the page renders"], "ratified_mock": 2}""");
-
-        var (spec, error) = builder.Build(element.RootElement, 0, "2026-10-14-ab12a", "1", [], [], null);
-
-        error.Should().BeNull();
-        spec!.Draft.RatifiedMock.Should().BeNull("a run's derivation renders named fields only");
-        spec.Draft.Yaml.Should().NotContain("ratified_mock");
-    }
-
     private static SpecDraft Draft(string id, string? extra = null) => TranscriptReloadTests.Draft(id, extra);
 }

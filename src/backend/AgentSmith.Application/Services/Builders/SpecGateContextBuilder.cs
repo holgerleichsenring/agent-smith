@@ -13,6 +13,6 @@ public sealed class SpecGateContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new SpecGateContext(ticket, pipeline);
+        return new SpecGateContext(ticket, pipeline, command.SpecId);
     }
 }

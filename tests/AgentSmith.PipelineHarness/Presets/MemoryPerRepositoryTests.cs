@@ -20,8 +20,6 @@ public sealed class MemoryPerRepositoryTests
 
     // 2026-10-12-f5f7a: over several repositories each spec names exactly one; a reply naming none
     // is asked again, so the fixture's one spec states the server.
-    private static readonly string ServerSpec = SpecDerivationFixture.DerivationJson
-        .Replace("\"slug\": \"reject-empty-payloads\",", "\"slug\": \"reject-empty-payloads\", \"repos\": [\"sample-server\"],");
 
     private static IReadOnlyList<RepoConnection> TwoRepos() =>
     [
@@ -37,14 +35,14 @@ public sealed class MemoryPerRepositoryTests
         harness.StubSandboxFactory!.ReportsWorkingTree = true;
         harness.ChatClient
             .EnqueueScopeReply("no verdict") // unusable — the run keeps both repositories
-            .EnqueueText(ServerSpec)
             .EnqueueToolCall("write_file", """{"path":"sample-server/src/Patch.cs","content":"// fix"}""")
             .EnqueueToolCall("remember", """{"type":"project","name":"server-build-order","description":"Contracts build first","body":"The server builds its contracts first.","repository":"sample-server"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"sample-server"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueFinish(summary: "fixed");
 
-        var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
+        var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() }
+            .WithSeries(new HarnessSeries.Member("Reject empty payloads with a 400 instead of a 500", "An empty request body is answered with 400.", "sample-server"));
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue($"a real change and a green verdict pass: {result.Message}");

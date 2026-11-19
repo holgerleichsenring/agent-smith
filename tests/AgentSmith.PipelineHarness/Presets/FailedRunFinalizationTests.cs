@@ -33,11 +33,10 @@ public sealed class FailedRunFinalizationTests
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // spec 1: the master dies on the money fence before anything is verified
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.WithSeries(HarnessSeries.TwoSpecs);
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("nothing was verified, so nothing was delivered");
@@ -74,10 +73,9 @@ public sealed class FailedRunFinalizationTests
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = null };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = null }.WithSeries(HarnessSeries.TwoSpecs);
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse();

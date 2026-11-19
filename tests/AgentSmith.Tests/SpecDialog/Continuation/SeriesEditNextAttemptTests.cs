@@ -61,7 +61,7 @@ public sealed class SeriesEditNextAttemptTests : IDisposable
             (A, "Goal " + A), (B, "B, re-cut"), (D, "New work"));
         next.Writer.Written.Current.Cause.Should().StartWith(SpecRevisionCause.Approval);
         next.Writer.Written.Approval!.Principal.Should().Be("ops-2");
-        next.Deriver.Calls.Should().Be(0, "an approved continuation is applied, never re-derived");
+        next.Recuts.Calls.Should().Be(0, "an approved continuation is applied, never re-derived");
     }
 
     private static Ticket Ticket() => new(new TicketId("19106"), "A ticket", "Migrate the client.", null, "open", "azdo", []);

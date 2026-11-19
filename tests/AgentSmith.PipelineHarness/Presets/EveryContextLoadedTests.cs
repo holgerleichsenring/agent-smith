@@ -25,19 +25,6 @@ public sealed class EveryContextLoadedTests
     private const string ScopeReply =
         """{"repos":[{"name":"primary","affected":true,"confidence":0.95}],"contexts":{"primary":["backend","frontend"]},"rationale":"both contexts change"}""";
 
-    private const string BothContextsJson = """
-        {"specs": [
-           {"slug": "dependency-updates",
-            "goal": "Raise the package floors the audit names in both contexts",
-            "contexts": ["backend", "frontend"],
-            "steps": [{"id": "raise", "action": "Raise the versions in backend/ and frontend/"}],
-            "done": ["both package.json files carry versions the audit no longer flags."],
-            "carries": [1,2,3,4,5,6,7,8,9,10,11,12]}],
-         "discarded": [],
-         "discarded_contexts": [],
-         "ignored_instructions": [],
-         "handback": {"case": "none", "reason": ""}}
-        """;
 
     private const string BackendPrinciples = "# Backend rules\n\nEvery handler is a record.";
     private const string FrontendPrinciples = "# Frontend rules\n\nEvery component is a function.";
@@ -48,7 +35,6 @@ public sealed class EveryContextLoadedTests
         await using var harness = BuildHarness();
         harness.ChatClient
             .EnqueueScopeReply(ScopeReply)
-            .EnqueueText(BothContextsJson)
             .EnqueueText("Planning: raise both floors.")
             .EnqueueToolCall("write_file", """{"path":"primary/backend/package.json","content":"{}"}""")
             .EnqueueFinish();
