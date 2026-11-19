@@ -22,6 +22,9 @@ public sealed class PrReviewEntry : EntityBase
     public bool IsOurs { get; set; }
     public bool IsBot { get; set; }
     public bool IsSystem { get; set; }
+
+    /// <summary>2026-11-19-1b72e: the host's note of a vote (PrReviewNote.IsVote).</summary>
+    public bool IsVote { get; set; }
     public string? File { get; set; }
     public int? Line { get; set; }
     public bool? Resolved { get; set; }

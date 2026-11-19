@@ -1,0 +1,14 @@
+spec: 2026-11-19-1b72e
+decisions:
+  - chosen: "Host narration is left out in ConversationPrEntries.Of, the one place pull-request records become ticket-thread entries; the stored PR record keeps every note."
+    alternatives: "Filter in the dashboard thread; stop storing system notes in the PR record."
+    why: "The thread is assembled on the server (TicketConversationReader); other consumers read the record — rework feedback (PrReviewFeedbackFetcher already skips system notes), PR standing, the closed-ticket rule, TicketRunsReviews — and stay untouched."
+  - chosen: "A new IsVote flag on the review note, entry and view (column PrReviewEntries.IsVote, migrations for SQLite, SQL Server and PostgreSQL): Azure DevOps sets it for a system comment on a VoteUpdate thread (AzureReposVoteThreads.VoteOf), GitLab for a system note recording approve, unapprove or requested changes. The thread hides a system note only when it is no vote and carries no decision."
+    alternatives: "Hide every system note without a decision (first cut); hide every IsSystem note; match Azure DevOps' 'The reference … was updated' text."
+    why: "Review finding: a reset or withdrawn vote carries no decision (only the newest standing vote is named), so hiding it would leave the thread reading approved after a withdrawal. Azure DevOps names the vote thread itself; GitLab system notes carry no type, so its approval notes are told by the note text GitLab writes. Rows stored before the column read IsVote false until the next PR read rewrites them; a row with a decision stays shown either way."
+  - chosen: "No backfill of IsVote for rows stored before the column: they read IsVote false and show by their stored decision."
+    alternatives: "Backfill from the stored body text; re-read every PR record on migration."
+    why: "Second review accepted it: a row with a decision stays visible, and the next read of an open PR rewrites its rows. A withdrawn vote stored earlier without a decision is not recovered."
+  - chosen: "GitLab's 'reset approvals' note (a push resetting the approvals) counts as a vote note."
+    alternatives: "Treat it as narration."
+    why: "It withdraws approvals; hiding it would leave the thread reading approved."

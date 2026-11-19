@@ -25,4 +25,8 @@ public sealed record PrReviewEntryView(
     string? ThreadHostId,
     string Body,
     bool Truncated,
-    DateTimeOffset At);
+    DateTimeOffset At)
+{
+    /// <summary>2026-11-19-1b72e: the host's note of a vote — cast, changed, reset or withdrawn.</summary>
+    public bool IsVote { get; init; }
+}

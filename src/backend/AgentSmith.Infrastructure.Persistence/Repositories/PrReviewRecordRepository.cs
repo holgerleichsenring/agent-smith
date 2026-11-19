@@ -80,7 +80,7 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,
-            e.File, e.Line, e.Resolved, e.ThreadHostId, e.Body, e.Truncated, Time(e.AtTicks)!.Value);
+            e.File, e.Line, e.Resolved, e.ThreadHostId, e.Body, e.Truncated, Time(e.AtTicks)!.Value) { IsVote = e.IsVote };
 
     private static DateTimeOffset? Time(long? ticks) => ticks is { } t ? new DateTimeOffset(t, TimeSpan.Zero) : null;
 }

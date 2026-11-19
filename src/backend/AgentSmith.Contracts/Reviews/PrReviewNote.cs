@@ -17,4 +17,9 @@ public sealed record PrReviewNote(
     /// an Azure DevOps "{threadId}/{commentId}". A decision's id is the id of the note the host
     /// returns for the same object, so a decision and its review body are one entry.</summary>
     public string HostId { get; init; } = string.Empty;
+
+    /// <summary>2026-11-19-1b72e: the host's note of a reviewer's vote — cast, changed, reset or withdrawn
+    /// (an Azure DevOps VoteUpdate thread, a GitLab approve/unapprove/requested-changes note). A system note
+    /// that is not a vote is the host narrating the pull request.</summary>
+    public bool IsVote { get; init; }
 }

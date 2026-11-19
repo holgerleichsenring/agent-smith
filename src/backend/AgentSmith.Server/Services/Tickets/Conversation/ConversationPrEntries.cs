@@ -13,6 +13,10 @@ namespace AgentSmith.Server.Services.Tickets.Conversation;
 /// a decision with a body is the note that carries it. A host-written note (an Azure DevOps vote comment, a
 /// GitLab system note) is the system's and names nobody. Our command answers are read by their own text:
 /// one that started nothing is labelled so, one naming a run belongs to that attempt.
+/// 2026-11-19-1b72e: a host-written note that is not a vote — Azure DevOps' "The reference … was updated" on
+/// every push, a GitLab "added 1 commit" — is the host narrating the branch and is left out of the thread. A vote
+/// note stays, a reset or withdrawn vote too (it carries no decision, and without it the thread would still read
+/// approved). The stored record keeps every note.
 /// </summary>
 public static partial class ConversationPrEntries
 {
@@ -20,7 +24,9 @@ public static partial class ConversationPrEntries
 
     public static IEnumerable<TicketConversationEntryView> Of(
         IEnumerable<PrReviewRecordView> records, IReadOnlySet<string> attemptRunIds) =>
-        records.SelectMany(r => r.Entries.Select(e => Entry(r, e, attemptRunIds)));
+        records.SelectMany(r => r.Entries.Where(Shown).Select(e => Entry(r, e, attemptRunIds)));
+
+    private static bool Shown(PrReviewEntryView entry) => !entry.IsSystem || entry.IsVote || entry.Decision is not null;
 
     private static TicketConversationEntryView Entry(PrReviewRecordView record, PrReviewEntryView entry, IReadOnlySet<string> attempts)
     {

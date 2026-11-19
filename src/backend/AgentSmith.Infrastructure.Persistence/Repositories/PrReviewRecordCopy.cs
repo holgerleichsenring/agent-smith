@@ -56,6 +56,7 @@ internal static class PrReviewRecordCopy
         stored.IsOurs = read.IsOurs;
         stored.IsBot = read.IsBot;
         stored.IsSystem = read.IsSystem;
+        stored.IsVote = read.IsVote;
         stored.File = read.File;
         stored.Line = read.Line;
         stored.Resolved = read.Resolved;

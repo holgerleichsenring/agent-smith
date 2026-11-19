@@ -38,10 +38,10 @@ internal static class TicketConversationFixtures
 
     public static PrReviewEntry Note(
         string number, string hostId, string body, int minutes, string? author = "bob", string kind = PrReviewEntryKinds.Comment,
-        bool ours = false, bool system = false, string? decision = null, string? file = null, int? line = null) => new()
+        bool ours = false, bool system = false, string? decision = null, string? file = null, int? line = null, bool vote = false) => new()
     {
         PrKey = PrKey.Of(PrUrl(number)), HostId = hostId, Kind = kind, Decision = decision, Standing = decision is not null,
-        AuthorLogin = author, Trusted = true, IsOurs = ours, IsSystem = system, File = file, Line = line, Body = body,
+        AuthorLogin = author, Trusted = true, IsOurs = ours, IsSystem = system, IsVote = vote, File = file, Line = line, Body = body,
         AtTicks = T.AddMinutes(minutes).UtcTicks,
     };
 
