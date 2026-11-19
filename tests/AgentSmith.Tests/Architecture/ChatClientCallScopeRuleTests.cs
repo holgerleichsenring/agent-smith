@@ -38,7 +38,7 @@ public sealed class ChatClientCallScopeRuleTests
         "NetworkTimeoutChatClient.cs",
         // 2026-08-27-3eb1: pass-through decorators around an already-scoped call — one
         // re-throws a provider context-length refusal with the role and window named, the
-        // other appends a finalize instruction and switches ToolMode off. Both delegate
+        // other appends a finalize instruction (2026-11-18-9c1cc: tools and tool mode unchanged). Both delegate
         // the caller's own invocation; the scope flows via AsyncLocal.
         "ContextLengthRefusalChatClient.cs",
         "ContextPressureFinalizingChatClient.cs",

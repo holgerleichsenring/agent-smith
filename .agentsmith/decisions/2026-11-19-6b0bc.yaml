@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-6b0bc
+
+decisions:
+  - category: Architecture
+    chose: "The analyzer's finalize turn forwards the caller's ChatOptions unchanged — tools declared, tool mode as the exploration had it — and its instruction text asks for only the JSON; this supersedes p0385's ToolMode None choice"
+    over: "Keeping ToolMode None (p0385), as the guaranteed-text reply"
+    reason: "Operator rule via the brief: the tool set never changes during a run (Anthropic guidance), as 9c1cc applied to ContextPressureFinalizingChatClient. Keeping tool_choice unchanged also keeps the provider prompt cache over the exploration history, which the None turn re-sent uncached. The cost: up to 25 more scout round trips per finalize turn (~100 per analysis at worst), and a turn ending on the cap mid-call falls through to the retry — stated in upgrade_impact."
+  - category: Scope
+    chose: "No typed submit_project_map tool in this spec"
+    over: "Delivering the map as a typed tool call whose arguments are the map, as finish_spec does for the coding master"
+    reason: "The map's JSON contract is set by the catalog skill project-analyzer-master in the skills repository, which this spec cannot change; a typed delivery needs that skill change, a nested schema and a live smoke. Planned p0295 (structured output for the analyzer and discovery) already owns typed map delivery."
+  - category: Process
+    chose: "Adversarial review in two rounds (BUILD WITH CUTS, cuts applied: decisions file, honest upgrade_impact, tool-call finalize test through a FunctionInvokingChatClient, stale comments)"
+    reason: "spec-first review-spec; the evidence script resolved every citation."

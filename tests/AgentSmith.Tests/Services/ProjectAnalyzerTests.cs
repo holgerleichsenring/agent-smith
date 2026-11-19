@@ -12,8 +12,9 @@ namespace AgentSmith.Tests.Services;
 
 /// <summary>
 /// p0385: a capped/prose exploration attempt is finalized by continuing the
-/// SAME conversation with an emit-JSON-now turn (tools disabled) — never a
-/// blank restart that deterministically hits the same iteration cap again.
+/// SAME conversation with an emit-JSON-now turn — never a blank restart that
+/// deterministically hits the same iteration cap again. 2026-11-19-6b0bc: the
+/// finalize turn keeps the caller's tools and tool mode; the instruction steers.
 /// </summary>
 public sealed class ProjectAnalyzerTests
 {
@@ -49,11 +50,29 @@ public sealed class ProjectAnalyzerTests
         finalize[^1].Role.Should().Be(ChatRole.User);
         finalize[^1].Text.Should().Contain("ONLY the JSON object");
         var options = factory.OptionsPerCall[1]!;
-        options.ToolMode.Should().Be(ChatToolMode.None, "no further exploration on the finalize turn");
+        options.Should().BeSameAs(factory.OptionsPerCall[0], "the tool set never changes during a run");
+        options.ToolMode.Should().NotBe(ChatToolMode.None);
         options.Tools.Should().NotBeNullOrEmpty("tool-bearing history requires the tools to stay declared");
         factory.MaxIterationsPassed.Should().Be(25);
         factory.Calls[0][^1].Text.Should().Contain("budget of 25 tool calls",
             "prompt hint and enforced cap share one constant");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_FinalizeTurnCallsAToolFirst_StillReturnsMap()
+    {
+        var toolCall = new ChatMessage(ChatRole.Assistant,
+            [new FunctionCallContent("call-1", "read_file", new Dictionary<string, object?> { ["path"] = "README.md" })]);
+        var factory = new RecordingChatClientFactory(
+            [new ChatMessage(ChatRole.Assistant, Narration), toolCall, new ChatMessage(ChatRole.Assistant, ValidJson)],
+            invokeFunctions: true);
+
+        var map = await AnalyzeAsync(factory);
+
+        map.PrimaryLanguage.Should().Be("csharp");
+        factory.Calls.Should().HaveCount(3, "exploration, the finalize turn's tool call, then its JSON");
+        factory.Calls[2].Should().Contain(m => m.Contents.OfType<FunctionResultContent>().Any(),
+            "the tool the finalize turn called was answered");
     }
 
     [Fact]
@@ -98,9 +117,13 @@ public sealed class ProjectAnalyzerTests
     /// Scripted IChatClientFactory returning canned response texts in order and
     /// recording, per call, a snapshot of the message list and the ChatOptions.
     /// </summary>
-    private sealed class RecordingChatClientFactory(params string[] responses) : IChatClientFactory
+    private sealed class RecordingChatClientFactory(IEnumerable<ChatMessage> responses, bool invokeFunctions = false)
+        : IChatClientFactory
     {
-        private readonly Queue<string> _responses = new(responses);
+        private readonly Queue<ChatMessage> _responses = new(responses);
+
+        public RecordingChatClientFactory(params string[] responses)
+            : this(responses.Select(text => new ChatMessage(ChatRole.Assistant, text))) { }
 
         public List<IReadOnlyList<ChatMessage>> Calls { get; } = new();
         public List<ChatOptions?> OptionsPerCall { get; } = new();
@@ -111,7 +134,8 @@ public sealed class ProjectAnalyzerTests
             MasterLoopHooks? masterLoopHooks = null)
         {
             MaxIterationsPassed = maxIterations;
-            return new Inner(this);
+            // 2026-11-19-6b0bc: wrapped as the real factory wraps it, so a scripted tool call is answered.
+            return invokeFunctions ? new FunctionInvokingChatClient(new Inner(this)) : new Inner(this);
         }
 
         public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 4096;
@@ -125,8 +149,7 @@ public sealed class ProjectAnalyzerTests
             {
                 owner.Calls.Add(messages.ToList());
                 owner.OptionsPerCall.Add(options);
-                return Task.FromResult(new ChatResponse(
-                    new ChatMessage(ChatRole.Assistant, owner._responses.Dequeue())));
+                return Task.FromResult(new ChatResponse(owner._responses.Dequeue()));
             }
 
             public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

@@ -26,8 +26,9 @@ public sealed class ProjectMapFinalizer(
         messages.Add(new ChatMessage(ChatRole.User, FinalizeInstruction));
         using var _scope = runContext.BeginCallScope(
             "project-analyzer", "BootstrapDiscover", repoName);
-        var response = await chat.GetResponseAsync(
-            messages, FinalizeOptions(options), cancellationToken);
+        // 2026-11-19-6b0bc: the tool set never changes during a run, so the caller's options go down unchanged —
+        // tools declared, tool mode as the exploration had it; the instruction steers.
+        var response = await chat.GetResponseAsync(messages, options, cancellationToken);
         if (mapJsonReader.TryRead(response.Text ?? string.Empty, out var map, out var error))
             return (map, string.Empty);
         logger.LogWarning(
@@ -36,15 +37,6 @@ public sealed class ProjectMapFinalizer(
             attempt, error, Truncate(response.Text));
         return (null, error);
     }
-
-    // Tools stay declared (Anthropic rejects a request whose history contains tool
-    // blocks without the tools param) but ToolMode=None forbids further calls.
-    private static ChatOptions FinalizeOptions(ChatOptions options) => new()
-    {
-        Tools = options.Tools,
-        ToolMode = ChatToolMode.None,
-        MaxOutputTokens = options.MaxOutputTokens,
-    };
 
     private static string Truncate(string? text, int max = 2000) =>
         string.IsNullOrEmpty(text) ? "<empty>"

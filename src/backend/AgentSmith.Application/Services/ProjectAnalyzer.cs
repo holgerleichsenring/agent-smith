@@ -15,8 +15,8 @@ namespace AgentSmith.Application.Services;
 /// subset (ReadFile + Grep + ListFiles) and parses the model's terminal JSON
 /// into a <see cref="ProjectMap"/>. The prompt states the tool-call budget;
 /// when an attempt burns the budget without terminal JSON,
-/// <see cref="IProjectMapFinalizer"/> continues the SAME conversation with tools
-/// disabled to demand the JSON from the evidence already gathered (p0385). One
+/// <see cref="IProjectMapFinalizer"/> continues the SAME conversation, its tools unchanged
+/// (2026-11-19-6b0bc), to demand the JSON from the evidence already gathered (p0385). One
 /// fresh retry after that; failure after the retry surfaces to the handler as an
 /// exception. JSON decoding is delegated to <see cref="IProjectMapJsonReader"/>.
 /// </summary>
