@@ -29,11 +29,21 @@ import { DialogMessage } from "./DialogTranscript";
 // condensed lines the turn leaves behind, newest last, under a clock in minutes and seconds; the clock ticking is the
 // second cue beside the ring, and a new line arriving is the third.
 
-const READING_WORDS: Record<SpecDialogReadingState, string> = {
-  opening: "opening",
-  ready: "ready",
-  failed: "could not be opened",
-  reopening: "removed, reopening",
+// 2026-11-19-6b0be: a repository's line is its sandbox opening, not a read of it; a ticket's is the tracker read. Each
+// says which, so "ready" no longer reads as work done.
+const READING_WORDS: Record<SpecDialogReadingPush["kind"], Record<SpecDialogReadingState, string>> = {
+  repository: {
+    opening: "opening a sandbox",
+    ready: "sandbox ready",
+    failed: "sandbox could not be opened",
+    reopening: "sandbox removed, opening a new one",
+  },
+  ticket: {
+    opening: "reading",
+    ready: "read",
+    failed: "could not be read",
+    reopening: "reading again",
+  },
 };
 
 const READING_MARK: Record<SpecDialogReadingState, string> = {
@@ -89,7 +99,7 @@ export function DialogWorking({
                 data-state={reading.state}
                 className={READING_MARK[reading.state]}
               >
-                {reading.name}: {READING_WORDS[reading.state]}
+                {reading.name}: {READING_WORDS[reading.kind][reading.state]}
               </li>
             ))}
           </ul>

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-6b0be
+
+decisions:
+  - category: Behaviour
+    chose: "The run log's first step section is titled 'Before the work' for every run"
+    over: "'Setup'; or 'Before the specs' in spec runs and 'Before the work' otherwise"
+    reason: "Review: the section holds every step before the first spec step — checkout and sandboxes, but also AnalyzeCode and DeriveSpec — so 'Setup' would be as misleading as 'Got ready'. A two-title split flips while a spec run has cut no spec yet, exactly when the section is running; in a spec run the specs are the work, so one title is true everywhere."
+  - category: Behaviour
+    chose: "A design turn's reading line says per kind what happened: a repository 'opening a sandbox' / 'sandbox ready' / 'sandbox could not be opened' / 'sandbox removed, opening a new one'; a ticket 'reading' / 'read' / 'could not be read'"
+    over: "One word table for both kinds ('ready')"
+    reason: "A repository's ready is SourceScopeProgress.Ready — its sandbox opened — not a read; a ticket's is the tracker read returning. The wire states stay, so only the dashboard words change and both pages (run page via the conversation, ticket page via TicketThread) read the same."
+  - category: Scope
+    chose: "The command display name 'Derive the specs' is unchanged"
+    over: "Renaming it here"
+    reason: "The brief scopes this spec to the ready label; the operator's 'derive the spec' complaint needs to say what reads badly, so it is reported as an open question rather than guessed."

@@ -222,7 +222,7 @@ describe("Ticket thread", () => {
     });
     await settle(3000);
     const working = within(screen.getByTestId("ticket-working"));
-    expect(working.getByTestId("dialog-reading")).toHaveTextContent("portal-worker: ready");
+    expect(working.getByTestId("dialog-reading")).toHaveTextContent("portal-worker: sandbox ready");
     expect(working.getByTestId("dialog-activity-line")).toHaveTextContent(/^1 read$/);
     expect(working.getByTestId("dialog-working-pulse")).toHaveTextContent(/^0m 3s$/);
   });

@@ -16,7 +16,7 @@ import { useRunTicket } from "./useRunTicket";
 import { useStepAddress } from "./useStepAddress";
 
 // 2026-11-16-6877b: the run page's default view. 2026-11-17-6d9ea: the head and the Now block.
-// 2026-11-17-6d9eb: then ONE sectioned log, as the approved mock draws it — Ticket, Got ready, The plan, a section per
+// 2026-11-17-6d9eb: then ONE sectioned log, as the approved mock draws it — Ticket, Before the work, The plan, a section per
 // spec, Checked against the spec, Delivered — each section and step line with its llm calls, cost and time, and what the
 // story view's panels showed drawn plain inside the section it belongs to. A running or stopped section starts open.
 // 2026-11-17-6d9ec: a step opens its whole detail in place, and the open step is the page's address.

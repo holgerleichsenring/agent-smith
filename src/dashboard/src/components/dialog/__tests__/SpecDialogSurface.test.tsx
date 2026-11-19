@@ -1989,8 +1989,8 @@ describe("SpecDialogSurface", () => {
 
     const lines = await screen.findAllByTestId("dialog-reading");
     expect(lines.map((line) => [line.textContent, line.getAttribute("data-state")])).toEqual([
-      ["repo-a: ready", "ready"],
-      ["template-repo: could not be opened", "failed"],
+      ["repo-a: sandbox ready", "ready"],
+      ["template-repo: sandbox could not be opened", "failed"],
     ]);
   });
 

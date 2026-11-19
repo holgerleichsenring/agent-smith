@@ -4,7 +4,7 @@ import type { RunStepRow } from "@/lib/runStepsApi";
 import type { RunSnapshot } from "@/types/hub-events";
 import { initiallyOpen, placeLogSteps, runLogSections, stepsMeta, stepTime } from "../runLogSections";
 
-// 2026-11-17-6d9eb: the log sectioned by work — Got ready, a section per spec, Delivered — with per-section counts.
+// 2026-11-17-6d9eb: the log sectioned by work — Before the work, a section per spec, Delivered — with per-section counts.
 
 function row(stepIndex: number, commandName: string, over: Partial<RunStepRow> = {}): RunStepRow {
   return {
@@ -39,7 +39,7 @@ describe("runLogSections", () => {
     expect(placeLogSteps(steps).map((p) => p.key)).toEqual(["ready", "ready", "ready", `spec:${SPEC}`, `spec:${SPEC}`, `spec:${SPEC}`, "deliver", "deliver"]);
   });
 
-  it("placeLogSteps_ARunWithoutSpecs_ReadsGotReadyTheWorkDelivered", () => {
+  it("placeLogSteps_ARunWithoutSpecs_ReadsBeforeTheWorkTheWorkDelivered", () => {
     const plain = [row(1, "FetchTicket"), row(2, "AgenticExecute"), row(3, "VerifySpec"), row(4, "SomethingNew"), row(5, "CommitAndPR")];
     expect(placeLogSteps(plain).map((p) => p.key)).toEqual(["ready", "work", "work", "work", "deliver"]);
   });
@@ -49,6 +49,7 @@ describe("runLogSections", () => {
     const sections = runLogSections(steps, specs, snap(), null);
     expect(sections.map((s) => s.id)).toEqual(["ticket", "ready", "plan", `spec:${SPEC}`, "check", "deliver"]);
     expect(sections[0].meta).toBe("13");
+    expect(sections[1].title).toBe("Before the work"); // 2026-11-19-6b0be
     expect(sections[1].meta).toBe("3 steps · 88 llm · $0.08 · 4m 36s");
     const spec = sections[3];
     expect(spec.title).toBe(`Spec ${SPEC} · upgrade dependencies`);

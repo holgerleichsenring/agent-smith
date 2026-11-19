@@ -7,9 +7,9 @@ import { pullRequestLinks } from "./runNowLines";
 import { spanWords } from "./runMetaWords";
 
 // 2026-11-17-6d9eb: the run log sectioned by work, as the approved mock draws it. Every step row the server projects
-// lands in exactly one section: before the first spec step in Got ready, a spec's steps in that spec's section, a later
+// lands in exactly one section: before the first spec step in Before the work, a spec's steps in that spec's section, a later
 // step without a spec in Delivered when its command delivers and otherwise in the section before it. A run that cut no
-// spec reads Got ready, The work, Delivered by command. Ticket, The plan and Checked against the spec carry what the run
+// spec reads Before the work, The work, Delivered by command. Ticket, The plan and Checked against the spec carry what the run
 // read and was judged on rather than steps. Each section and step says its llm calls, cost and time.
 
 export type LogSectionKind = "ticket" | "ready" | "plan" | "spec" | "work" | "check" | "deliver";
@@ -143,7 +143,9 @@ export function runLogSections(
   const ticketId = snapshot?.ticketId ?? null;
   sections.push({ id: "ticket", kind: "ticket", title: "Ticket", specId: null, state: ticketId || snapshot?.ticketTitle ? "done" : "pending",
     meta: ticketId ?? "the ticket as the run read it", steps: [] });
-  sections.push(stepSection("ready", "ready", "Got ready"));
+  // 2026-11-19-6b0be: the old title read as the work being ready; the section holds every step before the first spec —
+  // checkout and sandboxes, but also code analysis and deriving the specs — so it says where it sits.
+  sections.push(stepSection("ready", "ready", "Before the work"));
   const plan = ledgerMeta(ledger);
   sections.push({ id: "plan", kind: "plan", title: "The plan", specId: null, state: plan.state, meta: plan.meta, steps: [] });
 
