@@ -11,6 +11,7 @@ import { commandKey } from "./runSections";
 import { InlineText } from "./LogText";
 import { RunStepHead } from "./RunStepHead";
 import { StepCallSequence } from "./StepCallSequence";
+import { StepSubAgents } from "./StepSubAgents";
 import { repoOutcomeWords, repoSummary, stepDetailLines, type DetailFilter, type DetailLine } from "./stepDetailLines";
 
 // 2026-11-17-6d9ec: an open step, in place under its line — what the graph's "Full pipeline — step x/n" panel showed,
@@ -51,6 +52,9 @@ export function RunStepDetail({ runId, step, live }: Props) {
   return (
     <>
       <RunStepHead step={step} />
+      {!row.planned && (
+        <StepSubAgents events={page.events} live={live} hasOlder={page.hasOlder} loading={page.loading} loadOlder={page.loadOlder} />
+      )}
       {multi && <div className="rl-detail-status" data-testid="step-repo-summary">{multi}</div>}
       {view.repos.map((r) => (
         <div key={r.repo} className="rl-detail-repo" data-testid={`step-repo-${r.repo}`}>

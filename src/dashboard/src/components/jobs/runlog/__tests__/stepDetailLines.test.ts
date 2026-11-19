@@ -38,14 +38,14 @@ describe("stepDetailLines", () => {
     const texts = stepDetailLines(lead, true).lines.map((l) => l.text);
     expect(texts).toContain("EndpointBuilder: write_file  src/A.cs");
     expect(texts).toContain("read_file  src/A.cs");
-    expect(texts).toContain("EndpointBuilder finished after 5 tool calls");
     expect(texts).toContain("sent back to EndpointBuilder: the 404 is not tested");
-    expect(texts).toContain("EndpointBuilder stopped with its master's loop after 0 tool calls");
+    // 2026-11-19-687eb: the child's start and end are its row above the list, not lines in it.
+    expect(texts.some((t) => t.includes("finished after") || t.includes("started:"))).toBe(false);
   });
 
   it("stepDetailLines_EveryKind_NewestFirst", () => {
     const view = stepDetailLines(events, true);
-    expect(view.lines.map((l) => l.kind)).toEqual(["write", "finding", "sub-agent", "decision", "tool", "write", "tool", "llm"]);
+    expect(view.lines.map((l) => l.kind)).toEqual(["write", "finding", "decision", "tool", "write", "tool", "llm"]);
     const llm = view.lines.find((l) => l.kind === "llm")!;
     expect(llm.text).toBe("agentic-executor · gpt-5 · 9,606 in / 552 out · cache 8,100");
     expect(llm.meta).toBe("$0.038 · 5.8s");

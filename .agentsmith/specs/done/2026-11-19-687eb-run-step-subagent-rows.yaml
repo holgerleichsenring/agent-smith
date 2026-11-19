@@ -26,7 +26,7 @@ steps:
   - id: record
     action: "Add SubAgentToolCallAIFunction (publishes SubAgentToolCallEvent before invoking); SubAgentRequestBuilder takes IEventPublisher and wraps each granted function with it."
   - id: model
-    action: "A pure stepSubAgents(events, runEnded) building rows (id, name, brief, status, toolCalls, startedAt, endedAt, thinkingSince, calls)."
+    action: "A pure subAgentRows(events, { runEnded, hasOlder }) building rows (id, name, brief, status, toolCalls, startedAt, endedAt, thinkingSince, calls)."
   - id: view
     action: "StepSubAgents component under RunStepHead with expandable rows; stepDetailLines drops the three lifecycle/call cases."
   - id: tests
@@ -34,7 +34,7 @@ steps:
 
 tests:
   - "SubAgentRequestBuilderTests: invoking a granted tool of the built request publishes SubAgentToolCallEvent with the member's id and tool name."
-  - "stepSubAgents: finished child counts its loaded SubAgentToolCall events and shows its duration; a continued child (Messaged continued after Completed) is running; running child thinking since its open LLM call; failed status; '+' when older events are not loaded."
+  - "subAgentRows: finished child counts its loaded SubAgentToolCall events and shows its duration; a continued child (Messaged continued after Completed) is running; running child thinking since its open LLM call; failed status; '+' when older events are not loaded."
   - "RunStepDetail: sub-agent rows render before step-detail-line rows; clicking expands brief and calls."
 
 done:

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-687eb
+
+decisions:
+  - category: Architecture
+    chose: "A child's tool calls are recorded by publishing the existing SubAgentToolCallEvent (child id, tool, ToolArgumentFacts.Summarize) from a wrapper SubAgentRequestBuilder puts on each granted function, beside the per-child MidTurnMessageAIFunction"
+    over: "Attributing SandboxCommand events to a child; reading a design turn's 'X › tool' DialogActivity steps on the run page; a new event type"
+    reason: "Nothing recorded a coding-run child's calls under its id: its sandbox calls are SandboxCommand rows with no child id and its other tools (recall, log_decision, web) leave nothing. SubAgentToolCallEvent was defined for exactly this (p0177), is in the event resolver and the hub mirror and is already rendered by the step log, but had no producer. Publishing it on the run's one event path reuses the trail rather than adding a storage place; attributing SandboxCommand would thread a child id through the sandbox layer and still miss non-sandbox tools; DialogActivity exists only for design turns. Raised as an open question for the operator: a design turn's child call is now kept twice (DialogActivity for the conversation, SubAgentToolCall for the run page)."
+  - category: Behaviour
+    chose: "A sub-agent's tool calls are counted and listed from the step's loaded events, with '+' and a 'load older calls' link while older events are not loaded and the child started before them"
+    over: "Adding SubAgentToolCall to StepSubAgentLifecycleReader so the newest page carries every call; using SubAgentCompleted.ToolCalls"
+    reason: "Review: the lifecycle reader is unbounded and meant for a handful of rows; 20 children x 100 iterations would ship thousands of rows on every step open. Completed.ToolCalls counts one pass only and is 0 on a failure, so a continued or failed child would read wrong."
+  - category: Behaviour
+    chose: "A child's status is its latest lifecycle event: Spawned or Messaged(continued) means running, Completed gives its end; a child with no end in an ended run reads 'ended with the run'"
+    over: "Status from the first Completed"
+    reason: "Completed fires at the end of every pass; a continuation sends Messaged(continued) and no new Spawned, so a sent-back child must read running again."
+  - category: Behaviour
+    chose: "'thinking · Ns' on a running child comes from its newest LLM call by role (the child's name) that has no finish; same-named children share it"
+    over: "Matching LLM calls by child id"
+    reason: "LLM call events carry the role, not the sub-agent id; child names are not unique (SubAgentTeam allows several members with one name), so this is a stated limitation rather than a guess."
+  - category: Behaviour
+    chose: "The flat event list no longer shows a child's Spawned, Completed and SubAgentToolCall lines; a coding child's SandboxCommand rows stay in it"
+    over: "Keeping both the rows and the old lines"
+    reason: "The rows say the same, at the top; the sandbox rows carry no child id, so they cannot move into a row."
+  - category: Behaviour
+    chose: "The running child's seconds are browser time minus the call's server timestamp"
+    over: "Seconds from when the page first saw the call"
+    reason: "The run page's other running clocks (step badges) count from server stamps the same way; a page opened mid-call should show the real wait."

@@ -236,7 +236,7 @@ public sealed class SpecDialogSubAgentTests
     }
 
     private static SubAgentRunner RealRunner(IAgenticLoopRunner childLoop) =>
-        new(new SubAgentPass(childLoop, new SubAgentRequestBuilder(),
+        new(new SubAgentPass(childLoop, new SubAgentRequestBuilder(new AgentSmith.Tests.Events.RecordingEventPublisher()),
                 new SubAgentEvents(new AgentSmith.Tests.Events.RecordingEventPublisher()),
                 new SubAgentActivityFrame(TurnActivityRecorder.Silent()), NullLogger<SubAgentPass>.Instance),
             new LoopLimitsConfig { MaxConcurrentSubAgents = 4 }, NullLogger<SubAgentRunner>.Instance);
