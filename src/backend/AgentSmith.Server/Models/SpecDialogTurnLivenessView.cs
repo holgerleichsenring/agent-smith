@@ -13,8 +13,8 @@ namespace AgentSmith.Server.Models;
 /// started in the future.
 /// </para>
 /// </summary>
-/// <param name="Steps">What the turn has reported so far, oldest first, each under the
-/// sequence the page merges the live pushes against.</param>
+/// <param name="Steps">The turn's newest steps, oldest first, each under the sequence the page merges the live pushes
+/// against; 2026-11-19-687ec: the page reads the older ones back from the turn's run.</param>
 /// <param name="TurnStartedAt">The turn's identity: a sequence alone repeats every turn, so a
 /// page that missed the reply between two turns would filter the new turn's steps out as
 /// duplicates of the dead one's. Null when no turn is computing.</param>

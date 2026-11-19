@@ -371,6 +371,8 @@ export interface SpecDialogActivityStep {
   detail?: string | null;
   seq: number;
   timestamp: string;
+  /** 2026-11-19-687ec: the turn the step belongs to, so a running turn's history can be told from an earlier turn's. */
+  turnStartedAt?: string | null;
 }
 
 /** 2026-11-10-d854c: one page of a turn's steps, run-wide, with how many there are; d854b: its span and sub-agent calls. */
