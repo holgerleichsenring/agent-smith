@@ -31,7 +31,7 @@ spec:
           #   --build-arg AGENTSMITH_BACKEND_URL=http://agentsmith-server
           # so the in-cluster Service is the rewrite target. The runtime env
           # below covers SSR/runtime reads of the same value.
-          image: holgerleichsenring/agentsmith-dashboard:0.191.0  # x-release-please-version
+          image: holgerleichsenring/agentsmith-dashboard:0.191.1  # x-release-please-version
           imagePullPolicy: IfNotPresent  # prod: Always
           ports:
             - name: http
