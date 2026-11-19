@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.193.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.192.1...v0.193.0) (2026-11-19)
+
+
+### Features
+
+* **spec-dialog:** find_files and grep_in_tree search the draft at draft: ([92b368f](https://github.com/holgerleichsenring/agent-smith/commit/92b368f5b391488975698bd8bc413ab37c8ebde8))
+* **spec-dialog:** find_files and grep_in_tree search the draft at draft: (2026-11-19-b2c1) ([f49bf86](https://github.com/holgerleichsenring/agent-smith/commit/f49bf8672fdc264ed31cfd5db1eb0dc91b660416))
+
 ## [0.192.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.192.0...v0.192.1) (2026-11-19)
 
 
