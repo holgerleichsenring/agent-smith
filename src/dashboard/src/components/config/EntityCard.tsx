@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type HTMLAttributes } from "react";
-import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
+import type { ConfigEntityKind, RegistryEntry, StudioEntity } from "@/lib/configApi";
 import type {
   StudioAgent,
   StudioConnection,
@@ -31,11 +31,14 @@ export function EntityCard({
   entity,
   catalog,
   onEdit,
+  registries = [],
 }: {
   kind: ConfigEntityKind;
   entity: StudioEntity;
   catalog: ConfigCatalog;
   onEdit: () => void;
+  /** 2026-11-18-dafc: the registries setting, so a secret card can name the feeds using it. */
+  registries?: RegistryEntry[];
 }) {
   // 2026-09-16-942a: a project card expands into the graph of what it is wired to.
   // 2026-09-16-d7c3: and the ROW is what expands it. The card used to be one big edit
@@ -84,7 +87,7 @@ export function EntityCard({
             <span className="ec-ic">{ENTITY_ICON[kind]}</span>
             <span className="ec-id row">
               <span className="ec-name">{entity.id}</span>
-              <SubLine kind={kind} entity={entity} catalog={catalog} />
+              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} />
             </span>
           </button>
         ) : (
@@ -92,7 +95,7 @@ export function EntityCard({
             <div className="ec-ic">{ENTITY_ICON[kind]}</div>
             <div className="ec-id">
               <div className="ec-name">{entity.id}</div>
-              <SubLine kind={kind} entity={entity} catalog={catalog} />
+              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} />
             </div>
           </>
         )}
@@ -160,10 +163,12 @@ function SubLine({
   kind,
   entity,
   catalog,
+  registries,
 }: {
   kind: ConfigEntityKind;
   entity: StudioEntity;
   catalog: ConfigCatalog;
+  registries: RegistryEntry[];
 }) {
   switch (kind) {
     case "agents": {
@@ -194,7 +199,7 @@ function SubLine({
     }
     case "secrets": {
       const s = entity as StudioSecret;
-      const used = secretUsers(catalog, s.id);
+      const used = secretUsers(catalog, registries, s.id);
       return (
         <div className="ec-sub" data-testid={`config-secret-redaction-${s.id}`}>
           {used.length > 0 ? `used by ${used.join(", ")}` : "not referenced yet"} · value from the environment
@@ -206,14 +211,19 @@ function SubLine({
 }
 
 // Which catalog entries reference this secret's env-name — real, client-derived
-// from the same catalog the pickers use.
-function secretUsers(catalog: ConfigCatalog, id: string): string[] {
+// from the same catalog the pickers use — plus the registries whose token names it
+// (2026-11-18-dafc), as ${id} or the bare id, the way the loader resolves it.
+export function secretUsers(catalog: ConfigCatalog, registries: RegistryEntry[], id: string): string[] {
   const used: string[] = [];
   for (const a of catalog.agents) if (a.keySecret === id) used.push(a.id);
   for (const t of catalog.trackers) if (t.authSecret === id) used.push(t.id);
   for (const c of catalog.connections) if (c.authSecret === id) used.push(c.id);
   for (const m of catalog["mcp-servers"]) if (m.authSecret === id) used.push(m.id);
   for (const d of catalog["design-sources"]) if (d.authSecret === id) used.push(d.id);
+  for (const r of registries) {
+    const token = r.token.trim();
+    if (token === id || token === `\${${id}}`) used.push(`registry ${r.host}`);
+  }
   return used;
 }
 

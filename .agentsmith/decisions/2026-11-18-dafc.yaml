@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-dafc
+
+decisions:
+  - category: Implementation
+    chose: "The secrets list fetches the registries setting itself and passes it to each card"
+    over: "Adding registries to the config catalog"
+    reason: "Registries are a settings singleton with their own endpoint; pulling them into the catalog would give the catalog a second source for one page's label."
+  - category: Implementation
+    chose: "A token matches when it is ${id} or the bare id, after trimming"
+    over: "Substring match on the id"
+    reason: "The loader resolves exactly the reference syntax; a substring would claim FEED_TOKEN_OLD for FEED_TOKEN."
